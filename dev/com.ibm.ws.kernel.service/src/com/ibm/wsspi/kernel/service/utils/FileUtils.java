@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -23,18 +23,15 @@ import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.kernel.security.thread.ThreadIdentityManager;
 
 /**
  * A set of utilities for working with Files
  */
 public class FileUtils {
-
     /**
-     * Execute the {@link File#isFile()} from within a {@link PrivilegedAction}.
-     *
-     * @param f
-     * @return
+     * Invoke {@link File#isFile()} from within a {@link PrivilegedAction}.
      */
     public static boolean fileIsFile(final File target) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -42,20 +39,16 @@ public class FileUtils {
             return AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
                 @Override
                 public Boolean run() {
-                    return target.isFile();
+                    return Boolean.valueOf( target.isFile() );
                 }
-
-            });
+            }).booleanValue();
         } finally {
             ThreadIdentityManager.reset(token);
         }
     }
 
     /**
-     * Execute the {@link File#isDirectory()} from within a {@link PrivilegedAction}.
-     *
-     * @param f
-     * @return
+     * Invoke {@link File#isDirectory()} from within a {@link PrivilegedAction}.
      */
     public static boolean fileIsDirectory(final File target) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -63,20 +56,16 @@ public class FileUtils {
             return AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
                 @Override
                 public Boolean run() {
-                    return target.isDirectory();
+                    return Boolean.valueOf( target.isDirectory() );
                 }
-
-            });
+            }).booleanValue();
         } finally {
             ThreadIdentityManager.reset(token);
         }
     }
 
     /**
-     * Execute the {@link File#exists()} from within a {@link PrivilegedAction}.
-     *
-     * @param target
-     * @return
+     * Invoke {@link File#exists()} from within a {@link PrivilegedAction}.
      */
     public static synchronized boolean fileExists(final File target) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -84,20 +73,16 @@ public class FileUtils {
             return AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
                 @Override
                 public Boolean run() {
-                    return target.exists();
+                    return Boolean.valueOf( target.exists() );
                 }
-
-            });
+            }).booleanValue();
         } finally {
             ThreadIdentityManager.reset(token);
         }
     }
 
     /**
-     * Execute the {@link File#length()} from within a {@link PrivilegedAction}.
-     *
-     * @param target
-     * @return
+     * Invoke {@link File#length()} from within a {@link PrivilegedAction}.
      */
     public static long fileLength(final File target) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -105,20 +90,16 @@ public class FileUtils {
             return AccessController.doPrivileged(new PrivilegedAction<Long>() {
                 @Override
                 public Long run() {
-                    return target.length();
+                    return Long.valueOf( target.length() );
                 }
-
-            });
+            }).longValue();
         } finally {
             ThreadIdentityManager.reset(token);
         }
     }
 
     /**
-     * Execute the {@link File#listFiles()} from within a {@link PrivilegedAction}.
-     *
-     * @param f
-     * @return
+     * Invoke {@link File#listFiles()} from within a {@link PrivilegedAction}.
      */
     public static File[] listFiles(final File target) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -128,7 +109,6 @@ public class FileUtils {
                 public File[] run() {
                     return target.listFiles();
                 }
-
             });
         } finally {
             ThreadIdentityManager.reset(token);
@@ -136,10 +116,7 @@ public class FileUtils {
     }
 
     /**
-     * Execute the {@link File#list()} from within a {@link PrivilegedAction}.
-     *
-     * @param f
-     * @return
+     * Invoke {@link File#list()} from within a {@link PrivilegedAction}.
      */
     public static String[] list(final File target) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -149,7 +126,6 @@ public class FileUtils {
                 public String[] run() {
                     return target.list();
                 }
-
             });
         } finally {
             ThreadIdentityManager.reset(token);
@@ -159,6 +135,7 @@ public class FileUtils {
     /**
      * Create a new {@link InputStream} for the file within a {@link PrivilegedAction}.
      */
+    @FFDCIgnore({PrivilegedActionException.class})
     public static InputStream getInputStream(final File target) throws FileNotFoundException {
         Object token = ThreadIdentityManager.runAsServer();
         try {
@@ -183,6 +160,7 @@ public class FileUtils {
     /**
      * Create a new {@link FileOutputStream} for the file within a {@link PrivilegedAction}.
      */
+    @FFDCIgnore({PrivilegedActionException.class})
     public static FileOutputStream getFileOutputStream(final File target) throws FileNotFoundException {
         Object token = ThreadIdentityManager.runAsServer();
         try {
@@ -205,10 +183,7 @@ public class FileUtils {
     }
 
     /**
-     * Execute the {@link File#lastModified()} from within a {@link PrivilegedAction}.
-     *
-     * @param target The file to get the last modified for
-     * @return The last modified for the file
+     * Invoke {@link File#lastModified()} from within a {@link PrivilegedAction}.
      */
     public static long fileLastModified(final File target) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -216,20 +191,33 @@ public class FileUtils {
             return AccessController.doPrivileged(new PrivilegedAction<Long>() {
                 @Override
                 public Long run() {
-                    return target.lastModified();
+                    return Long.valueOf( target.lastModified() );
                 }
-
-            });
+            }).longValue();
         } finally {
             ThreadIdentityManager.reset(token);
         }
     }
 
     /**
-     * Execute the {@link File#canRead()} from within a {@link PrivilegedAction}.
-     *
-     * @param target The file to test if it can be read
-     * @return <code>true</code> if the file can be read
+     * Invoke {@link File#setLastModified()} from within a {@link PrivilegedAction}.
+     */
+    public static boolean setLastModified(final File target, final long lastModified) {
+        Object token = ThreadIdentityManager.runAsServer();
+        try {
+            return AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
+                @Override
+                public Boolean run() {
+                    return Boolean.valueOf( target.setLastModified(lastModified) );
+                }
+            }).booleanValue();
+        } finally {
+            ThreadIdentityManager.reset(token);
+        }
+    }
+
+    /**
+     * Invoke {@link File#canRead()} from within a {@link PrivilegedAction}.
      */
     public static boolean fileCanRead(final File target) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -237,20 +225,16 @@ public class FileUtils {
             return AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
                 @Override
                 public Boolean run() {
-                    return target.canRead();
+                    return Boolean.valueOf( target.canRead() );
                 }
-
-            });
+            }).booleanValue();
         } finally {
             ThreadIdentityManager.reset(token);
         }
     }
 
     /**
-     * Execute the {@link File#canWrite()} from within a {@link PrivilegedAction}.
-     *
-     * @param target The file to test if it can be written
-     * @return <code>true</code> if the file can be written
+     * Invoke {@link File#canWrite()} from within a {@link PrivilegedAction}.
      */
     public static boolean fileCanWrite(final File target) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -258,21 +242,19 @@ public class FileUtils {
             return AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
                 @Override
                 public Boolean run() {
-                    return target.canWrite();
+                    return Boolean.valueOf( target.canWrite() );
                 }
-
-            });
+            }).booleanValue();
         } finally {
             ThreadIdentityManager.reset(token);
         }
     }
 
     /**
-     * Calls {@link File#mkdirs()} on the specified <code>target</code> from
-     * within a {@link PrivilegedAction}.
+     * Invoke {@link File#mkdirs} from within a {@link PrivilegedAction}.
      *
-     * @param target The tarket to make a directory for
-     * @return <code>true</code> if this succeeded.
+     * TODO: This is synchronized!  Why?  The need for synchronization should
+     *       be explained.
      */
     public static synchronized boolean fileMkDirs(final File target) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -280,20 +262,16 @@ public class FileUtils {
             return AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
                 @Override
                 public Boolean run() {
-                    return target.mkdirs();
+                    return Boolean.valueOf( target.mkdirs() );
                 }
-
-            });
+            }).booleanValue();
         } finally {
             ThreadIdentityManager.reset(token);
         }
     }
 
     /**
-     * Delete file
-     *
-     * @parm file or empty directory to delete
-     * @return <code>true</code> if file was deleted
+     * Invoke {@link File#delete} from within a {@link PrivilegedAction}.
      */
     public static boolean fileDelete(final File file) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -301,29 +279,24 @@ public class FileUtils {
             return AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
                 @Override
                 public Boolean run() {
-                    return file.delete();
+                    return Boolean.valueOf( file.delete() );
                 }
-
-            });
+            }).booleanValue();
         } finally {
             ThreadIdentityManager.reset(token);
         }
     }
 
     /**
-     * Calls {@link File#mkdirs()} and {@link File#exists()} on the specified <code>target</code>
-     *
-     * @param target The target to check for existence or to create if it doesn't exist
-     * @return <code>true</code> if either call succeeded.
+     * Invoke {@link File#mkdirs()}, then, if that failed, invoke
+     * {@link File#exists()}, both with a {@link PrivilegedAction}.
      */
     public static boolean ensureDirExists(File dir) {
         return (fileMkDirs(dir) || fileExists(dir));
     }
 
     /**
-     * Close the closeable object
-     *
-     * @param closeable
+     * Invoke {@link Closeable#close()} within {@link ThreadIdentityManager#runAsServer()}.
      */
     public static boolean tryToClose(Closeable closeable) {
         Object token = ThreadIdentityManager.runAsServer();
@@ -333,7 +306,7 @@ public class FileUtils {
                     closeable.close();
                     return true;
                 } catch (IOException e) {
-                    // ignore
+                    // FFDC
                 }
             }
         } finally {
@@ -349,6 +322,12 @@ public class FileUtils {
             this.file = file;
         }
 
+        /**
+         * Set the permissions of the bound file to user read and user write.
+         *
+         * This is a best effort for windows, which does not handle file
+         * permissions very well.
+         */
         @Override
         public Boolean run() {
             // Set the file as 000
@@ -360,35 +339,29 @@ public class FileUtils {
             file.setReadable(true, true);
             file.setWritable(true, true);
 
-            return true;
+            return Boolean.TRUE;
         }
     }
 
     /**
-     * Set the file permissions of the file to be user rw only.
-     * <p>
-     * This is a best effort attempt as Windows does NOT play
-     * nicely with file perms.
-     *
-     * @param an existing File
+     * Invoke {@link SetFilePermsAction#run}, which attempts to set the permissions
+     * of the file to user read and user write, within a {@link PrivilegedAction}.
      */
     public static boolean setUserReadWriteOnly(final File file) {
-        return AccessController.doPrivileged(new SetFilePermsAction(file));
+        return ( AccessController.doPrivileged( new SetFilePermsAction(file) ).booleanValue() );
     }
 
     /**
-     * Calls {@link File#createNewFile()} on the specified <code>target</code>
-     *
-     * @param target The target to create if it doesn't exist
-     * @return <code>true</code> if call succeeded.
+     * Invoke {@link File#createNewFile} within a {@link PrivilegedExceptionAction}.
      */
+    @FFDCIgnore({PrivilegedActionException.class})
     public static Boolean fileCreate(final File target) throws IOException {
         Object token = ThreadIdentityManager.runAsServer();
         try {
             return AccessController.doPrivileged(new PrivilegedExceptionAction<Boolean>() {
                 @Override
                 public Boolean run() throws IOException {
-                    return target.createNewFile();
+                    return Boolean.valueOf( target.createNewFile() );
                 }
             });
         } catch (PrivilegedActionException e) {

@@ -1,13 +1,14 @@
-/*******************************************************************************
- * Copyright (c) 2011, 2017 IBM Corporation and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+/*
+ * IBM Confidential
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
- *******************************************************************************/
+ * OCO Source Materials
+ *
+ * Copyright IBM Corp. 2011, 2017
+ *
+ * The source code for this program is not published or otherwise divested
+ * of its trade secrets, irrespective of what has been deposited with the
+ * U.S. Copyright Office.
+ */
 package com.ibm.wsspi.kernel.service.utils;
 
 import java.io.File;
@@ -43,16 +44,17 @@ public class PathUtils {
      * if system property "os.name" contains the text "windows" (using a case-insensitive
      * test). Used by {@link #fixPathString(File)} and related methods.
      */
-    private static final boolean isWindows;
+    private static final boolean IS_WINDOWS;
 
     static {
-        isWindows = AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
+        String osName = AccessController.doPrivileged( new PrivilegedAction<String>() {
             @Override
-            public Boolean run() {
-                return System.getProperty("os.name", "unknown").toUpperCase(Locale.ENGLISH).contains("WINDOWS");
+            public String run() {
+                return System.getProperty("os.name", "unknown");
             }
-
         });
+
+        IS_WINDOWS = osName.toUpperCase(Locale.ENGLISH).contains("WINDOWS");
     }
 
     /**
@@ -63,14 +65,14 @@ public class PathUtils {
      *
      * For example, the pattern matches "file:/" and "schema:/" as absolute URIs.
      */
-    final static Pattern ABSOLUTE_URI = Pattern.compile("^[^/#\\?]+?:/.*");
+    static final Pattern ABSOLUTE_URI = Pattern.compile("^[^/#\\?]+?:/.*");
 
     /**
      * Cache of whether the active file system is case insensitive.
      *
-     * The result is computed by {@link #isOsCaseSensitive()}.
+     * The result is computed by {@link #isPossiblyCaseInsensitive()}.
      */
-    private static boolean IS_OS_CASE_SENSITIVE = isOsCaseSensitive();
+    private static final boolean IS_OS_CASE_SENSITIVE = isOsCaseSensitive();
 
     /**
      * File name restricted characters. Used by {@link #replaceRestrictedCharactersInFileName(String)}.
@@ -79,32 +81,39 @@ public class PathUtils {
      *
      * Used by {@link #replaceRestrictedCharactersInFileName(String)}.
      */
-    private static String FILE_NAME_RESTRICTED_CHARS = "<>:\"/\\|?*";
+    private static final String FILE_NAME_RESTRICTED_CHARS = "<>:\"/\\|?*";
 
     /**
-     * 
      * @deprecated  -  Instead use !isOsCaseSensitive()
      */
+    @Deprecated
     static boolean isPossiblyCaseInsensitive() {
-    	return !isOsCaseSensitive();
+        return !isOsCaseSensitive();
     }
-    
+
     /**
-     * Test whether the active file system is case <em>sensitive</em>. A true result means
-     * that the active file system is case sensitive. A false result means
-     * that the active file system is not case sensitive.  
+     * Test whether the active file system may be case <em>insensitive</em>. A true result means
+     * that the active file system <em>might</em> be case insensitive. A false result means
+     * that the active file system is <em>definitely</em> not case insensitive.
+     *
+     * Equivalently, a false result means that the active file system is <em>definitely</em> case
+     * sensitive, and a true result means the active file system <em>might be</em> case sensitive.
      *
      * The test accesses the bundle context of this class, and creates and removes files in the
-     * persistent data storage area of that bundle context. If the bundle or bundle context are 
-     * not available, or if the persistent data storage area cannot be accessed, then we test the
-     * file system directly (using the canonical name) by writing a file to the file system and 
-     * comparing the File to a File that differs only by case.
+     * persistent data storage area of that bundle context. The test answers true if the bundle
+     * or bundle context are not available, or if the persistent data storage area cannot be
+     * accessed.
      *
-     * The result is used when testing for file existence. See {@link #checkCase(File, String)}. 
+     * The result is used when testing for file existence. See {@link #checkCase(File, String)}.
+     * When the file system is definitely case sensitive, the results of case sensitive string
+     * comparisons is used to match file names. When the file system cannot be determined to
+     * be case sensitive, additional tests using the canonical name of the file are performed.
      *
-     * @return True if the active file system is case sensitive, otherwise false.
+     * @return True or false telling if the active file system may be case insensitive. Answer
+     *         true if the bundle, bundle context, or bundle persistent data storage area are not
+     *         available or cannot be used.
      */
-    static boolean isOsCaseSensitive() { 
+    static boolean isOsCaseSensitive() {
         File caseSensitiveFile = null;
         Bundle bundle = FrameworkUtil.getBundle(PathUtils.class);
         if (bundle != null) {
@@ -121,7 +130,7 @@ public class PathUtils {
                             //
                             // Note that OS/400 only considers two files equal if they have both
                             // been canonicalized...
-                            return !getCanonicalFile(caseSensitiveFile).equals(getCanonicalFile(new File(caseSensitiveFile.getParentFile(), "CASEsENSITIVE"))); 
+                            return !getCanonicalFile(caseSensitiveFile).equals(getCanonicalFile(new File(caseSensitiveFile.getParentFile(), "CASEsENSITIVE")));
                         }
                     } catch (PrivilegedActionException pae) {
                         // auto FFDC
@@ -157,15 +166,14 @@ public class PathUtils {
      * Copy the path, replacing backward slashes ('\\') with forward slashes ('/').
      *
      * @param path The path in which to replace slashes. An exception
-     *            will be thrown if the path is null.
+     *     will be thrown if the path is null.
      *
      * @return The path with backward slashes replaced with forward slashes.
-     *         Answer the initial file path if no backward slashes are present.
+     *     Answer the initial file path if no backward slashes are present.
      */
     @Trivial
-    public static String slashify(String filePath) {
-        // callers ensure never null
-        return filePath.replace('\\', '/');
+    public static String slashify(String path) {
+        return path.replace('\\', '/');
     }
 
     /**
@@ -184,13 +192,15 @@ public class PathUtils {
      */
     @Trivial
     public static String normalizeDescendentPath(String path) {
-        if (path == null || path.length() == 0)
+        if ( (path == null) || path.isEmpty() ) {
             return "";
+        }
 
         path = normalizeRelative(path);
 
-        if (path.startsWith(".."))
-            throw new MalformedLocationException("Can not reference \"..\" when creating a descendant (path=" + path + ")");
+        if ( path.startsWith("..") ) {
+            throw new MalformedLocationException("Cannot reference \"..\" when creating a descendant [ " + path + " ]");
+        }
 
         return path;
     }
@@ -214,8 +224,9 @@ public class PathUtils {
     public static String normalizeRelative(String relativePath) {
         relativePath = normalize(relativePath);
 
-        if (pathIsAbsolute(relativePath))
-            throw new MalformedLocationException("path must be relative (path=" + relativePath + ")");
+        if ( pathIsAbsolute(relativePath) ) {
+            throw new MalformedLocationException("Path must be relative [ " + relativePath + " ]");
+        }
 
         return relativePath;
     }
@@ -246,23 +257,33 @@ public class PathUtils {
      */
     @Trivial
     public static boolean pathIsAbsolute(String normalizedPath) {
-        // Absolute path with leading /
-        if (normalizedPath.length() > 0 && normalizedPath.charAt(0) == '/')
-            return true;
+        int pathLen = normalizedPath.length();
+        if ( pathLen == 0 ) {
+            return false; // None of the cases pass with an empty path.
+        }
 
-        // Absolute path with symbolic
-        if (isSymbol(normalizedPath))
-            return true;
+        char char0 = normalizedPath.charAt(0);
 
-        if (normalizedPath.contains(":")) {
-            // Absolute windows path with leading c:/
-            if (normalizedPath.length() > 3 && normalizedPath.charAt(1) == ':' && normalizedPath.charAt(2) == '/')
-                return true;
+        if ( char0 == '/' ) {
+            return true; // Leading slash: "/"
+        }
 
-            // Absolute path with scheme, e.g. file://whatever
-            Matcher m = ABSOLUTE_URI.matcher(normalizedPath);
-            if (m.matches())
-                return true;
+        // if ( isSymbol(normalizedPath) ) {
+        if ( (pathLen > 3) && (char0 == '$') && (normalizedPath.charAt(1) == '{') ) {
+            return true; // Leading symbol: "${symbol}"
+        }
+
+        if ( (pathLen > 3) && (normalizedPath.charAt(1) == ':') && (normalizedPath.charAt(2) == '/')) {
+            return true; // Leading drive: "c:/"
+        }
+
+        if ( normalizedPath.indexOf(':') == -1 ) {
+            return false; // No protocol
+        }
+
+        Matcher uriMatcher = ABSOLUTE_URI.matcher(normalizedPath);
+        if ( uriMatcher.matches() ) {
+            return true; // Absolute URI: "protocol://path"
         }
 
         return false;
@@ -284,30 +305,44 @@ public class PathUtils {
      * @return The normalized path.
      */
     public static String normalize(String path) {
-        // We don't want to normalize if this is not a file name. This could be improved, but
-        // might involve some work.
-        if ((path.startsWith("http:") || (path.startsWith("https:")) || (path.startsWith("ftp:")))) {
+        int pathLen = path.length();
+
+        // We don't want to normalize if this is not a file name.
+        // This could be improved, but might involve some work.
+        if ( (pathLen >= 4) &&
+             (path.startsWith("http:") || path.startsWith("https:") || path.startsWith("ftp:")) ) {
             return path;
         }
-        boolean slash_change = false;
 
-        String prefix = "";
+        boolean slashChange;
+        String prefix;
 
-        // remove the file:// prefix for UNC path before normalize
-        // must preserve file:////UNC/Path w/ //UNC/path all in the "getPath"
-        // portion of
-        // URI.
-        if (path.length() >= 9 && path.startsWith("file:////")) {
+        // Remove "file://" before normalizing.
+
+        if ( (pathLen >= 9) && path.startsWith("file:////") ) {
+            slashChange = true;
+
             prefix = "file://";
             path = path.substring(7); // skip "file://", new path will start with //
-            slash_change = true;
-        }
-        if (path.length() >= 9 && path.startsWith("file:///")) {
+            pathLen -= 7;
+
+        } else if ( (pathLen >= 9) && path.startsWith("file:///") ) {
+            slashChange = false;
+
             prefix = "file:///";
             path = path.substring(8);
-        } else if (path.length() >= 6 && path.startsWith("file:/") && path.charAt(7) != '/') {
+            pathLen -= 8;
+
+        } else if ( (pathLen >= 6) && path.startsWith("file:/") && (path.charAt(7) != '/') ) {
+            slashChange = false;
+
             prefix = "file:/";
             path = path.substring(6);
+            pathLen -= 6;
+
+        } else {
+            prefix = "";
+            slashChange = false;
         }
 
         int origLength = path.length();
@@ -334,9 +369,9 @@ public class PathUtils {
                         i++;
 
                     if (i > 0) // if there are extra leading slashes, note it
-                        slash_change = true;
+                        slashChange = true;
                 } else if (i == lastSlash) // catch repeated//slash in the middle of path
-                    slash_change = true;
+                    slashChange = true;
                 else if (i != lastSlash) // at least one character since the last slash:
                     // another path segment
                     num_segments++;
@@ -360,7 +395,7 @@ public class PathUtils {
             path = path.substring(1);
 
         // if there are no segment-sensitive/collapsing elements, just return
-        if (!slash_change && !dotSegment)
+        if (!slashChange && !dotSegment)
             return prefix + path;
 
         boolean pathChanged = false;
@@ -454,8 +489,8 @@ public class PathUtils {
      *         a symbolic substitution.
      */
     @Trivial
-    public static boolean isSymbol(String s) {
-        if (s.length() > 3 && s.charAt(0) == '$' && s.charAt(1) == '{')
+    public static boolean isSymbol(String path) {
+        if (path.length() > 3 && path.charAt(0) == '$' && path.charAt(1) == '{')
             return true;
 
         return false;
@@ -477,18 +512,18 @@ public class PathUtils {
      * @return True or false telling if the path contains a symbolic substitution.
      */
     @Trivial
-    public static boolean containsSymbol(String s) {
-        if (s != null) {
-            if (s.length() > 3) {
+    public static boolean containsSymbol(String path) {
+        if (path != null) {
+            if (path.length() > 3) {
                 // ${} .. look for $
-                int pos = s.indexOf('$');
+                int pos = path.indexOf('$');
                 if (pos >= 0) {
                     // look for { after $
                     int pos2 = pos + 1;
-                    if (s.length() > pos2) {
-                        if (s.charAt(pos2) == '{') {
+                    if (path.length() > pos2) {
+                        if (path.charAt(pos2) == '{') {
                             // look for } after {
-                            pos2 = s.indexOf('}', pos2);
+                            pos2 = path.indexOf('}', pos2);
                             if (pos2 >= 0) {
                                 return true;
                             }
@@ -522,21 +557,21 @@ public class PathUtils {
      *         no symbolic substitutions.
      */
     @Trivial
-    public static String getSymbol(String s) {
+    public static String getSymbol(String path) {
         String outputSymbol = null;
-        if (s != null) {
-            if (s.length() > 3) {
+        if (path != null) {
+            if (path.length() > 3) {
                 // ${} .. look for $
-                int pos = s.indexOf('$');
+                int pos = path.indexOf('$');
                 if (pos >= 0) {
                     // look for { after $
                     int pos2 = pos + 1;
-                    if (s.length() > pos2) {
-                        if (s.charAt(pos2) == '{') {
+                    if (path.length() > pos2) {
+                        if (path.charAt(pos2) == '{') {
                             // look for } after {
-                            pos2 = s.indexOf('}', pos2);
+                            pos2 = path.indexOf('}', pos2);
                             if (pos2 >= 0) {
-                                outputSymbol = s.substring(pos, pos2 + 1);
+                                outputSymbol = path.substring(pos, pos2 + 1);
                             }
                         }
                     }
@@ -556,14 +591,14 @@ public class PathUtils {
      * @return The path with any trailing forward slash removed.
      */
     @Trivial
-    private static String trimSlash(String segment) {
+    private static String trimSlash(String path) {
         // due to where this is called from, segment will never be null
-        int len = segment.length();
+        int len = path.length();
 
-        if (len >= 1 && segment.charAt(len - 1) == '/')
-            return segment.substring(0, len - 1);
+        if (len >= 1 && path.charAt(len - 1) == '/')
+            return path.substring(0, len - 1);
 
-        return segment;
+        return path;
     }
 
     /**
@@ -667,21 +702,26 @@ public class PathUtils {
          */
         @Override
         @Trivial
-        public int compare(String o1, String o2) {
-            int len1 = o1.length(), l2 = o2.length();
-            int minLen = Math.min(len1, l2);
-            for (int i = 0; i < minLen; i++) {
-                char c1 = o1.charAt(i), c2 = o2.charAt(i);
-                if (c1 == c2)
+        public int compare(String s1, String s2) {
+            int len1 = s1.length();
+            int len2 = s2.length();
+            int minLen = ( (len1 < len2) ? len1 : len2 );
+            for ( int charNo = 0; charNo < minLen; charNo++ ) {
+                char c1 = s1.charAt(charNo);
+                char c2 = s2.charAt(charNo);
+                if ( c1 == c2 ) {
                     continue;
-                if (c1 == PATH_SEPARATOR)
+                }
+                if ( c1 == PATH_SEPARATOR ) {
                     return CMP_LT;
-                if (c2 == PATH_SEPARATOR)
+                } else if ( c2 == PATH_SEPARATOR ) {
                     return CMP_GT;
-                return c1 - c2;
+                } else {
+                    return ( c1 - c2 );
+                }
             }
             // Strings differ in length only - shorter string should come first
-            return len1 - l2;
+            return len1 - len2;
         }
     }
 
@@ -727,19 +767,20 @@ public class PathUtils {
      * @return The path with the last file name removed.
      */
     public static String getParent(String path) {
-        String parent = null;
-        int lastIndex = path.lastIndexOf('/');
-        if (lastIndex != -1) {
-            if (path.length() == 1) {
-                parent = null;
-            } else if (lastIndex == 0) {
-                parent = "/";
-            } else {
-                parent = path.substring(0, lastIndex);
-            }
+        int lastSlashIndex = path.lastIndexOf('/');
+        if ( lastSlashIndex == -1 ) {
+            return null;
         }
-        return parent;
 
+        if ( path.length() == 1 ) {
+            return null;
+        }
+
+        if ( lastSlashIndex == 0 ) {
+            return "/";
+        } else {
+            return path.substring(0, lastSlashIndex);
+        }
     }
 
     /**
@@ -755,21 +796,16 @@ public class PathUtils {
      *
      * For "child" answer "child".
      *
-     * An exception will be thrown if the path ends with a trailing slash.
-     *
      * @param path The path from which to answer the last file name.
      *
      * @return The last file name of the path.
      */
-    public static String getName(String pathAndName) {
-        int i = pathAndName.lastIndexOf('/');
-        int l = pathAndName.length();
-        if (i == -1) {
-            return pathAndName;
-        } else if (l == i) {
-            return "/";
+    public static String getName(String path) {
+        int lastSlashIndex = path.lastIndexOf('/');
+        if ( lastSlashIndex == -1 ) {
+            return path;
         } else {
-            return pathAndName.substring(i + 1);
+            return path.substring(lastSlashIndex + 1);
         }
     }
 
@@ -869,8 +905,8 @@ public class PathUtils {
      *
      * @return True or false telling if the path reaches above target locations.
      */
-    public static boolean isUnixStylePathAbsolute(String unixStylePath) {
-        String nPath = normalizeUnixStylePath(unixStylePath);
+    public static boolean isUnixStylePathAbsolute(String path) {
+        String nPath = normalizeUnixStylePath(path);
         //System.out.println("unixStylePath " + unixStylePath + " normalized to " + nPath);
         //System.out.println("..".equals(nPath));
         //System.out.println(nPath.startsWith("../"));
@@ -1205,33 +1241,33 @@ public class PathUtils {
 
     /**
      * The artifact API is case sensitive even on a file system that is not case sensitive.
-     * 
+     *
      * This method will test that the case of the supplied <em>existing</em> file matches the case
      * in the pathToTest. It is assumed that you already tested that the file exists using
      * the pathToTest.  Therefore, on a case sensitive files system, the case must match and
      * true is returned without doing any further testing.  In other words, the check for file
      * existence is sufficient on a case sensitive file system, and there is no reason to call
      * this checkCase method.
-     * 
+     *
      * If the file system is not case sensitive, then a test for file existence will pass
      * even when the case does not match.  So this method will do further testing to ensure
      * the case matches.
-     * 
+     *
      * It assumes that the final part of the file's path will be equal to
-     * the whole of the pathToTest. 
-     * 
-     * The path to test should be a unix style path with "/" as the separator character, 
+     * the whole of the pathToTest.
+     *
+     * The path to test should be a unix style path with "/" as the separator character,
      * regardless of the operating system. If the file is a directory then a trailing slash
      * or the absence thereof will not affect whether the case matches since the trailing
      * slash on a directory is optional.
-     * 
+     *
      * If you call checkCase(...) with a file that does NOT exist:
      *   On case sensitive file system:  Always returns true
-     *   On case insensitive file system: It compares the pathToTest to the file path of the 
+     *   On case insensitive file system: It compares the pathToTest to the file path of the
      *      java.io.File that you passed in rather than the file on disk (since it doesn't exist).
      *      file.getCanonicalFile() returns the path using the case of the file on disk, if it exists.
      *      If the file doesn't exist then it returns the path using the case of the java.io.File itself.
-     * 
+     *
      * @param file The existing file to compare against
      * @param pathToTest The path to test if it is the same
      * @return <code>true</code> if the case is the same in the file and the pathToTest
@@ -1243,12 +1279,12 @@ public class PathUtils {
 
         if (IS_OS_CASE_SENSITIVE) {
             // It is assumed that the file exists.  Therefore, its case must
-            //  match if we know that the file system is case sensitive.
+            // match if we know that the file system is case sensitive.
             return true;
         }
 
         try {
-            // This will handle the case where the file system is not case sensitive, but 
+            // This will handle the case where the file system is not case sensitive, but
             // doesn't support symbolic links.  A canonical file path will handle this case.
             if (checkCaseCanonical(file, pathToTest)) {
                 return true;
@@ -1367,11 +1403,12 @@ public class PathUtils {
     }
 
     /**
-     * Test if a file is a symbolic link. Test only the file.
-     * A symbolic link elsewhere in the path to the file is not detected.
+     * Test if a file is a symbolic link. Test only the step from the
+     * parent of the file to the file. A symbolic link elsewhere in the path
+     * to the file is not detected.
      *
      * Gets the canonical form of the parent directory and appends the file name.
-     * Then compares that canonical form of the file to the "Absolute" file.  If 
+     * Then compares that canonical form of the file to the "Absolute" file.  If
      * it doesn't match, then it is a symbolic link.
      *
      * @param candidateChildFile The file to test as a symbolic link.
@@ -1383,9 +1420,9 @@ public class PathUtils {
      * @throws PrivilegedActionException Thrown in case of a failure to
      *             obtain a canonical file.
      */
-    private static boolean isSymbolicLink(final File file, File parentFile) throws PrivilegedActionException {
-        File canonicalParentDir = getCanonicalFile(parentFile);
-        File fileInCanonicalParentDir = new File(canonicalParentDir, file.getName());
+    private static boolean isSymbolicLink(File candidateChildFile, File candidateParentFile) throws PrivilegedActionException {
+        File canonicalParentDir = getCanonicalFile(candidateParentFile);
+        File fileInCanonicalParentDir = new File(canonicalParentDir, candidateChildFile.getName());
         File canonicalFile = getCanonicalFile(fileInCanonicalParentDir);
 
         return !canonicalFile.equals(fileInCanonicalParentDir.getAbsoluteFile());
@@ -1427,15 +1464,14 @@ public class PathUtils {
      *         the file names. False if the file names array is null.
      */
     @Trivial
-    private static boolean contains(String[] fileList, String fileName) {
-        if (fileList != null) {
-            for (String name : fileList) {
-                if (name.equals(fileName)) {
+    private static boolean contains(String[] fileNames, String fileName) {
+        if ( fileNames != null ) {
+            for ( String nextFileName : fileNames ) {
+                if ( nextFileName.equals(fileName) ) {
                     return true;
                 }
             }
         }
-
         return false;
     }
 
@@ -1536,7 +1572,7 @@ public class PathUtils {
         //
         //A future alternative will be to use File.toPath().getRealPath(LinkOptions.NOFOLLOW_LINKS);
         //when Liberty is java7 only..
-        if (isWindows) {
+        if (IS_WINDOWS) {
             try {
                 return absPath.getCanonicalPath();
             } catch (IOException e) {
