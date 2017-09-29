@@ -147,7 +147,7 @@ public class ZipFileArtifactNotifier implements ArtifactNotifier, FileMonitor, A
     }
 
     @Trivial
-    private ZipFileContainerFactoryHolder getContainerFactoryHolder() {
+    private ContainerFactoryHolder getContainerFactoryHolder() {
         return rootContainer.getContainerFactoryHolder();
     }
 

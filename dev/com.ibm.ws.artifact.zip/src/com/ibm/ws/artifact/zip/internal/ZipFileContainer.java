@@ -160,7 +160,7 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
      * @param containerFactoryHolder Factory of this container.
      */
     @Trivial
-    ZipFileContainer(File cacheDir, File archiveFile, ZipFileContainerFactoryHolder containerFactoryHolder) {
+    ZipFileContainer(File cacheDir, File archiveFile, ContainerFactoryHolder containerFactoryHolder) {
         String methodName = "<init>";
 
         this.containerFactoryHolder = containerFactoryHolder;
@@ -218,7 +218,7 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
         File cacheDir,
         ArtifactContainer enclosingContainer, ArtifactEntry entryInEnclosingContainer,
         File archiveFile,
-        ZipFileContainerFactoryHolder containerFactoryHolder) {
+        ContainerFactoryHolder containerFactoryHolder) {
 
         String methodName = "<init>";
 
@@ -316,11 +316,11 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
 
     //
 
-    private final ZipFileContainerFactoryHolder containerFactoryHolder;
+    private final ContainerFactoryHolder containerFactoryHolder;
     private final String protocol;
 
     @Trivial
-    public ZipFileContainerFactoryHolder getContainerFactoryHolder() {
+    public ContainerFactoryHolder getContainerFactoryHolder() {
         return containerFactoryHolder;
     }
 
@@ -329,7 +329,7 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
      * container.
      *
      * Usually, "wsjar" is set.  Optionally, "jar" may be set.  See
-     * {@link ZipFileContainerFactoryHolder#useJarUrls}.
+     * {@link ContainerFactoryHolder#useJarUrls}.
      *
      * @return The protocol to be used in URIs which reach entries in
      *     this container.
@@ -1073,8 +1073,12 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
      * @param useArchiveFile The archive file containing the entry.
      *
      * @return The URI of the entry in the archive file.
+     *
+     * TODO: Has default protection, but should not.  Having default
+     *       protection allows it to be used from
+     *       "com.ibm.ws.artifact.zip.internal.ZipFileContainerTest".
      */
-    private URI createEntryUri(String r_entryPath, File useArchiveFile) {
+    URI createEntryUri(String r_entryPath, File useArchiveFile) {
         URI archiveUri = getURI(useArchiveFile);
         if ( archiveUri == null ) {
             return null;

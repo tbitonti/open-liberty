@@ -19,8 +19,14 @@ import com.ibm.wsspi.artifact.factory.ArtifactContainerFactory;
  * Declarative services safe API for the zip file container factory
  * to link to the services defined root delegating container factory
  * and to the bundle context in which the zip file container is active.
+ *
+ * TODO: Want to rename this to "ZipFileContainerFactoryHolder", but
+ *       cannot without updating the artifact tests, which are in
+ *       WS-CD-Open.  Properly, the tests should be moved to open-liberty,
+ *       then the rename is easy.  See
+ *       "com.ibm.ws.artifact.zip.internal.ZipFileContainerTest".
  */
-public interface ZipFileContainerFactoryHolder {
+public interface ContainerFactoryHolder {
     /**
      * Answer the bundle context in which the zip file container is active.
      *
@@ -39,8 +45,12 @@ public interface ZipFileContainerFactoryHolder {
      *
      * @return The root delegating container factory used by the zip file
      *     container.
+     *
+     * TODO: Want to rename this to 'getRootDelegatingContainerFactory',
+     *       but cannot because of the dependency from the artifact tests
+     *       in WS-CD-Open.
      */
-    ArtifactContainerFactory getRootContainerFactory();
+    ArtifactContainerFactory getContainerFactory();
 
     /**
      * Answer the zip caching service used by the zip file container.

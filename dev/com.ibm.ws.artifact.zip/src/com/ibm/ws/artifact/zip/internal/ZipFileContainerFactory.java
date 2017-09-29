@@ -47,7 +47,7 @@ import com.ibm.wsspi.kernel.service.utils.FileUtils;
  * Warnings are issued when a file or entry which has a zip type extension fails to read
  * as a zip file.
  */
-public class ZipFileContainerFactory implements ArtifactContainerFactoryHelper, ZipFileContainerFactoryHolder {
+public class ZipFileContainerFactory implements ArtifactContainerFactoryHelper, ContainerFactoryHolder {
     static final TraceComponent tc = Tr.register(ZipFileContainerFactory.class);
 
     //
@@ -110,7 +110,7 @@ public class ZipFileContainerFactory implements ArtifactContainerFactoryHelper, 
 
     @Trivial
     @Override
-    public synchronized ArtifactContainerFactory getRootContainerFactory() {
+    public synchronized ArtifactContainerFactory getContainerFactory() {
         if ( rootContainerFactory == null ) {
             throw new IllegalStateException();
         }
