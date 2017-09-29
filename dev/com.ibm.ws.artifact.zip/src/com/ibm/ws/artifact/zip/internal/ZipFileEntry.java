@@ -97,7 +97,7 @@ public class ZipFileEntry implements ExtractableArtifactEntry {
     }
 
     @Trivial
-    public ZipFileContainerFactoryHolder getContainerFactoryHolder() {
+    public ContainerFactoryHolder getContainerFactoryHolder() {
         return rootContainer.getContainerFactoryHolder();
     }
 
@@ -510,7 +510,7 @@ public class ZipFileEntry implements ExtractableArtifactEntry {
         //       delegation request succeeds.
 
         File newCacheDir = rootContainer.getCacheDir(this);
-        ArtifactContainer container = getContainerFactoryHolder().getRootContainerFactory().getContainer(
+        ArtifactContainer container = getContainerFactoryHolder().getContainerFactory().getContainer(
                 newCacheDir,
                 getEnclosingContainer(), this,
                 zipEntry);
