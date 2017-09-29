@@ -506,6 +506,10 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
                     } catch ( IOException e ) {
                         Tr.error(tc, "extract.cache.fail", e.getMessage());
                     }
+
+                    // The archive file will be null if an exception occurred,
+                    // or if the extraction failed.
+
                     if ( archiveFile != null ) {
                         archiveFilePath = archiveFile.getAbsolutePath();
                         if ( tc.isDebugEnabled() ) {
@@ -513,9 +517,7 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
                         }
                     } else {
                         archiveFileFailed = true;
-                        if ( tc.isDebugEnabled() ) {
-                            Tr.debug(tc, methodName + " Failed to extract [ " + entryInEnclosingContainer.getPath() + " ]");
-                        }
+                        Tr.warning(tc, methodName + " Failed to extract [ " + entryInEnclosingContainer.getPath() + " ]");
                     }
                 }
             }
@@ -1180,56 +1182,45 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
      *     the extraction state (primary or secondary), the path,
      *     and the completion latch for the extraction.
      */
-    private ExtractionLatch ensureLatch(String path) {
+    private ExtractionGuard placeExtractionGuard(String path) {
+        boolean isPrimary;
+        CountDownLatch completionLatch;
+
         synchronized( extractionsLock ) {
-            CountDownLatch completionLatch = extractionLocks.get(path);
+            completionLatch = extractionLocks.get(path);
+
             if ( completionLatch != null ) {
-                return new ExtractionLatch(path, completionLatch);
+                isPrimary = false;
+
             } else {
-                return new ExtractionLatch(path);
+                isPrimary = true;
+
+                completionLatch = new CountDownLatch(1);
+                extractionLocks.put(path,  completionLatch);
             }
         }
+
+        return new ExtractionGuard(path, isPrimary, completionLatch);
     }
 
-    private void removeLatch(String path) {
+    // TODO: Not sure on the timing of removing the latch and
+    //       unblocking secondary extractions.
+
+    private void releaseExtractionGuard(ExtractionGuard extractionLatch) {
         synchronized( extractionsLock ) {
-            extractionLocks.remove(path);
+            extractionLocks.remove( extractionLatch.path );
         }
+        extractionLatch.completionLatch.countDown();
     }
 
-    private class ExtractionLatch {
+    private class ExtractionGuard {
         public final String path;
-
         public final boolean isPrimary;
         public final CountDownLatch completionLatch;
 
-        //
-
-        /**
-         * Create an latch on a newly started extraction.  Create a completion
-         * latch with a count-down set to one.
-         *
-         * Store the new completion latch to the pool of active extractions.
-         *
-         * @param path The path which is being extracted.
-         */
-        public ExtractionLatch(String path) {
+        public ExtractionGuard(String path, boolean isPrimary, CountDownLatch completionLatch) {
             this.path = path;
-            this.isPrimary = true;
-            this.completionLatch = new CountDownLatch(1);
-
-            extractionLocks.put(path,  this.completionLatch);
-        }
-
-        /**
-         * Create an extraction latch on a previously started completion latch.
-         *
-         * @param path The path which is being extracted.
-         * @param completionLatch The latch which is timing the extraction.
-         */
-        public ExtractionLatch(String path, CountDownLatch completionLatch) {
-            this.path = path;
-            this.isPrimary = false;
+            this.isPrimary = isPrimary;
             this.completionLatch = completionLatch;
         }
 
@@ -1255,23 +1246,6 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
             } catch ( InterruptedException e ) {
                 return false;
             }
-        }
-
-        /**
-         * Mark the completion of the extraction which is being timed by the
-         * completion latch.
-         *
-         * Remove the latch from the active latch pool.
-         *
-         * A primary extraction must conclude with a call to this
-         * method.  Otherwise, the completion latch pool will be left with
-         * stale latches which might never be removed.  A secondary
-         * extraction must never call this method.
-         */
-        public void completed() {
-            completionLatch.countDown();
-
-            removeLatch(path);
         }
     }
 
@@ -1317,23 +1291,40 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
             Tr.debug(tc, "Extraction: [ " + outputPath + " ]");
         }
 
-        ExtractionLatch extractionLatch = ensureLatch(outputPath);
+        ExtractionGuard extractionGuard = placeExtractionGuard(outputPath);
 
-        if ( !extractionLatch.isPrimary ) {
-            if ( !extractionLatch.waitForCompletion() ) {
-                Tr.warning(tc, "Timed out extracting [ " + outputPath + " ]");
-                return null;
+        // If we are secondary, wait for the primary to complete, then
+        // verify and use the primary extraction.
+
+        if ( !extractionGuard.isPrimary ) {
+            if ( !extractionGuard.waitForCompletion() ) {
+                Tr.warning(tc, "Secondary extraction timeout [ " + outputPath + " ]");
+                throw new IOException("Secondary extraction timeout [ " + outputPath + " ]");
+
             } else {
-                if ( isModified(inputEntry, outputFile) ) {
-                    Tr.warning(tc, "Inconsistent extraction times [ " + outputPath + " ]");
+                if ( !FileUtils.fileExists(outputFile) ) {
+                    Tr.warning(tc, "Failed secondary extraction [ " + outputPath + " ]");
+                    throw new IOException("Failed secondary extraction [ " + outputPath + " ]");
+                } else if ( !FileUtils.fileIsFile(outputFile) ) {
+                    Tr.warning(tc, "Secondary extraction did not create a simple file [ " + outputPath + " ]");
+                    throw new IOException("Secondary extraction did not create a simple file [ " + outputPath + " ]");
+
                 } else {
-                    if ( tc.isDebugEnabled() ) {
-                        Tr.debug(tc, "Using prior extraction: [ " + outputPath + " ]");
+                    if ( isModified(inputEntry, outputFile) ) {
+                        Tr.warning(tc, "Secondary extraction inconsistent times [ " + outputPath + " ]");
+                    } else {
+                        if ( tc.isDebugEnabled() ) {
+                            Tr.debug(tc, "Secondary extraction: [ " + outputPath + " ]");
+                        }
                     }
+                    return outputFile;
                 }
-                return outputFile;
             }
         }
+
+        // Otherwise, we are primary: Try to use any prior extraction.  If we can't,
+        // remove it, and do the extraction.  Then unblock any secondary extractions
+        // waiting on us.
 
         try {
             boolean doRemove;
@@ -1366,11 +1357,10 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
                 doRemove = false;
                 doExtract = true;
                 extractCase = "Normal: No prior extraction";
-
             }
 
             if ( tc.isDebugEnabled() ) {
-                Tr.debug(tc, "Extraction: [ " + outputPath + " ] (" + extractCase + ")");
+                Tr.debug(tc, "Primary extraction: [ " + outputPath + " ] (" + extractCase + ")");
             }
 
             if ( doRemove ) {
@@ -1385,7 +1375,7 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
             return outputFile;
 
         } finally {
-            extractionLatch.completed();
+            releaseExtractionGuard(extractionGuard);
         }
     }
 
