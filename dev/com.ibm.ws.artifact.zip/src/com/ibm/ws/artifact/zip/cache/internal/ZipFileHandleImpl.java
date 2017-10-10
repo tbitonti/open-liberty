@@ -222,6 +222,9 @@ public class ZipFileHandleImpl implements ZipFileHandle {
         }
     }
 
+    private static final ByteArrayInputStream EMPTY_STREAM =
+        new ByteArrayInputStream( new byte[0] );
+
     /**
      * Answer an input stream for an entry of a zip file.  When the entry is a
      * class entry which has 8K or fewer bytes, read all of the entry bytes immediately
@@ -240,14 +243,21 @@ public class ZipFileHandleImpl implements ZipFileHandle {
     @Trivial
     public InputStream getInputStream(ZipFile useZipFile, ZipEntry zipEntry) throws IOException {
         String methodName = "getInputStream";
-
         String entryName = zipEntry.getName();
+
+        if ( zipEntry.isDirectory() ) {
+            if ( tc.isDebugEnabled() ) {
+                debug(methodName, "Entry [ " + entryName + " ] [ null ] (Not using cache: Directory entry)");
+            }
+            return null;
+        }
+
         long entrySize = zipEntry.getSize();
         if ( entrySize == 0 ) {
             if ( tc.isDebugEnabled() ) {
-                debug(methodName, "Entry [ " + entryName + " ] [ null ] (Not using cache: Empty entry or directory)");
+                debug(methodName, "Entry [ " + entryName + " ] [ empty stream ] (Not using cache: Empty entry)");
             }
-            return null; // A directory, or an empty entry.
+            return EMPTY_STREAM;
         }
 
         boolean doNotCache;

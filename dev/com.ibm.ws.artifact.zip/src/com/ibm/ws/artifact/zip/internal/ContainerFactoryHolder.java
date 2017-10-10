@@ -63,12 +63,12 @@ public interface ContainerFactoryHolder {
     ZipCachingService getZipCachingService();
 
     /**
-     * Answer true or false telling if the "jar:" protocol is to be used in
+     * Answer true or false telling if the "jar" protocol is to be used in
      * archive URLs.  Normally, this should answer false, in which case the
-     * "wsjar:" protocol will be used.
+     * "wsjar" protocol will be used.
      *
-     * @return True or false telling if the "jar:" protocol is to be used
-     *     instead of the more usual "wsjar:" protocol.
+     * @return True or false telling if the "jar" protocol is to be used
+     *     instead of the more usual "wsjar" protocol.
      */
     boolean useJarUrls();
 }

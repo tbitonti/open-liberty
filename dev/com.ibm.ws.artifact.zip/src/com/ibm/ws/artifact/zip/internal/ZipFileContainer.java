@@ -164,11 +164,6 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
         String methodName = "<init>";
 
         this.containerFactoryHolder = containerFactoryHolder;
-        if ( containerFactoryHolder.useJarUrls() ) {
-            this.protocol = "jar";
-        } else {
-            this.protocol = "wsjar";
-        }
 
         // TODO: This should be assigned on demand.  Many zip file containers will never
         //       extract files, and assigning a cache directory to them when they are created
@@ -223,11 +218,6 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
         String methodName = "<init>";
 
         this.containerFactoryHolder = containerFactoryHolder;
-        if ( containerFactoryHolder.useJarUrls() ) {
-            this.protocol = "jar";
-        } else {
-            this.protocol = "wsjar";
-        }
 
         this.cacheDir = cacheDir;
         this.nestedCacheDir = new File( new File(cacheDir, ".cache"), entryInEnclosingContainer.getName());
@@ -317,7 +307,6 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
     //
 
     private final ContainerFactoryHolder containerFactoryHolder;
-    private final String protocol;
 
     @Trivial
     public ContainerFactoryHolder getContainerFactoryHolder() {
@@ -328,15 +317,19 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
      * The protocol to be used in URIs which reach entries in this
      * container.
      *
-     * Usually, "wsjar" is set.  Optionally, "jar" may be set.  See
+     * Usually, "wsjar" is used.  Optionally, "jar" may be used.  See
      * {@link ContainerFactoryHolder#useJarUrls}.
+     * 
+     * The protocol value is not cached: Zip file containers must respond
+     * to dynamic chances to the class loading configuration, which
+     * is managed by the container factory holder.</p>
      *
      * @return The protocol to be used in URIs which reach entries in
      *     this container.
      */
     @Trivial
     private String getProtocol() {
-        return protocol;
+        return ( containerFactoryHolder.useJarUrls() ? "jar" : "wsjar" );
     }
 
     /**
@@ -1090,7 +1083,7 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
             return null;
         }
 
-        // URLs for jar/zip data now use wsjar to avoid locking issues via jar: protocol.
+        // URLs for jar/zip data now use wsjar to avoid locking issues via jar protocol.
         //
         // The single string constructor is used to control the encoding an ddecoding.
         //
