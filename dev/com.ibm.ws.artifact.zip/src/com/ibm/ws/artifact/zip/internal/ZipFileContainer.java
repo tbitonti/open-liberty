@@ -527,10 +527,14 @@ public class ZipFileContainer implements com.ibm.wsspi.artifact.ArtifactContaine
      * @return The absolute path to the archive file.
      */
     private String getArchiveFilePath() {
-        synchronized( archiveFileLock ) {
-            @SuppressWarnings("unused")
-            File useArchiveFile = getArchiveFile();
+        if ( archiveFileLock == null ) {
             return archiveFilePath;
+        } else {
+            synchronized( archiveFileLock ) {
+                @SuppressWarnings("unused")
+                File useArchiveFile = getArchiveFile();
+                return archiveFilePath;
+            }
         }
     }
 
