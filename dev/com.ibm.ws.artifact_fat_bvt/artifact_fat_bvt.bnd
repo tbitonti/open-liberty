@@ -1,0 +1,78 @@
+-include= ~../cnf/resources/bnd/bundle.props
+bVersion=1.0
+
+Bundle-Name: FATArtifactBVT
+Bundle-SymbolicName: ${basename;${basedir}}
+Bundle-Description: Artfact FAT BVT Bundle
+
+WS-TraceGroup: com.ibm.ws.artifact
+
+Private-Package:\
+  com.ibm.ws.artifact.fat,\
+  com.ibm.ws.artifact.fat.unableadapters,\
+  com.ibm.ws.artifact.fat.notification
+
+#Include-Resource: OSGI-INF=bvt-bundle/resources/OSGI-INF
+
+Service-Component:\
+  com.ibm.ws.fat.custom.container;\
+    implementation:=com.ibm.ws.artifact.fat.CustomContainerHelper;\
+    provide:=com.ibm.wsspi.artifact.factory.contributor.ArtifactContainerFactoryContributor;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,category=CUSTOM,handlesType=java.io.File,handlesEntries=.custom",\
+  com.ibm.ws.fat.overlay.container.adapter;\
+    implementation:=com.ibm.ws.artifact.fat.OverlayContainerAdapter;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,toType=com.ibm.wsspi.artifact.overlay.OverlayContainer",\
+  com.ibm.ws.fat.entry.adapter;\
+    implementation:=com.ibm.ws.artifact.fat.fatEntryAdapter;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.EntryAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,toType=java.lang.Integer",\
+  com.ibm.ws.fat.container.adapter;\
+    implementation:=com.ibm.ws.artifact.fat.fatContainerAdapter;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,toType=java.lang.Integer",\
+  com.ibm.ws.fat.entry.adapter.verifier;\
+    implementation:=com.ibm.ws.artifact.fat.EntryVerifier;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.EntryAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,toType=java.lang.String",\
+  com.ibm.ws.fat.container.adapter.verifier;\
+    implementation:=com.ibm.ws.artifact.fat.ContainerVerifier;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,toType=java.lang.String",\
+   com.ibm.ws.fat.entry.adapter.verifiera;\
+    implementation:=com.ibm.ws.artifact.fat.unableadapters.AfterUnableToAdaptEntryVerifier;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.EntryAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,service.ranking:Integer=1,toType=java.lang.Float",\
+  com.ibm.ws.fat.container.adapter.verifiera;\
+    implementation:=com.ibm.ws.artifact.fat.unableadapters.AfterUnableToAdaptContainerVerifier;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,service.ranking:Integer=1,toType=java.lang.Float",\
+  com.ibm.ws.fat.entry.adapter.verifierb;\
+    implementation:=com.ibm.ws.artifact.fat.unableadapters.BeforeUnableToAdaptEntryVerifier;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.EntryAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,service.ranking:Integer=3,toType=java.lang.Float",\
+  com.ibm.ws.fat.container.adapter.verifierb;\
+    implementation:=com.ibm.ws.artifact.fat.unableadapters.BeforeUnableToAdaptContainerVerifier;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,service.ranking:Integer=3,toType=java.lang.Float",\
+  com.ibm.ws.fat.entry.adapter.verifieru;\
+    implementation:=com.ibm.ws.artifact.fat.unableadapters.UnableToAdaptEntryVerifier;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.EntryAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,service.ranking:Integer=2,toType=java.lang.Float",\
+  com.ibm.ws.fat.container.adapter.verifieru;\
+    implementation:=com.ibm.ws.artifact.fat.unableadapters.UnableToAdaptContainerVerifier;\
+    provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter;\
+    configuration-policy:=ignore;\
+    properties:="service.vendor=IBM,service.ranking:Integer=2,toType=java.lang.Float"
+  
