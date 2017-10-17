@@ -12,10 +12,10 @@
 package com.ibm.ws.artifact.fat;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,10 +82,12 @@ public class FATArtifactBVT {
         getServer().stopServer(); // 'stopServer' throws Exception
     }
 
-    public static URL getTestUrl(String suffix) {
+    public static URL getTestUrl(String suffix) throws MalformedURLException {
         return FATServerUtils.getRequestUrl(
             getServer(),
-            FATArtifactBVTServer.ARTIFACT_BVT_CONTEXT_ROOT + suffix );
+            FATArtifactBVTServer.ARTIFACT_BVT_CONTEXT_ROOT,
+            suffix );
+        // 'getRequestUrl' throws MalformedURLException
     }
 
     public static List<String> getResponse(URL url) throws Exception {
@@ -110,141 +112,141 @@ public class FATArtifactBVT {
     //
 
     @Test
-    public void basicTestDir() throws IOException {
+    public void basicTestDir() throws Exception {
         validateResponse( "basicTestDir", getTestUrl("?a") );
     }
 
     @Test
-    public void basicTestJar() throws IOException {
+    public void basicTestJar() throws Exception {
         validateResponse( "basicTestJar", getTestUrl("?b") );
     }
 
     @Test
-    public void basicTestRar() throws IOException {
+    public void basicTestRar() throws Exception {
         validateResponse( "basicTestRar", getTestUrl("?b_rar") );
     }
 
     @Test
-    public void mediumTestDir() throws IOException {
+    public void mediumTestDir() throws Exception {
         validateResponse( "mediumTestDir", getTestUrl("?c") );
     }
 
     @Test
-    public void mediumTestJar() throws IOException {
+    public void mediumTestJar() throws Exception {
         validateResponse( "mediumTestJar", getTestUrl("?d") );
     }
 
     @Test
-    public void nestedJarTest() throws IOException {
+    public void nestedJarTest() throws Exception {
         validateResponse( "nestedJarTest", getTestUrl("?e") );
     }
 
     @Test
-    public void navigationTest() throws IOException {
+    public void navigationTest() throws Exception {
         validateResponse( "navigationTest", getTestUrl("?f") );
     }
 
     @Test
-    public void interpretedAdaptableTest() throws IOException {
+    public void interpretedAdaptableTest() throws Exception {
         validateResponse( "interpretedAdaptableTest", getTestUrl("?interpretedAdaptable") );
     }
 
     @Test
-    public void interpretedAdaptableTestRoots() throws IOException {
+    public void interpretedAdaptableTestRoots() throws Exception {
         validateResponse( "interpretedAdaptableTestRoots", getTestUrl("?interpretedAdaptableRoots") );
     }
 
     @Test
-    public void testAddEntryToOverlay() throws IOException {
+    public void testAddEntryToOverlay() throws Exception {
         validateResponse( "testAddEntryToOverlay", getTestUrl("?testAddEntryToOverlay") );
     }
 
     @Test
-    public void testUnableToAdapt() throws IOException {
+    public void testUnableToAdapt() throws Exception {
         validateResponse( "testUnableToAdapt", getTestUrl("?unableToAdapt") );
     }
 
     @Test
-    public void dirOverlayTest() throws IOException {
+    public void dirOverlayTest() throws Exception {
         validateResponse( "dirOverlayTest", getTestUrl("?h") );
     }
 
     @Test
-    public void adaptableTest() throws IOException {
+    public void adaptableTest() throws Exception {
         validateResponse( "adaptableTest", getTestUrl("?i") );
     }
 
     @Test
-    public void testPhysicalPath() throws IOException {
+    public void testPhysicalPath() throws Exception {
         validateResponse( "testPhysicalPath", getTestUrl("?testPhysicalPath") );
     }
 
     @Test
-    public void xmlTest() throws IOException {
+    public void xmlTest() throws Exception {
         validateResponse( "xmlTest", getTestUrl("?looseRead") );
     }
 
     @Test
-    public void notifyTest() throws IOException {
+    public void notifyTest() throws Exception {
         validateResponse( "notifyTest", getTestUrl("?notify") );
     }
 
     @Test
-    public void testCaseSensitivity_loose() throws IOException {
+    public void testCaseSensitivity_loose() throws Exception {
         validateResponse( "testCaseSensitivity_loose", getTestUrl("?testCaseSensitivity_loose") );
     }
 
     @Test
-    public void testCaseSensitivity_file() throws IOException {
+    public void testCaseSensitivity_file() throws Exception {
         validateResponse( "testCaseSensitivity_file", getTestUrl("?testCaseSensitivity_file") );
     }
 
     @Test
-    public void testArtifactAPISuperTest() throws IOException {
+    public void testArtifactAPISuperTest() throws Exception {
         validateResponse( "testArtifactAPISuperTest", getTestUrl("?fs") );
     }
 
     @Test
-    public void testDotDotPath() throws IOException {
+    public void testDotDotPath() throws Exception {
         validateResponse( "testDotDotPath", getTestUrl("?testDotDotPath") );
     }
 
     @Test
-    public void testImpliedZipDir() throws IOException {
+    public void testImpliedZipDir() throws Exception {
         validateResponse( "testImpliedZipDir", getTestUrl("?testImpliedZipDir") );
     }
 
     @Test
-    public void simpleBundleArtifactApiTest() throws IOException {
+    public void simpleBundleArtifactApiTest() throws Exception {
         validateResponse( "simpleBundleArtifactApiTest", getTestUrl("?simpleBundleArtifactApiTest") );
     }
 
     @Test
-    public void zipCachingServiceTest() throws IOException {
+    public void zipCachingServiceTest() throws Exception {
         validateResponse( "zipCachingServiceTest", getTestUrl("?zipCachingServiceTest") );
     }
 
     // Test for 54588.
     @Test
-    public void testGetEnclosingContainerOnBundle() throws IOException {
+    public void testGetEnclosingContainerOnBundle() throws Exception {
         validateResponse( "testGetEnclosingContainerOnBundle", getTestUrl("?testGetEnclosingContainerOnBundle") );
     }
 
     // Test for 100419
     @Test
-    public void zipmultithreadedZipArtifactionInitialisationTest() throws IOException {
+    public void zipmultithreadedZipArtifactionInitialisationTest() throws Exception {
         validateResponse( "zipmultithreadedZipArtifactionInitialisationTest", getTestUrl("?zipMultiTest") );
     }
 
     // Test for 160622 / 153698
     @Test
-    public void customContainerTest() throws IOException {
+    public void customContainerTest() throws Exception {
         validateResponse( "customContainerTest", getTestUrl("?customContainer") );
     }
 
     // Test for 842145
     @Test
-    public void testBadBundlePathiteration() throws IOException {
+    public void testBadBundlePathiteration() throws Exception {
         validateResponse( "testBadBundlePathiteration", getTestUrl("?testBadBundlePathIteration") );
     }
 
@@ -252,11 +254,11 @@ public class FATArtifactBVT {
 
     public static final String STANDARD_RESPONSE = "This is WOPR. Welcome Dr Falken.";
 
-    public void validateResponse(String testName, URL url) throws IOException {
+    public void validateResponse(String testName, URL url) throws Exception {
         String methodName = "validateResponse";
         info(methodName, "Test [ " + testName + " ]");
 
-        List<String> responseLines = getResponse(url);
+        List<String> responseLines = getResponse(url); // throws Exception
 
         // *** There must be at least one response line. ***
 

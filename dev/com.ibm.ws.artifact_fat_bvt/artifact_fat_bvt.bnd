@@ -12,8 +12,6 @@ Private-Package:\
   com.ibm.ws.artifact.fat.unableadapters,\
   com.ibm.ws.artifact.fat.notification
 
-#Include-Resource: OSGI-INF=bvt-bundle/resources/OSGI-INF
-
 Service-Component:\
   com.ibm.ws.fat.custom.container;\
     implementation:=com.ibm.ws.artifact.fat.CustomContainerHelper;\

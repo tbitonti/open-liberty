@@ -556,6 +556,7 @@ public class FsArtifactUtil {
         return result;
     }
 
+    @SuppressWarnings("deprecation")
     private static boolean checkPhysicalPath(ArtifactEntry e, Fs f, PrintWriter out) {
         boolean result = true;
 

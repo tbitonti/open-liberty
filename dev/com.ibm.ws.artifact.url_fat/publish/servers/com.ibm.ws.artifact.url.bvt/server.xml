@@ -1,0 +1,12 @@
+<server>
+
+    <include optional="true" location="${shared.config.dir}/bvtTestPorts.xml"/>
+    
+    <com.ibm.ws.kernel.fileinstall dropin.bundles.enabled="true" scan.interval="10" />
+
+    <featureManager>
+        <feature>servlet-3.0</feature>
+    	<feature>artifacturllibertyinternals-1.0</feature>
+    </featureManager>
+        
+</server>

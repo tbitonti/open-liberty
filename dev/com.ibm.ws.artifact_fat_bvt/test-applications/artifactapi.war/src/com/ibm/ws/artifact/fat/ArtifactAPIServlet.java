@@ -72,6 +72,28 @@ import com.ibm.wsspi.kernel.service.location.WsLocationAdmin;
 public class ArtifactAPIServlet extends HttpServlet {
     private static final long serialVersionUID = 8783096430712965126L;
 
+    //
+
+    // Clean up the physical path deprecation warnings in one place.
+    @SuppressWarnings("deprecation")
+    private static String getPhysicalPath(EnclosedEntity ee) {
+        return ee.getPhysicalPath();
+    }
+
+    // Clean up the physical path deprecation warnings in one place.
+    @SuppressWarnings("deprecation")
+    private static String getPhysicalPath(ArtifactEntry ae) {
+        return ae.getPhysicalPath();
+    }
+
+    // Clean up the physical path deprecation warnings in one place.
+    @SuppressWarnings("deprecation")
+    private static String getPhysicalPath(ArtifactContainer ac) {
+        return ac.getPhysicalPath();
+    }
+
+    //
+
     private static String dir = null;
     private static String bundleLocation = null;
     private static String badBundleLocation = null;
@@ -2820,6 +2842,7 @@ public class ArtifactAPIServlet extends HttpServlet {
         }
 
         /** {@inheritDoc} */
+        @SuppressWarnings("deprecation")
         @Override
         public String getPhysicalPath() {
             return null;
@@ -3808,7 +3831,7 @@ public class ArtifactAPIServlet extends HttpServlet {
     }
 
     private boolean testPhysicalPath(EnclosedEntity c, String real, PrintWriter writer) {
-        String result = c.getPhysicalPath();
+        String result = getPhysicalPath(c);
         if (real == null && result != null) {
             writer.println("FAIL: Got the path " + result + " for " + c + " at " + c.getPath() + " but was expecting null");
             return false;
@@ -4117,10 +4140,10 @@ public class ArtifactAPIServlet extends HttpServlet {
     }
 
     private void dumpContainerRecursive(int depth, ArtifactContainer zc, String root, PrintWriter out) {
-        out.println("Container @ " + String.valueOf(zc.getPhysicalPath()));
+        out.println("Container @ " + String.valueOf(getPhysicalPath(zc)));
         for (ArtifactEntry e : zc) {
             out.format("%3d: %30s %s\n", depth, root, e.getPath());
-            out.println(" @ " + String.valueOf(e.getPhysicalPath()));
+            out.println(" @ " + String.valueOf(getPhysicalPath(e)));
             ArtifactContainer zc1 = e.convertToContainer();
             if (zc1 != null) {
                 dumpContainerRecursive(depth + 1, zc1, zc1.isRoot() ? e.getName() : root, out);
@@ -4190,7 +4213,7 @@ public class ArtifactAPIServlet extends HttpServlet {
             //out.println(pad + ", Fs.Dir( \"" + zc.getName() + "\",\"" + zc.getPath() + "\"  ");
         }
 
-        String zcphyspath = zc.getPhysicalPath() == null ? "null" : "\"" + zc.getPhysicalPath().replace("\\", "\\\\") + "\"";
+        String zcphyspath = getPhysicalPath(zc) == null ? "null" : "\"" + getPhysicalPath(zc).replace("\\", "\\\\") + "\"";
         out.println(", /*physical path*/ " + zcphyspath);
 
         Collection<URL> zcurls = zc.getURLs();
@@ -4248,7 +4271,7 @@ public class ArtifactAPIServlet extends HttpServlet {
                 }
 
                 String resource = e.getResource() == null ? "null" : "\"" + e.getResource().toString() + "\"";
-                String physpath = e.getPhysicalPath() == null ? "null" : "\"" + e.getPhysicalPath().replace("\\", "\\\\") + "\"";
+                String physpath = getPhysicalPath(e) == null ? "null" : "\"" + getPhysicalPath(e).replace("\\", "\\\\") + "\"";
 
                 out.println(pad + ", Fs.File( \"" + e.getName() + "\",\"" + e.getPath() + "\", " + hasContent + ", " + content + ", " + e.getSize()
                             + ", /*resurl*/ " + resource

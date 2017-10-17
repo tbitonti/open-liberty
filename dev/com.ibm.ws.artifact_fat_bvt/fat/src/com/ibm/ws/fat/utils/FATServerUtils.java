@@ -22,6 +22,7 @@ import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
+import componenttest.topology.utils.HttpUtils;
 
 /**
  * FAT server utilities.
@@ -37,14 +38,14 @@ public class FATServerUtils {
     public static void info(String methodName, String text, String value) {
         FATLogging.info(TEST_CLASS, methodName, text, value);
     }
-    
+
     //
 
-    public LibertyServer getServer(String serverName) throws Exception {
+    public static LibertyServer getServer(String serverName) throws Exception {
         return LibertyServerFactory.getLibertyServer(serverName);
     }
 
-    public URL getRequestUrl(
+    public static URL getRequestUrl(
         LibertyServer server,
         String contextRoot,
         String suffix) throws MalformedURLException {
@@ -55,12 +56,16 @@ public class FATServerUtils {
             suffix);
     }
 
-    public List<String> getResponse(LibertyServer server, URL requestUrl) throws Exception {
+    public static final int CONN_TIMEOUT = 10;
+
+    public static List<String> getResponse(LibertyServer server, URL requestUrl) throws Exception {
         String methodName = "getResponse";
         info(methodName, "ENTER [ " + requestUrl + " ]");
 
         HttpURLConnection urlConnection =
-            HttpUtils.getHttpConnection(requestUrl, HttpURLConnection.HTTP_OK, CONN_TIMEOUT );
+            HttpUtils.getHttpConnection(
+                requestUrl,
+                HttpURLConnection.HTTP_OK, CONN_TIMEOUT );
 
         List<String> responseLines = new ArrayList<String>();
 
@@ -86,7 +91,7 @@ public class FATServerUtils {
         return responseLines;
     }
 
-    public void installWarToServer(LibertyServer server, WebArchive webArchive) throws Exception {
+    public static void installWarToServer(LibertyServer server, WebArchive webArchive) throws Exception {
         String methodName = "installWarToServer";
         info(methodName, "ENTER [ " + server.getServerName() + " ] [ " + webArchive.getName() + " ]");
 
@@ -95,7 +100,7 @@ public class FATServerUtils {
         info(methodName, "RETURN [ " + server.getServerName() + " ] [ " + webArchive.getName() + " ]");
     }
 
-    public LibertyServer startServer(LibertyServer server) throws Exception {
+    public static LibertyServer startServer(LibertyServer server) throws Exception {
         String methodName = "startServer";
         info(methodName, "ENTER [ " + server.getServerName() + " ]");
 
@@ -107,7 +112,7 @@ public class FATServerUtils {
         return server;
     }
 
-    public void stopServer(LibertyServer server) throws Exception {
+    public static void stopServer(LibertyServer server) throws Exception {
         String methodName = "stopServer";
         info(methodName, "ENTER [ " + server.getServerName() + " ]");
 
@@ -118,7 +123,7 @@ public class FATServerUtils {
 
     //
 
-    public LibertyServer prepareServerAndWar(String serverName, FATWebArchiveDef webArchiveParams)
+    public static LibertyServer prepareServerAndWar(String serverName, FATWebArchiveDef webArchiveParams)
         throws Exception {
 
         String methodName = "prepareServerAndWar";

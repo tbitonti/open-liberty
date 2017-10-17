@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE web-app PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN" "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app id="Artifact_URL_Test_App_WebApp_ID">
+  <display-name>urlapp</display-name>
+  <description>This is a servlet designed to exercise Artifact URL functionality.</description>
+  <!-- SERVLET DEFINITIONS -->
+  <servlet id="Default">
+    <servlet-name>Artifact URL Servlet</servlet-name>
+    <display-name>Artifact URL Servlet</display-name>
+    <description></description>
+    <servlet-class>com.ibm.ws.artifact.url.test.ArtifactURLServlet</servlet-class>
+    <load-on-startup></load-on-startup>
+  </servlet>
+
+  <!-- SERVLET MAPPINGS -->        
+  <servlet-mapping id="ServletMapping_Default">
+    <servlet-name>Artifact URL Servlet</servlet-name>
+    <url-pattern>/*</url-pattern>
+  </servlet-mapping>
+</web-app>

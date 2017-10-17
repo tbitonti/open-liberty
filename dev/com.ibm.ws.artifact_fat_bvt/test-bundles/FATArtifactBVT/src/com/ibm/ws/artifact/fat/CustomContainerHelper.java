@@ -173,6 +173,7 @@ public class CustomContainerHelper implements ArtifactContainerFactoryContributo
                 return parent;
             }
 
+            @SuppressWarnings("deprecation")
             @Override
             public String getPhysicalPath() {
                 return null;
@@ -255,6 +256,7 @@ public class CustomContainerHelper implements ArtifactContainerFactoryContributo
             return this;
         }
 
+        @SuppressWarnings("deprecation")
         @Override
         public String getPhysicalPath() {
             return null;

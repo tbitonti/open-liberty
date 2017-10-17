@@ -3,5 +3,9 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="aQute.bnd.classpath.container"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.ws.artifact.zip"/>
+	<classpathentry kind="lib" path="C:/openLiberty/repos-pub/microprofile/open-liberty/dev/build.image/wlp/lib/org.eclipse.osgi_3.12.50.jar"/>
+	<classpathentry kind="lib" path="C:/openLiberty/repos-pub/microprofile/open-liberty/dev/build.image/wlp/lib/com.ibm.ws.kernel.boot_1.0.18.jar"/>
+	<classpathentry kind="lib" path="C:/openLiberty/repos-pub/microprofile/open-liberty/dev/build.image/wlp/lib/com.ibm.ws.kernel.service_1.3.18.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

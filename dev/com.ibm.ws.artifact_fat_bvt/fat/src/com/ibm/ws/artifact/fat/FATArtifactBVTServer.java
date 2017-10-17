@@ -31,7 +31,7 @@ public class FATArtifactBVTServer {
         new String[] { ARTIFACT_BVT_PACKAGE_NAME },
         ARTIFACT_BVT_ROOT_RESOURCES_PATH,
         new String[] { },
-        new String[] { "WEB-INF/web.xml" }
+        new String[] { "web.xml" }
     );
 }
 

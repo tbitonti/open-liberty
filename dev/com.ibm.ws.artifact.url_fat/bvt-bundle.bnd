@@ -1,0 +1,15 @@
+-include= ~../cnf/resources/bnd/bundle.props
+bVersion=1.0
+
+# For more information, see http://was.pok.ibm.com/xwiki/bin/view/Liberty/UsingBnd
+
+Bundle-Name: BVT Server-side com.ibm.ws.artifact.url bundle
+Bundle-SymbolicName: com.ibm.ws.artifact.url.bvt
+Bundle-Description: Test bundle for the com.ibm.ws.artifact.url
+
+# optional... 
+WS-TraceGroup: com.ibm.ws.artifact.url
+
+Private-Package: com.ibm.ws.artifact.url.test
+
+  
