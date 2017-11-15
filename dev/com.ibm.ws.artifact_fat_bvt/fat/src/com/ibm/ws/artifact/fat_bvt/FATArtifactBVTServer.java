@@ -11,8 +11,8 @@
  */
 package com.ibm.ws.artifact.fat_bvt;
 
-import com.ibm.ws.fat_bvt.utils.FATFeatureDef;
-import com.ibm.ws.fat_bvt.utils.FATWebArchiveDef;
+import com.ibm.ws.artifact.fat_bvt.utils.FATFeatureDef;
+import com.ibm.ws.artifact.fat_bvt.utils.FATWebArchiveDef;
 
 /**
  * Artifact BVT server definition.

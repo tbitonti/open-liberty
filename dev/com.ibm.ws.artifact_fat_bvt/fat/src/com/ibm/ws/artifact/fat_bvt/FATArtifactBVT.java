@@ -26,8 +26,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import com.ibm.ws.fat_bvt.utils.FATLogging;
-import com.ibm.ws.fat_bvt.utils.FATServerUtils;
+import com.ibm.ws.artifact.fat_bvt.utils.FATLogging;
+import com.ibm.ws.artifact.fat_bvt.utils.FATServerUtils;
 
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;

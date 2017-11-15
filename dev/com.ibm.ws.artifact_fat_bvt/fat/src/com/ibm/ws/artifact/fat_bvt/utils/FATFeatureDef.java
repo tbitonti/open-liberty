@@ -9,7 +9,7 @@
 * of its trade secrets, irrespective of what has been deposited with the 
 * U.S. Copyright Office.
 */
-package com.ibm.ws.fat_bvt.utils;
+package com.ibm.ws.artifact.fat_bvt.utils;
 
 /**
  * Feature definition.  Used when preparing liberty servers.

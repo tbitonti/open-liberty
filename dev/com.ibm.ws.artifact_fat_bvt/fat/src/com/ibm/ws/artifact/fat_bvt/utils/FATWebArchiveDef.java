@@ -10,7 +10,7 @@
  * U.S. Copyright Office.
  */
 
-package com.ibm.ws.fat_bvt.utils;
+package com.ibm.ws.artifact.fat_bvt.utils;
 
 import java.io.File;
 
