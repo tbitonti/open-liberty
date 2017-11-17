@@ -11,7 +11,6 @@
 package com.ibm.ws.threading;
 
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 import com.ibm.websphere.ras.annotation.Trivial;
 
@@ -21,6 +20,50 @@ import com.ibm.websphere.ras.annotation.Trivial;
 @Trivial
 public abstract class PolicyTaskCallback {
     /**
+     * Allows for replacing the policy executor to which the task was submitted with another when the invokeAll/invokeAny methods are used to submit multiple tasks.
+     *
+     * @param executor policy executor to which the task was submitted.
+     * @return the default implementation returns the policy executor to which the task was submitted, such that invokeAll/invokeAny
+     *         always run tasks according the policy executor upon which the invokeAll/invokeAny operation was invoked.
+     */
+    public PolicyExecutor getExecutor(PolicyExecutor executor) {
+        return executor;
+    }
+
+    /**
+     * Allows for replacing the identifier that is used in exception messages and log messages about the policy executor.
+     *
+     * @param policyExecutorIdentifier unique identifier for the policy executor. Some examples:
+     *            PolicyExecutorProvider-MPFaultTolerance12345
+     *            concurrencyPolicy[longRunningPolicy]
+     *            managedExecutorService[executor1]/longRunningPolicy[default-0]
+     * @return the default implementation returns the policy executor's identifier, as supplied in the parameter to this method.
+     */
+    public String getIdentifier(String policyExecutorIdentifier) {
+        return policyExecutorIdentifier;
+    }
+
+    /**
+     * Returns the name of the task, which, for example, might be reported in exception messages or messages that are logged.
+     *
+     * @param task the Callable or Runnable task.
+     * @return the default implementation invokes toString on the task object.
+     */
+    public String getName(Object task) {
+        return task.toString();
+    }
+
+    /**
+     * Allows for an override of the default start timeout, which is provided as a parameter.
+     *
+     * @param defaultStartTimeoutNS the default start timeout (in nanoseconds) that is configured on the policy executor. -1 indicates no timeout.
+     * @return the default implementation returns the default start timeout in nanoseconds.
+     */
+    public long getStartTimeout(long defaultStartTimeoutNS) {
+        return defaultStartTimeoutNS;
+    }
+
+    /**
      * Invoked when a task's future is canceled.
      * This callback is invoked synchronously on the thread that cancels the task.
      *
@@ -29,7 +72,7 @@ public abstract class PolicyTaskCallback {
      * @param timedOut indicates if the start timeout elapsed and caused cancellation.
      * @param whileRunning indicates if the task was canceled while running (as opposed to while still queued for execution or just before it started).
      */
-    public void onCancel(Object task, Future<?> future, boolean timedOut, boolean whileRunning) {}
+    public void onCancel(Object task, PolicyTaskFuture<?> future, boolean timedOut, boolean whileRunning) {}
 
     /**
      * Invoked on the thread of execution of a task after it completes, which could be successfully, exceptionally, or due to cancellation/interrupt.
@@ -44,7 +87,7 @@ public abstract class PolicyTaskCallback {
      *            If positive, a subsequent onEnd callback will be sent with a negative value after the additional work ends.
      * @param failure failure, if any, that occurred while trying to run the task.
      */
-    public void onEnd(Object task, Future<?> future, Object startObj, boolean aborted, int pending, Throwable failure) {}
+    public void onEnd(Object task, PolicyTaskFuture<?> future, Object startObj, boolean aborted, int pending, Throwable failure) {}
 
     /**
      * Invoked before a task starts running. This callback is invoked synchronously on the task's thread of execution.
@@ -54,7 +97,7 @@ public abstract class PolicyTaskCallback {
      * @param future the future for the task that is about to start.
      * @return optional object that will be supplied to onEnd.
      */
-    public Object onStart(Object task, Future<?> future) {
+    public Object onStart(Object task, PolicyTaskFuture<?> future) {
         return null;
     }
 
@@ -67,19 +110,19 @@ public abstract class PolicyTaskCallback {
      * @param invokeAnyCount this value is always 0 unless invokeAny is used,
      *            in which case it is the size of the collection submitted to invokeAny excluding any that were canceled upon submit.
      */
-    public void onSubmit(Object task, Future<?> future, int invokeAnyCount) {}
+    public void onSubmit(Object task, PolicyTaskFuture<?> future, int invokeAnyCount) {}
 
     /**
-     * Invoked to raise an ExecutionException for an aborted task.
-     * For example, a task is aborted when the onStart callback raises a runtime exception.
+     * Invoked to raise an exception for an aborted task.
+     * For example, a task is aborted when the onStart callback raises a runtime exception
+     * or when the executor is interrupted while waiting to enqueue a task.
      * This method gives the callback the opportunity to use a different exception,
      * such as javax.enteprise.concurrent.AbortedException to distinguish aborted tasks
-     * from tasks that failed during normal execution.
+     * from tasks that failed during normal execution or were rejected for other reasons.
+     * The default implementation of this method does nothing, in which case the policy executor raises RejectedExecutionException.
      *
      * @param x the exception
      * @throws ExecutionException
      */
-    public void raiseAbortedException(Throwable x) throws ExecutionException {
-        throw new ExecutionException(x);
-    }
+    public void raiseAbortedException(Throwable x) throws ExecutionException {}
 }

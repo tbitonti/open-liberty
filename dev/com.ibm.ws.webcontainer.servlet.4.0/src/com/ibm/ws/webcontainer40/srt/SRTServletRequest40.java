@@ -74,6 +74,11 @@ public class SRTServletRequest40 extends SRTServletRequest31 implements HttpServ
         // Referrer Headers
         _disallowedPushBuilderHeaders.add(HttpHeaderKeys.HDR_REFERER.getName());
 
+        // HTTP2 headers
+        _disallowedPushBuilderHeaders.add(HttpHeaderKeys.HDR_UPGRADE.getName());
+        _disallowedPushBuilderHeaders.add(HttpHeaderKeys.HDR_HTTP2_SETTINGS.getName());
+        _disallowedPushBuilderHeaders.add(HttpHeaderKeys.HDR_CONNECTION.getName());
+
     }
 
     public SRTServletRequest40(SRTConnectionContext40 context) {
@@ -233,6 +238,14 @@ public class SRTServletRequest40 extends SRTServletRequest31 implements HttpServ
 
         if (TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) { //306998.15
             logger.entering(CLASS_NAME, methodName, "this -> " + this);
+        }
+
+        IRequest40 iRequest = (IRequest40) getIRequest();
+        if (!iRequest.getHttpRequest().isPushSupported()) {
+            if (TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) { //306998.15
+                logger.logp(Level.FINE, CLASS_NAME, methodName, "push not supported");
+            }
+            return null;
         }
 
         String sessionID = null;

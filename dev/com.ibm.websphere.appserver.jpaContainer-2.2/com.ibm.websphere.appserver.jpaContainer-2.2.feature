@@ -2,7 +2,7 @@
 symbolicName=com.ibm.websphere.appserver.jpaContainer-2.2
 visibility=public
 singleton=true
-kind=noship
+kind=beta
 edition=core
 Subsystem-Name: Java Persistence API Container 2.2
 IBM-ShortName: jpaContainer-2.2
@@ -17,7 +17,7 @@ IBM-App-ForceRestart: uninstall, \
  com.ibm.websphere.appserver.javax.annotation-1.2; apiJar=false, \
  com.ibm.websphere.appserver.jdbc-4.2, \
  com.ibm.websphere.appserver.transaction-1.2, \
- com.ibm.websphere.appserver.javaeeCompatible-7.0
+ com.ibm.websphere.appserver.javaeeCompatible-8.0
 -bundles=com.ibm.ws.jpa.container.v22, \
  com.ibm.ws.jpa.container, \
  com.ibm.ws.jpa.container.thirdparty

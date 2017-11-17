@@ -22,7 +22,7 @@
         }
 
         dependencies {
-            sourceJar 'com.ibm.ws.org.apache.myfaces.core:myfaces-api:2.3.0-20170928-014102-260:sources'
+            sourceJar 'com.ibm.ws.org.apache.myfaces.core:myfaces-api:2.3.0-20171016-074050-275:sources'
             javadocJar 'org.apache.myfaces.core:myfaces-api:2.3.0-beta:javadoc'
 
         }
@@ -50,11 +50,13 @@
  }
 
  task deleteJars(type:Delete) {
-    println "deleteJars task, deleting " + downloadSrcDir
-    delete(downloadSrcDir)
+    doLast {
+        println "deleteJars task, deleting " + downloadSrcDir
+        file(downloadSrcDir).deleteDir()
 
-    println "deleteJars task, deleting " + downloadJavadocDir
-    delete(downloadJavadocDir)
+        println "deleteJars task, deleting " + downloadJavadocDir
+        file(downloadJavadocDir).deleteDir()
+    }
  }
 
  assemble {

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2016 IBM Corporation and others.
+ * Copyright (c) 2016, 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,7 +11,6 @@
 package com.ibm.websphere.simplicity;
 
 import java.io.File;
-import java.util.logging.Logger;
 
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ArchivePath;
@@ -21,10 +20,12 @@ import org.jboss.shrinkwrap.api.GenericArchive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.jboss.shrinkwrap.api.importer.ExplodedImporter;
+import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 
 import com.ibm.websphere.simplicity.log.Log;
 
+import componenttest.topology.impl.LibertyClient;
 import componenttest.topology.impl.LibertyServer;
 
 /**
@@ -42,6 +43,16 @@ public class ShrinkHelper {
         String serverDir = "publish/servers/" + server.getServerName();
         exportArtifact(a, serverDir + '/' + path);
         server.copyFileToLibertyServerRoot(serverDir + "/" + path, path, a.getName());
+    }
+
+    /**
+     * Export an artifact to clients/$client.getName()/$path/$a.getName() under two directories:
+     * autoFVT/publish/... and wlp/usr/...
+     */
+    public static void exportToClient(LibertyClient client, String path, Archive<?> a) throws Exception {
+        String clientDir = "publish/clients/" + client.getClientName();
+        exportArtifact(a, clientDir + '/' + path);
+        client.copyFileToLibertyClientRoot(clientDir + "/" + path, path, a.getName());
     }
 
     /**
@@ -95,7 +106,8 @@ public class ShrinkHelper {
         File outputFile = new File(dest, a.getName());
         outputFile.getParentFile().mkdirs();
         a.as(ZipExporter.class).exportTo(outputFile, true);
-        System.out.println(a.toString(printArchiveContents));
+        if (printArchiveContents)
+            Log.info(ShrinkHelper.class, "exportArtifact", a.toString(true));
         return a;
     }
 
@@ -131,10 +143,31 @@ public class ShrinkHelper {
      */
     public static WebArchive buildDefaultApp(String appName, String... packages) throws Exception {
         WebArchive app = ShrinkWrap.create(WebArchive.class, appName + ".war");
-        for (String p : packages)
-            app = app.addPackages(p.endsWith(".*"), p);
+        for (String p : packages) {
+            if (p.endsWith(".*"))
+                app = app.addPackages(true, p.replace(".*", ""));
+            else
+                app = app.addPackages(false, p);
+        }
         if (new File("test-applications/" + appName + "/resources/").exists())
             app = (WebArchive) addDirectory(app, "test-applications/" + appName + "/resources/");
+        return app;
+    }
+
+    /**
+     * Builds a JavaArchive (JAR) with the default format, which assumes all resources are at:
+     * 'test-applications/$appName/resources/`
+     *
+     * @param name The name of the jar. The '.jar' file extension is assumed
+     * @param packages A list of java packages to add to the application.
+     * @return a JavaArchive representing the JAR created
+     */
+    public static JavaArchive buildJavaArchive(String name, String... packages) throws Exception {
+        JavaArchive app = ShrinkWrap.create(JavaArchive.class, name + ".jar");
+        for (String p : packages)
+            app = app.addPackages(p.endsWith(".*"), p);
+        if (new File("test-applications/" + name + "/resources/").exists())
+            app = (JavaArchive) addDirectory(app, "test-applications/" + name + "/resources/");
         return app;
     }
 
