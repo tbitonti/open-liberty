@@ -14,14 +14,14 @@ bVersion=1.0
 
 src: \
      fat/src, \
-     test-bundles/FATArtifactBVT/src, \
-     test-applications/artifactapi.war/src
-
--sub: *.bnd
+     test-applications/artifactapi.war/src, \
+     test-bundles/FATArtifactBVT/src
 
 test.project: true
 
--buildpath:\
+-sub artifact_fat_bvt.bnd, artifactinternals.bnd
+
+-buildpath: \
         com.ibm.websphere.javaee.servlet.3.1;version=latest, \
         com.ibm.websphere.org.osgi.core;version=latest, \
         com.ibm.websphere.org.osgi.service.component;version=latest, \
@@ -31,6 +31,7 @@ test.project: true
         com.ibm.ws.artifact.overlay;version=latest, \
         com.ibm.ws.artifact.url;version=latest, \
         com.ibm.ws.artifact.zip;version=latest, \
+        com.ibm.ws.artifact.zip.cache;version=latest, \
         com.ibm.ws.kernel.service;version=latest, \
         com.ibm.ws.logging;version=latest, \
         com.ibm.wsspi.org.osgi.service.component.annotations;version=latest

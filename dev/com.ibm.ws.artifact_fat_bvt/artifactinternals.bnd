@@ -14,3 +14,70 @@ bVersion=1.0.0
 Bundle-Name: Artifact Internals
 Bundle-SymbolicName: artifactinternals
 Bundle-Description: Expose artifact API internals; version=${bVersion}
+
+Private-Package: \
+	com.ibm.ws.artifact.fat_bvt.bundle, \
+	com.ibm.ws.artifact.fat_bvt.bundle.notification, \
+	com.ibm.ws.artifact.fat_bvt.bundle.unableadapters
+
+Service-Component: \
+	com.ibm.ws.fat.custom.container;\
+		implementation:=com.ibm.ws.artifact.fat_bvt.CustomContainerHelper; \
+		provide:=com.ibm.wsspi.artifact.factory.contributor.ArtifactContainerFactoryContributor; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,category=CUSTOM,handlesType=java.io.File,handlesEntries=.custom", \
+	com.ibm.ws.fat.overlay.container.adapter; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.OverlayContainerAdapter; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,toType=com.ibm.wsspi.artifact.overlay.OverlayContainer", \
+	com.ibm.ws.fat.entry.adapter; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.fatEntryAdapter; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.EntryAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,toType=java.lang.Integer", \
+	com.ibm.ws.fat.container.adapter; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.fatContainerAdapter; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,toType=java.lang.Integer", \
+	com.ibm.ws.fat.entry.adapter.verifier; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.EntryVerifier; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.EntryAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,toType=java.lang.String", \
+	com.ibm.ws.fat.container.adapter.verifier; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.ContainerVerifier; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,toType=java.lang.String", \
+	com.ibm.ws.fat.entry.adapter.verifiera; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.unableadapters.AfterUnableToAdaptEntryVerifier; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.EntryAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,service.ranking:Integer=1,toType=java.lang.Float", \
+	com.ibm.ws.fat.container.adapter.verifiera; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.unableadapters.AfterUnableToAdaptContainerVerifier; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,service.ranking:Integer=1,toType=java.lang.Float", \
+	com.ibm.ws.fat.entry.adapter.verifierb; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.unableadapters.BeforeUnableToAdaptEntryVerifier; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.EntryAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,service.ranking:Integer=3,toType=java.lang.Float", \
+	com.ibm.ws.fat.container.adapter.verifierb; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.unableadapters.BeforeUnableToAdaptContainerVerifier; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,service.ranking:Integer=3,toType=java.lang.Float", \
+	com.ibm.ws.fat.entry.adapter.verifieru; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.unableadapters.UnableToAdaptEntryVerifier; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.EntryAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,service.ranking:Integer=2,toType=java.lang.Float", \
+	com.ibm.ws.fat.container.adapter.verifieru; \
+		implementation:=com.ibm.ws.artifact.fat_bvt.unableadapters.UnableToAdaptContainerVerifier; \
+		provide:=com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter; \
+		configuration-policy:=ignore; \
+		properties:="service.vendor=IBM,service.ranking:Integer=2,toType=java.lang.Float"

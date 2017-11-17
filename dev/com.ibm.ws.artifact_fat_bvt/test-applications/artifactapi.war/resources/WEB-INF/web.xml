@@ -9,7 +9,7 @@
   <servlet>
     <servlet-name>ArtifactAPI</servlet-name>
     <display-name>Artifact API</display-name>
-    <servlet-class>com.ibm.ws.artifact.fat.ArtifactAPIServlet</servlet-class>
+    <servlet-class>com.ibm.ws.artifact.fat_bvt.servlet.ArtifactAPIServlet</servlet-class>
   </servlet>
 
   <servlet-mapping>
