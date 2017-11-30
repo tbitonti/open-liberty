@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.artifact.zip.cache.ZipCachingProperties;
 import com.ibm.ws.artifact.zip.cache.ZipCachingService;
 import com.ibm.ws.artifact.zip.cache.ZipFileHandle;
 
@@ -139,7 +140,7 @@ public class ZipCachingServiceImpl implements ZipCachingService {
     private static final LinkedHashMap<String, ZipFileHandle> zipFileHandles;
 
     static {
-        final int handleMax = ZipCacheUtils.ZIP_CACHE_HANDLE_MAX;
+        final int handleMax = ZipCachingProperties.ZIP_CACHE_HANDLE_MAX;
         int initialAllocation;
         if ( handleMax == -1 ) {
             initialAllocation = 16;

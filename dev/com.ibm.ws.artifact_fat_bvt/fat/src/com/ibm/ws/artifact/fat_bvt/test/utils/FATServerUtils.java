@@ -126,7 +126,8 @@ public class FATServerUtils {
     public static LibertyServer prepareServerAndWar(
         String serverName,
         FATWebArchiveDef webArchiveDef,
-        FATFeatureDef featureDef)
+        FATFeatureDef[] featureDefs,
+        FATBundleDef[] bundleDefs)
         throws Exception {
 
         String methodName = "prepareServerAndWar";
@@ -136,7 +137,17 @@ public class FATServerUtils {
 
         LibertyServer server = getServer(serverName);
 
-        installFeatureToServer(server, featureDef);
+        if ( featureDefs != null ) {
+            for ( FATFeatureDef featureDef : featureDefs ) {
+                installFeatureToServer(server, featureDef);
+            }
+        }
+
+        if ( bundleDefs != null ) {
+            for ( FATBundleDef bundleDef : bundleDefs ) {
+                installBundleToServer(server, bundleDef);
+            }
+        }
 
         installWarToServer(server, webArchive);
 
@@ -144,9 +155,13 @@ public class FATServerUtils {
         return server;
     }
 
-    public static final String SERVER_FEATURES_PATH = "usr/extension/lib/features/";
+    //
 
-    public static final String SERVER_USER_LIB_PATH = "usr/extension/lib/";
+    public static final String SERVER_FEATURES_MANIFEST_PATH = "lib/features/";
+    public static final String SERVER_FEATURES_LIB_PATH = "lib/";
+
+    public static final String USER_FEATURES_MANIFEST_PATH = "usr/extension/lib/features/";
+    public static final String USER_FEATURES_LIB_PATH = "usr/extension/lib/";
 
     public static void installFeatureToServer(
         LibertyServer server,
@@ -156,13 +171,53 @@ public class FATServerUtils {
         String methodName = "installFeaturesToServer";
         info(methodName, "Server [ " + server.getServerName() + " ] ...");
 
-        info(methodName, "  Feature Manifest [ " + featureDef.featureManifestPath + " ]");
-        info(methodName, "  Feature JAR [ " + featureDef.featureJarPath + " ]");
+        info(methodName, "Feature:");
+        info(methodName, "  Type [ " + (featureDef.isUserFeature ? "User" : "Server") + " ]");
 
-        server.copyFileToLibertyInstallRoot(SERVER_FEATURES_PATH, featureDef.featureManifestPath);
+        String sourceManifest = featureDef.sourceFeatureManifestPath;
+        String sourceLib = featureDef.sourceFeatureJarPath;
+
+        info(methodName, "  Source Manifest [ " + sourceManifest + " ]");
+        info(methodName, "  Source Lib [ " + sourceLib + " ]");
+
+        info(methodName, "  Source Lib Dir [ " + featureDef.sourceFeatureJarPath + " ]");
+
+        String targetManifestDir =
+            ( featureDef.isUserFeature ? USER_FEATURES_MANIFEST_PATH : SERVER_FEATURES_MANIFEST_PATH );
+        String targetLibDir =
+            ( featureDef.isUserFeature ? USER_FEATURES_LIB_PATH : SERVER_FEATURES_LIB_PATH );
+
+        info(methodName, "  Target Manifest [ " + targetManifestDir + " ]");
+        info(methodName, "  Target JAR [ " + targetLibDir + " ]");
+
+        server.copyFileToLibertyInstallRoot(targetManifestDir, featureDef.sourceFeatureManifestPath);
         // throws Exception
-        server.copyFileToLibertyInstallRoot(SERVER_USER_LIB_PATH, featureDef.featureJarPath);
+        server.copyFileToLibertyInstallRoot(targetLibDir, featureDef.sourceFeatureJarPath);
         // throws Exception
+
+        info(methodName, "Server [ " + server.getServerName() + " ] ... done");
+    }
+
+    public static String getServerBundlePath(String serverName) {
+        return "usr/servers/" + serverName + "/bundles";
+    }
+
+    public static void installBundleToServer(LibertyServer server, FATBundleDef bundleDef)
+        throws Exception {
+
+        String methodName = "installBundleToServer";
+
+        String serverName = server.getServerName();
+        info(methodName, "Server [ " + serverName + " ] ...");
+
+        info(methodName, "Bundle:");
+        String sourceJarPath = bundleDef.sourceJarPath;
+        info(methodName, "  Source JAR [ " + sourceJarPath + " ]");
+
+        String targetDir = getServerBundlePath(serverName);
+        info(methodName, "Target [ " + targetDir + " ]");
+
+        server.copyFileToLibertyInstallRoot(targetDir, sourceJarPath); // throws Exception
 
         info(methodName, "Server [ " + server.getServerName() + " ] ... done");
     }

@@ -52,18 +52,17 @@ import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceReference;
 
 import com.ibm.ws.adaptable.module.structure.StructureHelper;
+import com.ibm.ws.artifact.fat_bvt.servlet.filesystem.BundleFileSystem;
+import com.ibm.ws.artifact.fat_bvt.servlet.filesystem.DirFileSystem;
+import com.ibm.ws.artifact.fat_bvt.servlet.filesystem.FileSystem;
+import com.ibm.ws.artifact.fat_bvt.servlet.filesystem.ArtifactUtils;
+import com.ibm.ws.artifact.fat_bvt.servlet.filesystem.FileSystemUtils;
+import com.ibm.ws.artifact.fat_bvt.servlet.filesystem.JarFileSystem;
+import com.ibm.ws.artifact.fat_bvt.servlet.filesystem.LooseFileSystem;
+import com.ibm.ws.artifact.fat_bvt.servlet.notification.NotificationTestRunner;
+import com.ibm.ws.artifact.zip.cache.ZipCachingProperties;
 import com.ibm.ws.artifact.zip.cache.ZipCachingService;
 import com.ibm.ws.artifact.zip.cache.ZipFileHandle;
-import com.ibm.ws.artifact.fat_bvt.bundle.Fs;
-import com.ibm.ws.artifact.fat_bvt.bundle.FsArtifactUtil;
-import com.ibm.ws.artifact.fat_bvt.bundle.FsUtils;
-import com.ibm.ws.artifact.fat_bvt.bundle.ThreadedArtifactTester;
-import com.ibm.ws.artifact.fat_bvt.bundle.data.BundleTestData;
-import com.ibm.ws.artifact.fat_bvt.bundle.data.DirTestData;
-import com.ibm.ws.artifact.fat_bvt.bundle.data.JarTestData;
-import com.ibm.ws.artifact.fat_bvt.bundle.data.LooseTestData;
-import com.ibm.ws.artifact.fat_bvt.bundle.notification.NotificationTest;
-
 import com.ibm.wsspi.adaptable.module.AdaptableModuleFactory;
 import com.ibm.wsspi.adaptable.module.AddEntryToOverlay;
 import com.ibm.wsspi.adaptable.module.Container;
@@ -80,8 +79,6 @@ import com.ibm.wsspi.kernel.service.location.WsLocationAdmin;
 
 public class ArtifactAPIServlet extends HttpServlet {
     private static final long serialVersionUID = 8783096430712965126L;
-
-    //
 
     // Clean up the physical path deprecation warnings in one place.
     @SuppressWarnings("deprecation")
@@ -120,10 +117,38 @@ public class ArtifactAPIServlet extends HttpServlet {
     private static String looseXml = null;
     private static String customContainerData = null;
 
+    private static WsLocationAdmin al = null;
     private static ArtifactContainerFactory cf = null;
     private static OverlayContainerFactory ocf = null;
     private static AdaptableModuleFactory amf = null;
     private static ZipCachingService zcs = null;
+
+    private static void initLocations(WsLocationAdmin al) {
+        dir = al.resolveString("${server.config.dir}/TESTDATA");
+        jar_b = al.resolveString("${server.config.dir}/TESTDATA/c/b.jar");
+        jar_a = al.resolveString("${server.config.dir}/TEST.JAR");
+        jar_multi = al.resolveString("${server.config.dir}/TESTMULTI.JAR");
+        jar_dir = al.resolveString("${server.config.dir}TESTDIR.jar");
+        rar = al.resolveString("${server.config.dir}/TEST.RAR");
+        looseXml = al.resolveString("${server.config.dir}/virtualFileSystem.xml");
+        customContainerData = al.resolveString("${server.config.dir}/customContainer.custom");
+        bundleLocation = al.resolveString("${server.config.dir}/TESTDATA_bundle.jar");
+        badBundleLocation = al.resolveString("${server.config.dir}/BADPATHTEST.jar");
+        bundleFragmentLocation = al.resolveString("${server.config.dir}/TESTDATA_fragment.jar");
+        bundleTestDirLocation = al.resolveString("${server.config.dir}/TestDirEntries.jar");
+        cacheDir = al.resolveString("${server.config.dir}/cacheDir");
+        cacheDirAdapt = al.resolveString("${server.config.dir}/cacheDirAdapt");
+        cacheDirOverlay = al.resolveString("${server.config.dir}/cacheDirOverlay");
+
+        File cacheDirFile = new File(cacheDir);
+        cacheDirFile.mkdirs();
+
+        File cacheDirAdaptFile = new File(cacheDirAdapt);
+        cacheDirAdaptFile.mkdirs();
+
+        File cacheDirOverlayFile = new File(cacheDirOverlay);
+        cacheDirOverlayFile.mkdirs();
+    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -131,323 +156,301 @@ public class ArtifactAPIServlet extends HttpServlet {
         resp.setStatus(HttpServletResponse.SC_OK);
         resp.setContentType("text/plain");
 
-        //eyecatcher.. looked for by the client to know it's hit the right place.
         writer.println("This is WOPR. Welcome Dr Falken.");
 
-        //Hackzor.
+        String test = req.getQueryString();
+        if ( test == null ) {
+            writer.println("FAIL: No test specified.");
+            writer.println("Selecting Global Thermonuclear War.");
+            return;
+        } else {
+            writer.println("Selecting [ " + test + " ]");
+        }
+
         BundleContext bc = FrameworkUtil.getBundle(Servlet.class).getBundleContext();
 
-        ServiceReference<ArtifactContainerFactory> cfsr = bc.getServiceReference(ArtifactContainerFactory.class);
         ServiceReference<WsLocationAdmin> alsr = bc.getServiceReference(WsLocationAdmin.class);
+
+        ServiceReference<ArtifactContainerFactory> cfsr = bc.getServiceReference(ArtifactContainerFactory.class);
+        ServiceReference<ZipCachingService> zcsr = bc.getServiceReference(ZipCachingService.class);
+
         ServiceReference<OverlayContainerFactory> ocfsr = bc.getServiceReference(OverlayContainerFactory.class);
         ServiceReference<AdaptableModuleFactory> amfsr = bc.getServiceReference(AdaptableModuleFactory.class);
-        ServiceReference<ZipCachingService> zcsr = bc.getServiceReference(ZipCachingService.class);
+
         try {
-            if (cfsr != null) {
-                //System.out.println("servlet getting cf service.. ");
-                cf = bc.getService(cfsr);
-            }
-            if (ocfsr != null) {
-                ocf = bc.getService(ocfsr);
-            }
-            if (zcsr != null) {
-                zcs = bc.getService(zcsr);
-            }
-            if (amfsr != null) {
-                amf = bc.getService(amfsr);
-            } else {
-                writer.println("FAIL: Could not obtain adaptable module factory.. test case setup issue.");
-                writer.println("amf " + (amf == null) + " amfsr " + (amfsr == null));
+            if ( alsr == null ) {
+                writer.println("FAIL: Location service reference not available");
                 return;
-            }
-
-            if (alsr != null) {
-                WsLocationAdmin al = bc.getService(alsr);
-                //use location service to find where the test data is.
-                dir = al.resolveString("${server.config.dir}/TESTDATA");
-                jar_b = al.resolveString("${server.config.dir}/TESTDATA/c/b.jar");
-                jar_a = al.resolveString("${server.config.dir}/TEST.JAR");
-                jar_multi = al.resolveString("${server.config.dir}/TESTMULTI.JAR");
-                jar_dir = al.resolveString("${server.config.dir}TESTDIR.jar");
-                rar = al.resolveString("${server.config.dir}/TEST.RAR");
-                looseXml = al.resolveString("${server.config.dir}/virtualFileSystem.xml");
-                customContainerData = al.resolveString("${server.config.dir}/customContainer.custom");
-                bundleLocation = al.resolveString("${server.config.dir}/TESTDATA_bundle.jar");
-                badBundleLocation = al.resolveString("${server.config.dir}/BADPATHTEST.jar");
-                bundleFragmentLocation = al.resolveString("${server.config.dir}/TESTDATA_fragment.jar");
-                bundleTestDirLocation = al.resolveString("${server.config.dir}/TestDirEntries.jar");
-                cacheDir = al.resolveString("${server.config.dir}/cacheDir");
-                cacheDirAdapt = al.resolveString("${server.config.dir}/cacheDirAdapt");
-                cacheDirOverlay = al.resolveString("${server.config.dir}/cacheDirOverlay");
-
-                File cacheDirFile = new File(cacheDir);
-                cacheDirFile.mkdirs();
-                File cacheDirAdaptFile = new File(cacheDirAdapt);
-                cacheDirAdaptFile.mkdirs();
-                File cacheDirOverlayFile = new File(cacheDirOverlay);
-                cacheDirOverlayFile.mkdirs();
-
-                String test = req.getQueryString();
-                if (test != null && cf != null) {
-                    if (test.equals("a")) {
-                        basicTestDir(writer);
-                    }
-                    if (test.equals("b")) {
-                        basicTestJar(writer);
-                    }
-                    if (test.equals("b_rar")) {
-                        basicTestRar(writer);
-                    }
-                    if (test.equals("c")) {
-                        mediumTestDir(writer);
-                    }
-                    if (test.equals("d")) {
-                        mediumTestJar(writer);
-                    }
-                    if (test.equals("e")) {
-                        nestedJarTest(writer);
-                    }
-                    if (test.equals("f")) {
-                        navigationTest(getContainerForDirectory(), writer);
-                        navigationTest(getContainerForZip(), writer);
-                    }
-                    if (test.equals("g")) {
-                        if (ocf != null) {
-                            testOverlay(writer);
-                        } else {
-                            writer.println("FAIL: unable to obtain OverlayContainerFactory");
-                        }
-                    }
-                    if (test.equals("h")) {
-                        fileOverlayTest(writer);
-                    }
-                    //Adaptable tests, with a single exception handler..
-                    try {
-                        if (test.equals("i")) {
-                            testAdaptableApiSimple(amf, writer);
-                        }
-                        if (test.equals("j")) {
-                            testAdaptableApiNavigate(amf, writer);
-                        }
-                        if (test.equals("unableToAdapt")) {
-                            testUnableToAdapt(amf, writer);
-                        }
-                        if (test.equals("interpretedAdaptable")) {
-                            testInterpretedAdaptable(amf, writer);
-                        }
-                        if (test.equals("interpretedAdaptableRoots")) {
-                            testInterpretedAdapterRoots(amf, writer);
-                        }
-                        if (test.equals("testAddEntryToOverlay")) {
-                            testAddEntryToOverlay(amf, writer);
-                        }
-                    } catch (UnableToAdaptException e) {
-                        writer.println("FAIL: unable to adapt exception caught " + e.getMessage());
-                        e.printStackTrace(writer);
-                    }
-                    if (test.equals("looseRead")) { //handy for when running by hand =)
-                        writer.println("Xml test has begun!");
-                        ArtifactContainer c = getContainerForLooseXML();
-                        dumpContainerRecursive(0, c, "/", writer);
-                        writer.println("mapping complete");
-
-                        if (testLooseApiXmlParsing(c, writer) && testUriFromXmlParsing(c, writer)) {
-                            writer.println("PASS: all tests passed");
-                        } else {
-                            writer.println("FAIL: one or more tests have failed");
-                        }
-                    }
-                    if (test.equals("fs")) {
-                        try {
-                            testFsLayer(writer);
-                        } catch (Exception e) {
-                            writer.println("FAIL: unexpected exception during Fs Layer test.");
-                            e.printStackTrace(writer);
-                        }
-                    }
-                    if (test.equals("fs-dir")) {
-                        try {
-                            ArtifactContainer c = getContainerForDirectory();
-                            dumpContainerRecursiveFs(0, c, "/", writer);
-                        } catch (Exception e) {
-                            writer.println("FAIL: unexpected exception during Fs Layer test.");
-                            e.printStackTrace(writer);
-                        }
-                    }
-                    if (test.equals("fs-zip")) {
-                        try {
-                            ArtifactContainer c = getContainerForZip();
-                            dumpContainerRecursiveFs(0, c, "/", writer);
-                        } catch (Exception e) {
-                            writer.println("FAIL: unexpected exception during Fs Layer test.");
-                            e.printStackTrace(writer);
-                        }
-                    }
-                    if (test.equals("fs-loose")) {
-                        try {
-                            ArtifactContainer c = getContainerForLooseXML();
-                            dumpContainerRecursiveFs(0, c, "/", writer);
-                        } catch (Exception e) {
-                            writer.println("FAIL: unexpected exception during Fs Layer test.");
-                            e.printStackTrace(writer);
-                        }
-                    }
-                    if (test.equals("fs-bundle")) {
-                        try {
-                            ArtifactContainer c = getContainerForBundle(writer);
-                            dumpContainerRecursiveFs(0, c, "/", writer);
-                        } catch (Exception e) {
-                            writer.println("FAIL: unexpected exception during Fs Layer test.");
-                            e.printStackTrace(writer);
-                        }
-                    }
-                    if (test.equals("ls")) { //handy for when running by hand =)
-                        ArtifactContainer c = getContainerForDirectory();
-                        if (c != null)
-                            dumpContainerRecursive(0, c, "/", writer);
-                    }
-
-                    if (test.equals("notify")) {
-                        NotificationTest nt = new NotificationTest();
-                        nt.doNotifierTest(new File(dir), cf, ocf, writer);
-                    }
-                    if (test.equals("testUri")) {
-                        if (testUri(writer)) {
-                            writer.println("PASS: all tests passed");
-                        } else {
-                            writer.println("FAIL: one or more tests have failed");
-                        }
-                    }
-
-                    if (test.equals("testPhysicalPath")) {
-                        if (testPhysicalPath(writer)) {
-                            writer.println("PASS: all tests passed");
-                        } else {
-                            writer.println("FAIL: one or more tests have failed");
-                        }
-                    }
-
-                    if (test.equals("testCaseSensitivity_loose")) {
-                        ArtifactContainer c = getContainerForLooseXML();
-                        if (testCaseSensitivity_loose(c, writer)) {
-                            writer.println("PASS: all tests for testCaseSensitivity_loose passed");
-                        } else {
-                            writer.println("FAIL: one or more tests for testCaseSensitivity_loose failed");
-                        }
-                    }
-                    if (test.equals("testCaseSensitivity_file")) {
-                        ArtifactContainer ArtifactContainer = getContainerForDirectory();
-                        if (testCaseSesnitivityForDirs(ArtifactContainer, writer, "")) {
-                            writer.println("PASS: all tests for testCaseSensitivity_file passed");
-                        } else {
-                            writer.println("FAIL: one or more tests for testCaseSensitivity_file failed");
-                        }
-                    }
-                    //                    if (test.equals("testCaseSensitivity_overlay")) {
-                    //                        ArtifactContainer ArtifactContainer = getContainerForDirectory();
-                    //                        OverlayContainer overlayContainer = ocf.createOverlay(OverlayContainer.class, ArtifactContainer);
-                    //                        if (testCaseSesnitivityForDirs(overlayContainer, writer, "")) {
-                    //                            writer.println("PASS: all tests for testCaseSensitivity_file passed");
-                    //                        } else {
-                    //                            writer.println("FAIL: one or more tests for testCaseSensitivity_file failed");
-                    //                        }
-                    //                    }
-                    if (test.equals("testGetResourceForLooseEntry")) {
-                        ArtifactContainer c = getContainerForLooseXML();
-                        testGetResourceForLooseEntry(c, writer);
-                    }
-                    if (test.equals("testGetResourceForZipAndFile")) {
-                        testGetResourceForZipAndFile(cf, dir, writer);
-                    }
-                    if (test.equals("testDotDotPath")) {
-                        testDotDotPath(cf, dir, new File(looseXml), writer);
-                    }
-                    if (test.equals("testImpliedZipDir")) {
-                        testImpliedZipDir(writer);
-                    }
-                    if (test.equals("simpleBundleArtifactApiTest")) {
-                        simpleBundleArtifactApiTest(writer, cf);
-                    }
-                    if (test.equals("testGetEnclosingContainerOnBundle")) {
-                        testGetEnclosingContainerOnBundle(writer);
-                    }
-                    if (test.equals("testBadBundlePathIteration")) {
-                        testBadBundlePathIteration(writer);
-                    }
-                    if (test.equals("zipCachingServiceTest")) {
-                        testZipCachingService(writer);
-                    }
-                    if (test.equals("zipMultiTest")) {
-                        testMultithreadedZipArtifactionInitialisation(writer);
-                    }
-                    if (test.equals("customContainer")) {
-                        testCustomContainer(writer);
-                    }
-                } else if (cf == null) {
-                    writer.println("FAIL: Unable to use null ArtifactContainer Factory, the magic 8ball says 'NO'.");
-                } else {
-                    writer.println("FAIL: Failure to specify test to execute.\nSelecting Global Thermonuclear War.");
-                }
             } else {
-                writer.println("FAIL: Lack of custard filling detected, unable to obtain LibertyLocation service.");
-            }
-        } finally {
-            if (bc != null) {
-                if (cfsr != null) {
-                    //System.out.println("servlet ungetting cf service.. ");
-                    bc.ungetService(cfsr);
+                al = bc.getService(alsr);
+                if ( al == null ) {
+                    writer.println("FAIL: Location service not available");
                 }
-                if (alsr != null)
-                    bc.ungetService(alsr);
-                if (ocfsr != null)
-                    bc.ungetService(ocfsr);
-                if (zcsr != null)
-                    bc.ungetService(zcsr);
+            }
+
+            if ( cfsr == null ) {
+                writer.println("FAIL: Artifact container service reference not available");
+                return;
+            } else {
+                cf = bc.getService(cfsr);
+                if ( cf == null ) {
+                    writer.println("FAIL: Artifact container service not available");
+                    return;
+                }
+            }
+            if ( zcsr == null ) {
+                writer.println("FAIL: Zip caching service reference not available");
+                return;
+            } else {
+                zcs = bc.getService(zcsr);
+                if ( zcs == null ) {
+                    writer.println("FAIL: Zip caching service not available");
+                }
+            }
+
+            if ( ocfsr == null ) {
+                writer.println("FAIL: Overlay container service reference not available");
+                return;
+            } else {
+                ocf = bc.getService(ocfsr);
+                if ( ocf == null ) {
+                    writer.println("FAIL: Overlay container service not available");
+                    return;
+                }
+            }
+            if ( amfsr == null ) {
+                writer.println("FAIL: Adaptable module service reference not available");
+                return;
+            } else {
+                amf = bc.getService(amfsr);
+                if ( amf == null ) {
+                    writer.println("FAIL: Adaptable module service not available");
+                    return;
+                }
+            }
+
+            initLocations(al);
+
+            if ( test.equals("testDir") ) {
+                testDir(writer);
+            } else if ( test.equals("testJar") ) {
+                testJar(writer);
+            } else if ( test.equals("testRar") ) {
+                testRar(writer);
+            } else if ( test.equals("testDirMedium") ) {
+                testDirMedium(writer);
+            } else if ( test.equals("testJarMedium") ) {
+                testJarMedium(writer);
+            } else if (test.equals("testJarNested")) {
+                testJarNested(writer);
+            }
+
+            if ( test.equals("testDirNavigation") ) {
+                testNavigation(getContainerForDirectory(), writer);
+            } else if ( test.equals("testZipNavigation") ) {
+                testNavigation(getContainerForZip(), writer);
+            }
+
+            if ( test.equals("g") ) { // This doesn't seem to be in use.
+                testOverlay(writer);
+            } else if ( test.equals("testDirOverlay")) {
+                testDirOverlay(writer);
+            }
+
+            try {
+                if ( test.equals("testAdapt") ) {
+                    testAdaptableApiSimple(writer);
+                } else if ( test.equals("j") ) { // This doesn't seem to be in use.
+                    testAdaptableApiNavigate(writer);
+                } else if ( test.equals("unableToAdapt") ) {
+                    testUnableToAdapt(writer);
+                } else if ( test.equals("testInterpretedAdaptable") ) {
+                    testInterpretedAdaptable(writer);
+                } else if ( test.equals("testInterpretedAdaptableRoots") ) {
+                    testInterpretedAdapterRoots(writer);
+                } else if ( test.equals("testAddEntryToOverlay") ) {
+                    testAddEntryToOverlay(writer);
+                }
+            } catch ( UnableToAdaptException e ) {
+                writer.println("FAIL: Adapt exception: " + e.getMessage());
+                e.printStackTrace(writer);
+            }
+
+            if ( test.equals("testLooseRead") ) {
+                writer.println("XML test has begun!");
+                ArtifactContainer c = getContainerForLooseXML();
+                dumpContainerRecursive(0, c, "/", writer);
+                writer.println("mapping complete");
+
+                if (testLooseApiXmlParsing(c, writer) && testUriFromXmlParsing(c, writer)) {
+                    writer.println("PASS: all tests passed");
+                } else {
+                    writer.println("FAIL: one or more tests have failed");
+                }
+            }
+
+            if ( test.equals("testFileSystem") ) {
+                try {
+                    testFsLayer(writer);
+                } catch ( Exception e ) {
+                    writer.println("FAIL: Exception during file system test: " + e.getMessage());
+                    e.printStackTrace(writer);
+                }
+            } else if ( test.equals("listDir") ) { // Debug only; no test entry.
+                try {
+                    ArtifactContainer c = getContainerForDirectory();
+                    dumpContainerRecursiveFs(0, c, "/", writer);
+                } catch ( Exception e ) {
+                    e.printStackTrace(writer);
+                }
+            } else if ( test.equals("listZip") ) { // Debug only; no test entry.
+                try {
+                    ArtifactContainer c = getContainerForZip();
+                    dumpContainerRecursiveFs(0, c, "/", writer);
+                } catch ( Exception e ) {
+                    e.printStackTrace(writer);
+                }
+            } else if ( test.equals("listLoose") ) { // Debug only; no test entry.
+                try {
+                    ArtifactContainer c = getContainerForLooseXML();
+                    dumpContainerRecursiveFs(0, c, "/", writer);
+                } catch ( Exception e ) {
+                    e.printStackTrace(writer);
+                }
+            } else if ( test.equals("listBundle") ) { // Debug only; no test entry.
+                try {
+                    ArtifactContainer c = getContainerForBundle(writer);
+                    dumpContainerRecursiveFs(0, c, "/", writer);
+                } catch ( Exception e ) {
+                    e.printStackTrace(writer);
+                }
+            }
+
+            if ( test.equals("testNotify") ) {
+                NotificationTestRunner nt = new NotificationTestRunner();
+                nt.runNotificationTests(new File(dir), cf, ocf, writer);
+            }
+
+            if ( test.equals("testUri") ) {
+                if ( testUri(writer) ) {
+                    writer.println("PASS: URI test");
+                } else {
+                    writer.println("FAIL: URI test");
+                }
+            }
+
+            if ( test.equals("testPhysicalPath") ) {
+                if ( testPhysicalPath(writer) ) {
+                    writer.println("PASS: Physical path test");
+                } else {
+                    writer.println("FAIL: Physical path test");
+                }
+            }
+
+            if ( test.equals("testLooseCaseSensitivity") ) {
+                ArtifactContainer c = getContainerForLooseXML();
+                if ( testCaseSensitivity_loose(c, writer) ) {
+                    writer.println("PASS: Loose case sensitivity test");
+                } else {
+                    writer.println("Fail: Loose case sensitivity test");
+                }
+            } else if ( test.equals("testFileCaseSensitivity") ) {
+                ArtifactContainer ArtifactContainer = getContainerForDirectory();
+                if ( testCaseSesnitivityForDirs(ArtifactContainer, writer, "") ) {
+                    writer.println("PASS: File case sensitivity test");
+                } else {
+                    writer.println("FAIL: File case sensitivity test");
+                }
+            }
+
+            // if (test.equals("testCaseSensitivity_overlay")) {
+            //     ArtifactContainer ArtifactContainer = getContainerForDirectory();
+            //     OverlayContainer overlayContainer = ocf.createOverlay(OverlayContainer.class, ArtifactContainer);
+            //     if (testCaseSesnitivityForDirs(overlayContainer, writer, "")) {
+            //         writer.println("PASS: all tests for testCaseSensitivity_file passed");
+            //     } else {
+            //         writer.println("FAIL: one or more tests for testCaseSensitivity_file failed");
+            //     }
+            // }
+
+            if ( test.equals("testGetResourceForLooseEntry") ) {
+                ArtifactContainer c = getContainerForLooseXML();
+                testGetResourceForLooseEntry(c, writer);
+            } else if ( test.equals("testGetResourceForZipAndFile") ) {
+                testGetResourceForZipAndFile(cf, dir, writer);
+            } else if ( test.equals("testDotDotPath") ) {
+                testDotDotPath(cf, dir, new File(looseXml), writer);
+            } else if ( test.equals("testImpliedZipDir") ) {
+                testImpliedZipDir(writer);
+            } else if (test.equals("testSimpleBundleArtifactApi") ) { 
+                simpleBundleArtifactApiTest(writer, cf);
+            } else if ( test.equals("testGetEnclosingContainerOnBundle") ) {
+                testGetEnclosingContainerOnBundle(writer);
+            } else if ( test.equals("testBadBundlePathIteration") ) {
+                testBadBundlePathIteration(writer);
+            } else if ( test.equals("testZipCachingService") ) {
+                testZipCachingService(writer);
+            } else if ( test.equals("testZipMulti") ) {
+                testMultithreadedZipArtifactionInitialisation(writer);
+            } else if ( test.equals("testCustomContainer") ) {
+                testCustomContainer(writer);
+            }
+
+        } finally {
+            if ( cfsr != null ) {
+                bc.ungetService(cfsr);
+            }
+            if ( alsr != null ) {
+                bc.ungetService(alsr);
+            }
+            if ( ocfsr != null ) {
+                bc.ungetService(ocfsr);
+            }
+            if ( zcsr != null ) {
+                bc.ungetService(zcsr);
             }
         }
     }
 
-    private void dumpRecursive(int depth, Fs f, PrintWriter out) {
+    private void dumpRecursive(int depth, FileSystem f, PrintWriter out) {
         String pad = "";
         for (int i = 0; i < depth; i++) {
             pad += " ";
         }
         out.println(pad + " " + f.getType() + " " + f.getName() + " " + f.getPath());
         if (f.getChildren() != null) {
-            for (Fs child : f.getChildren()) {
+            for (FileSystem child : f.getChildren()) {
                 dumpRecursive(depth + 1, child, out);
             }
         }
     }
 
-    private int getRefCountForZipFileHandle(ZipFileHandle zfh) {
+    private static final String ZFH_OPEN_COUNT_FIELD_NAME = "openCount";
+    private static final int ERROR_OPEN_COUNT = -1;
+
+    private int getOpenCount(ZipFileHandle zfh) {
         try {
-            Field f = zfh.getClass().getDeclaredField("refs");
+            Field f = zfh.getClass().getDeclaredField(ZFH_OPEN_COUNT_FIELD_NAME);
             f.setAccessible(true);
             return f.getInt(zfh);
-        } catch (IllegalArgumentException e) {
-            return -1;
-        } catch (IllegalAccessException e) {
-            return -1;
-        } catch (SecurityException e) {
-            return -1;
-        } catch (NoSuchFieldException e) {
-            return -1;
+        } catch ( Exception e ) {
+            return ERROR_OPEN_COUNT;
         }
     }
 
-    private byte[] getBufFromByteArrayInputStream(ByteArrayInputStream bais) {
+    private byte[] getBuffer(InputStream is) {
+        if ( !(is instanceof ByteArrayInputStream) ) {
+            return null;
+        }
+
+        ByteArrayInputStream bais = (ByteArrayInputStream) is;
+
         try {
             Field f = bais.getClass().getDeclaredField("buf");
             f.setAccessible(true);
             return (byte[]) f.get(bais);
-        } catch (IllegalArgumentException e) {
-            return null;
-        } catch (IllegalAccessException e) {
-            return null;
-        } catch (SecurityException e) {
-            return null;
-        } catch (NoSuchFieldException e) {
+
+        } catch ( Exception e ) {
             return null;
         }
     }
@@ -518,129 +521,167 @@ public class ArtifactAPIServlet extends HttpServlet {
     }
 
     private void testZipCachingService(PrintWriter writer) {
-        boolean passed = true;
+        String methodName = "testZipCachingService";
 
-        //this test can use the bundleFragmentLocation because nothing else will be opening it as a ZipFile or an ArtifactContainer.
+        String generalPath = bundleFragmentLocation;
+
+        writer.println(methodName);
+
+        writer.println("ZipCache Service Parameters:");
+
+        int handleCacheSize = ZipCachingProperties.ZIP_CACHE_HANDLE_MAX;
+        writer.println("  Max Zip Handles [ " + Integer.valueOf(handleCacheSize) + " ]");
+
+        int entryCacheSize = ZipCachingProperties.ZIP_CACHE_ENTRY_MAX;
+        writer.println("  Max Entry Cache Entry Size Limit [ " + Integer.valueOf(ZipCachingProperties.ZIP_CACHE_ENTRY_LIMIT) + " ]");
+        writer.println("  Max Entry Cache Size [ " + Integer.valueOf(entryCacheSize) + " ]");
+
+        writer.println("  Max Pending Zip Closes [ " + Integer.valueOf(ZipCachingProperties.ZIP_CACHE_REAPER_MAX_PENDING) + " ]");
+
+        writer.println("  Min Zip Close Pend [ " + Long.valueOf(ZipCachingProperties.ZIP_CACHE_REAPER_SHORT_INTERVAL) + " ]");
+        writer.println("  Max Zip Close Pend [ " + Long.valueOf(ZipCachingProperties.ZIP_CACHE_REAPER_LONG_INTERVAL) + " ]");
+
+        boolean pass = true;
+
+        // 'bundleFragmentLocation' is safe to use; no other code
+        // should be accessing the fragment using the zip handle service.
 
         try {
-            File t = new File(bundleFragmentLocation);
-            String p = t.getCanonicalPath();
+            File fragmentFile = new File(bundleFragmentLocation);
+            String canonicalPath = fragmentFile.getCanonicalPath(); // throws IOException
 
-            ZipFileHandle zfh1 = zcs.openZipFile(p);
-            ZipFileHandle zfh2 = zcs.openZipFile(p);
-            passed &= (zfh1 == zfh2);
-            if (!passed)
-                writer.println("FAIL: zipcache gave back different zip file handles for same location");
+            writer.println("Test archive path [ " + generalPath + " ]");            
+            writer.println("Test archive canonical path [ " + canonicalPath + " ]");
 
-            int startRefCount = getRefCountForZipFileHandle(zfh1);
-            if (startRefCount != 0) {
-                passed = false;
-                writer.println("FAIL: init ref count for zip cache zip was not zero, was " + startRefCount);
+            ZipFileHandle handle = zcs.openZipFile(canonicalPath);
+            ZipFileHandle duplicateHandle = zcs.openZipFile(canonicalPath);
+            if ( duplicateHandle != handle ) {
+                pass = false;
+                writer.println("FAIL: Non-unique handle for [ " + canonicalPath + " ]");
             }
 
-            ArtifactContainer zipContainer = cf.getContainer(new File(cacheDir), new File(bundleFragmentLocation));
-
-            int afterContainerRefCount = getRefCountForZipFileHandle(zfh1);
-            if (afterContainerRefCount != 0) {
-                passed = false;
-                writer.println("FAIL: afterContainerRefCount for zip cache zip was not zero, was " + afterContainerRefCount);
+            int initialOpenCount = getOpenCount(handle);
+            if ( initialOpenCount != 0 ) {
+                pass = false;
+                writer.println("FAIL: Handle [ " + canonicalPath + " ] initial open count is [ " + Integer.valueOf(initialOpenCount) + " ] but should be [ 0 ]");
             }
 
-            //now check if we can bump the ref via fast mode on a zip from the same location..
+            ArtifactContainer zipContainer =
+                cf.getContainer( new File(cacheDir), new File(bundleFragmentLocation) );
+
+            int afterOpenCount = getOpenCount(handle);
+            if ( afterOpenCount != 0 ) {
+                pass = false;
+                writer.println("FAIL: Handle [ " + canonicalPath + " ] open count after obtaining container is [ " + Integer.valueOf(initialOpenCount) + " ] but should be [ 0 ]");
+            }
+
             zipContainer.useFastMode();
-            int inFastModeRefCount = getRefCountForZipFileHandle(zfh1);
-            if (inFastModeRefCount != 1) {
-                passed = false;
-                writer.println("FAIL: inFastModeRefCount for zip cache zip was not one, was " + inFastModeRefCount);
-            }
-            zipContainer.stopUsingFastMode();
-            int afterFastModeRefCount = getRefCountForZipFileHandle(zfh1);
-            if (afterFastModeRefCount != 0) {
-                passed = false;
-                writer.println("FAIL: afterFastModeRefCount for zip cache zip was not zero, was " + afterFastModeRefCount);
+
+            int startFastModeOpenCount = getOpenCount(handle);
+            if ( startFastModeOpenCount != 1 ) {
+                pass = false;
+                writer.println("FAIL: Handle [ " + canonicalPath + " ] open count after enabling fast mode is [ " + Integer.valueOf(initialOpenCount) + " ] but should be [ 1 ]");
             }
 
-            //make sure we can't push it negative..
             zipContainer.stopUsingFastMode();
-            int afterFastMode2RefCount = getRefCountForZipFileHandle(zfh1);
-            if (afterFastMode2RefCount != 0) {
-                passed = false;
-                writer.println("FAIL: afterFastMode2RefCount for zip cache zip was not zero, was " + afterFastMode2RefCount);
+
+            int stopFastModeOpenCount = getOpenCount(handle);
+            if ( stopFastModeOpenCount != 0 ) {
+                pass = false;
+                writer.println("FAIL: Handle [ " + canonicalPath + " ] open count after disabling fast mode is [ " + Integer.valueOf(initialOpenCount) + " ] but should be [ 0 ]");
             }
 
-            //check it goes up while a stream is open.. 
+            zipContainer.stopUsingFastMode();
+            int stopAgainFastModeOpenCount = getOpenCount(handle);
+            if ( stopAgainFastModeOpenCount != 0 ) {
+                pass = false;
+                writer.println("FAIL: Handle [ " + canonicalPath + " ] open count after twice disabling fast mode is [ " + Integer.valueOf(initialOpenCount) + " ] but should be [ 0 ]");
+            }
+
             ArtifactEntry entry = zipContainer.getEntry("/META-INF/MANIFEST.MF");
-            InputStream is = entry.getInputStream();
-            int streamOpenRefCount = getRefCountForZipFileHandle(zfh1);
-            if (streamOpenRefCount != 1) {
-                passed = false;
-                writer.println("FAIL: streamOpenRefCount for zip cache zip was not one, was " + streamOpenRefCount);
-            }
-            is.close();
-            int streamClosedRefCount = getRefCountForZipFileHandle(zfh1);
-            if (streamClosedRefCount != 0) {
-                passed = false;
-                writer.println("FAIL: streamClosedRefCount for zip cache zip was not zero, was " + streamClosedRefCount);
+            InputStream entryStream = entry.getInputStream(); // throws IOException
+
+            int streamOpenOpenCount = getOpenCount(handle);
+            if ( streamOpenOpenCount != 1 ) {
+                pass = false;
+                writer.println("FAIL: Handle [ " + canonicalPath + " ] open count after stream open is [ " + Integer.valueOf(initialOpenCount) + " ] but should be [ 1 ]");
             }
 
-            writer.println("Refs : zfh1 " + getRefCountForZipFileHandle(zfh1));
+            entryStream.close(); // throws IOException
 
-            ZipFile zf = zfh1.open();
-            ZipEntry ze = zf.getEntry("META-INF/MANIFEST.MF");
-            InputStream zis = zfh1.getInputStream(zf, ze);
-            byte a[] = null;
-            if (zis instanceof ByteArrayInputStream) {
-                ByteArrayInputStream bais = (ByteArrayInputStream) zis;
-                a = getBufFromByteArrayInputStream(bais);
-                zis.close();
+            int streamCloseOpenCount = getOpenCount(handle);
+            if ( streamCloseOpenCount != 0 ) {
+                pass = false;
+                writer.println("FAIL: Handle [ " + canonicalPath + " ] open count after stream close is [ " + Integer.valueOf(initialOpenCount) + " ] but should be [ 0 ]");
             }
-            zf = zfh2.open();
-            InputStream zis2 = zfh2.getInputStream(zf, ze);
-            byte b[] = null;
-            if (zis2 instanceof ByteArrayInputStream) {
-                ByteArrayInputStream bais2 = (ByteArrayInputStream) zis2;
-                b = getBufFromByteArrayInputStream(bais2);
+
+            if ( entryCacheSize > 0 ) {
+                // The handle must be open for calls to 'getInputStream'.
+                ZipFile zipFile1 = handle.open();
+                ZipEntry ze = zipFile1.getEntry("META-INF/MANIFEST.MF");
+
+                InputStream zis1 = handle.getInputStream(zipFile1, ze);
+                byte zisBytes1[] = getBuffer(zis1);
+                zis1.close();
+
+                // When the entry buffer is enabled, the byte arrays for
+                // small entries are cached, and the stream which is
+                // retrieved is constructed directly as a ByteArrayInputStream
+                // on the cached byte array.  ByteArrayInputStream stores
+                // the byte array directly.
+
+                InputStream zis2 = handle.getInputStream(zipFile1, ze);
+                byte zisBytes2[] = getBuffer(zis2);
                 zis2.close();
-            }
-            zfh1.close();
-            zfh2.close();
-            if (a != b) {
-                passed = false;
-                writer.println("FAIL: zipCache did not return same byte array for expected data.");
-            } else {
-                if (a == null || b == null) {
-                    passed = false;
-                    writer.println("FAIL: could not test byte array identity equality, due to null, has code been changed?");
-                }
-            }
-            if (passed) {
-                //push the zfh out of the cache.. (255 is based on current hardcode default in zcs) 
-                for (int i = 0; i < 255; i++) {
-                    ZipFileHandle dontCare = zcs.openZipFile(p + "." + i);
-                    if (dontCare == null) {
-                        passed = false;
-                        writer.println("FAIL: unable to push enough rubbish into the cache to force out the original test entries.");
-                    }
+
+                handle.close();
+
+                // A null byte array means the entry was not a candidate
+                // for caching.  That is, if it had more than the cache
+                // size limit bytes, or was not a .class or META-INF/MANIFEST.MF.
+                //
+                // If the entry is cacheable, it is returned as a ByteArrayInputStream,
+                // even on a cache put.
+
+                if ( (zisBytes1 == null) || (zisBytes2 == null) ) {
+                    pass = false;
+                    writer.println("FAIL: Handle [ " + canonicalPath + " ] entry [ " + ze.getName() + " ] did not obtain byte array input streams");
+                } else if ( zisBytes1 != zisBytes2 ) {
+                    pass = false;
+                    writer.println("FAIL: Handle [ " + canonicalPath + " ] entry [ " + ze.getName() + " ] did not obtain identical byte arrays");
                 }
 
-                zfh2 = zcs.openZipFile(p);
-                passed &= (zfh1 != zfh2);
-                if (!passed)
-                    writer.println("FAIL: zipcache gave back same zip file handles for same location, after cache overfill force.");
+            } else {
+                writer.println("Skipping entry tests: Entry caching is disabled");
             }
-        } catch (IOException io) {
-            passed = false;
-            writer.println("FAIL: io exception when using zip cache to test zfh equality");
-            io.printStackTrace(writer);
+
+            for ( int handleNo = 0; handleNo < handleCacheSize + 1; handleNo++ ) {
+                String nextPath = canonicalPath + "." + handleNo;
+                ZipFileHandle zipHandle = zcs.openZipFile(nextPath);
+                if ( zipHandle == null ) {
+                    pass = false;
+                    writer.println("FAIL: Failed to obtain handle [ " + nextPath + " ]");
+                }
+            }
+
+            ZipFileHandle nonDuplicateHandle = zcs.openZipFile(canonicalPath);
+            if ( nonDuplicateHandle == handle ) {
+                pass = false;
+                writer.println("FAIL: Unique handle after overflow for [ " + canonicalPath + " ]");
+            }
+
+        } catch ( IOException e ) {
+            pass = false;
+            writer.println("FAIL: Exception: " + e.getMessage());
+            e.printStackTrace(writer);
         }
-        if (passed) {
-            writer.println("PASS: zipCacheTest passed");
-        } else {
-            writer.println("FAIL: zipCacheTest failed");
+
+        if ( pass ) {
+            writer.println("PASS: " + methodName);
         }
     }
 
-    private boolean testFsLayerViaOverlay(PrintWriter out, ArtifactContainer container, String type, Fs testdata) {
+    private boolean testFsLayerViaOverlay(PrintWriter out, ArtifactContainer container, String type, FileSystem testdata) {
         if (container == null) {
             out.println("FAIL: Unable to perform overlay test, as container came back null for " + type);
             return false;
@@ -661,11 +702,11 @@ public class ArtifactAPIServlet extends HttpServlet {
             out.println("Using " + temp.getAbsolutePath() + " as the overlay test dir");
             oc.setOverlayDirectory(new File(cacheDirOverlay), temp);
 
-            FsArtifactUtil.counter = 0;
+            ArtifactUtils.counter = 0;
             long start = System.currentTimeMillis();
-            result = FsArtifactUtil.compare(oc, testdata, out);
+            result = ArtifactUtils.compare(oc, testdata, out);
             if (result) {
-                out.println("PASS: woohoo.. completed " + FsArtifactUtil.counter + " tests on overlay for " + type + " in " + (System.currentTimeMillis() - start) + "ms");
+                out.println("PASS: woohoo.. completed " + ArtifactUtils.counter + " tests on overlay for " + type + " in " + (System.currentTimeMillis() - start) + "ms");
             }
         } finally {
             out.println("Cleaning up " + temp.getAbsolutePath() + " for " + type);
@@ -675,96 +716,96 @@ public class ArtifactAPIServlet extends HttpServlet {
         return result;
     }
 
-    //quick little routine that dives down & tests each conversion to string for 'fail'
-    //also printing the messages to the servlet output..
-    //will only return true if it never saw FAIL
-    private boolean recursiveCheck(Container c, PrintWriter w) {
+    /**
+     * Recursively validate a container and its children.
+     * 
+     * Recurse into entries which adapt as containers.
+     *
+     * Validate the full path of each container and of each entry.
+     * 
+     * Validate the result of adapting each container to string and of
+     * adapting each entry to string.
+     *
+     * @param container The container to validate.
+     * @param writer A writer on which to print diagnostic messages.
+     * 
+     * @return True or false telling if the container and its contents are valid.
+     */
+    private boolean recursiveCheck(Container container, PrintWriter writer) {
+        boolean pass = true;
+
         try {
-            String id1 = getIDForContainer(c);
-            String id2 = getIDForContainerAvoidingGetRoot(c);
-            w.println("Checking: (id1) " + id1);
-            w.println("Checking: (id2) " + id2);
-            if (!id1.equals(id2)) {
-                w.println("Error processing absolute path for container, id1 & id2 should have matched.");
-                return false;
+            String containerID = ContainerUtils.getContainerID(container);
+            String containerID_noGetRoot = ContainerUtils.getContainerIDNoGetRoot(container);
+            writer.println("Container ID [ " + containerID + " ]");
+            writer.println("Container ID (no getRoot) [ " + containerID_noGetRoot + " ]");
+            if ( !containerID.equals(containerID_noGetRoot) ) {
+                writer.println("Error: Container ID [ " + containerID + " ]" +
+                               " does not match container ID (no getRoot) [ " + containerID_noGetRoot + " ]");
+                pass = false;
             }
 
-            String test = c.adapt(String.class);
-            w.println(test);
-            if (test.indexOf("FAIL") != -1)
-                return false;
-            boolean pass = true;
-            for (Entry e : c) {
-                String id3 = getIDForContainer(e.getEnclosingContainer()) + (e.getEnclosingContainer().isRoot() ? "" : "/") + e.getName();
-                w.println("Checking Entry: (id3) " + id3);
-                String id4 = getIDForContainerAvoidingGetRoot(e.getEnclosingContainer()) + (e.getEnclosingContainer().isRoot() ? "" : "/") + e.getName();
-                w.println("Checking Entry: (id4) " + id4);
-                if (id3.indexOf("//") != -1 || id4.indexOf("//") != -1) {
-                    w.println("FAIL: illegal path element found in id " + id3 + " or " + id4);
-                    return false;
+            String containerString = container.adapt(String.class);
+            writer.println("Container String [ " + containerString + " ]");
+            if ( containerString == null ) {
+                writer.println("Error: Null container [ " + containerID + " ] String");
+                pass = false;
+            } else if ( containerString.indexOf("FAIL") != -1 ) {
+                writer.println("Error: FAIL detected in container [ " + containerID + " ] String [ " + containerString + " ]");
+                pass = false;
+            }
+
+            for ( Entry entry : container ) {
+                String entryID = ContainerUtils.getEntryID(entry);
+                String entryID_noGetRoot = ContainerUtils.getEntryIDNoGetRoot(entry);
+
+                writer.println("Entry ID [ " + entryID + " ]");
+                writer.println("Entry ID (no getRoot) [ " + entryID_noGetRoot + " ]");
+
+                if ( !entryID.equals(entryID_noGetRoot) ) {
+                    writer.println("Error: Entry ID [ " + entryID + " ]" +
+                                   " does not match entry ID (no getRoot) [ " + entryID_noGetRoot + " ]");
+                    pass = false;
                 }
-                test = e.adapt(String.class);
-                w.println(test);
-                if (test.indexOf("FAIL") != -1)
-                    return false;
-                Container nested = e.adapt(Container.class);
-                if (nested != null) {
-                    pass &= recursiveCheck(nested, w);
+
+                String entryString = entry.adapt(String.class);
+                writer.println("Entry String [ " + entryString + " ]");
+                if ( entryString == null ) {
+                    writer.println("Error: Null entry [ " + entryID + " ] String");
+                    pass = false;
+                } else if ( entryString.indexOf("FAIL") != -1 ) {
+                    writer.println("Error: FAIL detected in entry [ " + entryID + " ] String [ " + entryString + " ]");
+                    pass = false;
+                }
+
+                Container entryAsContainer = entry.adapt(Container.class);
+                if ( entryAsContainer != null ) {
+                    if ( !recursiveCheck(entryAsContainer, writer) ) {
+                        pass = false;
+                    }
                 }
             }
+
             return pass;
-        } catch (UnableToAdaptException e) {
-            w.println("FAIL: adapter threw unable to adapt exception.. " + e.getMessage());
-            e.printStackTrace(w);
+
+        } catch ( UnableToAdaptException e ) {
+            writer.println("FAIL: Adapt Exception: " + e.getMessage());
+            e.printStackTrace(writer);
+
             return false;
         }
     }
 
-    private String getIDForContainer(Container c) throws UnableToAdaptException {
-        String totalPath = c.getPath();
-        Container root = c.getRoot();
-        Entry entryInParent = root.adapt(Entry.class);
-        while (entryInParent != null) {
-            totalPath = entryInParent.getPath() + "#" + totalPath;
-            root = entryInParent.getRoot();
-            entryInParent = root.adapt(Entry.class);
-        }
-        return totalPath;
-    }
-
-    private String getIDForContainerAvoidingGetRoot(Container c) throws UnableToAdaptException {
-        String totalPath = c.getPath();
-        Container root = c;
-        while (root != null && !root.isRoot()) {
-            root = root.getEnclosingContainer();
-        }
-        if (root != null) {
-            Entry entryInParent = root.adapt(Entry.class);
-            while (entryInParent != null) {
-                totalPath = entryInParent.getPath() + "#" + totalPath;
-                root = entryInParent.getEnclosingContainer();
-                while (root != null && !root.isRoot()) {
-                    root = root.getEnclosingContainer();
-                }
-                if (root == null)
-                    entryInParent = null;
-                else
-                    entryInParent = root.adapt(Entry.class);
-            }
-        }
-        return totalPath;
-    }
-
-    @SuppressWarnings("unchecked")
-    private void testInterpretedAdapterRoots(AdaptableModuleFactory amf, PrintWriter writer) throws UnableToAdaptException {
+    private void testInterpretedAdapterRoots(PrintWriter writer) throws UnableToAdaptException {
         ArtifactContainer c = getContainerForDirectory();
+
         Container adaptContainer = amf.getContainer(new File(cacheDirAdapt), new File(cacheDirOverlay), c);
+
         if (adaptContainer != null) {
             writer.println("Got ArtifactContainer " + adaptContainer);
             InterpretedContainer interpreted = adaptContainer.adapt(InterpretedContainer.class);
 
             StructureHelper sh = new StructureHelper() {
-                /** {@inheritDoc} */
                 @Override
                 public boolean isRoot(ArtifactContainer e) {
                     if ("aa".equals(e.getName()))
@@ -817,380 +858,458 @@ public class ArtifactAPIServlet extends HttpServlet {
             //test method will dive through every container/entry 
             //and adapt it to string, driving the verifier adapters.
             boolean pass = recursiveCheck(interpreted, writer);
+
             if (pass)
                 writer.println("PASS: all done with checks");
         }
 
     }
 
-    // helpful data structure for testAddEntryToOverlay.
-    class ContainerAndPathAndResult {
-        final Container container;
-        final String path;
-        final boolean expectedResult;
+    // Helpers for the overlay test ...
 
-        ContainerAndPathAndResult(Container container, String path, boolean expectedResult) {
+    private class ContainerAction {
+        public final Container container;
+        public final String path;
+        public final boolean expected;
+
+        public ContainerAction(Container container, String path, boolean expected) {
+            if ( container == null ) {
+                throw new IllegalArgumentException("Container cannot be null.");
+            } else if ( path == null ) {
+                throw new IllegalArgumentException("Path cannot be null.");
+            }
+
             this.container = container;
             this.path = path;
-            this.expectedResult = expectedResult;
+
+            this.expected = expected;
         }
 
         @Override
         public String toString() {
-            return "[containerPath = " + container.getPath() + ", entryPath = " + path + ", expectedResult = " + expectedResult + "]";
+            return "ContainerAction(container " + container.getPath() + ", path " + path + ", expected " + Boolean.valueOf(expected) +")";
         }
     }
 
-    // called by testAddEntryToOverlay method.
-    private boolean addAndGetEntry(ContainerAndPathAndResult add, ContainerAndPathAndResult get, PrintWriter writer) throws IOException, UnableToAdaptException {
-        String status = "";
-        String addString = null;
+    private String standardAddData() {
+        Date date = new Date();
+        return date.getTime() + ", " + date.toString();
+    }
 
-        // add the entry using the add container and path.
-        if (add != null) {
-            status += "Add entry for " + add + ". ";
-            AddEntryToOverlay adder = add.container.adapt(AddEntryToOverlay.class);
-            Date date = new Date();
-            addString = date.getTime() + ", " + date.toString();
-            if (adder.add(add.path, addString) != add.expectedResult) {
-                writer.println("FAIL. " + status);
+    private boolean addAndGetEntry(ContainerAction addAction, ContainerAction getAction, PrintWriter writer)
+        throws IOException, UnableToAdaptException {
+
+        String addContent;
+        if ( addAction != null ) {
+            writer.println("Add [ " + addAction + " ]");
+            addContent = standardAddData();
+            writer.println("Add content [" + addContent + "]");
+            AddEntryToOverlay adder = addAction.container.adapt(AddEntryToOverlay.class);
+            boolean actual = adder.add(addAction.path, addContent);
+            if ( actual != addAction.expected ) {
+                writer.println("FAIL: " + (addAction.expected ? "Failed to but expected to add" : "Added but expected failed to add"));
                 return false;
+            } else {
+                writer.println("Add result [ " + (addAction.expected ? "Did add" : "Did not add") + " ]");
             }
+        } else {
+            writer.println("No add action");
+            addContent = null;
         }
 
-        // get the entry using the get container and path.
-        if (get != null) {
-            status += "Get entry for " + get + ". ";
-            Entry entry = get.container.getEntry(get.path);
-            if ((get.expectedResult && entry == null) || (!get.expectedResult && entry != null)) {
-                writer.println("FAIL. " + status);
+        Entry getEntry;
+        if ( getAction != null ) {
+            writer.println("Get [ " + getAction + " ]");
+            getEntry = getAction.container.getEntry(getAction.path);
+            boolean actual = (getEntry != null);
+            if ( actual != getAction.expected ) {
+                writer.println("FAIL: " + (getAction.expected ? "Failed to get but expected get" : "Got but expected failed to get"));
                 return false;
+            } else {
+                writer.println("Get result [ " + (getAction.expected ? "Did get" : "Did not get") + " ]");
             }
+        } else {
+            writer.println("No get action");
+            getEntry = null;
         }
 
-        // ensure the content read is that which was written, if we are doing both and expect both to succeed.
-        if ((add != null && add.expectedResult) && (get != null && get.expectedResult)) {
-            Entry entry = get.container.getEntry(get.path);
-            InputStream inputStream = entry.adapt(InputStream.class);
-            InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-            String getString = bufferedReader.readLine();
-            bufferedReader.close();
-            status += "Content was [" + addString + "]. ";
-            if (!addString.equals(getString)) {
-                status += "Got content [" + getString + "]";
-                writer.println("FAIL. " + status);
+        String getContent;
+        if ( (addContent != null) && (getEntry != null) ) {
+            getContent = readFirstLine(getEntry);
+            writer.println("Get content [" + getContent + "]");
+            if ( !addContent.equals(getContent) ) {
+                writer.println("FAIL: Add content [ " + addContent + " ] does not match get content [ " + getContent + " ]");
                 return false;
             }
+        } else {
+            writer.println("No content comparison");
+            getContent = null;
         }
 
-        writer.println(status);
+        // Do NOT add "PASS": This is one step among many.  Other steps may still fail.
         return true;
     }
 
-    private void testAddEntryToOverlay(AdaptableModuleFactory amf, PrintWriter writer) throws UnableToAdaptException, IOException {
+    private String readFirstLine(Entry entry) throws UnableToAdaptException, IOException {
+        InputStream inputStream = entry.adapt(InputStream.class); // throws UnableToAdaptException
+
+        try {
+            InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+            return bufferedReader.readLine(); // throws IOException
+
+        } finally {
+            inputStream.close(); // throws IOException
+        }
+    }
+
+    // this structure helper is specifically for use with the ${server.config.dir}/TESTDATA dir.
+
+    private static class AddStructureHelper implements StructureHelper {
+
+        private boolean isContainedInJar(ArtifactContainer c) {
+            // there are a couple of jars under the TESTDATA file hierarchy, so there is a root 
+            // container at the top of the hierarchy and at each jar, but the jar containers are
+            // in turn under another container as they are within the file hierarchy whereas the
+            // filesystem root container is not.
+            return c.getRoot().getEnclosingContainer() != null;
+        }
+
+        @Override
+        public boolean isRoot(ArtifactContainer c) {
+            // if it's the "ba" directory on the filesystem (and not one inside a jar in the
+            // filesystem), treat as root.
+            if (c.getName().equals("ba") && !isContainedInJar(c))
+                return true;
+            // otherwise go with the default behaviour.
+            else
+                return c.isRoot();
+        }
+
+        @Override
+        public boolean isValid(ArtifactContainer c, String path) {
+            // hide paths that include but don't end in "ba" that are not inside a jar, i.e. are
+            // paths traversing under "ba" on the filesystem (note also that paths that are 
+            // returned by getPath() do not have trailing /'s, so we never expect to see a path 
+            // of the form .../ba/ referring to the ba directory itself).
+            if (path.contains("/ba/") && !isContainedInJar(c))
+                return false;
+            else
+                return true;
+        }
+    }
+
+    private void populateActions(
+        List<ContainerAction> addActions, List<ContainerAction> getActions,
+        Container rootPlainContainer, InterpretedContainer rootInterpretedContainer) 
+        throws UnableToAdaptException {
+
+        // now use adaptable entries and containers to test add entry adapter, users of the 
+        // adapter will typically deal with interpreted containers, but may as well test plain
+        // non-interpreted containers too; first build up the list of required tests. 
+        ContainerAction cpr;
+
+        // check the top-level root container doesn't allow absolute paths.
+        addActions.add(new ContainerAction(rootPlainContainer, "/plain-abspath-1.txt", false));
+        getActions.add(null);
+
+        addActions.add(new ContainerAction(rootInterpretedContainer, "/interpreted-abspath-1.txt", false));
+        getActions.add(null);
+
+        // check a non-root container under the top-level parent root container doesn't allow 
+        // absolute paths.
+        addActions.add(new ContainerAction(rootPlainContainer.getEntry("a/ab").adapt(Container.class), "/plain-abspath-2.txt", false));
+        getActions.add(null);
+
+        addActions.add(new ContainerAction(rootInterpretedContainer.getEntry("a/ab").adapt(Container.class), "/interpreted-abspath-2.txt", false));
+        getActions.add(null);
+
+        // check the top-level root container.
+        cpr = new ContainerAction(rootPlainContainer, "plain-1.txt", true);
+        addActions.add(cpr);
+        getActions.add(cpr);
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "/plain-1.txt", true));
+
+        cpr = new ContainerAction(rootInterpretedContainer, "interpreted-1.txt", true);
+        addActions.add(cpr);
+        getActions.add(cpr);
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "/interpreted-1.txt", true));
+
+        // check a non-root container under the top-level parent root container.
+        cpr = new ContainerAction(rootPlainContainer.getEntry("a/ab").adapt(Container.class), "plain-2.txt", true);
+        addActions.add(cpr);
+        getActions.add(cpr);
+
+        cpr = new ContainerAction(rootInterpretedContainer.getEntry("a/ab").adapt(Container.class), "interpreted-2.txt", true);
+        addActions.add(cpr);
+        getActions.add(cpr);
+
+        // check a non-root container under the top-level parent root container, retrieving the 
+        // added entry from the container above. 
+        addActions.add(new ContainerAction(rootPlainContainer.getEntry("a/ab/aba").adapt(Container.class), "plain-3.txt", true));
+        getActions.add(new ContainerAction(rootPlainContainer.getEntry("a/ab").adapt(Container.class), "aba/plain-3.txt", true));
+
+        addActions.add(new ContainerAction(rootInterpretedContainer.getEntry("a/ab/aba").adapt(Container.class), "interpreted-3.txt", true));
+        getActions.add(new ContainerAction(rootInterpretedContainer.getEntry("a/ab").adapt(Container.class), "aba/interpreted-3.txt", true));
+
+        // check a root container under the top-level parent root container, enforced by the 
+        // structure helper.
+        cpr = new ContainerAction(rootPlainContainer.getEntry("b/ba").adapt(Container.class), "plain-4.txt", true);
+        addActions.add(cpr);
+        getActions.add(cpr);
+
+        cpr = new ContainerAction(rootInterpretedContainer.getEntry("b/ba").adapt(Container.class), "interpreted-4.txt", true);
+        addActions.add(cpr);
+        getActions.add(cpr);
+
+        // check a root container under the top-level parent root container, due to being an 
+        // archive.
+        cpr = new ContainerAction(rootPlainContainer.getEntry("c/a.jar").adapt(Container.class), "plain-5.txt", true);
+        addActions.add(cpr);
+        getActions.add(cpr);
+
+        cpr = new ContainerAction(rootInterpretedContainer.getEntry("c/a.jar").adapt(Container.class), "interpreted-5.txt", true);
+        addActions.add(cpr);
+        getActions.add(cpr);
+
+        // add to a root container under the top-level parent root container, enforced by the 
+        // structure helper, and ensure an entry of the same name cannot be retrieved from the 
+        // top-level root container.
+        addActions.add(new ContainerAction(rootPlainContainer.getEntry("b/ba").adapt(Container.class), "plain-6.txt", true));
+        getActions.add(new ContainerAction(rootPlainContainer, "plain-6.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "/plain-6.txt", false));
+
+        addActions.add(new ContainerAction(rootInterpretedContainer.getEntry("b/ba").adapt(Container.class), "interpreted-6.txt", true));
+        getActions.add(new ContainerAction(rootInterpretedContainer, "interpreted-6.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "/interpreted-6.txt", false));
+
+        // add to a root container under the top-level parent root container, due to being an 
+        // archive, and ensure an entry of the same name cannot be retrieved from the top-level 
+        // root container.
+        addActions.add(new ContainerAction(rootPlainContainer.getEntry("c/a.jar").adapt(Container.class), "plain-7.txt", true));
+        getActions.add(new ContainerAction(rootPlainContainer, "plain-7.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "/plain-7.txt", false));
+
+        addActions.add(new ContainerAction(rootInterpretedContainer.getEntry("c/a.jar").adapt(Container.class), "interpreted-7.txt", true));
+        getActions.add(new ContainerAction(rootInterpretedContainer, "interpreted-7.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "/interpreted-7.txt", false));
+
+        // add to the plain container (non-interpreted) that corresponds to a root container 
+        // under the top-level parent root container, that was made root by the structure 
+        // helper, and ensure the entry can be retrieved or not as expected from both the plain 
+        // and interpreted views.
+        cpr = new ContainerAction(rootPlainContainer.getEntry("b/ba").adapt(Container.class), "plain-8.txt", true);
+        addActions.add(cpr); // checks content as well as entry existence, when addAt is null only entry existence is checked
+        getActions.add(cpr);
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "b/ba/plain-8.txt", true));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "/b/ba/plain-8.txt", true));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "b/ba/plain-8.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "/b/ba/plain-8.txt", false));
+
+        addActions.add(null); // should be identical to first check, but will try again anyway
+        getActions.add(new ContainerAction(rootPlainContainer.getEntry("b/ba").adapt(Container.class), "plain-8.txt", true));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer.getEntry("b/ba").adapt(Container.class), "plain-8.txt", true));
+
+        // add to the interpreted container (not plain) that corresponds to a root container 
+        // under the top-level parent root container, that was made root by the structure 
+        // helper, and ensure the entry can be retrieved or not as expected from both the plain 
+        // and interpreted views.
+        cpr = new ContainerAction(rootInterpretedContainer.getEntry("b/ba").adapt(Container.class), "interpreted-8.txt", true);
+        addActions.add(cpr); // checks content as well as entry existence, when addAt is null only entry existence is checked
+        getActions.add(cpr);
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "b/ba/interpreted-8.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "/b/ba/interpreted-8.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "b/ba/interpreted-8.txt", true));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "/b/ba/interpreted-8.txt", true));
+
+        addActions.add(null); // should be identical to first check, but will try again anyway
+        getActions.add(new ContainerAction(rootInterpretedContainer.getEntry("b/ba").adapt(Container.class), "interpreted-8.txt", true));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer.getEntry("b/ba").adapt(Container.class), "interpreted-8.txt", true));
+
+        // add to the plain container (non-interpreted) that corresponds to a root container 
+        // under the top-level parent root container, that was made root due to being an 
+        // archive, and ensure the entry can be retrieved or not as expected from both the plain
+        // and interpreted views.
+        cpr = new ContainerAction(rootPlainContainer.getEntry("c/a.jar").adapt(Container.class), "plain-9.txt", true);
+        addActions.add(cpr); // checks content as well as entry existence, when addAt is null only entry existence is checked
+        getActions.add(cpr);
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "c/a.jar/plain-9.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "/c/a.jar/plain-9.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "c/a.jar/plain-9.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "/c/a.jar/plain-9.txt", false));
+
+        addActions.add(null); // should be identical to first check, but will try again anyway
+        getActions.add(new ContainerAction(rootPlainContainer.getEntry("c/a.jar").adapt(Container.class), "plain-9.txt", true));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer.getEntry("c/a.jar").adapt(Container.class), "plain-9.txt", true));
+
+        // add to the plain container (non-interpreted) that corresponds to a root container 
+        // under the top-level parent root container, that was made root due to being an 
+        // archive, and ensure the entry can be retrieved or not as expected from both the plain
+        // and interpreted views.
+        cpr = new ContainerAction(rootInterpretedContainer.getEntry("c/a.jar").adapt(Container.class), "interpreted-9.txt", true);
+        addActions.add(cpr); // checks content as well as entry existence, when addAt is null only entry existence is checked
+        getActions.add(cpr);
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "c/a.jar/interpreted-9.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootInterpretedContainer, "/c/a.jar/interpreted-9.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "c/a.jar/interpreted-9.txt", false));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer, "/c/a.jar/interpreted-9.txt", false));
+
+        addActions.add(null); // should be identical to first check, but will try again anyway
+        getActions.add(new ContainerAction(rootInterpretedContainer.getEntry("c/a.jar").adapt(Container.class), "interpreted-9.txt", true));
+
+        addActions.add(null);
+        getActions.add(new ContainerAction(rootPlainContainer.getEntry("c/a.jar").adapt(Container.class), "interpreted-9.txt", true));
+    }
+
+    private void testAddEntryToOverlay(PrintWriter writer)
+        throws UnableToAdaptException, IOException {
 
         writer.println("testAddEntryToOverlay");
+        writer.println("  CacheDir [ " + cacheDirAdapt + " ]");
+        writer.println("  CacheOverlay [ " + cacheDirOverlay + " ]");
 
-        // this structure helper is specifically for use with the ${server.config.dir}/TESTDATA dir.
-        StructureHelper structureHelper = new StructureHelper() {
+        ArtifactContainer rootArtifactContainer = getContainerForDirectory();
 
-            private boolean isContainedInJar(ArtifactContainer c) {
-                // there are a couple of jars under the TESTDATA file hierarchy, so there is a root 
-                // container at the top of the hierarchy and at each jar, but the jar containers are
-                // in turn under another container as they are within the file hierarchy whereas the
-                // filesystem root container is not.
-                return c.getRoot().getEnclosingContainer() != null;
-            }
+        Container rootOverlayContainer = amf.getContainer(
+            new File(cacheDirAdapt), new File(cacheDirOverlay),
+            rootArtifactContainer);
 
-            @Override
-            public boolean isRoot(ArtifactContainer c) {
-                // if it's the "ba" directory on the filesystem (and not one inside a jar in the
-                // filesystem), treat as root.
-                if (c.getName().equals("ba") && !isContainedInJar(c))
-                    return true;
-                // otherwise go with the default behaviour.
-                else
-                    return c.isRoot();
-            }
+        InterpretedContainer rootInterpretedContainer = rootOverlayContainer.adapt(InterpretedContainer.class);
 
-            @Override
-            public boolean isValid(ArtifactContainer c, String path) {
-                // hide paths that include but don't end in "ba" that are not inside a jar, i.e. are
-                // paths traversing under "ba" on the filesystem (note also that paths that are 
-                // returned by getPath() do not have trailing /'s, so we never expect to see a path 
-                // of the form .../ba/ referring to the ba directory itself).
-                if (path.contains("/ba/") && !isContainedInJar(c))
-                    return false;
-                else
-                    return true;
-            }
-        };
+        rootInterpretedContainer.setStructureHelper( new AddStructureHelper() );
+
+        // Sanity-check: Ensure we can define a root container using the structure helper,
+        // shouldn't be able to retrieve entries under that root container from outside it.
+
+        if ( rootInterpretedContainer.getEntry("b/ba/baa/baa1.txt") != null ) {
+            writer.println("FAIL: Retrieved entry from root created by structure helper");
+            return;
+        }
+
+        List<ContainerAction> addActions = new ArrayList<ContainerAction>();
+        List<ContainerAction> getActions = new ArrayList<ContainerAction>();
+
+        populateActions(addActions, getActions, rootOverlayContainer, rootInterpretedContainer);
+
+        int numAddActions = addActions.size();
+        int numGetActions = getActions.size();
+        if ( numAddActions != numGetActions ) {
+            writer.println("FAIL: Unequal actions:" +
+                           " Add [ " + Integer.valueOf(numAddActions) + " ]" +
+                           " Get [ " + Integer.valueOf(numGetActions) + " ]");
+            return;
+        }
 
         boolean passed = true;
 
-        ArtifactContainer rootArtifactContainer = getContainerForDirectory();
-        Container rootPlainContainer = amf.getContainer(new File(cacheDirAdapt), new File(cacheDirOverlay), rootArtifactContainer);
-        InterpretedContainer rootInterpretedContainer = rootPlainContainer.adapt(InterpretedContainer.class);
-        rootInterpretedContainer.setStructureHelper(structureHelper);
-        List<ContainerAndPathAndResult> addAts = new ArrayList<ContainerAndPathAndResult>();
-        List<ContainerAndPathAndResult> getFroms = new ArrayList<ContainerAndPathAndResult>();
-
         try {
-            if (rootInterpretedContainer.getEntry("b/ba/baa/baa1.txt") != null) {
-                // sanity-check to ensure we can define a root container using the structure helper,
-                // shouldn't be able to retrieve entries under that root container from outside it.
-                passed = false;
-                writer.println("FAIL: can get an entry through root created by structure helper");
-            }
-
-            // now use adaptable entries and containers to test add entry adapter, users of the 
-            // adapter will typically deal with interpreted containers, but may as well test plain
-            // non-interpreted containers too; first build up the list of required tests. 
-            ContainerAndPathAndResult cpr;
-
-            // check the top-level root container doesn't allow absolute paths.
-            addAts.add(new ContainerAndPathAndResult(rootPlainContainer, "/plain-abspath-1.txt", false));
-            getFroms.add(null);
-
-            addAts.add(new ContainerAndPathAndResult(rootInterpretedContainer, "/interpreted-abspath-1.txt", false));
-            getFroms.add(null);
-
-            // check a non-root container under the top-level parent root container doesn't allow 
-            // absolute paths.
-            addAts.add(new ContainerAndPathAndResult(rootPlainContainer.getEntry("a/ab").adapt(Container.class), "/plain-abspath-2.txt", false));
-            getFroms.add(null);
-
-            addAts.add(new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("a/ab").adapt(Container.class), "/interpreted-abspath-2.txt", false));
-            getFroms.add(null);
-
-            // check the top-level root container.
-            cpr = new ContainerAndPathAndResult(rootPlainContainer, "plain-1.txt", true);
-            addAts.add(cpr);
-            getFroms.add(cpr);
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "/plain-1.txt", true));
-
-            cpr = new ContainerAndPathAndResult(rootInterpretedContainer, "interpreted-1.txt", true);
-            addAts.add(cpr);
-            getFroms.add(cpr);
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "/interpreted-1.txt", true));
-
-            // check a non-root container under the top-level parent root container.
-            cpr = new ContainerAndPathAndResult(rootPlainContainer.getEntry("a/ab").adapt(Container.class), "plain-2.txt", true);
-            addAts.add(cpr);
-            getFroms.add(cpr);
-
-            cpr = new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("a/ab").adapt(Container.class), "interpreted-2.txt", true);
-            addAts.add(cpr);
-            getFroms.add(cpr);
-
-            // check a non-root container under the top-level parent root container, retrieving the 
-            // added entry from the container above. 
-            addAts.add(new ContainerAndPathAndResult(rootPlainContainer.getEntry("a/ab/aba").adapt(Container.class), "plain-3.txt", true));
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer.getEntry("a/ab").adapt(Container.class), "aba/plain-3.txt", true));
-
-            addAts.add(new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("a/ab/aba").adapt(Container.class), "interpreted-3.txt", true));
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("a/ab").adapt(Container.class), "aba/interpreted-3.txt", true));
-
-            // check a root container under the top-level parent root container, enforced by the 
-            // structure helper.
-            cpr = new ContainerAndPathAndResult(rootPlainContainer.getEntry("b/ba").adapt(Container.class), "plain-4.txt", true);
-            addAts.add(cpr);
-            getFroms.add(cpr);
-
-            cpr = new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("b/ba").adapt(Container.class), "interpreted-4.txt", true);
-            addAts.add(cpr);
-            getFroms.add(cpr);
-
-            // check a root container under the top-level parent root container, due to being an 
-            // archive.
-            cpr = new ContainerAndPathAndResult(rootPlainContainer.getEntry("c/a.jar").adapt(Container.class), "plain-5.txt", true);
-            addAts.add(cpr);
-            getFroms.add(cpr);
-
-            cpr = new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("c/a.jar").adapt(Container.class), "interpreted-5.txt", true);
-            addAts.add(cpr);
-            getFroms.add(cpr);
-
-            // add to a root container under the top-level parent root container, enforced by the 
-            // structure helper, and ensure an entry of the same name cannot be retrieved from the 
-            // top-level root container.
-            addAts.add(new ContainerAndPathAndResult(rootPlainContainer.getEntry("b/ba").adapt(Container.class), "plain-6.txt", true));
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "plain-6.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "/plain-6.txt", false));
-
-            addAts.add(new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("b/ba").adapt(Container.class), "interpreted-6.txt", true));
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "interpreted-6.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "/interpreted-6.txt", false));
-
-            // add to a root container under the top-level parent root container, due to being an 
-            // archive, and ensure an entry of the same name cannot be retrieved from the top-level 
-            // root container.
-            addAts.add(new ContainerAndPathAndResult(rootPlainContainer.getEntry("c/a.jar").adapt(Container.class), "plain-7.txt", true));
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "plain-7.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "/plain-7.txt", false));
-
-            addAts.add(new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("c/a.jar").adapt(Container.class), "interpreted-7.txt", true));
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "interpreted-7.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "/interpreted-7.txt", false));
-
-            // add to the plain container (non-interpreted) that corresponds to a root container 
-            // under the top-level parent root container, that was made root by the structure 
-            // helper, and ensure the entry can be retrieved or not as expected from both the plain 
-            // and interpreted views.
-            cpr = new ContainerAndPathAndResult(rootPlainContainer.getEntry("b/ba").adapt(Container.class), "plain-8.txt", true);
-            addAts.add(cpr); // checks content as well as entry existence, when addAt is null only entry existence is checked
-            getFroms.add(cpr);
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "b/ba/plain-8.txt", true));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "/b/ba/plain-8.txt", true));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "b/ba/plain-8.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "/b/ba/plain-8.txt", false));
-
-            addAts.add(null); // should be identical to first check, but will try again anyway
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer.getEntry("b/ba").adapt(Container.class), "plain-8.txt", true));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("b/ba").adapt(Container.class), "plain-8.txt", true));
-
-            // add to the interpreted container (not plain) that corresponds to a root container 
-            // under the top-level parent root container, that was made root by the structure 
-            // helper, and ensure the entry can be retrieved or not as expected from both the plain 
-            // and interpreted views.
-            cpr = new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("b/ba").adapt(Container.class), "interpreted-8.txt", true);
-            addAts.add(cpr); // checks content as well as entry existence, when addAt is null only entry existence is checked
-            getFroms.add(cpr);
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "b/ba/interpreted-8.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "/b/ba/interpreted-8.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "b/ba/interpreted-8.txt", true));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "/b/ba/interpreted-8.txt", true));
-
-            addAts.add(null); // should be identical to first check, but will try again anyway
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("b/ba").adapt(Container.class), "interpreted-8.txt", true));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer.getEntry("b/ba").adapt(Container.class), "interpreted-8.txt", true));
-
-            // add to the plain container (non-interpreted) that corresponds to a root container 
-            // under the top-level parent root container, that was made root due to being an 
-            // archive, and ensure the entry can be retrieved or not as expected from both the plain
-            // and interpreted views.
-            cpr = new ContainerAndPathAndResult(rootPlainContainer.getEntry("c/a.jar").adapt(Container.class), "plain-9.txt", true);
-            addAts.add(cpr); // checks content as well as entry existence, when addAt is null only entry existence is checked
-            getFroms.add(cpr);
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "c/a.jar/plain-9.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "/c/a.jar/plain-9.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "c/a.jar/plain-9.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "/c/a.jar/plain-9.txt", false));
-
-            addAts.add(null); // should be identical to first check, but will try again anyway
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer.getEntry("c/a.jar").adapt(Container.class), "plain-9.txt", true));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("c/a.jar").adapt(Container.class), "plain-9.txt", true));
-
-            // add to the plain container (non-interpreted) that corresponds to a root container 
-            // under the top-level parent root container, that was made root due to being an 
-            // archive, and ensure the entry can be retrieved or not as expected from both the plain
-            // and interpreted views.
-            cpr = new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("c/a.jar").adapt(Container.class), "interpreted-9.txt", true);
-            addAts.add(cpr); // checks content as well as entry existence, when addAt is null only entry existence is checked
-            getFroms.add(cpr);
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "c/a.jar/interpreted-9.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer, "/c/a.jar/interpreted-9.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "c/a.jar/interpreted-9.txt", false));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer, "/c/a.jar/interpreted-9.txt", false));
-
-            addAts.add(null); // should be identical to first check, but will try again anyway
-            getFroms.add(new ContainerAndPathAndResult(rootInterpretedContainer.getEntry("c/a.jar").adapt(Container.class), "interpreted-9.txt", true));
-
-            addAts.add(null);
-            getFroms.add(new ContainerAndPathAndResult(rootPlainContainer.getEntry("c/a.jar").adapt(Container.class), "interpreted-9.txt", true));
-
-            // check the code above made equal length lists, it really should have ...
-            if (addAts.size() != getFroms.size()) {
-                passed = false;
-                writer.println("FAIL: error in test code");
-            }
-
-            // now do the work collected above.
-            for (int i = 0; i < addAts.size(); i++) {
-                passed &= addAndGetEntry(addAts.get(i), getFroms.get(i), writer);
+            for ( int actionNo = 0; actionNo < numAddActions; actionNo++ ) {
+                ContainerAction addAction = addActions.get(actionNo);
+                ContainerAction getAction = getActions.get(actionNo);
+                if ( !(passed = addAndGetEntry(addAction, getAction, writer)) ) {
+                    break;
+                }
             }
 
         } finally {
             // clean-up overlaid entries, in brute-force manner (may well delete paths like a/b 
             // before a/b/c, removing the latter by implicitly before we attempt to do it 
             // explicitly, but this doesn't matter as the explicit operation will just be a no-op).
-            for (int i = 0; i < addAts.size(); i++) {
-                if (addAts.get(i) != null) {
-                    OverlayContainer overlayContainer = addAts.get(i).container.adapt(OverlayContainer.class);
-                    for (String overlaidPath : overlayContainer.getOverlaidPaths()) {
-                        overlayContainer.removeFromOverlay(overlaidPath);
-                    }
+
+            for ( int actionNo = 0; actionNo < numAddActions; actionNo++) {
+                ContainerAction addAction = addActions.get(actionNo);
+                if ( addAction == null ) {
+                    continue;
                 }
-            }
-            for (int i = 0; i < addAts.size(); i++) {
-                if (addAts.get(i) != null) {
-                    OverlayContainer overlayContainer = addAts.get(i).container.adapt(OverlayContainer.class);
-                    for (String overlaidPath : overlayContainer.getOverlaidPaths()) {
-                        passed = false;
-                        writer.println("FAIL: overlaid path " + overlaidPath + " still exists for container with with path " + addAts.get(i).container.getPath());
-                    }
+
+                OverlayContainer overlayContainer = addAction.container.adapt(OverlayContainer.class);
+                if ( overlayContainer == null ) {
+                    passed = false;
+                    writer.println("FAIL: Container [ " + addAction.container.getPath() + " ] has no overlay container");
+                    continue;
+                }
+
+                for ( String overlaidPath : overlayContainer.getOverlaidPaths() ) {
+                    overlayContainer.removeFromOverlay(overlaidPath);
                 }
             }
 
+            for ( int actionNo = 0; actionNo < numAddActions; actionNo++ ) {
+                ContainerAction addAction = addActions.get(actionNo);
+                if ( addAction == null ) {
+                    continue;
+                }
+
+                OverlayContainer overlayContainer = addAction.container.adapt(OverlayContainer.class);
+                if ( overlayContainer == null ) {
+                    passed = false;
+                    writer.println("FAIL: Container [ " + addAction.container.getPath() + " ] has no overlay container");
+                    continue;
+                }
+
+                for ( String overlaidPath : overlayContainer.getOverlaidPaths() ) {
+                    passed = false;
+                    writer.println("FAIL: Container [ " + addAction.container.getPath() + " ] still has overlay [ " + overlaidPath + " ]");
+                }
+            }
         }
 
-        if (passed) {
+        if ( passed ) {
             writer.println("PASS: entries can be added to a container.");
         }
     }
 
-    private void testInterpretedAdaptable(AdaptableModuleFactory amf, PrintWriter writer) throws UnableToAdaptException {
+    private void testInterpretedAdaptable(PrintWriter writer) throws UnableToAdaptException {
         ArtifactContainer c = getContainerForDirectory();
         Container adaptContainer = amf.getContainer(new File(cacheDirAdapt), new File(cacheDirOverlay), c);
         if (adaptContainer != null) {
@@ -1378,48 +1497,48 @@ public class ArtifactAPIServlet extends HttpServlet {
 
         out.println("\n\nrunning dir compare..");
         ArtifactContainer dirc = getContainerForDirectory();
-        FsArtifactUtil.counter = 0;
+        ArtifactUtils.counter = 0;
         long start = System.currentTimeMillis();
-        boolean res1 = FsArtifactUtil.compare(dirc, DirTestData.TESTDATA, out);
+        boolean res1 = ArtifactUtils.compare(dirc, DirFileSystem.TESTDATA, out);
         if (res1) {
-            out.println("PASS: woohoo.. completed " + FsArtifactUtil.counter + " tests in " + (System.currentTimeMillis() - start) + "ms");
+            out.println("PASS: woohoo.. completed " + ArtifactUtils.counter + " tests in " + (System.currentTimeMillis() - start) + "ms");
         }
-        testFsLayerViaOverlay(out, dirc, "Directory", DirTestData.TESTDATA);
+        testFsLayerViaOverlay(out, dirc, "Directory", DirFileSystem.TESTDATA);
 
         out.println("\n\nrunning zip compare..");
         ArtifactContainer zipc = getContainerForZip();
-        FsArtifactUtil.counter = 0;
+        ArtifactUtils.counter = 0;
         start = System.currentTimeMillis();
-        boolean res2 = FsArtifactUtil.compare(zipc, JarTestData.TESTDATA, out);
+        boolean res2 = ArtifactUtils.compare(zipc, JarFileSystem.TESTDATA, out);
         if (res2) {
-            out.println("PASS: woohoo.. completed " + FsArtifactUtil.counter + " tests in " + (System.currentTimeMillis() - start) + "ms ");
+            out.println("PASS: woohoo.. completed " + ArtifactUtils.counter + " tests in " + (System.currentTimeMillis() - start) + "ms ");
         }
-        testFsLayerViaOverlay(out, zipc, "ZipData", JarTestData.TESTDATA);
+        testFsLayerViaOverlay(out, zipc, "ZipData", JarFileSystem.TESTDATA);
 
         out.println("\n\nrunning loose compare..");
         ArtifactContainer loosec = getContainerForLooseXML();
-        FsArtifactUtil.counter = 0;
+        ArtifactUtils.counter = 0;
         start = System.currentTimeMillis();
-        boolean res3 = FsArtifactUtil.compare(loosec, LooseTestData.TESTDATA, out);
+        boolean res3 = ArtifactUtils.compare(loosec, LooseFileSystem.TESTDATA, out);
         if (res3) {
-            out.println("PASS: woohoo.. completed " + FsArtifactUtil.counter + " tests in " + (System.currentTimeMillis() - start) + "ms ");
+            out.println("PASS: woohoo.. completed " + ArtifactUtils.counter + " tests in " + (System.currentTimeMillis() - start) + "ms ");
         }
-        testFsLayerViaOverlay(out, loosec, "LooseData", LooseTestData.TESTDATA);
+        testFsLayerViaOverlay(out, loosec, "LooseData", LooseFileSystem.TESTDATA);
 
         //because I still need to 'fix' the bundle impl architecture..
-        FsArtifactUtil.TEST_INTERFACE_IMPLS_ARE_DIFFERENT = false;
+        ArtifactUtils.TEST_INTERFACE_IMPLS_ARE_DIFFERENT = false;
 
         out.println("\n\nrunning bundle compare..");
         ArtifactContainer bundlec = getContainerForBundle(out);
-        FsArtifactUtil.counter = 0;
+        ArtifactUtils.counter = 0;
         start = System.currentTimeMillis();
-        boolean res4 = FsArtifactUtil.compare(bundlec, BundleTestData.TESTDATA, out);
+        boolean res4 = ArtifactUtils.compare(bundlec, BundleFileSystem.TESTDATA, out);
         if (res4) {
-            out.println("PASS: woohoo.. completed " + FsArtifactUtil.counter + " tests in " + (System.currentTimeMillis() - start) + "ms ");
+            out.println("PASS: woohoo.. completed " + ArtifactUtils.counter + " tests in " + (System.currentTimeMillis() - start) + "ms ");
         }
-        testFsLayerViaOverlay(out, bundlec, "BundleData", BundleTestData.TESTDATA);
+        testFsLayerViaOverlay(out, bundlec, "BundleData", BundleFileSystem.TESTDATA);
 
-        FsArtifactUtil.TEST_INTERFACE_IMPLS_ARE_DIFFERENT = true;
+        ArtifactUtils.TEST_INTERFACE_IMPLS_ARE_DIFFERENT = true;
 
     }
 
@@ -1990,7 +2109,7 @@ public class ArtifactAPIServlet extends HttpServlet {
         return passed;
     }
 
-    private void testAdaptableApiNavigate(AdaptableModuleFactory amf, PrintWriter writer) throws UnableToAdaptException {
+    private void testAdaptableApiNavigate(PrintWriter writer) throws UnableToAdaptException {
         ArtifactContainer c = getContainerForDirectory();
         com.ibm.wsspi.adaptable.module.Container adaptContainer = amf.getContainer(new File(cacheDirAdapt), new File(cacheDirOverlay), c);
         if (adaptContainer != null) {
@@ -2648,136 +2767,179 @@ public class ArtifactAPIServlet extends HttpServlet {
         return passed;
     }
 
-    private void testUnableToAdapt(AdaptableModuleFactory amf, PrintWriter writer) throws UnableToAdaptException {
-        ArtifactContainer c = getContainerForDirectory();
-        Container adaptContainer = amf.getContainer(new File(cacheDirAdapt), new File(cacheDirOverlay), c);
-        if (adaptContainer != null) {
-            Entry aaEntry = adaptContainer.getEntry("/a/aa");
-            Entry abEntry = adaptContainer.getEntry("/a/ab");
-            Entry bbEntry = adaptContainer.getEntry("/b/bb");
-            Container aaContainer = aaEntry.adapt(Container.class);
-            Container abContainer = abEntry.adapt(Container.class);
-            Container bbContainer = bbEntry.adapt(Container.class);
-            if (aaEntry == null || abEntry == null || bbEntry == null ||
-                aaContainer == null || abContainer == null || bbContainer == null) {
-                writer.println("FAIL: unable to obtain test entries for unableToAdapt test. (unrelated test failure)");
-            }
+    private void testUnableToAdapt(PrintWriter writer) throws UnableToAdaptException {
+        ArtifactContainer container = getContainerForDirectory();
 
-            //This test tests adapter sequencing by service rank, and checks that if an adapter returns
-            //null, that the next one is invoked, and if an adapter throws the exception, that control returns
-            //immediately, and subsequent adapters are not called.
+        Container overlayContainer = amf.getContainer( new File(cacheDirAdapt), new File(cacheDirOverlay), container );
+        if ( overlayContainer == null ) {
+            writer.println("FAIL: Failed to obtain overlay container");
+            return;
+        }
 
-            //            Reference test data.
-            //            aa entry gave 10.0
-            //            ab entry gave NODE:/a#/a/ab with java.io.FileNotFoundException
-            //            bb entry gave 999.0
-            //            aa container gave 10.0
-            //            ab container gave NODE:/a/ab#/a/ab with java.io.FileNotFoundException
-            //            bb container gave 999.0
-            boolean pass = true;
-            Float ten = new Float(10.0);
-            Float nineninenine = new Float(999.0);
-            //ok.. setup done.. lets try some tests..
-            try {
-                Float f = aaEntry.adapt(Float.class);
-                if (!f.equals(ten)) {
-                    writer.println("FAIL: Incorrect adapter invoked for entry aa, expected " + ten + " got " + f);
-                    pass = false;
-                }
-            } catch (UnableToAdaptException e) {
-                writer.println("FAIL: aa entry threw UnableToAdaptException " + e.getMessage() + " with " + e.getCause().getClass().getName());
-                pass = false;
-            }
-            try {
-                Float f = abEntry.adapt(Float.class);
-                writer.println("FAIL: ab entry gave " + f + " expected exception");
-                pass = false;
-            } catch (UnableToAdaptException e) {
-                //expected.
-            }
-            try {
-                Float f = bbEntry.adapt(Float.class);
-                if (!f.equals(nineninenine)) {
-                    writer.println("FAIL: Incorrect adapter invoked for entry bb expected " + nineninenine + " got " + f);
-                    pass = false;
-                }
-            } catch (UnableToAdaptException e) {
-                writer.println("FAIL: bb entry threw UnableToAdaptException " + e.getMessage() + " with " + e.getCause().getClass().getName());
-                pass = false;
-            }
-            try {
-                Float f = aaContainer.adapt(Float.class);
-                if (!f.equals(ten)) {
-                    writer.println("FAIL: Incorrect adapter invoked for container aa, expected " + ten + " got " + f);
-                    pass = false;
-                }
-            } catch (UnableToAdaptException e) {
-                writer.println("FAIL: aa container threw UnableToAdaptException " + e.getMessage() + " with " + e.getCause().getClass().getName());
-                pass = false;
-            }
-            try {
-                Float f = abContainer.adapt(Float.class);
-                writer.println("FAIL: ab container gave " + f + " expected exception");
-                pass = false;
-            } catch (UnableToAdaptException e) {
-                //expected.
-            }
-            try {
-                Float f = bbContainer.adapt(Float.class);
-                if (!f.equals(nineninenine)) {
-                    writer.println("FAIL: Incorrect adapter invoked for container bb, expected " + nineninenine + " got " + f);
-                    pass = false;
-                }
-            } catch (UnableToAdaptException e) {
-                writer.println("FAIL: aa container threw UnableToAdaptException " + e.getMessage() + " with " + e.getCause().getClass().getName());
-                pass = false;
-            }
+        Entry aaEntry = overlayContainer.getEntry("/a/aa");
+        Entry abEntry = overlayContainer.getEntry("/a/ab");
+        Entry bbEntry = overlayContainer.getEntry("/b/bb");
 
-            if (pass) {
-                writer.println("PASS: adapter sequencing, and unable to adapt tests passed");
+        if ( (aaEntry == null) || (abEntry == null) || (bbEntry == null) ) {
+            writer.println("FAIL: Failed to obtain test entries");
+            return;
+        }
+
+        Container aaContainer = aaEntry.adapt(Container.class);
+        Container abContainer = abEntry.adapt(Container.class);
+        Container bbContainer = bbEntry.adapt(Container.class);
+
+        if  ( (aaContainer == null) || (abContainer == null) || (bbContainer == null) ) {
+            writer.println("FAIL: Failed to obtain test containers");
+            return;
+        }
+
+        // This test tests adapter sequencing by service rank, and checks that if an adapter returns
+        // null, that the next one is invoked, and if an adapter throws the exception, that control returns
+        //immediately, and subsequent adapters are not called.
+
+        // Reference test data.
+        //   aa entry gave 10.0
+        //   ab entry gave NODE:/a#/a/ab with java.io.FileNotFoundException
+        //   bb entry gave 999.0
+        //   aa container gave 10.0
+        //   ab container gave NODE:/a/ab#/a/ab with java.io.FileNotFoundException
+        //   bb container gave 999.0
+
+        Float ten = new Float(10.0);
+        Float nineninenine = new Float(999.0);
+
+        // ok.. setup done.. lets try some tests..
+
+        boolean pass = true;
+
+        try {
+            Float f = aaEntry.adapt(Float.class);
+            if ( f == null ) {
+                writer.println("FAIL: Incorrect adapter invoked for entry aa, expected " + ten + " got null");
+                pass = false;
+            } else if (!f.equals(ten)) {
+                writer.println("FAIL: Incorrect adapter invoked for entry aa, expected " + ten + " got " + f);
+                pass = false;
             }
-        } else {
-            writer.println("FAIL: unable to obtain adaptable container for unableToAdapt test. (unrelated test failure)");
+        } catch ( UnableToAdaptException e ) {
+            writer.println("FAIL: aa entry threw UnableToAdaptException " + e.getMessage() + " with " + e.getCause().getClass().getName());
+            pass = false;
+        }
+
+        try {
+            Float f = abEntry.adapt(Float.class);
+            writer.println("FAIL: ab entry gave " + f + " expected exception");
+            pass = false;
+        } catch ( UnableToAdaptException e ) {
+            //expected.
+        }
+
+        try {
+            Float f = bbEntry.adapt(Float.class);
+            if ( f == null ) {
+                writer.println("FAIL: Incorrect adapter invoked for entry bb, expected " + nineninenine + " got null");
+                pass = false;
+            } else if (!f.equals(nineninenine)) {
+                writer.println("FAIL: Incorrect adapter invoked for entry bb expected " + nineninenine + " got " + f);
+                pass = false;
+            }
+        } catch ( UnableToAdaptException e ) {
+            writer.println("FAIL: bb entry threw UnableToAdaptException " + e.getMessage() + " with " + e.getCause().getClass().getName());
+            pass = false;
+        }
+
+        try {
+            Float f = aaContainer.adapt(Float.class);
+            if ( f == null ) {
+                writer.println("FAIL: Incorrect adapter invoked for entry aa, expected " + ten + " got null");
+                pass = false;
+            } else if (!f.equals(ten)) {
+                writer.println("FAIL: Incorrect adapter invoked for container aa, expected " + ten + " got " + f);
+                pass = false;
+            }
+        } catch ( UnableToAdaptException e ) {
+            writer.println("FAIL: aa container threw UnableToAdaptException " + e.getMessage() + " with " + e.getCause().getClass().getName());
+            pass = false;
+        }
+
+        try {
+            Float f = abContainer.adapt(Float.class);
+            writer.println("FAIL: ab container gave " + f + " expected exception");
+            pass = false;
+        } catch ( UnableToAdaptException e ) {
+            //expected.
+        }
+
+        try {
+            Float f = bbContainer.adapt(Float.class);
+            if ( f == null ) {
+                writer.println("FAIL: Incorrect adapter invoked for entry bb, expected " + nineninenine + " got null");
+                pass = false;
+            } else if (!f.equals(nineninenine)) {
+                writer.println("FAIL: Incorrect adapter invoked for container bb, expected " + nineninenine + " got " + f);
+                pass = false;
+            }
+        } catch ( UnableToAdaptException e ) {
+            writer.println("FAIL: aa container threw UnableToAdaptException " + e.getMessage() + " with " + e.getCause().getClass().getName());
+            pass = false;
+        }
+
+        if ( pass ) {
+            writer.println("PASS: adapter sequencing, and unable to adapt tests passed");
         }
     }
 
-    private void testAdaptableApiSimple(AdaptableModuleFactory amf, PrintWriter writer) throws UnableToAdaptException {
-        ArtifactContainer c = getContainerForDirectory();
-        com.ibm.wsspi.adaptable.module.Container adaptContainer = amf.getContainer(new File(cacheDirAdapt), new File(cacheDirOverlay), c);
-        if (adaptContainer != null) {
-            com.ibm.wsspi.adaptable.module.Entry adaptEntry = adaptContainer.getEntry("/a/a.txt");
-            if (adaptEntry != null) {
-                Integer i = adaptEntry.adapt(Integer.class);
-                if (i == null) {
-                    writer.println("FAIL: unable to adapt to integer");
-                } else {
-                    if (i != adaptEntry.getName().length()) {
-                        writer.println("FAIL: adapter did not give expected result");
-                    } else {
-                        com.ibm.wsspi.adaptable.module.Container adaptParent = adaptEntry.getEnclosingContainer();
-                        if (adaptParent != null) {
-                            Integer i2 = adaptParent.adapt(Integer.class);
-                            if (i2 == null) {
-                                writer.println("FAIL: unable to adapt parent to integer");
-                            } else {
-                                if (i2 != adaptParent.getPath().length()) {
-                                    writer.println("FAIL: adapter did not give expected result for parent");
-                                } else {
-                                    writer.println("PASS: all done");
-                                }
-                            }
+    private void testAdaptableApiSimple(PrintWriter writer) throws UnableToAdaptException {
+        ArtifactContainer artifactContainer = getContainerForDirectory();
 
-                        } else {
-                            writer.println("FAIL: couldn't get adaptable parent");
-                        }
-                    }
-                }
-            } else {
-                writer.println("FAIL: could not obtain /a/a.txt from adaptable ArtifactContainer");
-            }
-        } else {
-            writer.println("FAIL: couldn't get adaptable ArtifactContainer");
+        com.ibm.wsspi.adaptable.module.Container adaptableContainer =
+            amf.getContainer(new File(cacheDirAdapt), new File(cacheDirOverlay), artifactContainer);
+        if ( adaptableContainer == null ) {
+            writer.println("FAIL: Failed to create adaptable container");
+            return;
         }
+
+        com.ibm.wsspi.adaptable.module.Entry adaptEntry =
+            adaptableContainer.getEntry("/a/a.txt");
+        if ( adaptEntry == null ) {
+            writer.println("FAIL: Failed to obtain entry [ /a/a.txt ]");
+            return;
+        }
+
+        Integer entryInteger = adaptEntry.adapt(Integer.class);
+        if ( entryInteger == null ) {
+            writer.println("FAIL: Failed to adapt entry to Integer");
+            return;
+        }
+
+        if ( entryInteger.intValue() != adaptEntry.getName().length()) {
+            writer.println("FAIL: Adapted value [ " + entryInteger + " ]" +
+                            " should be [ " + Integer.valueOf(adaptEntry.getName().length()) + " ]");
+            return;
+        }
+
+        com.ibm.wsspi.adaptable.module.Container adaptParent =
+            adaptEntry.getEnclosingContainer();
+        if ( adaptParent == null ) {
+            writer.println("FAIL: Failed to obtain adaptable parent");
+            return;
+        }
+
+        Integer containerInteger = adaptParent.adapt(Integer.class);
+        if ( containerInteger == null ) {
+            writer.println("FAIL: Failed to adapt container to Integer");
+            return;
+        }
+
+        if ( containerInteger.intValue() != adaptParent.getPath().length() ) {
+            writer.println("FAIL: Adapted value [ " + containerInteger + " ]" +
+                            " should be [ " + Integer.valueOf(adaptParent.getName().length()) + " ]");
+            return;
+        }
+
+
+        writer.println("PASS");
     }
 
     private class RelocatedEntry implements ArtifactEntry {
@@ -3230,7 +3392,7 @@ public class ArtifactAPIServlet extends HttpServlet {
         }
     }
 
-    private void fileOverlayTest(PrintWriter writer) {
+    private void testDirOverlay(PrintWriter writer) {
         ArtifactContainer c = getContainerForDirectory();
         if (c == null) {
             writer.println("FAIL: Unable to obtain ArtifactContainer for overlay ArtifactContainer test (unable to test overlay ArtifactContainer, not an overlay issue)");
@@ -3257,7 +3419,7 @@ public class ArtifactAPIServlet extends HttpServlet {
 
             //the overlay should be in a clean state..
             writer.println("Comparing overlay with dir testdata..");
-            FsArtifactUtil.compare(oc, DirTestData.TESTDATA, writer);
+            ArtifactUtils.compare(oc, DirFileSystem.TESTDATA, writer);
 
             writer.println("Before : ");
             recursiveDump(" ", temp.getAbsolutePath(), temp, writer);
@@ -3290,7 +3452,7 @@ public class ArtifactAPIServlet extends HttpServlet {
 
             //the overlay should be back to a clean state..
             writer.println("Comparing overlay with dir testdata after overlay tests");
-            FsArtifactUtil.compare(oc, DirTestData.TESTDATA, writer);
+            ArtifactUtils.compare(oc, DirFileSystem.TESTDATA, writer);
 
             //test if the overlay sees content already in the dir, even if added later.
             File overlay = new File(temp, ".overlay");
@@ -3305,20 +3467,20 @@ public class ArtifactAPIServlet extends HttpServlet {
                 writer.println("FAIL: unable to create test content into overlay fs");
             }
 
-            Fs overlayContent =
-                Fs.Root( null, null, null, false, null, 0, null, 0, new String[] {},
-                    Fs.File( "WIBBLE", "/WIBBLE", false, null, 0, null, null ),
-                    Fs.Dir( "WOBBLE", "/WOBBLE", null, null, 0, new String[] {},
-                        Fs.Dir( "fred", "/WOBBLE/fred", null, null, 0, new String[] {},
-                            Fs.Dir( "wilma", "/WOBBLE/fred/wilma", null, null, 0, new String[] {},
-                                Fs.Dir( "barney", "/WOBBLE/fred/wilma/barney", null, null, 0, new String[] {},
-                                    Fs.File( "betty", "/WOBBLE/fred/wilma/barney/betty", false, null, 0, null, null ) ) ) ) ) );
+            FileSystem overlayContent =
+                FileSystem.root( null, null, null, false, null, 0, null, 0, new String[] {},
+                    FileSystem.File( "WIBBLE", "/WIBBLE", false, null, 0, null, null ),
+                    FileSystem.dir( "WOBBLE", "/WOBBLE", null, null, 0, new String[] {},
+                        FileSystem.dir( "fred", "/WOBBLE/fred", null, null, 0, new String[] {},
+                            FileSystem.dir( "wilma", "/WOBBLE/fred/wilma", null, null, 0, new String[] {},
+                                FileSystem.dir( "barney", "/WOBBLE/fred/wilma/barney", null, null, 0, new String[] {},
+                                    FileSystem.File( "betty", "/WOBBLE/fred/wilma/barney/betty", false, null, 0, null, null ) ) ) ) ) );
 
-            Fs merged = FsUtils.merge(DirTestData.TESTDATA, overlayContent);
+            FileSystem merged = FileSystemUtils.merge(DirFileSystem.TESTDATA, overlayContent);
 
             //the overlay should now validate against the merged data..
             writer.println("Comparing overlay with merged testdata");
-            FsArtifactUtil.compare(oc, merged, writer);
+            ArtifactUtils.compare(oc, merged, writer);
 
             if (oc.getEntry("/WIBBLE") == null) {
                 writer.println("FAIL: to read content existing in the overlay dir, placed by hand.");
@@ -3339,21 +3501,21 @@ public class ArtifactAPIServlet extends HttpServlet {
             //we use fs to add newentry at the right place in the total tree.. not in the subtree 
             //represented by corresponding overlay, this lets the fs layer check the new subtree
             //is still correctly linked to the main tree.
-            Fs nestedOverlayContent =
-                Fs.Root( null, null, null, false, null, 0, null, 0, new String[] {},
-                    Fs.Dir( "c", "/c", null, null, 0, new String[] {},
-                        Fs.Root( "b.jar", "/c/b.jar", null, false, null, 0, null, 0, new String[] {},
-                            Fs.Dir( "newentry", "/newentry", null, null, 0, new String[] {},
-                                Fs.File( "aa.txt", "/newentry/aa.txt", true, "wibble", 6, null, null ) ) ) ) );
+            FileSystem nestedOverlayContent =
+                FileSystem.root( null, null, null, false, null, 0, null, 0, new String[] {},
+                    FileSystem.dir( "c", "/c", null, null, 0, new String[] {},
+                        FileSystem.root( "b.jar", "/c/b.jar", null, false, null, 0, null, 0, new String[] {},
+                            FileSystem.dir( "newentry", "/newentry", null, null, 0, new String[] {},
+                                FileSystem.File( "aa.txt", "/newentry/aa.txt", true, "wibble", 6, null, null ) ) ) ) );
 
-            Fs nestedMerged = FsUtils.merge(merged, nestedOverlayContent);
+            FileSystem nestedMerged = FileSystemUtils.merge(merged, nestedOverlayContent);
 
             //writer.println("nestedMerged");
             //dumpRecursive(0, nestedMerged, writer);
 
             //the overlay should now validate against the merged data..
             writer.println("Comparing overlay with nested merged testdata");
-            FsArtifactUtil.compare(oc, nestedMerged, writer);
+            ArtifactUtils.compare(oc, nestedMerged, writer);
 
             //quick navigation test.
             ArtifactContainer nestedContainer = nested.convertToContainer();
@@ -3599,149 +3761,258 @@ public class ArtifactAPIServlet extends HttpServlet {
         return true;
     }
 
-    /**
-     * @param cf
-     * @param dir
-     * @param writer
-     */
-    private void navigationTest(ArtifactContainer c, PrintWriter writer) {
-        if (c != null) {
-            if (!c.isRoot()) {
-                writer.println("FAIL: base ArtifactContainer was not its own root." + c);
-                return;
-            }
-
-            //absolute immediate ArtifactEntry from root ArtifactContainer.
-            ArtifactEntry a = c.getEntry("/a");
-            if (a != null && a.getPath().equals("/a")) {
-
-                if (!a.getName().equals("a")) {
-                    writer.println("FAIL: a has wrong name response " + c);
-                    return;
-                }
-
-                ArtifactContainer a_c = a.convertToContainer();
-                if (a_c == null || !a_c.getPath().equals("/a")) {
-                    writer.println("FAIL: Unable to convert /a into ArtifactContainer." + c);
-                    return;
-                }
-                if (a_c.isRoot()) {
-                    writer.println("FAIL: /a thinks it's root." + c);
-                    return;
-                }
-                if (!a_c.getName().equals("a")) {
-                    writer.println("FAIL: a has wrong name response" + c);
-                    return;
-                }
-
-                //immediate relative request to nested ArtifactContainer
-                ArtifactEntry a_c_aa = a_c.getEntry("aa");
-                if (a_c_aa == null || !a_c_aa.getPath().equals("/a/aa")) {
-                    writer.println("FAIL: Unable obtain /a/aa via relative request from /a" + c);
-                    return;
-                }
-                if (!a_c_aa.getName().equals("aa")) {
-                    writer.println("FAIL: aa has wrong name response" + c);
-                    return;
-                }
-
-                //test for non exist from nested ArtifactContainer.
-                ArtifactEntry invalid = a_c.getEntry("fish");
-                if (invalid != null) {
-                    writer.println("FAIL: imaginary ArtifactEntry came back non null." + c);
-                    return;
-                }
-
-                //test for nested ArtifactEntry via relative from nested ArtifactContainer
-                ArtifactEntry deep = a_c.getEntry("ab/aba/aba.txt");
-                if (deep == null || !deep.getPath().equals("/a/ab/aba/aba.txt")) {
-                    writer.println("FAIL: unable to obtain nested ArtifactEntry from nested ArtifactContainer" + c);
-                    return;
-                }
-                if (!deep.getName().equals("aba.txt")) {
-                    writer.println("FAIL: aba.txt has wrong name response" + c);
-                    return;
-                }
-
-                ArtifactContainer deep_p = deep.getEnclosingContainer();
-                if (deep_p == null || !deep_p.getPath().equals("/a/ab/aba")) {
-                    writer.println("FAIL: unable to obtain parent for nested ArtifactEntry" + c);
-                    return;
-                }
-                if (deep_p.isRoot()) {
-                    writer.println("FAIL: /a/ab/aba thinks it's root." + c);
-                    return;
-                }
-                if (!deep_p.getName().equals("aba")) {
-                    writer.println("FAIL: aba has wrong name response" + c);
-                    return;
-                }
-                ArtifactContainer deep_p_p = deep_p.getEnclosingContainer();
-                if (deep_p_p == null || !deep_p_p.getPath().equals("/a/ab")) {
-                    writer.println("FAIL: unable to obtain parent for nested ArtifactEntry via parent" + c);
-                    return;
-                }
-                if (deep_p_p.isRoot()) {
-                    writer.println("FAIL: /a/ab thinks it's root." + c);
-                    return;
-                }
-                ArtifactEntry deep_via_parent_chain = deep_p_p.getEntry("aba/aba.txt");
-                if (deep_via_parent_chain == null || !deep_via_parent_chain.getPath().equals("/a/ab/aba/aba.txt")) {
-                    writer.println("FAIL: unable to obtain nested ArtifactEntry from navigated ArtifactContainer" + c);
-                    return;
-                }
-                ArtifactEntry deep_via_root = deep_p_p.getEntry("/a/ab/aba/aba.txt");
-                if (deep_via_root == null || !deep_via_root.getPath().equals("/a/ab/aba/aba.txt")) {
-                    writer.println("FAIL: unable to obtain nested ArtifactEntry via root from navigated ArtifactContainer" + c);
-                    return;
-                }
-                ArtifactContainer deep_p_p_p = deep_p_p.getEnclosingContainer();
-                if (deep_p_p_p == null || !deep_p_p_p.getPath().equals("/a")) {
-                    writer.println("FAIL: unable to obtain parent for nested ArtifactEntry via parent" + c);
-                    return;
-                }
-                if (deep_p_p_p.isRoot()) {
-                    writer.println("FAIL: /a thinks it's root." + c);
-                    return;
-                }
-                ArtifactContainer should_be_root = deep_p_p_p.getEnclosingContainer();
-                if (should_be_root == null || !should_be_root.getPath().equals("/")) {
-                    writer.println("FAIL: unable to obtain root via parent chain" + c);
-                    return;
-                }
-                if (!should_be_root.isRoot()) {
-                    writer.println("FAIL: / thinks it's not root." + c);
-                    return;
-                }
-                if (should_be_root.getEnclosingContainer() != null) {
-                    //allowed in the model, but not in this scenario.
-                    writer.println("FAIL: / thinks it has an enclosing ArtifactContainer." + c);
-                    return;
-                }
-
-            } else {
-                writer.println("FAIL: unable to locate /a" + c);
-                return;
-            }
-
-            //relative immediate ArtifactEntry from root ArtifactContainer.
-            a = c.getEntry("a");
-            if (a != null && a.getPath().equals("/a")) {
-
-                ArtifactContainer a_c = a.convertToContainer();
-                if (a_c == null || !a_c.getPath().equals("/a")) {
-                    writer.println("FAIL: Unable to convert /a into ArtifactContainer." + c);
-                    return;
-                }
-
-            } else {
-                writer.println("FAIL: unable to locate /a" + c);
-                return;
-            }
-
-        } else {
-            writer.println("FAIL: Null ArtifactContainer passed to navigation test (see other errors for why)");
+    private void testNavigation(ArtifactContainer c, PrintWriter writer) {
+        if ( c == null ) {
+            writer.println("FAIL: Null Container");
+            return;
         }
+        String cText = "[ " + c.getPath() + " : " + c.getName() + " ]";
+        writer.println("Examining root container " + cText);
+        if ( !c.isRoot() ) {
+            writer.println("FAIL: Container " + cText + " is not root");
+            return;
+        } else if ( c.getEnclosingContainer() != null ) {
+            ArtifactContainer enclosing = c.getEnclosingContainer();
+            writer.println("FAIL: Root Container " + cText +
+                           " has enclosing container [ " + enclosing.getPath() + " : " + enclosing.getName() + " ]");
+            return;
+        } else if ( !c.getPath().equals("/") ) {
+            writer.println("FAIL: Root container " + cText + " has unexpected path " + cText);
+            return;
+        } else if ( !c.getName().equals("/") ) {
+            writer.println("FAIL: Root container " + cText + " has unexpected name" + cText);
+            return;
+        }
+
+        // Test retrieval of absolute immediate entry of root container.
+
+        ArtifactEntry a = c.getEntry("/a");
+        if ( a == null ) {
+            writer.println("FAIL: Container " + cText + " does not container entry [ /a ]");
+            return;
+        } 
+        String aText = "[ " + a.getPath() + " : " + a.getName() + " ]";
+        writer.println("Examining absolute " + aText);
+        if ( !a.getPath().equals("/a") ) {
+            writer.println("FAIL: Container " + cText + " entry [ /a ] has unexpected path " + aText);
+            return;
+        } else if ( !a.getName().equals("a") ) {
+            writer.println("FAIL: Container " + cText + " entry [ /a ] has unexpected name" + aText);
+            return;
+        }
+
+        // Test retrieval of relative immediate entry of root container.
+
+        ArtifactEntry aRel = c.getEntry("a");
+        if ( aRel == null ) {
+            writer.println("FAIL: Container " + cText + " does not container entry [ a ]");
+            return;
+        } 
+        String aRelText = "[ " + aRel.getPath() + " : " + aRel.getName() + " ]";
+        writer.println("Examining relative " + aRelText);
+        if ( !a.getPath().equals("/a") ) {
+            writer.println("FAIL: Container " + cText + " entry [ a ] has unexpected path " + aRelText);
+            return;
+        } else if ( !a.getName().equals("a") ) {
+            writer.println("FAIL: Container " + cText + " entry [ a ] has unexpected name" + aRelText);
+            return;
+        }
+
+        // The two entries are equal, but usually not identical.  Don't do an identity test.
+
+        // Test conversion of nested (non-root) container.
+        ArtifactContainer a_c = a.convertToContainer();
+        if ( a_c == null ) {
+            writer.println("FAIL: Container " + cText + " entry " + aText + " failed to convert to container");
+            return;
+        }
+        String a_cText = "[ " + a_c.getPath() + " : " + a_c.getName() + " ]";
+        writer.println("Examining converted " + a_cText);
+        if ( a_c.isRoot() ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText + " is root");
+            return;
+        } else if ( !a_c.getPath().equals("/a") ) {
+            writer.println("FAIL: Container " + cText + " child container [ /a ] has unexpected path " + a_cText);
+            return;
+        } else if (!a_c.getName().equals("a") ) {
+            writer.println("FAIL: Container " + cText + " child container [ /a ] has unexpected name " + a_cText);
+            return;
+        }
+
+        // Test retrieval of immediate relative entry of a nested container.
+        ArtifactEntry a_c_aa = a_c.getEntry("aa");
+        if (a_c_aa == null ) {
+            writer.println("FAIL: Container " + cText + " container " + a_cText + " failed to locate entry [ aa ]");
+            return;
+        }
+        String a_c_aaText = "[ " + a_c_aa.getPath() + " : " + a_c_aa.getName() + " ]";
+        writer.println("Examining entry " + a_c_aaText);
+        if (  !a_c_aa.getPath().equals("/a/aa")) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry [ aa ] has unexpected path " + a_c_aaText);
+            return;
+        } else if ( !a_c_aa.getName().equals("aa") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry [ aa ] has unexpected name " + a_c_aaText);
+            return;
+        }
+
+        // Test retrieval of absent immediate relative entry.
+        ArtifactEntry invalid = a_c.getEntry("fish");
+        if ( invalid != null ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " found absent entry [ " + invalid.getPath() + " : " + invalid.getName() + " ]");
+            return;
+        }
+
+        // Test retrieval of deep relative entry from nested container.
+        ArtifactEntry deep = a_c.getEntry("ab/aba/aba.txt");
+        if ( deep == null ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " failed to locate entry [ ab/aba/aba.txt ]");
+            return;
+        }
+        String deepText = "[ " + deep.getPath() + " : " + deep.getName() + " ]";
+        writer.println("Examining entry " + deepText);
+        if ( !deep.getPath().equals("/a/ab/aba/aba.txt") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry [ ab/aba/aba.txt ] has unexpected path " + deepText);
+            return;
+        } else if ( !deep.getName().equals("aba.txt") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry [ ab/aba/aba.txt ] has unexpected name " + deepText);
+            return;
+        }
+
+        ArtifactContainer deep_p = deep.getEnclosingContainer();
+        if ( deep_p == null ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " has no parent");
+            return;
+        }
+        String deep_pText = "[ " + deep_p.getPath() + " : " + deep_p.getName() + " ]";
+        writer.println("Examining container " + deep_pText);
+        if ( deep_p.isRoot() ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent " + deep_pText + " is root");
+            return;
+        } else if ( !deep_p.getPath().equals("/a/ab/aba") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent " + deep_pText + " has incorrect path");
+            return;
+        } else if ( !deep_p.getName().equals("aba") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent " + deep_pText + " has incorrect name");
+            return;
+        }
+
+        ArtifactContainer deep_p_p = deep_p.getEnclosingContainer();
+        if ( deep_p_p == null ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deep_pText + " has no parent");
+            return;
+        }
+        String deep_p_pText = "[ " + deep_p_p.getPath() + " : " + deep_p_p.getName() + " ]";
+        writer.println("Examining container " + deep_p_pText);
+        if ( deep_p_p.isRoot() ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent of parent " + deep_p_pText + " is root");
+            return;
+        } else if ( !deep_p_p.getPath().equals("/a/ab") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent of parent " + deep_p_pText + " has incorrect path");
+            return;
+        } else if ( !deep_p_p.getName().equals("ab") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent of parent " + deep_p_pText + " has incorrect name");
+            return;
+        }
+
+        ArtifactEntry deep_deep = deep_p_p.getEntry("aba/aba.txt");
+        if ( deep_deep == null ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent of parent " + deep_p_pText +
+                           " fails to locate [  aba/aba.txt ]");
+            return;
+        }
+        String deep_deepText = "[ " + deep_deep.getPath() + " : " + deep_deep.getName() + " ]";
+        writer.println("Examining entry " + deep_deepText);
+        if ( !deep_deep.getPath().equals("/a/ab/aba/aba.txt") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent of parent " + deep_p_pText +
+                           " entry [ aba/aba.txt ] has incorrect path " + deep_deepText);
+            return;
+        }
+        if ( !deep_deep.getName().equals("aba.txt") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent of parent " + deep_p_pText +
+                           " entry [ aba/aba.txt ] has incorrect name " + deep_deepText);
+            return;
+        }
+
+        ArtifactEntry veryDeep = deep_p_p.getEntry("/a/ab/aba/aba.txt");
+        if ( veryDeep == null ) {
+            writer.println("FAIL: Container " + cText + " child container " + deep_p_pText +
+                            " failed to locate [ /a/ab/aba/aba.txt ]");
+            return;
+        }
+        String veryDeepText = "[ " + veryDeep.getPath() + " : " + veryDeep.getName() + " ]";
+        writer.println("Examining entry " + veryDeepText);
+        if ( !veryDeep.getPath().equals("/a/ab/aba/aba.txt") ) {
+            writer.println("FAIL: Container " + cText + " child container " + deep_p_pText +
+                           " entry [ /a/ab/aba/aba.txt ] has incorrect path " + veryDeepText);
+            return;
+        } else if ( !veryDeep.getName().equals("aba.txt") ) {
+            writer.println("FAIL: Container " + cText + " child container " + deep_p_pText +
+                           " entry [ /a/ab/aba/aba.txt ] has incorrect name " + veryDeepText);
+            return;
+        }
+
+        ArtifactContainer deep_p_p_p = deep_p_p.getEnclosingContainer();
+        if ( deep_p_p_p == null ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deep_p_pText + " has no parent");
+            return;
+        }
+        String deep_p_p_pText = "[ " + deep_p_p_p.getPath() + " : " + deep_p_p_p.getName() + " ]";
+        writer.println("Examining container " + deep_p_p_pText);
+        if ( deep_p_p_p.isRoot() ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent of parent of parent " + deep_p_p_pText + " is root");
+            return;
+        } else if ( !deep_p_p_p.getPath().equals("/a") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent of parent of parent " + deep_p_p_pText + " has incorrect path");
+            return;
+        } else if ( !deep_p_p_p.getName().equals("a") ) {
+            writer.println("FAIL: Container " + cText + " child container " + a_cText +
+                           " entry " + deepText + " parent of parent of parent " + deep_p_p_pText + " has incorrect name");
+            return;
+        }
+
+        ArtifactContainer root = deep_p_p_p.getEnclosingContainer();
+        if ( root == null ) {
+            writer.println("FAIL: Container " + cText + " child container " + deep_p_p_pText + " has no parent");
+            return;
+        }
+        String rootText = "[ " + root.getPath() + " : " + root.getName() + " ]";
+        writer.println("Examining root container " + rootText);
+        if ( !root.isRoot() ) {
+            writer.println("FAIL: Non-root Container " + rootText);
+            return;
+        } else if ( root.getEnclosingContainer() != null ) {
+            ArtifactContainer enclosing = root.getEnclosingContainer();
+            writer.println("FAIL: Root Container " + rootText +
+                           " has enclosing container [ " + enclosing.getPath() + " : " + enclosing.getName() + " ]");
+            return;
+        } else if ( !root.getPath().equals("/") ) {
+            writer.println("FAIL: Root container " + rootText + " has unexpected path");
+            return;
+        } else if ( !root.getName().equals("/") ) {
+            writer.println("FAIL: Root container " + rootText + " has unexpected name");
+            return;
+        }
+
         writer.println("PASS");
     }
 
@@ -3750,7 +4021,7 @@ public class ArtifactAPIServlet extends HttpServlet {
      * @param dir
      * @param writer
      */
-    private void mediumTestJar(PrintWriter writer) {
+    private void testJarMedium(PrintWriter writer) {
         writer.println("Processing ArtifactContainer for : " + jar_b);
         ArtifactContainer c = getContainerForSmallerZip();
 
@@ -3939,7 +4210,7 @@ public class ArtifactAPIServlet extends HttpServlet {
      * @param dir
      * @param writer
      */
-    private void nestedJarTest(PrintWriter writer) {
+    private void testJarNested(PrintWriter writer) {
         writer.println("Processing ArtifactContainer for : " + jar_b);
         ArtifactContainer c = getContainerForSmallerZip();
 
@@ -3994,7 +4265,7 @@ public class ArtifactAPIServlet extends HttpServlet {
      * @param dir
      * @param writer
      */
-    private void mediumTestDir(PrintWriter writer) {
+    private void testDirMedium(PrintWriter writer) {
         writer.println("Processing ArtifactContainer for : " + dir);
         ArtifactContainer c = getContainerForDirectory();
 
@@ -4105,7 +4376,7 @@ public class ArtifactAPIServlet extends HttpServlet {
         }
     }
 
-    private void basicTestDir(PrintWriter out) {
+    private void testDir(PrintWriter out) {
         out.println("Processing ArtifactContainer for : " + dir);
         ArtifactContainer c = getContainerForDirectory();
 
@@ -4117,7 +4388,7 @@ public class ArtifactAPIServlet extends HttpServlet {
         }
     }
 
-    private void basicTestJar(PrintWriter out) {
+    private void testJar(PrintWriter out) {
         out.println("Processing ArtifactContainer for : " + jar_b);
         ArtifactContainer c = getContainerForSmallerZip();
 
@@ -4129,7 +4400,7 @@ public class ArtifactAPIServlet extends HttpServlet {
         }
     }
 
-    private void basicTestRar(PrintWriter out) {
+    private void testRar(PrintWriter out) {
         out.println("Processing ArtifactContainer for : " + rar);
         ArtifactContainer c = getContainerForRar();
 

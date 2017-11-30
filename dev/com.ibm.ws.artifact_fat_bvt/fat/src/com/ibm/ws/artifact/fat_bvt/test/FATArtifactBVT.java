@@ -20,6 +20,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.ibm.ws.artifact.fat_bvt.test.utils.FATFeatureDef;
 import com.ibm.ws.artifact.fat_bvt.test.utils.FATLogging;
 import com.ibm.ws.artifact.fat_bvt.test.utils.FATServerUtils;
 
@@ -48,7 +49,8 @@ public class FATArtifactBVT {
         server = FATServerUtils.prepareServerAndWar(
             FATArtifactBVTServer.SERVER_NAME,
             FATArtifactBVTServer.WAR_DEF,
-            FATArtifactBVTServer.FEATURE_DEF);
+            new FATFeatureDef[] { FATArtifactBVTServer.FEATURE_DEF },
+            null );
     }
 
     public static void tearDownServer() throws Exception {
@@ -105,48 +107,53 @@ public class FATArtifactBVT {
     //
 
     @Test
-    public void basicTestDir() throws Exception {
-        validateResponse( "basicTestDir", getTestUrl("?a") );
+    public void testDir() throws Exception {
+        validateResponse( "testDir", getTestUrl("?testDir") );
     }
 
     @Test
-    public void basicTestJar() throws Exception {
-        validateResponse( "basicTestJar", getTestUrl("?b") );
+    public void testJar() throws Exception {
+        validateResponse( "testJar", getTestUrl("?testJar") );
     }
 
     @Test
-    public void basicTestRar() throws Exception {
-        validateResponse( "basicTestRar", getTestUrl("?b_rar") );
+    public void testRar() throws Exception {
+        validateResponse( "testRar", getTestUrl("?testRar") );
     }
 
     @Test
-    public void mediumTestDir() throws Exception {
-        validateResponse( "mediumTestDir", getTestUrl("?c") );
+    public void testDirMedium() throws Exception {
+        validateResponse( "testDirMedium", getTestUrl("?testDirMedium") );
     }
 
     @Test
-    public void mediumTestJar() throws Exception {
-        validateResponse( "mediumTestJar", getTestUrl("?d") );
+    public void testJarMedium() throws Exception {
+        validateResponse( "testJarMedium", getTestUrl("?testJarMedium") );
     }
 
     @Test
-    public void nestedJarTest() throws Exception {
-        validateResponse( "nestedJarTest", getTestUrl("?e") );
+    public void testJarNested() throws Exception {
+        validateResponse( "testJarNested", getTestUrl("?testJarNested") );
     }
 
     @Test
-    public void navigationTest() throws Exception {
-        validateResponse( "navigationTest", getTestUrl("?f") );
+    public void testDirNavigation() throws Exception {
+        validateResponse( "testDirNavigation", getTestUrl("?testDirNavigation") );
     }
 
     @Test
-    public void interpretedAdaptableTest() throws Exception {
-        validateResponse( "interpretedAdaptableTest", getTestUrl("?interpretedAdaptable") );
+    public void testZipNavigation() throws Exception {
+        validateResponse( "testZipNavigation", getTestUrl("?testZipNavigation") );
     }
 
     @Test
-    public void interpretedAdaptableTestRoots() throws Exception {
-        validateResponse( "interpretedAdaptableTestRoots", getTestUrl("?interpretedAdaptableRoots") );
+    public void testInterpretedAdaptable() throws Exception {
+        validateResponse( "testInterpretedAdaptable", getTestUrl("?testInterpretedAdaptable") );
+    }
+
+    @Test
+    public void testInterpretedAdaptableRoots() throws Exception {
+        validateResponse( "interpretedAdaptableTestRoots", getTestUrl("?testInterpretedAdaptableRoots") );
     }
 
     @Test
@@ -160,13 +167,13 @@ public class FATArtifactBVT {
     }
 
     @Test
-    public void dirOverlayTest() throws Exception {
-        validateResponse( "dirOverlayTest", getTestUrl("?h") );
+    public void testDirOverlay() throws Exception {
+        validateResponse( "testDirOverlay", getTestUrl("?testDirOverlay") );
     }
 
     @Test
-    public void adaptableTest() throws Exception {
-        validateResponse( "adaptableTest", getTestUrl("?i") );
+    public void testAdapt() throws Exception {
+        validateResponse( "testAdapt", getTestUrl("?testAdapt") );
     }
 
     @Test
@@ -175,28 +182,28 @@ public class FATArtifactBVT {
     }
 
     @Test
-    public void xmlTest() throws Exception {
-        validateResponse( "xmlTest", getTestUrl("?looseRead") );
+    public void testLooseRead() throws Exception {
+        validateResponse( "testLooseRead", getTestUrl("?testLooseRead") );
     }
 
     @Test
-    public void notifyTest() throws Exception {
-        validateResponse( "notifyTest", getTestUrl("?notify") );
+    public void testNotify() throws Exception {
+        validateResponse( "testNotify", getTestUrl("?testNotify") );
     }
 
     @Test
-    public void testCaseSensitivity_loose() throws Exception {
-        validateResponse( "testCaseSensitivity_loose", getTestUrl("?testCaseSensitivity_loose") );
+    public void testLooseCaseSensitivity() throws Exception {
+        validateResponse( "testLooseCaseSensitivity", getTestUrl("?testLooseCaseSensitivity") );
     }
 
     @Test
-    public void testCaseSensitivity_file() throws Exception {
-        validateResponse( "testCaseSensitivity_file", getTestUrl("?testCaseSensitivity_file") );
+    public void testFileCaseSensitivity() throws Exception {
+        validateResponse( "testFileCaseSensitivity", getTestUrl("?testFileCaseSensitivity") );
     }
 
     @Test
-    public void testArtifactAPISuperTest() throws Exception {
-        validateResponse( "testArtifactAPISuperTest", getTestUrl("?fs") );
+    public void testFileSystem() throws Exception {
+        validateResponse( "testFileSystem", getTestUrl("?testFileSystem") );
     }
 
     @Test
@@ -210,13 +217,13 @@ public class FATArtifactBVT {
     }
 
     @Test
-    public void simpleBundleArtifactApiTest() throws Exception {
-        validateResponse( "simpleBundleArtifactApiTest", getTestUrl("?simpleBundleArtifactApiTest") );
+    public void testSimpleBundleArtifactApi() throws Exception {
+        validateResponse( "testSimpleBundleArtifactApi", getTestUrl("?testSimpleBundleArtifactApi") );
     }
 
     @Test
-    public void zipCachingServiceTest() throws Exception {
-        validateResponse( "zipCachingServiceTest", getTestUrl("?zipCachingServiceTest") );
+    public void testZipCachingService() throws Exception {
+        validateResponse( "testZipCachingService", getTestUrl("?testZipCachingService") );
     }
 
     // Test for 54588.
@@ -227,19 +234,19 @@ public class FATArtifactBVT {
 
     // Test for 100419
     @Test
-    public void zipmultithreadedZipArtifactionInitialisationTest() throws Exception {
-        validateResponse( "zipmultithreadedZipArtifactionInitialisationTest", getTestUrl("?zipMultiTest") );
+    public void testZipMulti() throws Exception {
+        validateResponse( "testZipMulti", getTestUrl("?testZipMulti") );
     }
 
     // Test for 160622 / 153698
     @Test
-    public void customContainerTest() throws Exception {
-        validateResponse( "customContainerTest", getTestUrl("?customContainer") );
+    public void testCustomContainer() throws Exception {
+        validateResponse( "testCustomContainer", getTestUrl("?testCustomContainer") );
     }
 
     // Test for 842145
     @Test
-    public void testBadBundlePathiteration() throws Exception {
+    public void testBadBundlePathIteration() throws Exception {
         validateResponse( "testBadBundlePathiteration", getTestUrl("?testBadBundlePathIteration") );
     }
 

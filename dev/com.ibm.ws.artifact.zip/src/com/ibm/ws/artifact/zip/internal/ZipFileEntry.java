@@ -456,11 +456,17 @@ public class ZipFileEntry implements ExtractableArtifactEntry {
                 if ( enclosingContainer == null ) {
                     String a_enclosingPath = PathUtils.getParent(a_path);
                     int parentLen = a_enclosingPath.length();
-                    if ( parentLen == 1 ) {
+                    if ( parentLen == 1 ) { // a_enclosingPath == "/"
                         enclosingContainer = rootContainer;
                     } else {
-                        String enclosingName = a_path.substring(parentLen + 1);
                         String r_enclosingPath = a_enclosingPath.substring(1);
+                        int lastSlash = r_enclosingPath.lastIndexOf('/');
+                        String enclosingName;
+                        if ( lastSlash == -1 ) {
+                            enclosingName = r_enclosingPath; // r_enclosingPath = "name"
+                        } else {
+                            enclosingName = r_enclosingPath.substring(lastSlash + 1); // r_enclosingPath = "parent/child/name"
+                        }
                         ZipFileEntry entryInEnclosingContainer =
                             rootContainer.createEntry(enclosingName, a_enclosingPath, r_enclosingPath);
                         enclosingContainer = entryInEnclosingContainer.convertToLocalContainer();

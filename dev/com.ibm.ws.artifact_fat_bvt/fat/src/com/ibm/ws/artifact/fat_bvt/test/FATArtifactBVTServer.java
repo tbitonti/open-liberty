@@ -11,6 +11,7 @@
  */
 package com.ibm.ws.artifact.fat_bvt.test;
 
+import com.ibm.ws.artifact.fat_bvt.test.utils.FATBundleDef;
 import com.ibm.ws.artifact.fat_bvt.test.utils.FATFeatureDef;
 import com.ibm.ws.artifact.fat_bvt.test.utils.FATWebArchiveDef;
 
@@ -39,13 +40,16 @@ public interface FATArtifactBVTServer {
 
     //
 
-    String FEATURE_MANIFEST_PATH = "features/artifactinternals-1.0.mf";
-    String FEATURE_JAR_PATH = "bundles/artifactinternals.jar";
+    String SOURCE_BUNDLE_MANIFEST_PATH = "features/artifactinternals-1.0.mf";
+    String SOURCE_BUNDLE_JAR_PATH = "bundles/artifactinternals.jar";
 
-    public static FATFeatureDef FEATURE_DEF =
+    public static final FATFeatureDef FEATURE_DEF =
         new FATFeatureDef(
-            FEATURE_MANIFEST_PATH,
-            FEATURE_JAR_PATH);
+            SOURCE_BUNDLE_MANIFEST_PATH, SOURCE_BUNDLE_JAR_PATH,
+            FATFeatureDef.IS_SERVER_FEATURE);
+
+    // public static final FATBundleDef BUNDLE_DEF =
+    //     new FATBundleDef(SOURCE_BUNDLE_JAR_PATH);
 
     //
 

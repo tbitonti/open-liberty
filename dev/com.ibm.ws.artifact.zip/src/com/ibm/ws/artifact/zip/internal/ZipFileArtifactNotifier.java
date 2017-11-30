@@ -818,6 +818,7 @@ public class ZipFileArtifactNotifier implements ArtifactNotifier, FileMonitor, A
                     break;
                 } else {
                     a_paths.add("/" + r_nextPath);
+                    location++;
                 }
             }
 

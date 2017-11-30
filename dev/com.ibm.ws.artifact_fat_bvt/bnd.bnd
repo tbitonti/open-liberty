@@ -31,7 +31,6 @@ test.project: true
         com.ibm.ws.artifact.overlay;version=latest, \
         com.ibm.ws.artifact.url;version=latest, \
         com.ibm.ws.artifact.zip;version=latest, \
-        com.ibm.ws.artifact.zip.cache;version=latest, \
         com.ibm.ws.kernel.service;version=latest, \
         com.ibm.ws.logging;version=latest, \
         com.ibm.wsspi.org.osgi.service.component.annotations;version=latest

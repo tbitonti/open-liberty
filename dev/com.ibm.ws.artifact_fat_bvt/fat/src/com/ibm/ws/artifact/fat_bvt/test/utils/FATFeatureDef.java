@@ -15,11 +15,20 @@ package com.ibm.ws.artifact.fat_bvt.test.utils;
  * Feature definition.  Used when preparing liberty servers.
  */
 public class FATFeatureDef {
-    public final String featureManifestPath;
-    public final String featureJarPath;
+    public final String sourceFeatureManifestPath;
+    public final String sourceFeatureJarPath;
+    public final boolean isUserFeature;
 
-    public FATFeatureDef(String featureManifestPath, String featureJarPath) {
-        this.featureManifestPath = featureManifestPath;
-        this.featureJarPath = featureJarPath;
+    public static final boolean IS_USER_FEATURE = true;
+    public static final boolean IS_SERVER_FEATURE = false;
+
+    public FATFeatureDef(
+        String featureManifestPath,
+        String featureJarPath,
+        boolean isUserFeature) {
+
+        this.sourceFeatureManifestPath = featureManifestPath;
+        this.sourceFeatureJarPath = featureJarPath;
+        this.isUserFeature = isUserFeature;
     }
 }

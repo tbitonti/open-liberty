@@ -25,6 +25,7 @@ import java.util.zip.ZipFile;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.artifact.zip.cache.ZipCachingProperties;
 import com.ibm.ws.artifact.zip.cache.ZipFileHandle;
 import com.ibm.wsspi.kernel.service.utils.FileUtils;
 
@@ -95,15 +96,15 @@ public class ZipFileHandleImpl implements ZipFileHandle {
     private static final ZipFileReaper zipFileReaper;
 
     static {
-        int useMaxPending = ZipCacheUtils.ZIP_CACHE_REAPER_MAX_PENDING;
+        int useMaxPending = ZipCachingProperties.ZIP_CACHE_REAPER_MAX_PENDING;
         if ( useMaxPending == 0 ) {
             zipFileReaper = null;
         } else {
             zipFileReaper = new ZipFileReaper(
                 "zip cache reaper",
-                ZipCacheUtils.ZIP_CACHE_REAPER_MAX_PENDING,
-                ZipCacheUtils.ZIP_CACHE_REAPER_SHORT_INTERVAL,
-                ZipCacheUtils.ZIP_CACHE_REAPER_LONG_INTERVAL);
+                ZipCachingProperties.ZIP_CACHE_REAPER_MAX_PENDING,
+                ZipCachingProperties.ZIP_CACHE_REAPER_SHORT_INTERVAL,
+                ZipCachingProperties.ZIP_CACHE_REAPER_LONG_INTERVAL);
         }
     }
 
@@ -191,11 +192,11 @@ public class ZipFileHandleImpl implements ZipFileHandle {
     private static final Map<String, byte[]> zipEntries;
 
     static {
-        if ( (ZipCacheUtils.ZIP_CACHE_ENTRY_LIMIT == 0) ||
-             (ZipCacheUtils.ZIP_CACHE_ENTRY_MAX == 0) ) {
+        if ( (ZipCachingProperties.ZIP_CACHE_ENTRY_LIMIT == 0) ||
+             (ZipCachingProperties.ZIP_CACHE_ENTRY_MAX == 0) ) {
             zipEntries = null;
         } else {
-            zipEntries = new CacheHashMap<String, byte[]>(ZipCacheUtils.ZIP_CACHE_ENTRY_MAX);
+            zipEntries = new CacheHashMap<String, byte[]>(ZipCachingProperties.ZIP_CACHE_ENTRY_MAX);
         }
     }
 
@@ -265,7 +266,7 @@ public class ZipFileHandleImpl implements ZipFileHandle {
         if ( zipEntries == null ) { // No entry cache.
             doNotCache = true;
             doNotCacheReason = "Do not cache: Entry cache disabled";
-        } else if ( entrySize > ZipCacheUtils.ZIP_CACHE_ENTRY_LIMIT) { // Too big for the cache
+        } else if ( entrySize > ZipCachingProperties.ZIP_CACHE_ENTRY_LIMIT) { // Too big for the cache
             doNotCache = true;
             doNotCacheReason = "Do not cache: Too big";
         } else if ( entryName.equals("META-INF/MANIFEST.MF") ) {

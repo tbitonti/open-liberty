@@ -22,6 +22,7 @@ import java.util.zip.ZipFile;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.artifact.zip.cache.ZipCachingProperties;
 import com.ibm.wsspi.kernel.service.utils.SystemUtils;
 
 /**
@@ -126,17 +127,17 @@ public class ZipFileReaper {
 
     @Trivial
     private static String toCount(int count) {
-        return ZipCacheUtils.toCount(count);
+        return ZipCachingProperties.toCount(count);
     }
 
     @Trivial
     private static String toRelSec(long baseNS, long actualNS) {
-        return ZipCacheUtils.toRelSec(baseNS, actualNS);
+        return ZipCachingProperties.toRelSec(baseNS, actualNS);
     }
 
     @Trivial
     private static String toAbsSec(long durationNS) {
-        return ZipCacheUtils.toAbsSec(durationNS);
+        return ZipCachingProperties.toAbsSec(durationNS);
     }
 
     //
@@ -549,7 +550,7 @@ public class ZipFileReaper {
         public void debugState() {
             String methodName = "debugState";
 
-            if ( !ZipCacheUtils.ZIP_CACHE_DEBUG_STATE || !tc.isInfoEnabled() ) {
+            if ( !ZipCachingProperties.ZIP_CACHE_DEBUG_STATE || !tc.isInfoEnabled() ) {
                 return;
             }
 
@@ -661,7 +662,7 @@ public class ZipFileReaper {
                                 if ( tc.isDebugEnabled() ) {
                                     Tr.debug(tc, methodName + "Waiting [ " + toAbsSec(reapDelay) + " ] for new pending close");
                                 }
-                                useReaperLock.wait(reapDelay / ZipCacheUtils.ONE_MILLI_SEC_IN_NANO_SEC); // throws InterruptedException
+                                useReaperLock.wait(reapDelay / ZipCachingProperties.ONE_MILLI_SEC_IN_NANO_SEC); // throws InterruptedException
                                 if ( tc.isDebugEnabled() ) {
                                     Tr.debug(tc, methodName + "Waited for new pending close");
                                 }
@@ -688,7 +689,7 @@ public class ZipFileReaper {
                                 if ( tc.isDebugEnabled() ) {
                                     Tr.debug(tc, methodName + "Waiting [ " + toAbsSec(reapDelay) + " ] for current pending close");
                                 }
-                                useReaperLock.wait(reapDelay / ZipCacheUtils.ONE_MILLI_SEC_IN_NANO_SEC); // throws InterruptedException
+                                useReaperLock.wait(reapDelay / ZipCachingProperties.ONE_MILLI_SEC_IN_NANO_SEC); // throws InterruptedException
                                 if ( tc.isDebugEnabled() ) {
                                     Tr.debug(tc, methodName + "Waited for current pending close");
                                 }
@@ -730,9 +731,9 @@ public class ZipFileReaper {
     @Trivial
     public ZipFileReaper(String reaperName, long initialAt) {
         this(reaperName,
-            ZipCacheUtils.ZIP_CACHE_REAPER_MAX_PENDING,
-            ZipCacheUtils.ZIP_CACHE_REAPER_SHORT_INTERVAL,
-            ZipCacheUtils.ZIP_CACHE_REAPER_LONG_INTERVAL);
+            ZipCachingProperties.ZIP_CACHE_REAPER_MAX_PENDING,
+            ZipCachingProperties.ZIP_CACHE_REAPER_SHORT_INTERVAL,
+            ZipCachingProperties.ZIP_CACHE_REAPER_LONG_INTERVAL);
     }
 
     @Trivial
@@ -828,7 +829,7 @@ public class ZipFileReaper {
         // of iterating across and closing all active zip files, which is
         // very probably unnecessary since the JVM is shutting down.
 
-        boolean useShutdown = ZipCacheUtils.ZIP_CACHE_DEBUG_STATE;
+        boolean useShutdown = ZipCachingProperties.ZIP_CACHE_DEBUG_STATE;
 
         if ( useShutdown ) {
             this.reaperShutdown = new ReaperShutdown(this.reaperThread);
@@ -1236,7 +1237,7 @@ public class ZipFileReaper {
 
                     // If we are tracking state, keep zip data forever.
                     // That gives us complete tracking data after the shutdown reap.
-                    if ( !ZipCacheUtils.ZIP_CACHE_DEBUG_STATE ) {
+                    if ( !ZipCachingProperties.ZIP_CACHE_DEBUG_STATE ) {
                         zipData.remove(nextPendPath);
                     }
 
