@@ -14,6 +14,7 @@ subprojects {
 
   plugins.apply 'java'
   plugins.apply 'maven-publish'
+  plugins.apply 'jacoco'
 
   def props = new Properties()
   file("${rootDir}/generated.properties").withInputStream { props.load(it) }
@@ -109,7 +110,13 @@ subprojects {
         into "${rootDir}/build.image/wlp/" + bnd('publish.wlp.jar.suffix', 'lib')
         include bnd('publish.wlp.jar.include', '*.jar')
         if (parseBoolean(bnd('publish.wlp.jar.rename', 'true'))) {
-          if ((bnd('IBM-Interim-Fixes', '').empty) && (bnd('IBM-Test-Fixes', '').empty)) {
+          // iFixed jars should get renamed with a qualifier so they can exist in the filesystem
+          // next to the base version of the jar, *except* for jars that are directly
+          // referenced in a tool script's classpath...
+          if (((bnd('IBM-Interim-Fixes', '').empty) && (bnd('IBM-Test-Fixes', '').empty))
+              || (project.name.equals("com.ibm.ws.kernel.boot"))
+              || (project.name.equals("com.ibm.ws.appclient.boot"))
+              || (project.name.equals("com.ibm.ws.kernel.boot.cmdline"))) {
             rename '(.*).jar', '$1' + "_${bnd.bFullVersion}.jar"
           }
           else {
@@ -564,7 +571,61 @@ subprojects {
 
     }
   }
-  
+
+  /*
+   * Define dependencies for the Jacoco Ant plugin that is used to
+   * generate coverage reports since Artifactory doesn't have the
+   * POM and therefore can't resolve secondary dependencies.
+   */
+  dependencies {
+     jacocoAnt "org.jacoco:org.jacoco.agent:0.7.9", 
+               "org.jacoco:org.jacoco.ant:0.7.9",
+               "org.jacoco:org.jacoco.core:0.7.9",
+               "org.jacoco:org.jacoco.report:0.7.9",
+               "org.ow2.asm:asm-all:5.2"
+  }
+
+  jacoco {
+    toolVersion = "0.7.9"
+  }
+
+  test {
+    /*
+     * By default, don't generate code coverage unless we are
+     * running the 'jacocoTestReport' task.
+     */
+    def enableJacoco = false
+    gradle.startParameter.taskNames.each {
+      if(it.contains("jacocoTestReport")) {
+        enableJacoco = true;
+      }
+    }
+
+    jacoco {
+      append = false
+      enabled = enableJacoco
+    }
+  }
+
+  jacocoTestReport {
+    description = 'Run the test task and generate the code coverage report.'
+
+    dependsOn test
+
+    reports {
+      html.enabled = true
+    }
+  }
+
+  jacocoTestCoverageVerification {
+    violationRules {
+      rule {
+        limit {
+          minimum = 0.8
+        }
+      }
+    }
+  }
 }
 
 task testResults {

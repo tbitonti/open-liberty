@@ -57,6 +57,7 @@ import com.ibm.ws.threading.PolicyExecutor.MaxPolicy;
 import com.ibm.ws.threading.PolicyExecutorProvider;
 import com.ibm.ws.threading.PolicyTaskCallback;
 import com.ibm.ws.threading.PolicyTaskFuture;
+import com.ibm.ws.threading.StartTimeoutException;
 
 import componenttest.annotation.AllowedFFDC;
 import componenttest.app.FATServlet;
@@ -4499,7 +4500,9 @@ public class PolicyExecutorServlet extends FATServlet {
             Integer result = future.get(TIMEOUT_NS, TimeUnit.NANOSECONDS);
             fail("Task should be been aborted, instead result is: " + result);
         } catch (RejectedExecutionException x) {
-            if (x.getMessage() == null || !x.getMessage().contains("CWWKE1205E"))
+            if (!(x.getCause() instanceof StartTimeoutException)
+                || x.getCause().getMessage() == null
+                || !x.getCause().getMessage().contains("CWWKE1205E"))
                 throw x;
             // else pass - aborted due to timeout
         }
@@ -4510,8 +4513,11 @@ public class PolicyExecutorServlet extends FATServlet {
         assertFalse(future.isCancelled());
         assertEquals(0, future.getElapsedRunTime(TimeUnit.NANOSECONDS));
         boolean sameQueueTime = false;
-        for (long start = System.nanoTime(); !sameQueueTime && System.nanoTime() - start < TIMEOUT_NS; Thread.sleep(200))
-            sameQueueTime = queueTimeNS == future.getElapsedQueueTime(TimeUnit.NANOSECONDS);
+        for (long start = System.nanoTime(); !sameQueueTime && System.nanoTime() - start < TIMEOUT_NS; Thread.sleep(200)) {
+            long newQueueTimeNS = future.getElapsedQueueTime(TimeUnit.NANOSECONDS);
+            sameQueueTime = queueTimeNS == newQueueTimeNS;
+            queueTimeNS = newQueueTimeNS;
+        }
         assertTrue(sameQueueTime);
 
         // Additional testing for the measured run time of the blocker task
@@ -4556,7 +4562,7 @@ public class PolicyExecutorServlet extends FATServlet {
         PolicyTaskFuture<Integer> future3 = (PolicyTaskFuture<Integer>) executor.submit(task3);
 
         // Let the tasks time out, but they remain in the queue
-        TimeUnit.MILLISECONDS.sleep(200);
+        TimeUnit.MILLISECONDS.sleep(400);
 
         // ensure that tasks submitted after this point do not time out
         executor.startTimeout(-1);
@@ -4585,7 +4591,9 @@ public class PolicyExecutorServlet extends FATServlet {
             Integer result = future2.get(TIMEOUT_NS, TimeUnit.NANOSECONDS);
             fail("Task 2 should be been aborted, instead result is: " + result);
         } catch (RejectedExecutionException x) {
-            if (x.getMessage() == null || !x.getMessage().contains("CWWKE1205E"))
+            if (!(x.getCause() instanceof StartTimeoutException)
+                || x.getCause().getMessage() == null
+                || !x.getCause().getMessage().contains("CWWKE1205E"))
                 throw x;
             // else pass - aborted due to timeout
         }
@@ -4594,7 +4602,9 @@ public class PolicyExecutorServlet extends FATServlet {
             Integer result = future3.get(TIMEOUT_NS, TimeUnit.NANOSECONDS);
             fail("Task 3 should be been aborted, instead result is: " + result);
         } catch (RejectedExecutionException x) {
-            if (x.getMessage() == null || !x.getMessage().contains("CWWKE1205E"))
+            if (!(x.getCause() instanceof StartTimeoutException)
+                || x.getCause().getMessage() == null
+                || !x.getCause().getMessage().contains("CWWKE1205E"))
                 throw x;
             // else pass - aborted due to timeout
         }
@@ -4663,7 +4673,9 @@ public class PolicyExecutorServlet extends FATServlet {
             Integer result = future1.get(TIMEOUT_NS, TimeUnit.NANOSECONDS);
             fail("Task 1 should be been aborted, instead result is: " + result);
         } catch (RejectedExecutionException x) {
-            if (x.getMessage() == null || !x.getMessage().contains("CWWKE1205E"))
+            if (!(x.getCause() instanceof StartTimeoutException)
+                || x.getCause().getMessage() == null
+                || !x.getCause().getMessage().contains("CWWKE1205E"))
                 throw x;
             // else pass - aborted due to timeout
         }
