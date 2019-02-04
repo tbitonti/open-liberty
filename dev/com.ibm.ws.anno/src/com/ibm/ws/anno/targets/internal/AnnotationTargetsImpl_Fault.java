@@ -1,21 +1,25 @@
-/*******************************************************************************
- * Copyright (c) 2011, 2013 IBM Corporation and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+/*
+ * IBM Confidential
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
- *******************************************************************************/
+ * OCO Source Materials
+ *
+ *  Copyright IBM Corporation 2011, 2018
+ *
+ * The source code for this program is not published or otherwise divested
+ * of its trade secrets, irrespective of what has been deposited with the
+ * U.S. Copyright Office.
+ */
 package com.ibm.ws.anno.targets.internal;
 
 import java.text.MessageFormat;
+
+import com.ibm.websphere.ras.annotation.Trivial;
 
 import com.ibm.wsspi.anno.targets.AnnotationTargets_Fault;
 
 public class AnnotationTargetsImpl_Fault implements AnnotationTargets_Fault {
 
+    @Trivial
     protected static Object[] copyArray(Object[] sourceArray) {
         if (sourceArray == null) {
             return null;
@@ -32,6 +36,7 @@ public class AnnotationTargetsImpl_Fault implements AnnotationTargets_Fault {
 
     //
 
+    @Trivial
     public AnnotationTargetsImpl_Fault(String unresolvedText) {
         this(unresolvedText, null);
     }
@@ -43,7 +48,6 @@ public class AnnotationTargetsImpl_Fault implements AnnotationTargets_Fault {
         this.parameters = copyArray(parameters);
 
         this.resolvedText = null;
-
     }
 
     //
@@ -51,6 +55,7 @@ public class AnnotationTargetsImpl_Fault implements AnnotationTargets_Fault {
     protected final String unresolvedText;
 
     @Override
+    @Trivial
     public String getUnresolvedText() {
         return unresolvedText;
     }
@@ -58,11 +63,13 @@ public class AnnotationTargetsImpl_Fault implements AnnotationTargets_Fault {
     protected final Object[] parameters;
 
     @Override
+    @Trivial
     public int getParameterCount() {
         return ((parameters == null) ? 0 : parameters.length);
     }
 
     @Override
+    @Trivial
     public Object getParamater(int paramNo) {
         if (parameters == null) {
             throw new ArrayIndexOutOfBoundsException(paramNo);
@@ -73,11 +80,12 @@ public class AnnotationTargetsImpl_Fault implements AnnotationTargets_Fault {
     }
 
     @Override
+    @Trivial
     public Object[] getParameters() {
-        // Copy the parameters
         return (parameters == null ? null : copyArray(parameters));
     }
 
+    @Trivial
     protected Object[] getRawParameters() {
         return parameters;
     }

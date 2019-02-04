@@ -247,6 +247,8 @@ public class LibertyServer implements LogMonitorClient {
 
     protected int osgiConsolePort = 5678; // The port number of the OSGi Console
 
+    protected static final String OSGI_DIR_NAME = "org.eclipse.osgi";
+
     // Use port 0 if the property can't be found, these should be picked up from a properties file
     // if not then the test may create a liberty server and get the ports from a bootstrap port.
     // If neither way obtains a port then port 0 will be used which will cause the tests to fail in
@@ -2627,7 +2629,7 @@ public class LibertyServer implements LogMonitorClient {
         logs = listDirectoryContents(remoteDirectory);
         for (String l : logs) {
             if (remoteDirectory.getName().equals("workarea")) {
-                if (l.equals("org.eclipse.osgi") || l.startsWith(".s")) {
+                if (l.equals(OSGI_DIR_NAME) || l.startsWith(".s")) {
                     // skip the osgi framework cache, and runtime artifacts: too big / too racy
                     Log.finest(c, "recursivelyCopyDirectory", "Skipping workarea element " + l);
                     continue;
@@ -2753,6 +2755,10 @@ public class LibertyServer implements LogMonitorClient {
 
     public String getServerRoot() {
         return serverRoot;
+    }
+
+    public String getOsgiWorkAreaRoot() {
+        return serverRoot + "/workarea" + "/" + OSGI_DIR_NAME;
     }
 
     public String getServerSharedPath() {

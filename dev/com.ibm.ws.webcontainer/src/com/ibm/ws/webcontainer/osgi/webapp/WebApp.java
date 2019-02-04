@@ -1012,12 +1012,7 @@ public class WebApp extends com.ibm.ws.webcontainer.webapp.WebApp implements Com
                                   }
                                   
                                   if ( !didOpen ) {
-                                      try {
-                                          webAppAnnotations.openInfoStore();
-                                      } catch (UnableToAdaptException e) {
-                                          logger.logp(Level.FINE, CLASS_NAME, methodName, "caught UnableToAdaptException: " + e);
-                                          return;
-                                      }
+                                      webAppAnnotations.openInfoStore();
                                       didOpen = true;
                                   }
                                   
@@ -1058,11 +1053,7 @@ public class WebApp extends com.ibm.ws.webcontainer.webapp.WebApp implements Com
           }
       } finally {
           if (didOpen) {
-              try {
-                  webAppAnnotations.closeInfoStore();
-              } catch (UnableToAdaptException e) {
-                  logger.logp(Level.FINE, CLASS_NAME, methodName, "caught UnableToAdaptException: " + e);
-              }              
+              webAppAnnotations.closeInfoStore();
           }
       }
   }

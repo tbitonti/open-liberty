@@ -146,6 +146,7 @@ import com.ibm.wsspi.webcontainer.webapp.WebAppConfig;
  * and configure them into the WebAppConfiguration.
  */
 public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
+    private static final String CLASS_NAME = WebAppConfiguratorHelper.class.getSimpleName();
 
     private static final TraceComponent tc = Tr.register(WebAppConfiguratorHelper.class, WebContainerConstants.TR_GROUP, WebContainerConstants.NLS_PROPS);
 
@@ -799,18 +800,42 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         configureFilterMappings(webFragment, webFragment.getFilterMappings());
     }
 
+    private void logAnnotations(String methodName, String title, WebFragmentInfo webFragmentItem, Set<String> annotationClassNames) {
+        if ( annotationClassNames.isEmpty() ) {
+            return;
+        }
+
+        String prefix = CLASS_NAME + "." + methodName + ": ";
+        Tr.info(tc, prefix + "[ " + webFragmentItem + " ]: " + title + ": [ " + annotationClassNames.size() + " ]");
+        for ( String className : annotationClassNames ) {
+            Tr.info(tc, prefix + "  [ " + className + " ]");
+        }
+    }
+
     @Override
     public void configureFromAnnotations(WebFragmentInfo webFragmentItem) throws UnableToAdaptException {
+        String methodName = "configureFromAnnotations";
+
         FragmentAnnotations fragmentAnnotations = configurator.getWebAnnotations().getFragmentAnnotations(webFragmentItem);
 
         Set<String> webServletClassNames = fragmentAnnotations.selectAnnotatedClasses(WebServlet.class);
+        logAnnotations(methodName, "WebServlet class names", webFragmentItem, webServletClassNames);
         configureServletAnnotation(webServletClassNames);
 
-        configureListenerAnnotation(fragmentAnnotations.selectAnnotatedClasses(WebListener.class));
-        configureMultipartConfigAnnotation(fragmentAnnotations.selectAnnotatedClasses(javax.servlet.annotation.MultipartConfig.class));
-        configureRunAsAnnotation(fragmentAnnotations.selectAnnotatedClasses(RunAs.class));
+        Set<String> webListenerClassNames = fragmentAnnotations.selectAnnotatedClasses(WebListener.class);
+        logAnnotations(methodName, "WebListener class names", webFragmentItem, webListenerClassNames);
+        configureListenerAnnotation(webListenerClassNames);
+
+        Set<String> mpcClassNames = fragmentAnnotations.selectAnnotatedClasses(javax.servlet.annotation.MultipartConfig.class);
+        logAnnotations(methodName, "MultipartConfig class names", webFragmentItem, mpcClassNames);
+        configureMultipartConfigAnnotation(mpcClassNames);
+
+        Set<String> runAsClassNames = fragmentAnnotations.selectAnnotatedClasses(RunAs.class);
+        logAnnotations(methodName, "RunAs class names", webFragmentItem, runAsClassNames);
+        configureRunAsAnnotation(runAsClassNames);
 
         Set<String> webFilterClassNames = fragmentAnnotations.selectAnnotatedClasses(WebFilter.class);
+        logAnnotations(methodName, "WebFilter class names", webFragmentItem, webFilterClassNames);
         configureFilterAnnotation(webFilterClassNames);
     }
 
@@ -2367,6 +2392,8 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
 
     private void configureServletAnnotation(Set<String> webServletClassNames) throws UnableToAdaptException {
         String methodName = "configureServletAnnotation";
+        String prefix = CLASS_NAME + "." + methodName + ": ";
+
         String displayName = webAppConfiguration.getDisplayName();
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
             Tr.entry(tc, methodName, "WebAppConfiguration [ " + displayName + " ]");
@@ -2380,6 +2407,8 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         Map<String, ConfigItem<ServletConfig>> servletMap = configurator.getConfigItemMap("servlet");
 
         for (String className : webServletClassNames) {
+            System.out.println(prefix + "Servlet [ " + className + " ]");
+
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                 Tr.debug(tc, methodName + ": @WebServlet target class [ " + className + " ]");
             }            
@@ -2670,6 +2699,7 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
                                                                                  "servlet-mapping value matches multiple servlets: " + urlText));
                     }
                 }
+                System.out.println("Map servlet [ " + servletName + " ] to URL [ " + urlText + " ]");
                 webAppConfiguration.addServletMapping(servletName, urlText);
             }
         }

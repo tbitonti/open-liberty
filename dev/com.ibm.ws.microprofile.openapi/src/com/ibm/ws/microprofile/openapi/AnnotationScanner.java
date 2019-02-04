@@ -36,7 +36,6 @@ import com.ibm.wsspi.webcontainer.webapp.WebAppConfig;
  * Scanner for Open API / JAX-RS annotated classes within a web module.
  */
 public class AnnotationScanner {
-
     private static final TraceComponent tc = Tr.register(AnnotationScanner.class);
 
     private static final String JAX_RS_APPLICATION_CLASS_NAME = "javax.ws.rs.core.Application";
@@ -80,7 +79,7 @@ public class AnnotationScanner {
         return null;
     }
 
-    private String getUrlMappingFromApp(String appName) throws UnableToAdaptException {
+    private String getUrlMappingFromApp(String appName) {
         ClassInfo cInf = webAnnotations.getClassInfo(appName);
         if (cInf != null) {
             AnnotationInfo aInf = cInf.getAnnotation(JAX_RS_APP_PATH_ANNOTATION_CLASS_NAME);
@@ -104,7 +103,7 @@ public class AnnotationScanner {
         return null;
     }
 
-    private Set<String> getAllApplicationClasses() throws UnableToAdaptException {
+    private Set<String> getAllApplicationClasses() {
         AnnotationTargets_Targets annotationTargets = webAnnotations.getAnnotationTargets();
         Set<String> applicationClasses = new HashSet<String>();
         applicationClasses.addAll(annotationTargets.getSubclassNames(JAX_RS_APPLICATION_CLASS_NAME));
@@ -138,7 +137,7 @@ public class AnnotationScanner {
         return null;
     }
 
-    private String findServletMappingForApp(String appClassName) throws UnableToAdaptException {
+    private String findServletMappingForApp(String appClassName) {
 
         if (appClassName == null)
             return null;
@@ -183,25 +182,20 @@ public class AnnotationScanner {
         return getUrlMappingFromApp(appClassName);
     }
 
-    @FFDCIgnore(UnableToAdaptException.class)
-    public synchronized Set<String> getAnnotatedClassesNames() {
-        AnnotationTargets_Targets annotationTargets;
-        Set<String> restAPIClasses = null;
+    public Set<String> getAnnotatedClassesNames() {
+        AnnotationTargets_Targets annotationTargets = webAnnotations.getAnnotationTargets();
 
-        try {
-            annotationTargets = webAnnotations.getAnnotationTargets();
-            restAPIClasses = ANNOTATION_CLASS_NAMES.stream()//
-                            .flatMap(anno -> annotationTargets.getAnnotatedClasses(anno, AnnotationTargets_Targets.POLICY_SEED).stream())//
-                            .collect(Collectors.toSet());
+        // 'getAnnotatedClasses' with no policy selects SEED classes.
+        Set<String> restAPIClasses = ANNOTATION_CLASS_NAMES.stream()
+            .flatMap( annoClassName -> annotationTargets.getAnnotatedClasses(annoClassName).stream() )
+            .collect( Collectors.toSet() );
 
-            // Remove any MP Rest Client interfaces from the OpenAPI view
-            Set<String> mpRestClientClasses = annotationTargets.getAnnotatedClasses(MP_REGISTER_REST_CLIENT);
-            restAPIClasses.removeAll(mpRestClientClasses);
-        } catch (UnableToAdaptException e) {
-            if (OpenAPIUtils.isEventEnabled(tc)) {
-                Tr.event(tc, "Unable to get annotated class names");
-            }
-        }
+        // Remove any MP Rest Client interfaces from the OpenAPI view
+        Set<String> mpRestClientClasses =
+            annotationTargets.getAnnotatedClasses(MP_REGISTER_REST_CLIENT);
+
+        restAPIClasses.removeAll(mpRestClientClasses);
+
         return Collections.unmodifiableSet(restAPIClasses);
     }
 
