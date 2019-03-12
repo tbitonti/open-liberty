@@ -220,8 +220,7 @@ public class ClassSourceImpl_Aggregate extends ClassSourceImpl implements ClassS
 
         if ( openCount == 0 ) { // Last one which is active; need to close the children.
             for ( ClassSource nextClassSource : getSuccessfulOpens() ) {
-                @SuppressWarnings("unused")
-				String nextClassSourceName = nextClassSource.getCanonicalName();
+                String nextClassSourceName = nextClassSource.getCanonicalName();
 
                 try {
                     nextClassSource.close(); // throws ClassSource_Exception

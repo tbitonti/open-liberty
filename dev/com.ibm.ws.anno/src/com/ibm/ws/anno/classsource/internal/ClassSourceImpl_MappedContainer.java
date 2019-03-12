@@ -317,9 +317,9 @@ public class ClassSourceImpl_MappedContainer
 
                             // TODO: NEW_MESSAGE: Need a new message here.
 
-                             String eMsg = "[ " + getHashText() + " ]" +
-                                           " Failed to process class [ " + nextClassName + " ]" +
-                                           " under root [ " + getContainer() + " ]";
+                            // String eMsg = "[ " + getHashText() + " ]" +
+                            //               " Failed to process class [ " + nextClassName + " ]" +
+                            //               " under root [ " + getContainer() + " ]";
                             // CWWKC0068W: An exception occurred while processing class [ {0} ] in container [ {1} ]
                             // identified by [ {2} ]. The exception was {3}.
                             Tr.warning(tc, "ANNO_TARGETS_SCAN_EXCEPTION", e);
@@ -416,7 +416,7 @@ public class ClassSourceImpl_MappedContainer
 
     @Override
     protected boolean basicHasJandexIndex() {
-    	return ( getContainer().getEntry( getJandexIndexPath() ) != null );
+        return ( getContainer().getEntry( getJandexIndexPath() ) != null );
     }
 
     @SuppressWarnings("deprecation")
