@@ -22,9 +22,9 @@ public class ClassSourceImpl_Options implements ClassSource_Options {
     private static final String JANDEX_OVERRIDE_PROPERTY_NAME = "com.ibm.ws.jandex.enable";
     private static final boolean JANDEX_OVERRIDE_DEFAULT_VALUE = false;
 
-    private static final boolean JANDEX_OVERRIDE = JandexLogger.getProperty(
-                                                                            CLASS_NAME, "<static init>",
-                                                                            JANDEX_OVERRIDE_PROPERTY_NAME, JANDEX_OVERRIDE_DEFAULT_VALUE);
+    private static final boolean JANDEX_OVERRIDE =
+        JandexLogger.getProperty(CLASS_NAME, "<static init>",
+                                 JANDEX_OVERRIDE_PROPERTY_NAME, JANDEX_OVERRIDE_DEFAULT_VALUE);
 
     public boolean getJandexOverride() {
         return JANDEX_OVERRIDE;

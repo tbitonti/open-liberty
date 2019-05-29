@@ -111,13 +111,9 @@ public abstract class ClassInfoImpl extends InfoImpl implements ClassInfo {
 
     public abstract List<MethodInfoImpl> getMethods();
 
-    /**
-     * @param name
-     * @return
-     */
     public MethodInfoImpl getMethod(String name) {
-        for (MethodInfoImpl meth : getMethods()) {
-            if (meth.getName().equals(name)) {
+        for ( MethodInfoImpl meth : getMethods() ) {
+            if ( meth.getName().equals(name) ) {
                 return meth;
             }
         }

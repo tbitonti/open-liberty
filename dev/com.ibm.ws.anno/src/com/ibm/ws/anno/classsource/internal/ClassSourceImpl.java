@@ -11,6 +11,7 @@
 
 package com.ibm.ws.anno.classsource.internal;
 
+import java.io.File;
 import java.io.InputStream;
 import java.io.File;
 import java.text.MessageFormat;
@@ -284,9 +285,9 @@ public abstract class ClassSourceImpl implements ClassSource {
 
     /**
      * <p>Attempt to process a specified class. Answer whether processing was handed
-     * successfully by the streamer via {@link ClassSource_Streamer#process(String, InputStream, boolean, boolean, boolean)}.</p>
+     * successfully by the streamer via {@link ClassSource_Streamer#process}.</p>
      *
-     * <p>A failure (false) result occurs the class is blocked by {@link ClassSource_Streamer#doProcess(String, boolean, boolean, boolean)},
+     * <p>A failure (false) result occurs the class is blocked by {@link ClassSource_Streamer#doProcess},
      * or if no resource is available for the class. A failure to open the resource results
      * in an exception. Certain processing failures also result in an exception.</p>
      *
@@ -755,29 +756,26 @@ public abstract class ClassSourceImpl implements ClassSource {
      * we don't want to scan these until support for Java 9 is added.  For now we want
      * to just ignore all of these classes.
      *
-     * @param name - simple class name,  (without .class suffix)
-     *               fully qualified class name, (example com.ibm.someClass OR com/ibm/someClass)
-     *               or simple directory name
+     * @param name Simple class name (without .class suffix), fully qualified class name (for
+     *     example com.ibm.someClass OR com/ibm/someClass), or simple directory name.
      *
-     * @return     - true if the name startsWith "META-INF" or ends with "module-info"
-     *             The startsWith & endsWith tests do not definitively confirm Java-9 specificity,
-     *             but for all intents and purposes, it does what we want.  For example if we get a 
-     *             class name or directory name that starts with META-INF or ends with module-info, 
-     *             but it's not really a Java 9 case, well it's still not a valid class name or it's not
-     *             a valid directory name that could be part of a java package name.  Returning
-     *             true has the end result of the class being ignored.
+     * @return True if the name startsWith "META-INF" or ends with "module-info".
+     *     The startsWith and endsWith tests do not definitively confirm Java-9 specificity,
+     *     but for all intents and purposes, it does what we want.  For example if we get a 
+     *     class name or directory name that starts with META-INF or ends with module-info, 
+     *     but it's not really a Java 9 case, well it's still not a valid class name or it's not
+     *     a valid directory name that could be part of a java package name.  Returning
+     *     true has the end result of the class being ignored.
      */
     protected boolean isJava9SpecificClass(String name) {
-
         if ( ( name.length() >= META_INF_LENGTH ) && name.regionMatches(true, 0, "META-INF", 0, META_INF_LENGTH) ) {
             return true; // Starts with "META-INF" ignoring case
-        }        
+        }
 
         if ( name.endsWith("module-info") ) {
             return true;
-        }        
+        }
 
         return false;
     }
-    
 }

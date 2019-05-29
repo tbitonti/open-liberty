@@ -135,6 +135,7 @@ public class InfoVisitor extends ClassVisitor {
             super(Opcodes.ASM7);
         }
 
+        @SuppressWarnings("unchecked")
         void setMethodInfo(MethodInfoImpl mii) {
             methodInfo = mii;
             annotations = new LinkedList<AnnotationInfoImpl>();

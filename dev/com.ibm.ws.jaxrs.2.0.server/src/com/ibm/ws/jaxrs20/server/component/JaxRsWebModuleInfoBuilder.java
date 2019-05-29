@@ -27,6 +27,7 @@ import org.osgi.service.component.annotations.ConfigurationPolicy;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.annotations.WebAnnotations;
+import com.ibm.ws.container.service.annocache.AnnotationsBetaHelper;
 import com.ibm.ws.container.service.app.deploy.extended.ExtendedModuleInfo;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.jaxrs20.api.JaxRsModuleInfoBuilder;
@@ -78,7 +79,7 @@ public class JaxRsWebModuleInfoBuilder extends AbstractJaxRsModuleInfoBuilder im
             return null;
         }
 
-        WebAnnotations webAnnotations = containerToAdapt.adapt(WebAnnotations.class);
+        WebAnnotations webAnnotations = AnnotationsBetaHelper.getWebAnnotations(containerToAdapt);
         InfoStore infoStore = webAnnotations.getInfoStore();
 
         EndpointInfoBuilderContext endpointInfoBuilderContext = new EndpointInfoBuilderContext(infoStore, containerToAdapt);

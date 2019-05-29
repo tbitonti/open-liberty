@@ -231,7 +231,7 @@ public class UtilImpl_InternMap implements Util_InternMap {
     /**
      * Intern a string value. Do force the value to be interned.
      * 
-     * See {@link #intern(String, boolean) and {@link Util_InternMap#DO_FORCE}.
+     * See {@link #intern(String, boolean)} and {@link Util_InternMap#DO_FORCE}.
      * 
      * @param value The string value which is to be interned.
      * 

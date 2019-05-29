@@ -40,7 +40,7 @@ public interface ClassSource_Options {
 
 	/**
 	 * Tell if 'use jandex' is set.  If unset, the
-	 * default value is returned from {@#getUseJandex()}.
+	 * default value is returned from {@link #getUseJandex()}.
 	 * 
 	 * @return Whether 'use jandex' is set.
 	 */

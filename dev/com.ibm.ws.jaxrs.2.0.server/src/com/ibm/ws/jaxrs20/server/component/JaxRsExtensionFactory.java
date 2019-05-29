@@ -27,6 +27,7 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.annotations.WebAnnotations;
+import com.ibm.ws.container.service.annocache.AnnotationsBetaHelper;
 import com.ibm.ws.jaxrs20.JaxRsConstants;
 import com.ibm.ws.jaxrs20.api.EndpointPublisher;
 import com.ibm.ws.jaxrs20.endpoint.JaxRsPublisherContext;
@@ -122,10 +123,12 @@ public class JaxRsExtensionFactory implements ExtensionFactory {
 //        WebApp webApp = (WebApp) servletContext;
 //        publisherContext.setAttribute(JaxRsWebContainerConstants.NAMESPACE_COLLABORATOR, webApp.getCollaboratorHelper().getWebAppNameSpaceCollaborator());
 
-        publisherContext.setAttribute(JaxRsConstants.ENDPOINT_INFO_BUILDER_CONTEXT, new EndpointInfoBuilderContext(
-                        servletContext.getModuleContainer().adapt(WebAnnotations.class).getInfoStore(),
-                        servletContext.getModuleContainer()
-                                      ));
+        publisherContext.setAttribute(
+            JaxRsConstants.ENDPOINT_INFO_BUILDER_CONTEXT,
+            new EndpointInfoBuilderContext(
+                AnnotationsBetaHelper.getWebAnnotations(servletContext.getModuleContainer()).getInfoStore(),
+                servletContext.getModuleContainer() ));
+
         //Add collaborator to publisherContext, IBMRestServlet can get it later
         WebApp webApp = (WebApp) servletContext;
         publisherContext.setAttribute(JaxRsConstants.COLLABORATOR, webApp.getCollaboratorHelper().getWebAppNameSpaceCollaborator());
