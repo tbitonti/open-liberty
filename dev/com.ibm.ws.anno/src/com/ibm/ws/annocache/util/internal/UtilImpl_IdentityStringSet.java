@@ -15,6 +15,8 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Set;
 
+import com.ibm.websphere.ras.annotation.Trivial;
+
 /**
  * An set for strings based on string identity.
  *
@@ -69,6 +71,7 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
 
     protected final IdentityHashMap<String, String> storage;
 
+    @Trivial
     protected IdentityHashMap<String, String> getStorage() {
         return storage;
     }
@@ -89,16 +92,16 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
 
     @Override
     public boolean contains(Object candidateElement) {
-    	return getStorage().containsKey(candidateElement);
+        return getStorage().containsKey(candidateElement);
     }
 
     @Override
     public boolean containsAll(Collection<?> candidateElements) {
-    	IdentityHashMap<String, String> useStorage = getStorage();
+        IdentityHashMap<String, String> useStorage = getStorage();
         for ( Object candidateElement : candidateElements ) {
-        	if ( !useStorage.containsKey(candidateElement) ) {
-        		return false;
-        	}
+            if ( !useStorage.containsKey(candidateElement) ) {
+                return false;
+            }
         }
         return true;
     }
@@ -109,29 +112,31 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
     }
 
     @Override
+    @Trivial
     public Object[] toArray() {
-    	return getStorage().keySet().toArray();
+        return getStorage().keySet().toArray();
     }
 
     @Override
+    @Trivial
     public <S> S[] toArray(S[] targetArray) {
-    	return getStorage().keySet().toArray(targetArray);
+        return getStorage().keySet().toArray(targetArray);
     }
 
     //
 
     @Override
     public boolean add(String i_newElement) {
-    	return ( getStorage().put(i_newElement, i_newElement) == null );
+        return ( getStorage().put(i_newElement, i_newElement) == null );
     }
 
     @Override
     public boolean addAll(Collection<? extends String> i_newElements) {
-    	boolean didAddAny = false;
-    	IdentityHashMap<String, String> useStorage = getStorage();
+        boolean didAddAny = false;
+        IdentityHashMap<String, String> useStorage = getStorage();
         for ( String i_newElement : i_newElements ) {
             if ( useStorage.put(i_newElement, i_newElement) != null ) {
-            	didAddAny = true;
+                didAddAny = true;
             }
         }
         return didAddAny;
@@ -150,7 +155,7 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
      */
     @Override
     public boolean remove(Object candidateElement) {
-    	return ( getStorage().remove(candidateElement) != null );
+        return ( getStorage().remove(candidateElement) != null );
     }
 
     /**
@@ -167,11 +172,11 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
     @Override
     public boolean removeAll(Collection<?> candidateElements) {
         boolean didRemoveAny = false;
-    	IdentityHashMap<String, String> useStorage = getStorage();
+        IdentityHashMap<String, String> useStorage = getStorage();
         for ( Object candidateElement : candidateElements ) {
-        	if ( useStorage.remove(candidateElement) != null ) {
-        		didRemoveAny = true;
-        	}
+            if ( useStorage.remove(candidateElement) != null ) {
+                didRemoveAny = true;
+            }
         }
         return didRemoveAny;
     }
@@ -189,21 +194,21 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
      */
     @Override
     public boolean retainAll(Collection<?> candidateElements) {
-    	boolean didOmitAny = false;
-    	Iterator<String> i_elements = getStorage().keySet().iterator();
-    	while ( i_elements.hasNext() ) {
-    		String i_element = i_elements.next();
-    		if ( !candidateElements.contains(i_element) ) {
-    			i_elements.remove();
-    			didOmitAny = true;
-    		}
-    	}
+        boolean didOmitAny = false;
+        Iterator<String> i_elements = getStorage().keySet().iterator();
+        while ( i_elements.hasNext() ) {
+            String i_element = i_elements.next();
+            if ( !candidateElements.contains(i_element) ) {
+                i_elements.remove();
+                didOmitAny = true;
+            }
+        }
         return didOmitAny;
     }
 
     @Override
     public void clear() {
-    	getStorage().clear();
+        getStorage().clear();
     }
 
     //

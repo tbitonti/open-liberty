@@ -16,6 +16,8 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
+import com.ibm.websphere.ras.annotation.Trivial;
+
 //TODO: Should the iterator handle concurrent modifications?
 //    For now, for simplicity, it doesn't.
 
@@ -63,23 +65,23 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
     protected int size;
     protected String[] storage;
 
+    @Trivial
     protected String[] getStorage() {
         return storage;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int size() {
         return size;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void clear() {
         this.size = 0;
         this.storage = new String[size];
     }
 
+    @Trivial
     protected String[] growStorage() {
         int priorLength = this.storage.length;
         //String[] newStorage = (String[]) new Object[priorLength + this.factor];
@@ -121,7 +123,6 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean addAll(Collection<? extends String> newElements) {
         boolean didAdd = false;
@@ -133,7 +134,6 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
         return didAdd;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean contains(Object candidateElement) {
         if (this.size == 0) {
@@ -147,7 +147,6 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
         return false;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean containsAll(Collection<?> collection) {
         for (Object nextCandidateElement : collection) {
@@ -158,13 +157,11 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isEmpty() {
         return (this.size == 0);
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean remove(Object object) {
         for (int offset = 0; offset < this.size; offset++) {
@@ -178,7 +175,6 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
         return false;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean removeAll(Collection<?> candidateElements) {
         boolean didRemoveAny = false;
@@ -190,7 +186,6 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
         return didRemoveAny;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean retainAll(Collection<?> collection) {
         boolean didOmitAny = false;
@@ -204,17 +199,18 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
         return didOmitAny;
     }
 
-    /** {@inheritDoc} */
     @Override
+    @Trivial
     public Object[] toArray() {
         Object[] result = new Object[this.size];
         System.arraycopy(this.storage, 0, result, 0, this.size);
         return result;
     }
 
-    /** {@inheritDoc} */
+
     @SuppressWarnings("unchecked")
     @Override
+    @Trivial
     public <S> S[] toArray(S[] targetArray) {
         if (this.size > targetArray.length) {
             Class<?> componentType = this.storage.getClass().getComponentType();
@@ -234,14 +230,12 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
 
     //
 
-    /** {@inheritDoc} */
     @Override
     public Iterator<String> iterator() {
         return new SimpleStringIterator();
     }
 
     protected class SimpleStringIterator implements Iterator<String> {
-
         protected int offset;
 
         protected SimpleStringIterator() {
@@ -250,13 +244,11 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
             this.offset = 0;
         }
 
-        /** {@inheritDoc} */
         @Override
         public boolean hasNext() {
             return (this.offset < size);
         }
 
-        /** {@inheritDoc} */
         @Override
         public String next() {
             if (this.offset < size) {
@@ -266,7 +258,6 @@ public class UtilImpl_IdentityStringSet implements Set<String> {
             }
         }
 
-        /** {@inheritDoc} */
         @Override
         public void remove() {
             if (this.offset < size) {

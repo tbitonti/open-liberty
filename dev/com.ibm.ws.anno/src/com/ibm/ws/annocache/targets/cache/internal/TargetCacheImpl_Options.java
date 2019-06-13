@@ -37,6 +37,24 @@ public class TargetCacheImpl_Options implements TargetCache_Options {
     }
 
     //
+    
+    @Override
+    @Trivial
+    public String toString() {
+        return super.toString() +
+            "(" +
+                " Disabled " + Boolean.toString(disabled) + "," +
+                " Directory " + dir + "," +
+                " ReadOnly " + Boolean.toString(readOnly) + "," +
+                " AlwaysValid " + Boolean.toString(alwaysValid) + "," +
+                " WriteThreads " + Integer.toString(writeThreads) + "," +
+                " WriteLimit " + Integer.toString(writeLimit) + "," +
+                " OmitJandexWrite " + Boolean.toString(omitJandexWrite) + "," +
+                " SeparateContainers " + Boolean.toString(separateContainers) +
+            ")";
+    }
+
+    //
 
     private boolean disabled;
 

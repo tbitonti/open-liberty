@@ -147,13 +147,10 @@ public class ClassSourceImpl_Options implements ClassSource_Options {
     public String toString() {
         return super.toString() +
             "(" +
-                (Boolean.toString(useJandex) + (isSetUseJandex ? "[Set]" : "[Unset]")) +
-                "," +
-                (Boolean.toString(useJandexFull) + (isSetUseJandexFull ? "[Set(Full)]" : "[Unset(Full)]")) +
-                "," +
-                ('"' + jandexPath + '"' + (isSetJandexPath ? "[Set]" : "[Unset]")) +
-                "," +
-                (Integer.toString(scanThreads)+ (isSetScanThreads ? "[Set]" : "[Unset]")) +
+                " UseJandex " + (Boolean.toString(useJandex) + (isSetUseJandex ? "[Set]" : "[Unset]")) + "," +
+                " UseJandexFull " + (Boolean.toString(useJandexFull) + (isSetUseJandexFull ? "[Set(Full)]" : "[Unset(Full)]")) + "," +
+                " JandexPath " + ('"' + jandexPath + '"' + (isSetJandexPath ? "[Set]" : "[Unset]")) + "," +
+                " ScanThreads " + (Integer.toString(scanThreads)+ (isSetScanThreads ? "[Set]" : "[Unset]")) +
             ")";
     }
 

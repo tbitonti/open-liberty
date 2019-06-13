@@ -295,7 +295,14 @@ public abstract class AnnotationsImpl implements Annotations {
         }
 
         ClassSource_Options options = classSourceFactory.createOptions();
-        options.setUseJandex( getUseJandex() );
+        if ( !options.getIsSetUseJandex() ) {
+            options.setUseJandex( getUseJandex() );
+        } else {
+            // TODO: *Maybe*, NLS enable this.
+            //       The override is an unpublished system property.  This message should
+            //       never appear except during internal testing.
+            Tr.info(tc, "Application jandex setting [ " + getUseJandex() + " ] overridden by property setting [ " + options.getUseJandex() + " ]");
+        }
         return options;
     }
 

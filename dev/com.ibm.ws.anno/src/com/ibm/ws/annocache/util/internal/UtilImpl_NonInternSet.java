@@ -107,11 +107,13 @@ public class UtilImpl_NonInternSet implements Set<String> {
     }
 
     @Override
+    @Trivial
     public Object[] toArray() {
         return base.toArray();
     }
 
     @Override
+    @Trivial
     public <T> T[] toArray(T[] array) {
         return base.toArray(array);
     }

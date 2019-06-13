@@ -127,7 +127,7 @@ public class UtilImpl_InternMap implements Util_InternMap {
         super();
 
         String methodName = "<init>";
-        
+
         this.factory = factory;
 
         this.logThreshHold = logThreshHold;
@@ -193,6 +193,7 @@ public class UtilImpl_InternMap implements Util_InternMap {
     protected int lastReportedLength;
     protected int totalLength;
 
+    @Trivial
     protected Map<String, String> getInternMap() {
         return internMap;
     }
