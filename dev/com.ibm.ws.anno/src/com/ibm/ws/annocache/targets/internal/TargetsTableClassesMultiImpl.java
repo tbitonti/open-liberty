@@ -119,11 +119,13 @@ public class TargetsTableClassesMultiImpl extends TargetsTableClassesImpl
     }
 
     @Override
+    @Trivial
     public Set<String> getPackageNames(String childClassSourceName) {
         return uninternClassNames( i_getPackageNames(childClassSourceName) );
     }
 
     @Override
+    @Trivial
     public Set<String> i_getPackageNames(String childClassSourceName) {
         Set<String> result = i_classSourcePackageNamesMap.get(childClassSourceName);
 //        if ( result == null ) {
@@ -175,11 +177,13 @@ public class TargetsTableClassesMultiImpl extends TargetsTableClassesImpl
     }
 
     @Override
+    @Trivial
     public Set<String> getClassNames(String childClassSourceName) {
         return uninternClassNames( i_getClassNames(childClassSourceName) );
     }
 
     @Override
+    @Trivial
     public Set<String> i_getClassNames(String childClassSourceName) {
         Set<String> result = i_classSourceClassNamesMap.get(childClassSourceName);
 //        if ( result == null ) {
@@ -344,6 +348,7 @@ public class TargetsTableClassesMultiImpl extends TargetsTableClassesImpl
      * @param i_addedClassNames The names of the classes which were added.
      */
     @Override
+    @Trivial
     protected void restrictedAdd(TargetsTableClassesImpl otherClassTable,
                                  Set<String> i_newlyAddedPackageNames, Set<String> i_addedPackageNames,
                                  Set<String> i_newlyAddedClassNames, Set<String> i_addedClassNames) {
@@ -361,6 +366,7 @@ public class TargetsTableClassesMultiImpl extends TargetsTableClassesImpl
         i_addModifiers( otherClassTable.i_getModifiers(), i_newlyAddedClassNames );
     }
 
+    @Trivial
     protected void i_addPackageNames(String otherClassSourceName,
                                      Set<String> i_otherPackageNames,
                                      Set<String> i_newlyAddedPackageNames,
@@ -393,6 +399,7 @@ public class TargetsTableClassesMultiImpl extends TargetsTableClassesImpl
         }
     }
 
+    @Trivial
     protected void i_addClassNames(String otherClassSourceName,
                                    Set<String> i_otherClassNames,
                                    Set<String> i_newlyAddedClassNames,
@@ -438,6 +445,7 @@ public class TargetsTableClassesMultiImpl extends TargetsTableClassesImpl
     //
 
     @Override
+    @Trivial
     public void updateClassNames(Set<String> i_resolvedClassNames, Set<String> i_newlyResolvedClassNames,
                                  Set<String> i_unresolvedClassNames, Set<String> i_newlyUnresolvedClassNames) {
 

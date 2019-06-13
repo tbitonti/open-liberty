@@ -343,12 +343,8 @@ public class TargetsScannerBaseImpl {
 
     //
 
-    private void displayJandexCoverage() {
-        String methodName = "displayJandexCoverage";
-
-        if ( !getUseJandex() ) {
-            return;
-        }
+    protected void displayCoverage() {
+        String methodName = "displayCoverage";
 
         ClassSource_Aggregate useRootClassSource = getRootClassSource();
         String appName = useRootClassSource.getApplicationName();
@@ -356,12 +352,20 @@ public class TargetsScannerBaseImpl {
 
         int sourceCount = 0;
         int jandexSourceCount = 0;
+        int cacheSourceCount = 0;
 
         int classCount = 0;
         int jandexClassCount = 0;
-        
+        int cacheClassCount = 0;
+
+        // System.out.println("Coverage: Application [ " + appName + " ]");
+        // System.out.println("Coverage: Module [ " + modName + " ]");
+
         for ( ClassSource nextClassSource : useRootClassSource.getClassSources() ) {
             ScanPolicy nextScanPolicy = useRootClassSource.getScanPolicy(nextClassSource);
+
+            // System.out.println("Coverage: Source [ " + nextClassSource.getName() + " ] [ " + nextScanPolicy + " ]");
+
             if ( nextScanPolicy == ScanPolicy.EXTERNAL ) {
                 continue;
             }
@@ -371,23 +375,47 @@ public class TargetsScannerBaseImpl {
             int nextClassCount = nextClassSource.getProcessCount();
             classCount += nextClassCount;
 
+            String scanType;
+
             if ( nextClassSource.isProcessedUsingJandex() ) {
+                scanType = "jandex";
                 jandexSourceCount++;
                 jandexClassCount += nextClassCount;
+
+            } else if ( nextClassSource.isReadFromCache() ) {
+                scanType = "cache";
+                cacheSourceCount++;
+                cacheClassCount++;
+
+            } else {
+                scanType = "scan";
             }
+
+            // System.out.println("Coverage: Classes [ " + nextClassCount + " ] [ " + scanType + " ]");
         }
 
-        // ANNO_JANDEX_USAGE=
-        // CWWKC0093I: Jandex coverage for of module {1} in application {0}:
-        // {3} of {2} module locations had Jandex indexes;
-        // {5} of {4} module classes were read from Jandex indexes.
+        if ( getUseJandex() ) {
+            // ANNO_JANDEX_USAGE=
+            // CWWKC0093I: Jandex coverage for module {1} in application {0}:
+            // {3} of {2} module locations had Jandex indexes;
+            // {5} of {4} module classes were read from Jandex indexes.
 
-        String coverageMsg = nlsFormat("ANNOCACHE_JANDEX_USAGE",
-                                       appName, modName,
-                                       sourceCount, jandexSourceCount,
-                                       classCount, jandexClassCount);
+            String coverageMsg = nlsFormat("ANNOCACHE_JANDEX_USAGE",
+                                           appName, modName,
+                                           sourceCount, jandexSourceCount,
+                                           classCount, jandexClassCount);
+            logger.logp(Level.INFO, CLASS_NAME, methodName, coverageMsg);
+        }
 
-        logger.logp(Level.INFO, CLASS_NAME, methodName, coverageMsg);
+        // TODO: Should this be an INFO or a FINER type message?
+
+        logger.logp(Level.INFO, CLASS_NAME, methodName,
+            "CWWKC0094I: Cache coverage for module {0} in application {1}:" +
+            " {2} of {3} module locations were read from cache;" +
+            " {4} of {5} module classes were read from cache.",
+            new Object[] { modName, appName,
+                           cacheSourceCount, sourceCount,
+                           cacheClassCount, classCount });
     }
 
     //
@@ -441,8 +469,6 @@ public class TargetsScannerBaseImpl {
                 logger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ] Final unresolved [ {1} ]", logParms);
             }
         }
-
-        displayJandexCoverage();
 
         return targetsTable;
     }

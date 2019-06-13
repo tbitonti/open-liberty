@@ -92,7 +92,7 @@ public class TargetsTableImpl implements TargetsTable {
         //
 
         this.classSourceName = sourceData.getClassSourceName();
-        this.usedJandex = false;
+        this.usedJandex = sourceData.getUsedJandex();
 
         //
 
@@ -207,6 +207,7 @@ public class TargetsTableImpl implements TargetsTable {
         return getFactory().getUtilFactory().createIdentityStringSet(size);
     }
 
+    @Trivial
     protected Set<String> i_dupClassNames(Set<String> initialElements) {
         return getFactory().getUtilFactory().createIdentityStringSet(initialElements);
     }
@@ -220,6 +221,7 @@ public class TargetsTableImpl implements TargetsTable {
         return classNameInternMap;
     }
 
+    @Trivial
     protected Set<String> uninternClassNames(Set<String> i_classNames) {
         if ( i_classNames == null ) {
             return null;
@@ -246,6 +248,7 @@ public class TargetsTableImpl implements TargetsTable {
         return fieldNameInternMap;
     }
 
+    @Trivial
     protected Set<String> uninternFieldNames(Set<String> i_fieldNames) {
         if ( i_fieldNames == null ) {
             return null;
@@ -365,11 +368,13 @@ public class TargetsTableImpl implements TargetsTable {
     }
 
     @Override
+    @Trivial
     public Set<String> getClassNames() {
         return getClassTable().getClassNames();
     }
 
     @Override
+    @Trivial
     public Set<String> i_getClassNames() {
         return getClassTable().i_getClassNames();
     }
@@ -386,6 +391,7 @@ public class TargetsTableImpl implements TargetsTable {
 
     //
 
+    @Trivial
     protected Map<String, String> i_getSuperclassNameMap() {
         return getClassTable().i_getSuperclassNames();
     }
@@ -402,6 +408,7 @@ public class TargetsTableImpl implements TargetsTable {
 
     //
 
+    @Trivial
     protected Map<String, String[]> i_getInterfaceNamesMap() {
         return getClassTable().i_getInterfaceNames();
     }
@@ -457,6 +464,7 @@ public class TargetsTableImpl implements TargetsTable {
     //
 
     @Override
+    @Trivial
     public Set<String> i_getAnnotatedTargets(AnnotationCategory category) {
         return getAnnotationTable().i_getAnnotatedTargets(category);
     }
@@ -467,6 +475,7 @@ public class TargetsTableImpl implements TargetsTable {
     }
 
     @Override
+    @Trivial
     public Set<String> i_getAnnotationNames(AnnotationCategory category) {
         return getAnnotationTable().i_getAnnotationNames(category);
     }
@@ -479,6 +488,7 @@ public class TargetsTableImpl implements TargetsTable {
     //
 
     @Override
+    @Trivial
     public Set<String> getAnnotatedTargets(AnnotationCategory category) {
         return getAnnotationTable().getAnnotatedTargets(category);
     }
@@ -489,6 +499,7 @@ public class TargetsTableImpl implements TargetsTable {
     }
 
     @Override
+    @Trivial
     public Set<String> getAnnotations(AnnotationCategory category) {
         return getAnnotationTable().getAnnotations(category);
     }
@@ -501,11 +512,13 @@ public class TargetsTableImpl implements TargetsTable {
     //
 
     @Override
+    @Trivial
     public Set<String> getPackagesWithAnnotations() {
         return getAnnotationTable().getPackagesWithAnnotations();
     }
 
     @Override
+    @Trivial
     public Set<String> i_getPackagesWithAnnotations() {
         return getAnnotationTable().i_getPackagesWithAnnotations();
     }
@@ -543,11 +556,13 @@ public class TargetsTableImpl implements TargetsTable {
     //
 
     @Override
+    @Trivial
     public Set<String> getClassesWithClassAnnotations() {
         return getAnnotationTable().getClassesWithClassAnnotations();
     }
 
     @Override
+    @Trivial
     public Set<String> i_getClassesWithClassAnnotations() {
         return getAnnotationTable().i_getClassesWithClassAnnotations();
     }
@@ -563,11 +578,13 @@ public class TargetsTableImpl implements TargetsTable {
     }
 
     @Override
+    @Trivial
     public Set<String> getClassAnnotations() {
         return getAnnotationTable().getClassAnnotations();
     }
 
     @Override
+    @Trivial
     public Set<String> i_getClassAnnotationNames() {
         return getAnnotationTable().i_getClassAnnotationNames();
     }
@@ -585,11 +602,13 @@ public class TargetsTableImpl implements TargetsTable {
     //
 
     @Override
+    @Trivial
     public Set<String> getClassesWithFieldAnnotations() {
         return getAnnotationTable().getClassesWithFieldAnnotations();
     }
 
     @Override
+    @Trivial
     public Set<String> i_getClassesWithFieldAnnotations() {
         return getAnnotationTable().i_getClassesWithFieldAnnotations();
     }
@@ -605,11 +624,13 @@ public class TargetsTableImpl implements TargetsTable {
     }
 
     @Override
+    @Trivial
     public Set<String> getFieldAnnotations() {
         return getAnnotationTable().getFieldAnnotations();
     }
 
     @Override
+    @Trivial
     public Set<String> i_getFieldAnnotationNames() {
         return getAnnotationTable().i_getFieldAnnotationNames();
     }
@@ -627,11 +648,13 @@ public class TargetsTableImpl implements TargetsTable {
     //
 
     @Override
+    @Trivial
     public Set<String> getClassesWithMethodAnnotations() {
         return getAnnotationTable().getClassesWithMethodAnnotations();
     }
 
     @Override
+    @Trivial
     public Set<String> i_getClassesWithMethodAnnotations() {
         return getAnnotationTable().i_getClassesWithMethodAnnotations();
     }
@@ -647,11 +670,13 @@ public class TargetsTableImpl implements TargetsTable {
     }
 
     @Override
+    @Trivial
     public Set<String> getMethodAnnotations() {
         return getAnnotationTable().getMethodAnnotations();
     }
 
     @Override
+    @Trivial
     public Set<String> i_getMethodAnnotationNames() {
         return getAnnotationTable().i_getMethodAnnotationNames();
     }
@@ -678,6 +703,7 @@ public class TargetsTableImpl implements TargetsTable {
     //
 
     @Override
+    @Trivial
     public void logState() {
         if (stateLogger.isLoggable(Level.FINER)) {
             log(stateLogger);
@@ -1305,6 +1331,7 @@ public class TargetsTableImpl implements TargetsTable {
      * @param i_allAddedPackageNames Names of packages previously added to this table
      *     Updated with newly added package names.
      */
+    @Trivial
     protected void restrictedAdd(TargetsTableImpl table,
                                  Set<String> i_allAddedClassNames,
                                  Set<String> i_allAddedPackageNames) {
@@ -1347,6 +1374,7 @@ public class TargetsTableImpl implements TargetsTable {
 
     //
 
+    @Trivial
     public void updateClassNames(
         Set<String> i_allResolvedClassNames, Set<String> i_allUnresolvedClassNames) {
 

@@ -106,6 +106,7 @@ public class TargetsTableClassesImpl
         }
     }
 
+    @Trivial
     private Map<String, String[]> internInterfaceNamesMap(Map<String, String[]> i_otherInterfaceNamesMap) {
         Map<String, String[]> i_thisInterfaceNamesMap = new IdentityHashMap<String, String[]>();
 
@@ -122,6 +123,7 @@ public class TargetsTableClassesImpl
         return i_thisInterfaceNamesMap;
     }
 
+    @Trivial
     protected String[] internInterfaceNames(String[] i_otherInterfaceNames) {
         String[] i_thisInterfaceNames = new String[ i_otherInterfaceNames.length ];
         for ( int interfaceNameNo = 0; interfaceNameNo < i_otherInterfaceNames.length; interfaceNameNo++ ) {
@@ -131,6 +133,7 @@ public class TargetsTableClassesImpl
         return i_thisInterfaceNames;
     }
 
+    @Trivial
     private Map<String, String> internClassNamesMap(Map<String, String> i_otherClassNamesMap) {
         Map<String, String> i_thisClassNamesMap = new IdentityHashMap<String, String>();
 
@@ -148,6 +151,7 @@ public class TargetsTableClassesImpl
         return i_thisClassNamesMap;
     }
 
+    @Trivial
     private Map<String, Integer> internModifiersMap(Map<String, Integer> i_otherModifiersMap) {
         Map<String, Integer> i_thisModifiersMap = new IdentityHashMap<String, Integer>();
 
@@ -239,6 +243,7 @@ public class TargetsTableClassesImpl
      * @return An equality based set containing the values of the
      *     initial set.
      */
+    @Trivial
     public Set<String> uninternClassNames(Set<String> use_i_classNames) {
         if ( use_i_classNames == null ) {
             // System.out.println("TargetsClassTable Unintern [ 0 (null) ]");
@@ -274,11 +279,13 @@ public class TargetsTableClassesImpl
     }
 
     @Override
+    @Trivial
     public Set<String> getPackageNames() {
         return uninternClassNames( i_packageNames.keySet() );
     }
 
     @Override
+    @Trivial
     public Set<String> i_getPackageNames() {
         return i_packageNames.keySet();
     }
@@ -308,11 +315,13 @@ public class TargetsTableClassesImpl
     }
 
     @Override
+    @Trivial
     public Set<String> getClassNames() {
         return uninternClassNames( i_classNames.keySet() );
     }
 
     @Override
+    @Trivial
     public Set<String> i_getClassNames() {
         return i_classNames.keySet();
     }
@@ -824,6 +833,7 @@ public class TargetsTableClassesImpl
 
     //
 
+    @Trivial
     public void updateClassNames(
         Set<String> i_allResolvedClassNames, Set<String> i_newlyResolvedClassNames,
         Set<String> i_allUnresolvedClassNames, Set<String> i_newlyUnresolvedClassNames) {
@@ -1238,6 +1248,7 @@ public class TargetsTableClassesImpl
      * @param i_allAddedClassNames The names of the classes which were added from the
      *     classes table and from other classes tables.
      */
+    @Trivial
     protected void restrictedAdd(TargetsTableClassesImpl otherClassTable,
                                  Set<String> i_newlyAddedPackageNames, Set<String> i_allAddedPackageNames,
                                  Set<String> i_newlyAddedClassNames, Set<String> i_allAddedClassNames) {
@@ -1275,6 +1286,7 @@ public class TargetsTableClassesImpl
         }
     }
 
+    @Trivial
     protected void i_addPackageNames(Set<String> i_otherPackageNames,
                                      Set<String> i_newlyAddedPackageNames,
                                      Set<String> i_allAddedPackageNames) {
@@ -1290,6 +1302,7 @@ public class TargetsTableClassesImpl
         }
     }
 
+    @Trivial
     protected void i_addClassNames(Set<String> i_otherClassNames,
                                    Set<String> i_newlyAddedClassNames,
                                    Set<String> i_allAddedClassNames) {
@@ -1305,6 +1318,7 @@ public class TargetsTableClassesImpl
         }
     }
 
+    @Trivial
     protected void i_addSuperclassNames(Map<String, String> i_otherSuperclassNames,
                                         Set<String> i_newlyAddedClassNames) {
 
@@ -1322,6 +1336,7 @@ public class TargetsTableClassesImpl
         }
     }
 
+    @Trivial
     protected void i_addInterfaceNames(Map<String, String[]> i_otherInterfaceNames,
                                        Set<String> i_newlyAddedClassNames) {
 
@@ -1338,7 +1353,8 @@ public class TargetsTableClassesImpl
             }
         }
     }
-    
+
+    @Trivial
     protected void i_addModifiers(Map<String, Integer> i_otherModifiers,
                                   Set<String> i_newlyAddedClassNames) {
         // String methodName = "i_addModifiers";

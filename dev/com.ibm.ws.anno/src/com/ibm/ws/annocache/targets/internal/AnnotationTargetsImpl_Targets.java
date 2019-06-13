@@ -284,6 +284,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
         return getClassNameInternMap().intern(className, doForce);
     }
 
+    @Trivial
     public Set<String> uninternClassNames(Set<String> classNames) {
         if ( (classNames == null) || classNames.isEmpty() ) {
             return Collections.emptySet();
@@ -298,6 +299,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
         return fieldNameInternMap;
     }
 
+    @Trivial
     public Set<String> uninternFieldNames(Set<String> fieldNames) {
         if ( (fieldNames == null) || fieldNames.isEmpty() ) {
             return Collections.emptySet();
@@ -652,6 +654,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
         return classTable;
     }
 
+    @Trivial
     protected Set<String> getInternalClassNames(String classSourceName) {
         return getInternalClassTable().getClassNames(classSourceName);
     }
@@ -675,6 +678,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
      *
      * @return The names of the classes scanned from the class source.
      */
+    @Trivial
     public Set<String> getClassNames(String classSourceName) {
         // The external scan need not be performed if the class source is
         // one of the internal class sources.
@@ -822,6 +826,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     //
 
     @Override
+    @Trivial
     public Set<String> getSeedClassNames() {
         TargetsTableImpl useSeedTable = getSeedTable();
 
@@ -844,6 +849,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     }
 
     @Override
+    @Trivial
     public Set<String> getPartialClassNames() {
         TargetsTableImpl usePartialTable = getPartialTable();
 
@@ -866,6 +872,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     }
 
     @Override
+    @Trivial
     public Set<String> getExcludedClassNames() {
         TargetsTableImpl useExcludedTable = getExcludedTable();
 
@@ -888,6 +895,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     }
 
     @Override
+    @Trivial
     public Set<String> getExternalClassNames() {
         TargetsTableImpl useExternalTable = getExternalTable();
 
@@ -919,10 +927,12 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
      * @return The union of class names obtained for the specified policies.
      */
     @Override
+    @Trivial
     public Set<String> getClassNames(int scanPolicies) {
         return uninternClassNames( i_getClassNames(scanPolicies) );
     }
 
+    @Trivial
     public Set<String> i_getClassNames(int scanPolicies) {
         int nonEmptyCount = 0;
         int totalCount = 0;
@@ -1074,6 +1084,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     }
 
     @Override
+    @Trivial
     public Set<String> getAnnotatedClasses() {
         TargetsTableImpl useSeedTable = getSeedTable();
 
@@ -1165,6 +1176,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     }
 
     @Override
+    @Trivial
     public Set<String> getClassAnnotations() {
         TargetsTableImpl useSeedTable = getSeedTable();
 
@@ -1186,6 +1198,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
         }
     }
 
+    @Trivial
     public Set<String> getClassesWithFieldAnnotations() {
         TargetsTableImpl useSeedTable = getSeedTable();
 
@@ -1246,6 +1259,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
         }
     }
 
+    @Trivial
     public Set<String> getClassesWithMethodAnnotations() {
         TargetsTableImpl useSeedTable = getSeedTable();
 
@@ -1336,6 +1350,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     //
 
     @Override
+    @Trivial
     public Set<String> getAnnotatedClasses(int scanPolicies) {
         return selectAnnotatedTargets(scanPolicies, AnnotationCategory.CLASS);
     }
@@ -1414,6 +1429,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     }
 
     @Override
+    @Trivial
     public Set<String> getClassAnnotations(int scanPolicies) {
         return selectAnnotations(scanPolicies, AnnotationCategory.CLASS);
     }
@@ -1426,6 +1442,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     //
 
     @Override
+    @Trivial
     public Set<String> getClassesWithFieldAnnotations(int scanPolicies) {
         return selectAnnotatedTargets(scanPolicies, AnnotationCategory.FIELD);
     }
@@ -1449,6 +1466,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     //
 
     @Override
+    @Trivial
     public Set<String> getClassesWithMethodAnnotations(int scanPolicies) {
         return selectAnnotatedTargets(scanPolicies, AnnotationCategory.METHOD);
     }
@@ -1679,10 +1697,12 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
         return Collections.emptySet();
     }
 
+    @Trivial
     protected Set<String> selectAnnotatedTargets(int scanPolicies, AnnotationCategory category) {
         return uninternClassNames( i_selectAnnotatedTargets(scanPolicies, category) );
     }
 
+    @Trivial
     protected Set<String> i_selectAnnotatedTargets(int scanPolicies, AnnotationCategory category) {
         int nonEmptyCount = 0;
         int totalCount = 0;
@@ -2055,6 +2075,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
         return superclassName;
     }
 
+    @Trivial
     public Map<String, String> i_getSuperclassNames() {
         return getClassTable().i_getSuperclassNames();
     }
@@ -2084,6 +2105,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
         return interfaceNames;
     }
 
+    @Trivial
     protected Map<String, String[]> i_getInterfaceNames() {
         return getClassTable().i_getInterfaceNames();
     }

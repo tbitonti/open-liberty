@@ -178,6 +178,7 @@ public class TargetsTableAnnotationsImpl
     //
 
     @Override
+    @Trivial
     public Set<String> i_getPackagesWithAnnotations() {
         return i_packageAnnotations.getHolderSet();
     }
@@ -200,6 +201,7 @@ public class TargetsTableAnnotationsImpl
     //
 
     @Override
+    @Trivial
     public Set<String> i_getClassesWithClassAnnotations() {
         return i_classAnnotations.getHolderSet();
     }
@@ -222,6 +224,7 @@ public class TargetsTableAnnotationsImpl
     //
 
     @Override
+    @Trivial
     public Set<String> i_getClassesWithFieldAnnotations() {
         return i_fieldAnnotations.getHolderSet();
     }
@@ -244,6 +247,7 @@ public class TargetsTableAnnotationsImpl
     //
 
     @Override
+    @Trivial
     public Set<String> i_getClassesWithMethodAnnotations() {
         return i_methodAnnotations.getHolderSet();
     }
@@ -266,6 +270,7 @@ public class TargetsTableAnnotationsImpl
     //
 
     @Override
+    @Trivial
     public Set<String> i_getAnnotatedTargets(AnnotationCategory category) {
         return i_getAnnotations(category).getHolderSet();
     }
@@ -431,6 +436,7 @@ public class TargetsTableAnnotationsImpl
      * @param i_addedPackageNames The names of packages for which to added data.
      * @param i_addedClassNames The names of classes for which to added data.
      */
+    @Trivial
     protected void restrictedAdd(TargetsTableAnnotationsImpl annoTable,
                                  Set<String> i_addedPackageNames,
                                  Set<String> i_addedClassNames) {
@@ -552,6 +558,7 @@ public class TargetsTableAnnotationsImpl
         return reader.read(this);
     }
 
+    @Trivial
     public void updateClassNames(
         Set<String> i_allResolvedClassNames, Set<String> i_newlyResolvedClassNames,
         Set<String> i_allUnresolvedClassNames, Set<String> i_newlyUnresolvedClassNames) {
@@ -575,6 +582,7 @@ public class TargetsTableAnnotationsImpl
 
     //
 
+    @Trivial
     public Set<String> uninternClassNames(Set<String> classNames) {
         if ( (classNames == null) || classNames.isEmpty() ) {
             return Collections.emptySet();
@@ -584,6 +592,7 @@ public class TargetsTableAnnotationsImpl
     }
 
     @Override
+    @Trivial
     public Set<String> getAnnotatedTargets(AnnotationCategory category) {
         return uninternClassNames( i_getAnnotatedTargets(category) ) ;
     }
@@ -644,6 +653,7 @@ public class TargetsTableAnnotationsImpl
     }
 
     @Override
+    @Trivial
     public Set<String> getClassesWithClassAnnotations() {
         return uninternClassNames( i_getClassesWithClassAnnotations() );
     }
@@ -659,6 +669,7 @@ public class TargetsTableAnnotationsImpl
     }
 
     @Override
+    @Trivial
     public Set<String> getClassAnnotations() {
         return uninternClassNames( i_getClassAnnotationNames() );
     }
@@ -674,6 +685,7 @@ public class TargetsTableAnnotationsImpl
     }
 
     @Override
+    @Trivial
     public Set<String> getClassesWithFieldAnnotations() {
         return uninternClassNames( i_getClassesWithFieldAnnotations() );
     }
@@ -704,6 +716,7 @@ public class TargetsTableAnnotationsImpl
     }
 
     @Override
+    @Trivial
     public Set<String> getClassesWithMethodAnnotations() {
         return uninternClassNames( i_getClassesWithMethodAnnotations() );
     }

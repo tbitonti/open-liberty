@@ -756,18 +756,27 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
                     if ( numClasses < useWriteLimit ) {
                         if ( logger.isLoggable(Level.FINER) ) {
                             logger.logp(Level.FINER, CLASS_NAME, methodName,
-                                    "Skipping container write [ {0} ]: Count of classes [ {1} ] is less than the write limit [ {2} ]",
-                                    new Object[] { classSourceName, Integer.valueOf(numClasses), Integer.valueOf(useWriteLimit) });
+                                    "Skip container write [ {0} ]: Classes [ {1} ]; Write Limit [ {2} ]",
+                                    new Object[] { classSourceName, numClasses, useWriteLimit });
                         }
                     } else {
                         boolean useOmitJandexWrite = getOmitJandexWrite();
                         if ( useOmitJandexWrite && useTargetsTable.getUsedJandex() ) {
                             if ( logger.isLoggable(Level.FINER) ) {
                                 logger.logp(Level.FINER, CLASS_NAME, methodName,
-                                        "Skipping container write [ {0} ]: Count of classes [ {1} ]: Data was read from jandex",
-                                        new Object[] { classSourceName, Integer.valueOf(numClasses), Integer.valueOf(useWriteLimit) });
+                                        "Skip container write [ {0} ]: Omit Jandex Writes [ true ]; Read Jandex [ true ]",
+                                        new Object[] { classSourceName, numClasses, useWriteLimit });
                             }
                         } else {
+                            if ( logger.isLoggable(Level.FINER) ) {
+                                logger.logp(Level.FINER, CLASS_NAME, methodName,
+                                        "Perform container write [ {0} ]:" +
+                                        " Classes [ {1} ]; Write Limit [ {2} ];" +
+                                        " Omit Jandex Writes [ {3} ]; Read Jandex [ {4} ]",
+                                        new Object[] { classSourceName,
+                                                       numClasses, useWriteLimit,
+                                                       useOmitJandexWrite, useTargetsTable.getUsedJandex() });
+                            }
                             conData.write(modData, useTargetsTable);
                         }
                     }
@@ -775,6 +784,11 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
 
             } else if ( isChangedJustStamp ) {
                 if ( conData.shouldWrite("Time stamp") ) {
+                    if ( logger.isLoggable(Level.FINER) ) {
+                        logger.logp(Level.FINER, CLASS_NAME, methodName,
+                                "Perform container stamp write [ {0} ]",
+                                classSourceName);
+                    }
                     conData.writeStamp(modData, useTargetsTable);
                 }
             }
@@ -1282,6 +1296,8 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
                 "[ {0} ] Valid [ {1} ] ({2})",
                 new Object[] { getHashText(), Boolean.valueOf(isValid), isValidReason });
         }
+
+        displayCoverage();
 
         if ( !isValid ) {
             TargetsTableImpl[] newTables = createResultTables();

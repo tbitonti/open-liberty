@@ -105,18 +105,18 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
                         new Object[] { getName(), parentCache.getName() });
 
             if ( this.separateContainers ) {
-                logger.logp(Level.FINER, CLASS_NAME,
+                logger.logp(Level.FINER, CLASS_NAME, methodName,
                     "Time stamp file [ {0} ]",
                     ((this.timeStampFile == null) ? null : this.timeStampFile.getPath()));
-                logger.logp(Level.FINER, CLASS_NAME,
+                logger.logp(Level.FINER, CLASS_NAME, methodName,
                     "Targets file [ {0} ]",
                     ((this.annoTargetsFile == null) ? null : this.annoTargetsFile.getPath()));
-                logger.logp(Level.FINER, CLASS_NAME,
+                logger.logp(Level.FINER, CLASS_NAME, methodName,
                     "Class refs file [ {0} ]",
                     ((this.classRefsFile == null) ? null : this.classRefsFile.getPath()));
 
             } else {
-                logger.logp(Level.FINER, CLASS_NAME,
+                logger.logp(Level.FINER, CLASS_NAME, methodName,
                     "Container file [ {0} ]",
                     ((this.timeStampFile == null) ? null : this.timeStampFile.getPath()));
             }
@@ -416,7 +416,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
      * @param targetData The data containing the stamp table which is to be written.
      */
     public void writeStamp(TargetCacheImpl_DataMod modData, TargetsTableImpl targetData) {
-        if ( this.getSeparateContainers() ) {
+        if ( getSeparateContainers() ) {
             write( modData, targetData.getStampTable() );
         } else {
             writeTogether( modData, targetData.getStampTable() );
@@ -434,7 +434,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
      * @param targetData The data which is to be written.
      */
     public void write(TargetCacheImpl_DataMod modData, TargetsTableImpl targetData) {
-        if ( this.getSeparateContainers() ) {
+        if ( getSeparateContainers() ) {
             write( modData, targetData.getStampTable() );
             write( modData, targetData.getClassTable() );
             write( modData, targetData.getAnnotationTable() );

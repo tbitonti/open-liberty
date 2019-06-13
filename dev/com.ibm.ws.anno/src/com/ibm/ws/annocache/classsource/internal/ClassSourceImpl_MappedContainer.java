@@ -11,6 +11,7 @@
 
 package com.ibm.ws.annocache.classsource.internal;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.MessageFormat;
@@ -436,7 +437,7 @@ public class ClassSourceImpl_MappedContainer
         InputStream jandexStream;
 
         try {
-            jandexStream = openRootResourceStream(null, useJandexIndexPath); // throws ClassSource_Exception
+            jandexStream = openRootResourceStream(null, useJandexIndexPath, JANDEX_BUFFER_SIZE); // throws ClassSource_Exception
         } catch ( ClassSource_Exception e ) {
             // CWWKC0066E: An exception occurred while attempting to open Jandex index file [ {0} ].
             // The identifier for the class source is [ {1} ].
@@ -488,12 +489,12 @@ public class ClassSourceImpl_MappedContainer
     
         if ( logger.isLoggable(Level.FINER) ) {
             logger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ] Looking for JANDEX [ {1} ] in [ {2} ]",
-                    new Object[] {  getHashText(), useJandexIndexPath, getContainer().getPhysicalPath() } );
+                    new Object[] {  getHashText(), useJandexIndexPath, getRootContainer().getPhysicalPath() } );
         }
 
         InputStream jandexStream;
         try {
-            jandexStream = openResourceStream(null, useJandexIndexPath, JANDEX_BUFFER_SIZE); // throws ClassSource_Exception
+            jandexStream = openRootResourceStream(null, useJandexIndexPath, JANDEX_BUFFER_SIZE); // throws ClassSource_Exception
         } catch ( ClassSource_Exception e ) {
             // CWWKC0067E: An exception occurred while reading Jandex index file [ {0} ] from resource [ {1} ].
             logger.logp(Level.WARNING, CLASS_NAME, methodName, "JANDEX_INDEX_READ_EXCEPTION",
@@ -537,11 +538,18 @@ public class ClassSourceImpl_MappedContainer
 
     //
 
+    public InputStream openRootResourceStream(String className, String resourceName, int bufferSize)
+        throws ClassSource_Exception {
+
+        InputStream inputStream = openRootResourceStream(className, resourceName);
+        return ( (inputStream == null) ? null : new BufferedInputStream(inputStream, bufferSize) );
+    }
+
     public InputStream openRootResourceStream(String className, String resourceName)
         throws ClassSource_Exception {
 
         Container useContainer = getRootContainer();
-        
+
         Entry entry = useContainer.getEntry(resourceName);
         if ( entry == null ) {
             return null;
