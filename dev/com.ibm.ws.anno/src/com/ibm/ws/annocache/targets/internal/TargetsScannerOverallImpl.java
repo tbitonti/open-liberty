@@ -539,10 +539,12 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
     protected String changedClassNamesReason;
     protected boolean changedClassNames;
 
+    @Trivial
     public Set<String> getResolvedClassNames() {
         return i_resolvedClassNames;
     }
 
+    @Trivial
     public Set<String> getUnresolvedClassNames() {
         return i_unresolvedClassNames;
     }
@@ -1224,6 +1226,7 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
         return !mustCompute;
     }
 
+    @Trivial
     private void verify(String description, Set<String> i_values) {
         String methodName = "verify";
 

@@ -361,6 +361,10 @@ public class TargetsScannerBaseImpl {
         // System.out.println("Coverage: Application [ " + appName + " ]");
         // System.out.println("Coverage: Module [ " + modName + " ]");
 
+        logger.logp(Level.INFO, CLASS_NAME, methodName,
+                "CWWKC00XXI: Coverage for module {0} in application {1}:",
+                new Object[] { modName, appName });
+
         for ( ClassSource nextClassSource : useRootClassSource.getClassSources() ) {
             ScanPolicy nextScanPolicy = useRootClassSource.getScanPolicy(nextClassSource);
 
@@ -385,13 +389,15 @@ public class TargetsScannerBaseImpl {
             } else if ( nextClassSource.isReadFromCache() ) {
                 scanType = "cache";
                 cacheSourceCount++;
-                cacheClassCount++;
+                cacheClassCount += nextClassCount;
 
             } else {
                 scanType = "scan";
             }
 
-            // System.out.println("Coverage: Classes [ " + nextClassCount + " ] [ " + scanType + " ]");
+            logger.logp(Level.INFO, CLASS_NAME, methodName,
+                    "CWWKC00XXI: Location {0}: Classes {1}: Scan type {2}",
+                    new Object[] { nextClassSource.getName(), nextClassCount, scanType });
         }
 
         if ( getUseJandex() ) {
@@ -410,7 +416,7 @@ public class TargetsScannerBaseImpl {
         // TODO: Should this be an INFO or a FINER type message?
 
         logger.logp(Level.INFO, CLASS_NAME, methodName,
-            "CWWKC0094I: Cache coverage for module {0} in application {1}:" +
+            "CWWKC00XXI: Cache coverage for module {0} in application {1}:" +
             " {2} of {3} module locations were read from cache;" +
             " {4} of {5} module classes were read from cache.",
             new Object[] { modName, appName,

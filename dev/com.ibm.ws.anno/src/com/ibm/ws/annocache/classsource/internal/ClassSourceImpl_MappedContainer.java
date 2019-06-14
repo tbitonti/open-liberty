@@ -469,14 +469,14 @@ public class ClassSourceImpl_MappedContainer
             }
             return jandexIndex;
 
-        } catch ( IOException e ) {
+        } catch ( Throwable th ) {
             // CWWKC0067E: An exception occurred while reading Jandex index file [ {0} ] from resource [ {1} ].
             logger.logp(Level.WARNING, CLASS_NAME, methodName, "JANDEX_INDEX_READ_EXCEPTION",
                 new Object[] { useJandexIndexPath, getCanonicalName() });
             return null;
 
         } finally {
-            closeResourceStream(null,  useJandexIndexPath, jandexStream);
+            closeRootResourceStream(null,  useJandexIndexPath, jandexStream);
         }
     }
 
@@ -525,14 +525,14 @@ public class ClassSourceImpl_MappedContainer
             }
             return jandexIndex;
     
-        } catch ( IOException e ) {
+        } catch ( Throwable th ) {
             // CWWKC0067E: An exception occurred while reading Jandex index file [ {0} ] from resource [ {1} ].
             logger.logp(Level.WARNING, CLASS_NAME, methodName, "JANDEX_INDEX_READ_EXCEPTION",
                 new Object[] { useJandexIndexPath, getCanonicalName() });
             return null;
     
         } finally {
-            closeResourceStream(null,  useJandexIndexPath, jandexStream);
+            closeRootResourceStream(null,  useJandexIndexPath, jandexStream);
         }
     }
 
@@ -664,6 +664,22 @@ public class ClassSourceImpl_MappedContainer
                 eMsg += " for class [ " + className + " ]";
             }
             logger.logp(Level.WARNING, CLASS_NAME, methodName, eMsg);
+        }
+    }
+
+    public void closeRootResourceStream(String className, String resourceName, InputStream inputStream) {
+        String methodName = "closeResourceStream";
+
+        Entry entry = getRootContainer().getEntry(resourceName);
+        if ( entry == null ) {
+            // String eMsg = "[ " + getHashText() + " ]" +
+            //               " Failed to locate entry [ " + resourceName + " ]" +
+            //               " under root [ " + getContainer() + " ]" +
+            //               " for class [ " + className + " ]";
+            logger.logp(Level.WARNING, CLASS_NAME, methodName, "ANNO_CLASSSOURCE_RESOURCE_NOTFOUND",
+                new Object[] { getHashText(), resourceName, getRootContainer(), className });
+        } else {
+            closeResourceStream(className, resourceName, entry, inputStream);
         }
     }
 

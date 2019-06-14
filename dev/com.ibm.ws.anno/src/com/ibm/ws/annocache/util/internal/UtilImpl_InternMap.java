@@ -49,6 +49,7 @@ public class UtilImpl_InternMap implements Util_InternMap {
 
     // TODO: How does this factor across the factory/service implementation?
 
+    @Trivial
     public static String doValidate(String value, ValueType valueType) {
         String vMsg = null;
 
@@ -168,12 +169,14 @@ public class UtilImpl_InternMap implements Util_InternMap {
     protected final ValueType valueType;
 
     @Override
+    @Trivial
     public ValueType getValueType() {
         return valueType;
     }
 
     protected boolean checkValues;
 
+    @Trivial
     public boolean getCheckValues() {
         return checkValues;
     }
@@ -183,6 +186,7 @@ public class UtilImpl_InternMap implements Util_InternMap {
     protected final String name;
 
     @Override
+    @Trivial
     public String getName() {
         return name;
     }
@@ -203,6 +207,7 @@ public class UtilImpl_InternMap implements Util_InternMap {
     }
 
     @Override
+    @Trivial
     public synchronized Collection<String> getValues() {
         return getInternMap().values();
     }
@@ -224,9 +229,10 @@ public class UtilImpl_InternMap implements Util_InternMap {
     }
 
     @Override
+    @Trivial
     public synchronized String intern(String useName, boolean doForce) {
         String methodName = "intern";
-        
+
         if ( useName == null ) {
             return useName;
         }

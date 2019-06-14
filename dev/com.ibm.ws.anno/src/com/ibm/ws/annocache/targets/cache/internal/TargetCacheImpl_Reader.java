@@ -131,10 +131,12 @@ public class TargetCacheImpl_Reader implements TargetCache_Reader, TargetCache_I
     protected String parsedName;
     protected String parsedValue;
 
+    @Trivial
     protected boolean isComment() {
         return line.startsWith(COMMENT_TAG);
     }
 
+    @Trivial
     protected boolean isEndDelimiter() {
         return line.startsWith(END_DELIMITER_TEST_TAG);
     }

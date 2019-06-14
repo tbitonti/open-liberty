@@ -92,6 +92,7 @@ public class UtilImpl_NonInternSet implements Set<String> {
     }
 
     @Override
+    @Trivial
     public int hashCode() {
         return base.hashCode();
     }
