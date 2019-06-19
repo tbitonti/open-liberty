@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -33,7 +33,7 @@ public class TestOptions {
         String title, String description,
         boolean useJandex, boolean useJandexFull, int scanThreads,
         String storageSuffix, boolean cleanStorage, int writeThreads,
-        boolean omitJandexWrite, boolean separateContainers,
+        boolean omitJandexWrite, boolean separateContainers, boolean useJandexFormat,
         boolean ignoreMissingPackages, boolean ignoreMissingInterfaces) {
 
         this.title = title;
@@ -46,7 +46,7 @@ public class TestOptions {
             TestOptions_Cache.IS_NOT_READ_ONLY,
             TestOptions_Cache.IS_NOT_ALWAYS_VALID,
             writeThreads,
-            omitJandexWrite, separateContainers);
+            omitJandexWrite, separateContainers, useJandexFormat);
 
         this.ignoreMissingPackages = ignoreMissingPackages;
         this.ignoreMissingInterfaces = ignoreMissingInterfaces;
@@ -57,7 +57,7 @@ public class TestOptions {
         boolean useJandex, boolean useJandexFull, int scanThreads,
         String storageSuffix, boolean cleanStorage,
         boolean readOnly, boolean alwaysValid, int writeThreads,
-        boolean omitJandexWrite, boolean separateContainers,
+        boolean omitJandexWrite, boolean separateContainers, boolean useJandexFormat,
         boolean ignoreMissingPackages, boolean ignoreMissingInterfaces) {
 
         this.title = title;
@@ -68,7 +68,7 @@ public class TestOptions {
         this.cacheOptions = new TestOptions_Cache(
            storageSuffix, cleanStorage,
            readOnly, alwaysValid, writeThreads,
-           omitJandexWrite, separateContainers);
+           omitJandexWrite, separateContainers, useJandexFormat);
 
         this.ignoreMissingPackages = ignoreMissingPackages;
         this.ignoreMissingInterfaces = ignoreMissingInterfaces;
@@ -79,21 +79,21 @@ public class TestOptions {
     public final String title;
     
     public String getTitle() {
-    	return title;
+        return title;
     }
 
     public final String description;
 
     public String getDescription() {
-    	return description;
+        return description;
     }
 
     //
 
     public final TestOptions_Scan scanOptions;
-    
+
     public TestOptions_Scan getScanOptions() {
-    	return scanOptions;
+        return scanOptions;
     }
 
     //
@@ -101,20 +101,20 @@ public class TestOptions {
     public final TestOptions_Cache cacheOptions;
 
     public TestOptions_Cache getCacheOptions() {
-    	return cacheOptions;
+        return cacheOptions;
     }
-    
+
     //
-    
+
     public final boolean ignoreMissingPackages;
     
     public boolean getIgnoreMissingPackages() {
-    	return ignoreMissingPackages;
+        return ignoreMissingPackages;
     }
 
     public final boolean ignoreMissingInterfaces;
 
     public boolean getIgnoreMissingInterfaces() {
-    	return ignoreMissingInterfaces;
+        return ignoreMissingInterfaces;
     }
 }

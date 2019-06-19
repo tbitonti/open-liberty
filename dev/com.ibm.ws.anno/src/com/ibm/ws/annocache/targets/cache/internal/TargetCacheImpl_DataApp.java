@@ -183,7 +183,9 @@ public class TargetCacheImpl_DataApp extends TargetCacheImpl_DataBase {
     public TargetCacheImpl_DataCon createSimpleConData(String conName) {
         String e_conName = encode(conName);
         File e_resultConFile = e_getConFile(e_conName);
-        return createConData(this, conName, e_conName, e_resultConFile);
+        return createConData( this,
+            conName, e_conName, e_resultConFile,
+            TargetCacheImpl_DataCon.IS_COMPONENT_CONTAINER);
     }
 
     //

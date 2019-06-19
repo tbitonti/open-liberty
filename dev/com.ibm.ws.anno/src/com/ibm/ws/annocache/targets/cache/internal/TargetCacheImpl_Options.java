@@ -20,7 +20,7 @@ public class TargetCacheImpl_Options implements TargetCache_Options {
         String dir,
         boolean readOnly, boolean alwaysValid, // boolean validate,
         int writeThreads, int writeLimit,
-        boolean omitJandexWrite, boolean separateContainers) {
+        boolean omitJandexWrite, boolean separateContainers, boolean useJandexFormat) {
 
         this.disabled = disabled;
 
@@ -34,6 +34,7 @@ public class TargetCacheImpl_Options implements TargetCache_Options {
 
         this.omitJandexWrite = omitJandexWrite;
         this.separateContainers = separateContainers;
+        this.useJandexFormat = useJandexFormat;
     }
 
     //
@@ -51,6 +52,7 @@ public class TargetCacheImpl_Options implements TargetCache_Options {
                 " WriteLimit " + Integer.toString(writeLimit) + "," +
                 " OmitJandexWrite " + Boolean.toString(omitJandexWrite) + "," +
                 " SeparateContainers " + Boolean.toString(separateContainers) +
+                " UseJandexFormat " + Boolean.toString(useJandexFormat) +
             ")";
     }
 
@@ -188,5 +190,20 @@ public class TargetCacheImpl_Options implements TargetCache_Options {
     @Trivial
     public boolean getSeparateContainers() {
         return separateContainers;
+    }
+
+    //
+
+    private boolean useJandexFormat;
+
+    @Override
+    public void setUseJandexFormat(boolean useJandexFormat) {
+        this.useJandexFormat = useJandexFormat;
+    }
+
+    @Override
+    @Trivial
+    public boolean getUseJandexFormat() {
+        return useJandexFormat;
     }
 }

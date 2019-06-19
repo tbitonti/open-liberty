@@ -72,6 +72,9 @@ public class AnnotationCacheServiceImpl_Service implements AnnotationCacheServic
             logger.logp(Level.FINER, CLASS_NAME, methodName,
                     "Cache Separate Containers [ {0} ]",
                     Boolean.valueOf(useCacheOptions.getSeparateContainers()));
+            logger.logp(Level.FINER, CLASS_NAME, methodName,
+                    "Use Jandex Format For Containers [ {0} ]",
+                    Boolean.valueOf(useCacheOptions.getUseJandexFormat()));
         }
 
         setFactories(); // Need the work area path to setup the cache instance.

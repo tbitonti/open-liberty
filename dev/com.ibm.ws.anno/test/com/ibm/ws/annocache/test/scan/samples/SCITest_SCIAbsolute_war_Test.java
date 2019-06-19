@@ -178,4 +178,6 @@ public class SCITest_SCIAbsolute_war_Test extends Test_Base {
     public void testSCI_SCI_Absolute_MULTI_READ_SEPARATE() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.MULTI_READ_SEPARATE); // 'runSuiteTest' throws Exception
     }
+    
+
 }

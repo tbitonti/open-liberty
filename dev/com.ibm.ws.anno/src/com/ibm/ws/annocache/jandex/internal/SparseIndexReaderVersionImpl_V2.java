@@ -163,48 +163,48 @@ public class SparseIndexReaderVersionImpl_V2 implements SparseIndexReaderVersion
 
     private void readByteTable() throws IOException {
         int numEntries = input.readPackedU32() + 1;
-        byte[][] byteTable = new byte[numEntries][];
+        byte[][] useByteTable = new byte[numEntries][];
 
         // Element 0 is forced to null.  Note that that allows
         // byte[] references to obtain null as the referenced value.
 
-        byteTable[0] = null;
+        useByteTable[0] = null;
 
         for ( int entryNo = 1; entryNo < numEntries; entryNo++ ) {
             int numBytes = input.readPackedU32();
-            byteTable[entryNo] = new byte[numBytes];
-            input.readFully(byteTable[entryNo], 0, numBytes);
+            useByteTable[entryNo] = new byte[numBytes];
+            input.readFully(useByteTable[entryNo], 0, numBytes);
         }
 
-        this.byteTable = byteTable;
-        this.simpleNameTable = new SparseDotName[byteTable.length];
+        this.byteTable = useByteTable;
+        this.simpleNameTable = new SparseDotName[useByteTable.length];
     }
 
     private void readStringTable() throws IOException {
         int numEntries = input.readPackedU32() + 1;
-        String[] stringTable = new String[numEntries];
+        String[] useStringTable = new String[numEntries];
 
         // Element 0 is forced to null.  Note that that allows
         // string references to obtain null as the referenced value.
 
-        stringTable[0] = null;
+        useStringTable[0] = null;
 
         for ( int entryNo = 1; entryNo < numEntries; entryNo++ ) {
-            stringTable[entryNo] = input.readUTF();
+            useStringTable[entryNo] = input.readUTF();
         }
 
-        this.stringTable = stringTable;
+        this.stringTable = useStringTable;
     }
 
     private void readNameTable() throws IOException {
         int numEntries = input.readPackedU32() + 1;
 
-        SparseDotName[] nameTable = new SparseDotName[numEntries];
+        SparseDotName[] useNameTable = new SparseDotName[numEntries];
 
         // Element 0 is forced to null.  Note that that allows
         // name references to obtain null as the referenced value.
 
-        nameTable[0] = null;
+        useNameTable[0] = null;
 
         int lastDepth = -1;
         SparseDotName lastName = null;
@@ -231,13 +231,13 @@ public class SparseIndexReaderVersionImpl_V2 implements SparseIndexReaderVersion
             }
 
             SparseDotName name = new SparseDotName(head, tail, !SparseDotName.SIMPLE, isInnerClass);
-            nameTable[nameNo] = name;
+            useNameTable[nameNo] = name;
 
             lastName = name; 
             lastDepth = depth;
         }
 
-        this.nameTable = nameTable;
+        this.nameTable = useNameTable;
     }
 
     // Part 1.5: Reading annotations ...
@@ -502,7 +502,7 @@ public class SparseIndexReaderVersionImpl_V2 implements SparseIndexReaderVersion
     }
 
     private SparseDotName movePastReadTypeEntry() throws IOException{
-        int kind = (int) input.readUnsignedByte();
+        int kind = input.readUnsignedByte();
 
         switch (kind) {
             case 0: { //class
@@ -572,23 +572,23 @@ public class SparseIndexReaderVersionImpl_V2 implements SparseIndexReaderVersion
     }
 
     private void readTypeListTable() throws IOException {
-        SparseDotName[][] typeListTable = this.typeListTable;
+        SparseDotName[][] useTypeListTable = this.typeListTable;
 
         // Element 0 is forced to null.  Note that that allows
         // type list references to obtain null as the referenced value.
 
-        typeListTable[0] = null;
+        useTypeListTable[0] = null;
 
         // Some of the type lists are read while
         // reading types (see 'readTypeListReference'.
         //
         // Read any which were not yet read.
 
-        for ( int entryNo = findNextNull(typeListTable, 1);
-              entryNo < typeListTable.length;
-              entryNo = findNextNull(typeListTable, entryNo)) {
+        for ( int entryNo = findNextNull(useTypeListTable, 1);
+              entryNo < useTypeListTable.length;
+              entryNo = findNextNull(useTypeListTable, entryNo)) {
 
-            typeListTable[entryNo] = readTypeList();
+            useTypeListTable[entryNo] = readTypeList();
         }
     }
 
@@ -621,18 +621,18 @@ public class SparseIndexReaderVersionImpl_V2 implements SparseIndexReaderVersion
 
     private void readMethodTable() throws IOException {
         int numMethods = input.readPackedU32() + 1;
-        SparseAnnotationHolder[] methodTable = new SparseAnnotationHolder[numMethods];
+        SparseAnnotationHolder[] useMethodTable = new SparseAnnotationHolder[numMethods];
 
         // Element 0 is forced to null.  Note that that allows
         // method references to obtain null as the referenced value.
 
-        methodTable[0] = null;
+        useMethodTable[0] = null;
 
         for ( int methodNo = 1; methodNo < numMethods; methodNo++ ) {
-            methodTable[methodNo] = readMethod();
+            useMethodTable[methodNo] = readMethod();
         }
 
-        this.methodTable = methodTable;
+        this.methodTable = useMethodTable;
     }
 
     private SparseAnnotationHolder readMethod() throws IOException {
@@ -654,17 +654,17 @@ public class SparseIndexReaderVersionImpl_V2 implements SparseIndexReaderVersion
 
     private void readFieldTable() throws IOException {
         int numFields = input.readPackedU32() + 1;
-        SparseAnnotationHolder[] fieldTable = new SparseAnnotationHolder[numFields];
+        SparseAnnotationHolder[] useFieldTable = new SparseAnnotationHolder[numFields];
 
         // Element 0 is forced to null.  Note that that allows
         // field references to obtain null as the referenced value.
-        fieldTable[0] = null;
+        useFieldTable[0] = null;
 
         for ( int fieldNo = 1; fieldNo < numFields; fieldNo++ ) {
-            fieldTable[fieldNo] = readField();
+            useFieldTable[fieldNo] = readField();
         }
 
-        this.fieldTable = fieldTable;
+        this.fieldTable = useFieldTable;
     }
 
     private SparseAnnotationHolder readField() throws IOException {

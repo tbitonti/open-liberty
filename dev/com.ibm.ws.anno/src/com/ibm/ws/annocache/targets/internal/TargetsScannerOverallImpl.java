@@ -3,7 +3,7 @@
  *
  * OCO Source Materials
  *
- * WLP Copyright IBM Corp. 2014, 2018
+ * WLP Copyright IBM Corp. 2014, 2019
  *
  * The source code for this program is not published or otherwise divested
  * of its trade secrets, irrespective of what has been deposited with the
@@ -285,7 +285,8 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
 
         } else {
             // Create the targets table with its own intern map.
-            TargetsTableImpl targetsTable = new TargetsTableImpl( getFactory(), classSource.getName() );
+            TargetsTableImpl targetsTable =
+                new TargetsTableImpl( getFactory(), classSource.getName(), getUseJandexFormat() );
             targetsTable.setStamp( classSource.getStamp() );
             return targetsTable;
         }
@@ -385,6 +386,17 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
 
     public boolean getOmitJandexWrite() {
         return getModData().getCacheOptions().getOmitJandexWrite();
+    }
+
+    /**
+     * Subclass API: Tell if scanning should create a Jandex index.
+     *
+     * @return True or false telling if scanning should create a Jandex
+     *     index.  This implementation delegates to the module data.
+     */
+    @Override
+    public boolean getUseJandexFormat() {
+        return getModData().getCacheOptions().getUseJandexFormat();
     }
 
     public long getCacheReadTime() {

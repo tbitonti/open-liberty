@@ -152,4 +152,14 @@ public class DT7_DT_war_Test extends Test_Base {
     public void testDT7_DT_war_MULTI_READ_SEPARATE() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.MULTI_READ_SEPARATE); // 'runSuiteTest' throws Exception
     }
+
+    @Test
+    public void testDT7_DT_war_SINGLE_WRITE_JANDEX_FORMAT() throws Exception {
+        runSuiteTest(TestOptions_SuiteCase.SINGLE_WRITE_JANDEX_FORMAT); // 'runSuiteTest' throws Exception
+    }
+
+    @Test
+    public void testDT7_DT_war_SINGLE_READ_JANDEX_FORMAT() throws Exception {
+        runSuiteTest(TestOptions_SuiteCase.SINGLE_READ_JANDEX_FORMAT); // 'runSuiteTest' throws Exception
+    }
 }

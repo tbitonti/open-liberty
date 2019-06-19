@@ -239,7 +239,8 @@ public class SparseIndexReaderVersionImpl_V1 implements SparseIndexReaderVersion
         }
     }
 
-    private void readClassTable() throws IOException {
+    @SuppressWarnings("null")
+	private void readClassTable() throws IOException {
         int entries = input.readPackedU32();
         int lastDepth = -1;
         SparseDotName curr = null;

@@ -175,7 +175,8 @@ public class TargetsScannerBaseImpl {
                                   getClassNameInternMap(),
                                   getFieldNameInternMap(),
                                   getMethodSignatureInternMap(),
-                                  scanPolicy.name() );
+                                  scanPolicy.name(),
+                                  TargetsTableImpl.DO_NOT_USE_JANDEX_FORMAT );
         // A stamp is not available for result tables.
         resultTable.setStamp(ClassSource.UNRECORDED_STAMP);
         return resultTable;
@@ -202,7 +203,8 @@ public class TargetsScannerBaseImpl {
             getClassNameInternMap(),
             getFieldNameInternMap(),
             getMethodSignatureInternMap(),
-            classSource.getName() );
+            classSource.getName(),
+            getUseJandexFormat() );
 
         targetsTable.setStamp( classSource.getStamp() );
 
@@ -339,6 +341,18 @@ public class TargetsScannerBaseImpl {
 
     public boolean getUseJandex() {
         return getScanOptions().getUseJandex();
+    }
+
+    //
+
+    /**
+     * Subclass API: Tell if scanning should create a Jandex index.
+     *
+     * @return True or false telling if scanning should create a Jandex
+     *     index.  This implementation always answers false.
+     */
+    public boolean getUseJandexFormat() {
+    	return false;
     }
 
     //

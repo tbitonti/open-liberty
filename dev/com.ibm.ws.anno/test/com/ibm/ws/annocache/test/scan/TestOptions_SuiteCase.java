@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,7 +15,7 @@ public enum TestOptions_SuiteCase {
     SINGLE(TestOptions_Suite.SINGLE_OPTIONS),
     SINGLE_JANDEX(TestOptions_Suite.SINGLE_JANDEX_OPTIONS),
     SINGLE_JANDEX_FULL(TestOptions_Suite.SINGLE_JANDEX_FULL_OPTIONS),
-   
+
     MULTI(TestOptions_Suite.MULTI_OPTIONS),
     MULTI_JANDEX(TestOptions_Suite.MULTI_JANDEX_OPTIONS),
     MULTI_JANDEX_FULL(TestOptions_Suite.MULTI_JANDEX_FULL_OPTIONS),
@@ -37,9 +37,12 @@ public enum TestOptions_SuiteCase {
     SINGLE_WRITE_SEPARATE(TestOptions_Suite.SINGLE_WRITE_SEPARATE_OPTIONS),
     SINGLE_READ_SEPARATE(TestOptions_Suite.SINGLE_READ_SEPARATE_OPTIONS, SINGLE_WRITE_SEPARATE),
     MULTI_WRITE_SEPARATE(TestOptions_Suite.MULTI_WRITE_SEPARATE_OPTIONS),
-    MULTI_READ_SEPARATE(TestOptions_Suite.MULTI_READ_SEPARATE_OPTIONS, MULTI_WRITE_SEPARATE);
+    MULTI_READ_SEPARATE(TestOptions_Suite.MULTI_READ_SEPARATE_OPTIONS, MULTI_WRITE_SEPARATE),
 
-	//
+    SINGLE_WRITE_JANDEX_FORMAT(TestOptions_Suite.SINGLE_WRITE_JANDEX_FORMAT_OPTIONS),
+    SINGLE_READ_JANDEX_FORMAT(TestOptions_Suite.SINGLE_READ_JANDEX_FORMAT_OPTIONS, SINGLE_WRITE_JANDEX_FORMAT);
+
+    //
 
     private TestOptions_SuiteCase(TestOptions options, TestOptions_SuiteCase[] prereqs) {
         this.options = options;
@@ -65,18 +68,18 @@ public enum TestOptions_SuiteCase {
     }
 
     public boolean getIgnoreMissingPackages() {
-    	return options.ignoreMissingPackages;
+        return options.ignoreMissingPackages;
     }
 
     public boolean getIgnoreMissingInterfaces() {
-    	return options.getIgnoreMissingInterfaces();
+        return options.getIgnoreMissingInterfaces();
     }
 
     //
 
-	private final TestOptions_SuiteCase[] prereqs;
+    private final TestOptions_SuiteCase[] prereqs;
 
-	public TestOptions_SuiteCase[] getPrereqs() {
-		return prereqs;
-	}
+    public TestOptions_SuiteCase[] getPrereqs() {
+        return prereqs;
+    }
 }

@@ -95,6 +95,19 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
         int writeLimit        = getSystemProperty(TargetCache_Options.WRITE_LIMIT_PROPERTY_NAME, TargetCache_Options.WRITE_LIMIT_DEFAULT);
         boolean omitJandexWrite    = getSystemProperty(TargetCache_Options.OMIT_JANDEX_WRITE_PROPERTY_NAME, TargetCache_Options.OMIT_JANDEX_WRITE_DEFAULT);                
         boolean separateContainers = getSystemProperty(TargetCache_Options.SEPARATE_CONTAINERS_PROPERTY_NAME, TargetCache_Options.SEPARATE_CONTAINERS_DEFAULT);                        
+        boolean useJandexFormat    = getSystemProperty(TargetCache_Options.USE_JANDEX_FORMAT_PROPERTY_NAME, TargetCache_Options.USE_JANDEX_FORMAT_DEFAULT);                                
+
+        if ( useJandexFormat ) {
+            if ( !disabled && !omitJandexWrite ) {
+                // TODO: Enabling this case means implementing a direct transfer of
+                //       class source jandex data into the cache.
+                //       This case is not currently of interest, and has not been implemented.
+                throw new IllegalArgumentException(
+                    "Jandex format [ " + TargetCache_Options.USE_JANDEX_FORMAT_PROPERTY_NAME + " ]" +
+                    " with jandex reads [ " + TargetCache_Options.DISABLED_PROPERTY_NAME + " ]" +
+                    " requires omitting jandex writes [ " + TargetCache_Options.OMIT_JANDEX_WRITE_PROPERTY_NAME + " ]");
+            }
+        }
 
         return new TargetCacheImpl_Options(
             disabled,
@@ -104,7 +117,8 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
             writeThreads,
             writeLimit,
             omitJandexWrite,
-            separateContainers);
+            separateContainers,
+            useJandexFormat);
     }
 
     public static TargetCacheImpl_Options createOptionsFromDefaults() {
@@ -118,7 +132,8 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
              TargetCache_Options.WRITE_THREADS_DEFAULT,
              TargetCache_Options.WRITE_LIMIT_DEFAULT,
              TargetCache_Options.OMIT_JANDEX_WRITE_DEFAULT,
-             TargetCache_Options.SEPARATE_CONTAINERS_DEFAULT);
+             TargetCache_Options.SEPARATE_CONTAINERS_DEFAULT,
+             TargetCache_Options.USE_JANDEX_FORMAT_DEFAULT);
     }
 
     //
@@ -165,6 +180,7 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
                 finer(methodName, "  Write Limit         [ {0} ]", Integer.valueOf(options.getWriteLimit()));
                 finer(methodName, "  Omit Jandex Write   [ {0} ]", Boolean.valueOf(options.getOmitJandexWrite()));
                 finer(methodName, "  Separate Containers [ {0} ]", Boolean.valueOf(options.getSeparateContainers()));
+                finer(methodName, "  Use Jandex Format   [ {0} ]", Boolean.valueOf(options.getUseJandexFormat()));
             }
         }
     }
@@ -222,9 +238,13 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
 
     protected TargetCacheImpl_DataCon createConData(
         TargetCacheImpl_DataBase parentCache, // App or Mod
-        String conName, String e_conName, File conFile) {
+        String conName, String e_conName, File conFile,
+        boolean isComponent) {
 
-        return new TargetCacheImpl_DataCon(parentCache, conName, e_conName, conFile);
+        return new TargetCacheImpl_DataCon(
+            parentCache,
+            conName, e_conName, conFile,
+            isComponent);
     }
 
     //

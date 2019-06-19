@@ -22,6 +22,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.annocache.jandex.internal.Jandex_Utils;
+import com.ibm.ws.annocache.jandex.internal.SparseIndex;
 import com.ibm.ws.annocache.service.internal.AnnotationCacheServiceImpl_Logging;
 import com.ibm.ws.annocache.targets.TargetsTableAnnotations;
 import com.ibm.ws.annocache.targets.TargetsTableClasses;
@@ -1232,5 +1234,21 @@ public class TargetCacheImpl_Reader implements TargetCache_Reader, TargetCache_I
     public List<TargetCache_ParseError> read(TargetsTableDetails detailTable) throws IOException {
         DetailTableReader detailReader = new DetailTableReader(detailTable);
         return parse(detailReader); // throws IOException
+    }
+
+    //
+
+    /**
+     * Read a jandex index from the bound stream.
+     * 
+     * Ignore the reader: This is a binary read.
+     *
+     * @return e jandex index which was read..
+     *
+     * @throws IOException Thrown if the read fails.
+     */
+    public SparseIndex readSparseIndex() throws IOException {
+        return Jandex_Utils.basicReadSparseIndex( getStream() );
+        // 'basicReadIndex' throws IOException
     }
 }

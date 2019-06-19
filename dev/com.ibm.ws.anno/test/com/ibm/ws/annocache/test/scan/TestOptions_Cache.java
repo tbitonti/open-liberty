@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -33,6 +33,9 @@ public class TestOptions_Cache {
     public static final int WRITE_THREADS_MAX = TargetCache_Options.WRITE_THREADS_MAX;
     public static final int WRITE_THREADS_DEFAULT = TargetCache_Options.WRITE_THREADS_DEFAULT;
 
+    public static final boolean DO_USE_JANDEX_FORMAT = true;
+    public static final boolean DO_NOT_USE_JANDEX_FORMAT = false;
+
     public TestOptions_Cache(
         String storageSuffix,
         boolean cleanStorage,
@@ -43,7 +46,8 @@ public class TestOptions_Cache {
         int writeThreads,
 
         boolean omitJandexWrite,
-        boolean separateContainers) {
+        boolean separateContainers,
+        boolean useJandexFormat) {
 
         this.storageSuffix = storageSuffix;
         this.cleanStorage = cleanStorage;
@@ -55,6 +59,7 @@ public class TestOptions_Cache {
 
         this.omitJandexWrite = omitJandexWrite;
         this.separateContainers = separateContainers;
+        this.useJandexFormat = useJandexFormat;
 
     }
 
@@ -68,4 +73,5 @@ public class TestOptions_Cache {
 
     public final boolean omitJandexWrite;
     public final boolean separateContainers;
+    public final boolean useJandexFormat;
 }

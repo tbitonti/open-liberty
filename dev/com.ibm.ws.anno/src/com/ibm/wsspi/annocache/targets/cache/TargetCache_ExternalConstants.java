@@ -106,4 +106,8 @@ public interface TargetCache_ExternalConstants {
     // Fourth / query log
 
     String QUERIES_NAME = "queries";
+
+    // Alternate third: When using JANDEX as the cache format.
+
+    String JANDEX_NAME = "jandex.idx";
 }

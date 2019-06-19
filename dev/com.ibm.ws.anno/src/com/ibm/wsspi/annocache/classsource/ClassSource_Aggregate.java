@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2018 IBM Corporation and others.
+ * Copyright (c) 2011, 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -540,41 +540,41 @@ public interface ClassSource_Aggregate extends com.ibm.wsspi.anno.classsource.Cl
 
     //
 
-	/**
-	 * Total nano-seconds spend reading data from the annotations cache.
-	 * 
-	 * @return The nano-seconds spending reading data from the annotations cache.
-	 */
-	long getCacheReadTime();
+    /**
+     * Total nano-seconds spend reading data from the annotations cache.
+     * 
+     * @return The nano-seconds spending reading data from the annotations cache.
+     */
+    long getCacheReadTime();
 
-	/**
-	 * Add to the nano-second cache read time.
-	 * 
-	 * @param readTime Nano-seconds to add to the cache read time.
-	 * @param description A short description of the read activity.
-	 *     Used for tracing.
-	 *
-	 * @return The new total read time.
-	 */
-	long addCacheReadTime(long readTime, String description);
+    /**
+     * Add to the nano-second cache read time.
+     * 
+     * @param readTime Nano-seconds to add to the cache read time.
+     * @param description A short description of the read activity.
+     *     Used for tracing.
+     *
+     * @return The new total read time.
+     */
+    long addCacheReadTime(long readTime, String description);
 
-	/**
-	 * Total nano-seconds spend writing data to the annotations cache.
-	 * 
-	 * @return The nano-seconds spending writing data to the annotations cache.
-	 */	
-	long getCacheWriteTime();
+    /**
+     * Total nano-seconds spend writing data to the annotations cache.
+     * 
+     * @return The nano-seconds spending writing data to the annotations cache.
+     */    
+    long getCacheWriteTime();
 
-	/**
-	 * Add to the nano-second cache write time.
-	 * 
-	 * @param writeTime Nano-seconds to add to the cache write time.
-	 * @param description A short description of the write activity.
-	 *     Used for tracing.
-	 *
-	 * @return The new total write time.
-	 */
-	long addCacheWriteTime(long writeTime, String description);
+    /**
+     * Add to the nano-second cache write time.
+     * 
+     * @param writeTime Nano-seconds to add to the cache write time.
+     * @param description A short description of the write activity.
+     *     Used for tracing.
+     *
+     * @return The new total write time.
+     */
+    long addCacheWriteTime(long writeTime, String description);
 
     interface TimingData {
         int getScanSources();

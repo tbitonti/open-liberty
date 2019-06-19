@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2018 IBM Corporation and others.
+ * Copyright (c) 2011, 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,6 +13,7 @@ package com.ibm.ws.annocache.classsource.internal;
 
 import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.text.MessageFormat;
 import java.util.Set;
@@ -22,14 +23,17 @@ import java.util.logging.Logger;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.Index;
+import org.jboss.jandex.Indexer;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.annocache.jandex.internal.Jandex_Utils;
 import com.ibm.ws.annocache.jandex.internal.SparseClassInfo;
 import com.ibm.ws.annocache.jandex.internal.SparseIndex;
 import com.ibm.ws.annocache.service.internal.AnnotationCacheServiceImpl_Logging;
 import com.ibm.ws.annocache.util.internal.UtilImpl_FileStamp;
+import com.ibm.wsspi.anno.classsource.ClassSource_Aggregate.ScanPolicy;
 import com.ibm.wsspi.annocache.classsource.ClassSource;
 import com.ibm.wsspi.annocache.classsource.ClassSource_Aggregate;
 import com.ibm.wsspi.annocache.classsource.ClassSource_Exception;
@@ -295,7 +299,7 @@ public abstract class ClassSourceImpl implements ClassSource {
     public void setParentSource(ClassSource_Aggregate parentSource) {
         this.parentSource = parentSource;
     }
-    
+
     //
 
     @Override
@@ -308,7 +312,7 @@ public abstract class ClassSourceImpl implements ClassSource {
     public boolean getUseJandex() {
         return getOptions().getUseJandex();
     }
-    
+
     @Trivial
     public boolean getUseJandexFull() {
         return getOptions().getUseJandexFull();
@@ -325,7 +329,7 @@ public abstract class ClassSourceImpl implements ClassSource {
     public String getJandexIndexPath() {
         return getOptions().getJandexPath();
     }
-    
+
     // Sparse Jandex Index Methods ...
 
     private static final int NS_IN_MS = 1000000;
@@ -378,7 +382,7 @@ public abstract class ClassSourceImpl implements ClassSource {
     protected SparseIndex basicGetSparseJandexIndex() {
         return null;
     }
-    
+
     //
 
     protected String stamp;
@@ -510,6 +514,23 @@ public abstract class ClassSourceImpl implements ClassSource {
 
     //
 
+    /**
+     * Process the contents of this class source using a class information consumer.
+     * 
+     * Processing has three options:
+     * 
+     * If a jandex index is available, read it and provide the classes to the streamer.
+     * 
+     * If jandex index creation is specified, use the class resources of this class
+     * source to create a jandex index, then provide the new classes to the streamer.
+     *
+     * If jandex processing is not done, provide the class resources of this class source
+     * to the streamer.
+     
+     * @param streamer A consumer of class information.
+     *
+     * @throws ClassSource_Exception Thrown if the processing failed.
+     */
     @Override
     public void process(ClassSource_Streamer streamer) throws ClassSource_Exception {
         String methodName = "process";
@@ -523,41 +544,63 @@ public abstract class ClassSourceImpl implements ClassSource {
                 new Object[] { getHashText(), getCanonicalName(), Integer.valueOf(initialClasses) });
         }
 
-        boolean fromJandex;
+        // For now, creation of jandex indexes requires that jandex indexes not be rewritten to the cache.
+        //
+        // Rewrites of jandex data would require that the jandex index be wholly loaded, or would require
+        // that the jandex data be copied from the class source to the cache.  Code to do that processing
+        // is currently not provided.
+        //
+        // The consequence for the process steps is that if processing was performed by 'processUsingJandex' 
+
+        String scanTag;
+
         if ( processUsingJandex(streamer) ) {
-            fromJandex = true;
+            scanTag = "Existing jandex index";
+
+        } else if ( processJandexFromScratch(streamer) ) {
+            scanTag = "New jandex index";
+
         } else {
             long startScan = System.nanoTime();
             setProcessCount( processFromScratch(streamer) );
             long scanTime = System.nanoTime() - startScan;
             setProcessTime(scanTime);
-            fromJandex = false;
+
+            scanTag = "New scan";
         }
 
         int finalClasses = getInternMap().getSize();
+
+//        System.out.println(
+//            "[ " + getHashText() + " ]" +
+//             " Processing [ " + getCanonicalName() +" ]: " + scanTag +
+//             ": Final classes [ " + finalClasses + " ]");
+//
+//        System.out.println("[ Use jandex ]: " + getUseJandex());
+//        System.out.println("[ Use jandex full ]: " + getUseJandexFull());
+//        System.out.println("[ Create jandex ]: " + streamer.createJandex());
 
         if ( logger.isLoggable(Level.FINER) ) {
             logger.logp(Level.FINER, CLASS_NAME, methodName,
                 "[ {0} ] Processing [ {1} ] {2}; Final classes [ {3} ]",
                 new Object[] { getHashText(),
                                getCanonicalName(),
-                               (fromJandex ? "New Scan" : "Jandex"),
-                               Integer.valueOf(finalClasses) } );
+                               scanTag,  Integer.valueOf(finalClasses) } );
+
             logger.logp(Level.FINER, CLASS_NAME, methodName,
                 "[ {0} ] RETURN [ {1} ] Added classes",
                 new Object[] { getHashText(),
                                Integer.valueOf(finalClasses - initialClasses) } );
         }
 
-        if ( fromJandex && jandexLogger.isLoggable(Level.FINER) ) {
+        if ( jandexLogger.isLoggable(Level.FINER) ) {
             String useHashText = getHashText();
 
             jandexLogger.logp(Level.FINER, CLASS_NAME, methodName,
                 "[ {0} ] Processing [ {1} ] {2}; Final classes [ {3} ]",
                 new Object[] { useHashText,
                               getCanonicalName(),
-                              (fromJandex ? "New Scan" : "Jandex"),
-                              Integer.valueOf(finalClasses) } );
+                              scanTag, Integer.valueOf(finalClasses) } );
 
             jandexLogger.logp(Level.FINER, CLASS_NAME, methodName,
                 "[ {0} ] Added classes [ {1} ]",
@@ -568,6 +611,123 @@ public abstract class ClassSourceImpl implements ClassSource {
 
     protected abstract int processFromScratch(ClassSource_Streamer streamer)
         throws ClassSource_Exception;
+
+    /**
+     * Attempt to process using a new jandex index.
+     *
+     * @param streamer The streamer which will process class information.
+     *
+     * @return True or false telling if the information was processed using
+     *     a new Jandex index.
+     *
+     * @throws ClassSource_Exception Thrown if processing failed.
+     */
+    protected boolean processJandexFromScratch(ClassSource_Streamer streamer)
+        throws ClassSource_Exception {
+
+        if ( !streamer.createJandex() ) {
+            return false;
+        }
+
+        Index jandexIndex = createIndex();
+
+        for ( ClassInfo jandexClassInfo : jandexIndex.getKnownClasses() ) {
+            streamer.processJandex(jandexClassInfo);
+        }
+
+        // Need to keep the index: It will be saved as cache data.
+        streamer.storeJandex(jandexIndex);
+        
+        return true;
+    }
+
+    /**
+     * Create a jandex index for this class source.
+     *
+     * @return A new jandex index.
+     *
+     * @throws ClassSource_Exception Thrown if the scan failed.
+     */
+    protected Index createIndex()
+        throws ClassSource_Exception {
+
+        final Indexer indexer = Jandex_Utils.createIndexer();
+
+        ClassSource_Streamer jandexStreamer = new ClassSource_Streamer() {
+            @Override
+            public boolean process(String i_className, InputStream inputStream) throws ClassSource_Exception {
+                String methodName = "process";
+                try {
+                    indexer.index(inputStream);
+                } catch ( IOException e ) {
+                    throw getFactory().wrapIntoClassSourceException(CLASS_NAME, methodName,
+                        "Failed to scan class [ " + i_className + " ] of class source [ " + getName() + " ]", e);
+                }
+                return true;
+            }
+
+            // Unused
+
+            public boolean supportsJandex() {
+                return false; // Unused
+            }
+
+            @Override
+            public boolean createJandex() {
+                return false; // Unused
+            }
+
+            @Override
+            public void storeJandex(Index jandexIndex) {
+                // Unused
+            }
+
+            @Override
+            public void processJandex() {
+                // Unused
+            }
+
+            @Override
+            public boolean processJandex(Object classInfo) throws ClassSource_Exception {
+                return false; // Unused
+            }
+
+            @Override
+            public boolean processSparseJandex(Object sparseClassInfo) throws ClassSource_Exception {
+                return false; // Unused
+            }
+
+            // Obsolete
+
+            @Override
+            public boolean doProcess(String className, ScanPolicy scanPolicy) {
+                return false;
+            }
+
+            @Override
+            public boolean process(String sourceName, String className, InputStream inputStream,
+                ScanPolicy scanPolicy) throws com.ibm.wsspi.anno.classsource.ClassSource_Exception {
+                return false;
+            }
+
+            @Override
+            public boolean process(String sourceName, Object jandexClassInfo, ScanPolicy scanPolicy)
+                throws com.ibm.wsspi.anno.classsource.ClassSource_Exception {
+                return false;
+            }
+
+            @Override
+            public boolean doProcess(String className) {
+                // TODO Auto-generated method stub
+                return false;
+            }
+        };
+
+        @SuppressWarnings("unused")
+        int classCount = processFromScratch(jandexStreamer);
+
+        return indexer.complete();
+    }
 
     //
 
@@ -718,6 +878,7 @@ public abstract class ClassSourceImpl implements ClassSource {
                 logger.logp(Level.FINER, CLASS_NAME, methodName, "ENTER / RETURN [ true ]: using sparse index");
             }
             return true;
+
         } else if ( processJandexFull(streamer) ) {
             processedUsingJandex = true;
             if ( logger.isLoggable(Level.FINER) ) {

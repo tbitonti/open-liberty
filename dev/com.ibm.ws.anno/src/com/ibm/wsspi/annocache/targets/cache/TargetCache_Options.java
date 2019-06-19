@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018
+ * Copyright (c) 2019
  *
  * The source code for this program is not published or otherwise divested
  * of its trade secrets, 2019 IBM Corporation and others.
@@ -137,6 +137,30 @@ public interface TargetCache_Options {
     boolean SEPARATE_CONTAINERS_DEFAULT = false;
     String SEPARATE_CONTAINERS_PROPERTY_NAME = "anno.cache.separateContainers";
 
-	boolean getSeparateContainers();
-	void setSeparateContainers(boolean separateContainers);
+    boolean getSeparateContainers();
+    void setSeparateContainers(boolean separateContainers);
+
+    // Whether to manage container data using jandex indexes.
+    //
+    // Jandex format is meaningful only if caching is enabled
+    // and jandex writes are disabled.
+    //
+    // Using jandex indexes for container data has these implications:
+    //
+    // 1) When generating component data, if a jandex index is not available,
+    //    data is generated first as a jandex index then is processed from
+    //    that data.  The jandex index is retained as it will be saved
+    //    to the cache.
+    //
+    // 2) When saving component data, the jandex index is written instead
+    //    of writing using the internal format.
+    //
+    // 3) When reading component data, the data must be saved as a jandex
+    //    index.
+
+    boolean USE_JANDEX_FORMAT_DEFAULT = false;
+    String USE_JANDEX_FORMAT_PROPERTY_NAME = "anno.cache.jandexFormat";
+
+    boolean getUseJandexFormat();
+    void setUseJandexFormat(boolean useJandexFormat);
 }

@@ -77,8 +77,12 @@ public abstract class TargetCacheImpl_DataBase {
     @Trivial
     protected TargetCacheImpl_DataCon createConData(
         TargetCacheImpl_DataBase parentCache,
-        String conPath, String e_conPath, File conFile) {
-        return getFactory().createConData(parentCache, conPath, e_conPath, conFile);
+        String conPath, String e_conPath, File conFile,
+        boolean isComponent) {
+        return getFactory().createConData(
+            parentCache,
+            conPath, e_conPath, conFile,
+            isComponent);
     }
 
     //
@@ -156,7 +160,7 @@ public abstract class TargetCacheImpl_DataBase {
             return false;
 
         } else {
-        	if ( logger.isLoggable(Level.FINER) ) {
+            if ( logger.isLoggable(Level.FINER) ) {
                 logger.logp(Level.FINER, CLASS_NAME, methodName,
                     "Enabled: Allowing read of [ {0} ]", inputDescription);
             }

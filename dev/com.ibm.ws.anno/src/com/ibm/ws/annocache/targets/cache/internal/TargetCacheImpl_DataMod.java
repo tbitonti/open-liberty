@@ -241,7 +241,9 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
     public TargetCacheImpl_DataCon createResultConData(String resultConName) {
         String e_resultConName = encode(resultConName);
         File e_resultConFile = e_getConFile(e_resultConName);
-        return createConData(this, resultConName, e_resultConName, e_resultConFile);
+        return createConData( this,
+            resultConName, e_resultConName, e_resultConFile,
+            TargetCacheImpl_DataCon.IS_RESULT_CONTAINER );
     }
 
     //

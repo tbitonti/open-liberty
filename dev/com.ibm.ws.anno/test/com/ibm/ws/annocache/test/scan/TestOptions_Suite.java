@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -29,16 +29,20 @@ public class TestOptions_Suite {
     public static final boolean OMIT_JANDEX_WRITE = true;
     public static final boolean SEPARATE_CONTAINERS = true;
 
+    public static final boolean DO_USE_JANDEX_FORMAT = true;
+
     public static final String SINGLE_WRITE_SUFFIX = "SW";
     public static final String MULTI_WRITE_SUFFIX = "MW";
     public static final String SINGLE_WRITE_ASYNC_SUFFIX = "SWA";
     public static final String MULTI_WRITE_ASYNC_SUFFIX = "MWA";
-    
+
     public static final String SINGLE_WRITE_OMIT_JANDEX_SUFFIX = "SWJ";
     public static final String MULTI_WRITE_OMIT_JANDEX_SUFFIX = "MWJ";
-    
+
     public static final String SINGLE_WRITE_SEPARATE_SUFFIX = "SWS";
     public static final String MULTI_WRITE_SEPARATE_SUFFIX = "MWS";
+
+    public static final String SINGLE_WRITE_JANDEX_FORMAT_SUFFIX = "SWJF";
 
     public static final boolean DO_CLEAN_STORAGE = true;
 
@@ -98,14 +102,14 @@ public class TestOptions_Suite {
             "SingleWrite", "Single Threaded Scan with Initial Write",
             !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_ONE,
             SINGLE_WRITE_SUFFIX, DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS,
+            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
             !DO_IGNORE_MISSING_PACKAGES, !DO_IGNORE_MISSING_INTERFACES);
     public static TestOptions SINGLE_READ_OPTIONS =
         new TestOptions(
             "SingleRead", "Single Threaded Scan with Read",
             !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_ONE,
             SINGLE_WRITE_SUFFIX, !DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS,
+            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
             !DO_IGNORE_MISSING_PACKAGES, !DO_IGNORE_MISSING_INTERFACES);
 
     public static TestOptions MULTI_WRITE_OPTIONS =
@@ -113,13 +117,13 @@ public class TestOptions_Suite {
             "MultiWrite", "Multi Threaded Scan with Initial Write",
             !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_DEFAULT,
             MULTI_WRITE_SUFFIX, DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS,
+            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
             !DO_IGNORE_MISSING_PACKAGES, !DO_IGNORE_MISSING_INTERFACES);
     public static TestOptions MULTI_READ_OPTIONS =
         new TestOptions("MultiRead", "Multi Threaded Scan with Read",
             !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_DEFAULT,
             MULTI_WRITE_SUFFIX, !DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS,
+            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
             !DO_IGNORE_MISSING_PACKAGES, !DO_IGNORE_MISSING_INTERFACES);
 
     public static TestOptions SINGLE_WRITE_ASYNC_OPTIONS =
@@ -127,14 +131,14 @@ public class TestOptions_Suite {
             "SingleWriteAsync", "Single Threaded Scan with Asynchronous Initial Write",
             !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_ONE,
             SINGLE_WRITE_ASYNC_SUFFIX, DO_CLEAN_STORAGE, WRITE_THREADS_DEFAULT,
-            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS,
+            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
             !DO_IGNORE_MISSING_PACKAGES, !DO_IGNORE_MISSING_INTERFACES);
     public static TestOptions MULTI_WRITE_ASYNC_OPTIONS =
         new TestOptions(
             "MultiWriteAsync", "Multi Threaded Scan with Asynchronous Initial Write",
             !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_ONE,
             MULTI_WRITE_ASYNC_SUFFIX, DO_CLEAN_STORAGE, WRITE_THREADS_DEFAULT,
-            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS,
+            !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
             !DO_IGNORE_MISSING_PACKAGES, !DO_IGNORE_MISSING_INTERFACES);
 
     public static TestOptions SINGLE_WRITE_JANDEX_NOWRITE_OPTIONS =
@@ -142,14 +146,14 @@ public class TestOptions_Suite {
             "SingleWrite", "Single Threaded Scan with Initial Write and No Jandex Writes",
             USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_ONE,
             SINGLE_WRITE_OMIT_JANDEX_SUFFIX, DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-            OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS,
+            OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
             !DO_IGNORE_MISSING_PACKAGES, DO_IGNORE_MISSING_INTERFACES);
     public static TestOptions SINGLE_READ_JANDEX_NOWRITE_OPTIONS =
         new TestOptions(
             "SingleRead", "Single Threaded Scan with Read and No Jandex Writes",
             USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_ONE,
             SINGLE_WRITE_OMIT_JANDEX_SUFFIX, !DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-            OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS,
+            OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
             !DO_IGNORE_MISSING_PACKAGES, DO_IGNORE_MISSING_INTERFACES);
 
     public static TestOptions MULTI_WRITE_JANDEX_NOWRITE_OPTIONS =
@@ -157,13 +161,13 @@ public class TestOptions_Suite {
             "MultiWrite", "Multi Threaded Scan with Initial Write and No Jandex Writes",
             USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_DEFAULT,
             MULTI_WRITE_OMIT_JANDEX_SUFFIX, DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-            OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS,
+            OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
             !DO_IGNORE_MISSING_PACKAGES, DO_IGNORE_MISSING_INTERFACES);
     public static TestOptions MULTI_READ_JANDEX_NOWRITE_OPTIONS =
         new TestOptions("MultiRead", "Multi Threaded Scan with Read and No Jandex Writes",
             USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_DEFAULT,
             MULTI_WRITE_OMIT_JANDEX_SUFFIX, !DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-            OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS,
+            OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
             !DO_IGNORE_MISSING_PACKAGES, DO_IGNORE_MISSING_INTERFACES);
 
     public static TestOptions SINGLE_WRITE_SEPARATE_OPTIONS =
@@ -171,14 +175,14 @@ public class TestOptions_Suite {
                 "SingleWrite", "Single Threaded Scan with Initial Write and Separate Component Files",
                 !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_ONE,
                 SINGLE_WRITE_SEPARATE_SUFFIX, DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-                !OMIT_JANDEX_WRITE, SEPARATE_CONTAINERS,
+                !OMIT_JANDEX_WRITE, SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
                 !DO_IGNORE_MISSING_PACKAGES, !DO_IGNORE_MISSING_INTERFACES);
     public static TestOptions SINGLE_READ_SEPARATE_OPTIONS =
             new TestOptions(
                 "SingleRead", "Single Threaded Scan with Read and Separate Component Files",
                 !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_ONE,
                 SINGLE_WRITE_SEPARATE_SUFFIX, !DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-                !OMIT_JANDEX_WRITE, SEPARATE_CONTAINERS,
+                !OMIT_JANDEX_WRITE, SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
                 !DO_IGNORE_MISSING_PACKAGES, !DO_IGNORE_MISSING_INTERFACES);
 
     public static TestOptions MULTI_WRITE_SEPARATE_OPTIONS =
@@ -186,12 +190,28 @@ public class TestOptions_Suite {
                 "MultiWrite", "Multi Threaded Scan with Initial Write and Separate Component Files",
                 !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_DEFAULT,
                 MULTI_WRITE_SEPARATE_SUFFIX, DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-                !OMIT_JANDEX_WRITE, SEPARATE_CONTAINERS,
+                !OMIT_JANDEX_WRITE, SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
                 !DO_IGNORE_MISSING_PACKAGES, !DO_IGNORE_MISSING_INTERFACES);
     public static TestOptions MULTI_READ_SEPARATE_OPTIONS =
             new TestOptions("MultiRead", "Multi Threaded Scan with Read and Separate Component Files",
                 !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_DEFAULT,
                 MULTI_WRITE_SEPARATE_SUFFIX, !DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
-                !OMIT_JANDEX_WRITE, SEPARATE_CONTAINERS,
+                !OMIT_JANDEX_WRITE, SEPARATE_CONTAINERS, !DO_USE_JANDEX_FORMAT,
                 !DO_IGNORE_MISSING_PACKAGES, !DO_IGNORE_MISSING_INTERFACES);
+    
+    public static TestOptions SINGLE_WRITE_JANDEX_FORMAT_OPTIONS =
+            new TestOptions(
+                "SingleWriteUsingJandex", "Write using Jandex Format",
+                !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_ONE,
+                SINGLE_WRITE_JANDEX_FORMAT_SUFFIX, DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
+                !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, DO_USE_JANDEX_FORMAT,
+                !DO_IGNORE_MISSING_PACKAGES, DO_IGNORE_MISSING_INTERFACES);
+
+    public static TestOptions SINGLE_READ_JANDEX_FORMAT_OPTIONS =
+            new TestOptions(
+                "SingleReadUsingJandex", "Read using Jandex Format",
+                !USE_JANDEX, !USE_JANDEX_FULL, SCAN_THREADS_ONE,
+                SINGLE_WRITE_JANDEX_FORMAT_SUFFIX, !DO_CLEAN_STORAGE, WRITE_THREADS_ONE,
+                !OMIT_JANDEX_WRITE, !SEPARATE_CONTAINERS, DO_USE_JANDEX_FORMAT,
+                !DO_IGNORE_MISSING_PACKAGES, DO_IGNORE_MISSING_INTERFACES);
 }

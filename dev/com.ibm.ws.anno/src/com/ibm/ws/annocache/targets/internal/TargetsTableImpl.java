@@ -21,7 +21,12 @@ import java.util.logging.Logger;
 
 import org.objectweb.asm.ClassReader;
 
+import org.jboss.jandex.Index;
+import org.jboss.jandex.ClassInfo;
+
 import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.annocache.jandex.internal.SparseClassInfo;
+import com.ibm.ws.annocache.jandex.internal.SparseIndex;
 import com.ibm.ws.annocache.service.internal.AnnotationCacheServiceImpl_Logging;
 import com.ibm.ws.annocache.targets.TargetsTable;
 import com.ibm.ws.annocache.util.internal.UtilImpl_BidirectionalMap;
@@ -94,6 +99,10 @@ public class TargetsTableImpl implements TargetsTable {
         this.classSourceName = sourceData.getClassSourceName();
         this.usedJandex = sourceData.getUsedJandex();
 
+        this.useJandexFormat = sourceData.getUseJandexFormat();
+        this.jandexIndex = sourceData.getJandexIndex();
+        this.sparseJandexIndex = sourceData.getSparseJandexIndex();
+
         //
 
         this.stampTable = new TargetsTableTimeStampImpl( classSourceName, sourceData.getStamp() );
@@ -122,14 +131,22 @@ public class TargetsTableImpl implements TargetsTable {
      * @param classSourceName The name to assign to the new targets data.
      */
     public TargetsTableImpl(AnnotationTargetsImpl_Factory factory,
-                           String classSourceName) {
+                           String classSourceName,
+                           boolean useJandexFormat) {
 
         this( factory,
               factory.createClassNameInternMap(),
               factory.createFieldNameInternMap(),
               factory.createMethodSignatureInternMap(),
-              classSourceName );
+              classSourceName,
+              useJandexFormat );
     }
+
+    /** Control parameter: Scanning will drive processing through a jandex index. */
+    public static final boolean DO_USE_JANDEX_FORMAT = true;
+
+    /** Control parameter: Scanning will not drive processing through a jandex index. */
+    public static final boolean DO_NOT_USE_JANDEX_FORMAT = false;
 
     /**
      * Create new targets data.
@@ -142,6 +159,7 @@ public class TargetsTableImpl implements TargetsTable {
      * @param methodSignatureInternMap The method signature intern map which the new data
      *     is to use.
      * @param classSourceName The name to assign to the new targets data.
+     * @param useJandexFormat True or false telling if Jandex format data is being used.
      */
     public TargetsTableImpl(AnnotationTargetsImpl_Factory factory,
 
@@ -149,7 +167,9 @@ public class TargetsTableImpl implements TargetsTable {
                            UtilImpl_InternMap fieldNameInternMap,
                            UtilImpl_InternMap methodSignatureInternMap,
 
-                           String classSourceName) {
+                           String classSourceName,
+
+                           boolean useJandexFormat) {
 
         String methodName = "<init>";
 
@@ -165,6 +185,10 @@ public class TargetsTableImpl implements TargetsTable {
 
         this.classSourceName = classSourceName;
         this.usedJandex = false;
+
+        this.useJandexFormat = useJandexFormat;
+        this.jandexIndex = null;
+        this.sparseJandexIndex = null;
 
         //
 
@@ -298,11 +322,11 @@ public class TargetsTableImpl implements TargetsTable {
     @Trivial
     @Override
     public boolean getUsedJandex() {
-    	return usedJandex;
+        return usedJandex;
     }
 
     protected void setUsedJandex(boolean usedJandex) {
-    	this.usedJandex = usedJandex;
+        this.usedJandex = usedJandex;
     }
 
     // Data fan-outs ...
@@ -777,13 +801,13 @@ public class TargetsTableImpl implements TargetsTable {
     @Trivial
     protected void scanInternal(ClassSource classSource,
 
-                                Set<String> i_newResolvedClassNames,
-                                Set<String> i_resolvedClassNames,
+                                final Set<String> i_newResolvedClassNames,
+                                final Set<String> i_resolvedClassNames,
 
-                                Set<String> i_newUnresolvedClassNames,
-                                Set<String> i_unresolvedClassNames,
+                                final Set<String> i_newUnresolvedClassNames,
+                                final Set<String> i_unresolvedClassNames,
 
-                                Set<String> i_selectAnnotationClassNames)
+                                final Set<String> i_selectAnnotationClassNames)
 
         throws AnnotationTargets_Exception {
 
@@ -798,20 +822,20 @@ public class TargetsTableImpl implements TargetsTable {
         try {
             openClassSource(classSource); // throws AnnotationTargets_Exception
 
-            final TargetsVisitorClassImpl visitor =
-                new TargetsVisitorClassImpl(
-                    this,
-                    classSource.getName(),
-                    i_newResolvedClassNames, i_resolvedClassNames,
-                    i_newUnresolvedClassNames, i_unresolvedClassNames,
-                    i_selectAnnotationClassNames,
-                    TargetsVisitorClassImpl.DO_NOT_RECORD_ANNOTATION_DETAIL );
-
             ClassSource_Streamer useStreamer = new ClassSource_Streamer() {
                 @Override
                 public boolean doProcess(String className) {
                     return true;
                 }
+
+                private final TargetsVisitorClassImpl visitor =
+                    new TargetsVisitorClassImpl(
+                        TargetsTableImpl.this,
+                        classSource.getName(),
+                        i_newResolvedClassNames, i_resolvedClassNames,
+                        i_newUnresolvedClassNames, i_unresolvedClassNames,
+                        i_selectAnnotationClassNames,
+                        TargetsVisitorClassImpl.DO_NOT_RECORD_ANNOTATION_DETAIL );
 
                 @Override
                 public boolean process(String i_className, InputStream inputStream) throws ClassSource_Exception {
@@ -824,6 +848,16 @@ public class TargetsTableImpl implements TargetsTable {
                 }
 
                 @Override
+                public boolean createJandex() {
+                    return TargetsTableImpl.this.getUseJandexFormat();
+                }
+
+                @Override
+                public void storeJandex(Index useJandexIndex) {
+                    TargetsTableImpl.this.setJandexIndex(useJandexIndex);
+                }
+
+                @Override
                 public void processJandex() {
                     setUsedJandex(true);
                 }
@@ -831,13 +865,13 @@ public class TargetsTableImpl implements TargetsTable {
                 private final TargetsVisitorJandexConverterImpl jandexConverter =
                     new TargetsVisitorJandexConverterImpl(TargetsTableImpl.this);
 
-                private final TargetsVisitorSparseJandexConverterImpl sparseJandexConverter =
-                    new TargetsVisitorSparseJandexConverterImpl(TargetsTableImpl.this);
-
                 @Override
                 public boolean processJandex(Object jandexClassInfo) throws ClassSource_Exception {
                     return jandexConverter.convertClassInfo(classSourceName, jandexClassInfo);
                 }
+
+                private final TargetsVisitorSparseJandexConverterImpl sparseJandexConverter =
+                    new TargetsVisitorSparseJandexConverterImpl(TargetsTableImpl.this);
 
                 @Override
                 public boolean processSparseJandex(Object jandexClassInfo) throws ClassSource_Exception {
@@ -995,6 +1029,16 @@ public class TargetsTableImpl implements TargetsTable {
                     }
 
                     @Override
+                    public boolean createJandex() {
+                        return false;
+                    }
+
+                    @Override
+                    public void storeJandex(Index useJandexIndex) {
+                        throw new UnsupportedOperationException("External scans do not use Jandex");
+                    }
+
+                    @Override
                     public void processJandex() {
                         // 'supportsJandex' answering false should prevent calls to 'processJandex'.
                         throw new UnsupportedOperationException();
@@ -1116,6 +1160,16 @@ public class TargetsTableImpl implements TargetsTable {
                 @Override
                 public boolean supportsJandex() {
                     return false;
+                }
+
+                @Override
+                public boolean createJandex() {
+                    return false;
+                }
+
+                @Override
+                public void storeJandex(Index useJandexIndex) {
+                    throw new UnsupportedOperationException("Specific scans do not use Jandex");
                 }
 
                 @Override
@@ -1388,5 +1442,65 @@ public class TargetsTableImpl implements TargetsTable {
         getAnnotationTable().updateClassNames(
             i_allResolvedClassNames, i_newlyResolvedClassNames,
             i_allUnresolvedClassNames, i_newlyUnresolvedClassNames);
+    }
+
+    //
+
+    private final boolean useJandexFormat;
+
+    public boolean getUseJandexFormat() {
+        return useJandexFormat;
+    }
+
+    private Index jandexIndex;
+
+    public void setJandexIndex(Index jandexIndex) {
+        this.jandexIndex = jandexIndex;
+    }
+
+    public Index getJandexIndex() {
+        return jandexIndex;
+    }
+
+    //
+
+    private SparseIndex sparseJandexIndex;
+
+    public void setSparseJandexIndex(SparseIndex sparseJandexIndex) {
+        this.sparseJandexIndex = sparseJandexIndex;
+    }
+
+    public SparseIndex getSparseJandexIndex() {
+        return sparseJandexIndex;
+    }
+
+    //
+
+    public void transferJandexData() {
+        SparseIndex useSparseIndex = getSparseJandexIndex();
+        if ( useSparseIndex != null ) {
+            TargetsVisitorSparseJandexConverterImpl sparseJandexConverter =
+                new TargetsVisitorSparseJandexConverterImpl(TargetsTableImpl.this);
+
+            String useClassSourceName = classSourceName;
+            for ( SparseClassInfo jandexClassInfo : useSparseIndex.getKnownClasses() ) {
+                sparseJandexConverter.convertClassInfo(useClassSourceName, jandexClassInfo);
+            }
+
+        } else {
+            Index useIndex = getJandexIndex();
+            if ( useIndex != null ) {
+                TargetsVisitorJandexConverterImpl jandexConverter =
+                    new TargetsVisitorJandexConverterImpl(TargetsTableImpl.this);
+
+                String useClassSourceName = classSourceName;
+                for ( ClassInfo jandexClassInfo : useIndex.getKnownClasses() ) {
+                    jandexConverter.convertClassInfo(useClassSourceName, jandexClassInfo);
+                }
+
+            } else {
+                throw new IllegalStateException("No jandex index");
+            }
+        }
     }
 }

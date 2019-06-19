@@ -23,9 +23,11 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.jboss.jandex.Index;
 import org.objectweb.asm.Opcodes;
 
 import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.anno.jandex.internal.Jandex_Utils;
 import com.ibm.ws.annocache.service.internal.AnnotationCacheServiceImpl_Logging;
 import com.ibm.ws.annocache.targets.internal.TargetsTableAnnotationsImpl;
 import com.ibm.ws.annocache.targets.internal.TargetsTableClassesImpl;
@@ -950,5 +952,21 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
             }
             return result.toString();
         }
+    }
+
+    //
+
+    /**
+     * Write a jandex index to the bound stream.
+     * 
+     * Ignore the writer: This is a binary write.
+     *
+     * @param jandexIndex The jandex index which is to be written.
+     *
+     * @throws IOException Thrown if the write fails.
+     */
+    public void write(Index jandexIndex) throws IOException {
+        Jandex_Utils.basicWriteIndex( getStream(), jandexIndex, "Jandex write to [ " + getPath() + " ]" );
+        // 'basicWriteIndex' throws IOException
     }
 }

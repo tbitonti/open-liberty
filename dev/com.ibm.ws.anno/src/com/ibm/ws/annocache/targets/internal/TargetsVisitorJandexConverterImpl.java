@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -153,7 +153,7 @@ public class TargetsVisitorJandexConverterImpl {
                 jandexLogger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ] Package [ {1} ] Modifiers [ {2} ]", logParms); 
             }
 
-            String i_packageName = internClassName(className);
+            String i_packageName = internClassName(packageName);
 
             if ( !classesTable.jandex_i_addPackage(i_packageName) ) {
                 // ANNO_TARGETS_DUPLICATE_PACKAGE=CWWKC0054W:

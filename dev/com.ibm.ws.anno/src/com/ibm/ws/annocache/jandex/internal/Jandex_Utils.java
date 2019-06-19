@@ -73,10 +73,32 @@ public class Jandex_Utils {
         return reader.read(); // throws IOException
     }
 
+    //
+
+    public static SparseIndex readSparseIndex(String indexPath) {
+        try {
+            return basicReadSparseIndex(indexPath); // throws IOException
+        } catch ( IOException e ) {
+            throw new RuntimeException("Failed to read index [ " + indexPath + " ]", e);
+        }
+    }
+
+    public static SparseIndex basicReadSparseIndex(String indexPath) throws IOException {
+        FileInputStream indexInputStream =
+            new FileInputStream(indexPath); // throws FileNotFoundException
+        try {
+            return Jandex_Utils.basicReadSparseIndex(indexInputStream); // throws IOException
+        } finally {
+            indexInputStream.close(); // throws IOException
+        }
+    }
+
     public static SparseIndex basicReadSparseIndex(InputStream indexInputStream) throws IOException{
         SparseIndexReader reader = new SparseIndexReader(indexInputStream); // throws IOException
         return reader.getIndex();
     }
+
+    //
 
     public static void writeIndex(String indexOutputPath, Index index) {
         try {

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2018 IBM Corporation and others.
+ * Copyright (c) 2011, 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,6 +12,8 @@
 package com.ibm.wsspi.annocache.classsource;
 
 import java.io.InputStream;
+
+import org.jboss.jandex.Index;
 
 /**
  * <p>Call back type for class source processing.</p>
@@ -49,6 +51,24 @@ public interface ClassSource_Streamer extends com.ibm.wsspi.anno.classsource.Cla
      *     class information.
      */
     boolean supportsJandex();
+
+    /**
+     * <p>Tell if a Jandex index is to be created then used for processing.</p>
+     * 
+     * <p>Requires that {@link #supportsJandex()} answer true.</p>
+     * 
+     * <p>The created index must be supplied to a call to {@link #storeJandex}.</p>
+     *
+     * @return True or false telling if a Jandex index is to be created.
+     */
+    boolean createJandex();
+
+    /**
+     * <p>Store a Jandex index as needed.</p>
+     * 
+     * @param index A Jandex index which is to be stored.
+     */
+    void storeJandex(Index jandexIndex);
 
     /**
      * <p>Tell the streamer that processing is using data from jandex.</p>
