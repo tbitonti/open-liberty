@@ -687,7 +687,7 @@ public abstract class ClassSourceImpl implements ClassSource {
             }
 
             @Override
-            public void storeJandex(Index jandexIndex) {
+            public void storeJandex(Object jandexIndex) {
                 // Unused
             }
 

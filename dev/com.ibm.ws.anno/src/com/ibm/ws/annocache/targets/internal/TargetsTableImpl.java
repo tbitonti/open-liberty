@@ -851,8 +851,8 @@ public class TargetsTableImpl implements TargetsTable {
                 }
 
                 @Override
-                public void storeJandex(Index useJandexIndex) {
-                    TargetsTableImpl.this.setJandexIndex(useJandexIndex);
+                public void storeJandex(Object useJandexIndex) {
+                    TargetsTableImpl.this.setJandexIndex((Index) useJandexIndex);
                 }
 
                 @Override
@@ -1032,7 +1032,7 @@ public class TargetsTableImpl implements TargetsTable {
                     }
 
                     @Override
-                    public void storeJandex(Index useJandexIndex) {
+                    public void storeJandex(Object useJandexIndex) {
                         throw new UnsupportedOperationException("External scans do not use Jandex");
                     }
 
@@ -1166,7 +1166,7 @@ public class TargetsTableImpl implements TargetsTable {
                 }
 
                 @Override
-                public void storeJandex(Index useJandexIndex) {
+                public void storeJandex(Object useJandexIndex) {
                     throw new UnsupportedOperationException("Specific scans do not use Jandex");
                 }
 

@@ -13,8 +13,6 @@ package com.ibm.wsspi.annocache.classsource;
 
 import java.io.InputStream;
 
-import org.jboss.jandex.Index;
-
 /**
  * <p>Call back type for class source processing.</p>
  */
@@ -68,7 +66,7 @@ public interface ClassSource_Streamer extends com.ibm.wsspi.anno.classsource.Cla
      * 
      * @param index A Jandex index which is to be stored.
      */
-    void storeJandex(Index jandexIndex);
+    void storeJandex(Object jandexIndex);
 
     /**
      * <p>Tell the streamer that processing is using data from jandex.</p>
