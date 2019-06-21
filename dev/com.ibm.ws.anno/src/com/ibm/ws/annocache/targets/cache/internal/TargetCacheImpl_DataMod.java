@@ -563,6 +563,8 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
         boolean doTruncate,
         Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction) {
 
+    	System.out.println("Scheduled write [ " + description + " ] [ " + outputFile.getAbsolutePath() + " ]");
+
         getApp().scheduleWrite(this, description, outputFile, doTruncate, writeAction);
     }
 }

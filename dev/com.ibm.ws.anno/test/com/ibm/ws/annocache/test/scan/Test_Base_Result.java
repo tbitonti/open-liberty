@@ -292,7 +292,7 @@ public class Test_Base_Result {
         writer.println("External Sources [ " + timingData.getExternalSources() + " ]");
         writer.println("External Time [ " + timingData.getExternalTime() + " ]");
         writer.println("External Classes [ " + timingData.getExternalClasses() + " ]");
-        
+
         writer.println("Cache Read Time [ " + timingData.getCacheReadTime() + " ]");
         writer.println("Cache Write Time [ " + timingData.getCacheWriteTime() + " ]");
     }
@@ -308,16 +308,16 @@ public class Test_Base_Result {
 
     public void validateInterns(PrintWriter writer, AnnotationTargetsImpl_Targets targets) {
         writer.println("Validating target interns ...");
-        
+
         UtilImpl_InternMap classNames = targets.getClassNameInternMap();
-        
+
         writer.println("  Interned class names [ " + classNames.getSize() + " ]");
-        
+
         validateInterns(writer, targets, classNames, ScanPolicy.SEED, targets.getSeedTable());
         validateInterns(writer, targets, classNames, ScanPolicy.PARTIAL, targets.getPartialTable());
         validateInterns(writer, targets, classNames, ScanPolicy.EXCLUDED, targets.getExcludedTable());
         validateInterns(writer, targets, classNames, ScanPolicy.EXTERNAL, targets.getExternalTable());
-        
+
         writer.println("Validating target interns ... done");    
     }
 
@@ -327,7 +327,7 @@ public class Test_Base_Result {
         ScanPolicy scanPolicy, TargetsTableImpl targetsData) {
 
         writer.println("  Validating [ " + scanPolicy + " ] data ...");
-        
+
         validateInterns(
             writer, targets, classNames,
             scanPolicy, targetsData.i_getClassNames(),

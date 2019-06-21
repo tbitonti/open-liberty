@@ -69,7 +69,9 @@ public class BigAppTest extends AnnoCachingTest {
         ENABLED_UNPOPULATED_UNLIMITED_WRITE(CACHE_ENABLED, "Enabled Unpopulated Unlimited Write Threads"),
 
         DISABLED_UPDATE(CACHE_DISABLED, "Disabled Application Update"),
-        ENABLED_UPDATE(CACHE_ENABLED, "Enabled Application Update");
+        ENABLED_UPDATE(CACHE_ENABLED, "Enabled Application Update"),
+
+        ENABLED_JANDEX_FORMAT(CACHE_ENABLED, "Enabled Unpopulated One Scan Thread Using Jandex Format");
 
         private StartCase(boolean enabled, String description) {
         	this(enabled, ServerStartType.DIRTY, description);
@@ -419,5 +421,15 @@ public class BigAppTest extends AnnoCachingTest {
         logBlock("Adding jar: " + jarName);
         renameJarFileInApplication("big-cdi-meetings.war", jarName + "_backup", jarName);
         return waitForAppUpdate();
+    }
+
+    //
+
+    @Test
+    public void bigApp_testEnabledJandexFormat() throws Exception { 
+        cleanupServer();
+
+        installJvmOptions("JvmOptions_JandexFormat.txt");
+        collect(StartCase.ENABLED_JANDEX_FORMAT);
     }
 }

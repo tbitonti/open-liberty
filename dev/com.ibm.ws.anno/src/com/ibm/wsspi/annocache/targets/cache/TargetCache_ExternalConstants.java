@@ -109,5 +109,9 @@ public interface TargetCache_ExternalConstants {
 
     // Alternate third: When using JANDEX as the cache format.
 
+    // The name for the jandex file as a child of a component folder.
     String JANDEX_NAME = "jandex.idx";
+
+    // The prefix to use when writing component data to the application folder.
+    String JANDEX_PREFIX = "J";
 }

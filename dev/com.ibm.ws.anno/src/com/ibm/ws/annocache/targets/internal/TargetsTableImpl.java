@@ -101,7 +101,6 @@ public class TargetsTableImpl implements TargetsTable {
 
         this.useJandexFormat = sourceData.getUseJandexFormat();
         this.jandexIndex = sourceData.getJandexIndex();
-        this.sparseJandexIndex = sourceData.getSparseJandexIndex();
 
         //
 
@@ -188,7 +187,6 @@ public class TargetsTableImpl implements TargetsTable {
 
         this.useJandexFormat = useJandexFormat;
         this.jandexIndex = null;
-        this.sparseJandexIndex = null;
 
         //
 
@@ -1462,45 +1460,31 @@ public class TargetsTableImpl implements TargetsTable {
         return jandexIndex;
     }
 
-    //
-
-    private SparseIndex sparseJandexIndex;
-
-    public void setSparseJandexIndex(SparseIndex sparseJandexIndex) {
-        this.sparseJandexIndex = sparseJandexIndex;
-    }
-
-    public SparseIndex getSparseJandexIndex() {
-        return sparseJandexIndex;
+    public Index consumeJandexIndex() {
+    	Index useJandexIndex = jandexIndex;
+        jandexIndex = null;
+        return useJandexIndex;
     }
 
     //
 
-    public void transferJandexData() {
-        SparseIndex useSparseIndex = getSparseJandexIndex();
-        if ( useSparseIndex != null ) {
-            TargetsVisitorSparseJandexConverterImpl sparseJandexConverter =
-                new TargetsVisitorSparseJandexConverterImpl(TargetsTableImpl.this);
+    public void transfer(Index useIndex) {
+        TargetsVisitorJandexConverterImpl jandexConverter =
+            new TargetsVisitorJandexConverterImpl(this);
 
-            String useClassSourceName = classSourceName;
-            for ( SparseClassInfo jandexClassInfo : useSparseIndex.getKnownClasses() ) {
-                sparseJandexConverter.convertClassInfo(useClassSourceName, jandexClassInfo);
-            }
+        String useClassSourceName = classSourceName;
+        for ( ClassInfo jandexClassInfo : useIndex.getKnownClasses() ) {
+            jandexConverter.convertClassInfo(useClassSourceName, jandexClassInfo);
+        }
+    }
 
-        } else {
-            Index useIndex = getJandexIndex();
-            if ( useIndex != null ) {
-                TargetsVisitorJandexConverterImpl jandexConverter =
-                    new TargetsVisitorJandexConverterImpl(TargetsTableImpl.this);
+    public void transfer(SparseIndex sparseIndex) {
+        TargetsVisitorSparseJandexConverterImpl sparseJandexConverter =
+            new TargetsVisitorSparseJandexConverterImpl(this);
 
-                String useClassSourceName = classSourceName;
-                for ( ClassInfo jandexClassInfo : useIndex.getKnownClasses() ) {
-                    jandexConverter.convertClassInfo(useClassSourceName, jandexClassInfo);
-                }
-
-            } else {
-                throw new IllegalStateException("No jandex index");
-            }
+        String useClassSourceName = classSourceName;
+        for ( SparseClassInfo jandexClassInfo : sparseIndex.getKnownClasses() ) {
+            sparseJandexConverter.convertClassInfo(useClassSourceName, jandexClassInfo);
         }
     }
 }

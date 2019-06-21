@@ -74,6 +74,30 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
     /** Control parameter: Is this data for a result bucket? */
     public static final boolean IS_RESULT_CONTAINER = false;
 
+    /**
+     * Add a prefix to a file name embedded in a path.  Answer the
+     * prefixed file name with path unchanged.
+     *
+     * For example, for "a/b/aName" and prefix "p-" answer "a/b/p-aName".
+     * For just "aName" answer "p-aName".
+     *
+     * The path must be native file system path, using {@link File#separatorChar}
+     * as the path separator.
+     *
+     * @param path The path which is to be adjusted.
+     * @param prefix The prefix to add to the name within the path.
+     *
+     * @return The path adjusted to insert the prefix to the file name.
+     */
+    private static String prefixAsPeer(String path, String prefix) {
+        int lastSlash = path.lastIndexOf(File.separatorChar);
+        if ( lastSlash == -1 ) {
+            return prefix + path;
+        } else {
+            return path.substring(0, lastSlash + 1) + prefix + path.substring(lastSlash + 1, path.length());
+        }
+    }
+
     public TargetCacheImpl_DataCon(
         TargetCacheImpl_DataBase parentCache,
         String conName, String e_conName, File conFile,
@@ -129,10 +153,11 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
         } else {
             this.timeStampFile = getDataFile();
 
-            if ( this.useJandexFormat ) {
-                // Put the jandex name first: The first character cannot be "C_".
-                String containerJandexPath =
-                    TargetCache_ExternalConstants.JANDEX_NAME + "-" + this.timeStampFile.getPath() ; 
+            if ( this.isComponent && this.useJandexFormat ) {
+                // Put on a jandex prefix: The first character cannot be "C_".
+                String containerJandexPath = prefixAsPeer(
+                    this.timeStampFile.getPath(), 
+                    TargetCache_ExternalConstants.JANDEX_PREFIX);
                 this.jandexFile = new File(containerJandexPath);
 
             } else {
@@ -149,42 +174,30 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
                 "Container [ {0} ] of [ {1} ]",
                 new Object[] { getName(), parentCache.getName() });
 
-            if ( this.separateContainers ) {
-                logger.logp(Level.FINER, CLASS_NAME, methodName,
-                    "Time stamp file [ {0} ]", getPath(this.timeStampFile));
+            logger.logp(Level.FINER, CLASS_NAME, methodName,
+                "IsComponent [ {0} ] Separate [ {1} ] Use Jandex Format [ {2} ]",
+                new Object[] { this.isComponent, this.separateContainers, this.useJandexFormat });
 
-                if ( this.useJandexFormat ) {
-                    logger.logp(Level.FINER, CLASS_NAME, methodName,
-                        "Jandex file [ {0} ]", getPath(this.timeStampFile));
-
-                } else {
-                    logger.logp(Level.FINER, CLASS_NAME, methodName,
-                        "Targets file [ {0} ]", getPath(this.annoTargetsFile));
-                    logger.logp(Level.FINER, CLASS_NAME, methodName,
-                        "Class refs file [ {0} ]", getPath(this.classRefsFile));
-                }
-
-            } else {
-                if ( this.useJandexFormat ) {
-                    logger.logp(Level.FINER, CLASS_NAME, methodName,
-                        "Time stamp file [ {0} ]", getPath(this.timeStampFile));
-                    logger.logp(Level.FINER, CLASS_NAME, methodName,
-                        "Jandex file [ {0} ]", getPath(this.timeStampFile));
-
-                } else {
-                    logger.logp(Level.FINER, CLASS_NAME, methodName,
-                        "Container file [ {0} ]", getPath(this.timeStampFile));
-                }
-            }
+            logger.logp(Level.FINER, CLASS_NAME, methodName,
+                "Time stamp file [ {0} ]", getPath(this.timeStampFile));
+            logger.logp(Level.FINER, CLASS_NAME, methodName,
+                "Jandex file [ {0} ]", getPath(this.jandexFile));
+            logger.logp(Level.FINER, CLASS_NAME, methodName,
+                "Targets file [ {0} ]", getPath(this.annoTargetsFile));
+            logger.logp(Level.FINER, CLASS_NAME, methodName,
+                "Class refs file [ {0} ]", getPath(this.classRefsFile));
         }
-    }
 
-    private static String getPath(File file) {
-        if ( file == null ) {
-            return null;
-        } else {
-            return file.getPath();
-        }
+        // System.out.println( "Container [ " + getName() + " ] of [ " + parentCache.getName() + " ]" );
+
+        // System.out.println("IsComponent [ " + this.isComponent + " ]");
+        // System.out.println("Separate [ " + this.separateContainers + " ]");
+        // System.out.println("Use Jandex Format [ " + this.useJandexFormat + " ]");
+
+        // System.out.println( "Time stamp file [ " + getPath(this.timeStampFile) + " ]" );
+        // System.out.println( "Jandex file [ " + getPath(this.jandexFile) + " ]" );
+        // System.out.println( "Targets file [ " + getPath(this.annoTargetsFile) + " ]" );
+        // System.out.println( "Class refs file [ " + getPath(this.classRefsFile) + " ]" );
     }
 
     //
@@ -285,7 +298,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
 
         String description;
         if ( logger.isLoggable(Level.FINER) ) {
-            description = "Container [ " + getName() + " ] TimeStamp [ " + getTimeStampFile().getPath() + " ]";
+            description = "Container [ " + getName() + " ] TimeStamp [ " + getPath( getTimeStampFile() ) + " ]";
         } else {
             description = null;
         }
@@ -306,7 +319,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
 
         String description;
         if ( logger.isLoggable(Level.FINER) ) {
-            description = "Container [ " + getName() + " ] Class references [ " + getClassRefsFile().getPath() + " ]";
+            description = "Container [ " + getName() + " ] Class references [ " + getPath( getClassRefsFile() ) + " ]";
         } else {
             description = null;
         }
@@ -327,7 +340,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
 
         String description;
         if ( logger.isLoggable(Level.FINER) ) {
-            description = "Container [ " + getName() + " ] Targets [ " + getAnnoTargetsFile().getPath() + " ]";
+            description = "Container [ " + getName() + " ] Targets [ " + getPath( getAnnoTargetsFile() ) + " ]";
         } else {
             description = null;
         }
@@ -528,7 +541,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
     public void write(TargetCacheImpl_DataMod modData, TargetsTableImpl targetData) {
         if ( getIsComponent() && getUseJandexFormat() ) {
             write( modData, targetData.getStampTable() );
-            writeJandex( modData, targetData.getJandexIndex() );
+            writeJandex( modData, targetData.consumeJandexIndex() );
 
         } else if ( getSeparateContainers() ) {
             write( modData, targetData.getStampTable() );
@@ -549,7 +562,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
     private void writeTogether(TargetCacheImpl_DataMod modData, TargetsTableTimeStampImpl stampTable) {
         String description;
         if ( logger.isLoggable(Level.FINER) ) {
-            description = "Container [ " + getName() + " ] Container file [ " + getTimeStampFile().getPath() + " ]";
+            description = "Container [ " + getName() + " ] Container file [ " + getPath( getTimeStampFile() ) + " ]";
         } else {
             description = null;
         }
@@ -576,7 +589,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
     private void writeTogether(TargetCacheImpl_DataMod modData, TargetsTableImpl targetData) {
         String description;
         if ( logger.isLoggable(Level.FINER) ) {
-            description = "Container [ " + getName() + " ] Container file [ " + getTimeStampFile().getPath() + " ]";
+            description = "Container [ " + getName() + " ] Container file [ " + getPath( getTimeStampFile() ) + " ]";
         } else {
             description = null;
         }
@@ -596,28 +609,36 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
     private boolean readJandex(TargetsTableImpl targetData) {
         String methodName = "readJandex";
 
+        long readStart = System.nanoTime();
+
         File useJandexFile = getJandexFile();
 
         if ( logger.isLoggable(Level.FINER) ) {
             logger.logp(Level.FINER, CLASS_NAME, methodName,
-                "Container [ " + getName() + " ] Jandex File [ " + useJandexFile.getPath() + " ]");
+                "Container [ " + getName() + " ] Jandex File [ " + getPath(useJandexFile) + " ]");
         }
+
+        boolean didRead;
 
         try {
             TargetCacheImpl_Reader reader = createReader(useJandexFile); // throws IOException
             try {
-                SparseIndex sparseIndex = reader.readSparseIndex();
-                targetData.setSparseJandexIndex(sparseIndex);
-                targetData.transferJandexData();
+                SparseIndex sparseIndex = reader.readSparseIndex(); // throws IOException
+                targetData.transfer(sparseIndex);
             } finally {
                 reader.close(); // throws IOException
             }
-            return true;
+            didRead = true;
 
         } catch ( IOException e ) {
             readError( useJandexFile, e, Collections.emptyList() );
-            return false;
+            didRead = false;
         }
+
+        @SuppressWarnings("unused")
+        long readDuration = addReadTime(readStart, "Read Jandex");
+
+        return didRead;
     }
 
     private void writeJandex(
@@ -626,7 +647,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase {
 
         String description;
         if ( logger.isLoggable(Level.FINER) ) {
-            description = "Container [ " + getName() + " ] Jandex File [ " + getJandexFile().getPath() + " ]";
+            description = "Container [ " + getName() + " ] Jandex File [ " + getPath( getJandexFile() ) + " ]";
         } else {
             description = null;
         }

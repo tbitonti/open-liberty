@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.MessageFormat;
+import java.util.Collection;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -629,15 +630,23 @@ public abstract class ClassSourceImpl implements ClassSource {
             return false;
         }
 
+        long startScan = System.nanoTime();
+
         Index jandexIndex = createIndex();
 
-        for ( ClassInfo jandexClassInfo : jandexIndex.getKnownClasses() ) {
+        Collection<ClassInfo> jandexClasses = jandexIndex.getKnownClasses(); 
+        for ( ClassInfo jandexClassInfo : jandexClasses ) {
             streamer.processJandex(jandexClassInfo);
         }
 
         // Need to keep the index: It will be saved as cache data.
         streamer.storeJandex(jandexIndex);
-        
+
+        setProcessCount( jandexClasses.size() );
+
+        long scanTime = System.nanoTime() - startScan;
+        setProcessTime(scanTime);
+
         return true;
     }
 
@@ -834,8 +843,13 @@ public abstract class ClassSourceImpl implements ClassSource {
         return processTime;
     }
 
-    protected void setProcessTime(long jandexReadTime) {
-        this.processTime = jandexReadTime;
+    protected void setProcessTime(long processTime) {
+        this.processTime = processTime;
+    }
+
+    protected long addProcessTime(long addProcessTime) {
+        this.processTime += addProcessTime;
+        return this.processTime;
     }
 
     protected int processCount;
@@ -941,6 +955,8 @@ public abstract class ClassSourceImpl implements ClassSource {
                 Integer.valueOf(index.getKnownClasses().size()));
         }
 
+        long startTime = System.nanoTime();
+
         streamer.processJandex(); // Mark to the streamer that Jandex was used.
 
         for ( ClassInfo classInfo : index.getKnownClasses() ) {
@@ -961,6 +977,9 @@ public abstract class ClassSourceImpl implements ClassSource {
                 }
             }
         }
+
+        @SuppressWarnings("unused")
+        long addedTime = addProcessTime( System.nanoTime() - startTime );
 
         if ( logger.isLoggable(Level.FINER) ) {
             logger.logp(Level.FINER, CLASS_NAME, methodName, "RETURN [ true ]");
@@ -996,6 +1015,8 @@ public abstract class ClassSourceImpl implements ClassSource {
                 Integer.valueOf(sparseIndex.getKnownClasses().size()));
         }
 
+        long startTime = System.nanoTime();
+
         streamer.processJandex(); // Mark to the streamer that Jandex was used.
 
         for ( SparseClassInfo classInfo : sparseIndex.getKnownClasses() ) {
@@ -1016,6 +1037,9 @@ public abstract class ClassSourceImpl implements ClassSource {
                 }
             }
         }
+
+        @SuppressWarnings("unused")
+        long addedTime = addProcessTime( System.nanoTime() - startTime );
 
         if ( logger.isLoggable(Level.FINER) ) {
             logger.logp(Level.FINER, CLASS_NAME, methodName, "RETURN [ true ]");

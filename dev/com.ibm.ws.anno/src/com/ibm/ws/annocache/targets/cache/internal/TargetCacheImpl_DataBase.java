@@ -34,6 +34,14 @@ public abstract class TargetCacheImpl_DataBase {
     private static final String CLASS_NAME = TargetCacheImpl_DataBase.class.getSimpleName();
     protected static final Logger logger = AnnotationCacheServiceImpl_Logging.ANNO_LOGGER;
 
+    protected static String getPath(File file) {
+        if ( file == null ) {
+            return null;
+        } else {
+            return file.getAbsolutePath();
+        }
+    }
+
     //
 
     public static final String NO_CHILD_PREFIX = null;
