@@ -66,6 +66,18 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
     @SuppressWarnings("unused")
     private static final String CLASS_NAME = TargetCacheImpl_DataMod.class.getSimpleName();
 
+    /**
+     * Local copy of binary read control parameter: The target file
+     * contains a compact string table.
+     */
+    public static final boolean DO_READ_STRINGS = TargetCacheImpl_ReaderBinary.DO_READ_STRINGS;
+
+    /**
+     * Local copy of binary read control parameter: The target file
+     * does not contain a compact string table.
+     */
+    public static final boolean DO_NOT_READ_STRINGS = TargetCacheImpl_ReaderBinary.DO_NOT_READ_STRINGS;
+
     //
 
     public TargetCacheImpl_DataMod(
@@ -74,8 +86,11 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
 
         super( app.getFactory(), modName, e_modName, modDir );
 
+        // (new Throwable("DataMod [ " + modName + " : " + ((modDir == null) ? "*** NULL ***" : modDir.getAbsolutePath()) + " ]")).printStackTrace(System.out);
+
         this.app = app;
         this.isLightweight = isLightweight;
+        this.useBinaryFormat = getCacheOptions().getUseBinaryFormat();
 
         //
 
@@ -89,9 +104,10 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
         this.excludedCon = null;
         this.externalCon = null;
 
+        this.classesFile = getDataFile(TargetCache_ExternalConstants.CLASSES_NAME);
+
         this.unresolvedRefsFile = getDataFile(TargetCache_ExternalConstants.UNRESOLVED_REFS_NAME);
         this.resolvedRefsFile = getDataFile(TargetCache_ExternalConstants.RESOLVED_REFS_NAME);
-        this.classRefsFile = getDataFile(TargetCache_ExternalConstants.CLASS_REFS_NAME);
     }
 
     //
@@ -107,6 +123,7 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
 
     private final boolean isLightweight;
 
+    @Trivial
     public boolean getIsLightweight() {
         return isLightweight;
     }
@@ -122,6 +139,15 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
 
     //
 
+    private final boolean useBinaryFormat;
+
+    @Trivial
+    public boolean getUseBinaryFormat() {
+        return useBinaryFormat;
+    }
+
+    //
+
     protected final File containersFile;
 
     public File getContainersFile() {
@@ -133,11 +159,21 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
     }
 
     public boolean readContainerTable(TargetsTableContainersImpl containerTable) {
-        boolean didRead;
-
         long readStart = System.nanoTime();
 
-        didRead = super.read( getContainersFile(), containerTable );
+        boolean didRead;
+
+        File useContainersFile = getContainersFile();
+        
+        if ( getUseBinaryFormat() ) {
+            didRead = readBinary(
+                useContainersFile, DO_READ_STRINGS,
+                (TargetCacheImpl_ReaderBinary reader) -> {
+                    reader.readEntire(containerTable);
+                } );
+        } else {
+            didRead = super.read(useContainersFile, containerTable);
+        }
 
         @SuppressWarnings("unused")
         long readDuration = addReadTime(readStart, "Read Containers");
@@ -155,12 +191,26 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
             description = null;
         }
 
-        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction =
-            (TargetCacheImpl_Writer writer) -> {
-                writer.write(containerTable);
-            };
+        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction;
+        Util_Consumer<TargetCacheImpl_WriterBinary, IOException> writeActionBinary;
+        
+        if ( getUseBinaryFormat() ) {
+            writeAction = null;
+            writeActionBinary =
+                (TargetCacheImpl_WriterBinary writer) -> {
+                    writer.writeEntire(containerTable);
+                };
+        } else {
+            writeAction =
+                (TargetCacheImpl_Writer writer) -> {
+                    writer.write(containerTable);
+                };
+            writeActionBinary = null;
+        }
 
-        scheduleWrite(description, getContainersFile(), DO_TRUNCATE, writeAction);
+        scheduleWrite(
+            description, getContainersFile(), DO_TRUNCATE,
+            writeAction, writeActionBinary);
     }
 
     //
@@ -177,7 +227,7 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
         return cons;
     }
 
-    public TargetCacheImpl_DataCon getConForcing(String conPath) {
+    public TargetCacheImpl_DataCon getSourceConForcing(String conPath) {
         TargetCacheImpl_DataCon con;
 
         synchronized(consLock) {
@@ -185,7 +235,7 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
 
             con = useCons.get(conPath);
             if ( con == null ) {
-                con = getApp().getConForcing(conPath);
+                con = getApp().getSourceConForcing(conPath);
                 useCons.put(conPath, con);
             }
         }
@@ -243,7 +293,7 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
         File e_resultConFile = e_getConFile(e_resultConName);
         return createConData( this,
             resultConName, e_resultConName, e_resultConFile,
-            TargetCacheImpl_DataCon.IS_RESULT_CONTAINER );
+            TargetCacheImpl_DataCon.IS_RESULT );
     }
 
     //
@@ -303,12 +353,8 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
         return getResultCon(scanPolicy).exists();
     }
 
-    public boolean readResultCon(ScanPolicy scanPolicy, TargetsTableImpl resultData) {
-        return getResultCon(scanPolicy).read(resultData);
-    }
-
     public void writeResultCon(ScanPolicy scanPolicy, TargetsTableImpl resultData) {
-        getResultCon(scanPolicy).write(this, resultData);
+        getResultCon(scanPolicy).basicWriteData(this, resultData);
     }
 
     //
@@ -334,16 +380,30 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
     public boolean readUnresolvedRefs(UtilImpl_InternMap classNameInternMap,
                                       Set<String> i_unresolvedClassNames) {
 
-        TargetCache_Readable refsReadable = new TargetCache_Readable() {
-            @Override
-            public List<TargetCache_ParseError> readUsing(TargetCache_Reader reader) throws IOException {
-                return basicReadUnresolvedRefs(classNameInternMap, i_unresolvedClassNames);
-            }
-        };
-
         long readStart = System.nanoTime();
 
-        boolean didRead = super.read( getUnresolvedRefsFile(), refsReadable );
+        File refsFile = getUnresolvedRefsFile();
+        // System.out.println("Unrefs path [ " + refsFile.getAbsolutePath() + " ]");
+
+        boolean didRead;
+
+        if ( getUseBinaryFormat() ) {
+            didRead = readBinary(
+                refsFile, DO_NOT_READ_STRINGS,
+                (TargetCacheImpl_ReaderBinary reader) -> {
+                    reader.readEntireUnresolvedRefs(i_unresolvedClassNames, classNameInternMap);
+                } );
+
+        } else {
+            TargetCache_Readable refsReadable = new TargetCache_Readable() {
+                @Override
+                public List<TargetCache_ParseError> readUsing(TargetCache_Reader reader) throws IOException {
+                    return basicReadUnresolvedRefs(classNameInternMap, i_unresolvedClassNames);
+                }
+            };
+
+            didRead = super.read(refsFile, refsReadable);
+        }
 
         @SuppressWarnings("unused")
         long readDuration = addReadTime(readStart, "Read Unresolved Refs");
@@ -382,12 +442,26 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
             useClassNames = new ArrayList<String>(unresolvedClassNames);
         }
 
-        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction =
-            (TargetCacheImpl_Writer writer) -> {
-                writer.writeUnresolvedRefs(useClassNames);
-            };
+        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction;
+        Util_Consumer<TargetCacheImpl_WriterBinary, IOException> writeActionBinary;
 
-        scheduleWrite(description, getUnresolvedRefsFile(), DO_TRUNCATE, writeAction);
+        if ( getUseBinaryFormat() ) {
+            writeAction = null;
+            writeActionBinary =
+                (TargetCacheImpl_WriterBinary writer) -> {
+                    writer.writeUnresolvedRefsEntire(useClassNames);
+                };
+        } else {
+            writeAction = 
+                (TargetCacheImpl_Writer writer) -> {
+                    writer.writeUnresolvedRefs(useClassNames);
+                };
+            writeActionBinary = null;
+        }
+
+        scheduleWrite(
+            description, getUnresolvedRefsFile(), DO_TRUNCATE,
+            writeAction, writeActionBinary);
     }
 
     //
@@ -415,16 +489,29 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
         UtilImpl_InternMap classNameInternMap,
         Set<String> i_resolvedClassNames) {
 
-        TargetCache_Readable refsReadable = new TargetCache_Readable() {
-            @Override
-            public List<TargetCache_ParseError> readUsing(TargetCache_Reader reader) throws IOException {
-                return basicReadResolvedRefs(classNameInternMap, i_resolvedClassNames);
-            }
-        };
-
         long readStart = System.nanoTime();
 
-        boolean didRead = super.read( getResolvedRefsFile(), refsReadable );
+        File refsFile = getResolvedRefsFile();
+        // System.out.println("Refs path [ " + refsFile.getAbsolutePath() + " ]");
+
+        boolean didRead;
+
+        if ( getUseBinaryFormat() ) {
+            didRead = readBinary(
+                refsFile, DO_NOT_READ_STRINGS,
+                (TargetCacheImpl_ReaderBinary reader) -> {
+                    reader.readEntireResolvedRefs(i_resolvedClassNames, classNameInternMap);
+                } );
+
+        } else {
+            TargetCache_Readable refsReadable = new TargetCache_Readable() {
+                @Override
+                public List<TargetCache_ParseError> readUsing(TargetCache_Reader reader) throws IOException {
+                    return basicReadResolvedRefs(classNameInternMap, i_resolvedClassNames);
+                }
+            };
+            didRead = super.read(refsFile, refsReadable);
+        }
 
         @SuppressWarnings("unused")
         long readDuration = addReadTime(readStart, "Read Resolved Refs");
@@ -463,60 +550,103 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
             useClassNames = new ArrayList<String>(resolvedClassNames);
         }
 
-        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction =
-            (TargetCacheImpl_Writer writer) -> {
-                writer.writeResolvedRefs(useClassNames);
-            };
+        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction;
+        Util_Consumer<TargetCacheImpl_WriterBinary, IOException> writeActionBinary;
+        
+        if ( getUseBinaryFormat() ) {
+            writeAction = null;
+            writeActionBinary =
+                (TargetCacheImpl_WriterBinary writer) -> {
+                    writer.writeResolvedRefsEntire(useClassNames);
+                };
+        } else {
+            writeAction = 
+                (TargetCacheImpl_Writer writer) -> {
+                    writer.writeResolvedRefs(useClassNames);
+                };
+            writeActionBinary = null;
+        }
 
-        scheduleWrite(description, getResolvedRefsFile(), DO_TRUNCATE, writeAction);
+        scheduleWrite(description, getResolvedRefsFile(), DO_TRUNCATE, writeAction, writeActionBinary);
     }
 
     //
 
-    protected final File classRefsFile;
+    protected final File classesFile;
 
-    public File getClassRefsFile() {
-        return classRefsFile;
+    public File getClassesFile() {
+        return classesFile;
     }
 
-    public boolean hasClassRefs() {
-        return ( exists( getClassRefsFile() ) );
+    public boolean hasClasses() {
+        return ( exists( getClassesFile() ) );
     }
 
-    public boolean readClassRefs(TargetsTableClassesMultiImpl classesTable) {
+    public boolean readClasses(TargetsTableClassesMultiImpl classesTable) {
         long readStart = System.nanoTime();
 
-        boolean didRead = read( getClassRefsFile(), classesTable );
+        File useClassesFile = getClassesFile();
+
+        boolean didRead;
+
+        if ( getUseBinaryFormat() ) {
+            didRead = readBinary(
+                useClassesFile, DO_READ_STRINGS,
+                (TargetCacheImpl_ReaderBinary reader) -> {
+                    reader.readEntire(classesTable);
+                } );
+        } else {
+            didRead = read(useClassesFile, classesTable);
+        }
 
         @SuppressWarnings("unused")
-        long readDuration = addReadTime(readStart, "Read Class Refs");
+        long readDuration = addReadTime(readStart, "Read Classes");
 
         return didRead;
     }
 
-    public void writeClassRefs(TargetsTableClassesMultiImpl classesTable) {
-        if ( !shouldWrite("Class relationship table") ) {
+    public void writeClasses(TargetsTableClassesMultiImpl classesTable) {
+        if ( !shouldWrite("Classes table") ) {
             return;
         }
 
         String description;
         if ( logger.isLoggable(Level.FINER) ) {
-            description = "Container [ " + getName() + " ] Targets [ " + getClassRefsFile().getPath() + " ]";
+            description = "Container [ " + getName() + " ] Targets [ " + getClassesFile().getPath() + " ]";
         } else {
             description = null;
         }
 
-        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction =
-            (TargetCacheImpl_Writer writer) -> {
-                // See the comment on 'mergeClasses': This must be synchronized
-                // with updates to the class table which occur in 
-                // TargetsScannerImpl_Overall.validExternal'.
-                synchronized ( classesTable ) {
-                    writer.write(classesTable);
-                }
-            };
+        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction;
+        Util_Consumer<TargetCacheImpl_WriterBinary, IOException> writeActionBinary;
+        
+        if ( getUseBinaryFormat() ) {
+            writeAction = null;
+            writeActionBinary =
+                (TargetCacheImpl_WriterBinary writer) -> {
+                    // See the comment on 'mergeClasses': This must be synchronized
+                    // with updates to the class table which occur in 
+                    // TargetsScannerImpl_Overall.validExternal'.
+                    synchronized ( classesTable ) {
+                        writer.writeEntire(classesTable);
+                    }
+                };
+        } else {
+            writeAction =
+                (TargetCacheImpl_Writer writer) -> {
+                    // See the comment on 'mergeClasses': This must be synchronized
+                    // with updates to the class table which occur in 
+                    // TargetsScannerImpl_Overall.validExternal'.
+                    synchronized ( classesTable ) {
+                        writer.write(classesTable);
+                    }
+                };
+            writeActionBinary = null;
+        }
 
-        scheduleWrite(description, getClassRefsFile(), DO_TRUNCATE, writeAction);
+        scheduleWrite(
+            description, getClassesFile(), DO_TRUNCATE,
+            writeAction, writeActionBinary);
     }
 
     // Writes are handled at the application level.
@@ -556,15 +686,21 @@ public class TargetCacheImpl_DataMod extends TargetCacheImpl_DataBase {
         return ( getApp().isWriteSynchronous() );
     }
 
+    // TODO: Unify the writer types.  Two parameters should not be
+    //       necessary.
+
     @Trivial
     protected void scheduleWrite(
         String description,
         File outputFile,
         boolean doTruncate,
-        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction) {
+        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction,
+        Util_Consumer<TargetCacheImpl_WriterBinary, IOException> writeActionBinary) {
 
-    	System.out.println("Scheduled write [ " + description + " ] [ " + outputFile.getAbsolutePath() + " ]");
+        // System.out.println("Scheduled write [ " + description + " ] [ " + outputFile.getAbsolutePath() + " ]");
 
-        getApp().scheduleWrite(this, description, outputFile, doTruncate, writeAction);
+        getApp().scheduleWrite(this,
+            description, outputFile, doTruncate,
+            writeAction, writeActionBinary);
     }
 }

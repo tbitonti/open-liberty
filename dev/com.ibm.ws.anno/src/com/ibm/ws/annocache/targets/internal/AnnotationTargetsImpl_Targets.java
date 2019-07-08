@@ -3,7 +3,7 @@
  *
  * OCO Source Materials
  *
- * Copyright IBM Corporation 2011, 2018
+ * Copyright IBM Corporation 2011, 2019
  *
  * The source code for this program is not published or otherwise divested
  * of its trade secrets, irrespective of what has been deposited with the
@@ -440,9 +440,10 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
         // The query logger has its own reference to module data.
 
         TargetCacheImpl_DataApp appData = getAnnoCache().getAppForcing( getAppName() );
+
         putQueriesData(appData);
 
-        if (logger.isLoggable(Level.FINER)) {
+        if ( logger.isLoggable(Level.FINER) ) {
             logger.logp(Level.FINER, CLASS_NAME, methodName, "RETURN [ {0} ]", getHashName());
         }
     }
@@ -1054,9 +1055,11 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
             annotatedPackages = useSeedTable.getAnnotatedTargets(AnnotationCategory.PACKAGE, annotationClassName);
         }
 
-        writeQuery(CLASS_NAME + "." + "getAnnotatedPackages",
-                   ScanPolicy.SEED, QueryType.PACKAGE,
-                   annotationClassName, annotatedPackages);
+        writeQuery(
+            CLASS_NAME, "getAnnotatedPackages",
+            "Discover annotated packages",
+            ScanPolicy.SEED, QueryType.PACKAGE,
+            annotationClassName, annotatedPackages);
 
         return annotatedPackages;
     }
@@ -1134,9 +1137,11 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
             }
         }
 
-        writeQuery(CLASS_NAME + "." + methodName,
-                   ScanPolicy.SEED, QueryType.CLASS,
-                   annotationClassName, annotatedClasses);
+        writeQuery(
+            CLASS_NAME, methodName,
+            "Discover annotated classes",
+            ScanPolicy.SEED, QueryType.CLASS,
+            annotationClassName, annotatedClasses);
 
         return annotatedClasses;
     }
@@ -1168,9 +1173,11 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
 
         Set<String> annotatedClasses = ( UtilImpl_Utils.restrict(annotatedClassNames, classSourceClassNames) );
 
-        writeQuery(CLASS_NAME + "." + "getAnnotatedClasses",
-                   classSourceName, QueryType.CLASS,
-                   annotationClassName, annotatedClasses);
+        writeQuery(
+            CLASS_NAME, "getAnnotatedClasses",
+            "Discover annotated classes",
+            classSourceName, QueryType.CLASS,
+            annotationClassName, annotatedClasses);
 
         return annotatedClasses;
     }
@@ -1230,9 +1237,11 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
             annotatedClasses = useSeedTable.getAnnotatedTargets(AnnotationCategory.FIELD, annotationClassName);
         }
 
-        writeQuery(CLASS_NAME + "." + "getClassesWithFieldAnnotations",
-                   ScanPolicy.SEED, QueryType.FIELD,
-                   annotationClassName, annotatedClasses);
+        writeQuery(
+            CLASS_NAME, "getClassesWithFieldAnnotations",
+            "Discover classes with annotated fields",
+            ScanPolicy.SEED, QueryType.FIELD,
+            annotationClassName, annotatedClasses);
 
         return annotatedClasses;
     }
@@ -1291,9 +1300,11 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
             annotatedClasses = useSeedTable.getAnnotatedTargets(AnnotationCategory.METHOD, annotationClassName);
         }
 
-        writeQuery(CLASS_NAME + "." + "getClassesWithMethodAnnotations",
-                   ScanPolicy.SEED, QueryType.METHOD,
-                   annotationClassName, annotatedClasses);
+        writeQuery(
+            CLASS_NAME, "getClassesWithMethodAnnotations",
+            "Discover classes with annotated methods",
+            ScanPolicy.SEED, QueryType.METHOD,
+            annotationClassName, annotatedClasses);
 
         return annotatedClasses;
     }
@@ -1388,9 +1399,11 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
 
         Set<String> annotatedClasses = ( UtilImpl_Utils.restrict(annotatedClassNames, classSourceClassNames) );
 
-        writeQuery(CLASS_NAME + "." + "getAnnotatedClasses",
-                   scanPolicies, classSourceName, QueryType.CLASS,
-                   annotationClassName, annotatedClasses);
+        writeQuery(
+            CLASS_NAME, "getAnnotatedClasses",
+            "Discover annotated classes",
+            scanPolicies, classSourceName, QueryType.CLASS,
+            annotationClassName, annotatedClasses);
 
         return annotatedClasses;
     }
@@ -1820,9 +1833,11 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
             }
         }
 
-        writeQuery(CLASS_NAME + "." + "selectedAnnotatedTargets",
-                   scanPolicies, asQueryType(category),
-                   annotationClassName, annotatedClasses);
+        writeQuery(
+            CLASS_NAME, "selectedAnnotatedTargets",
+            "Discover annotated classes",
+            scanPolicies, asQueryType(category),
+            annotationClassName, annotatedClasses);
         
         return annotatedClasses;
     }
@@ -2039,9 +2054,11 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
             // scanned, and such never answer null from 'getSubclassNames'.
         }
 
-        writeQuery(CLASS_NAME + "." + methodName,
-                   ScanPolicy.SEED, QueryType.INHERITED,
-                   annotationClassName, annotatedClassNames);
+        writeQuery(
+            CLASS_NAME, methodName,
+            "Discover inherited annotated classes",
+            ScanPolicy.SEED, QueryType.INHERITED,
+            annotationClassName, annotatedClassNames);
 
         if ( logParms != null ) {
             logParms[1] = printString(annotatedClassNames);
@@ -2478,7 +2495,7 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
             this, initialTargets);
     }
 
-    // Queries data is only 
+    //
 
     protected TargetCacheImpl_DataQueries queriesData;
 
@@ -2491,19 +2508,17 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
      * Put queries data into these targets.
      * 
      * Queries data is only created if writes are enabled by the
-     * application data, and only if query logging is enabled.
-     * See {@link com.ibm.ws.annocache.service.internal.AnnotationCacheServiceImpl_Logging#ANNO_QUERY_LOGGER}.
+     * application data, and only when cache query logging is enabled.
+     * {@link TargetCache_Options#getLogQueries()}.
      *
      * @param appData Application data for which to create query data.
      */
     protected void putQueriesData(TargetCacheImpl_DataApp appData) {
         if ( !appData.shouldWrite("query data") ) {
             return;
-        }
-        // else if ( !queryLogger.isLoggable(Level.FINER) ) {
-        //     return;
-        // }
-        else {
+        } else if ( !appData.getLogQueries() ) {
+            return;
+        } else {
             this.queriesData = appData.getApps().getQueriesForcing( getAppName(), getModFullName() );
         }
         
@@ -2512,36 +2527,59 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
     //
 
     protected void writeQuery(
+        String className, String methodName,
         String title,
         ScanPolicy scanPolicy, QueryType queryType,
         String annotationClass, Collection<String> resultClasses) {
 
+        if ( TargetCacheImpl_DataQueries.getLogQueries() ) {
+            TargetCacheImpl_DataQueries.logQuery(
+                className, methodName,
+                title,
+                scanPolicy.getValue(), queryType.getTag(),
+                specificClassNames, annotationClass, resultClasses);
+        }
+
         TargetCacheImpl_DataQueries useQueriesData = getQueriesData();
         if ( useQueriesData == null ) {
             return;
         } else {
-            useQueriesData.writeQuery(title,
-                                      scanPolicy.getValue(), queryType.getTag(),
-                                      specificClassNames, annotationClass, resultClasses);
+            useQueriesData.writeQuery(
+                className, methodName,
+                title,
+                scanPolicy.getValue(), queryType.getTag(),
+                specificClassNames, annotationClass, resultClasses);
         }
     }
 
     protected void writeQuery(
+        String className, String methodName,
         String title,
         int policies, QueryType queryType,
         String annotationClass, Collection<String> resultClasses) {
 
+        if ( TargetCacheImpl_DataQueries.getLogQueries() ) {
+            TargetCacheImpl_DataQueries.logQuery(
+                className, methodName,
+                title,
+                policies, queryType.getTag(),
+                specificClassNames, annotationClass, resultClasses);
+        }
+
         TargetCacheImpl_DataQueries useQueriesData = getQueriesData();
         if ( useQueriesData == null ) {
             return;
         } else {
-            useQueriesData.writeQuery(title,
-                                      policies, queryType.getTag(),
-                                      specificClassNames, annotationClass, resultClasses);
+            useQueriesData.writeQuery(
+                className, methodName,
+                title,
+                policies, queryType.getTag(),
+                specificClassNames, annotationClass, resultClasses);
         }
     }
 
     protected void writeQuery(
+        String className, String methodName,
         String title,
         String source, QueryType queryType,
         String annotationClass, Collection<String> resultClasses) {
@@ -2554,16 +2592,30 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
             List<String> sources = new ArrayList<String>(1);
             sources.add(source);
 
-            useQueriesData.writeQuery(title,
-                                      sources, queryType.getTag(),
-                                      specificClassNames, annotationClass, resultClasses);
+            useQueriesData.writeQuery(
+                className, methodName,
+                title,
+                sources, queryType.getTag(),
+                specificClassNames, annotationClass, resultClasses);
         }
     }
 
     protected void writeQuery(
+        String className, String methodName,
         String title,
         int policies, String source, QueryType queryType,
         String annotationClass, Collection<String> resultClasses) {
+
+        if ( TargetCacheImpl_DataQueries.getLogQueries() ) {
+            List<String> sources = new ArrayList<String>(1);
+            sources.add(source);
+
+            TargetCacheImpl_DataQueries.logQuery(
+                className, methodName,
+                title,
+                policies, sources, queryType.getTag(),
+                specificClassNames, annotationClass, resultClasses);
+        }
 
         TargetCacheImpl_DataQueries useQueriesData = getQueriesData();
         if ( useQueriesData == null ) {
@@ -2573,9 +2625,11 @@ public class AnnotationTargetsImpl_Targets implements AnnotationTargets_Targets 
             List<String> sources = new ArrayList<String>(1);
             sources.add(source);
 
-            useQueriesData.writeQuery(title,
-                                      policies, sources, queryType.getTag(),
-                                      specificClassNames, annotationClass, resultClasses);
+            useQueriesData.writeQuery(
+                className, methodName,
+                title,
+                policies, sources, queryType.getTag(),
+                specificClassNames, annotationClass, resultClasses);
         }
     }
 

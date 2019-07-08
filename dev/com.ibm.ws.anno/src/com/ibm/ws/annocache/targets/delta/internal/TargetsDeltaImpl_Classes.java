@@ -218,7 +218,7 @@ public class TargetsDeltaImpl_Classes implements TargetsDelta_Classes {
     public void describe(String prefix, List<String> nonNull) {
         getPackageDelta().describe(prefix + ": Packages: ", nonNull);
         getClassDelta().describe(prefix + ": Classes: ", nonNull);
-        getSuperclassDelta().describe(prefix + ": Classes: ", nonNull);
+        getSuperclassDelta().describe(prefix + ": Superclass: ", nonNull);
         describeInterfaces(prefix + ": Interfaces: ", nonNull);
     }
 

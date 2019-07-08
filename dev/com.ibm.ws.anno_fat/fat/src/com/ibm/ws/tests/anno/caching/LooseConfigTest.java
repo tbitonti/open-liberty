@@ -30,7 +30,7 @@ public class LooseConfigTest extends AnnoCachingTest {
 
         deployLooseApplication();
 
-        startServerClean();
+        startServerScrub();
 
         LOG.info("setUp: RETURN");
     }

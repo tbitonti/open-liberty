@@ -259,8 +259,12 @@ public class NonDelayedClassInfoImpl extends ClassInfoImpl {
 
     //
 
-    public void setFields(FieldInfoImpl[] rawDeclaredFields) {
-        declaredFields = Arrays.asList(rawDeclaredFields);
+    protected void storeFields(List<FieldInfoImpl> fields) {
+        if ( (fields == null) || fields.isEmpty() ) {
+            declaredFields = Collections.emptyList();
+        } else {
+            declaredFields = new ArrayList<>(fields);
+        }
     }
 
     @Override
@@ -270,8 +274,12 @@ public class NonDelayedClassInfoImpl extends ClassInfoImpl {
 
     //
     
-    public void setConstructors(MethodInfoImpl[] rawDeclaredConstructors) {
-        this.declaredConstructors = Arrays.asList(rawDeclaredConstructors);
+    protected void storeConstructors(List<MethodInfoImpl> constructors) {
+        if ( (constructors == null) || constructors.isEmpty() ) {
+            declaredConstructors = Collections.emptyList();
+        } else {
+            declaredConstructors = new ArrayList<>(constructors);
+        }
     }
 
     @Override
@@ -281,8 +289,12 @@ public class NonDelayedClassInfoImpl extends ClassInfoImpl {
 
     //
 
-    public void setMethods(MethodInfoImpl[] rawDeclaredMethods) {
-        declaredMethods = Arrays.asList(rawDeclaredMethods);
+    public void storeMethods(List<MethodInfoImpl> methods) {
+        if ( (methods == null) || methods.isEmpty() ) {
+            declaredMethods = Collections.emptyList();
+        } else {
+            declaredMethods = new ArrayList<>(methods);
+        }
     }
 
     @Override
@@ -459,11 +471,12 @@ public class NonDelayedClassInfoImpl extends ClassInfoImpl {
     private List<AnnotationInfoImpl> annotations; // declared + inherited
 
     @Override
-    public void setDeclaredAnnotations(AnnotationInfoImpl[] rawDeclaredAnnotations) {
+    public void storeDeclaredAnnotations(List<AnnotationInfoImpl> annos) {
         this.annotations = null;
-        super.setDeclaredAnnotations(rawDeclaredAnnotations);
+
+        super.storeDeclaredAnnotations(annos);
     }
-    
+
     @Override
     public List<AnnotationInfoImpl> getAnnotations() {
         if ( annotations == null ) {

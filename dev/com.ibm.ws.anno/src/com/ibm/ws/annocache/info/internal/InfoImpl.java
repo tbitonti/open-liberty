@@ -12,7 +12,7 @@ package com.ibm.ws.annocache.info.internal;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Modifier;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -170,8 +170,12 @@ public abstract class InfoImpl implements Info {
         return declaredAnnotations;
     }
 
-    public void setDeclaredAnnotations(AnnotationInfoImpl[] annos) {
-        declaredAnnotations = Arrays.asList(annos);
+    protected void storeDeclaredAnnotations(List<AnnotationInfoImpl> annos) {
+        if ( (annos == null) || annos.isEmpty() ) {
+            declaredAnnotations = Collections.emptyList();
+        } else {
+            declaredAnnotations = new ArrayList<>(annos);
+        }
     }
 
     @Override

@@ -180,6 +180,7 @@ public class ClassSourceImpl_MappedContainer
         if ( useContainer != null ) {
             return processContainer(EMPTY_PREFIX, useContainer, streamer);
         } else {
+            // System.out.println("Strange: Null container!");
             return 0;
         }
     }
@@ -313,7 +314,7 @@ public class ClassSourceImpl_MappedContainer
                         logger.logp(Level.WARNING, CLASS_NAME, methodName, "ANNO_TARGETS_SCAN_EXCEPTION",
                             new Object[] { nextClassName, targetContainer, nextPrefix, e });
                     }
-                    
+
                     classCount++;
                 }
             }

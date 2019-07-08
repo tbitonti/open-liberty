@@ -107,6 +107,7 @@ public class ClassSourceImpl_Aggregate implements ClassSource_Aggregate {
 
         this.classSources = new ArrayList<ClassSource>();
         this.classSourceNames = new HashMap<String, String>();
+        this.internalSourceCount = 0;
 
         this.openCount = 0;
         this.successfulOpens = new ArrayList<ClassSource>();
@@ -426,6 +427,7 @@ public class ClassSourceImpl_Aggregate implements ClassSource_Aggregate {
 
     protected final List<ClassSource> classSources;
     protected final Map<String, String> classSourceNames;
+    private int internalSourceCount;
 
     protected final Set<ClassSource> seedClassSources;
     protected final Set<ClassSource> partialClassSources;
@@ -442,15 +444,25 @@ public class ClassSourceImpl_Aggregate implements ClassSource_Aggregate {
         classSourceNames.put(classSource.getName(), classSource.getCanonicalName());
 
         classSource.setParentSource(this);
-        
+
+        boolean isInternal;
+
         if ( scanPolicy == ScanPolicy.SEED ) {
             seedClassSources.add(classSource);
+            isInternal = true;
         } else if ( scanPolicy == ScanPolicy.PARTIAL ) {
             partialClassSources.add(classSource);
+            isInternal = true;            
         } else if ( scanPolicy == ScanPolicy.EXCLUDED ) {
             excludedClassSources.add(classSource);
+            isInternal = true;            
         } else {
             externalClassSources.add(classSource);
+            isInternal = false;
+        }
+
+        if ( isInternal ) {
+        	internalSourceCount++;
         }
     }
 
@@ -465,6 +477,11 @@ public class ClassSourceImpl_Aggregate implements ClassSource_Aggregate {
         } else {
             return ScanPolicy.EXTERNAL;
         }
+    }
+
+    @Override
+    public int getInternalSourceCount() {
+    	return internalSourceCount;
     }
 
     @Override

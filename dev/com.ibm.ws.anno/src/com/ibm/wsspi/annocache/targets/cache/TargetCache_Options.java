@@ -110,7 +110,7 @@ public interface TargetCache_Options {
     int WRITE_THREADS_UNBOUNDED = -1;
     int WRITE_THREADS_MAX = 64;
 
-    int WRITE_THREADS_DEFAULT = 8;
+    int WRITE_THREADS_DEFAULT = 1;
     String WRITE_THREADS_PROPERTY_NAME = "anno.cache.writeThreads";
 
     int getWriteThreads();
@@ -126,7 +126,7 @@ public interface TargetCache_Options {
 
     // Whether to write component data which was read from Jandex.
 
-    boolean OMIT_JANDEX_WRITE_DEFAULT = false;
+    boolean OMIT_JANDEX_WRITE_DEFAULT = true;
     String OMIT_JANDEX_WRITE_PROPERTY_NAME = "anno.cache.omitJandexWrite";
 
     boolean getOmitJandexWrite();
@@ -163,4 +163,20 @@ public interface TargetCache_Options {
 
     boolean getUseJandexFormat();
     void setUseJandexFormat(boolean useJandexFormat);
+
+    //
+
+    boolean USE_BINARY_FORMAT_DEFAULT = false;
+    String USE_BINARY_FORMAT_PROPERTY_NAME = "anno.cache.binaryFormat";
+
+    boolean getUseBinaryFormat();
+    void setUseBinaryFormat(boolean useBinaryFormat);
+
+    //
+
+    boolean LOG_QUERIES_DEFAULT = false;
+    String LOG_QUERIES_PROPERTY_NAME = "anno.cache.logQueries";
+
+    boolean getLogQueries();
+    void setLogQueries(boolean logQueries);
 }

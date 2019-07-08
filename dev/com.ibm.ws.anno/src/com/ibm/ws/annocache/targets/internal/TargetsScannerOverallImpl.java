@@ -259,56 +259,64 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
     }
 
     /**
-     * Override: Create a targets table for a class source.  If multiple scan
-     * threads are being used, create the targets table with its own intern
-     * maps.
+     * Create an isolated targets table for a class source.
      *
-     * The table must be interned relative to the overall intern maps before
-     * it is merged into the overall reaults.
-     *
-     * Having independent intern maps adds storage overhead.  The alternative
-     * is expensive fine grained locking on intern maps.
-     *
-     * See {@link #internTargetsTable}.
-     *
-     * @param classSource The class source for which to create the targets
-     *     table.
+     * @param classSource The class source for which to create the targets table.
      *
      * @return A new targets table for the class source.
      */
-    @Override
-    protected TargetsTableImpl createTargetsTable(ClassSource classSource) {
-        if ( isScanSingleThreaded() || isScanSingleSource() ) {
-            // Create the targets table using the intern map of the scanner,
-            // which is the intern map of the annotation targets.
-            return super.createTargetsTable(classSource);
+    public TargetsTableImpl createIsolatedTargetsTable(String classSourceName, String classSourceStamp) {
+        TargetsTableImpl targetsTable =
+            new TargetsTableImpl( getFactory(), classSourceName, getUseJandexFormat() );
+        targetsTable.setStamp(classSourceStamp);
+        return targetsTable;
+    }
+
+    protected TargetsTableImpl createResultTargetsTable(
+        ScanPolicy scanPolicy,
+        TargetCacheImpl_DataCon conData) {
+
+        if ( isolateResultTargets(conData) ) {
+            TargetsTableImpl resultTable =
+                new TargetsTableImpl( getFactory(),
+                    scanPolicy.name(),
+                    TargetsTableImpl.DO_NOT_USE_JANDEX_FORMAT );
+            // A stamp is not available for result tables.
+            resultTable.setStamp(ClassSource.UNRECORDED_STAMP);
+            return resultTable;
 
         } else {
-            // Create the targets table with its own intern map.
-            TargetsTableImpl targetsTable =
-                new TargetsTableImpl( getFactory(), classSource.getName(), getUseJandexFormat() );
-            targetsTable.setStamp( classSource.getStamp() );
-            return targetsTable;
+            return createResultTargetsTable(scanPolicy);
         }
     }
 
-    /**
-     * Conditionally recreate a targets table using the overall intern maps.
-     *
-     * Do nothing if mutiple scan threads are not in use.
-     *
-     * @param targetsTable The table which is to be recreated.
-     *
-     * @return The targets table interned using the overall intern maps.
-     */
+    protected boolean isolateResultTargets(TargetCacheImpl_DataCon conData) {
+        String methodName = "isolateResultTargets";
+
+        boolean isolate;
+        String isolateCase;
+        if ( !isScanSingleThreaded() ) {
+            isolate = true;
+            isolateCase = "Isolated: Multi-threaded";
+        } else {
+            isolate = false;
+            isolateCase = "Integrated: Single-threaded";
+        }
+
+        if ( logger.isLoggable(Level.FINER) ) {
+            logger.logp(Level.FINER, CLASS_NAME, methodName,
+                "[ {0} ] Result targets {1}",
+                new Object[] { getHashText(), isolateCase });
+        }
+        return isolate;
+    }
+
     protected TargetsTableImpl internTargetsTable(TargetsTableImpl targetsTable) {
-        if ( !isScanSingleThreaded() && !isScanSingleSource() ) {
-            synchronized ( getInternMapControl() ) {
-                targetsTable = new TargetsTableImpl( targetsTable,
-                                                     getClassNameInternMap(),
-                                                     getFieldNameInternMap(),
-                                                     getMethodSignatureInternMap() );
-            }
+        synchronized ( getInternMapControl() ) {
+            targetsTable = new TargetsTableImpl( targetsTable,
+                                                 getClassNameInternMap(),
+                                                 getFieldNameInternMap(),
+                                                 getMethodSignatureInternMap() );
         }
 
         if ( logger.isLoggable(Level.FINER) ) {
@@ -318,6 +326,27 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
         return targetsTable;
     }
 
+    protected TargetsTableImpl internResultTargetsTable(
+        TargetsTableImpl targetsTable,
+        TargetCacheImpl_DataCon conData) {
+
+        if ( isolateResultTargets(conData) ) {
+            synchronized ( getInternMapControl() ) {
+                targetsTable = new TargetsTableImpl(
+                    targetsTable,
+                    getClassNameInternMap(),
+                    getFieldNameInternMap(),
+                    getMethodSignatureInternMap() );
+            }
+        }
+
+        if ( logger.isLoggable(Level.FINER) ) {
+            verifyTargets(targetsTable);
+        }
+
+        return targetsTable;
+    }
+    
     private void verifyTargets(TargetsTableImpl targetsTable) {
         String methodName = "verifyTargets";
         if ( logger.isLoggable(Level.FINER) ) {
@@ -668,8 +697,12 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
     // recreation of the targets data, when necessary, is done by
     // 'internTargetsTable'.
 
+    /** Local constant: Parameter to 'sameAs' telling that the data use different intern maps. */
+    private static final boolean HAVE_DIFFERENT_INTERN_MAPS = false;
+
     protected boolean validInternalContainer(ClassSource classSource, ScanPolicy scanPolicy) {
         String methodName = "validInternalContainer";
+        boolean doLog = logger.isLoggable(Level.FINER);
 
         String classSourceName = classSource.getName();
 
@@ -678,206 +711,126 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
             if ( priorTargetsTable != null ) {
                 String priorIsChangedReason = getChangedTargetsTableReason(classSourceName);
                 boolean priorIsChanged = isChangedTargetsTable(classSourceName);
-
-                if ( logger.isLoggable(Level.FINER) ) {
+                if ( doLog ) {
                     logger.logp(Level.FINER, CLASS_NAME, methodName,
-                        priorResult("Internal class source " + classSourceName, priorIsChangedReason, priorIsChanged));
+                            priorResult("Internal class source " + classSourceName, priorIsChangedReason, priorIsChanged));
                 }
                 return !priorIsChanged;
             }
         }
 
-        boolean isChangedAll;
-        boolean isChangedJustStamp;
-        String isChangedReason;
+        String useHash = ( doLog ? getHashText() : null );
 
-        TargetCacheImpl_DataCon conData = modData.getConForcing(classSourceName);
-        TargetsTableImpl useTargetsTable = createTargetsTable(classSource);
-
-        synchronized( conData ) {
-            boolean attemptRead;
-            boolean completedRead;
-
-            if ( attemptRead = (conData.shouldRead("Container data") && conData.hasFiles()) ) {
-                completedRead = conData.read(useTargetsTable);
-            } else {
-                completedRead = false;
-            }
-
-            if ( !completedRead ) { 
-                useTargetsTable = scanInternal(classSource,
-                    TargetsVisitorClassImpl.DONT_RECORD_RESOLVED,
-                    TargetsVisitorClassImpl.DONT_RECORD_UNRESOLVED);
-                useTargetsTable = internTargetsTable(useTargetsTable);
-
-                isChangedAll = true;
-                isChangedJustStamp = false;
-
-                if ( attemptRead ) {
-                    isChangedReason = "Cache miss (read failure)";
-                } else {
-                    isChangedReason = "Cache miss";
-                }
-
-            } else {
-                if ( modData.isAlwaysValid() ) {
-                    useTargetsTable = internTargetsTable(useTargetsTable);
-
-                    isChangedAll = false;
-                    isChangedJustStamp = false;
-                    isChangedReason = "Cache hit (forced valid)";
-
-                } else if ( validInternalStamp(classSource, conData) ) {
-                    useTargetsTable = internTargetsTable(useTargetsTable);
-
-                    isChangedAll = false;
-                    isChangedJustStamp = false;
-                    isChangedReason = "Cache hit (valid stamp)";
-
-                } else {
-                    TargetsTableImpl newTargetsTable = scanInternal(classSource,
-                        TargetsVisitorClassImpl.DONT_RECORD_RESOLVED,
-                        TargetsVisitorClassImpl.DONT_RECORD_UNRESOLVED);
-
-                    boolean isCongruent = (isScanSingleThreaded() || isScanSingleSource());
-
-                    if ( !useTargetsTable.sameAs(newTargetsTable, isCongruent) ) {
-                        useTargetsTable = internTargetsTable(newTargetsTable);
-
-                        isChangedAll = true;
-                        isChangedJustStamp = false;
-                        isChangedReason = "Cache hit (invalid stamp; invalid data)";
-
-                    } else {
-                        useTargetsTable = internTargetsTable(useTargetsTable);
-
-                        isChangedAll = false;
-                        isChangedJustStamp = true;
-                        isChangedReason = "Cache hit (invalid stamp; valid data)";
-                    }
-                }
-            }
-
-            if ( !isChangedAll ) {
-                // Testing wants the process parameters to be in the class source.
-                classSource.setReadFromCache( conData.getReadTime(), useTargetsTable.getClassNames().size() );
-            }
-
-            if ( isChangedAll ) {
-                if ( conData.shouldWrite("Container data") ) {
-                    int useWriteLimit = getWriteLimit();
-                    int numClasses = useTargetsTable.getClassNames().size();
-                    if ( numClasses < useWriteLimit ) {
-                        if ( logger.isLoggable(Level.FINER) ) {
-                            logger.logp(Level.FINER, CLASS_NAME, methodName,
-                                    "Skip container write [ {0} ]: Classes [ {1} ]; Write Limit [ {2} ]",
-                                    new Object[] { classSourceName, numClasses, useWriteLimit });
-                        }
-                    } else {
-                        boolean useOmitJandexWrite = getOmitJandexWrite();
-                        if ( useOmitJandexWrite && useTargetsTable.getUsedJandex() ) {
-                            if ( logger.isLoggable(Level.FINER) ) {
-                                logger.logp(Level.FINER, CLASS_NAME, methodName,
-                                        "Skip container write [ {0} ]: Omit Jandex Writes [ true ]; Read Jandex [ true ]",
-                                        new Object[] { classSourceName, numClasses, useWriteLimit });
-                            }
-                        } else {
-                            if ( logger.isLoggable(Level.FINER) ) {
-                                logger.logp(Level.FINER, CLASS_NAME, methodName,
-                                        "Perform container write [ {0} ]:" +
-                                        " Classes [ {1} ]; Write Limit [ {2} ];" +
-                                        " Omit Jandex Writes [ {3} ]; Read Jandex [ {4} ]",
-                                        new Object[] { classSourceName,
-                                                       numClasses, useWriteLimit,
-                                                       useOmitJandexWrite, useTargetsTable.getUsedJandex() });
-                            }
-                            conData.write(modData, useTargetsTable);
-                        }
-                    }
-                }
-
-            } else if ( isChangedJustStamp ) {
-                if ( conData.shouldWrite("Time stamp") ) {
-                    if ( logger.isLoggable(Level.FINER) ) {
-                        logger.logp(Level.FINER, CLASS_NAME, methodName,
-                                "Perform container stamp write [ {0} ]",
-                                classSourceName);
-                    }
-                    conData.writeStamp(modData, useTargetsTable);
-                }
-            }
-        }
-
-        synchronized( getTargetsControl() ) {
-            putTargetsTable(classSourceName, useTargetsTable, isChangedReason, isChangedAll);
-        }
-
-        if ( logger.isLoggable(Level.FINER) ) {
+        if ( doLog ) {
             logger.logp(Level.FINER, CLASS_NAME, methodName,
-                        newResult("Internal class source " + classSourceName, isChangedReason, isChangedAll));
-        }
-        return !isChangedAll;
-    }
-
-    protected boolean validInternalStamp(ClassSource classSource, TargetCacheImpl_DataCon conData) {
-        String methodName = "validInternalStamp";
-
-        String classSourceName = classSource.getName();
-
-        if ( logger.isLoggable(Level.FINER) ) {
-            logger.logp(Level.FINER, CLASS_NAME, methodName,
-                        "[ {0} ] ENTER [ {1} ]",
-                        new Object[] { getHashText(), classSourceName });
+                "[ {0} ] ENTER [ {1} ]",
+                new Object[] { useHash, classSourceName });
         }
 
-        String isChangedReason;
-        boolean isChanged;
+        TargetCacheImpl_DataCon conData = modData.getSourceConForcing(classSourceName);
 
         String currentStamp = classSource.getStamp();
 
-        if ( currentStamp.equals(ClassSource.UNRECORDED_STAMP) ||
-             currentStamp.equals(ClassSource.UNAVAILABLE_STAMP) ) {
-            isChanged = true;
-            isChangedReason = "Non-comparable stamp [ " + currentStamp + " ]";
+        // TODO: Validation testing currently always loads the targets data (when
+        //       the data is available and valid), even when the stamp is valid.
+        //
+        //       The load is the result of merging targets data into a single file.
+        //
+        //       That is a change from an earlier implementation, which kept the stamp
+        //       data in a file separate from the rest of the targets data.
+        //
+        //       The consequence is that previously, if all containers were valid
+        //       or had only a trivial stamp change, the bulk of the targets data was
+        //       not read, while currently all of the targets data is read.
+        //
+        //       The question is how the overhead of a single open plus the overall read
+        //       compares with the overhead of either one open and a small read plus
+        //       the overhead of a second open and a read of the remainder.
+        //
+        //       For cases with few or no changes, the overhead of the second open.
 
-        } else if ( conData == null ) {
-            isChanged = true;
-            isChangedReason = "Cache miss";
+        String isValidReason = conData.isValid(this, classSourceName, currentStamp);
+        boolean isValid;
 
-        } else if ( !conData.shouldRead("Time Stamp") ) {
-            isChanged = true;
-            isChangedReason = "Cache miss (disabled)";
+        if ( isValidReason == null ) {
+            isValid = true;
+            isValidReason = "Retrieved data from cache";
+        } else {
+            isValid = false;
+            // Reason per the return value from 'validStamp'.
+        }
 
-        } else if ( !conData.hasTimeStampFile() ) {
-            isChanged = true;
-            isChangedReason = "Cache miss (stamp)";
+        if ( doLog ) {
+            logger.logp(Level.FINER, CLASS_NAME, methodName,
+                "[ {0} ] [ {1} ]: Valid stamp [ {2} ]: {3}",
+                new Object[] { useHash, classSourceName, isValid, isValidReason });
+        }
+
+        TargetsTableImpl isolatedTargets;
+
+        if ( isValid ) {
+            isolatedTargets = conData.getTargetsTable();
+            classSource.setReadFromCache( conData.getReadTime(), isolatedTargets.getClassNames().size() );
 
         } else {
-            TargetsTableTimeStampImpl cachedStampTable = conData.readStampTable();
+            isolatedTargets = createIsolatedTargetsTable(classSourceName, currentStamp);
 
-            if ( cachedStampTable == null ) {
-                isChanged = true;
-                isChangedReason = "Cache miss (read failure)";
+            scanInternal(classSource,
+                TargetsVisitorClassImpl.DONT_RECORD_RESOLVED,
+                TargetsVisitorClassImpl.DONT_RECORD_UNRESOLVED,
+                isolatedTargets);
 
+            // TODO: The value of the next step depends on the proportion of the
+            //       module which was updated and on whether the update did not
+            //       impact the targets data.
+
+            TargetsTableImpl priorTargets = createIsolatedTargetsTable(classSourceName, currentStamp);
+
+            String notTrivialReason;
+            if ( !conData.hasRequiredFiles() ) {
+                notTrivialReason = "Files not available";
+            } else if ( !conData.basicReadData(priorTargets) ) {
+                notTrivialReason = "Read failure";
+            } else if ( !isolatedTargets.getClassTable().sameAs( priorTargets.getClassTable(), HAVE_DIFFERENT_INTERN_MAPS ) ) {
+                notTrivialReason = "Change to classs";
+            } else if ( !isolatedTargets.getAnnotationTable().sameAs( priorTargets.getAnnotationTable(), HAVE_DIFFERENT_INTERN_MAPS ) ) {
+                notTrivialReason = "Change to annotations";
             } else {
-                String cachedStamp = cachedStampTable.getStamp();
-                isChanged = !cachedStamp.equals(currentStamp);
-                if ( isChanged ) {
-                    isChangedReason = "Cache hit (invalid stamp; current " + currentStamp + " prior " + cachedStamp + ")";
-                } else {
-                    isChangedReason = "Cache hit (valid stamp " + currentStamp + ")";
-                }
+                notTrivialReason = null;
+
+                isValid = true;
+                isValidReason = null;
             }
+
+            if ( doLog ) {
+                logger.logp(Level.FINER, CLASS_NAME, methodName,
+                    "[ {0} ] [ {1} ]: Is trivial update [ {2} ]: {3}",
+                    new Object[] { useHash, classSourceName,
+                                   (notTrivialReason == null),
+                                   ((notTrivialReason == null) ? "Only the stamp changed" : notTrivialReason) });
+            }
+
+            if ( notTrivialReason == null ) {
+                conData.rewriteStamp( modData, isolatedTargets.getStampTable() );
+            } else {
+                conData.basicWriteData(modData, isolatedTargets);
+            }
+
+            conData.setTargetsTable(isolatedTargets);
         }
 
-        // Write is done with the container.
+        synchronized( getTargetsControl() ) {
+            putTargetsTable(
+                classSourceName,
+                internTargetsTable(isolatedTargets),
+                isValidReason, !isValid);
+        }
 
-        if ( logger.isLoggable(Level.FINER) ) {
+        if ( doLog ) {
             logger.logp(Level.FINER, CLASS_NAME, methodName,
-                        "[ {0} ] RETURN [ {1} ]: {2} ]",
-                        new Object[] { getHashText(), Boolean.valueOf(!isChanged), isChangedReason });
+                newResult("Internal class source " + classSourceName, isValidReason, !isValid));
         }
-        return !isChanged;
+        return isValid;
     }
 
     protected boolean validInternalContainers_Select() {
@@ -1361,6 +1314,9 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
                 logger.logp(Level.FINER, CLASS_NAME, methodName, "Write threshhold crossed: Writing all results");
 
                 for ( ScanPolicy scanPolicy : ScanPolicy.values() ) {
+                    if ( getPolicyCount(scanPolicy) == 0 ) {
+                        continue;
+                    }
                     if ( (scanPolicy != ScanPolicy.EXTERNAL) && modData.shouldWrite("Result container") ) {
                         modData.writeResultCon( scanPolicy, newTables[ scanPolicy.ordinal() ] );
                     }
@@ -1415,6 +1371,11 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
                 continue;
             }
 
+            if ( getPolicyCount(scanPolicy) == 0 ) {
+                tables[ scanPolicy.ordinal() ] = createResultTargetsTable(scanPolicy);
+                continue;
+            }
+
             if ( readResults(scanPolicy, tables) == null ) {
                 isAnyMissing = true;
             }
@@ -1442,6 +1403,11 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
                 continue;
             }
 
+            if ( getPolicyCount(scanPolicy) == 0 ) {
+                tables[ scanPolicy.ordinal() ] = createResultTargetsTable(scanPolicy);
+                continue;
+            }
+
             final ScanPolicy useScanPolicy = scanPolicy;
 
             Runnable readRunner = new Runnable() {
@@ -1465,14 +1431,17 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
                 continue;
             }
 
+            if ( getPolicyCount(scanPolicy) == 0 ) {
+                continue;
+            }
+            
             try {
                 readThreads[scanPolicy.ordinal()].join(); // throws InterruptedException
-
             } catch ( InterruptedException e ) {
-                   // CWWKC00??W 
-                   logger.logp(Level.WARNING, CLASS_NAME, methodName,
-                           "[ {0} ] ANNO_TARGETS_CACHE_EXCEPTION [ {1} ]",
-                           new Object[] { getHashText(), e });
+                // CWWKC00??W 
+                logger.logp(Level.WARNING, CLASS_NAME, methodName,
+                    "[ {0} ] ANNO_TARGETS_CACHE_EXCEPTION [ {1} ]",
+                    new Object[] { getHashText(), e });
                 logger.logp(Level.WARNING, CLASS_NAME, methodName, "Cache error", e);
 
                 missingResults[scanPolicy.ordinal()] = true;
@@ -1509,21 +1478,21 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
         }
 
         TargetCacheImpl_DataCon resultCon =  modData.getResultCon(scanPolicy);
-        
+
         TargetsTableImpl cachedResultData;
-        
+
         synchronized( resultCon ) {
-            if ( !resultCon.exists() || !resultCon.hasFiles() ) {
+            if ( !resultCon.exists() || !resultCon.hasRequiredFiles() ) {
                 return null;
             }
 
-            cachedResultData = createTargetsTable(scanPolicy);
-            if ( !resultCon.read(cachedResultData) ) {
+            cachedResultData = createResultTargetsTable(scanPolicy, resultCon);
+            if ( !resultCon.basicReadData(cachedResultData) ) {
                 return null;
             }
         }
-        
-        cachedResultData = internTargetsTable(cachedResultData);
+
+        cachedResultData = internResultTargetsTable(cachedResultData, resultCon);
 
         if ( tables != null ) {
             tables[ scanPolicy.ordinal() ] = cachedResultData;
@@ -1543,11 +1512,11 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
 
         TargetsTableClassesMultiImpl cachedClassTable;
 
-        if ( !modData.shouldRead("Class refs") || !modData.hasClassRefs() ) {
+        if ( !modData.shouldRead("Class refs") || !modData.hasClasses() ) {
             cachedClassTable = null;
         } else {
             cachedClassTable = createClassTable();
-            if ( !modData.readClassRefs(cachedClassTable) ) {
+            if ( !modData.readClasses(cachedClassTable) ) {
                 cachedClassTable = null;
             }
         }
@@ -1586,7 +1555,7 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
             mergeClasses(newClassTable);
 
             if ( modData.shouldWrite("Class refs") ) {
-                modData.writeClassRefs(newClassTable);
+                modData.writeClasses(newClassTable);
             }
 
             cachedClassTable = newClassTable;
@@ -1654,7 +1623,7 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
         boolean validInternalUnresolved = validInternalUnresolved();
 
         externalData = scanExternal(externalClassSource, i_resolvedClassNames, i_unresolvedClassNames);
-        externalData = internTargetsTable(externalData);
+        // externalData = internTargetsTable(externalData);
 
         // See the comment on 'mergeClasses': This must be synchronized
         // with the write of the class table which occurs in 
@@ -1674,7 +1643,7 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
 
         // No need to put the class table: It is already set.
 
-        // Neither the external results not the fully populated class table is written.
+        // Neither the external results nor the fully populated class table is written.
 
         if ( logger.isLoggable(Level.FINER) ) {
             logClassInfo(logger);

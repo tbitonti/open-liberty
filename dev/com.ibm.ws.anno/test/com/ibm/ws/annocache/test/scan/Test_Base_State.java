@@ -356,6 +356,7 @@ public class Test_Base_State {
             println("  Omit Jandex Write [ " + Boolean.valueOf(useCacheOptions.omitJandexWrite) + " ]");
             println("  Separate Containers [ " + Boolean.valueOf(useCacheOptions.separateContainers) + " ]");
             println("  Use Jandex Format [ " + Boolean.valueOf(useCacheOptions.useJandexFormat) + " ]");
+            println("  Use Binary Format [ " + Boolean.valueOf(useCacheOptions.useBinaryFormat) + " ]");
         }
     }
 
@@ -452,6 +453,7 @@ public class Test_Base_State {
             rawCacheOptions.setOmitJandexWrite(testCacheOptions.omitJandexWrite);
             rawCacheOptions.setSeparateContainers(testCacheOptions.separateContainers);
             rawCacheOptions.setUseJandexFormat(testCacheOptions.useJandexFormat);
+            rawCacheOptions.setUseBinaryFormat(testCacheOptions.useBinaryFormat);
         }
 
         return rawCacheOptions;

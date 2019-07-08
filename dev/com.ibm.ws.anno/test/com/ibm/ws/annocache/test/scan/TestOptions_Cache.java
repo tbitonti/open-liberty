@@ -47,7 +47,8 @@ public class TestOptions_Cache {
 
         boolean omitJandexWrite,
         boolean separateContainers,
-        boolean useJandexFormat) {
+        boolean useJandexFormat,
+        boolean useBinaryFormat) {
 
         this.storageSuffix = storageSuffix;
         this.cleanStorage = cleanStorage;
@@ -60,7 +61,7 @@ public class TestOptions_Cache {
         this.omitJandexWrite = omitJandexWrite;
         this.separateContainers = separateContainers;
         this.useJandexFormat = useJandexFormat;
-
+        this.useBinaryFormat = useBinaryFormat;
     }
 
     public final String storageSuffix;
@@ -74,4 +75,5 @@ public class TestOptions_Cache {
     public final boolean omitJandexWrite;
     public final boolean separateContainers;
     public final boolean useJandexFormat;
+    public final boolean useBinaryFormat;
 }

@@ -431,6 +431,16 @@ public interface ClassSource_Aggregate extends com.ibm.wsspi.anno.classsource.Cl
      */
     ScanPolicy getScanPolicy(ClassSource classSource);
 
+    /**
+     * Tell the count of internal class sources.
+     *
+     * The count is used during scanning to optimize threading and
+     * string management.
+     *
+     * @return The count of internal class sources.
+     */
+    int getInternalSourceCount();
+
     // Class source naming support ...
 
     String getCanonicalName(String classSourceName);

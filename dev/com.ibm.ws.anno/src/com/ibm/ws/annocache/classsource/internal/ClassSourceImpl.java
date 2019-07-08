@@ -863,6 +863,7 @@ public abstract class ClassSourceImpl implements ClassSource {
     @Trivial
     protected void setProcessCount(int processCount) {
         this.processCount = processCount;
+        // (new Throwable("Process count [ " + processCount + " ] [ " + getName() + " ] [ " + getClass().getName() + " ]")).printStackTrace(System.out);
     }
 
     //

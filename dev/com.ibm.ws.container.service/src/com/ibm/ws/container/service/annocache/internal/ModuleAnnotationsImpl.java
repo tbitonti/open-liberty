@@ -139,11 +139,15 @@ public class ModuleAnnotationsImpl extends AnnotationsImpl implements ModuleAnno
     public static String getAppName(ModuleInfo moduleInfo) {
         String methodName = "getAppName";
 
-        String appName = moduleInfo.getApplicationInfo().getName();
-        String appDepName = moduleInfo.getApplicationInfo().getDeploymentName();
+        ApplicationInfo appInfo = moduleInfo.getApplicationInfo();
+        String appName = appInfo.getName();
+        String appDepName = appInfo.getDeploymentName();
         if ( tc.isDebugEnabled() ) {
             Tr.debug(tc, methodName + ": AppName [ " + appName + " ] AppDepName [ " + appDepName + " ] (using AppDepName)");
         }
+
+        // System.out.println(methodName + ": ApplicationInfo [ " + appInfo + " ] [ " + appInfo.getClass().getName() + " ] [ " + appDepName + " ]");
+
         return appDepName;
     }
 

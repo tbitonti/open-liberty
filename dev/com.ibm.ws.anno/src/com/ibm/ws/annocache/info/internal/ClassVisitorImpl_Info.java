@@ -23,7 +23,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 import com.ibm.ws.annocache.info.internal.AnnotationVisitorImpl_Info.AnnotationInfoVisitor;
-import com.ibm.ws.annocache.util.internal.UtilImpl_EmptyCollections;
 
 // Visit rules:
 //
@@ -272,13 +271,7 @@ public class ClassVisitorImpl_Info extends ClassVisitor {
 
             // Transfer the method annotations ...
 
-            AnnotationInfoImpl[] methodAnnos;
-            if ( methodAnnotations.isEmpty() ) {
-                methodAnnos = emptyAnnotationInfoArray;
-            } else {
-                methodAnnos = methodAnnotations.toArray(new AnnotationInfoImpl[methodAnnotations.size()]);
-            }
-            methodInfo.setDeclaredAnnotations(methodAnnos);
+            methodInfo.storeDeclaredAnnotations(methodAnnotations);
 
             // Transfer the parameter annotations ...
 
@@ -347,11 +340,7 @@ public class ClassVisitorImpl_Info extends ClassVisitor {
                 logParms[2] = fieldInfo.getDeclaringClass().getHashText();
             }
 
-            AnnotationInfoImpl[] annos = UtilImpl_EmptyCollections.emptyAnnotationInfoArray;
-            if (annotations.size() > 0) {
-                annos = annotations.toArray(new AnnotationInfoImpl[annotations.size()]);
-            }
-            fieldInfo.setDeclaredAnnotations(annos);
+            fieldInfo.storeDeclaredAnnotations(annotations);
 
             fieldInfo = null;
             annotations = null;
@@ -644,7 +633,7 @@ public class ClassVisitorImpl_Info extends ClassVisitor {
             logger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ] Package [ {1} ]", logParms);
         }
 
-        packageInfo.setDeclaredAnnotations(annotationInfos.toArray(new AnnotationInfoImpl[annotationInfos.size()]));
+        packageInfo.storeDeclaredAnnotations(annotationInfos);
 
         packageInfo = null;
     }
@@ -655,10 +644,10 @@ public class ClassVisitorImpl_Info extends ClassVisitor {
             logger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ] ENTER Class [ {1} ]", logParms);
         }
 
-        classInfo.setFields(fieldInfos.toArray(new FieldInfoImpl[fieldInfos.size()]));
-        classInfo.setConstructors(constructorInfos.toArray(new MethodInfoImpl[constructorInfos.size()]));
-        classInfo.setMethods(methodInfos.toArray(new MethodInfoImpl[methodInfos.size()]));
-        classInfo.setDeclaredAnnotations(annotationInfos.toArray(new AnnotationInfoImpl[annotationInfos.size()]));
+        classInfo.storeFields(fieldInfos);
+        classInfo.storeConstructors(constructorInfos);
+        classInfo.storeMethods(methodInfos);
+        classInfo.storeDeclaredAnnotations(annotationInfos);
 
         boolean didAdd = getInfoStore().addClassInfo(this.classInfo);
 

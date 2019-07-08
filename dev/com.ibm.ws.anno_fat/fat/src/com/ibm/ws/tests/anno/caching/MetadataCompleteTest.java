@@ -55,7 +55,7 @@ public class MetadataCompleteTest extends AnnoCachingTest {
     	// Step 1: Do a clean start of the server with the pre-set
     	//         metadata-incomplete copy of the web module descriptor.
 
-        startServerClean();
+        startServerScrub();
 
         // These are available from the descriptor.
 
@@ -80,7 +80,7 @@ public class MetadataCompleteTest extends AnnoCachingTest {
         // Do a dirty start, then make sure the metadata-complete values are
         // used, instead of the prior annotation based values.
 
-        startServerDirty();
+        startServer();
 
         // These should still be available from the descriptor.
 

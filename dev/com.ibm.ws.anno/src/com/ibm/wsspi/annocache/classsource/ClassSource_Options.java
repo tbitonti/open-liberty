@@ -71,7 +71,7 @@ public interface ClassSource_Options extends com.ibm.wsspi.anno.classsource.Clas
     int SCAN_THREADS_UNBOUNDED = -1;
     int SCAN_THREADS_MAX = 64;
 
-    int SCAN_THREADS_DEFAULT_VALUE = 8;
+    int SCAN_THREADS_DEFAULT_VALUE = 1;
     String SCAN_THREADS_PROPERTY_NAME = "com.ibm.ws.annocache.scan.threads";
 
     int getScanThreadsDefault();

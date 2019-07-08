@@ -70,11 +70,15 @@ public class AnnotationCacheServiceImpl_Service implements AnnotationCacheServic
                 "Cache Omit Jandex Write [ {0} ]",
                 Boolean.valueOf(useCacheOptions.getOmitJandexWrite()));
             logger.logp(Level.FINER, CLASS_NAME, methodName,
-                    "Cache Separate Containers [ {0} ]",
-                    Boolean.valueOf(useCacheOptions.getSeparateContainers()));
+                "Cache Separate Containers [ {0} ]",
+                Boolean.valueOf(useCacheOptions.getSeparateContainers()));
             logger.logp(Level.FINER, CLASS_NAME, methodName,
-                    "Use Jandex Format For Containers [ {0} ]",
-                    Boolean.valueOf(useCacheOptions.getUseJandexFormat()));
+                "Use Jandex Format For Containers [ {0} ]",
+                Boolean.valueOf(useCacheOptions.getUseJandexFormat()));
+            logger.logp(Level.FINER, CLASS_NAME, methodName,
+                "Use Binary Format [ {0} ]",
+                Boolean.valueOf(useCacheOptions.getUseBinaryFormat()));
+            
         }
 
         setFactories(); // Need the work area path to setup the cache instance.

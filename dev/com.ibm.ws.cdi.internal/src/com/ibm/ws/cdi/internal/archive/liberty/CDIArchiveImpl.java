@@ -30,12 +30,14 @@ import com.ibm.ws.cdi.internal.interfaces.CDIArchive;
 import com.ibm.ws.cdi.internal.interfaces.CDIUtils;
 import com.ibm.ws.cdi.internal.interfaces.Resource;
 import com.ibm.ws.cdi.internal.interfaces.ResourceInjectionBag;
+import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.ClientModuleInfo;
 import com.ibm.ws.container.service.app.deploy.ContainerInfo;
 import com.ibm.ws.container.service.app.deploy.ContainerInfo.Type;
 import com.ibm.ws.container.service.app.deploy.InjectionClassList;
 import com.ibm.ws.container.service.app.deploy.ModuleClassesContainerInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
+import com.ibm.ws.container.service.app.deploy.WebModuleInfo;
 import com.ibm.ws.container.service.app.deploy.extended.ExtendedModuleInfo;
 import com.ibm.ws.container.service.app.deploy.extended.ModuleContainerInfo;
 import com.ibm.ws.injectionengine.osgi.util.OSGiJNDIEnvironmentRefBindingHelper;
@@ -458,6 +460,46 @@ public class CDIArchiveImpl extends AbstractCDIArchive implements CDIArchive {
         }
     }
 
+    /**
+     * Answer the application name for retrieving annotations.
+     * 
+     * This is the deployment name from the associated application information.
+     * 
+     * If no application information is available, default to use the name from 
+     * the CDI application.
+     * 
+     * If no CDI application is available, answer the 'unnamed application' value.
+     *
+     * @return The application name for retrieving annotations.
+     *
+     * @throws CDIException Thrown if an error occurred while determining the
+     *     application name.
+     */
+    public String getAnnoAppName() throws CDIException {
+        String methodName = "getAnnoAppName";
+
+        ApplicationInfo appInfo;
+        ExtendedModuleInfo moduleInfo = getModuleInfo(); // throws CDIException
+        if ( moduleInfo != null ) { // Null if not a module
+            appInfo = moduleInfo.getApplicationInfo();
+        } else if ( application != null ) { // Null if an extension archive
+            appInfo = application.getApplicationInfo();
+        } else {
+            appInfo = null;
+        }
+
+        String annoAppName;
+        if ( appInfo != null ) {
+            annoAppName = appInfo.getDeploymentName();
+            // System.out.println(methodName + ": ApplicationInfo [ " + appInfo + " ] [ " + appInfo.getClass().getName() + " ] [ " + annoAppName + " ]");
+        } else {
+            annoAppName = ClassSource_Factory.UNNAMED_APP;
+            // System.out.println(methodName + ": ApplicationInfo [ unavailable ] [ " + annoAppName + " ]");
+        }
+
+        return annoAppName;
+    }
+
     public Set<String> getAnnotatedClassesPostBeta(Set<String> annotationClassNames) throws CDIException {
         // Archive.Type:
         //   MANIFEST_CLASSPATH
@@ -474,13 +516,7 @@ public class CDIArchiveImpl extends AbstractCDIArchive implements CDIArchive {
         //   ON_DEMAND_LIB
         //   RUNTIME_EXTENSION
 
-        String appName;
-
-        if ( application == null ) {
-            appName = ClassSource_Factory.UNNAMED_APP;
-        } else {
-            appName = application.getName();
-        }
+        String appName = getAnnoAppName(); // throws CDIException
 
         // Handle WEB-INF/classes by providing an entry prefix to the
         // annotations information.  Keep the archive container as the

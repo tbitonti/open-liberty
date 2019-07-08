@@ -33,7 +33,6 @@ import com.ibm.ws.annocache.targets.internal.TargetsTableAnnotationsImpl;
 import com.ibm.ws.annocache.targets.internal.TargetsTableClassesImpl;
 import com.ibm.ws.annocache.targets.internal.TargetsTableClassesMultiImpl;
 import com.ibm.ws.annocache.targets.internal.TargetsTableContainersImpl;
-import com.ibm.ws.annocache.targets.internal.TargetsTableDetailsImpl;
 import com.ibm.ws.annocache.targets.internal.TargetsTableTimeStampImpl;
 import com.ibm.ws.annocache.util.internal.UtilImpl_BidirectionalMap;
 import com.ibm.ws.annocache.util.internal.UtilImpl_Utils;
@@ -45,6 +44,52 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
     private static final String CLASS_NAME = TargetCacheImpl_Writer.class.getSimpleName();
 
     protected static final Logger logger = AnnotationCacheServiceImpl_Logging.ANNO_LOGGER;
+
+    //
+
+    public static String getTimeStamp() {
+        return UtilImpl_Utils.getDateAndTime();
+    }
+
+    protected static String policiesText(int policies) {
+        // Empty policies is unexpected, but handle it anyways.
+        if ( policies == 0 ) {
+            return "";
+
+            // Common single policy settings.
+            // SEED by itself is most common.
+        } else if ( policies == ScanPolicy.SEED.getValue() ) {
+            return ScanPolicy.SEED.toString();
+        } else if ( policies == ScanPolicy.PARTIAL.getValue() ) {
+            return ScanPolicy.PARTIAL.toString();
+        } else if ( policies == ScanPolicy.PARTIAL.getValue() ) {
+            return ScanPolicy.PARTIAL.toString();
+        } else if ( policies == ScanPolicy.EXCLUDED.getValue() ) {
+            return ScanPolicy.EXCLUDED.toString();
+        } else if ( policies == ScanPolicy.EXTERNAL.getValue() ) {
+            return ScanPolicy.EXTERNAL.toString();
+
+            // Next common: Used by servlet container initializer queries
+        } else if ( policies == (ScanPolicy.SEED.getValue() & ScanPolicy.PARTIAL.getValue()) ) {
+            return ScanPolicy.SEED.toString() + ", " + ScanPolicy.PARTIAL.toString();
+
+            // Uncommon combination: Iterate and build dynamically.
+        } else {
+            StringBuilder builder = new StringBuilder ();
+
+            for ( ScanPolicy policy : ScanPolicy.values() ) {
+                if ( (policies & policy.getValue()) == 0 ) {
+                    continue;
+                }
+                if ( builder.length() > 0 ) {
+                    builder.append(',');
+                    builder.append(' ');
+                }
+                builder.append( policy.toString() );
+            }
+            return builder.toString();
+        }
+    }
 
     //
 
@@ -412,7 +457,9 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
                 String i_superClassName = classTable.i_getSuperclassName(i_className);
                 String[] i_interfaces = classTable.i_getInterfaceNames(i_className);
 
-                writeClass(classSourceName, i_className, i_superClassName, i_interfaces);
+                Integer modifiers = classTable.i_getModifiers(i_className);
+
+                writeClass(classSourceName, i_className, i_superClassName, i_interfaces, modifiers);
             
 //                classTable.verifyClassRecord();            
             }
@@ -426,7 +473,8 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
 
     protected void writeClass(String classSourceName,
                               String className,
-                              String superClassName, String[] interfaceNames)
+                              String superClassName, String[] interfaceNames,
+                              Integer modifiers)
         throws IOException {
 
         writeValue(CLASS_TAG, className);
@@ -439,6 +487,16 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
         if ( interfaceNames != null ) {
             for ( String interfaceName : interfaceNames ) {
                 writeSubValue(INTERFACE_TAG, interfaceName);
+            }
+        }
+
+        if ( modifiers != null ) {
+            int modifiersValue = modifiers.intValue();
+            if ( modifiersValue != 0 ) {
+                String modifiersText =
+                        "0x" +  Integer.toHexString(modifiersValue) +
+                        " " + OpcodeTag.asText(modifiersValue);
+                writeSubValue(MODIFIERS_TAG, modifiersText); 
             }
         }
     }
@@ -516,111 +574,6 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
                 writeValue(targetTag, i_packageName);
                 for ( String i_annotationClassName : i_annotationClassNames ) {
                     writeSubValue(annotationTag, i_annotationClassName);
-                }
-            }
-        }
-    }
-
-    //
-
-    public void write(TargetsTableDetailsImpl detailTable) throws IOException {
-        writeHeader(DETAILS_TABLE_TAG, DETAILS_TABLE_VERSION);
-
-        writePackageDetail(detailTable);
-        writeClassDetail(detailTable);
-
-        writeTrailer();
-    }
-
-    protected void writePackageDetail(TargetsTableDetailsImpl detailTable) throws IOException {
-        writeComment(DELIMITER_TAG);
-        writeComment(PACKAGE_DETAILS_SECTION);
-
-        Map<String, Map<String, String>> detailMap = detailTable.i_getPackageDetails();
-
-        for ( Map.Entry<String, Map<String, String>> detailEntry : detailMap.entrySet() ) {
-            String i_packageName = detailEntry.getKey();
-            Map<String, String> i_packageAnnotations = detailEntry.getValue();
-
-            writeValue(PACKAGE_TAG, i_packageName);
-
-            for ( Map.Entry<String, String> i_annotationEntry : i_packageAnnotations.entrySet() ) {
-                String i_annotationClassName = i_annotationEntry.getKey();
-                String annotationDetail = i_annotationEntry.getValue();
-
-                writeSubValue(ANNOTATION_TAG, i_annotationClassName);
-                writeSubValue(DETAIL_TAG, annotationDetail);
-            }
-        }
-    }
-
-    protected void writeClassDetail(TargetsTableDetailsImpl detailTable) throws IOException {
-        writeComment(DELIMITER_TAG);
-        writeComment(CLASS_DETAILS_SECTION);
-
-        Map<String, String> i_annotatedClassNames = new IdentityHashMap<String, String>();
-
-        Map<String, Map<String, String>> i_classDetails = detailTable.i_getClassDetails();
-        Map<String, Map<String, Map<String, String>>> i_classFieldDetails = detailTable.i_getFieldDetails();
-        Map<String, Map<String, Map<String, String>>> i_classMethodDetails = detailTable.i_getMethodDetails();
-
-        for ( String i_className : i_classDetails.keySet() ) {
-            i_annotatedClassNames.put(i_className, i_className);
-        }
-        for ( String i_className : i_classFieldDetails.keySet() ) {
-            i_annotatedClassNames.put(i_className, i_className);
-        }
-        for ( String i_className : i_classMethodDetails.keySet() ) {
-            i_annotatedClassNames.put(i_className, i_className);
-        }
-
-        for ( String i_className : i_annotatedClassNames.keySet() ) {
-            writeValue(CLASS_TAG, i_className);
-
-            Map<String, String> i_classAnnotations = i_classDetails.get(i_className);
-            if ( i_classAnnotations != null ) {
-                for ( Map.Entry<String, String> i_annotationEntry : i_classAnnotations.entrySet() ) {
-                    String i_annotationClassName = i_annotationEntry.getKey();
-                    String annotationDetail = i_annotationEntry.getValue();
-
-                    writeSubValue(ANNOTATION_TAG, i_annotationClassName);
-                    writeSubValue(DETAIL_TAG, annotationDetail);
-                }
-            }
-
-            Map<String, Map<String, String>> i_classFieldAnnotations = i_classFieldDetails.get(i_className);
-            if ( i_classFieldAnnotations != null ) {
-                for ( Map.Entry<String, Map<String, String>> i_fieldDetails : i_classFieldAnnotations.entrySet() ) {
-                    String i_fieldName = i_fieldDetails.getKey();
-                    Map<String, String> i_fieldAnnotations = i_fieldDetails.getValue();
-
-                    writeSubValue(FIELD_TAG, i_fieldName);
-
-                    for ( Map.Entry<String, String> i_annotationEntry : i_fieldAnnotations.entrySet() ) {
-                        String i_annotationClassName = i_annotationEntry.getKey();
-                        String annotationDetail = i_annotationEntry.getValue();
-
-                        writeSubSubValue(ANNOTATION_TAG, i_annotationClassName);
-                        writeSubSubValue(DETAIL_TAG, annotationDetail);
-                    }
-                }
-            }
-
-            Map<String, Map<String, String>> i_classMethodAnnotations = i_classMethodDetails.get(i_className);
-            if ( i_classMethodAnnotations != null ) {
-                for ( Map.Entry<String, Map<String, String>> i_methodDetails : i_classMethodAnnotations.entrySet() ) {
-                    String i_methodSignature = i_methodDetails.getKey();
-                    Map<String, String> i_methodAnnotations = i_methodDetails.getValue();
-
-                    writeSubValue(METHOD_TAG, i_methodSignature);
-
-                    for ( Map.Entry<String, String> i_annotationEntry : i_methodAnnotations.entrySet() ) {
-                        String i_annotationClassName = i_annotationEntry.getKey();
-                        String annotationDetail = i_annotationEntry.getValue();
-
-                        writeSubSubValue(ANNOTATION_TAG, i_annotationClassName);
-                        writeSubSubValue(DETAIL_TAG, annotationDetail);
-                    }
                 }
             }
         }
@@ -759,10 +712,6 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
         writeLine(methodName, valueText);
     }
 
-    public String getTimeStamp() {
-        return UtilImpl_Utils.getDateAndTime();
-    }
-
     //
 
     public void writeQueryHeader() throws IOException {
@@ -796,16 +745,23 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
     // Result: <result class>
 
     public void writeQuery(
+        String className, String methodName,
         String title,
         int policies, String type,
         Collection<String> specificClasses, String annotationClass,
         Collection<String> resultClasses) throws IOException {
 
-        writeQuery(title, getTimeStamp(), policies, type, specificClasses, annotationClass, resultClasses);
+        writeQuery(
+            className, methodName,
+            title, getTimeStamp(),
+            policies, type,
+            specificClasses, annotationClass,
+            resultClasses);
         // 'writeQuery' throws IOException
     }
 
     public void writeQuery(
+        String className, String methodName,
         String title, String timeStamp,
         int policies, String type,
         Collection<String> specificClasses, String annotationClass,
@@ -814,6 +770,8 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
         writeComment(DELIMITER_TAG);
 
         writeValue(QUERY_TAG, title);
+        writeValue(QUERY_CLASS_NAME_TAG, className);
+        writeValue(QUERY_METHOD_NAME_TAG, methodName);
         writeValue(QUERY_TIMESTAMP_TAG, timeStamp);
 
         writeValue(QUERY_POLICIES_TAG, policiesText(policies));
@@ -833,16 +791,23 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
     }
 
     public void writeQuery(
+        String className, String methodName,
         String title,
         Collection<String> sources, String type,
         Collection<String> specificClasses, String annotationClass,
         Collection<String> resultClasses) throws IOException {
 
-        writeQuery(title, getTimeStamp(), sources, type, specificClasses, annotationClass, resultClasses);
+        writeQuery(
+            className, methodName,
+            title, getTimeStamp(),
+            sources, type, specificClasses,
+            annotationClass,
+            resultClasses);
         // 'writeQuery' throws IOException
     }
 
     public void writeQuery(
+        String className, String methodName,
         String title, String timeStamp,
         Collection<String> sources, String type,
         Collection<String> specificClasses, String annotationClass,
@@ -851,6 +816,8 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
         writeComment(DELIMITER_TAG);
 
         writeValue(QUERY_TAG, title);
+        writeValue(QUERY_CLASS_NAME_TAG, className);
+        writeValue(QUERY_METHOD_NAME_TAG, methodName);
         writeValue(QUERY_TIMESTAMP_TAG, timeStamp);
 
         for ( String source : sources ) {
@@ -872,19 +839,23 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
     }
 
     public void writeQuery(
+        String className, String methodName,
         String title,
         int policies, Collection<String> sources, String type,
         Collection<String> specificClasses, String annotationClass,
         Collection<String> resultClasses) throws IOException {
 
-        writeQuery(title, getTimeStamp(),
-                   policies, sources, type,
-                   specificClasses, annotationClass,
-                   resultClasses);
+        writeQuery(
+            className, methodName,
+            title, getTimeStamp(),
+            policies, sources, type,
+            specificClasses, annotationClass,
+            resultClasses);
         // 'writeQuery' throws IOException
     }
 
     public void writeQuery(
+        String className, String methodName,
         String title, String timeStamp,
         int policies, Collection<String> sources, String type,
         Collection<String> specificClasses, String annotationClass,
@@ -893,6 +864,8 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
         writeComment(DELIMITER_TAG);
 
         writeValue(QUERY_TAG, title);
+        writeValue(QUERY_CLASS_NAME_TAG, className);
+        writeValue(QUERY_METHOD_NAME_TAG, methodName);
         writeValue(QUERY_TIMESTAMP_TAG, timeStamp);
 
         writeValue(QUERY_POLICIES_TAG, policiesText(policies));
@@ -912,46 +885,6 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
         }
 
         flush();
-    }
-
-    protected String policiesText(int policies) {
-        // Empty policies is unexpected, but handle it anyways.
-        if ( policies == 0 ) {
-            return "";
-
-            // Common single policy settings.
-            // SEED by itself is most common.
-        } else if ( policies == ScanPolicy.SEED.getValue() ) {
-            return ScanPolicy.SEED.toString();
-        } else if ( policies == ScanPolicy.PARTIAL.getValue() ) {
-            return ScanPolicy.PARTIAL.toString();
-        } else if ( policies == ScanPolicy.PARTIAL.getValue() ) {
-            return ScanPolicy.PARTIAL.toString();
-        } else if ( policies == ScanPolicy.EXCLUDED.getValue() ) {
-            return ScanPolicy.EXCLUDED.toString();
-        } else if ( policies == ScanPolicy.EXTERNAL.getValue() ) {
-            return ScanPolicy.EXTERNAL.toString();
-
-            // Next common: Used by servlet container initializer queries
-        } else if ( policies == (ScanPolicy.SEED.getValue() & ScanPolicy.PARTIAL.getValue()) ) {
-            return ScanPolicy.SEED.toString() + ", " + ScanPolicy.PARTIAL.toString();
-
-            // Uncommon combination: Iterate and build dynamically.
-        } else {
-            StringBuffer result = new StringBuffer();
-
-            for ( ScanPolicy policy : ScanPolicy.values() ) {
-                if ( (policies & policy.getValue()) == 0 ) {
-                    continue;
-                }
-                if ( result.length() > 0 ) {
-                    result.append(',');
-                    result.append(' ');
-                }
-                result.append( policy.toString() );
-            }
-            return result.toString();
-        }
     }
 
     //
@@ -968,5 +901,188 @@ public class TargetCacheImpl_Writer implements TargetCache_InternalConstants {
     public void write(Index jandexIndex) throws IOException {
         Jandex_Utils.basicWriteIndex( getStream(), jandexIndex, "Jandex write to [ " + getPath() + " ]" );
         // 'basicWriteIndex' throws IOException
+    }
+
+    //
+
+    protected static void logLine(StringBuilder builder, String outputLine) {
+        builder.append(outputLine);
+        builder.append("/n");
+    }
+
+    protected static void logComment(StringBuilder builder, String commentText) {
+        String commentLine =
+            COMMENT_TAG + SPACE_TAG +
+            commentText;
+
+        logLine(builder, commentLine);
+    }
+
+    protected static void logComment(
+        StringBuilder builder,
+        String commentName, String commentValue) {
+
+        String commentText =
+            commentName + COLON_TAG + SPACE_TAG +
+            commentValue;
+
+        logComment(builder, commentText);
+    }
+
+    protected static void logValue(StringBuilder builder, String name, String value) {
+        String valueText =
+            name + COLON_TAG + SPACE_TAG +
+            value;
+
+        logLine(builder, valueText);
+    }
+
+    protected static void logSubValue(StringBuilder builder, String name, String value) {
+        String valueText =
+            SPACE_TAG + SPACE_TAG +
+            name + COLON_TAG + SPACE_TAG +
+            value;
+
+        logLine(builder, valueText);
+    }
+
+    // Query: <title>
+    // Timestamp: <Date-Time>
+    // Source: <source name>
+    // Type: (PACKAGE, CLASS, CLASS INHERITED, FIELD, METHOD)
+    // [ Specific: <specific source class> ]
+    // Annotation: <annotation class>
+    // Result: <result class>
+
+    // Query: <title>
+    // Timestamp: <Date-Time>
+    // Policies: (SEED, PARTIAL, EXCLUDED, EXTERNAL)
+    // Source: <source name>
+    // Type: (PACKAGE, CLASS, CLASS INHERITED, FIELD, METHOD)
+    // [ Specific: <specific source class> ]
+    // Annotation: <annotation class>
+    // Result: <result class>
+
+    public static void logQuery(
+        StringBuilder builder,
+        String title,
+        int policies, String type,
+        Collection<String> specificClasses, String annotationClass,
+        Collection<String> resultClasses) {
+
+        logQuery(builder,
+            title, getTimeStamp(),
+            policies, type, specificClasses, annotationClass, resultClasses);
+    }
+
+    public static void logQuery(
+        StringBuilder builder,
+        String title, String timeStamp,
+        int policies, String type,
+        Collection<String> specificClasses, String annotationClass,
+        Collection<String> resultClasses) {
+
+        logComment(builder, DELIMITER_TAG);
+
+        logValue(builder, QUERY_TAG, title);
+        logValue(builder, QUERY_TIMESTAMP_TAG, timeStamp);
+
+        logValue(builder, QUERY_POLICIES_TAG, policiesText(policies));
+        logValue(builder, QUERY_TYPE_TAG, type);
+
+        if ( specificClasses != null ) {
+            for ( String specificClass : specificClasses ) {
+                logSubValue(builder, QUERY_SPECIFIC_TAG, specificClass);
+            }
+        }
+        logValue(builder, QUERY_ANNOTATION_TAG, annotationClass);
+        for ( String resultClass : resultClasses ) {
+            logSubValue(builder, QUERY_RESULT_TAG, resultClass);
+        }
+    }
+
+    public static void logQuery(
+        StringBuilder builder,
+        String title,
+        Collection<String> sources, String type,
+        Collection<String> specificClasses, String annotationClass,
+        Collection<String> resultClasses) {
+
+        logQuery(builder,
+            title, getTimeStamp(),
+            sources, type,
+            specificClasses, annotationClass,
+            resultClasses);
+    }
+
+    public static void logQuery(
+        StringBuilder builder,
+        String title, String timeStamp,
+        Collection<String> sources, String type,
+        Collection<String> specificClasses, String annotationClass,
+        Collection<String> resultClasses) {
+
+        logComment(builder, DELIMITER_TAG);
+
+        logValue(builder, QUERY_TAG, title);
+        logValue(builder, QUERY_TIMESTAMP_TAG, timeStamp);
+
+        for ( String source : sources ) {
+            logValue(builder, QUERY_SOURCE_TAG, source);
+        }
+        logValue(builder, QUERY_TYPE_TAG, type);
+
+        if ( specificClasses != null ) {
+            for ( String specificClass : specificClasses ) {
+                logSubValue(builder, QUERY_SPECIFIC_TAG, specificClass);
+            }
+        }
+        logValue(builder, QUERY_ANNOTATION_TAG, annotationClass);
+        for ( String resultClass : resultClasses ) {
+            logSubValue(builder, QUERY_RESULT_TAG, resultClass);
+        }
+    }
+
+    public static void logQuery(
+        StringBuilder builder,
+        String title,
+        int policies, Collection<String> sources, String type,
+        Collection<String> specificClasses, String annotationClass,
+        Collection<String> resultClasses) {
+
+        logQuery(builder,
+            title, getTimeStamp(),
+            policies, sources, type,
+            specificClasses, annotationClass,
+            resultClasses);
+    }
+
+    public static void logQuery(
+        StringBuilder builder,
+        String title, String timeStamp,
+        int policies, Collection<String> sources, String type,
+        Collection<String> specificClasses, String annotationClass,
+        Collection<String> resultClasses) {
+
+        logComment(builder, DELIMITER_TAG);
+
+        logValue(builder, QUERY_TAG, title);
+        logValue(builder, QUERY_TIMESTAMP_TAG, timeStamp);
+
+        logValue(builder, QUERY_POLICIES_TAG, policiesText(policies));
+        for ( String source : sources ) {
+            logValue(builder, QUERY_SOURCE_TAG, source);
+        }
+        logValue(builder, QUERY_TYPE_TAG, type);
+
+        if ( specificClasses != null ) {
+            for ( String specificClass : specificClasses ) {
+                logSubValue(builder, QUERY_SPECIFIC_TAG, specificClass);
+            }
+        }
+        logValue(builder, QUERY_ANNOTATION_TAG, annotationClass);
+        for ( String resultClass : resultClasses ) {
+            logSubValue(builder, QUERY_RESULT_TAG, resultClass);
+        }
     }
 }

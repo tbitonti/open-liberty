@@ -281,6 +281,8 @@ public interface TargetCache_InternalConstants {
     String QUERIES_TABLE_VERSION = "1.0";
 
     String QUERY_TAG = "Query";
+    String QUERY_CLASS_NAME_TAG     = "Query Class";
+    String QUERY_METHOD_NAME_TAG    = "Query Method";
     String QUERY_TIMESTAMP_TAG      = "Timestamp";
     String QUERY_POLICIES_TAG       = "Policies";
     String QUERY_SOURCE_TAG         = "Source";

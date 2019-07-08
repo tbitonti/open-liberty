@@ -534,9 +534,15 @@ public class TargetCacheImpl_Reader implements TargetCache_Reader, TargetCache_I
     public class StampTableReader extends TargetsReader {
         public StampTableReader(TargetsTableTimeStamp stampTable) {
             this.stampTable = stampTable;
+
+            this.name = null;
+            this.stamp = null;
         }
 
         protected final TargetsTableTimeStamp stampTable;
+
+        private String name;
+        private String stamp;
 
         //
 
@@ -555,21 +561,19 @@ public class TargetCacheImpl_Reader implements TargetCache_Reader, TargetCache_I
             boolean didHandle;
 
             if (parsedName.equals(NAME_TAG)) {
-                String lastName = stampTable.setName(parsedValue);
-
-                if ( lastName != null ) {
-                    addParseError("Multiple [ " + NAME_TAG + " ]: Replacing [ " + lastName + " ] with [ " + parsedValue + " ]");
+                if ( name != null ) {
+                    addParseError("Multiple [ " + NAME_TAG + " ]: Replacing [ " + name + " ] with [ " + parsedValue + " ]");
                 }
 
+                stampTable.setName(parsedValue);
                 didHandle = true;
 
             } else if ( parsedName.equals(STAMP_TAG) ) {
-                String lastStamp = stampTable.setStamp(parsedValue);
-
-                if ( lastStamp != null ) {
-                    addParseError("Multiple [ " + STAMP_TAG + " ]: Replacing [ " + lastStamp + " ] with [ " + parsedValue + " ]");
+                if ( stamp != null ) {
+                    addParseError("Multiple [ " + STAMP_TAG + " ]: Replacing [ " + stamp + " ] with [ " + parsedValue + " ]");
                 }
 
+                stampTable.setStamp(parsedValue);
                 didHandle = true;
 
             } else {
@@ -725,7 +729,7 @@ public class TargetCacheImpl_Reader implements TargetCache_Reader, TargetCache_I
                 }
 
                 didHandle = true;
-                
+
             } else {
                 didHandle = false;
             }
@@ -890,7 +894,9 @@ public class TargetCacheImpl_Reader implements TargetCache_Reader, TargetCache_I
                 if ( i_className == null ) {
                     addParseError("Tag [ " + parsedName + " ] must follow [ " + CLASS_TAG + " ]");
                 } else {
-                    modifiers = parsedValue;
+                    int startOffset = 2; // Skip "0x";
+                    int endOffset = parsedValue.indexOf(" "); // Skip " public static ...";
+                    modifiers = parsedValue.substring(startOffset, endOffset);
                 }
 
                 didHandle = true;

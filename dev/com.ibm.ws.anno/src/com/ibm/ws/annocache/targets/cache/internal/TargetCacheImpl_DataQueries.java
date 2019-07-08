@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.ibm.ws.annocache.service.internal.AnnotationCacheServiceImpl_Logging;
@@ -39,6 +40,8 @@ public class TargetCacheImpl_DataQueries implements TargetCache_ExternalConstant
 
     // private static final String CLASS_NAME = TargetCacheImpl_DataQueries.class.getSimpleName();
     protected static final Logger logger = AnnotationCacheServiceImpl_Logging.ANNO_LOGGER;
+
+    protected static final Logger queryLogger = AnnotationCacheServiceImpl_Logging.ANNO_QUERY_LOGGER;
 
     // Life-cycle ...
 
@@ -246,6 +249,7 @@ public class TargetCacheImpl_DataQueries implements TargetCache_ExternalConstant
     // Query writers ...
 
     public synchronized void writeQuery(
+        String methodName, String className,
         String title,
         int policies, String annoType,
         Collection<String> specificClasses,
@@ -260,17 +264,20 @@ public class TargetCacheImpl_DataQueries implements TargetCache_ExternalConstant
         // The writer is flushed at the conclusion of 'writeQuery'.
 
         try {
-            useWriter.writeQuery(title,
-                                 policies, annoType,
-                                 specificClasses,
-                                 annotationClass,
-                                 resultClasses); // throws IOException
+            useWriter.writeQuery(
+                className, methodName,
+                title,
+                policies, annoType,
+                specificClasses,
+                annotationClass,
+                resultClasses); // throws IOException
         } catch ( IOException e ) {
             // FFDC
         }
     }
 
     public synchronized void writeQuery(
+        String methodName, String className,
         String title,
         Collection<String> sources, String annoType,
         Collection<String> specificClasses,
@@ -285,17 +292,20 @@ public class TargetCacheImpl_DataQueries implements TargetCache_ExternalConstant
         // The writer is flushed at the conclusion of 'writeQuery'.
 
         try {
-            useWriter.writeQuery(title,
-                                 sources, annoType,
-                                 specificClasses,
-                                 annotationClass,
-                                 resultClasses); // throws IOException
+            useWriter.writeQuery(
+                className, methodName,
+                title,
+                sources, annoType,
+                specificClasses,
+                annotationClass,
+                resultClasses); // throws IOException
         } catch ( IOException e ) {
             // FFDC
         }
     }
 
     public synchronized void writeQuery(
+        String methodName, String className,
         String title,
         int policies, Collection<String> sources, String annoType,
         Collection<String> specificClasses,
@@ -310,13 +320,79 @@ public class TargetCacheImpl_DataQueries implements TargetCache_ExternalConstant
         // The writer is flushed at the conclusion of 'writeQuery'.
 
         try {
-            useWriter.writeQuery(title,
-                                 policies, sources, annoType,
-                                 specificClasses,
-                                 annotationClass,
-                                 resultClasses); // throws IOException
+            useWriter.writeQuery(
+                className, methodName,
+                title,
+                policies, sources, annoType,
+                specificClasses,
+                annotationClass,
+                resultClasses); // throws IOException
         } catch ( IOException e ) {
             // FFDC
         }
+    }
+
+    //
+
+    public static boolean getLogQueries() {
+        return ( queryLogger.isLoggable(Level.FINER) );
+    }
+
+    public static void logQuery(
+        String className, String methodName,
+        String title,
+        int policies, String annoType,
+        Collection<String> specificClasses,
+        String annotationClass,
+        Collection<String> resultClasses) {
+
+        StringBuilder builder = new StringBuilder();
+        TargetCacheImpl_Writer.logQuery(builder,
+            title,
+            policies, annoType,
+            specificClasses,
+            annotationClass,
+            resultClasses);
+
+        queryLogger.logp(Level.FINER, className, methodName, builder.toString());
+    }
+
+    public static void logQuery(
+        String className, String methodName,
+        String title,
+        Collection<String> sources, String annoType,
+        Collection<String> specificClasses,
+        String annotationClass,
+        Collection<String> resultClasses) {
+
+        StringBuilder builder = new StringBuilder();
+        TargetCacheImpl_Writer.logQuery(builder,
+            title,
+            sources, annoType,
+            specificClasses,
+            annotationClass,
+            resultClasses);
+
+        queryLogger.logp(Level.FINER, className, methodName, builder.toString());
+    }
+
+    public static void logQuery(
+        String className, String methodName,
+        String title,
+        int policies, Collection<String> sources, String annoType,
+        Collection<String> specificClasses,
+        String annotationClass,
+        Collection<String> resultClasses) {
+
+        StringBuilder builder = new StringBuilder();
+
+        TargetCacheImpl_Writer.logQuery(builder,
+            title,
+            policies, sources, annoType,
+            specificClasses,
+            annotationClass,
+            resultClasses);
+
+        queryLogger.logp(Level.FINER, className, methodName, builder.toString());
     }
 }

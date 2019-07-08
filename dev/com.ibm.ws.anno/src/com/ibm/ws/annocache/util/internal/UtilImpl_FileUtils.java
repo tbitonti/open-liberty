@@ -237,6 +237,26 @@ public class UtilImpl_FileUtils {
         }
     }
 
+    public static RandomAccessFile createRandomInputFile(final File target) throws IOException {
+        try {
+            return AccessController.doPrivileged(new PrivilegedExceptionAction<RandomAccessFile>() {
+                @Override
+                public RandomAccessFile run() throws IOException {
+                    return new RandomAccessFile(target, "r");
+                }
+            });
+        } catch (PrivilegedActionException e) {
+            Exception innerException = e.getException();
+            if (innerException instanceof IOException) {
+                throw (IOException) innerException;
+            } else if (innerException instanceof RuntimeException) {
+                throw (RuntimeException) innerException;
+            } else {
+                throw new UndeclaredThrowableException(e);
+            }
+        }
+    }
+
     public static JarFile createJarFile(final String jarPath) throws IOException {
         try {
             return AccessController.doPrivileged(new PrivilegedExceptionAction<JarFile>() {

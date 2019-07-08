@@ -20,7 +20,9 @@ public class TargetCacheImpl_Options implements TargetCache_Options {
         String dir,
         boolean readOnly, boolean alwaysValid, // boolean validate,
         int writeThreads, int writeLimit,
-        boolean omitJandexWrite, boolean separateContainers, boolean useJandexFormat) {
+        boolean omitJandexWrite, boolean separateContainers,
+        boolean useJandexFormat, boolean useBinaryFormat,
+        boolean logQueries) {
 
         this.disabled = disabled;
 
@@ -35,6 +37,9 @@ public class TargetCacheImpl_Options implements TargetCache_Options {
         this.omitJandexWrite = omitJandexWrite;
         this.separateContainers = separateContainers;
         this.useJandexFormat = useJandexFormat;
+        this.useBinaryFormat = useBinaryFormat;
+
+        this.logQueries = logQueries;
     }
 
     //
@@ -53,6 +58,8 @@ public class TargetCacheImpl_Options implements TargetCache_Options {
                 " OmitJandexWrite " + Boolean.toString(omitJandexWrite) + "," +
                 " SeparateContainers " + Boolean.toString(separateContainers) +
                 " UseJandexFormat " + Boolean.toString(useJandexFormat) +
+                " UseBinaryFormat " + Boolean.toString(useBinaryFormat) +
+                " LogQueries " + Boolean.toString(logQueries) +
             ")";
     }
 
@@ -205,5 +212,37 @@ public class TargetCacheImpl_Options implements TargetCache_Options {
     @Trivial
     public boolean getUseJandexFormat() {
         return useJandexFormat;
+    }
+
+    //
+
+    private boolean useBinaryFormat;
+
+    @Override
+    public void setUseBinaryFormat(boolean useBinaryFormat) {
+        this.useBinaryFormat = useBinaryFormat;
+    }
+
+    @Override
+    @Trivial
+    public boolean getUseBinaryFormat() {
+        return useBinaryFormat;
+    }
+    
+    //
+
+    //
+
+    private boolean logQueries;
+
+    @Override
+    public void setLogQueries(boolean logQueries) {
+        this.logQueries = logQueries;
+    }
+
+    @Override
+    @Trivial
+    public boolean getLogQueries() {
+        return logQueries;
     }
 }

@@ -59,52 +59,52 @@ public class DT7_DT_jar_Test extends Test_Base {
         runSuiteTest(TestOptions_SuiteCase.SINGLE_JANDEX); // 'runSuiteTest' throws Exception
     }
 
-    // @Test
+    @Test
     public void testDT7_DT_jar_SINGLE_JANDEX_FULL() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.SINGLE_JANDEX_FULL); // 'runSuiteTest' throws Exception
     }
 
-    // @Test
+    @Test
     public void testDT7_DT_jar_MULTI() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.MULTI); // 'runSuiteTest' throws Exception
     }
 
-    // @Test
+    @Test
     public void testDT7_DT_jar_MULTI_JANDEX() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.MULTI_JANDEX); // 'runSuiteTest' throws Exception
     }
 
-    // @Test
+    @Test
     public void testDT7_DT_jar_MULTI_JANDEX_FULL() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.MULTI_JANDEX_FULL); // 'runSuiteTest' throws Exception
     }
 
-    // @Test
+    @Test
     public void testDT7_DT_jar_SINGLE_WRITE() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.SINGLE_WRITE); // 'runSuiteTest' throws Exception
     }
 
-    // @Test
+    @Test
     public void testDT7_DT_jar_SINGLE_READ() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.SINGLE_READ); // 'runSuiteTest' throws Exception
     }
 
-    // @Test
+    @Test
     public void testDT7_DT_jar_MULTI_WRITE() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.MULTI_WRITE); // 'runSuiteTest' throws Exception
     }
 
-    // @Test
+    @Test
     public void testDT7_DT_jar_MULTI_READ() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.MULTI_READ); // 'runSuiteTest' throws Exception
     }
 
-    // @Test
+    @Test
     public void testDT7_DT_jar_SINGLE_WRITE_ASYNC() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.SINGLE_WRITE_ASYNC); // 'runSuiteTest' throws Exception
     }
 
-    // @Test
+    @Test
     public void testDT7_DT_jar_MULTI_WRITE_ASYNC() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.MULTI_WRITE_ASYNC); // 'runSuiteTest' throws Exception
     }
@@ -161,5 +161,21 @@ public class DT7_DT_jar_Test extends Test_Base {
     @Test
     public void testDT7_DT_jar_SINGLE_READ_JANDEX_FORMAT() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.SINGLE_READ_JANDEX_FORMAT); // 'runSuiteTest' throws Exception
+    }
+    
+
+    @Test
+    public void testDT7_DT_jar_SINGLE_WRITE_BINARY_FORMAT() throws Exception {
+        runSuiteTest(TestOptions_SuiteCase.SINGLE_WRITE_BINARY_FORMAT); // 'runSuiteTest' throws Exception
+    }
+
+    @Test
+    public void testDT7_DT_jar_SINGLE_READ_BINARY_FORMAT() throws Exception {
+        runSuiteTest(TestOptions_SuiteCase.SINGLE_READ_BINARY_FORMAT); // 'runSuiteTest' throws Exception
+    }
+
+    @Test
+    public void testDT7_DT_jar_SINGLE_READ_BINARY_FORMAT_VALID() throws Exception {
+        runSuiteTest(TestOptions_SuiteCase.SINGLE_READ_BINARY_FORMAT_VALID); // 'runSuiteTest' throws Exception
     }
 }

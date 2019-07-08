@@ -234,7 +234,9 @@ public class UtilImpl_Factory implements Util_Factory {
             recordAdded, recordRemoved, recordChanged, recordStill);
 
         mapDelta.subtract(finalMap, finalDomain, initialMap, initialDomain);
-
+//        if ( !mapDelta.isNull() ) {
+//        	System.out.println("Strange");
+//        }
         return mapDelta;
     }
 

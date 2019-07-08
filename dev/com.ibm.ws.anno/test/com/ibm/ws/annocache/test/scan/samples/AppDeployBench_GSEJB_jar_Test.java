@@ -163,4 +163,19 @@ public class AppDeployBench_GSEJB_jar_Test extends Test_Base {
     public void testAppDeployBench_GSEJB_jar_SINGLE_READ_JANDEX_FORMAT() throws Exception {
         runSuiteTest(TestOptions_SuiteCase.SINGLE_READ_JANDEX_FORMAT); // 'runSuiteTest' throws Exception
     }
+
+    @Test
+    public void testAppDeployBench_GSEJB_jar_SINGLE_WRITE_BINARY_FORMAT() throws Exception {
+        runSuiteTest(TestOptions_SuiteCase.SINGLE_WRITE_BINARY_FORMAT); // 'runSuiteTest' throws Exception
+    }
+
+    @Test
+    public void testAppDeployBench_GSEJB_jar_SINGLE_READ_BINARY_FORMAT() throws Exception {
+        runSuiteTest(TestOptions_SuiteCase.SINGLE_READ_BINARY_FORMAT); // 'runSuiteTest' throws Exception
+    }
+
+    @Test
+    public void testAppDeployBench_GSEJB_jar_SINGLE_READ_BINARY_FORMAT_VALID() throws Exception {
+        runSuiteTest(TestOptions_SuiteCase.SINGLE_READ_BINARY_FORMAT_VALID); // 'runSuiteTest' throws Exception
+    }
 }

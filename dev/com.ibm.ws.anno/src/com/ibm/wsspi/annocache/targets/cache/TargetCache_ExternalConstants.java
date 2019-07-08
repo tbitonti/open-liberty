@@ -68,7 +68,6 @@ public interface TargetCache_ExternalConstants {
 
     /** Name of the resolved class references file. */
     String RESOLVED_REFS_NAME = "resolved";
-
     /** Name of the unresolved class references file. */
     String UNRESOLVED_REFS_NAME = "unresolved";
 
@@ -93,10 +92,13 @@ public interface TargetCache_ExternalConstants {
 
     // Third / container detail level
 
+    /** Name for combined component data.  Used only for logging. */
+    String COMPONENT_NAME = "component";
+
     /** Name of the container time stamp file. */
     String TIMESTAMP_NAME = "stamp";
-    /** Name of the container class references file. */
-    String CLASS_REFS_NAME = "classes";
+    /** Name of the container (and module) classes file. */
+    String CLASSES_NAME = "classes";
     /** Name of the container annotation targets file. */
     String ANNO_TARGETS_NAME = "targets";
 

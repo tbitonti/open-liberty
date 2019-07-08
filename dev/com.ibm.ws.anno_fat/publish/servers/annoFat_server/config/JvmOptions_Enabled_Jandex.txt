@@ -1,3 +1,2 @@
 -Dliberty.beta=true
--Dcom.ibm.ws.anno.scan.threads=1
 -Danno.cache.jandexFormat=true

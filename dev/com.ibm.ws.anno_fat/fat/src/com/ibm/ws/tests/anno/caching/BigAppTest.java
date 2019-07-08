@@ -43,7 +43,7 @@ public class BigAppTest extends AnnoCachingTest {
             }
 
             iterations++;
-            sum = newTime;
+            sum += newTime;
             avg = sum / iterations;
         }
     }
@@ -52,29 +52,45 @@ public class BigAppTest extends AnnoCachingTest {
     public static final boolean CACHE_ENABLED = true;
 
     public static enum StartCase {
-        DISABLED_CLEAN(CACHE_DISABLED, ServerStartType.CLEAN, "Disabled Clean"),
+        DISABLED_SCRUBBED(CACHE_DISABLED, ServerStartType.SCRUBBED, "Disabled Scrubbing"),
+        DISABLED(CACHE_DISABLED, "Disabled"),
 
-        DISABLED_DIRTY(CACHE_DISABLED, "Disabled Dirty"),
-        DISABLED_DIRTY_ONE_SCAN(CACHE_DISABLED, "Disabled Dirty One Scan Thread"),
-        DISABLED_DIRTY_UNLIMITED_SCAN(CACHE_DISABLED, "Disabled Dirty Unlimited Scan Threads"),
+        // The remaining starts are unscrubbed.
+        // The remaining starts are unpopulated unless indicated otherwise.
 
-        ENABLED_UNPOPULATED(CACHE_ENABLED, "Enabled Unpopulated"),
+        ENABLED(CACHE_ENABLED, "Enabled"),
+        ENABLED_BINARY(CACHE_ENABLED, "Enabled Binary Format"),
+        ENABLED_JANDEX(CACHE_ENABLED, "Enabled Using Jandex Format"),
+
         ENABLED_POPULATED(CACHE_ENABLED, "Enabled Populated"),
-        ENABLED_POPULATED_ALWAYS_VALID(CACHE_ENABLED, "Enabled Populated Assumed Valid"),
+        ENABLED_POPULATED_BINARY(CACHE_ENABLED, "Enabled Populated Binary Format"),
+        ENABLED_POPULATED_JANDEX(CACHE_ENABLED, "Enabled Populated Using Jandex Format"),
+        ENABLED_POPULATED_BINARY_JANDEX(CACHE_ENABLED, "Enabled Populated Binary and Jandex Format"),
+        
+        ENABLED_POPULATED_VALID(CACHE_ENABLED, "Enabled Populated Assumed Valid"),
+        ENABLED_POPULATED_BINARY_VALID(CACHE_ENABLED, "Enabled Populated Binary Format Assumed Valid"),
+        ENABLED_POPULATED_BINARY_JANDEX_VALID(CACHE_ENABLED, "Enabled Populated Binary and Jandex Format Assumed Valid"),
 
-        ENABLED_UNPOPULATED_ONE_SCAN(CACHE_ENABLED, "Enabled Unpopulated One Scan Thread"),
-        ENABLED_UNPOPULATED_UNLIMITED_SCAN(CACHE_ENABLED, "Enabled Unpopulated Unlimited Scan Threads"),
+        //
 
-        ENABLED_UNPOPULATED_ONE_WRITE(CACHE_ENABLED, "Enabled Unpopulated One Write Thread"),
-        ENABLED_UNPOPULATED_UNLIMITED_WRITE(CACHE_ENABLED, "Enabled Unpopulated Unlimited Write Threads"),
+        DISABLED_MULTI_SCAN(CACHE_DISABLED, "Disabled Multiple Scan Threads"),
+        DISABLED_UNLIMITED_SCAN(CACHE_DISABLED, "Disabled Unlimited Scan Threads"),
+
+        ENABLED_MULTI_SCAN(CACHE_DISABLED, "Enabled Multiple Scan Threads"),
+        ENABLED_UNLIMITED_SCAN(CACHE_DISABLED, "Enabled Unlimited Scan Threads"),
+
+        ENABLED_MULTI_WRITE(CACHE_ENABLED, "Enabled Multiple Write Thread"),
+        ENABLED_UNLIMITED_WRITE(CACHE_ENABLED, "Enabled Unlimited Write Threads"),
+
+        //
 
         DISABLED_UPDATE(CACHE_DISABLED, "Disabled Application Update"),
         ENABLED_UPDATE(CACHE_ENABLED, "Enabled Application Update"),
-
-        ENABLED_JANDEX_FORMAT(CACHE_ENABLED, "Enabled Unpopulated One Scan Thread Using Jandex Format");
+        ENABLED_UPDATE_BINARY(CACHE_ENABLED, "Enabled Application Update Binary Format"),
+        ENABLED_UPDATE_JANDEX(CACHE_ENABLED, "Enabled Application Update Jandex Format");
 
         private StartCase(boolean enabled, String description) {
-        	this(enabled, ServerStartType.DIRTY, description);
+        	this(enabled, ServerStartType.UNSCRUBBED, description);
         }
 
         private StartCase(boolean enabled, ServerStartType startType, String description) {
@@ -119,28 +135,30 @@ public class BigAppTest extends AnnoCachingTest {
 
     public static void log(StartCase startCase, TimedStart timedStart) {
         info(startCase.description);
-        info("  MAX = " + nsToMs(timedStart.max));
-        info("  MIN = " + nsToMs(timedStart.min));
-        info("  AVG = " + nsToMs(timedStart.avg));
+        info("  Max " + format( nsToMs(timedStart.max) ) + " (ms)");
+        info("  Min " + format( nsToMs(timedStart.min) ) + " (ms)");
+        info("  Avg " + format( nsToMs(timedStart.avg) ) + " (ms)");
     }
 
-    private static void logChange(StartCase initialCase, StartCase finalCase) {
+    private static void logDifference(StartCase initialCase, StartCase finalCase) {
         TimedStart initialData = timingData.get(initialCase);
         TimedStart finalData = timingData.get(finalCase);
 
-        long initialAvg = initialData.avg;
-        long finalAvg = finalData.avg;
+        long initialAvg = nsToMs(initialData.avg);
+        long finalAvg = nsToMs(finalData.avg);
 
         long diff = finalAvg - initialAvg; 
-        float ratio = ( ( initialAvg == 0 ) ? 0.0f : ( ((float) diff) / initialAvg ) );
+        long pct = ( (initialAvg == 0) ? 0 : ((diff * 100) / initialAvg) );
 
-        info("Different: " + initialCase.description + " to: " + finalCase.description);
-        info("  Initial [ " + format(initialAvg) + " ] Final [ " + format(finalAvg) + " ]");
-        info("  Diff    [ " + format(diff) +       " ] Ratio [ " + format(ratio) + " ]");
+        info("Comparing:");
+        info("  " + format(initialAvg) + " (ms) : " + initialCase.description);
+        info("  " + format(finalAvg)   + " (ms) : " + finalCase.description);
+        info("  " + format(diff)       + " (ms) : " + "(difference)");
+        info("  " + format(pct)        + " (%)");
     }
 
     public enum ServerStartType { 
-        NONE, CLEAN, DIRTY; 
+        NONE, SCRUBBED, UNSCRUBBED; 
     }
 
     /**
@@ -173,7 +191,7 @@ public class BigAppTest extends AnnoCachingTest {
         info("Collect: " + startCase + ": with: " + jvmOptions + ": iterations: " + Integer.toString(ITERATIONS));
 
         for ( int startNo = 0; startNo < ITERATIONS; startNo++ ) {
-            cleanupServer();
+            scrubServer();
 
             installJvmOptions(jvmOptions);
             long time = cycleServer(startCase);
@@ -212,6 +230,32 @@ public class BigAppTest extends AnnoCachingTest {
     public static final String THICK_BANNER = "==================================================";
     public static final String THIN_BANNER  = "--------------------------------------------------";
 
+    // DISABLED_SCRUBBED - DISABLED
+    //
+    // DISABLED - ENABLED
+    // ENABLED - ENABLED_BINARY
+    // ENABLED - ENABLED_JANDEX
+    //
+    // DISABLED - ENABLED_POPULATED
+    // ENABLED_POPULATED - ENABLED_POPULATED_BINARY
+    // ENABLED_POPULATED - ENABLED_POPULATED_JANDEX
+    //
+    // ENABLED_POPULATED - ENABLED_POPULATED_VALID
+    // ENABLED_POPULATED_BINARY - ENABLED_POPULATED_BINARY_VALID
+    //
+    // DISABLED - DISABLED_MULTI_SCAN
+    // DISABLED - DISABLED_UNLIMITED_SCAN
+    // DISABLED - ENABLED_ONE_WRITE
+    // DISABLED - ENABLED_UNLIMITED_WRITE
+    //
+    // ENABLED - ENABLED_MULTI_SCAN
+    // ENABLED - ENABLED_UNLIMITED_SCAN
+    //
+    // DISABLED - DISABLED_UPDATE
+    // DISABLED_UPDATE - ENABLED_UPDATE
+    // ENABLED_UPDATE - ENABLED_UPDATE_BINARY
+    // ENABLED_UPDATE - ENABLED_UPDATE_JANDEX
+
     @AfterClass
     public static void cleanUp() throws Exception {
         info("cleanUp ENTER");
@@ -228,33 +272,43 @@ public class BigAppTest extends AnnoCachingTest {
 
         info(THICK_BANNER);
 
-        info("Comparisons:");
-        info(THIN_BANNER);
+        info("Differences:");
 
-        logChange(StartCase.DISABLED_CLEAN, StartCase.DISABLED_DIRTY);
-        logChange(StartCase.DISABLED_DIRTY, StartCase.DISABLED_DIRTY_ONE_SCAN );
-        logChange(StartCase.DISABLED_DIRTY, StartCase.DISABLED_DIRTY_UNLIMITED_SCAN );
         info(THIN_BANNER);
+        logDifference(StartCase.DISABLED_SCRUBBED, StartCase.DISABLED);
+        logDifference(StartCase.DISABLED, StartCase.ENABLED);
+        logDifference(StartCase.ENABLED, StartCase.ENABLED_BINARY);
+        logDifference(StartCase.ENABLED, StartCase.ENABLED_JANDEX);
 
-        logChange(StartCase.ENABLED_UNPOPULATED,  StartCase.ENABLED_POPULATED);
-        logChange(StartCase.ENABLED_POPULATED,  StartCase.ENABLED_POPULATED_ALWAYS_VALID);
-        logChange(StartCase.ENABLED_UNPOPULATED,  StartCase.ENABLED_POPULATED_ALWAYS_VALID);
         info(THIN_BANNER);
+        logDifference(StartCase.DISABLED, StartCase.ENABLED_POPULATED);
+        logDifference(StartCase.ENABLED_POPULATED, StartCase.ENABLED_POPULATED_BINARY);
+        logDifference(StartCase.ENABLED_POPULATED, StartCase.ENABLED_POPULATED_JANDEX);
+        logDifference(StartCase.ENABLED_POPULATED, StartCase.ENABLED_POPULATED_BINARY_JANDEX);
 
-        logChange(StartCase.ENABLED_UNPOPULATED,  StartCase.ENABLED_UNPOPULATED_ONE_SCAN );
-        logChange(StartCase.ENABLED_UNPOPULATED,  StartCase.ENABLED_UNPOPULATED_UNLIMITED_SCAN );
-        logChange(StartCase.ENABLED_UNPOPULATED,  StartCase.ENABLED_UNPOPULATED_ONE_WRITE);
-        logChange(StartCase.ENABLED_UNPOPULATED,  StartCase.ENABLED_UNPOPULATED_UNLIMITED_WRITE);
         info(THIN_BANNER);
+        logDifference(StartCase.ENABLED_POPULATED, StartCase.ENABLED_POPULATED_VALID);
+        logDifference(StartCase.ENABLED_POPULATED, StartCase.ENABLED_POPULATED_BINARY_VALID);
 
-        logChange(StartCase.DISABLED_DIRTY, StartCase.ENABLED_UNPOPULATED);
-        logChange(StartCase.ENABLED_UNPOPULATED,  StartCase.ENABLED_POPULATED);
-        logChange(StartCase.DISABLED_DIRTY, StartCase.ENABLED_POPULATED);
+        // info(THIN_BANNER);
+        // logDifference(StartCase.DISABLED, StartCase.DISABLED_MULTI_SCAN);
+        // logDifference(StartCase.DISABLED, StartCase.DISABLED_UNLIMITED_SCAN);
+        // logDifference(StartCase.DISABLED, StartCase.ENABLED_MULTI_WRITE);
+        // logDifference(StartCase.DISABLED, StartCase.ENABLED_UNLIMITED_WRITE);
+
+
+        // DISABLED - DISABLED_UPDATE
+        // DISABLED_UPDATE - ENABLED_UPDATE
+        // ENABLED_UPDATE - ENABLED_UPDATE_BINARY
+        // ENABLED_UPDATE - ENABLED_UPDATE_JANDEX
+
+        // info(THIN_BANNER);
+        // logDifference( StartCase.DISABLED, StartCase.DISABLED_UPDATE );
+        // logDifference( StartCase.DISABLED_UPDATE, StartCase.ENABLED_UPDATE );
+        // logDifference( StartCase.ENABLED_UPDATE, StartCase.ENABLED_UPDATE_BINARY );
+        // logDifference( StartCase.ENABLED_UPDATE, StartCase.ENABLED_UPDATE_JANDEX );
+
         info(THIN_BANNER);
-
-        logChange( StartCase.DISABLED_UPDATE, StartCase.ENABLED_UPDATE );
-        info(THIN_BANNER);
-
         info(THICK_BANNER);
 
         info("cleanUp RETURN");
@@ -265,10 +319,10 @@ public class BigAppTest extends AnnoCachingTest {
 
         long lStartTime = System.nanoTime();
 
-        if ( startCase.startType == ServerStartType.CLEAN ) {
-            startServerClean();
+        if ( startCase.startType == ServerStartType.SCRUBBED ) {
+            startServerScrub();
         } else {
-            startServerDirty();
+            startServer();
         }
 
         long lEndTime = System.nanoTime();
@@ -282,103 +336,158 @@ public class BigAppTest extends AnnoCachingTest {
         return elapsed;
     }
 
-    private static void cleanupServer() throws Exception {
+    private static void scrubServer() throws Exception {
         installJvmOptions("JvmOptions_Disabled.txt");
-        startServerClean();
+        startServerScrub();
         stopServer();
     }
 
-    private static void populateServer() throws Exception {
-        installJvmOptions("JvmOptions_Enabled.txt");
-        startServerClean();
+    public static enum PopulateCase {
+    	TEXT("JvmOptions_Enabled.txt"),
+    	BINARY("JvmOptions_Enabled_Binary.txt"),
+    	JANDEX("JvmOptions_Enabled_Jandex.txt"),
+    	BINARY_JANDEX("JvmOptions_Enabled_Binary_Jandex.txt");
+
+    	private PopulateCase(String jvmOptions) {
+    		this.jvmOptions = jvmOptions;
+    	}
+
+    	private final String jvmOptions;
+
+    	public String getJvmOptions() {
+    		return jvmOptions;
+    	}
+    }
+
+    private static void populateServer(PopulateCase populateCase) throws Exception {
+        installJvmOptions( populateCase.getJvmOptions() );
+        startServerScrub();
         stopServer();
     }
 
     //
 
     @Test
-    public void bigApp_testDisabledClean() throws Exception {
-        cleanupServer();
+    public void bigApp_testDisabledScrubbed() throws Exception {
+        scrubServer();
 
         installJvmOptions("JvmOptions_Disabled.txt");
-        collect(StartCase.DISABLED_CLEAN);
+        collect(StartCase.DISABLED_SCRUBBED);
     }
 
     @Test
-    public void bigApp_testDisabledDirty() throws Exception {
-        cleanupServer();
+    public void bigApp_testDisabled() throws Exception {
+        scrubServer();
 
         installJvmOptions("JvmOptions_Disabled.txt");
-        collect(StartCase.DISABLED_DIRTY);
-    }
-
-    @Test
-    public void bigApp_testDisabledDirtyOneScanThread() throws Exception {
-        cleanupServer();
-
-        installJvmOptions("JvmOptions_Disabled_ScanThreads_1.txt");
-        collect(StartCase.DISABLED_DIRTY_ONE_SCAN);
-    }
-
-    @Test
-    public void bigApp_testDisabledDirtyUnlimitedScanThreads() throws Exception {
-        cleanupServer();
-
-        installJvmOptions("JvmOptions_Disabled_ScanThreads_-1.txt");
-        collect(StartCase.DISABLED_DIRTY_UNLIMITED_SCAN);
+        collect(StartCase.DISABLED);
     }
 
     //
 
     @Test
-    public void bigApp_testEnabledUnpopulated() throws Exception {
-        collect(StartCase.ENABLED_UNPOPULATED, "JvmOptions_Enabled.txt"); 
+    public void bigApp_testEnabled() throws Exception {
+        collect(StartCase.ENABLED, "JvmOptions_Enabled.txt"); 
+    }
+
+    @Test
+    public void bigApp_testEnabledBinary() throws Exception { 
+        scrubServer();
+
+        installJvmOptions("JvmOptions_Enabled_Binary.txt");
+        collect(StartCase.ENABLED_BINARY);
+    }
+
+    @Test
+    public void bigApp_testEnabledJandex() throws Exception { 
+        scrubServer();
+
+        installJvmOptions("JvmOptions_Enabled_Jandex.txt");
+        collect(StartCase.ENABLED_JANDEX);
     }
 
     @Test
     public void bigApp_testEnabledPopulated() throws Exception {
-        populateServer();
-
-        installJvmOptions("JvmOptions_Enabled.txt");
+        populateServer(PopulateCase.TEXT);
         collect(StartCase.ENABLED_POPULATED);
     }
 
     @Test
+    public void bigApp_testEnabledPopulatedBinary() throws Exception {
+        populateServer(PopulateCase.BINARY);
+        collect(StartCase.ENABLED_POPULATED_BINARY);
+    }
+
+    @Test
+    public void bigApp_testEnabledPopulatedJandex() throws Exception {
+        populateServer(PopulateCase.JANDEX);
+        collect(StartCase.ENABLED_POPULATED_JANDEX);
+    }
+
+    @Test
+    public void bigApp_testEnabledPopulatedBinaryJandex() throws Exception {
+        populateServer(PopulateCase.BINARY_JANDEX);
+        collect(StartCase.ENABLED_POPULATED_BINARY_JANDEX);
+    }
+
+    @Test
     public void bigApp_testEnabledPopulatedValid() throws Exception {
-        populateServer();
-
+        populateServer(PopulateCase.TEXT);
         installJvmOptions("JvmOptions_Enabled_AlwaysValid.txt");
-        collect(StartCase.ENABLED_POPULATED_ALWAYS_VALID);
+        collect(StartCase.ENABLED_POPULATED_VALID);
+    }
+
+    @Test
+    public void bigApp_testEnabledPopulatedBinaryValid() throws Exception {
+        populateServer(PopulateCase.BINARY);
+        installJvmOptions("JvmOptions_Enabled_Binary_AlwaysValid.txt");
+        collect(StartCase.ENABLED_POPULATED_BINARY_VALID);
     }
 
     //
 
-    @Test
-    public void bigApp_testEnabledUnpopulatedOneWriteThread() throws Exception {
-        collect(StartCase.ENABLED_UNPOPULATED_ONE_WRITE, "JvmOptions_Enabled_WriteThreads_1.txt"); 
+    // @Test
+    public void bigApp_testDisabledMultiScanThread() throws Exception {
+        scrubServer();
+
+        installJvmOptions("JvmOptions_Disabled_ScanMulti.txt");
+        collect(StartCase.DISABLED_MULTI_SCAN);
     }
 
-    @Test
-    public void bigApp_testEnabledUnpopulatedUnlimitedWriteThreads() throws Exception {
-        collect(StartCase.ENABLED_UNPOPULATED_UNLIMITED_WRITE, "JvmOptions_Enabled_WriteThreads_-1.txt");
+    // @Test
+    public void bigApp_testEnabledOneScanThread() throws Exception {
+        collect(StartCase.ENABLED_MULTI_SCAN, "JvmOptions_Enabled_ScanMulti.txt");
     }
 
-    @Test
-    public void bigApp_testEnabledUnpopulatedOneScanThread() throws Exception {
-        collect(StartCase.ENABLED_UNPOPULATED_ONE_SCAN, "JvmOptions_Enabled_ScanThreads_1.txt");
+    // @Test
+    public void bigApp_testDisabledUnlimitedScanThreads() throws Exception {
+        scrubServer();
+
+        installJvmOptions("JvmOptions_Disabled_ScanUnlimited.txt");
+        collect(StartCase.DISABLED_UNLIMITED_SCAN);
     }
 
-    @Test
-    public void bigApp_testEnabledUnpopulatedUnlimitedScanThreads() throws Exception {
-        collect(StartCase.ENABLED_UNPOPULATED_UNLIMITED_SCAN, "JvmOptions_Enabled_ScanThreads_-1.txt");
+    // @Test
+    public void bigApp_testEnabledOneWriteThread() throws Exception {
+        collect(StartCase.ENABLED_MULTI_WRITE, "JvmOptions_Enabled_WriteMulti.txt"); 
+    }
+
+    // @Test
+    public void bigApp_testEnabledUnlimitedWriteThreads() throws Exception {
+        collect(StartCase.ENABLED_UNLIMITED_WRITE, "JvmOptions_Enabled_WriteUnlimited.txt");
+    }
+
+    // @Test
+    public void bigApp_testEnabledUnlimitedScanThreads() throws Exception {
+        collect(StartCase.ENABLED_UNLIMITED_SCAN, "JvmOptions_Enabled_ScanUnlimited.txt");
     }
 
     //
 
-    @Test
+    // @Test
     public void bigApp_testDisabledAppUpdate() throws Exception { 
         installJvmOptions("JvmOptions_Disabled.txt");
-        startServerClean();
+        startServerScrub();
 
         StartCase startCase = StartCase.DISABLED_UPDATE;
 
@@ -393,12 +502,48 @@ public class BigAppTest extends AnnoCachingTest {
         stopServer();
     }
 
-    @Test
+    // @Test
     public void bigApp_testEnabledAppUpdate() throws Exception { 
         installJvmOptions("JvmOptions_Enabled.txt");
-        startServerClean();
+        startServerScrub();
 
         StartCase startCase = StartCase.ENABLED_UPDATE;
+
+        for ( int startNo = 0; startNo < ITERATIONS; startNo++ ) {
+            long removeTime = timedRemoveJar("pmt.jar");
+            add(startCase, removeTime);
+
+            long addTime = timedAddJar("pmt.jar");
+            add(startCase, addTime);
+        }
+
+        stopServer();
+    }
+    
+    // @Test
+    public void bigApp_testEnabledAppUpdateBinary() throws Exception { 
+        installJvmOptions("JvmOptions_Enabled_Binary.txt");
+        startServerScrub();
+
+        StartCase startCase = StartCase.ENABLED_UPDATE_BINARY;
+
+        for ( int startNo = 0; startNo < ITERATIONS; startNo++ ) {
+            long removeTime = timedRemoveJar("pmt.jar");
+            add(startCase, removeTime);
+
+            long addTime = timedAddJar("pmt.jar");
+            add(startCase, addTime);
+        }
+
+        stopServer();
+    }
+
+    // @Test
+    public void bigApp_testEnabledAppUpdateJandex() throws Exception { 
+        installJvmOptions("JvmOptions_Enabled_Jandex.txt");
+        startServerScrub();
+
+        StartCase startCase = StartCase.ENABLED_UPDATE_JANDEX;
 
         for ( int startNo = 0; startNo < ITERATIONS; startNo++ ) {
             long removeTime = timedRemoveJar("pmt.jar");
@@ -421,15 +566,5 @@ public class BigAppTest extends AnnoCachingTest {
         logBlock("Adding jar: " + jarName);
         renameJarFileInApplication("big-cdi-meetings.war", jarName + "_backup", jarName);
         return waitForAppUpdate();
-    }
-
-    //
-
-    @Test
-    public void bigApp_testEnabledJandexFormat() throws Exception { 
-        cleanupServer();
-
-        installJvmOptions("JvmOptions_JandexFormat.txt");
-        collect(StartCase.ENABLED_JANDEX_FORMAT);
     }
 }

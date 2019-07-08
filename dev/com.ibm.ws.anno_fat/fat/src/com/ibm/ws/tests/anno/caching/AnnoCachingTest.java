@@ -204,14 +204,14 @@ public abstract class AnnoCachingTest extends LoggingTest {
         }
     }
 
-    public static final boolean DO_CLEAN = true;
-    public static final boolean DO_NOT_CLEAN = false;
+    public static final boolean DO_SCRUB = true;
+    public static final boolean DO_NOT_SCRUB = false;
 
-    protected static void startServer(boolean doClean) throws Exception {
-        LOG.info("startServer: ENTER: clean: " + Boolean.toString(doClean));
+    protected static void startServer(boolean doScrub) throws Exception {
+        LOG.info("startServer: ENTER: clean: " + Boolean.toString(doScrub));
 
-        getServer().startIfNotStarted(false,   // Don't preClean 
-                                      doClean,
+        getServer().startIfNotStarted(false,   // Don't preScrub 
+                                      doScrub,
                                       false);  // Don't validate apps have started
 
         LOG.info("startServer: RETURN");
@@ -219,20 +219,20 @@ public abstract class AnnoCachingTest extends LoggingTest {
 
     //
 
-    protected static void startServerClean() throws Exception {
-        LOG.info("startServerClean: ENTER");
+    protected static void startServerScrub() throws Exception {
+        LOG.info("startServerScrub: ENTER");
 
         getServer().startIfNotStarted();
 
-        LOG.info("startServerClean: RETURN");
+        LOG.info("startServerScrub: RETURN");
     }
 
-    protected static void startServerDirty() throws Exception {
-        LOG.info("startServerDirty: ENTER");
+    protected static void startServer() throws Exception {
+        LOG.info("startServer: ENTER");
 
         getServer().startIfNotStarted(false, false, false);
 
-        LOG.info("startServerDirty: RETURN");
+        LOG.info("startServer: RETURN");
     }
 
     protected static void stopServer()  {

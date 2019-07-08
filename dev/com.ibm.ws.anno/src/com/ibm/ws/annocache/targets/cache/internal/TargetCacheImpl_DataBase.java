@@ -15,6 +15,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -23,9 +24,13 @@ import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.annocache.service.internal.AnnotationCacheServiceImpl_Logging;
 import com.ibm.ws.annocache.targets.cache.TargetCache_ParseError;
 import com.ibm.ws.annocache.targets.cache.TargetCache_Readable;
+import com.ibm.ws.annocache.targets.internal.TargetsTableAnnotationsImpl;
+import com.ibm.ws.annocache.targets.internal.TargetsTableClassesImpl;
+import com.ibm.ws.annocache.targets.internal.TargetsTableTimeStampImpl;
 import com.ibm.ws.annocache.util.internal.UtilImpl_FileUtils;
 import com.ibm.wsspi.annocache.targets.cache.TargetCache_Options;
 import com.ibm.wsspi.annocache.util.Util_Consumer;
+import com.ibm.wsspi.annocache.util.Util_Function;
 
 /**
  * Core type for cache data.
@@ -33,14 +38,6 @@ import com.ibm.wsspi.annocache.util.Util_Consumer;
 public abstract class TargetCacheImpl_DataBase {
     private static final String CLASS_NAME = TargetCacheImpl_DataBase.class.getSimpleName();
     protected static final Logger logger = AnnotationCacheServiceImpl_Logging.ANNO_LOGGER;
-
-    protected static String getPath(File file) {
-        if ( file == null ) {
-            return null;
-        } else {
-            return file.getAbsolutePath();
-        }
-    }
 
     //
 
@@ -86,11 +83,11 @@ public abstract class TargetCacheImpl_DataBase {
     protected TargetCacheImpl_DataCon createConData(
         TargetCacheImpl_DataBase parentCache,
         String conPath, String e_conPath, File conFile,
-        boolean isComponent) {
+        boolean isSource) {
         return getFactory().createConData(
             parentCache,
             conPath, e_conPath, conFile,
-            isComponent);
+            isSource);
     }
 
     //
@@ -125,6 +122,11 @@ public abstract class TargetCacheImpl_DataBase {
     @Trivial
     public int getWriteThreads() {
         return getCacheOptions().getWriteThreads();
+    }
+
+    @Trivial
+    public boolean getLogQueries() {
+        return getCacheOptions().getLogQueries();
     }
 
     //
@@ -177,20 +179,6 @@ public abstract class TargetCacheImpl_DataBase {
     }
 
     //
-
-    @Trivial
-    public TargetCacheImpl_Reader createReader(File inputFile) throws IOException {
-        String inputPath = inputFile.getName();
-
-        InputStream inputStream = openInputStream(inputFile); // throws IOException
-
-        return createReader(inputPath, inputStream);
-    }
-
-    @Trivial
-    public TargetCacheImpl_Reader createReader(String inputPath, InputStream inputStream) {
-        return getFactory().createReader(inputPath, inputStream);
-    }
 
     @Trivial
     public TargetCacheImpl_Writer createWriter(File outputFile) throws IOException {
@@ -265,36 +253,154 @@ public abstract class TargetCacheImpl_DataBase {
 
     //
 
-    public boolean read(File inputFile, TargetCache_Readable ... readables) {
-        IOException boundException = null;
-        List<TargetCache_ParseError> parseErrors = null;
+    @Trivial
+    public TargetCacheImpl_WriterBinary createBinaryWriter(File outputFile) throws IOException {
+        return createBinaryWriter(outputFile, TargetCacheImpl_DataBase.DO_TRUNCATE);
+    }
 
-        String methodName = "read";
+    @Trivial
+    public TargetCacheImpl_WriterBinary createBinaryWriter(File outputFile, boolean doTruncate) throws IOException {
+        String outputName = outputFile.getName();
+
+        File parentFile = outputFile.getParentFile();
+
+        mkdirs(parentFile);
+
+        if ( !exists(parentFile) ) {
+            throw new IOException("Parent [ " + parentFile.getName() + " ] for write [ " + outputName + " ] does not exist");
+        } else if ( !isDirectory(parentFile) ) {
+            throw new IOException("Parent [ " + parentFile.getName() + " ] for write [ " + outputName + " ] exists but is not a directory");
+        }
+
+        OutputStream outputStream = openOutputStream(outputFile, doTruncate); // throws IOException
+
+        return createBinaryWriter(outputName, outputStream); // throws IOException
+    }
+
+    @Trivial
+    public TargetCacheImpl_WriterBinary createBinaryWriter(String outputName, OutputStream outputStream) 
+        throws IOException {
+
+        return getFactory().createBinaryWriter(outputName, outputStream);
+        // 'createBinaryWriter' throws IOException
+    }
+
+    public void performBinaryWrite(
+        String description,
+        File outputFile, boolean doTruncate,
+        Util_Consumer<TargetCacheImpl_WriterBinary, IOException> writeAction) {
+
+        String methodName = "performWrite";
+
+        if ( description != null ) {
+            logger.logp(Level.FINER, CLASS_NAME, methodName, "ENTER {0}", description);
+        }
+
+        long writeStart = System.nanoTime();
+
+        TargetCacheImpl_WriterBinary useWriter;
 
         try {
-            TargetCacheImpl_Reader reader = createReader(inputFile); // throws IOException
+            useWriter = createBinaryWriter(outputFile, doTruncate);
+        } catch ( IOException e ) {
+            useWriter = null;
+            // CWWKC0101W: Annotation processing cache error: {0}
+            logger.logp(Level.WARNING, CLASS_NAME, methodName, "ANNO_TARGETS_CACHE_EXCEPTION", e.getMessage());
+        }
+
+        if ( useWriter != null ) {
             try {
-                for ( TargetCache_Readable readable : readables ) {
-                    if ( logger.isLoggable(Level.FINER) ) {
-                        logger.logp(Level.FINER, CLASS_NAME, methodName, "Read [ {0} ]", readable);
-                    }
-                    parseErrors = readable.readUsing(reader); // throws IOException
-                    if ( !parseErrors.isEmpty() ) {
-                        break;
-                    }
-                }
+                writeAction.accept(useWriter);
+            } catch ( IOException e ) {
+                // CWWKC0101W: Annotation processing cache error: {0}
+                logger.logp(Level.WARNING, CLASS_NAME, methodName, "ANNO_TARGETS_CACHE_EXCEPTION", e.getMessage());
             } finally {
-                reader.close(); // throws IOException
+                useWriter.close();
             }
+        }
+
+        @SuppressWarnings("unused")
+        long duration = addWriteTime(writeStart, description);
+
+        if ( description != null ) {
+            logger.logp(Level.FINER, CLASS_NAME, methodName, "RETURN {0}", description);
+        }
+    }
+
+    //
+
+    @Trivial
+    public TargetCacheImpl_Reader createReader(File inputFile) throws IOException {
+        String inputPath = inputFile.getName();
+
+        InputStream inputStream = openInputStream(inputFile); // throws IOException
+
+        return createReader(inputPath, inputStream);
+    }
+
+    @Trivial
+    public TargetCacheImpl_Reader createReader(String inputPath, InputStream inputStream) {
+        return getFactory().createReader(inputPath, inputStream);
+    }
+
+    public boolean readBinary(
+        File inputFile, boolean readStrings,
+        Util_Consumer<TargetCacheImpl_ReaderBinary, IOException> readAction) {
+
+        IOException boundException = null;
+
+        try {
+            TargetCacheImpl_ReaderBinary reader =
+                createBinaryReader(inputFile, readStrings); // throws IOException
+
+            if ( reader != null ) {
+                try {
+                    readAction.accept(reader);
+                } finally {
+                    reader.close(); // throws IOException
+                }
+            }
+
         } catch ( IOException e ) {
             boundException = e;
         }
 
-        if ( readError(inputFile, boundException, parseErrors) ) {
+        if ( readError(inputFile, boundException, null) ) {
             return false;
         }
 
         return true;
+    }
+
+    @SuppressWarnings("null")
+    public String basicValidCombinedBinary(
+        File inputFile, boolean readStrings,
+        Util_Function<TargetCacheImpl_ReaderBinary, IOException, String> readAction) {
+
+        IOException boundException = null;
+        String readResult = null;
+
+        try {
+            TargetCacheImpl_ReaderBinary reader =
+                createBinaryReader(inputFile, readStrings); // throws IOException
+
+            if ( reader != null ) {
+                try {
+                    readResult = readAction.apply(reader);
+                } finally {
+                    reader.close(); // throws IOException
+                }
+            }
+
+        } catch ( IOException e ) {
+            boundException = e;
+        }
+
+        if ( readError(inputFile, boundException, null) ) {
+            return "Read exception: " + boundException.getMessage();
+        } else {
+            return readResult;
+        }
     }
 
     @Trivial
@@ -322,6 +428,126 @@ public abstract class TargetCacheImpl_DataBase {
         }
 
         return true;
+    }
+
+    //
+    
+    @Trivial
+    public TargetCacheImpl_ReaderBinary createBinaryReader(File inputFile, boolean readStrings)
+        throws IOException {
+
+        String inputPath = inputFile.getName();
+
+        RandomAccessFile randomInputFile = openRandomInputFile(inputFile); // throws IOException
+
+        return createBinaryReader(inputPath, randomInputFile, readStrings); // throws IOException
+    }
+
+    @Trivial
+    public TargetCacheImpl_ReaderBinary createBinaryReader(
+        String inputPath, RandomAccessFile inputFile,
+        boolean readStrings) throws IOException {
+
+        return getFactory().createBinaryReader(inputPath, inputFile, readStrings);
+        // 'createBinaryReader' throws IOException
+    }
+
+    public boolean read(File inputFile, TargetCache_Readable ... readables) {
+        IOException boundException = null;
+        List<TargetCache_ParseError> parseErrors = null;
+
+        String methodName = "read";
+
+        try {
+            TargetCacheImpl_Reader reader = createReader(inputFile); // throws IOException
+            
+            if ( reader != null ) {
+                try {
+                    for ( TargetCache_Readable readable : readables ) {
+                        if ( logger.isLoggable(Level.FINER) ) {
+                            logger.logp(Level.FINER, CLASS_NAME, methodName, "Read [ {0} ]", readable);
+                        }
+                        parseErrors = readable.readUsing(reader); // throws IOException
+                        if ( !parseErrors.isEmpty() ) {
+                            break;
+                        }
+                    }
+                } finally {
+                    reader.close(); // throws IOException
+                }
+            }
+        } catch ( IOException e ) {
+            boundException = e;
+        }
+
+        if ( readError(inputFile, boundException, parseErrors) ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public String basicValidCombined(File inputFile,
+        String currentStamp,
+        TargetsTableTimeStampImpl stampTable,
+        TargetsTableClassesImpl classesTable,
+        TargetsTableAnnotationsImpl targetsTable) {
+
+        String methodName = "read";
+
+        IOException boundException = null;
+        List<TargetCache_ParseError> parseErrors = null;
+
+        boolean stampDifference = false;
+
+        try {
+            TargetCacheImpl_Reader reader = createReader(inputFile); // throws IOException
+
+            if ( reader != null ) {
+                try {
+                    if ( logger.isLoggable(Level.FINER) ) {
+                        logger.logp(Level.FINER, CLASS_NAME, methodName, "Read [ {0} ]", stampTable);
+                    }
+                    parseErrors = stampTable.readUsing(reader); // throws IOException
+
+                    if ( parseErrors.isEmpty() ) {
+                        if ( !currentStamp.equals( stampTable.getStamp() ) ) {
+                            stampDifference = true;
+
+                        } else {
+                            if ( logger.isLoggable(Level.FINER) ) {
+                                logger.logp(Level.FINER, CLASS_NAME, methodName, "Read [ {0} ]", classesTable);
+                            }
+                            parseErrors = classesTable.readUsing(reader); // throws IOException
+
+                            if ( parseErrors.isEmpty() ) {
+                                if ( logger.isLoggable(Level.FINER) ) {
+                                    logger.logp(Level.FINER, CLASS_NAME, methodName, "Read [ {0} ]", targetsTable);
+                                }
+                                parseErrors = targetsTable.readUsing(reader); // throws IOException
+                            }
+                        }
+                    }
+
+                } finally {
+                    reader.close(); // throws IOException
+                }
+            }
+        } catch ( IOException e ) {
+            boundException = e;
+        }
+
+        if ( readError(inputFile, boundException, parseErrors) ) {
+            if ( boundException != null ) {
+                return "Read exception: " + boundException.getMessage();
+            } else {
+                return "Parse error";
+            }
+        } else if ( stampDifference ) {
+            return "Stamp difference";
+        } else {
+            return null;
+        }
     }
 
     //
@@ -475,6 +701,11 @@ public abstract class TargetCacheImpl_DataBase {
     @Trivial
     protected InputStream openInputStream(File file) throws IOException {
         return UtilImpl_FileUtils.createFileInputStream(file); // throws IOException
+    }
+    
+    @Trivial
+    protected RandomAccessFile openRandomInputFile(File file) throws IOException {
+        return UtilImpl_FileUtils.createRandomInputFile(file); // throws IOException
     }
 
     //

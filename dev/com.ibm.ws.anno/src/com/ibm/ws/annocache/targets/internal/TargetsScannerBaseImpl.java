@@ -88,6 +88,8 @@ public class TargetsScannerBaseImpl {
 
         this.rootClassSource = rootClassSource;
 
+        this.policyCounts = createPolicyCounts(rootClassSource);
+
         this.targetsTables = new HashMap<String, TargetsTableImpl>();
 
         this.resultTables = createResultTables();
@@ -167,7 +169,7 @@ public class TargetsScannerBaseImpl {
      *
      * @return A new targets table.
      */
-    protected TargetsTableImpl createTargetsTable(ScanPolicy scanPolicy) {
+    protected TargetsTableImpl createResultTargetsTable(ScanPolicy scanPolicy) {
         // Use the intern maps of this scanner, which are the intern maps
         // of the annotations targets.
         TargetsTableImpl resultTable =
@@ -319,24 +321,7 @@ public class TargetsScannerBaseImpl {
      *     source.
      */
     public boolean isScanSingleSource() {
-        boolean foundFirst = false;
-
-        for ( ClassSource childClassSource : rootClassSource.getClassSources() ) {
-            ScanPolicy childScanPolicy = rootClassSource.getScanPolicy(childClassSource);
-            if ( childScanPolicy == ScanPolicy.EXTERNAL ) {
-                continue; // Ignore the external class source
-            } else if ( foundFirst ) {
-                return false; // This is the second internal class source.
-            } else {
-                foundFirst = true; // This is the first internal class source.
-            }
-        }
-
-        // This is *not* based on 'foundFirst': 'foundFirst' will be true
-        // if there is exactly only internal class source.  'foundFirst' will
-        // be false if there are no internal class sources.
-
-        return true;
+        return ( rootClassSource.getInternalSourceCount() <= 1 );
     }
 
     public boolean getUseJandex() {
@@ -352,7 +337,7 @@ public class TargetsScannerBaseImpl {
      *     index.  This implementation always answers false.
      */
     public boolean getUseJandexFormat() {
-    	return false;
+        return false;
     }
 
     //
@@ -442,8 +427,26 @@ public class TargetsScannerBaseImpl {
 
     @Trivial
     public TargetsTableImpl scanInternal(ClassSource classSource,
-                                        Set<String> i_useResolvedClassNames,
-                                        Set<String> i_useUnresolvedClassNames) {
+                                         Set<String> i_useResolvedClassNames,
+                                         Set<String> i_useUnresolvedClassNames) {
+
+        TargetsTableImpl useTargetsTable = createTargetsTable(classSource);
+
+        scanInternal(
+            classSource,
+            i_useResolvedClassNames, i_useUnresolvedClassNames,
+            useTargetsTable);
+
+        return useTargetsTable;
+    }
+
+    @Trivial
+    public void scanInternal(
+        ClassSource classSource,
+        Set<String> i_useResolvedClassNames,
+        Set<String> i_useUnresolvedClassNames,
+        TargetsTableImpl targetsTable) {
+
         String methodName = "scanInternal";
 
         Object[] logParms;
@@ -461,8 +464,6 @@ public class TargetsScannerBaseImpl {
         } else {
             logParms = null;
         }
-
-        TargetsTableImpl targetsTable = createTargetsTable(classSource);
 
         try {
             targetsTable.scanInternal(
@@ -489,8 +490,6 @@ public class TargetsScannerBaseImpl {
                 logger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ] Final unresolved [ {1} ]", logParms);
             }
         }
-
-        return targetsTable;
     }
 
     @Trivial
@@ -584,6 +583,23 @@ public class TargetsScannerBaseImpl {
 
     //
 
+    protected final int[] policyCounts;
+
+    protected int[] createPolicyCounts(ClassSource_Aggregate useRootClassSource) {
+        int[] usePolicyCounts = new int[ ScanPolicy.values().length ];
+
+        for ( ClassSource classSource : useRootClassSource.getClassSources() ) {
+            ScanPolicy scanPolicy = useRootClassSource.getScanPolicy(classSource);
+            usePolicyCounts[ scanPolicy.ordinal() ]++;
+        }
+
+        return usePolicyCounts;
+    }
+
+    public int getPolicyCount(ScanPolicy scanPolicy) {
+        return policyCounts[ scanPolicy.ordinal() ];
+    }
+
     protected final TargetsTableImpl[] resultTables;
 
     public TargetsTableImpl[] createResultTables() {
@@ -650,14 +666,14 @@ public class TargetsScannerBaseImpl {
 
             TargetsTableImpl resultTable = useResultTables[ scanPolicy.ordinal() ];
             if ( resultTable == null ) {
-                resultTable = ( useResultTables[ scanPolicy.ordinal() ] = createTargetsTable(scanPolicy) );
+                resultTable = ( useResultTables[ scanPolicy.ordinal() ] = createResultTargetsTable(scanPolicy) );
             }
             resultTable.restrictedAdd(targetsTable, i_addedPackageNames, i_addedClassNames);
         }
 
         for ( ScanPolicy scanPolicy : ScanPolicy.values() ) {
             if ( useResultTables[ scanPolicy.ordinal() ] == null ) {
-                useResultTables[ scanPolicy.ordinal() ] = createTargetsTable(scanPolicy);
+                useResultTables[ scanPolicy.ordinal() ] = createResultTargetsTable(scanPolicy);
             }
         }
     }

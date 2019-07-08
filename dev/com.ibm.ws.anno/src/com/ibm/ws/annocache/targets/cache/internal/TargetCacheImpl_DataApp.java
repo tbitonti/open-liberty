@@ -56,6 +56,8 @@ public class TargetCacheImpl_DataApp extends TargetCacheImpl_DataBase {
 
         super( apps.getFactory(), appName, e_appName, appDir );
 
+        // (new Throwable("DataApp [ " + appName + " : " + ((appDir == null) ? "*** NULL ***" : appDir.getAbsolutePath()) + " ]")).printStackTrace(System.out);
+
         this.apps = apps;
 
         this.modsLock = new ModsLock();
@@ -168,11 +170,11 @@ public class TargetCacheImpl_DataApp extends TargetCacheImpl_DataBase {
     private final ConsLock consLock;
     private final WeakHashMap<String, TargetCacheImpl_DataCon> cons;
 
-    public TargetCacheImpl_DataCon getConForcing(String conPath) {
+    public TargetCacheImpl_DataCon getSourceConForcing(String conPath) {
         synchronized( consLock ) {
             TargetCacheImpl_DataCon con = cons.get(conPath);
             if ( con == null ) {
-                con = createSimpleConData(conPath);
+                con = createSourceConData(conPath);
                 cons.put(conPath, con);
             }
             return con;
@@ -180,12 +182,12 @@ public class TargetCacheImpl_DataApp extends TargetCacheImpl_DataBase {
     }
 
     @Trivial
-    public TargetCacheImpl_DataCon createSimpleConData(String conName) {
+    public TargetCacheImpl_DataCon createSourceConData(String conName) {
         String e_conName = encode(conName);
         File e_resultConFile = e_getConFile(e_conName);
         return createConData( this,
             conName, e_conName, e_resultConFile,
-            TargetCacheImpl_DataCon.IS_COMPONENT_CONTAINER);
+            TargetCacheImpl_DataCon.IS_SOURCE);
     }
 
     //
@@ -255,13 +257,16 @@ public class TargetCacheImpl_DataApp extends TargetCacheImpl_DataBase {
         return ( getWritePool() == null );
     }
 
+    // TODO: Unify the writer types.
+
     @Trivial
     protected void scheduleWrite(
         TargetCacheImpl_DataMod modData,
         String description,
         File outputFile,
         boolean doTruncate,
-        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction) {
+        Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction,
+        Util_Consumer<TargetCacheImpl_WriterBinary, IOException> writeActionBinary) {
 
         String methodName = "scheduleWrite";
 
@@ -271,7 +276,11 @@ public class TargetCacheImpl_DataApp extends TargetCacheImpl_DataBase {
                 logger.logp(Level.FINER, CLASS_NAME, methodName, "ENTER (immediate) [ {0} ]", description);
             }
 
-            modData.performWrite(description, outputFile, doTruncate, writeAction);
+            if ( writeAction != null ) {
+                modData.performWrite(description, outputFile, doTruncate, writeAction);
+            } else {
+                modData.performBinaryWrite(description, outputFile, doTruncate, writeActionBinary);
+            }
 
             if ( logger.isLoggable(Level.FINER) ) {
                 logger.logp(Level.FINER, CLASS_NAME, methodName, "RETURN (immediate) [ {0} ]", description);
@@ -289,7 +298,11 @@ public class TargetCacheImpl_DataApp extends TargetCacheImpl_DataBase {
                 public void run() {
                     String innerMethodName = "scheduleWrite.run";
                     try {
-                        modData.performWrite(description, outputFile, doTruncate, writeAction);
+                        if ( writeAction != null ) {
+                            modData.performWrite(description, outputFile, doTruncate, writeAction);
+                        } else {
+                            modData.performBinaryWrite(description, outputFile, doTruncate, writeActionBinary);
+                        }
 
                     } catch ( RuntimeException e ) {
                         // Capture and display any exception from the spawned writer thread.

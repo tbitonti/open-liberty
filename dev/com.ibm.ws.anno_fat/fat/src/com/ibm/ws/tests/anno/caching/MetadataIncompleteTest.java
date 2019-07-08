@@ -37,7 +37,7 @@ public class MetadataIncompleteTest extends AnnoCachingTest {
         addToAppsDir( createApp() );
         installServerXml("jandexDefaultsAutoExpandTrue_server.xml");
 
-        startServerClean();
+        startServerScrub();
 
         LOG.info("Complete");
     }

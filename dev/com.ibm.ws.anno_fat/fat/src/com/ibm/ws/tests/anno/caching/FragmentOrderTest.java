@@ -37,9 +37,9 @@ public class FragmentOrderTest extends AnnoCachingTest {
         unexpandApp(); // TODO: This is a temporary workaround.
 
         if ( startType == ServerStartType.CLEAN ) {
-        	startServerClean();
+        	startServerScrub();
         } else if ( startType == ServerStartType.DIRTY ) {
-        	startServerDirty();
+        	startServer();
         } else if ( startType == ServerStartType.NONE ) {
         	waitForAppUpdate();
         } else {
@@ -84,7 +84,7 @@ public class FragmentOrderTest extends AnnoCachingTest {
         installServerXml("jandexDefaultsAutoExpandTrue_server.xml");  // Default: Do NOT use Jandex.
 
         long lStartTime = System.nanoTime();
-        startServerClean();
+        startServerScrub();
         long lEndTime = System.nanoTime();        
         long elapsed = lEndTime - lStartTime;
         LOG.info("Server started in milliseconds: " + elapsed / 1000000);        
@@ -179,34 +179,28 @@ public class FragmentOrderTest extends AnnoCachingTest {
         tryWith_A_B(ServerStartType.CLEAN, "Initial Test with web.xml containing Fragments A & B");       
     }
   
-    /**
-     * Test a clean startup with scan threads reduced to 1, then with scan threads
-     * set to -1 (unlimited).
-     */
     @Test
-    public void fragmentOrder_testReducedScanThreads() throws Exception {
-        installJvmOptions("JvmOptions_Enabled_ScanThreads_1.txt");
-        tryWith_A_B(ServerStartType.CLEAN, "Test scan threads set to 1");
+    public void fragmentOrder_testScanThreads() throws Exception {
+        installJvmOptions("JvmOptions_Enabled_ScanMulti.txt");
+        tryWith_A_B(ServerStartType.CLEAN, "Test scan threads set to many");
 
-        installJvmOptions("JvmOptions_Enabled_ScanThreads_-1.txt");
-        tryWith_A_B(ServerStartType.CLEAN, "Test scan threads set to -1 (unlimited)");
+        installJvmOptions("JvmOptions_Enabled_ScanUnlimited.txt");
+        tryWith_A_B(ServerStartType.CLEAN, "Test scan threads set to unlimited");
     }
 
-    /**
-     * Test with write threads set to 1, then with write threads set to -1 (unlimited).
-     */    
     @Test
-    public void fragmentOrder_testReducedWriteThreads() throws Exception {
-        installJvmOptions("JvmOptions_Enabled_WriteThreads_1.txt");
-        tryWith_A_B(ServerStartType.CLEAN, "Test write threads set to 1");
-        
-        installJvmOptions("JvmOptions_Enabled_WriteThreads_-1.txt");
-        tryWith_A_B(ServerStartType.CLEAN, "Test set write threads to -1 (unlimited)1");    
+    public void fragmentOrder_testWriteThreads() throws Exception {
+        installJvmOptions("JvmOptions_Enabled_WriteMulti.txt");
+        tryWith_A_B(ServerStartType.CLEAN, "Test write threads set to many");
+
+        installJvmOptions("JvmOptions_Enabled_WriteUnlimited.txt");
+        tryWith_A_B(ServerStartType.CLEAN, "Test set write threads to unlimited");
     }
     
     /**
-     * Test various changes to the web.xml that affect absolute ordering.  Rely on Liberty to detect
-     * the change in the app WITHOUT restarting the server.
+     * Test various changes to the web.xml that affect absolute ordering.
+     * Rely on Liberty to detect the change in the app WITHOUT restarting
+     * the server.
      */
     @Test
     public void fragmentOrder_testAbsoluteOrderingNoRestart() throws Exception {

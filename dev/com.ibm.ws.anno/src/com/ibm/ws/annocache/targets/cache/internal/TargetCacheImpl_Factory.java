@@ -15,6 +15,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.logging.Level;
@@ -93,32 +94,22 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
 
         int writeThreads      = getSystemProperty(TargetCache_Options.WRITE_THREADS_PROPERTY_NAME, TargetCache_Options.WRITE_THREADS_DEFAULT);
         int writeLimit        = getSystemProperty(TargetCache_Options.WRITE_LIMIT_PROPERTY_NAME, TargetCache_Options.WRITE_LIMIT_DEFAULT);
-        boolean omitJandexWrite    = getSystemProperty(TargetCache_Options.OMIT_JANDEX_WRITE_PROPERTY_NAME, TargetCache_Options.OMIT_JANDEX_WRITE_DEFAULT);                
-        boolean separateContainers = getSystemProperty(TargetCache_Options.SEPARATE_CONTAINERS_PROPERTY_NAME, TargetCache_Options.SEPARATE_CONTAINERS_DEFAULT);                        
-        boolean useJandexFormat    = getSystemProperty(TargetCache_Options.USE_JANDEX_FORMAT_PROPERTY_NAME, TargetCache_Options.USE_JANDEX_FORMAT_DEFAULT);                                
+        boolean omitJandexWrite    = getSystemProperty(TargetCache_Options.OMIT_JANDEX_WRITE_PROPERTY_NAME, TargetCache_Options.OMIT_JANDEX_WRITE_DEFAULT);
+        boolean separateContainers = getSystemProperty(TargetCache_Options.SEPARATE_CONTAINERS_PROPERTY_NAME, TargetCache_Options.SEPARATE_CONTAINERS_DEFAULT);
+        boolean useJandexFormat    = getSystemProperty(TargetCache_Options.USE_JANDEX_FORMAT_PROPERTY_NAME, TargetCache_Options.USE_JANDEX_FORMAT_DEFAULT);
+        boolean useBinaryFormat    = getSystemProperty(TargetCache_Options.USE_BINARY_FORMAT_PROPERTY_NAME, TargetCache_Options.USE_BINARY_FORMAT_DEFAULT);
 
-        if ( useJandexFormat ) {
-            if ( !disabled && !omitJandexWrite ) {
-                // TODO: Enabling this case means implementing a direct transfer of
-                //       class source jandex data into the cache.
-                //       This case is not currently of interest, and has not been implemented.
-                throw new IllegalArgumentException(
-                    "Jandex format [ " + TargetCache_Options.USE_JANDEX_FORMAT_PROPERTY_NAME + " ]" +
-                    " with jandex reads [ " + TargetCache_Options.DISABLED_PROPERTY_NAME + " ]" +
-                    " requires omitting jandex writes [ " + TargetCache_Options.OMIT_JANDEX_WRITE_PROPERTY_NAME + " ]");
-            }
-        }
+        boolean logQueries = getSystemProperty(TargetCache_Options.LOG_QUERIES_PROPERTY_NAME, TargetCache_Options.LOG_QUERIES_DEFAULT);
 
         return new TargetCacheImpl_Options(
             disabled,
             dir,
             readOnly, alwaysValid,
             // validate,
-            writeThreads,
-            writeLimit,
-            omitJandexWrite,
-            separateContainers,
-            useJandexFormat);
+            writeThreads, writeLimit,
+            omitJandexWrite, separateContainers,
+            useJandexFormat, useBinaryFormat,
+            logQueries);
     }
 
     public static TargetCacheImpl_Options createOptionsFromDefaults() {
@@ -133,7 +124,9 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
              TargetCache_Options.WRITE_LIMIT_DEFAULT,
              TargetCache_Options.OMIT_JANDEX_WRITE_DEFAULT,
              TargetCache_Options.SEPARATE_CONTAINERS_DEFAULT,
-             TargetCache_Options.USE_JANDEX_FORMAT_DEFAULT);
+             TargetCache_Options.USE_JANDEX_FORMAT_DEFAULT,
+             TargetCache_Options.USE_BINARY_FORMAT_DEFAULT,
+             TargetCache_Options.LOG_QUERIES_DEFAULT );
     }
 
     //
@@ -181,6 +174,7 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
                 finer(methodName, "  Omit Jandex Write   [ {0} ]", Boolean.valueOf(options.getOmitJandexWrite()));
                 finer(methodName, "  Separate Containers [ {0} ]", Boolean.valueOf(options.getSeparateContainers()));
                 finer(methodName, "  Use Jandex Format   [ {0} ]", Boolean.valueOf(options.getUseJandexFormat()));
+                finer(methodName, "  Use Binary Format   [ {0} ]", Boolean.valueOf(options.getUseBinaryFormat()));
             }
         }
     }
@@ -239,12 +233,12 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
     protected TargetCacheImpl_DataCon createConData(
         TargetCacheImpl_DataBase parentCache, // App or Mod
         String conName, String e_conName, File conFile,
-        boolean isComponent) {
+        boolean isSource) {
 
         return new TargetCacheImpl_DataCon(
             parentCache,
             conName, e_conName, conFile,
-            isComponent);
+            isSource);
     }
 
     //
@@ -279,10 +273,31 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
 
     protected TargetCacheImpl_Writer createWriter(String path, OutputStream stream) {
         try {
-            return new TargetCacheImpl_Writer(this, path, stream, TargetCache_InternalConstants.SERIALIZATION_ENCODING);
+            return new TargetCacheImpl_Writer(this,
+            	path, stream,
+            	TargetCache_InternalConstants.SERIALIZATION_ENCODING);
+
         } catch ( UnsupportedEncodingException e ) {
             return null; // FFDC
         }
+    }
+
+    protected TargetCacheImpl_ReaderBinary createBinaryReader(
+    	String path, RandomAccessFile inputFile,
+    	boolean readStrings) throws IOException {
+
+    	return new TargetCacheImpl_ReaderBinary(this,
+    		path, inputFile,
+    		TargetCache_InternalConstants.SERIALIZATION_ENCODING,
+    		readStrings); // throws IOException
+    }
+
+    protected TargetCacheImpl_WriterBinary createBinaryWriter(String path, OutputStream stream)
+    	throws IOException {
+
+    	return new TargetCacheImpl_WriterBinary(this,
+    		path, stream,
+    		TargetCache_InternalConstants.SERIALIZATION_ENCODING); // throws IOException
     }
 
     //
@@ -332,10 +347,5 @@ public class TargetCacheImpl_Factory implements TargetCache_Factory {
     @Trivial
     protected void write(TargetsTableAnnotationsImpl targetTable, String path, OutputStream stream) throws IOException {
         createWriter(path, stream).write(targetTable);
-    }
-
-    @Trivial
-    protected void write(TargetsTableDetailsImpl detailTable, String path, OutputStream stream) throws IOException {
-        createWriter(path, stream).write(detailTable);
     }
 }
