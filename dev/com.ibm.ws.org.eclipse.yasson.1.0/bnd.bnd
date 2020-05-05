@@ -10,6 +10,7 @@
 #*******************************************************************************
 -include= jar:${fileuri;${repo;org.eclipse:yasson;1.0.7}}!/META-INF/MANIFEST.MF,bnd.overrides
 
+jakartaeeMe: true
 
 instrument.disabled: true
 
