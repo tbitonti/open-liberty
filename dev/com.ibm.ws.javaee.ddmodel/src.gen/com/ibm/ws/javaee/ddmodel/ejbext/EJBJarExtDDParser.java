@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,70 +8,57 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
-// NOTE: This is a generated file. Do not edit it directly.
 package com.ibm.ws.javaee.ddmodel.ejbext;
 
+import com.ibm.ws.javaee.dd.ejb.EJBJar;
+import com.ibm.ws.javaee.dd.ejbext.EJBJarExt;
 import com.ibm.ws.javaee.ddmodel.DDParser;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
 
 public class EJBJarExtDDParser extends DDParser {
-    private final boolean xmi;
-
-    public EJBJarExtDDParser(Container ddRootContainer, Entry ddEntry, boolean xmi) throws DDParser.ParseException {
-        super(ddRootContainer, ddEntry, com.ibm.ws.javaee.dd.ejb.EJBJar.class);
-        this.xmi = xmi;
+    public EJBJarExtDDParser(Container ddRootContainer, Entry ddEntry, boolean xmi)
+        throws ParseException {
+        super(ddRootContainer, ddEntry, EJBJar.class, xmi);
     }
 
-    public com.ibm.ws.javaee.dd.ejbext.EJBJarExt parse() throws ParseException {
+    @Override
+    public EJBJarExt parse() throws ParseException {
         super.parseRootElement();
-        return (com.ibm.ws.javaee.dd.ejbext.EJBJarExt) rootParsable;
+        return (EJBJarExt) rootParsable;
     }
 
     @Override
     protected ParsableElement createRootParsable() throws ParseException {
-        if (!xmi && "ejb-jar-ext".equals(rootElementLocalName)) {
+        if (!xmi) {
             return createXMLRootParsable();
-        }
-        if (xmi && "EJBJarExtension".equals(rootElementLocalName)) {
-            DDParser.ParsableElement rootParsableElement = createXMIRootParsable();
-            namespace = null;
-            idNamespace = "http://www.omg.org/XMI";
+        } else {
+            ParsableElement rootParsableElement = createXMIRootParsable();
+            namespace = null; // TODO: Why clear this?
             return rootParsableElement;
         }
-        throw new ParseException(invalidRootElement());
     }
 
     private ParsableElement createXMLRootParsable() throws ParseException {
-        if (namespace == null) {
-            throw new ParseException(missingDeploymentDescriptorNamespace());
-        }
-        String versionString = getAttributeValue("", "version");
-        if (versionString == null) {
-            throw new ParseException(missingDeploymentDescriptorVersion());
-        }
-        if ("http://websphere.ibm.com/xml/ns/javaee".equals(namespace)) {
-            if ("1.0".equals(versionString)) {
-                version = 10;
-                return new com.ibm.ws.javaee.ddmodel.ejbext.EJBJarExtType(getDeploymentDescriptorPath());
-            }
-            if ("1.1".equals(versionString)) {
-                version = 11;
-                return new com.ibm.ws.javaee.ddmodel.ejbext.EJBJarExtType(getDeploymentDescriptorPath());
-            }
-            throw new ParseException(invalidDeploymentDescriptorVersion(versionString));
-        }
-        throw new ParseException(invalidDeploymentDescriptorNamespace(versionString));
-    }
+        requireRootElement("ejb-jar-ext");
+        requireNamespace("http://websphere.ibm.com/xml/ns/javaee");
 
-    private DDParser.ParsableElement createXMIRootParsable() throws ParseException {
-        if (namespace == null) {
-            throw new ParseException(missingDeploymentDescriptorNamespace());
+        String vers = requireVersion();
+        if ("1.0".equals(vers)) {
+            version = 10;
+        } else if ("1.1".equals(vers)) {
+            version = 11;
+        } else {
+            throw new ParseException(errorInvalidVersion(vers));
         }
-        if ("ejbext.xmi".equals(namespace)) {
-            version = 9;
-            return new com.ibm.ws.javaee.ddmodel.ejbext.EJBJarExtType(getDeploymentDescriptorPath(), true);
-        }
-        throw new ParseException(missingDeploymentDescriptorVersion());
+
+        return new EJBJarExtType(getDeploymentDescriptorPath());
     }
+    
+    private ParsableElement createXMIRootParsable() throws ParseException {
+        requireRootElement("EJBJarExtension");
+        requireNamespace("ejbext.xmi");
+        version = 9; // TODO: This is a strange version.
+        return new EJBJarExtType(getDeploymentDescriptorPath(), true);
+    }    
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2015 IBM Corporation and others.
+ * Copyright (c) 2014, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -25,37 +25,47 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 public final class ApplicationClientEntryAdapter implements EntryAdapter<ApplicationClient> {
     private static final int DEFAULT_MAX_VERSION = ApplicationClient.VERSION_9;
 
-    private ServiceReference<ApplicationClientDDParserVersion> versionRef;
-    private volatile int version = DEFAULT_MAX_VERSION;
+    private ServiceReference<ApplicationClientDDParserVersion> maxVersionRef;
+    private volatile int maxVersion = DEFAULT_MAX_VERSION;
 
-    public synchronized void setVersion(ServiceReference<ApplicationClientDDParserVersion> reference) {
-
-        versionRef = reference;
-        version = (Integer) reference.getProperty(ApplicationClientDDParserVersion.VERSION);
+    public synchronized void setVersion(ServiceReference<ApplicationClientDDParserVersion> versionRef) {
+        maxVersionRef = versionRef;
+        maxVersion = (Integer) versionRef.getProperty(ApplicationClientDDParserVersion.VERSION);
     }
 
-    public synchronized void unsetVersion(ServiceReference<ApplicationClientDDParserVersion> reference) {
-        if (reference == this.versionRef) {
-            versionRef = null;
-            version = DEFAULT_MAX_VERSION;
+    public synchronized void unsetVersion(ServiceReference<ApplicationClientDDParserVersion> versionRef) {
+        if (versionRef == this.maxVersionRef) {
+            maxVersionRef = null;
+            maxVersion = DEFAULT_MAX_VERSION;
         }
     }
 
     @FFDCIgnore(ParseException.class)
     @Override
-    public ApplicationClient adapt(Container root, OverlayContainer rootOverlay, ArtifactEntry artifactEntry, Entry entryToAdapt) throws UnableToAdaptException {
-        String path = artifactEntry.getPath();
-        ApplicationClient appClient = (ApplicationClient) rootOverlay.getFromNonPersistentCache(path, ApplicationClient.class);
-        if (appClient == null) {
-            try {
-                ApplicationClientDDParser ddParser = new ApplicationClientDDParser(root, entryToAdapt, version);
-                appClient = ddParser.parse();
-            } catch (ParseException e) {
-                throw new UnableToAdaptException(e);
-            }
+    public ApplicationClient adapt(
+        Container root,
+        OverlayContainer rootOverlay,
+        ArtifactEntry artifactEntry,
+        Entry entryToAdapt) throws UnableToAdaptException {
 
-            rootOverlay.addToNonPersistentCache(path, ApplicationClient.class, appClient);
+        // Cache using the descriptor path and the descriptor root container.
+
+        String ddPath = artifactEntry.getPath();
+        ApplicationClient appClient = (ApplicationClient)
+            rootOverlay.getFromNonPersistentCache(ddPath, ApplicationClient.class);
+        if (appClient != null) {
+            return appClient;
         }
+
+        try {
+            ApplicationClientDDParser ddParser =
+                new ApplicationClientDDParser(root, entryToAdapt, maxVersion);
+            appClient = ddParser.parse();
+        } catch (ParseException e) {
+            throw new UnableToAdaptException(e);
+        }
+
+        rootOverlay.addToNonPersistentCache(ddPath, ApplicationClient.class, appClient);
 
         return appClient;
     }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,10 @@ package com.ibm.ws.javaee.ddmodel.appbnd;
 
 import com.ibm.ws.javaee.ddmodel.DDParser;
 
-public class GroupType extends com.ibm.ws.javaee.ddmodel.appbnd.SubjectType implements com.ibm.ws.javaee.dd.appbnd.Group {
+public class GroupType
+    extends com.ibm.ws.javaee.ddmodel.appbnd.SubjectType
+    implements com.ibm.ws.javaee.dd.appbnd.Group {
+
     public GroupType() {
         this(false);
     }
@@ -21,7 +24,6 @@ public class GroupType extends com.ibm.ws.javaee.ddmodel.appbnd.SubjectType impl
     public GroupType(boolean xmi) {
         super(xmi);
     }
-
 
     @Override
     public boolean handleAttribute(DDParser parser, String nsURI, String localName, int index) throws DDParser.ParseException {
@@ -35,5 +37,6 @@ public class GroupType extends com.ibm.ws.javaee.ddmodel.appbnd.SubjectType impl
 
     @Override
     public void describe(com.ibm.ws.javaee.ddmodel.DDParser.Diagnostics diag) {
+        // EMPTY
     }
 }

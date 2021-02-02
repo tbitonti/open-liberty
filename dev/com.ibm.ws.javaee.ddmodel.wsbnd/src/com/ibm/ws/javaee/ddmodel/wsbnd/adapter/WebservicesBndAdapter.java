@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012,2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -30,15 +30,13 @@ import com.ibm.ws.container.service.app.deploy.EJBModuleInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
 import com.ibm.ws.container.service.app.deploy.NestedConfigHelper;
 import com.ibm.ws.container.service.app.deploy.WebModuleInfo;
-import com.ibm.ws.container.service.app.deploy.extended.ExtendedApplicationInfo;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.javaee.dd.app.Application;
 import com.ibm.ws.javaee.dd.app.Module;
-import com.ibm.ws.javaee.ddmodel.DDParser;
+import com.ibm.ws.javaee.ddmodel.DDAdapter;
 import com.ibm.ws.javaee.ddmodel.DDParser.ParseException;
 import com.ibm.ws.javaee.ddmodel.wsbnd.WebservicesBnd;
 import com.ibm.ws.javaee.ddmodel.wsbnd.impl.WebservicesBndComponentImpl;
-import com.ibm.ws.javaee.ddmodel.wsbnd.impl.WebservicesBndType;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
 import com.ibm.wsspi.adaptable.module.UnableToAdaptException;
@@ -49,125 +47,93 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 @Component(configurationPolicy = ConfigurationPolicy.IGNORE,
            service = ContainerAdapter.class,
            property = { "service.vendor=IBM", "toType=com.ibm.ws.javaee.ddmodel.wsbnd.WebservicesBnd" })
-public final class WebservicesBndAdapter implements ContainerAdapter<WebservicesBnd> {
-
-    private static final String WEBSERVICES_BND_ELEMENT_NAME = "webservices-bnd";
-    private static final String MODULE_NAME_INVALID = "module.name.invalid";
-    private static final String MODULE_NAME_NOT_SPECIFIED = "module.name.not.specified";
+public final class WebservicesBndAdapter implements DDAdapter, ContainerAdapter<WebservicesBnd> {
     private static final TraceComponent tc = Tr.register(WebservicesBndAdapter.class);
 
-    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY)
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE,
+               policy = ReferencePolicy.DYNAMIC,
+               policyOption = ReferencePolicyOption.GREEDY)
     volatile List<WebservicesBnd> configurations;
 
-    private boolean isServer = true;
+    private WebservicesBndComponentImpl getConfigOverrides(
+        OverlayContainer overlay, ArtifactContainer artifactContainer)
+        throws UnableToAdaptException {
 
-    @FFDCIgnore(ParseException.class)
-    @Override
-    public WebservicesBnd adapt(Container root, OverlayContainer rootOverlay, ArtifactContainer artifactContainer, Container containerToAdapt) throws UnableToAdaptException {
-
-        Entry ddEntry = null;
-        if (isServer) {
-
-            if (rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), WebModuleInfo.class) != null) {
-                ddEntry = containerToAdapt.getEntry(WebservicesBnd.WEB_XML_BND_URI);
-            } else if (rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), EJBModuleInfo.class) != null) {
-                ddEntry = containerToAdapt.getEntry(WebservicesBnd.EJB_XML_BND_URI);
-            }
-        } else {
-            //it is a client module and we need to get ibm-ws-bnd.xml from META-INF/
-            ddEntry = containerToAdapt.getEntry(WebservicesBnd.EJB_XML_BND_URI);
-        }
-        WebservicesBndComponentImpl fromConfig = getConfigOverrides(rootOverlay, artifactContainer);
-        if (ddEntry == null && fromConfig == null)
+        if ( (configurations == null) || configurations.isEmpty() ) {
             return null;
-
-        if (ddEntry != null) {
-            try {
-                WsClientBindingParser parser = new WsClientBindingParser(containerToAdapt, ddEntry);
-                WebservicesBnd wsBind = parser.parse();
-                if (fromConfig == null) {
-                    return wsBind;
-                } else {
-                    fromConfig.setDelegate(wsBind);
-                    return fromConfig;
-                }
-            } catch (ParseException e) {
-                throw new UnableToAdaptException(e);
-            }
         }
+        
+        ApplicationInfo appInfo = (ApplicationInfo)
+            overlay.getFromNonPersistentCache(artifactContainer.getPath(), ApplicationInfo.class);
 
-        return fromConfig;
-    }
-
-    private WebservicesBndComponentImpl getConfigOverrides(OverlayContainer overlay, ArtifactContainer artifactContainer) throws UnableToAdaptException {
-        if (configurations == null || configurations.isEmpty())
-            return null;
-
-        ApplicationInfo appInfo = (ApplicationInfo) overlay.getFromNonPersistentCache(artifactContainer.getPath(), ApplicationInfo.class);
         ModuleInfo moduleInfo = null;
         if (appInfo == null) {
-            moduleInfo = (ModuleInfo) overlay.getFromNonPersistentCache(artifactContainer.getPath(), ModuleInfo.class);
-            if (moduleInfo == null)
+            // TODO: Why no parent container check?            
+            moduleInfo = (ModuleInfo)
+                overlay.getFromNonPersistentCache(artifactContainer.getPath(), ModuleInfo.class);
+            if ( moduleInfo == null ) {
                 return null;
+            }
             appInfo = moduleInfo.getApplicationInfo();
+            if ( appInfo == null ) {
+                return null;
+            }
         }
-        NestedConfigHelper configHelper = null;
-        if (appInfo != null && appInfo instanceof ExtendedApplicationInfo)
-            configHelper = ((ExtendedApplicationInfo) appInfo).getConfigHelper();
-        if (configHelper == null)
-            return null;
-		
-		OverlayContainer rootOverlay = overlay;
-		if (overlay.getParentOverlay() != null)
-			rootOverlay = overlay.getParentOverlay();
 
-        Set<String> configuredModuleNames = new HashSet<String>();
+        NestedConfigHelper configHelper = appInfo.getConfigHelper();
+        if (configHelper == null) {
+            return null;
+        }
         String servicePid = (String) configHelper.get("service.pid");
         String extendsPid = (String) configHelper.get("ibm.extends.source.pid");
+
+        Set<String> configuredModuleNames = null;
+
         for (WebservicesBnd config : configurations) {
             WebservicesBndComponentImpl configImpl = (WebservicesBndComponentImpl) config;
             String parentPid = (String) configImpl.getConfigAdminProperties().get("config.parentPID");
             if (servicePid.equals(parentPid) || parentPid.equals(extendsPid)) {
-                if (moduleInfo == null)
+                if (moduleInfo == null) {
                     return configImpl;
+                }
+                
                 String moduleName = (String) configImpl.getConfigAdminProperties().get("moduleName");
                 if (moduleName == null) {
-                    if (rootOverlay.getFromNonPersistentCache(MODULE_NAME_NOT_SPECIFIED, WebservicesBndAdapter.class) == null) {
-                        Tr.error(tc, "module.name.not.specified", WEBSERVICES_BND_ELEMENT_NAME);
-                        rootOverlay.addToNonPersistentCache(MODULE_NAME_NOT_SPECIFIED, WebservicesBndAdapter.class, MODULE_NAME_NOT_SPECIFIED);
+                    if ( DDAdapter.markUnspecifiedModuleName(overlay, getClass() ) ) {
+                        Tr.error(tc, "module.name.not.specified", WebServicesBndDDParser.WEBSERVICES_BND_ELEMENT_NAME);
                     }
                     continue;
                 }
-                moduleName = stripExtension(moduleName);
+                moduleName = DDAdapter.stripExtension(moduleName);
+
+                if (configuredModuleNames == null) {
+                    configuredModuleNames = new HashSet<>();
+                }
                 configuredModuleNames.add(moduleName);
-                if (moduleInfo.getName().equals(moduleName))
+
+                if (moduleInfo.getName().equals(moduleName)) {
                     return configImpl;
+                }
             }
         }
-        if (moduleInfo != null && !configuredModuleNames.isEmpty()) {
-            if (rootOverlay.getFromNonPersistentCache(MODULE_NAME_INVALID, WebservicesBndAdapter.class) == null) {
-                HashSet<String> moduleNames = new HashSet<String>();
-                // TODO: Based on the '(appInfo != null)' test, above, the
-                //       appInfo could be null here.
+
+        if (configuredModuleNames != null) {
+            if (DDAdapter.markInvalidModuleName(overlay, getClass()) ) {
                 Application app = appInfo.getContainer().adapt(Application.class);
                 for (Module m : app.getModules()) {
-                    moduleNames.add(stripExtension(m.getModulePath()));
+                    configuredModuleNames.remove(DDAdapter.stripExtension(m.getModulePath()));
                 }
-                configuredModuleNames.removeAll(moduleNames);
-                if (!configuredModuleNames.isEmpty())
-                    Tr.error(tc, "module.name.invalid", configuredModuleNames, WEBSERVICES_BND_ELEMENT_NAME);
-                rootOverlay.addToNonPersistentCache(MODULE_NAME_INVALID, WebservicesBndAdapter.class, MODULE_NAME_INVALID);
+                if (!configuredModuleNames.isEmpty()) {
+                    Tr.error(tc, "module.name.invalid", configuredModuleNames, WebServicesBndDDParser.WEBSERVICES_BND_ELEMENT_NAME);
+                }
             }
         }
         return null;
     }
 
-    private String stripExtension(String moduleName) {
-        if (moduleName.endsWith(".war") || moduleName.endsWith(".jar")) {
-            return moduleName.substring(0, moduleName.length() - 4);
-        }
-        return moduleName;
-    }
+    //
+
+    private boolean isServer = true;
 
     @Activate
     protected void activate(ComponentContext cc) {
@@ -175,41 +141,53 @@ public final class WebservicesBndAdapter implements ContainerAdapter<Webservices
     }
 
     protected void deactivate(ComponentContext cc) {
+        // TODO: Should 'isServer' be set back to true?
         // EMPTY
     }
 
-    /**
-     * DDParser for webservices.xml
-     */
-    private static final class WsClientBindingParser extends DDParser {
+    //
 
-        public WsClientBindingParser(Container ddRootContainer, Entry ddEntry) throws ParseException {
-            super(ddRootContainer, ddEntry);
+    @FFDCIgnore(ParseException.class)
+    @Override
+    public WebservicesBnd adapt(Container root, OverlayContainer rootOverlay, ArtifactContainer artifactContainer, Container containerToAdapt)
+        throws UnableToAdaptException {
+
+        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+
+        // The web services binding is not cached.
+
+        Entry bndEntry = null;
+        if (isServer) {
+            String containerPath = artifactContainer.getPath();
+            if (rootOverlay.getFromNonPersistentCache(containerPath, WebModuleInfo.class) != null) {
+                bndEntry = containerToAdapt.getEntry(WebservicesBnd.WEB_XML_BND_URI);
+            } else if (rootOverlay.getFromNonPersistentCache(containerPath, EJBModuleInfo.class) != null) {
+                bndEntry = containerToAdapt.getEntry(WebservicesBnd.EJB_XML_BND_URI);
+            }
+        } else {
+            bndEntry = containerToAdapt.getEntry(WebservicesBnd.EJB_XML_BND_URI);
+        }
+        WebservicesBndComponentImpl bndFromConfig =
+            getConfigOverrides(rootOverlay, artifactContainer);
+
+        if ( bndEntry == null ) {
+            return bndFromConfig;
         }
 
-        WebservicesBnd parse() throws ParseException {
-            super.parseRootElement();
-            return (WebservicesBnd) rootParsable;
+        WebservicesBnd bndFromEntry;
+        try {
+            WebServicesBndDDParser parser =
+                new WebServicesBndDDParser(containerToAdapt, bndEntry);
+            bndFromEntry = parser.parse();
+        } catch (ParseException e) {
+            throw new UnableToAdaptException(e);
         }
 
-        @Override
-        protected ParsableElement createRootParsable() throws ParseException {
-            if (WEBSERVICES_BND_ELEMENT_NAME.equals(rootElementLocalName)) {
-                return createXMLRootParsable();
-            }
-            return null;
-        }
-
-        private DDParser.ParsableElement createXMLRootParsable() throws ParseException {
-            if (namespace == null) {
-                throw new ParseException(unknownDeploymentDescriptorVersion());
-            }
-            if ("http://websphere.ibm.com/xml/ns/javaee".equals(namespace)) {
-                version = 10;
-                return new WebservicesBndType(getDeploymentDescriptorPath());
-            } else {
-                throw new ParseException(unknownDeploymentDescriptorVersion());
-            }
+        if (bndFromConfig == null) {
+            return bndFromEntry;
+        } else {
+            bndFromConfig.setDelegate(bndFromEntry);
+            return bndFromConfig;
         }
     }
 }

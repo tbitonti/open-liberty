@@ -23,4 +23,13 @@ public abstract class JavaEEVersion {
     public static final Version VERSION_9_0 = new Version(9, 0, 0); // jakarta
 
     public static final Version DEFAULT_VERSION = VERSION_6_0;
+
+    public static final int VERSION_60 = 60;
+    public static final int VERSION_70 = 70;
+    public static final int VERSION_80 = 80;
+    public static final int VERSION_90 = 90;
+
+    public static int asInt(Version version) {
+        return version.getMajor() * 10 + version.getMinor();
+    }
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -25,37 +25,42 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 public class EJBJarEntryAdapter implements EntryAdapter<EJBJar> {
     private static final int DEFAULT_MAX_VERSION = EJBJar.VERSION_4_0;
 
-    private ServiceReference<EJBJarDDParserVersion> versionRef;
-    private volatile int version = DEFAULT_MAX_VERSION;
+    private ServiceReference<EJBJarDDParserVersion> maxVersionRef;
+    private volatile int maxVersion = DEFAULT_MAX_VERSION;
 
-    public synchronized void setVersion(ServiceReference<EJBJarDDParserVersion> reference) {
-        versionRef = reference;
-        version = (Integer) reference.getProperty("version");
+    public synchronized void setVersion(ServiceReference<EJBJarDDParserVersion> versionRef) {
+        maxVersionRef = versionRef;
+        maxVersion = (Integer) versionRef.getProperty("version");
     }
 
-    public synchronized void unsetVersion(ServiceReference<EJBJarDDParserVersion> reference) {
-        if (reference == this.versionRef) {
-            versionRef = null;
-            version = DEFAULT_MAX_VERSION;
+    public synchronized void unsetVersion(ServiceReference<EJBJarDDParserVersion> versionRef) {
+        if (versionRef == this.maxVersionRef) {
+            maxVersionRef = null;
+            maxVersion = DEFAULT_MAX_VERSION;
         }
     }
 
     @FFDCIgnore(ParseException.class)
     @Override
-    public EJBJar adapt(Container root, OverlayContainer rootOverlay, ArtifactEntry artifactEntry, Entry entryToAdapt) throws UnableToAdaptException {
-        String path = artifactEntry.getPath();
-        EJBJar ejbJar = (EJBJar) rootOverlay.getFromNonPersistentCache(path, EJBJar.class);
+    public EJBJar adapt(
+        Container root,
+        OverlayContainer rootOverlay,
+        ArtifactEntry artifactEntry,
+        Entry entryToAdapt) throws UnableToAdaptException {
+
+        // Cache using the descriptor path and the descriptor root container.
+
+        String ddPath = artifactEntry.getPath();
+        EJBJar ejbJar = (EJBJar) rootOverlay.getFromNonPersistentCache(ddPath, EJBJar.class);
         if (ejbJar == null) {
             try {
-                EJBJarDDParser ddParser = new EJBJarDDParser(root, entryToAdapt, version);
+                EJBJarDDParser ddParser = new EJBJarDDParser(root, entryToAdapt, maxVersion);
                 ejbJar = ddParser.parse();
             } catch (ParseException e) {
                 throw new UnableToAdaptException(e);
             }
-
-            rootOverlay.addToNonPersistentCache(path, EJBJar.class, ejbJar);
+            rootOverlay.addToNonPersistentCache(ddPath, EJBJar.class, ejbJar);
         }
-
         return ejbJar;
     }
 }

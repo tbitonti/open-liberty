@@ -123,6 +123,7 @@ public class ClientRefBindingsGroupType extends com.ibm.ws.javaee.ddmodel.common
         return super.handleChild(parser, localName);
     }
 
+    // TODO: This method is *not* overridden, because it is private to a different package.
     void addEjbRef(com.ibm.ws.javaee.ddmodel.commonbnd.EJBRefType ejb_ref) {
         if (this.ejb_ref == null) {
             this.ejb_ref = new DDParser.ParsableListImplements<com.ibm.ws.javaee.ddmodel.commonbnd.EJBRefType, com.ibm.ws.javaee.dd.commonbnd.EJBRef>();
@@ -130,6 +131,7 @@ public class ClientRefBindingsGroupType extends com.ibm.ws.javaee.ddmodel.common
         this.ejb_ref.add(ejb_ref);
     }
 
+    // TODO: This method is *not* overridden, because it is private to a different package.
     void addResourceRef(com.ibm.ws.javaee.ddmodel.commonbnd.ResourceRefType resource_ref) {
         if (this.resource_ref == null) {
             this.resource_ref = new DDParser.ParsableListImplements<com.ibm.ws.javaee.ddmodel.commonbnd.ResourceRefType, com.ibm.ws.javaee.dd.commonbnd.ResourceRef>();
@@ -137,6 +139,7 @@ public class ClientRefBindingsGroupType extends com.ibm.ws.javaee.ddmodel.common
         this.resource_ref.add(resource_ref);
     }
 
+    // TODO: This method is *not* overridden, because it is private to a different package.
     void addResourceEnvRef(com.ibm.ws.javaee.ddmodel.commonbnd.ResourceEnvRefType resource_env_ref) {
         if (this.resource_env_ref == null) {
             this.resource_env_ref = new DDParser.ParsableListImplements<com.ibm.ws.javaee.ddmodel.commonbnd.ResourceEnvRefType, com.ibm.ws.javaee.dd.commonbnd.ResourceEnvRef>();
@@ -144,6 +147,7 @@ public class ClientRefBindingsGroupType extends com.ibm.ws.javaee.ddmodel.common
         this.resource_env_ref.add(resource_env_ref);
     }
 
+    // TODO: This method is *not* overridden, because it is private to a different package.
     void addMessageDestinationRef(com.ibm.ws.javaee.ddmodel.commonbnd.MessageDestinationRefType message_destination_ref) {
         if (this.message_destination_ref == null) {
             this.message_destination_ref = new DDParser.ParsableListImplements<com.ibm.ws.javaee.ddmodel.commonbnd.MessageDestinationRefType, com.ibm.ws.javaee.dd.commonbnd.MessageDestinationRef>();
@@ -151,6 +155,7 @@ public class ClientRefBindingsGroupType extends com.ibm.ws.javaee.ddmodel.common
         this.message_destination_ref.add(message_destination_ref);
     }
 
+    // TODO: This method is *not* overridden, because it is private to a different package.
     void addDataSource(com.ibm.ws.javaee.ddmodel.commonbnd.DataSourceType data_source) {
         if (this.data_source == null) {
             this.data_source = new DDParser.ParsableListImplements<com.ibm.ws.javaee.ddmodel.commonbnd.DataSourceType, com.ibm.ws.javaee.dd.commonbnd.DataSource>();
@@ -158,6 +163,7 @@ public class ClientRefBindingsGroupType extends com.ibm.ws.javaee.ddmodel.common
         this.data_source.add(data_source);
     }
 
+    // TODO: This method is *not* overridden, because it is private to a different package.
     void addEnvEntry(com.ibm.ws.javaee.ddmodel.commonbnd.EnvEntryType env_entry) {
         if (this.env_entry == null) {
             this.env_entry = new DDParser.ParsableListImplements<com.ibm.ws.javaee.ddmodel.commonbnd.EnvEntryType, com.ibm.ws.javaee.dd.commonbnd.EnvEntry>();

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -31,13 +31,16 @@ private com.ibm.ws.javaee.dd.ejbext.MessageDriven delegate;
 
      @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, name = "bean-cache", target = "(id=unbound)")
      protected volatile com.ibm.ws.javaee.dd.ejbext.BeanCache bean_cache;
-
+     // TODO: Overridden field.  Is this a problem?
+     
      @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, name = "local-transaction", target = "(id=unbound)")
      protected volatile com.ibm.ws.javaee.dd.commonext.LocalTransaction local_transaction;
-
+     // TODO: Overridden field.  Is this a problem?
+     
      @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, name = "global-transaction", target = "(id=unbound)")
      protected volatile com.ibm.ws.javaee.dd.commonext.GlobalTransaction global_transaction;
-
+     // TODO: Overridden field.  Is this a problem?
+     
      @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, name = "resource-ref", target = "(id=unbound)")
      protected void setResource_ref(com.ibm.ws.javaee.dd.commonext.ResourceRef value) {
           this.resource_ref.add(value);
@@ -48,10 +51,13 @@ private com.ibm.ws.javaee.dd.ejbext.MessageDriven delegate;
      }
 
      protected volatile List<com.ibm.ws.javaee.dd.commonext.ResourceRef> resource_ref = new ArrayList<com.ibm.ws.javaee.dd.commonext.ResourceRef>();
-
+     // TODO: Overridden field.  Is this a problem?
+     
      @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, name = "start-at-app-start", target = "(id=unbound)")
      protected volatile com.ibm.ws.javaee.dd.ejbext.StartAtAppStart start_at_app_start;
-     protected java.lang.String name;
+     // TODO: Overridden field.  Is this a problem?
+     
+     protected java.lang.String name; // TODO: Overridden field.  Is this a problem?
 
      @Activate
      protected void activate(Map<String, Object> config) {

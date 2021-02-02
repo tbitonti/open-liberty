@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,7 +14,7 @@ import com.ibm.ws.container.service.app.deploy.EJBModuleInfo;
 import com.ibm.ws.container.service.app.deploy.WebModuleInfo;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.javaee.dd.ws.Webservices;
-import com.ibm.ws.javaee.ddmodel.DDParser;
+import com.ibm.ws.javaee.ddmodel.DDAdapter;
 import com.ibm.ws.javaee.ddmodel.DDParser.ParseException;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
@@ -23,79 +23,45 @@ import com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter;
 import com.ibm.wsspi.artifact.ArtifactContainer;
 import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 
-/**
- *
- */
-public final class WebservicesAdapter implements ContainerAdapter<Webservices> {
-
+public final class WebservicesAdapter implements DDAdapter, ContainerAdapter<Webservices> {
     @FFDCIgnore(ParseException.class)
     @Override
-    public Webservices adapt(Container root, OverlayContainer rootOverlay, ArtifactContainer artifactContainer, Container containerToAdapt) throws UnableToAdaptException {
+    public Webservices adapt(Container root,
+                             OverlayContainer rootOverlay,
+                             ArtifactContainer artifactContainer,
+                             Container containerToAdapt) throws UnableToAdaptException {
 
-        //try to find cache
-        Webservices wsxml = (Webservices) rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), Webservices.class);
+        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
 
-        if (wsxml != null) {
-            return wsxml;
+        String containerPath = artifactContainer.getPath();
+
+        Webservices webServices = (Webservices)
+            rootOverlay.getFromNonPersistentCache(containerPath, Webservices.class);
+        if (webServices != null) {
+            return webServices;
         }
 
-        Entry ddEntry = null;
-
-        if (rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), WebModuleInfo.class) != null) {
+        Entry ddEntry;
+        if (rootOverlay.getFromNonPersistentCache(containerPath, WebModuleInfo.class) != null) {
             ddEntry = containerToAdapt.getEntry(Webservices.WEB_DD_NAME);
-        } else if (rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), EJBModuleInfo.class) != null) {
+        } else if (rootOverlay.getFromNonPersistentCache(containerPath, EJBModuleInfo.class) != null) {
             ddEntry = containerToAdapt.getEntry(Webservices.EJB_DD_NAME);
+        } else {
+            ddEntry = null;
+        }
+        if ( ddEntry == null ) {
+            return null;
         }
 
-        if (ddEntry != null) {
-
-            try {
-                WebServicesDDParser ddParser = new WebServicesDDParser(containerToAdapt, ddEntry);
-                wsxml = ddParser.parse();
-                //cache it
-                rootOverlay.addToNonPersistentCache(artifactContainer.getPath(), Webservices.class, wsxml);
-                return wsxml;
-            } catch (ParseException e) {
-                throw new UnableToAdaptException(e);
-            }
-
+        try {
+            WebServicesDDParser ddParser =
+                new WebServicesDDParser(containerToAdapt, ddEntry);
+            webServices = ddParser.parse();
+        } catch (ParseException e) {
+            throw new UnableToAdaptException(e);
         }
 
-        return null;
-    }
-
-    /**
-     * DDParser for webservices.xml
-     */
-    private static final class WebServicesDDParser extends DDParser {
-
-        /**
-         * @param ddRootContainer
-         * @param ddEntry
-         * @throws ParseException
-         */
-        public WebServicesDDParser(Container ddRootContainer, Entry ddEntry) throws ParseException {
-            super(ddRootContainer, ddEntry);
-        }
-
-        Webservices parse() throws ParseException {
-            super.parseRootElement();
-            return (Webservices) rootParsable;
-        }
-
-        @Override
-        protected DDParser.ParsableElement createRootParsable() throws ParseException {
-            if (!"webservices".equals(rootElementLocalName)) {
-                return null;
-            }
-            String vers = getAttributeValue("", "version");
-            if (vers == null) {
-                throw new ParseException(unknownDeploymentDescriptorVersion());
-            }
-            if ("2.0".equals(vers) || "1.4".equals(vers) || "1.3".equals(vers) || "1.2".equals(vers) || "1.1".equals(vers)) {
-                return new WebservicesType(getDeploymentDescriptorPath());
-            }
-            throw new ParseException(invalidDeploymentDescriptorVersion(vers));
-        }
+        rootOverlay.addToNonPersistentCache(containerPath, Webservices.class, webServices);
+        return webServices;
     }
 }

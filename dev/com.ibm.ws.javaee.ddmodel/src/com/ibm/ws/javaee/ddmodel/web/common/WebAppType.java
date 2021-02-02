@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -101,6 +101,12 @@ public class WebAppType extends WebCommonType implements WebApp, DDParser.RootPa
             if (parser.version < 24) {
                 version = parser.parseToken(parser.version == 22 ? "2.2" : "2.3");
             } else {
+                // This case should never occur:
+                // Creation of the root Jar parsable cannot happen unless
+                // either a version or a public ID is present.  When a public
+                // ID is present, the parser version must be 22 or 23.  When
+                // a version is present, 'handleAttribute' will assign a version
+                // value.                
                 throw new ParseException(parser.requiredAttributeMissing("version"));
             }
         }

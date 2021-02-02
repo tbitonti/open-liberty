@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017,2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -23,7 +23,7 @@ import com.ibm.ws.javaee.dd.ejbbnd.Interface;
            configurationPolicy = ConfigurationPolicy.REQUIRE,
            immediate = true,
            property = "service.vendor = IBM")
-public class InterfaceComponentImpl extends InterfaceType implements com.ibm.ws.javaee.dd.ejbbnd.Interface {
+public class InterfaceComponentImpl extends InterfaceType {
     private Map<String, Object> configAdminProperties;
     private Interface delegate;
 

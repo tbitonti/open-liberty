@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -42,6 +42,7 @@ public class EnterpriseBeanType extends com.ibm.ws.javaee.ddmodel.commonbnd.RefB
 
         @Override
         public void describe(com.ibm.ws.javaee.ddmodel.DDParser.Diagnostics diag) {
+            // EMPTY
         }
     }
 
@@ -89,7 +90,7 @@ public class EnterpriseBeanType extends com.ibm.ws.javaee.ddmodel.commonbnd.RefB
     @Override
     public boolean handleChild(DDParser parser, String localName) throws DDParser.ParseException {
         if (xmi && "enterpriseBean".equals(localName)) {
-            this.enterpriseBean = new com.ibm.ws.javaee.ddmodel.CrossComponentReferenceType("enterpriseBean", parser.crossComponentDocumentType);
+            this.enterpriseBean = new com.ibm.ws.javaee.ddmodel.CrossComponentReferenceType("enterpriseBean", parser.primaryDescriptorType);
             parser.parse(enterpriseBean);
             com.ibm.ws.javaee.dd.ejb.EnterpriseBean referent = this.enterpriseBean.resolveReferent(parser, com.ibm.ws.javaee.dd.ejb.EnterpriseBean.class);
             if (referent == null) {

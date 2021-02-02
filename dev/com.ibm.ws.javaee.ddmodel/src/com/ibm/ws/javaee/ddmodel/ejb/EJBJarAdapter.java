@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2015 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,8 +12,8 @@ package com.ibm.ws.javaee.ddmodel.ejb;
 
 import com.ibm.ws.container.service.app.deploy.ContainerInfo;
 import com.ibm.ws.container.service.app.deploy.WebModuleInfo;
-import com.ibm.ws.container.service.app.deploy.extended.AltDDEntryGetter;
 import com.ibm.ws.javaee.dd.ejb.EJBJar;
+import com.ibm.ws.javaee.ddmodel.DDAdapter;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
 import com.ibm.wsspi.adaptable.module.NonPersistentCache;
@@ -22,22 +22,31 @@ import com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter;
 import com.ibm.wsspi.artifact.ArtifactContainer;
 import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 
-public final class EJBJarAdapter implements ContainerAdapter<EJBJar> {
-
+public final class EJBJarAdapter implements DDAdapter, ContainerAdapter<EJBJar> {
     @Override
-    public EJBJar adapt(Container root, OverlayContainer rootOverlay, ArtifactContainer artifactContainer, Container containerToAdapt) throws UnableToAdaptException {
+    public EJBJar adapt(Container root,
+                        OverlayContainer rootOverlay,
+                        ArtifactContainer artifactContainer,
+                        Container containerToAdapt) throws UnableToAdaptException {
+
+        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+
+        // Caching is done by 'EJBJarEntryAdapter', using the container
+        // which contains the resolved entry, and using the path of the
+        // resolved entry.
+
         NonPersistentCache cache = containerToAdapt.adapt(NonPersistentCache.class);
         WebModuleInfo webModuleInfo = (WebModuleInfo) cache.getFromCache(WebModuleInfo.class);
         Entry ddEntry;
         if (webModuleInfo != null) {
+            // No alternate EJB descriptor may be specified for EJB-IN-WAR.
             ddEntry = containerToAdapt.getEntry("WEB-INF/ejb-jar.xml");
         } else {
-            AltDDEntryGetter altDDGetter = (AltDDEntryGetter) cache.getFromCache(AltDDEntryGetter.class);
-            ddEntry = altDDGetter != null ? altDDGetter.getAltDDEntry(ContainerInfo.Type.EJB_MODULE) : null;
+            ddEntry = DDAdapter.getAltEntry(cache, ContainerInfo.Type.EJB_MODULE);  
             if (ddEntry == null) {
                 ddEntry = containerToAdapt.getEntry("META-INF/ejb-jar.xml");
             }
         }
-        return ddEntry == null ? null : ddEntry.adapt(EJBJar.class);
+        return ((ddEntry == null) ? null : ddEntry.adapt(EJBJar.class));
     }
 }

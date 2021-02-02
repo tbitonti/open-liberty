@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -125,11 +125,13 @@ import com.ibm.ws.javaee.ddmodel.common.wsclient.RespectBindingType;
  type="xsd:ID"/>
  </xsd:complexType>
  */
-public class PortComponentType extends DDParser.ElementContentParsable implements
-                PortComponent {
+public class PortComponentType
+    extends DDParser.ElementContentParsable
+    implements PortComponent {
 
-    public static class ListType extends
-                    ParsableListImplements<PortComponentType, PortComponent> {
+    public static class ListType
+        extends ParsableListImplements<PortComponentType, PortComponent> {
+
         @Override
         public PortComponentType newInstance(DDParser parser) {
             return new PortComponentType();
@@ -402,5 +404,4 @@ public class PortComponentType extends DDParser.ElementContentParsable implement
     HandlerType.ListType handler;
     HandlerChainsType handler_chains;
     // } choice
-
 }

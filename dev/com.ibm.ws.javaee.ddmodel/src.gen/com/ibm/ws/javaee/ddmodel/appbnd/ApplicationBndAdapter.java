@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,18 +12,21 @@
 package com.ibm.ws.javaee.ddmodel.appbnd;
 
 import java.util.List;
-import java.util.Set;
-import java.util.HashSet;
+
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.ConfigurationPolicy;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
+import org.osgi.service.component.annotations.ReferencePolicyOption;
+
 import com.ibm.ws.javaee.dd.app.Application;
-import com.ibm.ws.javaee.dd.app.Module;
-import org.osgi.service.component.annotations.*;
-import com.ibm.websphere.ras.Tr;
-import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.javaee.dd.appbnd.ApplicationBnd;
+
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
-import com.ibm.ws.container.service.app.deploy.ModuleInfo;
 import com.ibm.ws.container.service.app.deploy.NestedConfigHelper;
-import com.ibm.ws.container.service.app.deploy.extended.ExtendedApplicationInfo;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+import com.ibm.ws.javaee.ddmodel.DDAdapter;
 import com.ibm.ws.javaee.ddmodel.DDParser.ParseException;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
@@ -35,69 +38,123 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 @Component(configurationPolicy = ConfigurationPolicy.IGNORE,
     service = ContainerAdapter.class,
     property = { "service.vendor=IBM", "toType=com.ibm.ws.javaee.dd.appbnd.ApplicationBnd" })
-public class ApplicationBndAdapter implements ContainerAdapter<com.ibm.ws.javaee.dd.appbnd.ApplicationBnd> {
+public class ApplicationBndAdapter implements DDAdapter, ContainerAdapter<ApplicationBnd> {
+    /** Configuration overrides of application binding information. */
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE,
+               policy = ReferencePolicy.DYNAMIC,
+               policyOption = ReferencePolicyOption.GREEDY)
+    volatile List<ApplicationBnd> configurations;
 
-     private static final String MODULE_NAME_INVALID = "module.name.invalid";
-     private static final String MODULE_NAME_NOT_SPECIFIED = "module.name.not.specified";
-     private static final TraceComponent tc = Tr.register(ApplicationBndAdapter.class);
+    /**
+     * Lookup application binding overrides for the application which is
+     * associated with a specified container.
+     * 
+     * Match the stored {@link ApplicationInfo} to the {@link ApplicationBnd}
+     * overrides.  Answer the one which matches 'service.pid' and
+     * 'ibm.extends.source.pid'.  Answer null if no match is found.
+     *
+     * @param rootOverlay The overlay container from which to retrieve application
+     *     information.
+     * @param artifactContainer The artifact container associated with the overlay
+     *     container.
+     *
+     * @return The application binding configuration override which matches the
+     *     stored application information.  Null if no match is found.
+     */
+    private ApplicationBndComponentImpl getConfigOverrides(
+        OverlayContainer rootOverlay, ArtifactContainer artifactContainer) {
 
-    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY)
-volatile List<com.ibm.ws.javaee.dd.appbnd.ApplicationBnd> configurations;
-
-    @Override
-    @FFDCIgnore(ParseException.class)
-    public com.ibm.ws.javaee.dd.appbnd.ApplicationBnd adapt(Container root, OverlayContainer rootOverlay, ArtifactContainer artifactContainer, Container containerToAdapt) throws UnableToAdaptException {
-        com.ibm.ws.javaee.dd.app.Application primary = containerToAdapt.adapt(com.ibm.ws.javaee.dd.app.Application.class);
-        String primaryVersion = primary == null ? null : primary.getVersion();
-        String ddEntryName;
-        boolean xmi = "1.2".equals(primaryVersion) || "1.3".equals(primaryVersion) || "1.4".equals(primaryVersion);
-        if (xmi) {
-            ddEntryName = com.ibm.ws.javaee.dd.appbnd.ApplicationBnd.XMI_BND_NAME;
-        } else {
-            ddEntryName = com.ibm.ws.javaee.dd.appbnd.ApplicationBnd.XML_BND_NAME;
+        if ( (configurations == null) || configurations.isEmpty() ) {
+            return null;
         }
 
-        Entry ddEntry = containerToAdapt.getEntry(ddEntryName);
-com.ibm.ws.javaee.ddmodel.appbnd.ApplicationBndComponentImpl fromConfig = getConfigOverrides(rootOverlay, artifactContainer);
-if (ddEntry == null && fromConfig == null)
-    return null;
-        if (ddEntry != null) {
-            try {
-                com.ibm.ws.javaee.dd.appbnd.ApplicationBnd fromApp = 
-              new com.ibm.ws.javaee.ddmodel.appbnd.ApplicationBndDDParser(containerToAdapt, ddEntry, xmi).parse();
-               if (fromConfig == null) {
-                   return fromApp;
-                } else {  
-                   fromConfig.setDelegate(fromApp);
-                    return fromConfig;
-                }
-            } catch (ParseException e) {
-                throw new UnableToAdaptException(e);
+        String appPath = artifactContainer.getPath();
+
+        ApplicationInfo appInfo = (ApplicationInfo)
+            rootOverlay.getFromNonPersistentCache(appPath, ApplicationInfo.class);
+        if (appInfo == null) {
+            return null;
+        }
+
+        NestedConfigHelper configHelper = appInfo.getConfigHelper();
+        if (configHelper == null) {
+            return null;
+        }
+        String servicePid = (String) configHelper.get("service.pid");
+        String extendsPid = (String) configHelper.get("ibm.extends.source.pid");
+
+        for (ApplicationBnd config : configurations) {
+            ApplicationBndComponentImpl configImpl = (ApplicationBndComponentImpl) config;
+            String parentPid = (String) configImpl.getConfigAdminProperties().get("config.parentPID");
+            if (servicePid.equals(parentPid) || parentPid.equals(extendsPid)) {
+                return configImpl;
             }
         }
-
-        return fromConfig;
+        return null;
     }
-private com.ibm.ws.javaee.ddmodel.appbnd.ApplicationBndComponentImpl getConfigOverrides(OverlayContainer rootOverlay, ArtifactContainer artifactContainer) {
-     if (configurations == null || configurations.isEmpty())
-          return null;
 
-     ApplicationInfo appInfo = (ApplicationInfo) rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), ApplicationInfo.class);
-     NestedConfigHelper configHelper = null;
-     if (appInfo != null && appInfo instanceof ExtendedApplicationInfo)
-          configHelper = ((ExtendedApplicationInfo) appInfo).getConfigHelper();
-      if (configHelper == null)
-          return null;
+    /**
+     * Answer application binding information for an application container.
+     * 
+     * Obtain the binding information from configuration overrides and from the
+     * usual container entry.  If both sources are available, set the information
+     * which was obtained from the container entry as the delegate of the override
+     * information and answer the override information.
+     * 
+     * @param root A container which has application information.
+     * @param rootOverlay An overlay container associated with the container.
+     * @param artifactContainer An artifact container associated with the container.
+     * 
+     * @return The application binding information of the container.  Null if none
+     *     is available.
+     *     
+     * @throws UnableToAdaptException Thrown if an entry which contains application
+     *     information is available but cannot be parsed.  Also thrown if the
+     *     the application itself cannot be parsed.
+     */
+    @Override
+    @FFDCIgnore(ParseException.class)
+    public ApplicationBnd adapt(
+        Container root,
+        OverlayContainer rootOverlay,
+        ArtifactContainer artifactContainer,
+        Container containerToAdapt) throws UnableToAdaptException {
 
-     String servicePid = (String) configHelper.get("service.pid");
-     String extendsPid = (String) configHelper.get("ibm.extends.source.pid");
-     for (com.ibm.ws.javaee.dd.appbnd.ApplicationBnd config : configurations) {
-          com.ibm.ws.javaee.ddmodel.appbnd.ApplicationBndComponentImpl configImpl = (com.ibm.ws.javaee.ddmodel.appbnd.ApplicationBndComponentImpl) config;
-          String parentPid = (String) configImpl.getConfigAdminProperties().get("config.parentPID");
-          if ( servicePid.equals(parentPid) || parentPid.equals(extendsPid)) {
-                    return configImpl;
-          }
-     }
-     return null;
-}
+        // The application binding is NOT cached.
+
+        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        
+        Application application = containerToAdapt.adapt(Application.class);
+        String appVersion = ( (application == null) ? null : application.getVersion() );
+        boolean xmi = ( "1.2".equals(appVersion) ||
+                        "1.3".equals(appVersion) ||
+                        "1.4".equals(appVersion) );
+        String bndEntryName = ( xmi
+            ? ApplicationBnd.XMI_BND_NAME
+            : ApplicationBnd.XML_BND_NAME );  
+        Entry bndEntry = containerToAdapt.getEntry(bndEntryName);
+
+        ApplicationBndComponentImpl bndFromConfig =
+            getConfigOverrides(rootOverlay, artifactContainer);
+
+        if (bndEntry == null) {
+            return bndFromConfig;
+        }
+
+        ApplicationBnd bndFromEntry;
+        try {
+            ApplicationBndDDParser bndParser =
+                new ApplicationBndDDParser(containerToAdapt, bndEntry, xmi);
+            bndFromEntry = bndParser.parse();
+        } catch (ParseException e) {
+            throw new UnableToAdaptException(e);
+        }
+
+        if (bndFromConfig == null) {
+            return bndFromEntry;
+        } else {  
+            bndFromConfig.setDelegate(bndFromEntry);
+            return bndFromConfig;
+        }
+    }
 }

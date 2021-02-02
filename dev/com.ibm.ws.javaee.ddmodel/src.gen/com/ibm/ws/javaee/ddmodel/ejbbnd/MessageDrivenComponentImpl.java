@@ -31,7 +31,7 @@ private com.ibm.ws.javaee.dd.ejbbnd.MessageDriven delegate;
 
      @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, name = "jca-adapter", target = "(id=unbound)")
      protected volatile com.ibm.ws.javaee.dd.ejbbnd.JCAAdapter jca_adapter;
-     protected java.lang.String name;
+     protected java.lang.String name; // TODO: Overridden field. Is this a problem?
 
      @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, name = "ejb-ref", target = "(id=unbound)")
      protected void setEjb_ref(com.ibm.ws.javaee.dd.commonbnd.EJBRef value) {

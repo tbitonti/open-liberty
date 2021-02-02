@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,14 +16,17 @@ import java.util.Set;
 import java.util.HashSet;
 import com.ibm.ws.javaee.dd.app.Application;
 import com.ibm.ws.javaee.dd.app.Module;
+import com.ibm.ws.javaee.dd.managedbean.ManagedBeanBnd;
+
 import org.osgi.service.component.annotations.*;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
 import com.ibm.ws.container.service.app.deploy.NestedConfigHelper;
-import com.ibm.ws.container.service.app.deploy.extended.ExtendedApplicationInfo;
+import com.ibm.ws.container.service.app.deploy.WebModuleInfo;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+import com.ibm.ws.javaee.ddmodel.DDAdapter;
 import com.ibm.ws.javaee.ddmodel.DDParser.ParseException;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
@@ -35,109 +38,137 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 @Component(configurationPolicy = ConfigurationPolicy.IGNORE,
     service = ContainerAdapter.class,
     property = { "service.vendor=IBM", "toType=com.ibm.ws.javaee.dd.managedbean.ManagedBeanBnd" })
-public class ManagedBeanBndAdapter implements ContainerAdapter<com.ibm.ws.javaee.dd.managedbean.ManagedBeanBnd> {
-    public static final String XML_BND_IN_EJB_MOD_NAME = "META-INF/ibm-managed-bean-bnd.xml";
-    public static final String XML_BND_IN_WEB_MOD_NAME = "WEB-INF/ibm-managed-bean-bnd.xml";
+public class ManagedBeanBndAdapter implements DDAdapter, ContainerAdapter<ManagedBeanBnd> {
+    private static final TraceComponent tc = Tr.register(ManagedBeanBndAdapter.class);
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE,
+               policy = ReferencePolicy.DYNAMIC,
+               policyOption = ReferencePolicyOption.GREEDY)
+    volatile List<ManagedBeanBnd> configurations;
 
-     private static final String MODULE_NAME_INVALID = "module.name.invalid";
-     private static final String MODULE_NAME_NOT_SPECIFIED = "module.name.not.specified";
-     private static final TraceComponent tc = Tr.register(ManagedBeanBndAdapter.class);
+    private ManagedBeanBndComponentImpl getConfigOverrides(
+        OverlayContainer rootOverlay, ArtifactContainer artifactContainer)
+        throws UnableToAdaptException {
 
-    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY)
-volatile List<com.ibm.ws.javaee.dd.managedbean.ManagedBeanBnd> configurations;
-
-    @Override
-    @FFDCIgnore(ParseException.class)
-    public com.ibm.ws.javaee.dd.managedbean.ManagedBeanBnd adapt(Container root, OverlayContainer rootOverlay, ArtifactContainer artifactContainer, Container containerToAdapt) throws UnableToAdaptException {
-        String ddEntryName;
-        if (rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), com.ibm.ws.container.service.app.deploy.WebModuleInfo.class) == null) {
-            ddEntryName = XML_BND_IN_EJB_MOD_NAME;
-        } else {
-            ddEntryName = XML_BND_IN_WEB_MOD_NAME;
+        if ((configurations == null) || configurations.isEmpty()) {
+             return null;
         }
 
-        Entry ddEntry = containerToAdapt.getEntry(ddEntryName);
-com.ibm.ws.javaee.ddmodel.managedbean.ManagedBeanBndComponentImpl fromConfig = getConfigOverrides(rootOverlay, artifactContainer);
-if (ddEntry == null && fromConfig == null)
-    return null;
-        if (ddEntry != null) {
-            try {
-                com.ibm.ws.javaee.dd.managedbean.ManagedBeanBnd fromApp = 
-              new com.ibm.ws.javaee.ddmodel.managedbean.ManagedBeanBndDDParser(containerToAdapt, ddEntry).parse();
-               if (fromConfig == null) {
-                   return fromApp;
-                } else {  
-                   fromConfig.setDelegate(fromApp);
-                    return fromConfig;
-                }
-            } catch (ParseException e) {
-                throw new UnableToAdaptException(e);
+        String appPath = artifactContainer.getPath();
+
+        ApplicationInfo appInfo = (ApplicationInfo)
+            rootOverlay.getFromNonPersistentCache(appPath, ApplicationInfo.class);
+
+        ModuleInfo moduleInfo = null;
+        if (appInfo == null) {
+            if (rootOverlay.getParentOverlay() == null) {
+                return null;
+            }
+            moduleInfo = (ModuleInfo)
+                rootOverlay.getFromNonPersistentCache(appPath, ModuleInfo.class);
+            if (moduleInfo == null) {
+                return null;
+            }
+            appInfo = moduleInfo.getApplicationInfo();
+            if (appInfo == null) {
+                return null;
             }
         }
 
-        return fromConfig;
-    }
-private com.ibm.ws.javaee.ddmodel.managedbean.ManagedBeanBndComponentImpl getConfigOverrides(OverlayContainer rootOverlay, ArtifactContainer artifactContainer) throws UnableToAdaptException {
-     if (configurations == null || configurations.isEmpty())
-          return null;
+        NestedConfigHelper configHelper = appInfo.getConfigHelper();
+        if ( configHelper == null ) {
+            return null;
+        }
+        String servicePid = (String) configHelper.get("service.pid");
+        String extendsPid = (String) configHelper.get("ibm.extends.source.pid");
 
-     ApplicationInfo appInfo = (ApplicationInfo) rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), ApplicationInfo.class);
-     ModuleInfo moduleInfo = null;
-     if (appInfo == null && rootOverlay.getParentOverlay() != null) {
-          moduleInfo = (ModuleInfo) rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), ModuleInfo.class);
-          if (moduleInfo == null)
-               return null;
-          appInfo = moduleInfo.getApplicationInfo();
-     }
-     NestedConfigHelper configHelper = null;
-     if (appInfo != null && appInfo instanceof ExtendedApplicationInfo)
-          configHelper = ((ExtendedApplicationInfo) appInfo).getConfigHelper();
-      if (configHelper == null)
-          return null;
+        Set<String> overrideModuleNames = null;
 
-     Set<String> configuredModuleNames = new HashSet<String>();
-     String servicePid = (String) configHelper.get("service.pid");
-     String extendsPid = (String) configHelper.get("ibm.extends.source.pid");
-     for (com.ibm.ws.javaee.dd.managedbean.ManagedBeanBnd config : configurations) {
-          com.ibm.ws.javaee.ddmodel.managedbean.ManagedBeanBndComponentImpl configImpl = (com.ibm.ws.javaee.ddmodel.managedbean.ManagedBeanBndComponentImpl) config;
-          String parentPid = (String) configImpl.getConfigAdminProperties().get("config.parentPID");
-          if ( servicePid.equals(parentPid) || parentPid.equals(extendsPid)) {
-               if (moduleInfo == null)
+        for (ManagedBeanBnd config : configurations) {
+            ManagedBeanBndComponentImpl configImpl = (ManagedBeanBndComponentImpl) config;
+            String parentPid = (String) configImpl.getConfigAdminProperties().get("config.parentPID");
+            if ( servicePid.equals(parentPid) || parentPid.equals(extendsPid)) {
+                if (moduleInfo == null) {
                     return configImpl;
-               String moduleName = (String) configImpl.getConfigAdminProperties().get("moduleName");
-               if (moduleName == null) {
-                    if (rootOverlay.getParentOverlay().getFromNonPersistentCache(MODULE_NAME_NOT_SPECIFIED, ManagedBeanBndAdapter.class) == null) {
-                    Tr.error(tc, "module.name.not.specified", "managed-bean-bnd" );
-                    rootOverlay.getParentOverlay().addToNonPersistentCache(MODULE_NAME_NOT_SPECIFIED, ManagedBeanBndAdapter.class, MODULE_NAME_NOT_SPECIFIED);
+                }
+
+                String moduleName = (String) configImpl.getConfigAdminProperties().get("moduleName");
+                if (moduleName == null) {
+                    if (DDAdapter.markUnspecifiedModuleName(rootOverlay, ManagedBeanBndAdapter.class)) {
+                        Tr.error(tc, "module.name.not.specified", "managed-bean-bnd" );
                     }
                     continue;
-               }
-               moduleName = stripExtension(moduleName);
-               configuredModuleNames.add(moduleName);
-               if (moduleInfo.getName().equals(moduleName))
+                }
+                moduleName = DDAdapter.stripExtension(moduleName);
+
+                if ( overrideModuleNames == null ) {
+                    overrideModuleNames = new HashSet<String>();
+                }                
+                overrideModuleNames.add(moduleName);
+
+                if (moduleInfo.getName().equals(moduleName)) {
                     return configImpl;
-     }
-     }
-     if (moduleInfo != null && !configuredModuleNames.isEmpty()) {
-      if (rootOverlay.getParentOverlay().getFromNonPersistentCache(MODULE_NAME_INVALID, ManagedBeanBndAdapter.class) == null) {
-          HashSet<String> moduleNames = new HashSet<String>();
-          Application app = appInfo.getContainer().adapt(Application.class);
-          for (Module m : app.getModules()) {
-               moduleNames.add(stripExtension(m.getModulePath()));
-          }
-          configuredModuleNames.removeAll(moduleNames);
-          if ( !configuredModuleNames.isEmpty() )
-               Tr.error(tc, "module.name.invalid", configuredModuleNames, "managed-bean-bnd");
-          rootOverlay.getParentOverlay().addToNonPersistentCache(MODULE_NAME_INVALID, ManagedBeanBndAdapter.class, MODULE_NAME_INVALID);
-          }
-     }
-     return null;
-}
-     private String stripExtension(String moduleName) {
-          if (moduleName.endsWith(".war") || moduleName.endsWith(".jar")) {
-               return moduleName.substring(0, moduleName.length() - 4);
-          }
-          return moduleName;
-     }
+                }
+            }
+        }
+
+        if (overrideModuleNames != null) {
+            if (DDAdapter.markInvalidModuleName(rootOverlay, getClass())) {
+                Application app = appInfo.getContainer().adapt(Application.class);
+                for (Module module : app.getModules()) {
+                    overrideModuleNames.remove(DDAdapter.stripExtension(module.getModulePath()));
+                }
+                if (!overrideModuleNames.isEmpty()) {
+                    Tr.error(tc, "module.name.invalid", overrideModuleNames, "managed-bean-bnd");
+                }
+            }
+        }
+
+        return null;
+    }
+    
+    public static final String XML_BND_IN_EJB_MOD_NAME = "META-INF/ibm-managed-bean-bnd.xml";
+    public static final String XML_BND_IN_WEB_MOD_NAME = "WEB-INF/ibm-managed-bean-bnd.xml";
+
+    @Override
+    @FFDCIgnore(ParseException.class)
+    public ManagedBeanBnd adapt(Container root, OverlayContainer rootOverlay, ArtifactContainer artifactContainer, Container containerToAdapt)
+        throws UnableToAdaptException {
+
+        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+
+        WebModuleInfo webInfo = (WebModuleInfo)
+            rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), WebModuleInfo.class);
+        String bndEntryName;
+        if (webInfo == null) {
+            bndEntryName = XML_BND_IN_EJB_MOD_NAME;
+        } else {
+            bndEntryName = XML_BND_IN_WEB_MOD_NAME;
+        }
+
+        ManagedBeanBndComponentImpl bndFromConfig =
+            getConfigOverrides(rootOverlay, artifactContainer);
+
+        Entry bndEntry = containerToAdapt.getEntry(bndEntryName);
+
+        if (bndEntry == null) {
+            return bndFromConfig;
+        }
+
+        ManagedBeanBnd bndFromEntry;        
+        try {
+            ManagedBeanBndDDParser bndParser =
+                new ManagedBeanBndDDParser(containerToAdapt, bndEntry);
+            bndFromEntry = bndParser.parse();
+        } catch (ParseException e) {
+            throw new UnableToAdaptException(e);
+        }
+
+        if (bndFromConfig == null) {
+            return bndFromEntry;
+        } else {
+            bndFromConfig.setDelegate(bndFromEntry);
+            return bndFromConfig;
+        }
+    }
 }

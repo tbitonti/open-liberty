@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -39,6 +39,7 @@ private com.ibm.ws.javaee.dd.clientbnd.ApplicationClientBnd delegate;
      }
 
      protected volatile List<com.ibm.ws.javaee.dd.commonbnd.EJBRef> ejb_ref = new ArrayList<com.ibm.ws.javaee.dd.commonbnd.EJBRef>();
+     // TODO: Overridden field.  Is this a problem?
 
      @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, name = "resource-ref", target = "(id=unbound)")
      protected void setResource_ref(com.ibm.ws.javaee.dd.commonbnd.ResourceRef value) {
@@ -50,6 +51,7 @@ private com.ibm.ws.javaee.dd.clientbnd.ApplicationClientBnd delegate;
      }
 
      protected volatile List<com.ibm.ws.javaee.dd.commonbnd.ResourceRef> resource_ref = new ArrayList<com.ibm.ws.javaee.dd.commonbnd.ResourceRef>();
+     // TODO: Overridden field.  Is this a problem?
 
      @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, name = "resource-env-ref", target = "(id=unbound)")
      protected void setResource_env_ref(com.ibm.ws.javaee.dd.commonbnd.ResourceEnvRef value) {
@@ -61,6 +63,7 @@ private com.ibm.ws.javaee.dd.clientbnd.ApplicationClientBnd delegate;
      }
 
      protected volatile List<com.ibm.ws.javaee.dd.commonbnd.ResourceEnvRef> resource_env_ref = new ArrayList<com.ibm.ws.javaee.dd.commonbnd.ResourceEnvRef>();
+     // TODO: Overridden field.  Is this a problem?
 
      @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, name = "message-destination-ref", target = "(id=unbound)")
      protected void setMessage_destination_ref(com.ibm.ws.javaee.dd.commonbnd.MessageDestinationRef value) {
@@ -72,6 +75,7 @@ private com.ibm.ws.javaee.dd.clientbnd.ApplicationClientBnd delegate;
      }
 
      protected volatile List<com.ibm.ws.javaee.dd.commonbnd.MessageDestinationRef> message_destination_ref = new ArrayList<com.ibm.ws.javaee.dd.commonbnd.MessageDestinationRef>();
+     // TODO: Overridden field.  Is this a problem?
 
      @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, name = "data-source", target = "(id=unbound)")
      protected void setData_source(com.ibm.ws.javaee.dd.commonbnd.DataSource value) {
@@ -83,6 +87,7 @@ private com.ibm.ws.javaee.dd.clientbnd.ApplicationClientBnd delegate;
      }
 
      protected volatile List<com.ibm.ws.javaee.dd.commonbnd.DataSource> data_source = new ArrayList<com.ibm.ws.javaee.dd.commonbnd.DataSource>();
+     // TODO: Overridden field.  Is this a problem?
 
      @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, name = "env-entry", target = "(id=unbound)")
      protected void setEnv_entry(com.ibm.ws.javaee.dd.commonbnd.EnvEntry value) {
@@ -94,6 +99,7 @@ private com.ibm.ws.javaee.dd.clientbnd.ApplicationClientBnd delegate;
      }
 
      protected volatile List<com.ibm.ws.javaee.dd.commonbnd.EnvEntry> env_entry = new ArrayList<com.ibm.ws.javaee.dd.commonbnd.EnvEntry>();
+     // TODO: Overridden field.  Is this a problem?
 
      @Activate
      protected void activate(Map<String, Object> config) {

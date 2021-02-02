@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -23,26 +23,19 @@ import com.ibm.wsspi.adaptable.module.adapters.EntryAdapter;
 import com.ibm.wsspi.artifact.ArtifactEntry;
 import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 
-/**
- *
- */
 public class FacesConfigEntryAdapter implements EntryAdapter<FacesConfig> {
+    private ServiceReference<FacesVersion> maxVersionRef;
+    private volatile int maxVersion = FacesConfigAdapter.DEFAULT_MAX_VERSION;
 
-    private static final int DEFAULT_JSF_LOADED_VERSION = FacesConfig.VERSION_2_0;
-
-    private ServiceReference<FacesVersion> versionRef;
-    private volatile int version = DEFAULT_JSF_LOADED_VERSION;
-
-    public synchronized void setVersion(ServiceReference<FacesVersion> reference) {
-
-        versionRef = reference;
-        version = (Integer) reference.getProperty("version");
+    public synchronized void setVersion(ServiceReference<FacesVersion> versionRef) {
+        maxVersionRef = versionRef;
+        maxVersion = (Integer) versionRef.getProperty("version");
     }
 
-    public synchronized void unsetVersion(ServiceReference<FacesVersion> reference) {
-        if (reference == this.versionRef) {
-            versionRef = null;
-            version = DEFAULT_JSF_LOADED_VERSION;
+    public synchronized void unsetVersion(ServiceReference<FacesVersion> versionRef) {
+        if (versionRef == this.maxVersionRef) {
+            maxVersionRef = null;
+            maxVersion = FacesConfigAdapter.DEFAULT_MAX_VERSION;
         }
     }
 
@@ -51,7 +44,7 @@ public class FacesConfigEntryAdapter implements EntryAdapter<FacesConfig> {
     public FacesConfig adapt(Container root, OverlayContainer rootOverlay, ArtifactEntry artifactEntry, Entry entryToAdapt) throws UnableToAdaptException {
         if (entryToAdapt != null) {
             try {
-                FacesConfigDDParser ddParser = new FacesConfigDDParser(root, entryToAdapt, version);
+                FacesConfigDDParser ddParser = new FacesConfigDDParser(root, entryToAdapt, maxVersion);
                 FacesConfig facesConfig = ddParser.parse();
                 return facesConfig;
             } catch (ParseException e) {
@@ -60,5 +53,4 @@ public class FacesConfigEntryAdapter implements EntryAdapter<FacesConfig> {
         }
         return null;
     }
-
 }

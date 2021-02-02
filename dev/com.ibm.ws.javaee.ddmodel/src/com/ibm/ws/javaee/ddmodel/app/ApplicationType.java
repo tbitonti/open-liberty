@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -259,6 +259,8 @@ public class ApplicationType extends JNDIEnvironmentRefs implements Application,
     @Override
     public boolean handleAttribute(DDParser parser, String nsURI, String localName, int index) throws ParseException {
         if (nsURI == null) {
+            // Version assignment for schema based parsing:
+            // A version attribute is expected.
             if (parser.version >= 14 && "version".equals(localName)) {
                 version = parser.parseTokenAttributeValue(index);
                 return true;
@@ -366,10 +368,22 @@ public class ApplicationType extends JNDIEnvironmentRefs implements Application,
 
     @Override
     public void finish(DDParser parser) throws ParseException {
+        // Finish up version assignment for DTD cases. 
+        //
+        // 'handleAttribute should handle version assignment in schema cases.
+        //
+        // In DTD cases, the parser version will be assigned to 1.2 or 1.3.
+
         if (version == null) {
             if (parser.version < 14) {
                 version = parser.parseToken(parser.version == 12 ? "1.2" : "1.3");
             } else {
+                // This case should never occur:
+                // Creation of the root application parsable cannot happen unless
+                // either a version or a public ID is present.  When a public
+                // ID is present, the parser version must be 12 or 13.  When
+                // a version is present, 'handleAttribute' will assign a version
+                // value.
                 throw new ParseException(parser.requiredAttributeMissing("version"));
             }
         }

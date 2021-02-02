@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,78 +16,68 @@ import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
 
 public class EJBJarDDParser extends DDParser {
-    private final int maxVersion;
-
-    public EJBJarDDParser(Container ddRootContainer, Entry ddEntry, int maxVersion) throws ParseException {
-        super(ddRootContainer, ddEntry);
-        this.maxVersion = maxVersion;
+    public EJBJarDDParser(Container ddRootContainer, Entry ddEntry, int maxVersion)
+        throws ParseException {
+        super(ddRootContainer, ddEntry, maxVersion);
     }
 
-    EJBJar parse() throws ParseException {
+    @Override
+    public EJBJar parse() throws ParseException {
         super.parseRootElement();
         return (EJBJar) rootParsable;
     }
 
-    private static final String EJBJAR_DTD_PUBLIC_ID_11 = "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN";
-    private static final String EJBJAR_DTD_PUBLIC_ID_20 = "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN";
+    private static final String EJBJAR_DTD_PUBLIC_ID_11 =
+        "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN";
+    private static final String EJBJAR_DTD_PUBLIC_ID_20 =
+        "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN";
 
     @Override
     protected ParsableElement createRootParsable() throws ParseException {
-        if (!"ejb-jar".equals(rootElementLocalName)) {
-            throw new ParseException(invalidRootElement());
-        }
-        String vers = getAttributeValue("", "version");
+        requireRootElement("ejb-jar");
+
+        String vers = requireVersionOrDTD();
         if (vers == null) {
-            if (namespace == null && dtdPublicId != null) {
-                if (EJBJAR_DTD_PUBLIC_ID_11.equals(dtdPublicId)) {
-                    version = EJBJar.VERSION_1_1;
-                    eePlatformVersion = 12;
-                    return new EJBJarType(getDeploymentDescriptorPath());
-                }
-                if (EJBJAR_DTD_PUBLIC_ID_20.equals(dtdPublicId)) {
-                    version = EJBJar.VERSION_2_0;
-                    eePlatformVersion = 13;
-                    return new EJBJarType(getDeploymentDescriptorPath());
-                }
+            if (EJBJAR_DTD_PUBLIC_ID_11.equals(dtdPublicId)) {
+                version = EJBJar.VERSION_1_1;
+                eePlatformVersion = 12;
+            } else if (EJBJAR_DTD_PUBLIC_ID_20.equals(dtdPublicId)) {
+                version = EJBJar.VERSION_2_0;
+                eePlatformVersion = 13;
+            } else {
+                throw new ParseException(errorInvalidPublicId());
             }
-            throw new ParseException(unknownDeploymentDescriptorVersion());
-        }
-        if ("2.1".equals(vers)) {
-            if ("http://java.sun.com/xml/ns/j2ee".equals(namespace)) {
-                version = EJBJar.VERSION_2_1;
-                eePlatformVersion = 14;
-                return new EJBJarType(getDeploymentDescriptorPath());
-            }
+
+        } else if ("2.1".equals(vers)) {
+            requireNamespace(vers, "http://java.sun.com/xml/ns/j2ee");
+            version = EJBJar.VERSION_2_1;
+            eePlatformVersion = 14;
+
         } else if ("3.0".equals(vers)) {
-            if ("http://java.sun.com/xml/ns/javaee".equals(namespace)) {
-                version = EJBJar.VERSION_3_0;
-                eePlatformVersion = 50;
-                return new EJBJarType(getDeploymentDescriptorPath());
-            }
+            requireNamespace(vers, "http://java.sun.com/xml/ns/javaee");
+            version = EJBJar.VERSION_3_0;
+            eePlatformVersion = 50;
         } else if ("3.1".equals(vers)) {
-            if ("http://java.sun.com/xml/ns/javaee".equals(namespace)) {
-                version = EJBJar.VERSION_3_1;
-                eePlatformVersion = 60;
-                return new EJBJarType(getDeploymentDescriptorPath());
-            }
-            /*
-             * Ensure ejb-jar.xml version level is not above feature level version
-             * lowest feature level for Open Liberty is ejb-3.1 so the check is only needed
-             * from now on.
-             */
-        } else if (maxVersion >= EJBJar.VERSION_3_2 && "3.2".equals(vers)) {
-            if ("http://xmlns.jcp.org/xml/ns/javaee".equals(namespace)) {
-                version = EJBJar.VERSION_3_2;
-                eePlatformVersion = 70;
-                return new EJBJarType(getDeploymentDescriptorPath());
-            }
-        } else if (maxVersion >= EJBJar.VERSION_4_0 && "4.0".equals(vers)) {
-            if ("https://jakarta.ee/xml/ns/jakartaee".equals(namespace)) {
-                version = EJBJar.VERSION_4_0;
-                eePlatformVersion = 90;
-                return new EJBJarType(getDeploymentDescriptorPath());
-            }
+            requireNamespace(vers, "http://java.sun.com/xml/ns/javaee");
+            version = EJBJar.VERSION_3_1;
+            eePlatformVersion = 60;
+
+        } else if ("3.2".equals(vers)) {
+            requireProvisioning(EJBJar.VERSION_3_2, vers);
+            requireNamespace(vers, "http://xmlns.jcp.org/xml/ns/javaee");
+            version = EJBJar.VERSION_3_2;
+            eePlatformVersion = 70;
+
+        } else if ("4.0".equals(vers)) {
+            requireProvisioning(EJBJar.VERSION_4_0, vers); 
+            requireNamespace(vers, "https://jakarta.ee/xml/ns/jakartaee");
+            version = EJBJar.VERSION_4_0;
+            eePlatformVersion = 90;
+
+        } else {
+            throw new ParseException(errorInvalidVersion(vers));
         }
-        throw new ParseException(invalidDeploymentDescriptorNamespace(vers));
+
+        return new EJBJarType(getDeploymentDescriptorPath());
     }
 }

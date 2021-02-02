@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,6 @@ package com.ibm.ws.javaee.ddmodel.client;
 import java.util.Collections;
 import java.util.List;
 
-import com.ibm.ws.javaee.dd.DeploymentDescriptor;
 import com.ibm.ws.javaee.dd.client.ApplicationClient;
 import com.ibm.ws.javaee.dd.common.Description;
 import com.ibm.ws.javaee.dd.common.DisplayName;
@@ -303,6 +302,12 @@ public class ApplicationClientType extends JNDIEnvironmentRefsGroup implements A
             if (parser.version < 14) {
                 version = parser.parseToken(parser.version == 12 ? "1.2" : "1.3");
             } else {
+                // This case should never occur:
+                // Creation of the root application client parsable cannot happen unless
+                // either a version or a public ID is present.  When a public
+                // ID is present, the parser version must be 12 or 13.  When
+                // a version is present, 'handleAttribute' will assign a version
+                // value.
                 throw new ParseException(parser.requiredAttributeMissing("version"));
             }
         }

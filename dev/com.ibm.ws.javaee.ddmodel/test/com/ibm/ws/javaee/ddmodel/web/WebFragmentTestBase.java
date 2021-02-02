@@ -76,6 +76,10 @@ public class WebFragmentTestBase extends DDTestBase {
         }
     }
 
+    protected static String appTail() {
+        return "</application>";
+    }
+
     protected static final String webFragment30() {
         return "<web-fragment" +
                " xmlns=\"http://java.sun.com/xml/ns/javaee\"" +

@@ -8,43 +8,36 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
-package com.ibm.ws.javaee.ddmodel.permissions;
+package com.ibm.ws.javaee.ddmodel.ws;
 
-import com.ibm.ws.javaee.dd.permissions.PermissionsConfig;
+import com.ibm.ws.javaee.dd.ws.Webservices;
 import com.ibm.ws.javaee.ddmodel.DDParser;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
 
-final class PermissionsConfigDDParser extends DDParser {
-    public PermissionsConfigDDParser(Container ddRootContainer, Entry ddEntry)
+public final class WebServicesDDParser extends DDParser {
+    public WebServicesDDParser(Container ddRootContainer, Entry ddEntry)
         throws ParseException {
         super(ddRootContainer, ddEntry);
     }
 
     @Override
-    public PermissionsConfig parse() throws ParseException {
+    public Webservices parse() throws ParseException {
         super.parseRootElement();
-        return (PermissionsConfig) rootParsable;
+        return (Webservices) rootParsable;
     }
 
-    // TODO: The permissions configuration perhaps should
-    //       respect max version.
-    
     @Override
     protected ParsableElement createRootParsable() throws ParseException {
-        requireRootElement("permissions");
+        requireRootElement("webservices");
 
         String vers = requireVersion();
-        if ("7".equals(vers)) {        
-            requireNamespace(vers, "http://xmlns.jcp.org/xml/ns/javaee");
-            version = 70; /// JavaEE7 and JavaEE8
-        } if ("9".equals(vers)) {
-            requireNamespace(vers, "https://jakarta.ee/xml/ns/jakartaee");
-            version = 90; // Jakarta9
+        if ( "2.0".equals(vers) ||
+             "1.4".equals(vers) || "1.3".equals(vers) ||
+             "1.2".equals(vers) || "1.1".equals(vers) ) {
+            return new WebservicesType(getDeploymentDescriptorPath());
         } else {
             throw new ParseException(errorInvalidVersion(vers));
         }
-
-        return new PermissionsConfigType(getDeploymentDescriptorPath());
     }
 }

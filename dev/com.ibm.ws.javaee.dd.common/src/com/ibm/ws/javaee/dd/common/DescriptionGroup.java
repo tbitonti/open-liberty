@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,16 +15,7 @@ import java.util.List;
 /**
  * Represents the descriptionGroup type from the javaee XSD.
  */
-public interface DescriptionGroup
-                extends Describable
-{
-    /**
-     * @return &lt;display-name> as a read-only list
-     */
+public interface DescriptionGroup extends Describable { 
     List<DisplayName> getDisplayNames();
-
-    /**
-     * @return &lt;icon> as a read-only list
-     */
     List<Icon> getIcons();
 }

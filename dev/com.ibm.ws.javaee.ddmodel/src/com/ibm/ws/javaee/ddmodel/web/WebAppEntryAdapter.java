@@ -26,20 +26,20 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 public final class WebAppEntryAdapter implements EntryAdapter<WebApp> {
     private static final int DEFAULT_MAX_VERSION = WebApp.VERSION_3_0;
 
-    private ServiceReference<ServletVersion> versionRef;
+    private ServiceReference<ServletVersion> maxVersionRef;
     private volatile int maxVersion = DEFAULT_MAX_VERSION;
 
     public synchronized void setVersion(ServiceReference<ServletVersion> versionRef) {
-        this.versionRef = versionRef;
+        maxVersionRef = versionRef;
 
         Integer maxVersionValue = (Integer) versionRef.getProperty("version");
         maxVersion = maxVersionValue.intValue();
     }
 
     public synchronized void unsetVersion(ServiceReference<ServletVersion> versionRef) {
-        if ( versionRef == this.versionRef ) {
-            this.versionRef = null;
-            this.maxVersion = DEFAULT_MAX_VERSION;
+        if ( versionRef == this.maxVersionRef ) {
+            maxVersionRef = null;
+            maxVersion = DEFAULT_MAX_VERSION;
         }
     }
 
@@ -52,14 +52,19 @@ public final class WebAppEntryAdapter implements EntryAdapter<WebApp> {
         Entry webAppEntry) throws UnableToAdaptException {
 
         String webAppPath = rawWebAppEntry.getPath();
-        WebApp webAppDD = (WebApp) container.getFromNonPersistentCache(webAppPath, WebApp.class);
+
+        WebApp webAppDD = (WebApp)
+            container.getFromNonPersistentCache(webAppPath, WebApp.class);
+
         if ( webAppDD == null ) {
             try {
-                WebAppDDParser webAppDDParser = new WebAppDDParser(rawContainer, webAppEntry, maxVersion); // throws ParseException
-                webAppDD = webAppDDParser.parse(); // throws ParseException
+                WebAppDDParser webAppDDParser =
+                    new WebAppDDParser(rawContainer, webAppEntry, maxVersion);
+                webAppDD = webAppDDParser.parse();
             } catch ( ParseException e ) {
                 throw new UnableToAdaptException(e);
             }
+
             container.addToNonPersistentCache(webAppPath, WebApp.class, webAppDD);
         }
 

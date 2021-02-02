@@ -27,17 +27,24 @@ public class ValidationConfigEntryAdapter implements EntryAdapter<ValidationConf
                                   ArtifactEntry artifactEntry,
                                   Entry entryToAdapt) throws UnableToAdaptException {
 
-        String path = artifactEntry.getPath();
-        ValidationConfig validationConfig = (ValidationConfig) rootOverlay.getFromNonPersistentCache(path, ValidationConfig.class);
+        // Cache using the validation configuration path in the validation
+        // configuration root container.
+
+        String configPath = artifactEntry.getPath();
+
+        ValidationConfig validationConfig = (ValidationConfig)
+            rootOverlay.getFromNonPersistentCache(configPath, ValidationConfig.class);
+
         if (validationConfig == null) {
             try {
-                ValidationConfigDDParser ddParser = new ValidationConfigDDParser(root, entryToAdapt);
+                ValidationConfigDDParser ddParser =
+                    new ValidationConfigDDParser(root, entryToAdapt);
                 validationConfig = ddParser.parse();
             } catch (ParseException e) {
                 throw new UnableToAdaptException(e);
             }
 
-            rootOverlay.addToNonPersistentCache(path, ValidationConfig.class, validationConfig);
+            rootOverlay.addToNonPersistentCache(configPath, ValidationConfig.class, validationConfig);
         }
 
         return validationConfig;
