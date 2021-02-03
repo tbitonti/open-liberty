@@ -38,10 +38,14 @@ public class AppTestBase extends DDTestBase {
         // Mock up data structures needed to perform parsing:
 
         // Mock up the parameters to 'ApplicationAdapter.adapt':
-        final Container root = mockery.mock(Container.class, "root" + mockId++);
-        final OverlayContainer rootOverlay = mockery.mock(OverlayContainer.class, "rootOverlay" + mockId++);
-        final ArtifactContainer artifactContainer = mockery.mock(ArtifactContainer.class, "artifactContainer" + mockId++);
-        final Container containerToAdapt = mockery.mock(Container.class, "containerToAdapt" + mockId++);
+        final Container root =
+            mockery.mock(Container.class, "root" + mockId++);
+        final OverlayContainer rootOverlay =
+            mockery.mock(OverlayContainer.class, "rootOverlay" + mockId++);
+        final ArtifactContainer artifactContainer =
+            mockery.mock(ArtifactContainer.class, "artifactContainer" + mockId++);
+        final Container containerToAdapt =
+            mockery.mock(Container.class, "containerToAdapt" + mockId++);
 
         // Mock up the entry for the application descriptor:
         final Entry entry = mockery.mock(Entry.class, "entry" + mockId++);
@@ -62,6 +66,12 @@ public class AppTestBase extends DDTestBase {
                 allowing(artifactContainer).getPath();
                 will(returnValue("/"));
 
+                // Required by 'DDAdapter.logInfo'.
+                allowing(rootOverlay).getPath();
+                will(returnValue("/"));
+                allowing(rootOverlay).getParentOverlay();
+                will(returnValue(null));
+                
                 // Give the root overlay the non-persistent cache API.
                 allowing(rootOverlay).getFromNonPersistentCache(with(any(String.class)), with(any(Class.class)));
                 will(returnValue(null));

@@ -40,7 +40,7 @@ public interface DDAdapter {
      * @param appPath The path to the root overlay container.
      */
     public static void logInfo(DDAdapter adapter, OverlayContainer rootOverlay, String appPath) {
-        String prefix = adapter.getClass().getSimpleName() + ": ";
+        String prefix = adapter.getClass().getSimpleName() + ".logInfo: ";
 
         System.out.println(prefix + "Path [ " + appPath + " ]");
 

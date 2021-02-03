@@ -38,7 +38,7 @@ final class PermissionsConfigDDParser extends DDParser {
         if ("7".equals(vers)) {        
             requireNamespace(vers, "http://xmlns.jcp.org/xml/ns/javaee");
             version = 70; /// JavaEE7 and JavaEE8
-        } if ("9".equals(vers)) {
+        } else if ("9".equals(vers)) {
             requireNamespace(vers, "https://jakarta.ee/xml/ns/jakartaee");
             version = 90; // Jakarta9
         } else {

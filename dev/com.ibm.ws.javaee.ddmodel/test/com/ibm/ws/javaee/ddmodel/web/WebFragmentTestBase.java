@@ -47,6 +47,12 @@ public class WebFragmentTestBase extends DDTestBase {
                 allowing(artifactContainer).getPath();
                 will(returnValue(WebFragment.DD_NAME));
 
+                // Required by 'DDAdapter.logInfo'.
+                allowing(rootOverlay).getPath();
+                will(returnValue("/"));
+                allowing(rootOverlay).getParentOverlay();
+                will(returnValue(null));
+
                 allowing(rootOverlay).getFromNonPersistentCache(with(any(String.class)), with(any(Class.class)));
                 will(returnValue(null));
 

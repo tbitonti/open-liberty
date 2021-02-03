@@ -57,6 +57,12 @@ public class DDTestBase {
                     will(returnValue(npCache));
                 }
 
+                // Required by 'DDAdapter.logInfo'.
+                allowing(rootOverlay).getPath();
+                will(returnValue("/"));
+                allowing(rootOverlay).getParentOverlay();
+                will(returnValue(null));
+                
                 allowing(rootOverlay).getFromNonPersistentCache(with(any(String.class)), with(any(Class.class)));
                 will(returnValue(null));
 
@@ -97,6 +103,12 @@ public class DDTestBase {
                 allowing(artifactEntry).getPath();
                 will(returnValue('/' + path));
 
+                // Required by 'DDAdapter.logInfo'.
+                allowing(rootOverlay).getPath();
+                will(returnValue("/"));
+                allowing(rootOverlay).getParentOverlay();
+                will(returnValue(null));
+                
                 allowing(rootOverlay).getFromNonPersistentCache(with(any(String.class)), with(any(Class.class)));
                 will(returnValue(null));
 
