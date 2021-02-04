@@ -94,9 +94,7 @@ public class ManagedBeanBndAdapter implements DDAdapter, ContainerAdapter<Manage
 
                 String moduleName = (String) configImpl.getConfigAdminProperties().get("moduleName");
                 if (moduleName == null) {
-                    if (DDAdapter.markUnspecifiedModuleName(rootOverlay, ManagedBeanBndAdapter.class)) {
-                        Tr.error(tc, "module.name.not.specified", "managed-bean-bnd" );
-                    }
+                    DDAdapter.unspecifiedModuleName(rootOverlay, getClass(), "managed-bean-bnd");
                     continue;
                 }
                 moduleName = DDAdapter.stripExtension(moduleName);
@@ -113,15 +111,12 @@ public class ManagedBeanBndAdapter implements DDAdapter, ContainerAdapter<Manage
         }
 
         if (overrideModuleNames != null) {
-            if (DDAdapter.markInvalidModuleName(rootOverlay, getClass())) {
-                Application app = appInfo.getContainer().adapt(Application.class);
-                for (Module module : app.getModules()) {
-                    overrideModuleNames.remove(DDAdapter.stripExtension(module.getModulePath()));
-                }
-                if (!overrideModuleNames.isEmpty()) {
-                    Tr.error(tc, "module.name.invalid", overrideModuleNames, "managed-bean-bnd");
-                }
-            }
+            // Keep the UnableToAdaptException here.
+            Application app = appInfo.getContainer().adapt(Application.class);
+
+            DDAdapter.invalidModuleName(
+                rootOverlay, getClass(),
+                app, overrideModuleNames, "managed-bean-bnd"); 
         }
 
         return null;

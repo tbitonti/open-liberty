@@ -10,12 +10,16 @@
  *******************************************************************************/
 package com.ibm.ws.javaee.ddmodel;
 
+import java.util.Collection;
+
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.ContainerInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
 import com.ibm.ws.container.service.app.deploy.extended.AltDDEntryGetter;
+import com.ibm.ws.javaee.dd.app.Application;
+import com.ibm.ws.javaee.dd.app.Module;
 import com.ibm.wsspi.adaptable.module.Entry;
 import com.ibm.wsspi.adaptable.module.NonPersistentCache;
 import com.ibm.wsspi.artifact.overlay.OverlayContainer;
@@ -166,15 +170,68 @@ public interface DDAdapter {
      *
      * @param moduleOverlay The overlay container of the module.  Note
      *     that the mark is recorded to the parent container.
-     * @param c The class which is placing the mark.
+     * @param adapterClass The class which is placing the mark.
      *
      * @return True or false telling if the mark was placed.  A false
      *     result means that the mark was already present.
      */
-    public static boolean markInvalidModuleName(OverlayContainer moduleOverlay, Class<?> c) {
-        return markError(moduleOverlay.getParentOverlay(), c, MODULE_NAME_INVALID);
+    public static boolean markInvalidModuleName(
+        OverlayContainer moduleOverlay,
+        Class<? extends DDAdapter> adapterClass) {
+        return markError(moduleOverlay.getParentOverlay(), adapterClass, MODULE_NAME_INVALID);
     }
 
+    /**
+     * Issue an error for an invalid module name.
+     *
+     * @param overrideModuleNames Module names from configuration overrides.
+     * @param moduleTag The type of module which is being processed.
+     */
+    public static void errorInvalidModuleName(
+        Collection<String> overrideModuleNames,
+        String moduleTag) {
+        
+        // module.name.invalid=
+        // CWWKC2277E: One or more module names on the {1} element are invalid.
+        // The invalid module name or names are {0}.
+
+        // TODO:
+        // module.name.invalid=
+        // CWWKC2277E: Non-valid module names in the {1} element of the server configuration.
+        // The non-valid module name or names are {0}.
+
+        Tr.error(tc, "module.name.invalid", overrideModuleNames, moduleTag);
+    }    
+
+    /**
+     * Handle an invalid module name.  Issue an error, but only once.
+     *
+     * @param moduleOverlay The overlay container of the module.
+     * @param adapterClass The class which is placing the mark.
+     * @param app The application containing valid module names.
+     * @param overrideModuleNames Module names from configuration overrides.
+     * @param moduleTag The type of module which is being processed.
+     */
+    public static void invalidModuleName(
+        OverlayContainer moduleOverlay, Class<? extends DDAdapter> adapterClass,
+        Application app,
+        Collection<String> overrideModuleNames, String moduleTag) {
+
+        if ( !DDAdapter.markInvalidModuleName(moduleOverlay, adapterClass) ) {
+            return;
+        }
+
+        for (Module module : app.getModules()) {
+            overrideModuleNames.remove(DDAdapter.stripExtension(module.getModulePath()));
+        }
+        if ( overrideModuleNames.isEmpty() ) {
+            return;
+        }
+
+        DDAdapter.errorInvalidModuleName(overrideModuleNames, "ejb-jar-bnd");
+    }    
+    
+    
     /** Tag marking that an missing module name was detected. */    
     String MODULE_NAME_NOT_SPECIFIED = "module.name.not.specified";
   
@@ -187,17 +244,50 @@ public interface DDAdapter {
      * The mark is placed on the parent overlay container, which will
      * be the container of the module's enclosing application.
      * 
-     * @param moduleOverlay The overlay container of the module.  Note
+     * @param overlay The overlay container of the module.  Note
      *     that the mark is recorded to the parent container.
-     * @param c The class which is placing the mark.
+     * @param adapterClass The adapter class which is placing the mark.
      *
      * @return True or false telling if the mark was placed.  A false
      *     result means that the mark was already present.
      */
-    public static boolean markUnspecifiedModuleName(OverlayContainer moduleOverlay, Class<?> c) {
-        return markError(moduleOverlay.getParentOverlay(), c, MODULE_NAME_NOT_SPECIFIED);
+    public static boolean markUnspecifiedModuleName(
+        OverlayContainer overlay, Class<? extends DDAdapter> adapterClass) {
+        return markError(overlay.getParentOverlay(), adapterClass, MODULE_NAME_NOT_SPECIFIED);
     }
 
+    /**
+     * Issue an error for an unspecified module name.
+     *
+     * @param moduleTag The type of module which is being processed.
+     */
+    public static void errorUnspecifiedModuleName(String moduleTag) {
+        Tr.error(tc, "module.name.not.specified", moduleTag);
+    }    
+
+    /**
+     * Handle an unspecified module name error.
+     * 
+     * Issue an an error message, but only once per container.
+     * 
+     * See {@link #markUnspecifiedModuleName(OverlayContainer, Class)}
+     * and {@link #errorUnspecifiedModuleName(String)}.
+     *
+     * @param moduleOverlay The overlay container of the module.  Note
+     *     that the mark is recorded to the parent container.
+     * @param adapterClass The adapter class which is placing the mark.
+     * @param moduleTag The type of module which is being processed.
+     */
+    public static void unspecifiedModuleName(
+        OverlayContainer moduleOverlay,
+        Class<? extends DDAdapter> adapterClass,
+        String moduleTag) {
+
+        if ( DDAdapter.markUnspecifiedModuleName(moduleOverlay, adapterClass) ) {
+            DDAdapter.errorUnspecifiedModuleName(moduleTag);
+        }        
+    }
+    
     /**
      * Mark an error condition to an overlay container.
      *

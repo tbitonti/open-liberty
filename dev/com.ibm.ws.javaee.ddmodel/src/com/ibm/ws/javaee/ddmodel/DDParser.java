@@ -69,21 +69,6 @@ public abstract class DDParser {
             ddEntryPath, getLineNumber());
     }
 
-    // com.ibm.ws.javaee.ddmodel.DDParser.adaptRootContainer(Class<T>)
-    //     UnableToAdaptException: Container -> T
-
-    // TODO:
-    private String referenceError(Class<?> targetClass) {
-        // xml.reference.error=
-        // CWWKCXXXXE: An error occurred
-        // while attempting to obtain reference object of type {2}
-        // while parsing the {0} deployment descriptor on line {1}.
-
-        return Tr.formatMessage(tc, "xml.reference.error",
-            ddEntryPath, getLineNumber(),
-            targetClass.getName());
-    }
-
     // com.ibm.ws.javaee.ddmodel.DDParser.parseRootElement()
     //     UnableToAdaptException: Entry -> InputStream
 
@@ -313,12 +298,12 @@ public abstract class DDParser {
 
     // TODO:
     protected String errorRequireNamespace(String vers, String requiredNamespace) {
-        // invalid.deployment.descriptor.require.namespace=
+        // invalid.deployment.descriptor.require.namespace.for-version=
         // CWWKCXXXXE: The {2} namespace does not match the required {3} namespace
         // for the {4} version,
         // in the {0} deployment descriptor on line {1}.
 
-        return Tr.formatMessage(tc, "invalid.deployment.descriptor.require.namespace",
+        return Tr.formatMessage(tc, "invalid.deployment.descriptor.require.namespace.for.version",
             ddEntryPath, getLineNumber(),
             namespace, requiredNamespace, vers);
     }
@@ -425,6 +410,21 @@ public abstract class DDParser {
     
     // Reference errors ...
 
+    // com.ibm.ws.javaee.ddmodel.DDParser.adaptRootContainer(Class<T>)
+    //     UnableToAdaptException: Container -> T
+
+    // TODO:
+    private String referenceError(Class<?> targetClass) {
+        // xml.reference.error=
+        // CWWKCXXXXE: An error occurred
+        // while attempting to obtain reference object of type {2}
+        // while parsing the {0} deployment descriptor on line {1}.
+
+        return Tr.formatMessage(tc, "xml.reference.error",
+            ddEntryPath, getLineNumber(),
+            targetClass.getName());
+    }
+
     // com.ibm.ws.javaee.ddmodel.appbnd.AuthorizationTableXMIType.AuthorizationXMIType.handleChild(DDParser, String)
     // com.ibm.ws.javaee.ddmodel.appbnd.RunAsMapXMIType.RunAsBindingXMIType.handleChild(DDParser, String)
     // com.ibm.ws.javaee.ddmodel.appext.ModuleExtensionType.handleChild(DDParser, String)
@@ -493,6 +493,10 @@ public abstract class DDParser {
     // com.ibm.ws.javaee.ddmodel.managedbean.ManagedBeanType.finish(DDParser)
     
     public String requiredAttributeMissing(String attrLocal) {
+        // required.attribute.missing=
+        // CWWKC2251E: The {2} element is missing the required {3} attribute
+        // in the {0} deployment descriptor on line {1}.        
+        
         return Tr.formatMessage(tc, "required.attribute.missing",
             ddEntryPath, getLineNumber(),
             currentElementLocalName, attrLocal);

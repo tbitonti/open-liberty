@@ -15,13 +15,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
 import com.ibm.ws.javaee.dd.app.Application;
-import com.ibm.ws.javaee.dd.app.Module;
 import com.ibm.ws.javaee.dd.ejb.EJBJar;
 import com.ibm.ws.javaee.dd.ejbext.EJBJarExt;
 
 import org.osgi.service.component.annotations.*;
-import com.ibm.websphere.ras.Tr;
-import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
 import com.ibm.ws.container.service.app.deploy.NestedConfigHelper;
@@ -40,8 +37,6 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
     service = ContainerAdapter.class,
     property = { "service.vendor=IBM", "toType=com.ibm.ws.javaee.dd.ejbext.EJBJarExt" })
 public class EJBJarExtAdapter implements DDAdapter, ContainerAdapter<EJBJarExt> {
-    private static final TraceComponent tc = Tr.register(EJBJarExtAdapter.class);
-
     @Reference(cardinality = ReferenceCardinality.MULTIPLE,
                policy = ReferencePolicy.DYNAMIC,
                policyOption = ReferencePolicyOption.GREEDY)
@@ -91,12 +86,10 @@ public class EJBJarExtAdapter implements DDAdapter, ContainerAdapter<EJBJarExt> 
                 if (moduleInfo == null) {
                     return configImpl;
                 }
-                
+
                 String moduleName = (String) configImpl.getConfigAdminProperties().get("moduleName");
                 if (moduleName == null) {
-                    if (DDAdapter.markUnspecifiedModuleName(rootOverlay, EJBJarExtAdapter.class)) {
-                        Tr.error(tc, "module.name.not.specified", "ejb-jar-ext");
-                    }
+                    DDAdapter.unspecifiedModuleName(rootOverlay, getClass(), "ejb-jar-ext");
                     continue;
                 }
                 moduleName = DDAdapter.stripExtension(moduleName);
@@ -113,15 +106,12 @@ public class EJBJarExtAdapter implements DDAdapter, ContainerAdapter<EJBJarExt> 
         }
 
         if (overrideModuleNames != null) {
-            if (DDAdapter.markInvalidModuleName(rootOverlay, getClass())) {
-                Application app = appInfo.getContainer().adapt(Application.class);
-                for (Module m : app.getModules()) {
-                    overrideModuleNames.remove(DDAdapter.stripExtension(m.getModulePath()));
-                }
-                if (!overrideModuleNames.isEmpty()) {
-                    Tr.error(tc, "module.name.invalid", overrideModuleNames, "ejb-jar-ext");
-                 }
-            }
+            // Keep the UnableToAdaptException here.
+            Application app = appInfo.getContainer().adapt(Application.class);
+
+            DDAdapter.invalidModuleName(
+                rootOverlay, getClass(),
+                app, overrideModuleNames, "ejb-jar-ext");
         }
         return null;
     }

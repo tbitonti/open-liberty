@@ -87,9 +87,7 @@ public class WebBndAdapter implements DDAdapter, ContainerAdapter<WebBnd> {
                   
                  String moduleName = (String) configImpl.getConfigAdminProperties().get("moduleName");
                  if (moduleName == null) {
-                     if (DDAdapter.markUnspecifiedModuleName(overlay, WebBndAdapter.class)) {
-                         Tr.error(tc, "module.name.not.specified", "web-bnd" );
-                     }
+                     DDAdapter.unspecifiedModuleName(overlay, getClass(), "web-bnd");
                      continue;
                  }
                  moduleName = DDAdapter.stripExtension(moduleName);
@@ -106,15 +104,12 @@ public class WebBndAdapter implements DDAdapter, ContainerAdapter<WebBnd> {
         }
         
         if ( configuredModuleNames != null ) {
-            if (DDAdapter.markInvalidModuleName(overlay, getClass())) {
-                Application app = appInfo.getContainer().adapt(Application.class);
-                for (Module m : app.getModules()) {
-                    configuredModuleNames.remove(DDAdapter.stripExtension(m.getModulePath()));
-                }
-                if ( !configuredModuleNames.isEmpty() ) {
-                    Tr.error(tc, "module.name.invalid", configuredModuleNames, "web-bnd");
-                }
-            }
+            // Keep the UnableToAdaptException here.
+            Application app = appInfo.getContainer().adapt(Application.class);
+
+            DDAdapter.invalidModuleName(
+                overlay, getClass(),
+                app, configuredModuleNames, "web-bnd"); 
         }
 
         return null;

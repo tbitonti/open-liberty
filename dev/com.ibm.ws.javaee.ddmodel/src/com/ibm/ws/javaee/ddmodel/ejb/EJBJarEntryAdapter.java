@@ -14,15 +14,15 @@ import org.osgi.framework.ServiceReference;
 
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.javaee.dd.ejb.EJBJar;
+import com.ibm.ws.javaee.ddmodel.DDEntryAdapter;
 import com.ibm.ws.javaee.ddmodel.DDParser.ParseException;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
 import com.ibm.wsspi.adaptable.module.UnableToAdaptException;
-import com.ibm.wsspi.adaptable.module.adapters.EntryAdapter;
 import com.ibm.wsspi.artifact.ArtifactEntry;
 import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 
-public class EJBJarEntryAdapter implements EntryAdapter<EJBJar> {
+public class EJBJarEntryAdapter implements DDEntryAdapter<EJBJar> {
     private static final int DEFAULT_MAX_VERSION = EJBJar.VERSION_4_0;
 
     private ServiceReference<EJBJarDDParserVersion> maxVersionRef;

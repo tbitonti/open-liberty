@@ -14,15 +14,15 @@ import org.osgi.framework.ServiceReference;
 
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.javaee.dd.client.ApplicationClient;
+import com.ibm.ws.javaee.ddmodel.DDEntryAdapter;
 import com.ibm.ws.javaee.ddmodel.DDParser.ParseException;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
 import com.ibm.wsspi.adaptable.module.UnableToAdaptException;
-import com.ibm.wsspi.adaptable.module.adapters.EntryAdapter;
 import com.ibm.wsspi.artifact.ArtifactEntry;
 import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 
-public final class ApplicationClientEntryAdapter implements EntryAdapter<ApplicationClient> {
+public final class ApplicationClientEntryAdapter implements DDEntryAdapter<ApplicationClient> {
     private static final int DEFAULT_MAX_VERSION = ApplicationClient.VERSION_9;
 
     private ServiceReference<ApplicationClientDDParserVersion> maxVersionRef;

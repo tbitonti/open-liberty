@@ -28,14 +28,11 @@ import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
 
-import com.ibm.websphere.ras.Tr;
-import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
 import com.ibm.ws.container.service.app.deploy.NestedConfigHelper;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.javaee.dd.app.Application;
-import com.ibm.ws.javaee.dd.app.Module;
 import com.ibm.ws.javaee.dd.web.WebApp;
 import com.ibm.ws.javaee.dd.webext.WebExt;
 import com.ibm.ws.javaee.ddmodel.DDAdapter;
@@ -51,8 +48,6 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
            service = ContainerAdapter.class,
            property = { "service.vendor=IBM", "toType=com.ibm.ws.javaee.dd.webext.WebExt" })
 public class WebExtAdapter implements DDAdapter, ContainerAdapter<WebExt> {
-    private static final TraceComponent tc = Tr.register(WebExtAdapter.class);
-
     /**
      * The list of web-extension configuration overrides.  These are keyed
      * by module name.
@@ -134,9 +129,7 @@ public class WebExtAdapter implements DDAdapter, ContainerAdapter<WebExt> {
 
             String moduleName = (String) configImpl.getConfigAdminProperties().get("moduleName");
             if ( moduleName == null ) {
-                if ( DDAdapter.markUnspecifiedModuleName(overlay, getClass()) ) {
-                    Tr.error(tc, "module.name.not.specified", "web-ext" );
-                }
+                DDAdapter.unspecifiedModuleName(overlay, getClass(), "web-ext");
                 continue;
             }
             moduleName = DDAdapter.stripExtension(moduleName);
@@ -152,15 +145,12 @@ public class WebExtAdapter implements DDAdapter, ContainerAdapter<WebExt> {
         }
 
         if ( overrideModuleNames != null ) {
-            if ( DDAdapter.markInvalidModuleName(overlay, getClass()) ) {
-                Application app = appInfo.getContainer().adapt(Application.class);
-                for ( Module m : app.getModules() ) {
-                    overrideModuleNames.remove( DDAdapter.stripExtension( m.getModulePath() ));
-                }
-                if ( !overrideModuleNames.isEmpty() ) {
-                    Tr.error(tc, "module.name.invalid", overrideModuleNames, "web-ext");
-                }
-            }
+            // Keep the UnableToAdaptException here.
+            Application app = appInfo.getContainer().adapt(Application.class);
+            
+            DDAdapter.invalidModuleName(
+                overlay, getClass(),
+                app, overrideModuleNames, "web-ext"); 
         }
 
         return null;

@@ -11,15 +11,15 @@
 package com.ibm.ws.javaee.ddmodel.bval;
 
 import com.ibm.ws.javaee.dd.bval.ValidationConfig;
+import com.ibm.ws.javaee.ddmodel.DDEntryAdapter;
 import com.ibm.ws.javaee.ddmodel.DDParser.ParseException;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
 import com.ibm.wsspi.adaptable.module.UnableToAdaptException;
-import com.ibm.wsspi.adaptable.module.adapters.EntryAdapter;
 import com.ibm.wsspi.artifact.ArtifactEntry;
 import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 
-public class ValidationConfigEntryAdapter implements EntryAdapter<ValidationConfig> {
+public class ValidationConfigEntryAdapter implements DDEntryAdapter<ValidationConfig> {
 
     @Override
     public ValidationConfig adapt(Container root,
