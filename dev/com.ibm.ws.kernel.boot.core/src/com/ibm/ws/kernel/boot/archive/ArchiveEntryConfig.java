@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,30 +14,41 @@ import java.io.File;
 import java.io.IOException;
 
 /**
- * Represent an entry adding to Archive
+ * Type used to add entries to archives.
  */
 public interface ArchiveEntryConfig {
+    /**
+     * The path of the entry which is to be added to an archive.
+     * 
+     * @return The path of the entry which is to be added.
+     */
+    String getEntryPath();
 
     /**
-     * Get the entry path.
+     * A file which contains the contents of the entry which
+     * is to be added to an archive.
      * 
-     * @return
+     * When adding a directory, the root folder which contains
+     * files which are to be added.
+     * 
+     * @return A file which contains the contents of the
+     *     entry which are to be added.
      */
-    public String getEntryPath();
+    File getSource();
 
     /**
-     * Get the source file of the entry.
+     * Add an entry to an archive.
      * 
-     * @return
-     */
-    public File getSource();
-
-    /**
-     * Configure the archive
+     * The precise action depends on the type of entry which is
+     * being added.  Concrete subclass {@link FileEntryConfig}
+     * adds a single simple entry to the archive.  Concrete
+     * subclass {@link DirEntryConfig} adds entries of a directory
+     * to the archive.
      * 
-     * @param archive
-     * @throws IOException
+     * @param archive The archive which is to receive new entries.
+     *
+     * @throws IOException Thrown if an error occurred while adding
+     *     entries.
      */
-    public void configure(Archive archive) throws IOException;
-
+    void configure(Archive archive) throws IOException;
 }

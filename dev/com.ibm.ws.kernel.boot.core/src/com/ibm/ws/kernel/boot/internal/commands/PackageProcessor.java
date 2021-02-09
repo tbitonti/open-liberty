@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2017 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,6 @@ package com.ibm.ws.kernel.boot.internal.commands;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -259,7 +258,6 @@ public class PackageProcessor implements ArchiveProcessor {
             FileUtils.recursiveClean(workAreaTmpDir);
         }
         return ReturnCode.OK;
-
     }
 
     /*
@@ -295,7 +293,7 @@ public class PackageProcessor implements ArchiveProcessor {
         return IncludeOption.USR.matches(val);
     }
 
-    private List<ArchiveEntryConfig> createSelfExtractEntryConfigs() throws IOException {
+    private List<ArchiveEntryConfig> createSelfExtractEntryConfigs() {
         List<ArchiveEntryConfig> entryConfigs = new ArrayList<ArchiveEntryConfig>();
         File metaInf = new File(bootProps.getInstallRoot(), "lib/extract/META-INF");
         if (!metaInf.exists()) {
@@ -316,14 +314,12 @@ public class PackageProcessor implements ArchiveProcessor {
         return entryConfigs;
     }
 
-    private List<ArchiveEntryConfig> createMinifyConfigs(String processName) throws IOException {
+    private List<ArchiveEntryConfig> createMinifyConfigs(String processName) {
         List<ArchiveEntryConfig> entryConfigs = new ArrayList<ArchiveEntryConfig>();
 
         Set<String> featureResourcePaths = processContent;
 
-        /*
-         * Create an empty (includeByDefault==false) config for the root dir of liberty
-         */
+        // Create an empty (includeByDefault==false) config for the root dir of liberty
         DirEntryConfig rootDirConfig = new DirEntryConfig(packageArchiveEntryPrefix, bootProps.getInstallRoot(), false, PatternStrategy.ExcludePreference);
         entryConfigs.add(rootDirConfig);
 
@@ -338,9 +334,8 @@ public class PackageProcessor implements ArchiveProcessor {
             DirEntryConfig looseExtensionDirConfig = new DirEntryConfig(info.getLocation(), extensionDir, false, PatternStrategy.ExcludePreference);
             extensionDirConfigs.add(looseExtensionDirConfig);
         }
-        /*
-         * Add back all the parts of liberty that we were told to by the runtime.
-         */
+
+        // Add back all the parts of liberty that we were told to by the runtime.
         for (String s : featureResourcePaths) {
             String match = Pattern.quote(s);
             Pattern featurePattern = Pattern.compile(match);
@@ -352,35 +347,28 @@ public class PackageProcessor implements ArchiveProcessor {
         }
 
         boolean isJarPackage = packageFile.getName().endsWith(".jar");
-        /*
-         * Add back the lafiles directory
-         * these are 'owned' by the installer.
-         */
+        
+         // Add back the lafiles directory
+         // these are 'owned' by the installer.
         File lafilesDir = new File(bootProps.getInstallRoot(), "lafiles");
         if (lafilesDir.exists()) {
             DirEntryConfig lafilesDirConfig = new DirEntryConfig(packageArchiveEntryPrefix + "lafiles", lafilesDir, true, PatternStrategy.IncludePreference);
             entryConfigs.add(lafilesDirConfig);
         }
 
-        /*
-         * Add back the templates directory
-         * (these are orphans that need resolution still)
-         */
+        // Add back the templates directory
+        // (these are orphans that need resolution still)
         File templatesDir = new File(bootProps.getInstallRoot(), "templates");
         DirEntryConfig templatesDirConfig = new DirEntryConfig(packageArchiveEntryPrefix + "templates", templatesDir, true, PatternStrategy.IncludePreference);
         entryConfigs.add(templatesDirConfig);
 
-        /*
-         * Add back the templates directory (if building a jar, it's already added)
-         * these are 'owned' by the installer.
-         */
+        // Add back the templates directory (if building a jar, it's already added)
+        // these are 'owned' by the installer.
         if (!isJarPackage) {
             addLibExtractDir(entryConfigs);
         }
 
-        /*
-         * Add usr content.
-         */
+        // Add usr content.
         entryConfigs.addAll(createUsrConfigs(processName, false));
 
         // add the package_<timestamp>.txt
@@ -389,26 +377,24 @@ public class PackageProcessor implements ArchiveProcessor {
         return entryConfigs;
     }
 
-    private void addLibExtractDir(List<ArchiveEntryConfig> entryConfigs) throws IOException {
+    private void addLibExtractDir(List<ArchiveEntryConfig> entryConfigs) {
         try {
             File libExtractDir = new File(bootProps.getInstallRoot(), "lib/extract");
             DirEntryConfig libExtractDirConfig = new DirEntryConfig(packageArchiveEntryPrefix + "lib/extract", libExtractDir, true, PatternStrategy.IncludePreference);
             entryConfigs.add(libExtractDirConfig);
-        } catch (FileNotFoundException ex) {
+        } catch (IllegalArgumentException ex) {
             System.out.println(BootstrapConstants.messages.getString("error.package.missingLibExtractDir"));
             throw ex;
         }
     }
 
-    private List<ArchiveEntryConfig> createAllConfigs(String processName, boolean runtimeOnly) throws IOException {
+    private List<ArchiveEntryConfig> createAllConfigs(String processName, boolean runtimeOnly) {
         List<ArchiveEntryConfig> entryConfigs = new ArrayList<ArchiveEntryConfig>();
 
         // avoid any special characters in InstallRootName when construct patterns
         String regexInstallRootName = Pattern.quote(bootProps.getInstallRoot().getName());
 
-        /*
-         * Add wlp's root directory
-         */
+        // Add wlp's root directory
         DirEntryConfig rootDirConfig = new DirEntryConfig(packageArchiveEntryPrefix, bootProps.getInstallRoot(), true, PatternStrategy.IncludePreference);
 
         entryConfigs.add(rootDirConfig);
@@ -434,9 +420,7 @@ public class PackageProcessor implements ArchiveProcessor {
         }
 
         if (!runtimeOnly) {
-            /*
-             * Add usr directory
-             */
+            // Add usr directory
             entryConfigs.addAll(createUsrConfigs(processName, true));
         }
 
@@ -463,17 +447,14 @@ public class PackageProcessor implements ArchiveProcessor {
         return entryConfigs;
     }
 
-    private List<ArchiveEntryConfig> createUsrConfigs(String processName, boolean addUsrExtension) throws IOException {
+    private List<ArchiveEntryConfig> createUsrConfigs(String processName, boolean addUsrExtension) {
         List<ArchiveEntryConfig> entryConfigs = new ArrayList<ArchiveEntryConfig>();
 
-        /*
-         * Add the archived loose files
-         */
+        // Add the archived loose files
         getReferencedResources(entryConfigs);
 
-        /*
-         * Add process config directory (actually <userRoot>/servers/<processName> or <userRoot>/clients/<processName>)
-         */
+        // Add process config directory (actually <userRoot>/servers/<processName>
+        // or <userRoot>/clients/<processName>)
         String locAreaName = BootstrapConstants.LOC_AREA_NAME_SERVERS;
         if (bootProps.getProcessType() == BootstrapConstants.LOC_PROCESS_TYPE_CLIENT) {
             locAreaName = BootstrapConstants.LOC_AREA_NAME_CLIENTS;
@@ -515,17 +496,13 @@ public class PackageProcessor implements ArchiveProcessor {
         // Exclude the package_<timestamp>.txt file, will add it later
         processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "package_" + REGEX_TIMESTAMP + "\\.txt"));
 
-        /*
-         * exclude loose xml files from server config directory
-         */
+        // exclude loose xml files from server config directory
         for (File app : looseFiles) {
             String appName = "." + app.getName().replace(".", "\\.");
             processConfigDirConfig.exclude(Pattern.compile(appName));
         }
 
-        /*
-         * Add shared directory
-         */
+        // Add shared directory
         File sharedDir = ProcessorUtils.getFileFromDirectory(wlpUserDir, "shared");
         if (sharedDir.exists()) {
             DirEntryConfig serverSharedDirConfig = null;
@@ -542,9 +519,7 @@ public class PackageProcessor implements ArchiveProcessor {
             serverSharedDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + "resources" + REGEX_SEPARATOR + "security" + REGEX_SEPARATOR + "key.jks"));
             serverSharedDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + "resources" + REGEX_SEPARATOR + "security" + REGEX_SEPARATOR + "key.p12"));
 
-            /*
-             * exclude loose xml files from shared directory
-             */
+            // exclude loose xml files from shared directory
             for (File app : looseFiles) {
                 String appName = "." + app.getName().replace(".", "\\.");
                 if (FileUtils.isUnderDirectory(app, sharedDir)) {
@@ -553,9 +528,7 @@ public class PackageProcessor implements ArchiveProcessor {
             }
         }
 
-        /*
-         * Add /usr/extension directory...aka user features
-         */
+        // Add /usr/extension directory...aka user features
         if (addUsrExtension) {
             File extensionDir = ProcessorUtils.getFileFromDirectory(wlpUserDir, BootstrapConstants.LOC_AREA_NAME_EXTENSION);
             DirEntryConfig serverExtensionDirConfig = null;
@@ -579,7 +552,7 @@ public class PackageProcessor implements ArchiveProcessor {
 
     }
 
-    private List<ArchiveEntryConfig> createPkgInfoConfigs(String processName) throws IOException {
+    private List<ArchiveEntryConfig> createPkgInfoConfigs(String processName) {
         List<ArchiveEntryConfig> entryConfigs = new ArrayList<ArchiveEntryConfig>();
         // avoid any special characters in processName when construct patterns
         String regexProcessName = Pattern.quote(processName);
@@ -593,40 +566,44 @@ public class PackageProcessor implements ArchiveProcessor {
         return entryConfigs;
     }
 
-    private void getReferencedResources(List<ArchiveEntryConfig> entryConfigs) throws IOException {
-        // Add the loose application resources' pattern strings
+    private void getReferencedResources(List<ArchiveEntryConfig> entryConfigs) {
         getLooseApplications(entryConfigs);
-        // Add other resources' pattern strings
-        // ...
+
+        // Add other resources' pattern strings ...
     }
 
-    private void getLooseApplications(List<ArchiveEntryConfig> entryConfigs) throws IOException {
-        looseFiles.addAll(ProcessorUtils.getLooseConfigFiles(bootProps));
+    private void getLooseApplications(List<ArchiveEntryConfig> entryConfigs) {
+        looseFiles.addAll( ProcessorUtils.getLooseConfigFiles(bootProps) );
 
         Iterator<File> it = looseFiles.iterator();
-        while (it.hasNext()) {
-            File lf = it.next();
-            LooseConfig looseConfig = null;
-            try {
-                looseConfig = ProcessorUtils.convertToLooseConfig(lf);
-                if (looseConfig != null) {
-                    try {
-                        entryConfigs.addAll(ProcessorUtils.createLooseExpandedArchiveEntryConfigs(looseConfig, lf, bootProps, packageArchiveEntryPrefix,
-                                                                                                  includeUsr(options.get(PackageOption.INCLUDE))));
+        while ( it.hasNext() ) {
+            File looseFile = it.next();
 
-                    } catch (FileNotFoundException e) {
-                        // If any exception occurs when creating loose file archive, just skip it and create the next one.
-                        System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("warning.unableToPackageLooseConfigFileMissingPath"), lf));
-                        Debug.printStackTrace(e);
-                        it.remove();
-                    }
-                } else {
+            LooseConfig looseConfig;
+            try {
+                looseConfig = ProcessorUtils.convertToLooseConfig(looseFile);
+                if ( looseConfig == null ) {
                     it.remove();
+                    continue;
                 }
-            } catch (Exception e) {
-                // If any exception occurs when parsing a loose file, just skip it and parse next loose file.
-                System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("warn.package.invalid.looseFile"), lf));
+            } catch ( Exception e ) {
+                System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("warn.package.invalid.looseFile"), looseFile));
                 Debug.printStackTrace(e);
+                
+                looseConfig = null;
+                it.remove();
+                continue;
+            }
+            
+            try {
+                entryConfigs.addAll(
+                    ProcessorUtils.createLooseExpandedArchiveEntryConfigs(
+                        looseConfig, looseFile, bootProps, packageArchiveEntryPrefix,
+                        includeUsr(options.get(PackageOption.INCLUDE))));
+            } catch ( Exception e ) {
+                System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("warning.unableToPackageLooseConfigFileMissingPath"), looseFile));
+                Debug.printStackTrace(e);
+
                 it.remove();
             }
         }
@@ -635,7 +612,7 @@ public class PackageProcessor implements ArchiveProcessor {
     private ReturnCode restoreWebSphereApplicationServerProperty(File wlpRoot) {
         File propertyBackupFile = new File(workAreaTmpDir, wlpPropertyBackup);
         File propertyFile = new File(wlpRoot, wlpProperty);
-        if (propertyBackupFile != null && propertyBackupFile.exists() && propertyFile != null && propertyFile.exists()) {
+        if (propertyBackupFile.exists() && propertyFile.exists()) {
             Properties wlpProp = new Properties();
             FileInputStream fio = null;
             FileOutputStream propertyOutput = null;
@@ -672,7 +649,7 @@ public class PackageProcessor implements ArchiveProcessor {
 
     private ReturnCode backupWebSphereApplicationServerProperty(File wlpRoot) {
         File propertyFile = new File(wlpRoot, wlpProperty);
-        if (propertyFile != null && propertyFile.exists()) {
+        if (propertyFile.exists()) {
             File propertyBackupFile = new File(workAreaTmpDir, wlpPropertyBackup);
             Properties wlpProp = new Properties();
             FileInputStream fio = null;

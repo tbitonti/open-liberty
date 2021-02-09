@@ -186,8 +186,11 @@ public class ProcessorUtils {
      * @return List<ArchiveEntryConfig>
      * @throws IOException
      */
-    public static List<ArchiveEntryConfig> createLooseExpandedArchiveEntryConfigs(LooseConfig looseConfig, File looseFile, BootstrapConfig bootProps,
-                                                                                  String archiveEntryPrefix, boolean isUsr) throws IOException {
+    public static List<ArchiveEntryConfig> createLooseExpandedArchiveEntryConfigs(
+        LooseConfig looseConfig, File looseFile,
+        BootstrapConfig bootProps,
+        String archiveEntryPrefix,
+        boolean isUsr) throws IOException {
 
         List<ArchiveEntryConfig> entryConfigs = new ArrayList<ArchiveEntryConfig>();
         String entryPath = generateBaseEntryPath(looseFile, bootProps, archiveEntryPrefix, isUsr);
@@ -206,16 +209,18 @@ public class ProcessorUtils {
             }
         }
 
-        Iterator<LooseConfig> configIter = looseConfig.iteration();
-
-        while (configIter.hasNext()) {
-            LooseConfig config = configIter.next();
+        for ( LooseConfig config : looseConfig ) {
             try {
-                entryConfigs.add(processLooseConfig(entryPath, config, bootProps));
-            } catch (IllegalArgumentException | FileNotFoundException ex) {
+                entryConfigs.add( processLooseConfig(entryPath, config, bootProps) );
+            } catch ( IllegalArgumentException | IOException ex ) {
+                // TODO: Is this sufficient?  A warning that loose content
+                //       could not be added would be good to see.  Otherwise,
+                //       content could invisibly go missing.                
+                // FFDC?
                 continue;
             }
         }
+
         return entryConfigs;
     }
 
@@ -241,9 +246,9 @@ public class ProcessorUtils {
             try {
                 dir = FileUtils.convertPathToFile(config.sourceOnDisk, bootProps);
                 dirConfig = new DirEntryConfig(createLooseConfigEntryPath(config, entryPath), dir, true, PatternStrategy.ExcludePreference);
-            } catch (IllegalArgumentException | FileNotFoundException ex) {
-                System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("warning.unableToPackageLooseConfigFileCannotResolveLocSymbol"),
-                                                        config.sourceOnDisk));
+            } catch ( IllegalArgumentException ex ) {
+                String rawMessage = BootstrapConstants.messages.getString("warning.unableToPackageLooseConfigFileCannotResolveLocSymbol");
+                System.out.println(MessageFormat.format(rawMessage, config.sourceOnDisk));
                 throw ex;
             }
 
@@ -258,52 +263,68 @@ public class ProcessorUtils {
     }
 
     /**
-     * Method creates archive file with resources defined in LooseConfig
-     *
-     * @param looseConfig
-     * @param LooseFileName
-     * @param bootProps
-     * @return File
-     * @throws IOException
+     * Create an archive from loose configuration data.
+     * 
+     * @param looseConfig Loose configuration data used to populate the archive.
+     * @param archiveName Override name for the archive file.  If null,
+     *     a value from the loose configuration data will be used.
+     * @param bootProps Bootstrap properties.  In particular, providing the
+     *     temporary folder in which to place the archive.
+     *     
+     * @throws IOException Thrown if the archive could not be created.
      */
-    private static File processArchive(LooseConfig looseConfig, String LooseFileName, BootstrapConfig bootProps) throws IOException {
-        Archive thisArchive = null;
-        File archiveFile = null;
+    private static File processArchive(
+        LooseConfig looseConfig,
+        String archiveName,
+        BootstrapConfig bootProps) throws IOException {
 
-        try {
-            if (LooseFileName != null) {
-                // The root archive uses the LooseFileName instead of the targetInArchive property
-                archiveFile = FileUtils.createTempFile(LooseFileName, null, bootProps.get(BootstrapConstants.LOC_PROPERTY_SRVTMP_DIR));
-            } else {
-                String fileName = looseConfig.targetInArchive.replace("\\", "/");// Make sure always use "/"
-                if (fileName.endsWith("/")) {
-                    fileName = fileName.substring(0, fileName.length() - 1);
-                }
+        String tmpDir = bootProps.get(BootstrapConstants.LOC_PROPERTY_SRVTMP_DIR);
 
-                int index = fileName.lastIndexOf("/");
-                if (index != -1) {
-                    fileName = fileName.substring(index + 1);
+        if ( archiveName == null ) {
+            archiveName = looseConfig.targetInArchive.replace('\\', '/');
+
+            // These first two cases might never occur.
+            // "" stays as ""              "/" changes to ""
+            //
+            // "a" stays as "a"            "/a" changes to "/"
+            // "a/" changes to "a"         "/a/" changes to "/"
+            //
+            // "a/b" changes to "a/"       "/a/b" changes to "/a/"
+            // "a/b/" changes to "a/"      "/a/b/" changes to "/a/"
+            //
+            // "a/b/c" changes to "a/b/"   "/a/b/c" changes to "/a/b/"
+            // "a/b/c/" changes to "a/b/"  "/a/b/c/" changes "/a/b/"
+
+            if ( !archiveName.isEmpty() ) {
+                int nameLength = archiveName.length();
+                if ( archiveName.charAt(nameLength - 1) == '/' ) {
+                    archiveName = archiveName.substring(0, nameLength - 1);
                 }
-                archiveFile = FileUtils.createTempFile(fileName, null, bootProps.get(BootstrapConstants.LOC_PROPERTY_SRVTMP_DIR));
+                int index = archiveName.lastIndexOf('/');
+                if ( index != -1 ) {
+                    archiveName = archiveName.substring(index + 1);
+                }
             }
+        }
 
-            thisArchive = ArchiveFactory.create(archiveFile);
-            Iterator<LooseConfig> configIter = looseConfig.iteration();
+        File archiveFile = FileUtils.createTempFile(archiveName, null, tmpDir);
 
-            while (configIter.hasNext()) {
-                LooseConfig config = configIter.next();
+        try ( Archive archive = ArchiveFactory.create(archiveFile) ) {
+            for ( LooseConfig config : looseConfig ) {
                 try {
-                    thisArchive.addEntryConfig(processLooseConfig("", config, bootProps));
-                } catch (IllegalArgumentException | FileNotFoundException ex) {
+                    archive.addEntryConfig( processLooseConfig("", config, bootProps) );
+                } catch ( IllegalArgumentException | IOException ex ) {
+                    // TODO: Is this sufficient?  A warning that loose content
+                    //       could not be added would be good to see.  Otherwise,
+                    //       content could invisibly go missing.
+                    // FFDC?
                     continue;
                 }
             }
-            thisArchive.create();
-
-            return archiveFile;
-        } finally {
-            Utils.tryToClose(thisArchive);
+            archive.create();
         }
+
+        return archiveFile;
     }
 
     /**
@@ -354,6 +375,8 @@ public class ProcessorUtils {
      * @return
      */
     public static Pattern convertToRegex(String excludeStr) {
+        System.out.println("convertToRegex: " + excludeStr + " (pre-escape)");
+
         // make all "." safe decimles then convert ** to .* and /* to /.* to make it regex
         if (excludeStr.contains(".")) {
             // regex for "." is \. - but we are converting the string to a regex string so need to escape the escape slash...
@@ -389,6 +412,9 @@ public class ProcessorUtils {
         if (excludeStr.contains("-")) {
             excludeStr = excludeStr.replace("-", "\\-");
         }
+        
+        System.out.println("convertToRegex: " + excludeStr + " (escaped)v");
+
         return Pattern.compile(excludeStr);
 
     }
@@ -402,7 +428,7 @@ public class ProcessorUtils {
         return new File(sBuilder.toString());
     }
 
-    protected static class LooseConfig {
+    protected static class LooseConfig implements Iterable<LooseConfig> {
         protected String targetInArchive;
         protected String sourceOnDisk;
         protected String excludes;
@@ -410,11 +436,18 @@ public class ProcessorUtils {
 
         protected List<LooseConfig> children = new ArrayList<LooseConfig>();
 
+        @Override
+        public Iterator<LooseConfig> iterator() {
+            return children.iterator();
+        }
+        
+        @Deprecated
         public Iterator<LooseConfig> iteration() {
             return children.iterator();
         }
 
         public LooseConfig() {
+            // EMPTY
         };
 
         public LooseConfig(LooseType type) {
@@ -425,5 +458,4 @@ public class ProcessorUtils {
     private enum LooseType {
         DIR, FILE, ARCHIVE
     }
-
 }

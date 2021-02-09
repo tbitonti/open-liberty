@@ -99,7 +99,8 @@ public class FileEntry implements com.ibm.wsspi.artifact.ArtifactEntry {
             rv = new FileContainer(newCacheDir, enclosingContainer, this, file, containerFactoryHolder, false, root);
         } else if (!localOnly) {
             //Let other people have a crack at the conversion..
-            rv = containerFactoryHolder.getContainerFactory().getContainer(new File(root.getCacheDir(), enclosingContainer.getPath()), enclosingContainer, this, file);
+            File newCacheDir = new File(root.getCacheDir(), enclosingContainer.getPath());
+            rv = containerFactoryHolder.getContainerFactory().getContainer(newCacheDir, enclosingContainer, this, file);
         }
 
         return rv;
