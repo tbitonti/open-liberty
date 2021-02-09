@@ -11,7 +11,6 @@
 package com.ibm.ws.javaee.ddmodel.web;
 
 import com.ibm.ws.container.service.app.deploy.ContainerInfo;
-import com.ibm.ws.container.service.app.deploy.extended.AltDDEntryGetter;
 import com.ibm.ws.javaee.dd.web.WebApp;
 import com.ibm.ws.javaee.ddmodel.DDAdapter;
 import com.ibm.wsspi.adaptable.module.Container;
@@ -29,7 +28,7 @@ public final class WebAppAdapter implements DDAdapter, ContainerAdapter<WebApp> 
                         ArtifactContainer artifactContainer,
                         Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         // The web application is cached at the root of the web module's container.
         //
@@ -50,8 +49,11 @@ public final class WebAppAdapter implements DDAdapter, ContainerAdapter<WebApp> 
         Entry ddEntry = DDAdapter.getAltEntry(cache, ContainerInfo.Type.WEB_MODULE);
         if ( ddEntry == null ) {
             ddEntry = containerToAdapt.getEntry(WebApp.DD_NAME);
+            if ( ddEntry == null ) {
+                return null;
+            }
         }
 
-        return ( (ddEntry == null) ? null : ddEntry.adapt(WebApp.class) );
+        return ddEntry.adapt(WebApp.class);
     }
 }

@@ -50,18 +50,15 @@ public class EJBJarBndAdapter implements DDAdapter, ContainerAdapter<EJBJarBnd> 
              return null;
         }
 
-        String ejbJarPath = artifactContainer.getPath();
+        String containerPath = artifactContainer.getPath();
 
         ApplicationInfo appInfo = (ApplicationInfo)
-            rootOverlay.getFromNonPersistentCache(ejbJarPath, ApplicationInfo.class);
+            rootOverlay.getFromNonPersistentCache(containerPath, ApplicationInfo.class);
 
         ModuleInfo moduleInfo = null;
         if (appInfo == null) {
-            if (rootOverlay.getParentOverlay() == null) {
-                return null;
-            }
             moduleInfo = (ModuleInfo)
-                rootOverlay.getFromNonPersistentCache(ejbJarPath, ModuleInfo.class);
+                rootOverlay.getFromNonPersistentCache(containerPath, ModuleInfo.class);
             if (moduleInfo == null) {
                 return null;
             }
@@ -107,9 +104,7 @@ public class EJBJarBndAdapter implements DDAdapter, ContainerAdapter<EJBJarBnd> 
         }
 
         if (overrideModuleNames != null) {
-            // Keep the UnableToAdaptException here.
             Application app = appInfo.getContainer().adapt(Application.class);
-
             DDAdapter.invalidModuleName(
                 rootOverlay, getClass(),
                 app, overrideModuleNames, "ejb-jar-bnd"); 
@@ -128,7 +123,7 @@ public class EJBJarBndAdapter implements DDAdapter, ContainerAdapter<EJBJarBnd> 
     public EJBJarBnd adapt(Container root, OverlayContainer rootOverlay, ArtifactContainer artifactContainer, Container containerToAdapt)
         throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         EJBJar ejbJar = containerToAdapt.adapt(EJBJar.class);
         boolean xmi = ((ejbJar != null) &&( ejbJar.getVersionID() < EJBJar.VERSION_3_0));

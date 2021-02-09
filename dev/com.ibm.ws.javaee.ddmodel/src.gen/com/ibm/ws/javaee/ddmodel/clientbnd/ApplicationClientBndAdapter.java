@@ -48,10 +48,10 @@ public class ApplicationClientBndAdapter implements DDAdapter, ContainerAdapter<
              return null;
         }
 
-        String appPath = artifactContainer.getPath();
+        String containerPath = artifactContainer.getPath();
 
         ApplicationInfo appInfo = (ApplicationInfo)
-            rootOverlay.getFromNonPersistentCache(appPath, ApplicationInfo.class);
+            rootOverlay.getFromNonPersistentCache(containerPath, ApplicationInfo.class);
         if (appInfo == null) {
             return null;
         }
@@ -84,7 +84,7 @@ public class ApplicationClientBndAdapter implements DDAdapter, ContainerAdapter<
         ArtifactContainer artifactContainer,
         Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         // The application client binding is not cached.
 

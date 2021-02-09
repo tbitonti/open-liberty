@@ -50,7 +50,7 @@ public final class WebFragmentAdapter implements DDAdapter, ContainerAdapter<Web
                              ArtifactContainer artifactContainer,
                              Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         // The fragment descriptor is not cached!
 

@@ -23,14 +23,14 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 
 public final class PermissionsAdapter implements DDAdapter, ContainerAdapter<PermissionsConfig> {
 
-    @FFDCIgnore(ParseException.class)
     @Override
+    @FFDCIgnore(ParseException.class)
     public PermissionsConfig adapt(Container root,
                                    OverlayContainer rootOverlay,
                                    ArtifactContainer artifactContainer,
                                    Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         // The permissions configuration is not cached.
 
@@ -38,7 +38,7 @@ public final class PermissionsAdapter implements DDAdapter, ContainerAdapter<Per
         if (ddEntry == null) {
             return null;
         }
-        
+
         PermissionsConfig permissionsConfig;
         try {
             PermissionsConfigDDParser ddParser =

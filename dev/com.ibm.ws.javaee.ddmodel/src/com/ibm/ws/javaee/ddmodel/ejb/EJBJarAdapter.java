@@ -29,7 +29,7 @@ public final class EJBJarAdapter implements DDAdapter, ContainerAdapter<EJBJar> 
                         ArtifactContainer artifactContainer,
                         Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         // Caching is done by 'EJBJarEntryAdapter', using the container
         // which contains the resolved entry, and using the path of the
@@ -47,6 +47,10 @@ public final class EJBJarAdapter implements DDAdapter, ContainerAdapter<EJBJar> 
                 ddEntry = containerToAdapt.getEntry("META-INF/ejb-jar.xml");
             }
         }
-        return ((ddEntry == null) ? null : ddEntry.adapt(EJBJar.class));
+        if (ddEntry == null) {
+            return null;
+        }
+        
+        return ddEntry.adapt(EJBJar.class);
     }
 }

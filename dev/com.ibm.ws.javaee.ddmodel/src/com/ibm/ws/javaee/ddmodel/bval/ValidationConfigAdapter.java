@@ -29,7 +29,7 @@ public final class ValidationConfigAdapter implements DDAdapter, ContainerAdapte
                                   ArtifactContainer artifactContainer,
                                   Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         // The validation configuration is not cached.
 

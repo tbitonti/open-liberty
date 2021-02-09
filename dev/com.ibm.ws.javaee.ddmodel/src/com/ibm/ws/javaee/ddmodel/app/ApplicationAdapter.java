@@ -98,7 +98,7 @@ public final class ApplicationAdapter implements DDAdapter, ContainerAdapter<App
 
         String appPath = artifactContainer.getPath();
 
-        DDAdapter.logInfo(this, rootOverlay, appPath);
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
         
         Application application = (Application)
             rootOverlay.getFromNonPersistentCache(appPath, Application.class);

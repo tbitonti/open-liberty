@@ -31,7 +31,7 @@ public final class WebservicesAdapter implements DDAdapter, ContainerAdapter<Web
                              ArtifactContainer artifactContainer,
                              Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         String containerPath = artifactContainer.getPath();
 
@@ -41,15 +41,20 @@ public final class WebservicesAdapter implements DDAdapter, ContainerAdapter<Web
             return webServices;
         }
 
-        Entry ddEntry;
+        String ddEntryPath;
         if (rootOverlay.getFromNonPersistentCache(containerPath, WebModuleInfo.class) != null) {
-            ddEntry = containerToAdapt.getEntry(Webservices.WEB_DD_NAME);
+            ddEntryPath = Webservices.WEB_DD_NAME;
         } else if (rootOverlay.getFromNonPersistentCache(containerPath, EJBModuleInfo.class) != null) {
-            ddEntry = containerToAdapt.getEntry(Webservices.EJB_DD_NAME);
+            ddEntryPath = Webservices.EJB_DD_NAME;
         } else {
-            ddEntry = null;
+            ddEntryPath = null;
         }
-        if ( ddEntry == null ) {
+        if (ddEntryPath == null) {
+            return null;
+        }
+
+        Entry ddEntry = containerToAdapt.getEntry(ddEntryPath);
+        if (ddEntry == null) {
             return null;
         }
 

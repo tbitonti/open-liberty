@@ -16,12 +16,16 @@ import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.ContainerInfo;
+import com.ibm.ws.container.service.app.deploy.EJBModuleInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
+import com.ibm.ws.container.service.app.deploy.WebModuleInfo;
 import com.ibm.ws.container.service.app.deploy.extended.AltDDEntryGetter;
 import com.ibm.ws.javaee.dd.app.Application;
 import com.ibm.ws.javaee.dd.app.Module;
+import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
 import com.ibm.wsspi.adaptable.module.NonPersistentCache;
+import com.ibm.wsspi.artifact.ArtifactContainer;
 import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 
 /**
@@ -39,35 +43,48 @@ public interface DDAdapter {
      * immediate overlay container, or in one of the parent overlay
      * containers.
      *
-     * @param adapter The adapter which is being used.
-     * @param rootOverlay The root overlay container which is being adapted.
-     * @param appPath The path to the root overlay container.
+     * @param adapter
+     * @param container
+     * @param overlay
+     * @param artifactContainer
+     * @param containerToAdapt
      */
-    public static void logInfo(DDAdapter adapter, OverlayContainer rootOverlay, String appPath) {
+    public static void logInfo(DDAdapter adapter,
+        Container container,
+        OverlayContainer overlay,
+        ArtifactContainer artifactContainer,
+        Container containerToAdapt) {
+
         String prefix = adapter.getClass().getSimpleName() + ".logInfo: ";
 
-        System.out.println(prefix + "Path [ " + appPath + " ]");
+        String rootPath = artifactContainer.getPath();
+
+        System.out.println(prefix + "Container [ " + container + " ]");
+        System.out.println(prefix + "Overlay   [ " + overlay + " ]");
+        System.out.println(prefix + "Artifact  [ " + artifactContainer + " ]");
+        System.out.println(prefix + "Adapt     [ " + containerToAdapt + " ]");
 
         int parentNo = 0;
-        for ( OverlayContainer overlay = rootOverlay;
-              overlay != null;
-              parentNo++, overlay = overlay.getParentOverlay() ) {
+        for ( OverlayContainer nextOverlay = overlay;
+              nextOverlay != null;
+              parentNo++, nextOverlay = nextOverlay.getParentOverlay() ) {
 
-            System.out.println(prefix + "Overlay [ " + parentNo + " ] [ " + overlay.getPath() + " ] [ " + overlay + " ]");
+            System.out.println(prefix +
+                "Overlay [ " + parentNo + " ]" +
+                " [ " + nextOverlay.getPath() + " ]" +
+                " [ " + nextOverlay + " ]");
 
-            String moduleInfoSource;
             ModuleInfo moduleInfo = (ModuleInfo)
-                overlay.getFromNonPersistentCache(appPath, ModuleInfo.class);
-            if ( moduleInfo != null ) {
-                moduleInfoSource = "container";
-            } else {
-                moduleInfoSource = "**unavailable**";
-            }
+                nextOverlay.getFromNonPersistentCache(rootPath, ModuleInfo.class);
+            WebModuleInfo webModuleInfo = (WebModuleInfo)
+                nextOverlay.getFromNonPersistentCache(rootPath, WebModuleInfo.class);            
+            EJBModuleInfo ejbModuleInfo = (EJBModuleInfo)
+                nextOverlay.getFromNonPersistentCache(rootPath, EJBModuleInfo.class);                        
 
             String appInfoSource;
 
             ApplicationInfo appInfo = (ApplicationInfo)
-                overlay.getFromNonPersistentCache(appPath, ApplicationInfo.class);
+                nextOverlay.getFromNonPersistentCache(rootPath, ApplicationInfo.class);
             if ( appInfo != null ) {
                 appInfoSource = "Container";
             } else {
@@ -91,9 +108,22 @@ public interface DDAdapter {
             }
 
             if ( moduleInfo != null ) {
-                System.out.println(prefix + "Module [ " + moduleInfo + " ] [ " + moduleInfoSource + " ]");
+                System.out.println(prefix + "Module [ " + moduleInfo + " ]");
                 System.out.println(prefix + "  Name   [ " + moduleInfo.getName() + " ]");
                 System.out.println(prefix + "  URI    [ " + moduleInfo.getURI() + " ]");
+            }
+            
+            if ( webModuleInfo != null ) {
+                System.out.println(prefix + "Web Module  [ " + webModuleInfo + " ]");
+                System.out.println(prefix + "  Name    [ " + webModuleInfo.getName() + " ]");
+                System.out.println(prefix + "  URI     [ " + webModuleInfo.getURI() + " ]");
+                System.out.println(prefix + "  Context [ " + webModuleInfo.getContextRoot() + " ]");                
+            }
+            
+            if ( ejbModuleInfo != null ) {
+                System.out.println(prefix + "EJB Module [ " + ejbModuleInfo + " ]");
+                System.out.println(prefix + "  Name   [ " + ejbModuleInfo.getName() + " ]");
+                System.out.println(prefix + "  URI    [ " + ejbModuleInfo.getURI() + " ]");
             }
         }
     }

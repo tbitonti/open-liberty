@@ -57,9 +57,6 @@ public class EJBJarExtAdapter implements DDAdapter, ContainerAdapter<EJBJarExt> 
 
         ModuleInfo moduleInfo = null;
         if (appInfo == null) {
-            if (rootOverlay.getParentOverlay() == null) {
-                return null;
-            }
             moduleInfo = (ModuleInfo)
                 rootOverlay.getFromNonPersistentCache(ejbJarPath, ModuleInfo.class);
             if (moduleInfo == null) {
@@ -106,9 +103,7 @@ public class EJBJarExtAdapter implements DDAdapter, ContainerAdapter<EJBJarExt> 
         }
 
         if (overrideModuleNames != null) {
-            // Keep the UnableToAdaptException here.
             Application app = appInfo.getContainer().adapt(Application.class);
-
             DDAdapter.invalidModuleName(
                 rootOverlay, getClass(),
                 app, overrideModuleNames, "ejb-jar-ext");
@@ -129,7 +124,7 @@ public class EJBJarExtAdapter implements DDAdapter, ContainerAdapter<EJBJarExt> 
         ArtifactContainer artifactContainer,
         Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         // The EJB extension is not cached.
 

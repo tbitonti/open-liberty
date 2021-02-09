@@ -49,7 +49,7 @@ public final class FacesConfigAdapter implements DDAdapter, ContainerAdapter<Fac
                              ArtifactContainer artifactContainer,
                              Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         // The faces configuration is not cached.
 

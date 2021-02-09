@@ -15,13 +15,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
 import com.ibm.ws.javaee.dd.app.Application;
-import com.ibm.ws.javaee.dd.app.Module;
 import com.ibm.ws.javaee.dd.web.WebApp;
 import com.ibm.ws.javaee.dd.webbnd.WebBnd;
 
 import org.osgi.service.component.annotations.*;
-import com.ibm.websphere.ras.Tr;
-import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
 import com.ibm.ws.container.service.app.deploy.NestedConfigHelper;
@@ -39,8 +36,6 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
     service = ContainerAdapter.class,
     property = { "service.vendor=IBM", "toType=com.ibm.ws.javaee.dd.webbnd.WebBnd" })
 public class WebBndAdapter implements DDAdapter, ContainerAdapter<WebBnd> {
-    private static final TraceComponent tc = Tr.register(WebBndAdapter.class);
-
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY)
     volatile List<WebBnd> configurations;
 
@@ -57,7 +52,6 @@ public class WebBndAdapter implements DDAdapter, ContainerAdapter<WebBnd> {
 
         ModuleInfo moduleInfo = null;
         if (appInfo == null) {
-            // TODO: Why no parent container check?
             moduleInfo = (ModuleInfo)
                 overlay.getFromNonPersistentCache(artifactContainer.getPath(), ModuleInfo.class);
             if (moduleInfo == null) {
@@ -104,9 +98,7 @@ public class WebBndAdapter implements DDAdapter, ContainerAdapter<WebBnd> {
         }
         
         if ( configuredModuleNames != null ) {
-            // Keep the UnableToAdaptException here.
             Application app = appInfo.getContainer().adapt(Application.class);
-
             DDAdapter.invalidModuleName(
                 overlay, getClass(),
                 app, configuredModuleNames, "web-bnd"); 
@@ -122,7 +114,7 @@ public class WebBndAdapter implements DDAdapter, ContainerAdapter<WebBnd> {
                         ArtifactContainer artifactContainer,
                         Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         WebApp webApp = containerToAdapt.adapt(WebApp.class);
         String webAppVersion = ( (webApp == null) ? null : webApp.getVersion() );

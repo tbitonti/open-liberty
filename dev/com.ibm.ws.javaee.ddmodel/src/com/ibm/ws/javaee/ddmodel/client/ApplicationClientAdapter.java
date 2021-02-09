@@ -37,7 +37,7 @@ public final class ApplicationClientAdapter implements DDAdapter, ContainerAdapt
         //       entry, which may be in a different container than the
         //       application client container.
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         NonPersistentCache cache = containerToAdapt.adapt(NonPersistentCache.class);
 

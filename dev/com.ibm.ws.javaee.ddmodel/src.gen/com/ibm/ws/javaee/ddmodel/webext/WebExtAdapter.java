@@ -81,7 +81,6 @@ public class WebExtAdapter implements DDAdapter, ContainerAdapter<WebExt> {
 
         ModuleInfo moduleInfo = null;
         if ( appInfo == null ) {
-            // TODO: Why no parent container check?            
             moduleInfo = (ModuleInfo)
                 overlay.getFromNonPersistentCache(artifactContainer.getPath(), ModuleInfo.class);
             if ( moduleInfo == null ) {
@@ -145,9 +144,7 @@ public class WebExtAdapter implements DDAdapter, ContainerAdapter<WebExt> {
         }
 
         if ( overrideModuleNames != null ) {
-            // Keep the UnableToAdaptException here.
             Application app = appInfo.getContainer().adapt(Application.class);
-            
             DDAdapter.invalidModuleName(
                 overlay, getClass(),
                 app, overrideModuleNames, "web-ext"); 
@@ -193,7 +190,7 @@ public class WebExtAdapter implements DDAdapter, ContainerAdapter<WebExt> {
         ArtifactContainer artifactContainer,
         Container containerToAdapt) throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         WebApp webApp = containerToAdapt.adapt(WebApp.class);
         String webAppVersion = ((webApp == null) ? null : webApp.getVersion());

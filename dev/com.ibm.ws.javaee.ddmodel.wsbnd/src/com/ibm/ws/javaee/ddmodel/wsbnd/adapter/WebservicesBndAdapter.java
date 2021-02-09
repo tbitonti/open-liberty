@@ -23,8 +23,6 @@ import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
 
-import com.ibm.websphere.ras.Tr;
-import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.EJBModuleInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
@@ -32,7 +30,6 @@ import com.ibm.ws.container.service.app.deploy.NestedConfigHelper;
 import com.ibm.ws.container.service.app.deploy.WebModuleInfo;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.javaee.dd.app.Application;
-import com.ibm.ws.javaee.dd.app.Module;
 import com.ibm.ws.javaee.ddmodel.DDAdapter;
 import com.ibm.ws.javaee.ddmodel.DDParser.ParseException;
 import com.ibm.ws.javaee.ddmodel.wsbnd.WebservicesBnd;
@@ -48,8 +45,6 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
            service = ContainerAdapter.class,
            property = { "service.vendor=IBM", "toType=com.ibm.ws.javaee.ddmodel.wsbnd.WebservicesBnd" })
 public final class WebservicesBndAdapter implements DDAdapter, ContainerAdapter<WebservicesBnd> {
-    private static final TraceComponent tc = Tr.register(WebservicesBndAdapter.class);
-
     @Reference(cardinality = ReferenceCardinality.MULTIPLE,
                policy = ReferencePolicy.DYNAMIC,
                policyOption = ReferencePolicyOption.GREEDY)
@@ -63,19 +58,20 @@ public final class WebservicesBndAdapter implements DDAdapter, ContainerAdapter<
             return null;
         }
         
+        String containerPath = artifactContainer.getPath();
+
         ApplicationInfo appInfo = (ApplicationInfo)
-            overlay.getFromNonPersistentCache(artifactContainer.getPath(), ApplicationInfo.class);
+            overlay.getFromNonPersistentCache(containerPath, ApplicationInfo.class);
 
         ModuleInfo moduleInfo = null;
         if (appInfo == null) {
-            // TODO: Why no parent container check?            
             moduleInfo = (ModuleInfo)
-                overlay.getFromNonPersistentCache(artifactContainer.getPath(), ModuleInfo.class);
-            if ( moduleInfo == null ) {
+                overlay.getFromNonPersistentCache(containerPath, ModuleInfo.class);
+            if (moduleInfo == null) {
                 return null;
             }
             appInfo = moduleInfo.getApplicationInfo();
-            if ( appInfo == null ) {
+            if (appInfo == null) {
                 return null;
             }
         }
@@ -96,12 +92,11 @@ public final class WebservicesBndAdapter implements DDAdapter, ContainerAdapter<
                 if (moduleInfo == null) {
                     return configImpl;
                 }
-                
+
                 String moduleName = (String) configImpl.getConfigAdminProperties().get("moduleName");
                 if (moduleName == null) {
-                    if ( DDAdapter.markUnspecifiedModuleName(overlay, getClass() ) ) {
-                        Tr.error(tc, "module.name.not.specified", WebServicesBndDDParser.WEBSERVICES_BND_ELEMENT_NAME);
-                    }
+                    DDAdapter.unspecifiedModuleName(overlay, getClass(),
+                        WebServicesBndDDParser.WEBSERVICES_BND_ELEMENT_NAME);
                     continue;
                 }
                 moduleName = DDAdapter.stripExtension(moduleName);
@@ -118,15 +113,10 @@ public final class WebservicesBndAdapter implements DDAdapter, ContainerAdapter<
         }
 
         if (configuredModuleNames != null) {
-            if (DDAdapter.markInvalidModuleName(overlay, getClass()) ) {
-                Application app = appInfo.getContainer().adapt(Application.class);
-                for (Module m : app.getModules()) {
-                    configuredModuleNames.remove(DDAdapter.stripExtension(m.getModulePath()));
-                }
-                if (!configuredModuleNames.isEmpty()) {
-                    Tr.error(tc, "module.name.invalid", configuredModuleNames, WebServicesBndDDParser.WEBSERVICES_BND_ELEMENT_NAME);
-                }
-            }
+            Application app = appInfo.getContainer().adapt(Application.class);
+            DDAdapter.invalidModuleName(
+                overlay, getClass(),
+                app, configuredModuleNames, WebServicesBndDDParser.WEBSERVICES_BND_ELEMENT_NAME); 
         }
         return null;
     }
@@ -152,7 +142,7 @@ public final class WebservicesBndAdapter implements DDAdapter, ContainerAdapter<
     public WebservicesBnd adapt(Container root, OverlayContainer rootOverlay, ArtifactContainer artifactContainer, Container containerToAdapt)
         throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         // The web services binding is not cached.
 

@@ -15,12 +15,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
 import com.ibm.ws.javaee.dd.app.Application;
-import com.ibm.ws.javaee.dd.app.Module;
 import com.ibm.ws.javaee.dd.managedbean.ManagedBeanBnd;
 
 import org.osgi.service.component.annotations.*;
-import com.ibm.websphere.ras.Tr;
-import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
 import com.ibm.ws.container.service.app.deploy.NestedConfigHelper;
@@ -39,8 +36,6 @@ import com.ibm.wsspi.artifact.overlay.OverlayContainer;
     service = ContainerAdapter.class,
     property = { "service.vendor=IBM", "toType=com.ibm.ws.javaee.dd.managedbean.ManagedBeanBnd" })
 public class ManagedBeanBndAdapter implements DDAdapter, ContainerAdapter<ManagedBeanBnd> {
-    private static final TraceComponent tc = Tr.register(ManagedBeanBndAdapter.class);
-
     @Reference(cardinality = ReferenceCardinality.MULTIPLE,
                policy = ReferencePolicy.DYNAMIC,
                policyOption = ReferencePolicyOption.GREEDY)
@@ -113,7 +108,6 @@ public class ManagedBeanBndAdapter implements DDAdapter, ContainerAdapter<Manage
         if (overrideModuleNames != null) {
             // Keep the UnableToAdaptException here.
             Application app = appInfo.getContainer().adapt(Application.class);
-
             DDAdapter.invalidModuleName(
                 rootOverlay, getClass(),
                 app, overrideModuleNames, "managed-bean-bnd"); 
@@ -130,7 +124,7 @@ public class ManagedBeanBndAdapter implements DDAdapter, ContainerAdapter<Manage
     public ManagedBeanBnd adapt(Container root, OverlayContainer rootOverlay, ArtifactContainer artifactContainer, Container containerToAdapt)
         throws UnableToAdaptException {
 
-        DDAdapter.logInfo(this, rootOverlay, artifactContainer.getPath());
+        DDAdapter.logInfo(this, root, rootOverlay, artifactContainer, containerToAdapt);
 
         WebModuleInfo webInfo = (WebModuleInfo)
             rootOverlay.getFromNonPersistentCache(artifactContainer.getPath(), WebModuleInfo.class);
