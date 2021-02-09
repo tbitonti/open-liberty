@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2017 IBM Corporation and others.
+ * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -280,45 +280,70 @@ public class FileUtils {
     }
 
     /**
-     * Normalize a relative entry path, so that it can be used in an archive.
+     * Normalize an entry path.
+     * 
+     * Replace a null path with an empty path.
+     * 
+     * Replace all backwards slashes ('\') with forward
+     * slashes ('/').
+     * 
+     * Ensure that the path does not start with a leading
+     * forward slash.  Strip the leading forward slash from
+     * the path.
      *
-     * @param entryPath
-     * @return
+     * @param path The path which is to be normalized.
+     *
+     * @return The normalized path.
      */
-    public static String normalizeEntryPath(String entryPath) {
-        if (entryPath == null || entryPath.isEmpty())
+    public static String normalizeEntryPath(String path) {
+        if ( path == null ) {
             return "";
-
-        entryPath = entryPath.replace("\\", "/");
-
-        if (entryPath.startsWith("/")) {
-            if (entryPath.length() == 1) {
-                entryPath = "";
-            } else {
-                entryPath = entryPath.substring(1, entryPath.length());
-            }
+        } else if ( path.isEmpty() ) {
+            return path;
         }
 
-        return entryPath;
+        path = path.replace('\\', '/');
+
+        if ( path.charAt(0) != '/') {
+            return path;
+        }
+        
+        int pathLen = path.length();
+        if ( pathLen == 1 ) {
+            return "";
+        } else {
+            return path.substring(1, pathLen);
+        }
     }
 
     /**
-     * Normalize a path that represents a directory
+     * Normalize a path that represents a directory.
+     * 
+     * Replace all backward slashes ('\') with forward slashes ('/').
      *
-     * @param dirPath
-     * @return
+     * Replace null with an empty path.
+     * 
+     * Unless the path is empty, make sure it ends with a forward
+     * slash ('/').
+     *
+     * @param path The path which is to be normalized.
+     *
+     * @return The normalized path.
      */
-    public static String normalizeDirPath(String dirPath) {
-        if (dirPath == null || dirPath.isEmpty())
+    public static String normalizeDirPath(String path) {
+        if ( path == null ) {
             return "";
-
-        dirPath = dirPath.replace("\\", "/");
-
-        if (!dirPath.endsWith("/")) {
-            dirPath = dirPath + "/";
+        } else if ( path.isEmpty() ) {
+            return path;
         }
 
-        return dirPath;
+        path = path.replace('\\', '/');
+
+        if ( path.charAt( path.length() - 1) != '/' ) {
+            path = path + '/';
+        }
+
+        return path;
     }
 
     /**
