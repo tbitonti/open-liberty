@@ -13,6 +13,7 @@ package com.ibm.ws.kernel.boot.archive;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -44,11 +45,8 @@ public class DirEntryConfig implements ArchiveEntryConfig {
         boolean includeByDefault,
         PatternStrategy selectionStrategy) {
 
-        if ( !source.exists() ) {
-            throw new IllegalArgumentException("Target " + source.getAbsolutePath() + " does not exist.");
-        } else if ( !source.isDirectory() ) {
-            throw new IllegalArgumentException("Target " + source.getAbsolutePath() + " is not a directory.");
-        }
+        // TFB: Removed the source validation.  Do that
+        //      check when performing configuration.
 
         this.entryPath = FileUtils.normalizeDirPath( FileUtils.normalizeEntryPath(entryPath) );
         this.source = source;
@@ -108,9 +106,20 @@ public class DirEntryConfig implements ArchiveEntryConfig {
      * @return The selected paths.
      */
     protected List<String> filterDirectory() throws IOException {
-        List<String> selections = new ArrayList<String>();
-        filterDirectory(selections, source, "");
-        return selections;
+        String prefix = "filterDirectory: ";
+
+        if ( !source.exists() ) {
+            System.out.println(prefix + "Ignore: " + source.getAbsolutePath() + " does not exist");
+            return Collections.emptyList();
+        } else if ( !source.isDirectory() ) {
+            System.out.println(prefix + "Ignore: " + source.getAbsolutePath() + " is not a directory");
+            return Collections.emptyList();
+
+        } else {
+            List<String> selections = new ArrayList<String>();
+            filterDirectory(selections, source, "");
+            return selections;
+        }
     }
 
     /**
@@ -135,11 +144,6 @@ public class DirEntryConfig implements ArchiveEntryConfig {
         String prefix = "filterDirectory: ";
         System.out.println(prefix + targetDir.getAbsolutePath());
 
-        if ( !targetDir.exists() ) {
-            System.out.println(prefix + "Ignore: Does not exist");
-            return; // Nothing to do
-        }
-        
         File[] children = targetDir.listFiles();
         if ( children == null ) {
             System.out.println(prefix + "Ignore: Null listing");

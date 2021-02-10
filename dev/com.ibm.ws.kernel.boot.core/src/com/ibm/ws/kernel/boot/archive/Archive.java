@@ -27,6 +27,8 @@ import java.util.List;
  * created, an archive must be closed. 
  */
 public interface Archive extends Closeable {
+    // TODO: This doesn't seem to be in use.  Also, 4K is too small
+    //       of a buffer size.  The size should be 16K (or more).
     int DEFAULT_BUFFER_SIZE = 4096;
 
     /**
@@ -83,6 +85,8 @@ public interface Archive extends Closeable {
      * If the archive already exists, any entry configurations which
      * would add duplicate entries are ignored.  That is, existing
      * archive entries take precedence over any which might be added.
+     * 
+     * The archive must be closed after it is created.
      * 
      * @return The new archive file.
      *

@@ -62,6 +62,7 @@ public class FilteredDirEntryConfig extends DirEntryConfig {
     private static final String OBSCURE_REPLACEMENT =
         "\"*****\"";
 
+    // TODO: Should this account for spaces before or after the key?
     private static final String WLP_PASSWORD_STRING =
         "wlp.password.encryption.key";
     private static final String WLP_PASSWORD_REGEX =
@@ -88,7 +89,7 @@ public class FilteredDirEntryConfig extends DirEntryConfig {
      */
     @Override
     public void configure(Archive archive) throws IOException {
-        List<String> selections = filterDirectory();
+        List<String> selections = filterDirectory(); // throws IOException
 
         for ( String relPath : selections ) {
             File initialFile = new File(source, relPath);
@@ -105,6 +106,7 @@ public class FilteredDirEntryConfig extends DirEntryConfig {
 
             String initialContents =
                 new String( Files.readAllBytes(initialPath) );
+            // 'readAllBytes' throws IOException
 
             String pass1Contents = OBSCURE_PATTERN
                 .matcher(initialContents)
@@ -124,14 +126,14 @@ public class FilteredDirEntryConfig extends DirEntryConfig {
 
             File finalFile;
             if ( !pass2Contents.equals(initialContents) ) {
-                Path finalPath = Files.createTempFile(null, null);
-                Files.write(finalPath, pass2Contents.getBytes());
+                Path finalPath = Files.createTempFile(null, null); // throws IOException
+                Files.write(finalPath, pass2Contents.getBytes()); // throws IOException
                 finalFile = finalPath.toFile();
             } else {
                 finalFile = initialFile;
             }
 
-            archive.addFileEntry(relPath, finalFile);
+            archive.addFileEntry(relPath, finalFile); // throws IOException
         }
     }
 }

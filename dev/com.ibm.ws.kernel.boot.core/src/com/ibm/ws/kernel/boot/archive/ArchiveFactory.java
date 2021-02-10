@@ -13,6 +13,7 @@ package com.ibm.ws.kernel.boot.archive;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -63,12 +64,21 @@ public class ArchiveFactory {
         }
         ARCHIVE_IMPL_BUNDLE_URL = bundleUrl;
     }
-    
+
+    // PAX: Portable Archive Exchange file created by pax, a command line utility
+    // used for creating and extracting archives; may store the archive in one
+    // of pax's several supported formats, which include bcpio, cpio, sv4cpio,
+    // sv4crc, tar, and ustar.
+    //
+    // Ref: https://fileinfo.com/extension/pax
+
+    /** Implementation class name for creating PAX archives. */
     private final static String PAX_ARCHIVE_CLASS_NAME =
         "com.ibm.ws.kernel.boot.archive.internal.PaxArchive";
+
+    /** Implementation class name for creating ZIP archives. */
     private final static String ZIP_ARCHIVE_CLASS_NAME =
         "com.ibm.ws.kernel.boot.archive.internal.ZipArchive";
-
 
     /**
      * Archive factory API: Create an archive.
@@ -82,6 +92,7 @@ public class ArchiveFactory {
      * @return The new archive.
      *
      * @throws IOException Thrown if the archive could not be created.
+     *     This may be a reflection exception, wrapped into an IOException.
      */
     public static Archive create(String archivePath) throws IOException {
         File archiveFile = new File(archivePath);
@@ -89,27 +100,37 @@ public class ArchiveFactory {
     }
 
     /**
-     * Archive factory API: Create an archive.
-     * 
+     * Archive factory API: Create an archive.  The archive is not yet
+     * populated: Entries must be added to the archive via
+     * {@link Archive#addEntryConfig(ArchiveEntryConfig)}, and other
+     * similar methods, and the archive must be closed.
+     *
      * This factory method does not adjust the security policy.  If that
      * is to be done, use instead {@link #create(File, boolean)}.
      * 
+     * Either a PAX type archive or a ZIP type archive will be created,
+     * depending on whether the archive file extension is ".pax".
+     * 
+     * See {@link #PAX_ARCHIVE_CLASS_NAME} and
+     * {@link #ZIP_ARCHIVE_CLASS_NAME}.
+     *
      * @param archiveFile The file which is to be created.
      *
      * @return The new archive.
      *
      * @throws IOException Thrown if the archive could not be created.
+     *     This may be a reflection exception, wrapped into an IOException.
      */
     public static Archive create(File archiveFile) throws IOException {
         if ( !archiveFile.isAbsolute() ) {
             throw new IllegalArgumentException( "Target archive " + archiveFile.getPath() + " does not have an absolute path.");
         }
 
-        String archiveClassName;
+        String archiveImplClassName;
         if ( archiveFile.getName().endsWith(".pax") ) {
-            archiveClassName = PAX_ARCHIVE_CLASS_NAME;
+            archiveImplClassName = PAX_ARCHIVE_CLASS_NAME;
         } else {
-            archiveClassName = ZIP_ARCHIVE_CLASS_NAME;
+            archiveImplClassName = ZIP_ARCHIVE_CLASS_NAME;
         }
 
         try {
@@ -117,11 +138,32 @@ public class ArchiveFactory {
             URLClassLoader loader = new URLClassLoader( new URL[] { ARCHIVE_IMPL_BUNDLE_URL } );
             @SuppressWarnings("unchecked")
             Class<? extends Archive> archiveImplClass = (Class<? extends Archive>)
-                loader.loadClass(archiveClassName);
+                loader.loadClass(archiveImplClassName);
+            // throws ClassNotFoundException
             Constructor<? extends Archive> ctor = archiveImplClass.getConstructor(File.class);
+            // throws NoSuchMethodException, SecurityException
             return ctor.newInstance(archiveFile);
-        } catch (Exception ex) {
-            throw new IOException(ex);
+            // throws InstantiationException, IllegalAccessException,
+            //        IllegalArgumentException, InvocationTargetException
+            // throws ExceptionInInitializerError (an Error, not an Exception) 
+
+        } catch ( InvocationTargetException ex ) {
+            // The constructor is expected to throw IOExceptions;
+            // unwind these.
+
+            Throwable cause = ex.getCause();
+            if ( cause != null ) {
+                if ( cause instanceof IOException ) {
+                    throw ( (IOException) cause );
+                } else {
+                    throw new IOException(cause);
+                }            
+            } else {
+                throw new IOException(ex);
+            }
+
+        } catch ( Throwable th ) {
+            throw new IOException(th);                
         }
     }
 

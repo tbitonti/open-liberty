@@ -50,18 +50,18 @@ public class DumpProcessor implements ArchiveProcessor {
     }
 
     public ReturnCode execute() {
+        // The archive will collect the infos from server.out.dir,
+        // and the entryPrefix is null.
 
         Archive archive = null;
         try {
-            // make archive
-            archive = ArchiveFactory.create(dumpFile); // The archive will collect the infos from server.out.dir, and the entryPrefix is null
+            archive = ArchiveFactory.create(dumpFile);
             archive.addEntryConfigs(createDumpConfigs(serverName));
             archive.create();
         } catch (IOException e) {
             System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("error.unableZipDir"), e));
             return ReturnCode.ERROR_SERVER_DUMP;
         } finally {
-            // must close the archive so that the create can complete
             Utils.tryToClose(archive);
         }
 
@@ -69,7 +69,7 @@ public class DumpProcessor implements ArchiveProcessor {
 
     }
 
-    private List<ArchiveEntryConfig> createDumpConfigs(String serverName) throws IOException {
+    private List<ArchiveEntryConfig> createDumpConfigs(String serverName) {
         List<ArchiveEntryConfig> entryConfigs = new ArrayList<ArchiveEntryConfig>();
 
         // avoid any special characters in serverName when construct patterns

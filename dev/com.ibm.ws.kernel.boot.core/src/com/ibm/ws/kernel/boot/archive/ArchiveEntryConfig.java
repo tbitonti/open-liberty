@@ -37,13 +37,13 @@ public interface ArchiveEntryConfig {
     File getSource();
 
     /**
-     * Add an entry to an archive.
+     * Add this entry to an archive.
      * 
-     * The precise action depends on the type of entry which is
-     * being added.  Concrete subclass {@link FileEntryConfig}
-     * adds a single simple entry to the archive.  Concrete
-     * subclass {@link DirEntryConfig} adds entries of a directory
-     * to the archive.
+     * The precise action depends on the type of this entry.
+     * Concrete subclass {@link FileEntryConfig} adds a single
+     * simple entry to the archive.  Concrete subclass
+     * {@link DirEntryConfig} adds entries of a directory to
+     * the archive.
      * 
      * @param archive The archive which is to receive new entries.
      *

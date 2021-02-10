@@ -28,11 +28,8 @@ public class FileEntryConfig implements ArchiveEntryConfig {
      *     and must be a simple file.
      */
     public FileEntryConfig(String entryPath, File source) {
-        if ( !source.exists() ) {
-            throw new IllegalArgumentException("Target " + source.getAbsolutePath() + " does not exist.");
-        } else if ( !source.isFile() ) {
-            throw new IllegalArgumentException("Target " + source.getAbsolutePath() + " is not a file.");
-        }
+        // TFB: Removed validation of 'source': That validation
+        //      is done by 'configure'.
 
         entryPath = FileUtils.normalizeEntryPath(entryPath);
 
@@ -56,6 +53,8 @@ public class FileEntryConfig implements ArchiveEntryConfig {
 
         this.source = source;
     }
+
+    //
 
     private final String entryPath;
 
@@ -82,6 +81,15 @@ public class FileEntryConfig implements ArchiveEntryConfig {
      */
     @Override
     public void configure(Archive archive) throws IOException {
-        archive.addFileEntry(entryPath, source);
+        String prefix = "configure: ";
+
+        if ( !source.exists() ) {
+            System.out.println(prefix + "Ignore: " + source.getAbsolutePath() + " does not exist");
+        } else if ( !source.isFile() ) {
+            System.out.println(prefix + "Ignore: " + source.getAbsolutePath() + " is not a simple file");
+
+        } else {
+            archive.addFileEntry(entryPath, source); // throws IOException
+        }
     }
 }
