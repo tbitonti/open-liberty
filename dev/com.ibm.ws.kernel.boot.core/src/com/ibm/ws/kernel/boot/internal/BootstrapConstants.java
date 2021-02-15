@@ -10,11 +10,21 @@
  *******************************************************************************/
 package com.ibm.ws.kernel.boot.internal;
 
+import java.text.MessageFormat;
 import java.util.ResourceBundle;
 
 public final class BootstrapConstants {
     /** Since this launches the framework, we have to do translation ourselves.. */
-    public static final ResourceBundle messages = ResourceBundle.getBundle("com.ibm.ws.kernel.boot.resources.LauncherMessages");
+    public static final ResourceBundle messages =
+        ResourceBundle.getBundle("com.ibm.ws.kernel.boot.resources.LauncherMessages");
+
+    public static String getMessage(String msgKey) {
+        return BootstrapConstants.messages.getString(msgKey);
+    }
+    
+    public static String format(String msgKey, Object... msgParms) {
+        return ( MessageFormat.format( getMessage(msgKey), msgParms ) );
+    }
 
     /** Bootstrap property specifing other properties resources to include. */
     public static final String BOOTPROP_INCLUDE = "bootstrap.include";
@@ -25,6 +35,11 @@ public final class BootstrapConstants {
      */
     public static final String BOOTPROP_KERNEL_INFO = "websphere.kernel.info",
                     BOOTPROP_PRODUCT_INFO = "websphere.product.info";
+    
+    public static final String BOOTPROP_OS_NAME = "os.name";
+    
+    public static final String CLI_OS_REQUEST = "os";
+
     /**
      * Internally set property containing the output file name provided
      * on command line

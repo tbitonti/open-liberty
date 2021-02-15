@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2010, 2020 IBM Corporation and others.
+# Copyright (c) 2010, 2021 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v1.0
 # which accompanies this distribution, and is available at
@@ -707,6 +707,22 @@ error.missing.version.files.useraction=Ensure that the directory exists and can 
 warning.earlyRelease=CWWKE0953W: This version of {0} is an unsupported early release version.
 warning.earlyRelease.explanation=New features that are not fully tested are made available in early releases to elicit feedback before they are included in a supported release.
 warning.earlyRelease.useraction=Do not use an early release version on production systems, since early release versions are not supported.
+
+error.failed.package.info=CWWKE0954E: Packaging of server {0} failed.  The server information file {1} could not be written.  Exception {2}.
+error.failed.package.info.explanation=While attempting to package the server, the information file which is created as a part of the packaged server could not be created.
+error.failed.package.info.useraction=Ensure that the server information file is in a valid location, and that the packaging command can write to this location.
+
+error.missing.loose.file=CWWKE0960E: Loose application file {0} does not exist.
+error.missing.loose.file.explanation=A loose application file was specified, but does not exist.
+error.missing.loose.file.useraction=Modify the loose configuration to point to a file that exists.
+
+error.nonsimpleloose.file=CWWKE0961E: Loose application file {0} is not a simple file.
+error.missing.loose.file.explanation=A loose application file was specified as a simple file, but is not a simple file.
+error.missing.loose.file.useraction=Modify the loose configuration to point to a file that is a simple file.
+
+error.nondirectory.loose.file=CWWKE0962E: Loose application file {0} is not a directory.
+error.nondirectory.loose.file.explanation=A loose application file was specified as a directory, but is not a directory.
+error.nondirectory.loose.file.useraction=Modify the loose configuration to point to a file that is a directory.
 
 info.serverStarting=Starting server {0}.
 info.serverStarted=Server {0} started.

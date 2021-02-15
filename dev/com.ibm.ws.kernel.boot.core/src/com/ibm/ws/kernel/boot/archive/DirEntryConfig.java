@@ -12,12 +12,14 @@ package com.ibm.ws.kernel.boot.archive;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
 import com.ibm.ws.kernel.boot.archive.DirPattern.PatternStrategy;
+import com.ibm.ws.kernel.boot.internal.BootstrapConstants;
 import com.ibm.ws.kernel.boot.internal.FileUtils;
 
 public class DirEntryConfig implements ArchiveEntryConfig {
@@ -102,18 +104,17 @@ public class DirEntryConfig implements ArchiveEntryConfig {
     /**
      * Recursively select files of the target directory.  Answer the relative
      * paths of the selected files.  Paths are relative to the source directory.
-     * 
+     *
      * @return The selected paths.
+     *
+     * @throws IOException Thrown if the target source does not exist,
+     *     is not a simple file, or could not be added.
      */
     protected List<String> filterDirectory() throws IOException {
-        String prefix = "filterDirectory: ";
-
         if ( !source.exists() ) {
-            System.out.println(prefix + "Ignore: " + source.getAbsolutePath() + " does not exist");
-            return Collections.emptyList();
+            throw new IOException( BootstrapConstants.format("error.missing.loose.file", source.getAbsolutePath()) );            
         } else if ( !source.isDirectory() ) {
-            System.out.println(prefix + "Ignore: " + source.getAbsolutePath() + " is not a directory");
-            return Collections.emptyList();
+            throw new IOException( BootstrapConstants.format("error.nondirectory.loose.file", source.getAbsolutePath()) );
 
         } else {
             List<String> selections = new ArrayList<String>();

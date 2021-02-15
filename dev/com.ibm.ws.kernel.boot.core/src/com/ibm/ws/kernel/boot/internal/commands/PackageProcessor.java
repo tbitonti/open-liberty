@@ -16,7 +16,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,15 +64,19 @@ public class PackageProcessor implements ArchiveProcessor {
 
     private final File workAreaTmpDir;
 
-    private final Set<File> looseFiles = new HashSet<File>();// the loose files
+    private final Set<File> looseFiles = new HashSet<File>();
 
     private final Set<String> processContent;
 
-    final File installRoot;
-    final String wlpProperty = "/lib/versions/WebSphereApplicationServer.properties";
-    final String wlpPropertyBackup = "WebSphereApplicationServer.properties.bak";
+    private final File installRoot;
+
+    private static final String wlpProperty =
+        "/lib/versions/WebSphereApplicationServer.properties";
+    private static final String wlpPropertyBackup =
+        "WebSphereApplicationServer.properties.bak";
 
     protected static final String PACKAGE_ARCHIVE_PREFIX = "wlp/";
+
     public String packageArchiveEntryPrefix = PACKAGE_ARCHIVE_PREFIX;
 
     public boolean isServerRootOptionSet = false;
@@ -172,8 +175,9 @@ public class PackageProcessor implements ArchiveProcessor {
         mf.getMainAttributes().putValue("Server-Name", processName);
 
         // For Java 9, we need to apply the /wlp/lib/platform/java/java9.options to the manifest.
-        if (System.getProperty("java.specification.version") != null && !System.getProperty("java.specification.version").startsWith("1.")) {
-            HashMap<String, String> map = readJava9Options();
+        String specVersion = System.getProperty("java.specification.version");
+        if ((specVersion != null) && !specVersion.startsWith("1.")) {
+            Map<String, String> map = readJava9Options();
             mf.getMainAttributes().putValue("Add-Exports", map.get("exports"));
             mf.getMainAttributes().putValue("Add-Opens", map.get("opens"));
         }
@@ -187,16 +191,17 @@ public class PackageProcessor implements ArchiveProcessor {
     }
 
     public ReturnCode execute(boolean runtimeOnly) {
-        Archive archive = null;
         ReturnCode rc = backupWebSphereApplicationServerProperty(installRoot);
         if (!rc.equals(ReturnCode.OK)) {
             return rc;
         }
-        try {
 
+        Archive archive = null;
+
+        try {
             // Dont allow --include=usr and --archive=*.jar combination
             if (isIncludeOptionEqualToUsr() && isArchiveJar()) {
-                System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("error.package.usr.jar"), processName));
+                System.out.println(BootstrapConstants.format("error.package.usr.jar", processName));
                 return ReturnCode.ERROR_SERVER_PACKAGE;
             }
 
@@ -211,7 +216,7 @@ public class PackageProcessor implements ArchiveProcessor {
                     manifest = new File(bootProps.getInstallRoot().getParentFile(), "META-INF/MANIFEST.MF");
                 }
                 if (!manifest.exists()) {
-                    System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("error.minify.missing.manifest"), processName));
+                    System.out.println(BootstrapConstants.format("error.minify.missing.manifest", processName) );
                     return ReturnCode.ERROR_SERVER_PACKAGE;
                 }
 
@@ -241,15 +246,18 @@ public class PackageProcessor implements ArchiveProcessor {
                            includeMinifyorMinifyRunnable(val)) {
                     archive.addEntryConfigs(createMinifyConfigs(processName));
                 } else {
-                    System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("warn.packageServer.include.unknownOption"), val));
+                    System.out.println(BootstrapConstants.format("warn.packageServer.include.unknownOption", val) );
                     archive.addEntryConfigs(createAllConfigs(processName, runtimeOnly));
                 }
             }
+
             archive.create();
+
         } catch (IOException e) {
-            System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("error.unableZipDir"), e));
+            System.out.println(BootstrapConstants.format("error.unableZipDir", e));
             Debug.printStackTrace(e);
             return ReturnCode.ERROR_SERVER_PACKAGE;
+
         } finally {
             // must close the archive so that the create can complete
             Utils.tryToClose(archive);
@@ -257,6 +265,7 @@ public class PackageProcessor implements ArchiveProcessor {
             // clean temporary files
             FileUtils.recursiveClean(workAreaTmpDir);
         }
+
         return ReturnCode.OK;
     }
 
@@ -587,7 +596,7 @@ public class PackageProcessor implements ArchiveProcessor {
                     continue;
                 }
             } catch ( Exception e ) {
-                System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("warn.package.invalid.looseFile"), looseFile));
+                System.out.println(BootstrapConstants.format("warn.package.invalid.looseFile", looseFile));
                 Debug.printStackTrace(e);
                 
                 looseConfig = null;
@@ -601,7 +610,7 @@ public class PackageProcessor implements ArchiveProcessor {
                         looseConfig, looseFile, bootProps, packageArchiveEntryPrefix,
                         includeUsr(options.get(PackageOption.INCLUDE))));
             } catch ( Exception e ) {
-                System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("warning.unableToPackageLooseConfigFileMissingPath"), looseFile));
+                System.out.println(BootstrapConstants.format("warning.unableToPackageLooseConfigFileMissingPath", looseFile));
                 Debug.printStackTrace(e);
 
                 it.remove();
@@ -758,17 +767,27 @@ public class PackageProcessor implements ArchiveProcessor {
         return packageFile.getName().endsWith(".jar");
     }
 
-    // Reads the java9.options file
-    private HashMap<String, String> readJava9Options() throws IOException {
-        HashMap<String, String> hm = new HashMap<String, String>();
-        StringBuffer exports = new StringBuffer();
-        StringBuffer opens = new StringBuffer();
-        BufferedReader r = new BufferedReader(new FileReader(installRoot.getAbsolutePath() + File.separator + "lib" + File.separator + "platform" + File.separator + "java"
-                                                             + File.separator
-                                                             + "java9.options"));
-        String line = r.readLine();
-        while (line != null) {
-            if (!line.startsWith("#")) {
+    // Read the java9.options file
+
+    private Map<String, String> readJava9Options() throws IOException {
+        Map<String, String> hm = new HashMap<String, String>();
+        StringBuilder exports = new StringBuilder();
+        StringBuilder opens = new StringBuilder();
+
+        String optionsPath = installRoot.getAbsolutePath() +
+                File.separator + "lib" +
+                File.separator + "platform" +
+                File.separator + "java" +
+                File.separator + "java9.options";
+
+        try ( FileReader fr = new FileReader(optionsPath) ) {
+            BufferedReader r = new BufferedReader(fr);
+
+            String line;
+            while ( (line = r.readLine()) != null ) {
+                if (line.startsWith("#")) {
+                    continue;
+                }
                 if (line.contains("--add-export")) {
                     line = r.readLine();
                     exports.append(getValue(line) + " ");
@@ -777,13 +796,10 @@ public class PackageProcessor implements ArchiveProcessor {
                     opens.append(getValue(line) + " ");
                 }
             }
-            line = r.readLine();
         }
 
         hm.put("exports", exports.toString().trim());
         hm.put("opens", opens.toString().trim());
-
-        r.close();
 
         return hm;
     }

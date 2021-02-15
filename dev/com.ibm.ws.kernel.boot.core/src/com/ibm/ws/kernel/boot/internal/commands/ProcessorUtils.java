@@ -14,7 +14,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -46,12 +45,9 @@ import com.ibm.ws.kernel.boot.internal.XMLUtils;
  * Provide the utilities for PackageProcessor use
  */
 public class ProcessorUtils {
-
     /**
-     * Get the loose config files from ${server.config.dir}/apps, ${server.config.dir}/dropins or ${shared.app.dir}
-     *
-     * @param bootProps
-     * @return
+     * Get the loose config files from ${server.config.dir}/apps,
+     * ${server.config.dir}/dropins or ${shared.app.dir}.
      */
     public static Set<File> getLooseConfigFiles(BootstrapConfig bootProps) {
         Set<File> files = new HashSet<File>();
@@ -77,12 +73,10 @@ public class ProcessorUtils {
     }
 
     /**
-     * Refer to the com.ibm.ws.artifact.api.loose.internal.LooseContainerFactoryHelper.createContainer.
-     * Parse the loose config file and create the looseConfig object which contains the file's content.
+     * Parse the loose config file and create the looseConfig object
+     * which contains the file's content.
      *
-     * @param looseFile
-     * @return
-     * @throws Exception
+     * See com.ibm.ws.artifact.api.loose.internal.LooseContainerFactoryHelper.createContainer.
      */
     public static LooseConfig convertToLooseConfig(File looseFile) throws Exception {
         //make sure the file exists, can be read and is an xml
@@ -94,14 +88,13 @@ public class ProcessorUtils {
                 LooseConfig cEntry = root;
 
                 Stack<LooseConfig> stack = new Stack<LooseConfig>();
-
                 stack.push(cEntry);
-                /*
-                 * Normally we specifically request the system default XMLInputFactory to avoid issues when
-                 * another XMLInputFactory is available on the thread context class loader. In this case it
-                 * should be safe to use XMLInputFactory.newInstance() because the commands run separately
-                 * from the rest of the code base.
-                 */
+
+                // Normally we specifically request the system default XMLInputFactory to avoid issues when
+                // another XMLInputFactory is available on the thread context class loader. In this case it
+                // should be safe to use XMLInputFactory.newInstance() because the commands run separately
+                // from the rest of the code base.
+
                 reader = XMLInputFactory.newInstance().createXMLStreamReader(new FileInputStream(looseFile));
                 while (reader.hasNext() && cEntry != null) {
                     int result = reader.next();
@@ -174,16 +167,7 @@ public class ProcessorUtils {
     }
 
     /**
-     * Method to add looseConfigs in both archive and expanded format
-     *
-     * @param looseConfig
-     * @param looseFile
-     * @param bootProps
-     * @param bootProps
-     * @param archiveEntryPrefix
-     * @param isUsr
-     * @return List<ArchiveEntryConfig>
-     * @throws IOException
+     * Add looseConfigs in both archive and expanded format.
      */
     public static List<ArchiveEntryConfig> createLooseExpandedArchiveEntryConfigs(
         LooseConfig looseConfig, File looseFile,
@@ -224,40 +208,56 @@ public class ProcessorUtils {
     }
 
     /**
-     * Creates an ArchiveEntryConfig for the LooseConfig at the given entryPath
+     * Create an entry configuration for a loose configuration.
+     * 
+     * If necessary, package the loose configuration as an archive.
      *
-     * @param entryPath
-     * @param config
-     * @param bootProps
-     * @return ArchiveEntryConfig
-     * @throws IllegalArgumentException
-     * @throws IOException
+     * @param prefixEntryPath The prefix to the entry paths which are
+     *     to be assigned to the loose configuration entries.
+     * @param config The loose configuration.
+     * @param bootProps Bootstrap properties.  This contains variable
+     *     assignments, which are needed to resolve the loose configuration
+     *     locations.
+     *
+     * @return The new archive configuration.
+     *
+     * @throws IOException Thrown if there was a failure to create the entry
+     *     configuration.  This can only occur if there was a failure to package
+     *     the loose configuration as an archive. 
      */
-    public static ArchiveEntryConfig processLooseConfig(String entryPath, LooseConfig config, BootstrapConfig bootProps) throws IllegalArgumentException, IOException {
-        if (LooseType.ARCHIVE.equals(config.type)) { // archive tag
-            File archiveFile = processArchive(config, null, bootProps);
-            return new FileEntryConfig(createLooseConfigEntryPath(config, entryPath), archiveFile);
+    public static ArchiveEntryConfig processLooseConfig(
+        String prefixEntryPath,
+        LooseConfig config,
+        BootstrapConfig bootProps) throws IOException {
 
-        } else if (LooseType.DIR.equals(config.type)) { // directory tag
-            final File dir;
-            DirEntryConfig dirConfig;
+        String sourceOnDisk = config.sourceOnDisk;
 
-            try {
-                dir = FileUtils.convertPathToFile(config.sourceOnDisk, bootProps);
-                dirConfig = new DirEntryConfig(createLooseConfigEntryPath(config, entryPath), dir, true, PatternStrategy.ExcludePreference);
-            } catch ( IllegalArgumentException ex ) {
-                String rawMessage = BootstrapConstants.messages.getString("warning.unableToPackageLooseConfigFileCannotResolveLocSymbol");
-                System.out.println(MessageFormat.format(rawMessage, config.sourceOnDisk));
-                throw ex;
-            }
+        switch ( config.type ) {
 
-            if (config.excludes != null) {
-                dirConfig.exclude(convertToRegex(config.excludes));
+        case ARCHIVE: {
+            File archiveFile = processArchive(config, null, bootProps); // throws IOException
+            String archiveEntryPath = createLooseConfigEntryPath(config, prefixEntryPath);
+            return new FileEntryConfig(archiveEntryPath, archiveFile);
+        }
+
+        case DIR: {
+            File archiveDir = FileUtils.convertPathToFile(sourceOnDisk, bootProps);
+            String archiveEntryPath = createLooseConfigEntryPath(config, prefixEntryPath);
+            DirEntryConfig dirConfig = new DirEntryConfig(
+                archiveEntryPath, archiveDir,
+                true, PatternStrategy.ExcludePreference);
+            if ( config.excludes != null ) {
+                dirConfig.exclude( convertToRegex(config.excludes) );
             }
             return dirConfig;
-
-        } else { // file tag
-            return new FileEntryConfig(createLooseConfigEntryPath(config, entryPath), FileUtils.convertPathToFile(config.sourceOnDisk, bootProps));
+        }
+        
+        case FILE:
+        default: { // Strange, but consistent with the prior if/else blocks.
+            File archiveFile = FileUtils.convertPathToFile(sourceOnDisk, bootProps);
+            String archiveEntryPath = createLooseConfigEntryPath(config, prefixEntryPath);
+            return new FileEntryConfig(archiveEntryPath, archiveFile);
+        }
         }
     }
 
@@ -307,20 +307,19 @@ public class ProcessorUtils {
         }
 
         File archiveFile = FileUtils.createTempFile(archiveName, null, tmpDir);
+        // throws IOException
 
-        try ( Archive archive = ArchiveFactory.create(archiveFile) ) {
+        try ( Archive archive = ArchiveFactory.create(archiveFile) ) { // throws IOException
             for ( LooseConfig config : looseConfig ) {
                 try {
                     archive.addEntryConfig( processLooseConfig("", config, bootProps) );
-                } catch ( IllegalArgumentException | IOException ex ) {
-                    // TODO: Is this sufficient?  A warning that loose content
-                    //       could not be added would be good to see.  Otherwise,
-                    //       content could invisibly go missing.
-                    // FFDC?
+                    // 'processLooseConfig' throws IOException
+                } catch ( IOException ex ) {
+                    Debug.printStackTrace(ex);
                     continue;
                 }
             }
-            archive.create();
+            archive.create(); // throws IOException
         }
 
         return archiveFile;
@@ -328,12 +327,6 @@ public class ProcessorUtils {
 
     /**
      * Common code for generating the entryPath
-     *
-     * @param looseFile
-     * @param bootProps
-     * @param archiveEntryPrefix
-     * @param isUsr
-     * @return String
      */
     private static String generateBaseEntryPath(File looseFile, BootstrapConfig bootProps, String archiveEntryPrefix, boolean isUsr) {
         File usrRoot = bootProps.getUserRoot();
@@ -351,27 +344,37 @@ public class ProcessorUtils {
     }
 
     /**
-     * Adds a leading slash to the looseConfig's targetInArchive if needed,
-     * and appends it to the end of the given entry path
+     * Adjust the entry path which will be used for a loose configuration.
      *
-     * @param looseConfig
-     * @param entryPath
-     * @return String
+     * Append the loose configuration 'targetInArchive' value.  Append
+     * a '/' between the values if necessary.
+     * 
+     * The entry path must not be null.
+     * 
+     * If the entry path is empty, simply answer 'targetInArchive', with no
+     * '/' added.  If 'targetInArchive' is empty, answer the entry path
+     * with a '/' added.  (This case might not be possible.
+     * 
+     * @param looseConfig The loose configuration used to adjust the entry path.
+     * @param entryPath The entry path which is to be adjusted.
+     * 
+     * @return The adjusted entry path.
      */
     public static String createLooseConfigEntryPath(LooseConfig looseConfig, String entryPath) {
-        if (looseConfig.targetInArchive.startsWith("/") || entryPath == "") {
-            entryPath += looseConfig.targetInArchive;
+        String targetInArchive = looseConfig.targetInArchive;
+        if ( entryPath.isEmpty() ) {
+            return targetInArchive;
+        } else if ( targetInArchive.isEmpty() ) {
+            return entryPath + '/'; // TFB: This case is strange.  Will it occur?
+        } else if ( targetInArchive.charAt(0) == '/') {
+            return entryPath + targetInArchive;
         } else {
-            entryPath += "/" + looseConfig.targetInArchive;
+            return entryPath + '/' + targetInArchive;
         }
-        return entryPath;
     }
 
     /**
-     * Copy from com.ibm.ws.artifact.api.loose.internal.LooseArchive
-     *
-     * @param excludeStr
-     * @return
+     * Copied from com.ibm.ws.artifact.api.loose.internal.LooseArchive.
      */
     public static Pattern convertToRegex(String excludeStr) {
         System.out.println("convertToRegex: " + excludeStr + " (pre-escape)");
@@ -415,7 +418,6 @@ public class ProcessorUtils {
         System.out.println("convertToRegex: " + excludeStr + " (escaped)v");
 
         return Pattern.compile(excludeStr);
-
     }
 
     public static File getFileFromDirectory(File dir, String path) {

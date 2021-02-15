@@ -12,7 +12,6 @@ package com.ibm.ws.kernel.boot.internal.commands;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -46,7 +45,6 @@ public class DumpProcessor implements ArchiveProcessor {
         this.dumpFile = dumpFile;
         this.bootProps = bootProps;
         this.javaDumps = javaDumps;
-
     }
 
     public ReturnCode execute() {
@@ -59,14 +57,13 @@ public class DumpProcessor implements ArchiveProcessor {
             archive.addEntryConfigs(createDumpConfigs(serverName));
             archive.create();
         } catch (IOException e) {
-            System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("error.unableZipDir"), e));
+            System.out.println( BootstrapConstants.format("error.unableZipDir", e) );
             return ReturnCode.ERROR_SERVER_DUMP;
         } finally {
             Utils.tryToClose(archive);
         }
 
         return ReturnCode.OK;
-
     }
 
     private List<ArchiveEntryConfig> createDumpConfigs(String serverName) {
@@ -75,9 +72,7 @@ public class DumpProcessor implements ArchiveProcessor {
         // avoid any special characters in serverName when construct patterns
         String regexServerName = Pattern.quote(serverName);
 
-        /*
-         * Add server config directory
-         */
+        // Add server config directory
         File serverConfigDir = new File(bootProps.getUserRoot(), "servers/" + serverName);
 
         // Add filtered server.xml
@@ -122,9 +117,7 @@ public class DumpProcessor implements ArchiveProcessor {
         serverConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexServerName + REGEX_SEPARATOR + "javacore\\.[^\\\\/]+\\.txt"));
         serverConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexServerName + REGEX_SEPARATOR + "javadump\\.[^\\\\/]+\\.txt"));
 
-        /*
-         * Add server output directory
-         */
+        // Add server output directory
         File serverOutputDir = bootProps.getOutputFile(null);
         DirEntryConfig serverOutputDirConfig = new DirEntryConfig("", serverOutputDir, false, PatternStrategy.ExcludePreference);
         entryConfigs.add(serverOutputDirConfig);
@@ -135,11 +128,13 @@ public class DumpProcessor implements ArchiveProcessor {
         serverOutputDirConfig.include(Pattern.compile(REGEX_SEPARATOR + regexServerName + REGEX_SEPARATOR + "workarea"));
         serverOutputDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexServerName + REGEX_SEPARATOR + "workarea" + REGEX_SEPARATOR + "\\.sLock$"));
         serverOutputDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexServerName + REGEX_SEPARATOR + "workarea" + REGEX_SEPARATOR + "\\.sCommand$"));
+
         // As the sub-osgi system will also create some locked files under .manager directory,
         // exclude all the org.eclipse.osgi/.manager/*.*
         serverOutputDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexServerName + REGEX_SEPARATOR + "workarea" + REGEX_SEPARATOR
                                                       + ".*" + "org\\.eclipse\\.osgi"
                                                       + REGEX_SEPARATOR + "\\.manager"));
+
         // exclude the cache of an application
         serverOutputDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexServerName + REGEX_SEPARATOR + "workarea" + REGEX_SEPARATOR
                                                       + "org\\.eclipse\\.osgi" + REGEX_SEPARATOR + "bundles" + REGEX_SEPARATOR
@@ -154,13 +149,12 @@ public class DumpProcessor implements ArchiveProcessor {
                     FileEntryConfig feg = new FileEntryConfig("", f);
                     entryConfigs.add(feg);
                 } else {
-                    System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("error.missingDumpFile"), javaDump));
+                    System.out.println( BootstrapConstants.format("error.missingDumpFile", javaDump) );
                 }
             }
 
         }
 
         return entryConfigs;
-
     }
 }

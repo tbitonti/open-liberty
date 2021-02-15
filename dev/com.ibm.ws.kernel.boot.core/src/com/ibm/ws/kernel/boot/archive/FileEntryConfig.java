@@ -12,7 +12,9 @@ package com.ibm.ws.kernel.boot.archive;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.MessageFormat;
 
+import com.ibm.ws.kernel.boot.internal.BootstrapConstants;
 import com.ibm.ws.kernel.boot.internal.FileUtils;
 
 public class FileEntryConfig implements ArchiveEntryConfig {
@@ -78,15 +80,16 @@ public class FileEntryConfig implements ArchiveEntryConfig {
      * See {@link Archive#addFileEntry(String, File)}.
      *
      * @param archive The archive which will receive the file entry.
+     * 
+     * @throws IOException Thrown if the target source does not exist,
+     *     is not a simple file, or could not be added.
      */
     @Override
     public void configure(Archive archive) throws IOException {
-        String prefix = "configure: ";
-
         if ( !source.exists() ) {
-            System.out.println(prefix + "Ignore: " + source.getAbsolutePath() + " does not exist");
+            throw new IOException( BootstrapConstants.format("error.missing.loose.file", source.getAbsolutePath()) );            
         } else if ( !source.isFile() ) {
-            System.out.println(prefix + "Ignore: " + source.getAbsolutePath() + " is not a simple file");
+            throw new IOException( BootstrapConstants.format("error.nonsimple.loose.file", source.getAbsolutePath()) );
 
         } else {
             archive.addFileEntry(entryPath, source); // throws IOException
