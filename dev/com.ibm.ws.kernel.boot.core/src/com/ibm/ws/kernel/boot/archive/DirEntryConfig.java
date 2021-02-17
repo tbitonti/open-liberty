@@ -12,9 +12,7 @@ package com.ibm.ws.kernel.boot.archive;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.MessageFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -23,6 +21,59 @@ import com.ibm.ws.kernel.boot.internal.BootstrapConstants;
 import com.ibm.ws.kernel.boot.internal.FileUtils;
 
 public class DirEntryConfig implements ArchiveEntryConfig {
+    /**
+     * Answer pattern which exactly matches a specified path.
+     * Quote the path and compile it into a pattern.
+     *
+     * @param path A path for which to make a pattern.
+     *
+     * @return The pattern which matches the path exactly.
+     */
+    public static Pattern pathAsPattern(String path) {
+        return Pattern.compile( Pattern.quote(path) );
+    }
+
+    /**
+     * Answer the pattern for a specified regular expression.
+     *
+     * @param regEx A regular expression.
+     *
+     * @return The pattern for the regular expression.
+     */
+    public static Pattern expressionAsPattern(String regEx) {
+        return Pattern.compile(regEx);
+    }
+    
+    /**
+     * Obtain the directory entry path for a specified entry path.
+     * 
+     * Normalize the path, converting all slashes to forward slashes,
+     * and removing any leading slash.  Then, make sure the path
+     * ends with a slash.
+     *
+     * @param entryPath The entry path for which to obtain a normalized
+     *     directory entry path.
+     *
+     * @return The entry path as a normalized directory entry path.
+     */
+    public static String asDirEntryPath(String entryPath) {
+        return FileUtils.normalizeDirPath( FileUtils.normalizeEntryPath(entryPath) );
+    }
+
+    /**
+     * Convert a file to one which has an absolute path.
+     *
+     * @param file A file for which to obtain an absolute file.
+     *
+     * @return The file having an absolute path.
+     */
+    public static File asAbsFile(File file) {
+        String path = file.getPath();
+        String absPath = file.getAbsolutePath();
+
+        return ( path.equals(absPath) ? file : new File(absPath) );
+    }
+    
     /**
      * Create a directory configuration.  This will be used to add
      * a directory and select elements of that directory to an archive.
@@ -50,8 +101,8 @@ public class DirEntryConfig implements ArchiveEntryConfig {
         // TFB: Removed the source validation.  Do that
         //      check when performing configuration.
 
-        this.entryPath = FileUtils.normalizeDirPath( FileUtils.normalizeEntryPath(entryPath) );
-        this.source = source;
+        this.entryPath = asDirEntryPath(entryPath);
+        this.source = asAbsFile(source);
 
         this.dirPattern = new DirPattern(includeByDefault, selectionStrategy);
     }
@@ -77,15 +128,45 @@ public class DirEntryConfig implements ArchiveEntryConfig {
     public DirPattern getDirectoryPattern() {
         return dirPattern;
     }
-    
+
     public void include(Pattern pattern) {
         getDirectoryPattern().addIncludePattern(pattern);
     }
 
+    public void include(File file) {
+        String path = DirPattern.normalize(file);
+        include( pathAsPattern(path) );
+    }
+
+    public void includeExpression(String regEx) {
+        include( expressionAsPattern(regEx) );
+    }
+    
+    public void includeExpressions(String ... expressions) {
+        for ( String regEx : expressions ) {
+            includeExpression(regEx);
+        }
+    }
+    
     public void exclude(Pattern pattern) {
         getDirectoryPattern().addExcludePattern(pattern);
     }
 
+    public void exclude(File file) {
+        String path = DirPattern.normalize(file);
+        exclude( pathAsPattern(path) );
+    }
+
+    public void excludeExpression(String regEx) {
+        exclude( expressionAsPattern(regEx) );
+    }
+    
+    public void excludeExpressions(String ... expressions) {
+        for ( String regEx : expressions ) {
+            exclude( expressionAsPattern(regEx) );
+        }
+    }
+    
     //
 
     /**
@@ -117,8 +198,10 @@ public class DirEntryConfig implements ArchiveEntryConfig {
             throw new IOException( BootstrapConstants.format("error.nondirectory.loose.file", source.getAbsolutePath()) );
 
         } else {
+            String sourcePath = DirPattern.normalize(source);
+
             List<String> selections = new ArrayList<String>();
-            filterDirectory(selections, source, "");
+            filterDirectory(selections, source, sourcePath, "");
             return selections;
         }
     }
@@ -130,20 +213,27 @@ public class DirEntryConfig implements ArchiveEntryConfig {
      * The target relative path must be empty, or must end with
      * a forward slash ('/').
      *
+     * Both the target absolute path and the target relative path
+     * are needed: Absolute paths are used for matching, while
+     * relative paths are put into the selections.
+     *
      * @param selections The paths of selected files.
      * @param targetDir The directory from which to select files.
-     * @param targetRelPath The accumulated relative path of
-     *     files which are to be added.
-     *
-     * @throws IOException Thrown if there is an error listing
-     *     files.
+     * @param targetAbsPath The absolute path of the target directory.
+     * @param targetRelPath The relative path of the target directory.
      */
     protected void filterDirectory(
         List<String> selections,
-        File targetDir, String targetRelPath) throws IOException {        
+        File targetDir, String targetAbsPath, String targetRelPath) {        
 
         String prefix = "filterDirectory: ";
-        System.out.println(prefix + targetDir.getAbsolutePath());
+
+        System.out.println(prefix + "Rel [ " + targetRelPath + " ]");
+        System.out.println(prefix + "Abs [ " + targetAbsPath + " ]");
+
+        DirPattern usePattern = getDirectoryPattern();
+        System.out.println(prefix +
+            "Strategy: " + (usePattern.isIncludePreference() ? "include" : "exclude"));
 
         File[] children = targetDir.listFiles();
         if ( children == null ) {
@@ -151,42 +241,29 @@ public class DirEntryConfig implements ArchiveEntryConfig {
             return; // Strange, but still nothing to do
         }
 
-        DirPattern usePattern = getDirectoryPattern();
-        System.out.println(prefix +
-            "Strategy: " + (usePattern.isIncludePreference() ? "include" : "exclude"));
-
         for ( File child : children ) {
+            String childName = child.getName();
             boolean isDirectory = child.isDirectory();
 
-            // The target path is either empty, or ends with a slash.
-
-            // The path of the child is not reliable, and is not used:
-            // The first child is obtained from the source folder,
-            // and the path of that folder is not reliably known.
-
+            String childAbsPath;
             String childRelPath;
             if ( isDirectory ) {
-                childRelPath = targetRelPath + child.getName() + '/';
+                childAbsPath = targetAbsPath + childName + '/';
+                childRelPath = targetRelPath + childName + '/';
             } else {
-                childRelPath = targetRelPath + child.getName();
+                childAbsPath = targetAbsPath + childName;
+                childRelPath = targetRelPath + childName;
             }
 
-            // TFB: This used to perform selection on the child
-            //      absolute path.  That was changed to use the child
-            //      relative path.
-            //
-            //      The path does not need to be normalized, since it
-            //      is constructed from names and forward slashes.
-
-            if ( usePattern.select(childRelPath) ) {
-                System.out.println(prefix + "Select: " + childRelPath);
+            if ( usePattern.select(childAbsPath) ) {
+                System.out.println(prefix + "Select: " + childAbsPath);
                 selections.add(childRelPath);
             } else {
-                System.out.println(prefix + "Reject: " + childRelPath);
+                System.out.println(prefix + "Reject: " + childAbsPath);
             }
 
             if ( isDirectory ) {
-                filterDirectory(selections, child, childRelPath);
+                filterDirectory(selections, child, childAbsPath, childRelPath);
             }
         }
     }

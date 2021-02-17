@@ -315,7 +315,7 @@ public class PackageProcessor implements ArchiveProcessor {
         //same tests within the calling 'execute' method.
         DirEntryConfig metaInfDirConfig = new DirEntryConfig("META-INF/", metaInf, false, PatternStrategy.IncludePreference);
         //exclude the manifest from the add, as it's already been added due to needing to be 1st.
-        metaInfDirConfig.exclude(Pattern.compile(Pattern.quote(new File(metaInf, "MANIFEST.MF").getAbsolutePath())));
+        metaInfDirConfig.exclude(new File(metaInf, "MANIFEST.MF"));
         entryConfigs.add(metaInfDirConfig);
 
         addLibExtractDir(entryConfigs);
@@ -409,12 +409,12 @@ public class PackageProcessor implements ArchiveProcessor {
         entryConfigs.add(rootDirConfig);
 
         // include all underneath install-root except usr directory
-        rootDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexInstallRootName + REGEX_SEPARATOR + BootstrapConstants.LOC_AREA_NAME_USR));
+        rootDirConfig.excludeExpression(REGEX_SEP + regexInstallRootName + REGEX_SEP + BootstrapConstants.LOC_AREA_NAME_USR);
 
         // if we are building a jar, we have already included the lib/extract content!
         if (packageFile.getName().endsWith(".jar")) {
             File libExtract = new File(bootProps.getInstallRoot(), "lib/extract");
-            rootDirConfig.exclude(Pattern.compile(Pattern.quote(libExtract.getAbsolutePath())));
+            rootDirConfig.exclude(libExtract);
         }
 
         // exclude the server.usr.dir and server.output.dir, because they maybe specified underneath install-root
@@ -422,10 +422,10 @@ public class PackageProcessor implements ArchiveProcessor {
         String userRootAbsPath = bootProps.getUserRoot().getAbsolutePath();
         String processOutputAbsPath = bootProps.getOutputFile(null).getAbsolutePath();
         if (userRootAbsPath.contains(installRootAbsPath)) {
-            rootDirConfig.exclude(Pattern.compile(Pattern.quote(userRootAbsPath)));
+            rootDirConfig.excludeExpression(Pattern.quote(userRootAbsPath));
         }
         if (processOutputAbsPath.contains(installRootAbsPath)) {
-            rootDirConfig.exclude(Pattern.compile(Pattern.quote(processOutputAbsPath)));
+            rootDirConfig.excludeExpression(Pattern.quote(processOutputAbsPath));
         }
 
         if (!runtimeOnly) {
@@ -485,54 +485,65 @@ public class PackageProcessor implements ArchiveProcessor {
 
         // avoid any special characters in processName when construct patterns
         String regexProcessName = Pattern.quote(processName);
+        String regexProcessPath = REGEX_SEP + regexProcessName + REGEX_SEP;
 
         // {server.config.dir} may be equal {server.output.dir},
         // Exclude workarea and logs directories
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "workarea"));
-        processConfigDirConfig.include(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "workarea" + REGEX_SEPARATOR + "\\.sLock$"));
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "logs"));
+        processConfigDirConfig.excludeExpression(regexProcessPath + "workarea");
+        processConfigDirConfig.includeExpression(regexProcessPath + "workarea" + REGEX_SEP + "\\.sLock$");
+        processConfigDirConfig.excludeExpression(regexProcessPath + "logs");
         // Exclude dump directory
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "dump_" + REGEX_TIMESTAMP));
+        processConfigDirConfig.excludeExpression(regexProcessPath + "dump_" + REGEX_TIMESTAMP);
         // Exclude javadump outputs
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "core\\.[^\\\\/]+\\.dmp"));
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "heapdump\\.[^\\\\/]+\\.phd"));
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "java\\.[^\\\\/]+\\.hprof"));
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "javacore\\.[^\\\\/]+\\.txt"));
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "javadump\\.[^\\\\/]+\\.txt"));
+        processConfigDirConfig.excludeExpression(regexProcessPath + "core\\.[^\\\\/]+\\.dmp");
+        processConfigDirConfig.excludeExpression(regexProcessPath + "heapdump\\.[^\\\\/]+\\.phd");
+        processConfigDirConfig.excludeExpression(regexProcessPath + "java\\.[^\\\\/]+\\.hprof");
+        processConfigDirConfig.excludeExpression(regexProcessPath + "javacore\\.[^\\\\/]+\\.txt");
+        processConfigDirConfig.excludeExpression(regexProcessPath + "javadump\\.[^\\\\/]+\\.txt");
         // Exclude server package and dump files.
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + "\\.(zip|pax|jar)$"));
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + "\\.dump-" + REGEX_TIMESTAMP + "\\.(zip|pax)$"));
+        processConfigDirConfig.excludeExpression(REGEX_SEP + regexProcessName + "\\.(zip|pax|jar)$");
+        processConfigDirConfig.excludeExpression(REGEX_SEP + regexProcessName + "\\.dump-" + REGEX_TIMESTAMP + "\\.(zip|pax)$");
         // Exclude the package_<timestamp>.txt file, will add it later
-        processConfigDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "package_" + REGEX_TIMESTAMP + "\\.txt"));
+        processConfigDirConfig.excludeExpression(regexProcessPath + "package_" + REGEX_TIMESTAMP + "\\.txt");
 
         // exclude loose xml files from server config directory
         for (File app : looseFiles) {
             String appName = "." + app.getName().replace(".", "\\.");
-            processConfigDirConfig.exclude(Pattern.compile(appName));
+            processConfigDirConfig.excludeExpression(appName);
         }
 
         // Add shared directory
         File sharedDir = ProcessorUtils.getFileFromDirectory(wlpUserDir, "shared");
         if (sharedDir.exists()) {
-            DirEntryConfig serverSharedDirConfig = null;
+            String entryPrefix;
             if (isServerRootOptionSet && (includeUsr(options.get(PackageOption.INCLUDE)))) {
-                serverSharedDirConfig = new DirEntryConfig(packageArchiveEntryPrefix
-                                                           + BootstrapConstants.LOC_AREA_NAME_SHARED + "/", sharedDir, true, PatternStrategy.IncludePreference);
+                entryPrefix = packageArchiveEntryPrefix + BootstrapConstants.LOC_AREA_NAME_SHARED + "/";
             } else {
-                serverSharedDirConfig = new DirEntryConfig(packageArchiveEntryPrefix
-                                                           + BootstrapConstants.LOC_AREA_NAME_USR + "/"
-                                                           + BootstrapConstants.LOC_AREA_NAME_SHARED + "/", sharedDir, true, PatternStrategy.IncludePreference);
+                entryPrefix = packageArchiveEntryPrefix + BootstrapConstants.LOC_AREA_NAME_USR + "/" + BootstrapConstants.LOC_AREA_NAME_SHARED + "/"; 
             }
+            DirEntryConfig serverSharedDirConfig =            
+                new DirEntryConfig(entryPrefix, sharedDir, true, PatternStrategy.IncludePreference);
             entryConfigs.add(serverSharedDirConfig);
+            
+            // TODO: These next two cases won't exclude anything:
+            //
+            //       The patterns are specified with no wild-card matching,
+            //       hence will only exclude exact matches.
+            //
+            //       The patterns also are not absolute, while matching
+            //       is done on absolute paths.
+            //
+            //       Together, that means matches will never be found.
+
             // exclude security sensitive files
-            serverSharedDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + "resources" + REGEX_SEPARATOR + "security" + REGEX_SEPARATOR + "key.jks"));
-            serverSharedDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + "resources" + REGEX_SEPARATOR + "security" + REGEX_SEPARATOR + "key.p12"));
+            serverSharedDirConfig.excludeExpression(REGEX_SEP + "resources" + REGEX_SEP + "security" + REGEX_SEP + "key.jks");
+            serverSharedDirConfig.excludeExpression(REGEX_SEP + "resources" + REGEX_SEP + "security" + REGEX_SEP + "key.p12");
 
             // exclude loose xml files from shared directory
             for (File app : looseFiles) {
                 String appName = "." + app.getName().replace(".", "\\.");
                 if (FileUtils.isUnderDirectory(app, sharedDir)) {
-                    serverSharedDirConfig.exclude(Pattern.compile(appName));
+                    serverSharedDirConfig.excludeExpression(appName);
                 }
             }
         }
@@ -571,7 +582,7 @@ public class PackageProcessor implements ArchiveProcessor {
                                                                  + "versions" + "/", bootProps.getOutputFile(null), false, PatternStrategy.IncludePreference);
         entryConfigs.add(processPkgInfoConfig);
 
-        processPkgInfoConfig.include(Pattern.compile(REGEX_SEPARATOR + regexProcessName + REGEX_SEPARATOR + "package_" + REGEX_TIMESTAMP + "\\.txt"));
+        processPkgInfoConfig.includeExpression(REGEX_SEP + regexProcessName + REGEX_SEP + "package_" + REGEX_TIMESTAMP + "\\.txt");
         return entryConfigs;
     }
 

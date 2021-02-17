@@ -16,11 +16,27 @@ import java.io.File;
  * interface of package/dump processor
  */
 public interface ArchiveProcessor {
+    /**
+     * Obsolete file system sensitive path separator for packaging
+     * regular expressions.
+     * 
+     * These now consistently use unix separators.  Do not use
+     * this constant.  Use instead {@link #REGEX_SEP}.
+     */
+    @Deprecated
+    public static final String REGEX_SEPERATOR = 
+        File.separator.equals("\\") ? "\\\\" : File.separator;
 
-    // If on windows, fix backslashes for regular expression use:
-    public static final String REGEX_SEPARATOR = File.separator.equals("\\") ? "\\\\" : File.separator;
-
-    public static final String REGEX_TIMESTAMP = "\\d\\d\\.\\d\\d\\.\\d\\d_\\d\\d\\.\\d\\d\\.\\d\\d";
+    /**
+     * Path separator for packaging regular expressions.
+     * 
+     * These now consistently use unix separators.  Do not use
+     * the obsolete {@link #REGEX_SEPERATOR}.
+     */
+    public static final char REGEX_SEP = '/'; 
+    
+    public static final String REGEX_TIMESTAMP =
+        "\\d\\d\\.\\d\\d\\.\\d\\d_\\d\\d\\.\\d\\d\\.\\d\\d";
 
     public static class Pair<U, V> {
         private final U pairKey;

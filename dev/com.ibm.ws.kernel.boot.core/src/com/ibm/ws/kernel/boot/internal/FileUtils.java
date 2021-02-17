@@ -347,18 +347,34 @@ public class FileUtils {
     }
 
     /**
-     * Normalize the case of the drive letter on Windows.
+     * Normalize the drive letter of a path to upper case.
+     * 
+     * Do nothing if the current file separator is not the
+     * windows file separator ('\\').
+     * 
+     * Do nothing if the path does not contain a driver letter.
+     * That is, if second character of the path is not be ':'.
      *
-     * @param path a path, possibly absolute
-     * @return the path with a normalized drive letter
+     * Do nothing if the path does not contain a lower case
+     * drive letter.
+     *
+     * @param path A path which is to be normalized.
+     *
+     * @return The path normalized to have an upper case drive letter.
      */
     public static String normalizePathDrive(String path) {
-        if (File.separatorChar == '\\' && path.length() > 1 && path.charAt(1) == ':' && path.charAt(0) >= 'a' && path.charAt(0) <= 'z') {
-            path = Character.toUpperCase(path.charAt(0)) + path.substring(1);
+        if ( (File.separatorChar == '\\') && (path.length() > 1) ) {
+            char char1 = path.charAt(1);
+            if ( char1 == ':' ) {
+                char char0 = path.charAt(0);
+                if ( (char0 >= 'a') && (char0 <= 'z')) {
+                    return Character.toUpperCase(char0) + path.substring(1);                    
+                }
+            }
         }
         return path;
-    }
-
+    }    
+    
     /**
      * Strip "." and ".." elements from path.
      *

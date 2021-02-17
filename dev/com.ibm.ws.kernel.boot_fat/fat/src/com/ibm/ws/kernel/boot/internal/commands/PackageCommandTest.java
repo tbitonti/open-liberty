@@ -40,6 +40,8 @@ import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
 
+import com.ibm.websphere.simplicity.log.Log;
+
 /**
  *
  */
@@ -231,52 +233,75 @@ public class PackageCommandTest {
     /**
      * This tests that --include=usr outputs the correct information in
      * the archive file
-     *
      */
     @Test
     public void testMinifyInclude() throws Exception {
+        Class<?> testClass = getClass();
+        String methodName = "testMinifyInclude";
+
+        Log.info(testClass, methodName, "Server: " + serverName);
+        Log.info(testClass, methodName, "Archive: " + archivePackage);
+        
         LibertyServer server = LibertyServerFactory.getLibertyServer(serverName);
+
         try {
-
             server.getFileFromLibertyInstallRoot("lib/extract");
-
-            String[] cmd = new String[] { "--archive=" + archivePackage,
-                                          "--include=minify" };
-            // Ensure package completes
-            String stdout = server.executeServerScript("package", cmd).getStdout();
-            assertTrue("The package command did not complete as expected. STDOUT = " + stdout, stdout.contains("package complete"));
-
-            // Ensure root is correct in the .zip
-            ZipFile zipFile = new ZipFile(server.getServerRoot() + "/" + archivePackage);
-            try {
-                boolean foundDefaultRootEntry = false;
-                boolean foundUsrEntry = false;
-                boolean foundBinEntry = false;
-                boolean foundLibEntry = false;
-                boolean foundDevEntry = false;
-
-                for (Enumeration<? extends ZipEntry> en = zipFile.entries(); en.hasMoreElements();) {
-                    ZipEntry entry = en.nextElement();
-                    foundDefaultRootEntry |= entry.getName().startsWith("wlp");
-                    foundUsrEntry |= entry.getName().contains("/usr");
-                    foundBinEntry |= entry.getName().contains("/bin");
-                    foundLibEntry |= entry.getName().contains("/lib");
-                    foundDevEntry |= entry.getName().contains("/dev");
-                }
-                assertTrue("The package did not contain /wlp root structure as expected.", foundDefaultRootEntry);
-                assertTrue("The package did not contain /usr/ as expected.", foundUsrEntry);
-                assertTrue("The package did not contain /bin/ as expected.", foundBinEntry);
-                assertTrue("The package did not contain /lib/ as expected.", foundLibEntry);
-                assertTrue("The package did not contain /dev/ as expected.", foundDevEntry);
-
-            } finally {
-                try {
-                    zipFile.close();
-                } catch (IOException ex) {
-                }
-            }
         } catch (FileNotFoundException ex) {
             assumeTrue(false); // the directory does not exist, so we skip this test.
+        }
+
+        String[] cmd = new String[] { "--archive=" + archivePackage,
+                                      "--include=minify" };
+        String stdout = server.executeServerScript("package", cmd).getStdout();
+        assertTrue("The package command did not complete as expected. STDOUT = " + stdout, stdout.contains("package complete"));
+
+        try (  ZipFile zipFile = new ZipFile(server.getServerRoot() + "/" + archivePackage) ) {
+            boolean foundDefaultRootEntry = false;
+            boolean foundUsrEntry = false;
+            boolean foundBinEntry = false;
+            boolean foundLibEntry = false;
+            boolean foundDevEntry = false;
+
+            for (Enumeration<? extends ZipEntry> en = zipFile.entries(); en.hasMoreElements();) {
+                ZipEntry entry = en.nextElement();
+                String entryName = entry.getName();
+                Log.info(testClass, methodName, "Entry: " + entryName);
+
+                foundDefaultRootEntry |= entryName.startsWith("wlp/");
+                foundUsrEntry |= entryName.contains("/usr/");
+                foundBinEntry |= entryName.contains("/bin/");
+                foundLibEntry |= entryName.contains("/lib/");
+                foundDevEntry |= entryName.contains("/dev/");
+                
+                if ( foundDefaultRootEntry &&
+                     foundUsrEntry && foundBinEntry && foundLibEntry && foundDevEntry) {
+                    break;
+                }
+            }
+            if ( !foundDefaultRootEntry ) {
+                Log.info(testClass, methodName, "Missing default root entry [ /wlp ]");
+            }
+            if ( !foundUsrEntry ) {
+                Log.info(testClass, methodName, "Missing user entry [ /usr ]");
+            }                
+            if ( !foundBinEntry ) {
+                Log.info(testClass, methodName, "Missing bin entry [ /bin ]");
+            }                                
+            if ( !foundLibEntry ) {
+                Log.info(testClass, methodName, "Missing lib entry [ /lib ]");
+            }                                                
+            if ( !foundLibEntry ) {
+                Log.info(testClass, methodName, "Missing dev entry [ /dev ]");
+            }                                                                
+
+            assertTrue("The package did not contain /wlp/ root structure as expected.", foundDefaultRootEntry);
+            assertTrue("The package did not contain /usr/ as expected.", foundUsrEntry);
+            assertTrue("The package did not contain /bin/ as expected.", foundBinEntry);
+            assertTrue("The package did not contain /lib/ as expected.", foundLibEntry);
+            assertTrue("The package did not contain /dev/ as expected.", foundDevEntry);
+
+        } catch ( IOException e ) {
+            assertTrue("Failed to open or close zip file", false); // Open or close failure
         }
     }
 

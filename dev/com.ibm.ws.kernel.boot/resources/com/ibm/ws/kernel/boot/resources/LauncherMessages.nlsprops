@@ -716,9 +716,9 @@ error.missing.loose.file=CWWKE0960E: Loose application file {0} does not exist.
 error.missing.loose.file.explanation=A loose application file was specified, but does not exist.
 error.missing.loose.file.useraction=Modify the loose configuration to point to a file that exists.
 
-error.nonsimpleloose.file=CWWKE0961E: Loose application file {0} is not a simple file.
-error.missing.loose.file.explanation=A loose application file was specified as a simple file, but is not a simple file.
-error.missing.loose.file.useraction=Modify the loose configuration to point to a file that is a simple file.
+error.nonsimple.loose.file=CWWKE0961E: Loose application file {0} is not a simple file.
+error.nonsimple.loose.file.explanation=A loose application file was specified as a simple file, but is not a simple file.
+error.nonsimple.loose.file.useraction=Modify the loose configuration to point to a file that is a simple file.
 
 error.nondirectory.loose.file=CWWKE0962E: Loose application file {0} is not a directory.
 error.nondirectory.loose.file.explanation=A loose application file was specified as a directory, but is not a directory.

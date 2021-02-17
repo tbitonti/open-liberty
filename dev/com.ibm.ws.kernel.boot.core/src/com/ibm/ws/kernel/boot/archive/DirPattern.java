@@ -10,6 +10,7 @@
  *******************************************************************************/
 package com.ibm.ws.kernel.boot.archive;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -21,17 +22,104 @@ import java.util.regex.Pattern;
  * selection details.
  */
 public class DirPattern {
+    private static final boolean IS_WINDOWS = File.separatorChar == '\\';
+
     /**
-     * Helper: Normalize a path to all forward slashes.
+     * Normalize the path of a file.
+     *
+     * When running on windows, normalize a leading drive letter.
+     *
+     * Add a trailing slash if the target is a directory.
+     *
+     * Replace all backward slashes ('\') with forward slashes ('/').
+     *
+     * Replace null with an empty path.
      *
      * @param path The path which is to be normalized.
      *
      * @return The normalized path.
      */
-    public static String normalize(String path) {
-        return ( path.replace('\\',  '/') );
-    }
+    public static String normalize(File file) {
+        String path = file.getAbsolutePath();
+        boolean needLastSlash = file.isDirectory();
 
+        int length = path.length();
+        if ( length == 0 ) {
+            return "/"; // Unexpected
+        }
+
+        char lastChar = path.charAt(length - 1);
+
+        boolean lastIsSlash =
+            ( (IS_WINDOWS && (lastChar == '\\')) ||
+              (!IS_WINDOWS && (lastChar == '/')) );
+
+        if ( lastIsSlash && (length == 1) ) {
+            return ( IS_WINDOWS ? "/" : path ); // Unexpected
+        }
+
+        if ( !IS_WINDOWS ) {
+            if ( lastIsSlash ) {
+                if ( !needLastSlash ) {
+                    return path.substring(1, length - 1);
+                } else {
+                    return path;
+                }
+            } else {
+                if ( needLastSlash ) {
+                    return path + '/';
+                } else {
+                    return path;
+                }
+            }
+        }
+        
+        char finalChar0 = 0;
+
+        if ( length > 1 ) {
+            char char1 = path.charAt(1);
+            if ( char1 == ':' ) {
+                char initialChar0 = path.charAt(0);
+                if ( (initialChar0 >= 'a') && (initialChar0 <= 'z')) {
+                    finalChar0 = Character.toUpperCase(initialChar0);
+                }
+                if ( (length == 3) && lastIsSlash ) {
+                    if ( finalChar0 == 0 ) {
+                        if ( lastChar == '\\' ) {
+                            return ( new String( new char[] { initialChar0, ':', '/' } ) );
+                        } else {
+                            return path;
+                        }
+                    } else {
+                        return ( new String( new char[] { finalChar0, ':', '/' } ) );
+                    }
+                }
+            }
+        }
+
+        int start = ( (finalChar0 != 0) ? 1 : 0 );
+        int end = ((lastIsSlash && !needLastSlash) ? (length - 1) : length);
+
+        StringBuilder normalized = new StringBuilder(length);
+
+        if ( finalChar0 != 0 ) {
+            normalized.append(finalChar0);
+        }
+        for ( int charNo = start; charNo < end; charNo++ ) {
+            char nextChar = path.charAt(charNo);
+            if ( nextChar == '\\' ) {
+                nextChar = '/';
+            }
+            normalized.append(nextChar);
+        }
+        if ( !lastIsSlash && needLastSlash ) {
+            normalized.append('/');
+        }
+
+        return normalized.toString();
+    }      
+    
+    
     /**
      * Helper enumeration.  Used to mark a pattern as preferring
      * includes or performing excludes.
@@ -56,11 +144,12 @@ public class DirPattern {
      */
     public DirPattern(boolean includeByDefault, PatternStrategy strategy) {
         this.includeByDefault = includeByDefault;
-
         this.strategy = strategy;
 
         this.includePatterns = null;
         this.excludePatterns = null;
+        
+        System.out.println(this + " <init>");
     }
 
     private final boolean includeByDefault;
@@ -86,6 +175,8 @@ public class DirPattern {
             includePatterns = new HashSet<Pattern>(1);
         }
         includePatterns.add(pattern);
+        
+        System.out.println(this + " include pattern: " + pattern);
     }
 
     /**
@@ -121,6 +212,8 @@ public class DirPattern {
             excludePatterns = new HashSet<Pattern>(1);
         }
         excludePatterns.add(pattern);
+        
+        System.out.println(this + " exclude pattern: " + pattern);        
     }
 
     /**
@@ -191,15 +284,22 @@ public class DirPattern {
      * @return True or false telling if the path is included.
      */
     protected boolean includePreference(String path) {
+        String methodName = "includePreference";
+        
         boolean include = includeByDefault;
+        boolean explicit = false;
 
+        System.out.println(methodName + ": Default: " + (include ? "Include" : "Exclude") );
+        
         // If we are excluding by default, there is no point to
         // performing exclude checks.
 
         // An explicit exclude overrides a default include.
 
         if ( include && isExcluded(path) ) {
+            System.out.println(methodName + ": Exclude: " + path + " (explicit)");
             include = false;
+            explicit = true;
         }
 
         // If we are including by default, and the file was not
@@ -210,9 +310,22 @@ public class DirPattern {
         // or a default exclude.
 
         if ( !include && isIncluded(path) ) {
+            if ( explicit ) {
+                System.out.println(methodName + ": Include: " + path + " (explicit override)");
+            } else {
+                System.out.println(methodName + ": Include: " + path + " (explicit)");                
+            }
             include = true;
+            explicit = true;            
         }
 
+        if ( !explicit ) {
+            if ( include ) {
+                System.out.println(methodName + ": Include: " + path + " (default)");                
+            } else {
+                System.out.println(methodName + ": Exclude: " + path + " (default)");                
+            }
+        }
         return include;
     }
 
@@ -225,7 +338,12 @@ public class DirPattern {
      * @return True or false telling if the path is included.
      */    
     protected boolean excludePreference(String path) {
+        String methodName = "excludePreference";
+
         boolean include = includeByDefault;
+        boolean explicit = false;
+
+        System.out.println(methodName + ": Default: " + (include ? "Include" : "Exclude") );
 
         // If we are including by default, there is no point to
         // performing include checks.
@@ -233,7 +351,9 @@ public class DirPattern {
         // An explicit include overrides a default exclude.
 
         if ( !include && isIncluded(path) ) {
+            System.out.println(methodName + ": Include: " + path + " (explicit)");            
             include = true;
+            explicit = true;
         }
 
         // If we are excluding by default, and the file was not
@@ -244,7 +364,21 @@ public class DirPattern {
         // or a default include.
 
         if ( include && isExcluded(path) ) {
+            if ( explicit ) {
+                System.out.println(methodName + ": Exclude: " + path + " (explicit override)");
+            } else {
+                System.out.println(methodName + ": Exclude: " + path + " (explicit)");                
+            }            
             include = false;
+            explicit = true;
+        }
+
+        if ( !explicit ) {
+            if ( include ) {
+                System.out.println(methodName + ": Include: " + path + " (default)");                
+            } else {
+                System.out.println(methodName + ": Exclude: " + path + " (default)");                
+            }
         }
 
         return include;
