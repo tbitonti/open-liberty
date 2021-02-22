@@ -23,12 +23,12 @@ public class DirPatternTest {
 
     public static void main(String[] parms) {
         for ( String[] testData : TEST_DATA ) {
-            testNormalize(testData[0], testData[1]);
+            testCannonization(testData[0], testData[1]);
         }
     }
     
-    public static void testNormalize(String rawPath, String expectedNormPath) {
-        String actualNormPath = DirPattern.normalize( new File(rawPath) );
+    public static void testCannonization(String rawPath, String expectedNormPath) {
+        String actualNormPath = DirPattern.cannonize( new File(rawPath) );
         
         System.out.println("Raw: [ " + rawPath + " ]");
         System.out.println("  Expected: [ " + expectedNormPath + " ]");

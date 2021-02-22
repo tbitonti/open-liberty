@@ -33,8 +33,8 @@ public final class BootstrapConstants {
      * Properties for communicating information about the kernel/product from
      * the launcher to the log provider.
      */
-    public static final String BOOTPROP_KERNEL_INFO = "websphere.kernel.info",
-                    BOOTPROP_PRODUCT_INFO = "websphere.product.info";
+    public static final String BOOTPROP_KERNEL_INFO = "websphere.kernel.info";
+    public static final String BOOTPROP_PRODUCT_INFO = "websphere.product.info";
     
     public static final String BOOTPROP_OS_NAME = "os.name";
     

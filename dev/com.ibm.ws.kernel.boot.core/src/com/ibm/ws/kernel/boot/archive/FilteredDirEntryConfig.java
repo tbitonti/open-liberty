@@ -48,8 +48,14 @@ public class FilteredDirEntryConfig extends DirEntryConfig {
      * @param selectionStrategy Control parameter: Whether explicit selections
      *     take precedence over explicit rejections, or whether explicit
      *     rejections take precedence over explicit selections.
+     *     
+     * @throws IOException Thrown if the source location does not exist or is not
+     *     a directory.
      */    
-    public FilteredDirEntryConfig(File source, boolean includeByDefault, PatternStrategy strategy) {
+    public FilteredDirEntryConfig(
+        File source,
+        boolean includeByDefault, PatternStrategy strategy) throws IOException {
+
         super("", source, includeByDefault, strategy);
     }
 

@@ -280,6 +280,48 @@ public class FileUtils {
     }
 
     /**
+     * Normalize an entry path as a directory entry path.
+     * 
+     * This is the same as invoking {@link #normalizeEntryPath}
+     * then invoking {@link #normalizeDirPath(String)}, but is
+     * more efficient.
+     *
+     * @param path The path which is to be normalized.
+     *
+     * @return The normalized path.
+     */
+    public static String normalizeDirEntryPath(String path) {
+        if ( path == null ) {
+            return "";
+        }
+
+        int pathLen = path.length();
+        if ( pathLen == 0 ) {
+            return "";
+        }
+
+        char charFirst = path.charAt(0);
+        int startAt;
+        if ( (charFirst == '\\') || (charFirst == '/') ) {
+            if ( pathLen == 1 ) {
+                return "";
+            } else {
+                startAt = 1;
+            }
+        } else {
+            startAt = 0;
+        }
+
+        char charLast = path.charAt(pathLen - 1);
+        int endAt = (((charLast == '\\') || (charLast == '/')) ? (pathLen - 1) : pathLen);
+
+        if ( (startAt != 0) || (endAt != pathLen) ) {
+            path = path.substring(startAt, endAt);
+        }
+        return path.replace('\\', '/');
+    }
+    
+    /**
      * Normalize an entry path.
      * 
      * Replace a null path with an empty path.

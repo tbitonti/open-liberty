@@ -297,7 +297,7 @@ public class PackageCommand {
             if ( (index > 0) && isSupportedExtension(archiveOption) ) {
                 // --include=runnable with non-.jar file extension
                 // supplied to --archive is not allowed
-                if ( PackageProcessor.IncludeOption.RUNNABLE.matches(includeOption) &&
+                if ( PackageProcessor.containsRunnable(includeOption) &&
                      !archiveOption.toLowerCase().endsWith(JAR_EXTENSION) ) {
                     return null; // Answering null causes packaging to fail.
                 } else {
@@ -348,17 +348,6 @@ public class PackageCommand {
         return packageRc;
     }
 
-    /*
-     * Return true for include values of:
-     * include=minify
-     * include=minify,runnable
-     *
-     * Otherwise return false.
-     */
-    private boolean includeMinifyorMinifyRunnable(String val) {
-        return PackageProcessor.IncludeOption.MINIFY.matches(val);
-    }
-
     /**
      * Package the server, conditionally including just the server
      * runtime, or including the server runtime and applications.
@@ -374,7 +363,7 @@ public class PackageCommand {
      */
     public ReturnCode packageServerRuntime(File packageFile, boolean runtimeOnly) {
         Set<String> libertyFiles;
-        if (includeMinifyorMinifyRunnable(includeOption)) {
+        if (PackageProcessor.containsMinify(includeOption)) {
             libertyFiles = getMinifyPathsForPackage();
             if ( libertyFiles == null ) {
                 return ReturnCode.ERROR_SERVER_PACKAGE;
@@ -400,10 +389,10 @@ public class PackageCommand {
             new PackageProcessor(serverName, packageFile, bootProps, options, libertyFiles);
 
         if ( rootOption != null ) {
-            if ( processor.hasProductExtentions() && rootOption.trim().equalsIgnoreCase("") ) {
+            if ( processor.hasProductExtensions() && rootOption.trim().equalsIgnoreCase("") ) {
                 println("warning.package.root.invalid", serverName);
             } else {
-                if ( !PackageProcessor.IncludeOption.RUNNABLE.matches(includeOption) ) {
+                if ( !PackageProcessor.containsRunnable(includeOption) ) {
                     processor.setArchivePrefix(rootOption);
                 } else {
                     // --server-root and --include=runnable are not valid together;
@@ -487,7 +476,7 @@ public class PackageCommand {
         if ( "z/OS".equalsIgnoreCase( bootProps.get(BootstrapConstants.BOOTPROP_OS_NAME) ) ) {
             return "pax"; // Always "pax" on Z/OS
         }
-        if ( PackageProcessor.IncludeOption.RUNNABLE.matches(includeOption) ) {
+        if ( PackageProcessor.containsRunnable(includeOption) ) {
             return "jar"; // "jar" if a runnable archive is requested
         } else {
             return "zip"; // "zip" as the default

@@ -20,12 +20,29 @@ import java.util.regex.Pattern;
 /**
  * A pattern used to select files.  See {@link #select(String)} for
  * selection details.
+ *
+ * Selection is based on regular expressions, using {@link Matcher#find()},
+ * with selection if the target expression is found anywhere in a candidate
+ * value.
+ *
+ * (Note the difference between {@link Matcher#find()}, which answers true
+ * if the expression is found anywhere in the candidate value, and
+ * {@link Matcher#matches()}, which requires that the entire candidate value
+ * match the expression.
  */
 public class DirPattern {
     private static final boolean IS_WINDOWS = File.separatorChar == '\\';
 
     /**
-     * Normalize the path of a file.
+     * Answer a canonical path of a file.
+     * 
+     * This is <strong>not</strong> the same as
+     * {@link File#getCanonicalPath()}.
+     * 
+     * Canonical paths are necessary so that match expressions have
+     * a single consistent format against which to match.  This is
+     * important, in particular, for loose configuration matching,
+     * which uses forward slashes.
      *
      * When running on windows, normalize a leading drive letter.
      *
@@ -39,7 +56,7 @@ public class DirPattern {
      *
      * @return The normalized path.
      */
-    public static String normalize(File file) {
+    public static String cannonize(File file) {
         String path = file.getAbsolutePath();
         boolean needLastSlash = file.isDirectory();
 

@@ -11,6 +11,7 @@
 package com.ibm.ws.kernel.boot.archive;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,121 @@ import com.ibm.ws.kernel.boot.internal.BootstrapConstants;
 import com.ibm.ws.kernel.boot.internal.FileUtils;
 
 public class DirEntryConfig implements ArchiveEntryConfig {
+    
+    public static DirEntryConfig includeDir(
+        List<ArchiveEntryConfig> configs, String entryPrefix, File source)
+        throws IOException {
+        return addDir(configs, entryPrefix, source, DO_INCLUDE);
+    }
+
+    public static DirEntryConfig excludeDir(
+        List<ArchiveEntryConfig> configs, String entryPrefix, File source)
+        throws IOException {
+        return addDir(configs, entryPrefix, source, DO_EXCLUDE);
+    }
+
+    public static DirEntryConfig includeDir(List<ArchiveEntryConfig> configs, File source)
+        throws IOException {
+        return addDir(configs, EMPTY_PREFIX, source, DO_INCLUDE);
+    }
+
+    public static DirEntryConfig excludeDir(List<ArchiveEntryConfig> configs, File source)
+        throws IOException {
+        return addDir(configs, EMPTY_PREFIX, source, DO_EXCLUDE);
+    }    
+
+    //
+
+    public static DirEntryConfig addDir(
+            List<ArchiveEntryConfig> configs,
+            File source, boolean doInclude) throws IOException {
+        return addDir(configs, EMPTY_PREFIX, source, doInclude);
+    }
+
+    /** Control parameter: Add entries with no prefix. */
+    public static final String EMPTY_PREFIX = "";
+
+    /** Control parameter value: Select include preference. */
+    public static final boolean DO_INCLUDE = true;
+    /** Control parameter value: Select exclude preference. */    
+    public static final boolean DO_EXCLUDE = false;
+
+    /**
+     * Create and add a directory configuration to a list of configurations.
+     *
+     * @param configs Storage for the configurations.
+     * @param entryPrefix The prefix to entry paths added from the directory.
+     * @param source Source folder for the directory configuration.
+     * @param doInclude Control parameter: Tells which preference to use
+     *     for the new directory configuration.  True selects include
+     *     preference.  False selects exclude preference.
+     * @param doObscure Control parameter: Tells if the configuration
+     *     should obscure the files which it adds.
+     *
+     * @return The new directory configuration.
+     * 
+     * @throws IOException Thrown if the source location does not exist or is not
+     *     a directory.
+     */
+    public static DirEntryConfig addDir(
+            List<ArchiveEntryConfig> configs,
+            String entryPrefix, File source, boolean doInclude) throws IOException {
+
+        PatternStrategy strategy =
+            ( doInclude ? PatternStrategy.IncludePreference
+                        : PatternStrategy.ExcludePreference );
+
+        DirEntryConfig dirEntryConfig =
+            new DirEntryConfig(entryPrefix, source, doInclude, strategy);            
+
+        configs.add(dirEntryConfig);
+
+        return dirEntryConfig;
+    }    
+
+    //
+
+    public static FilteredDirEntryConfig includeObscuredDir(
+        List<ArchiveEntryConfig> configs, File source)
+        throws IOException {
+        return obscureDir(configs, source, DO_INCLUDE);
+    }    
+    
+    public static FilteredDirEntryConfig excludeObscuredDir(
+        List<ArchiveEntryConfig> configs, File source)
+        throws IOException{
+        return obscureDir(configs, source, DO_EXCLUDE);
+    }    
+    
+    /**
+     * Create and add a directory configuration to a list of configurations.
+     * Obscure any files added from the directory.
+     *
+     * @param configs Storage for the configurations.
+     * @param source Source folder for the directory configuration.
+     * @param doInclude Control parameter: Tells which preference to use
+     *     for the new directory configuration.  True selects include
+     *     preference.  False selects exclude preference.
+     *
+     * @return The new directory configuration.
+     */
+    public static FilteredDirEntryConfig obscureDir(
+            List<ArchiveEntryConfig> configs,
+            File source, boolean doInclude) throws IOException {
+
+        PatternStrategy strategy =
+            ( doInclude ? PatternStrategy.IncludePreference
+                        : PatternStrategy.ExcludePreference );
+
+        FilteredDirEntryConfig dirEntryConfig =
+            new FilteredDirEntryConfig(source, doInclude, strategy);
+
+        configs.add(dirEntryConfig);
+
+        return dirEntryConfig;
+    }    
+    
+    
     /**
      * Answer pattern which exactly matches a specified path.
      * Quote the path and compile it into a pattern.
@@ -51,69 +167,80 @@ public class DirEntryConfig implements ArchiveEntryConfig {
      * and removing any leading slash.  Then, make sure the path
      * ends with a slash.
      *
-     * @param entryPath The entry path for which to obtain a normalized
+     * @param entryPrefix The entry path for which to obtain a normalized
      *     directory entry path.
      *
      * @return The entry path as a normalized directory entry path.
      */
-    public static String asDirEntryPath(String entryPath) {
-        return FileUtils.normalizeDirPath( FileUtils.normalizeEntryPath(entryPath) );
+    public static String asDirEntryPath(String entryPrefix) {
+        return FileUtils.normalizeDirEntryPath(entryPrefix);
     }
 
     /**
-     * Convert a file to one which has an absolute path.
+     * Verify that a source file is valid.  That is, the source file
+     * must exist and must be a directory.
      *
-     * @param file A file for which to obtain an absolute file.
+     * @param source The source file which is to be tested.
      *
-     * @return The file having an absolute path.
-     */
-    public static File asAbsFile(File file) {
-        String path = file.getPath();
-        String absPath = file.getAbsolutePath();
-
-        return ( path.equals(absPath) ? file : new File(absPath) );
+     * @throws IOException Thrown if the file does not exist, or is not
+     *     a directory.  Thrown as a {@link FileNotFoundException} if
+     *     the file does not exist.
+     */    
+    private static void verifySource(File source) throws IOException {
+        if ( !source.exists() ) {
+            throw new FileNotFoundException( BootstrapConstants.format("error.missing.loose.file", source.getAbsolutePath()) );            
+        } else if ( !source.isDirectory() ) {
+            throw new IOException( BootstrapConstants.format("error.nondirectory.loose.file", source.getAbsolutePath()) );
+        }
     }
     
     /**
      * Create a directory configuration.  This will be used to add
      * a directory and select elements of that directory to an archive.
-     * 
+     *
+     * Verification of the source file is performed when the configuration
+     * is created.  That causes exceptions early, when configurations are
+     * created.  The alternative is to perform verification later, when the
+     * configuration is used to add an entry to an archive.
+     *
      * See {@link #configure(Archive)}.
      *
      * The meaning of the parameters is per
      * {@link Archive#addDirEntry(String, File, List)}.
      * 
-     * @param entryPath The path to the directory.
-     * @param source The target directory.  The target directory must exist and must
+     * @param entryPrefix The path to the directory.
+     * @param source The source directory.  The source must exist and must
      *     be a directory.
      * @param includeByDefault Control parameter: Whether directory elements
      *     are included by default, or are excluded by default.
      * @param selectionStrategy Control parameter: Whether explicit selections
      *     take precedence over explicit rejections, or whether explicit
      *     rejections take precedence over explicit selections.
+     * 
+     * @throws IOException Thrown if the source location does not exist or is not
+     *     a directory.
      */
     public DirEntryConfig(
-        String entryPath,
+        String entryPrefix,
         File source,
         boolean includeByDefault,
-        PatternStrategy selectionStrategy) {
+        PatternStrategy selectionStrategy) throws IOException {
 
-        // TFB: Removed the source validation.  Do that
-        //      check when performing configuration.
+        verifySource(source);
 
-        this.entryPath = asDirEntryPath(entryPath);
-        this.source = asAbsFile(source);
+        this.entryPrefix = asDirEntryPath(entryPrefix);
+        this.source = source;
 
         this.dirPattern = new DirPattern(includeByDefault, selectionStrategy);
     }
 
     //
 
-    protected final String entryPath;
-    
+    protected final String entryPrefix;
+
     @Override
     public String getEntryPath() {
-        return entryPath;
+        return entryPrefix;
     }
 
     protected final File source;
@@ -129,17 +256,31 @@ public class DirEntryConfig implements ArchiveEntryConfig {
         return dirPattern;
     }
 
+    public void include(Iterable<? extends Pattern> patterns) {
+        for ( Pattern pattern : patterns ) {
+            getDirectoryPattern().addIncludePattern(pattern);
+        }
+    }
+    
     public void include(Pattern pattern) {
         getDirectoryPattern().addIncludePattern(pattern);
     }
 
-    public void include(File file) {
-        String path = DirPattern.normalize(file);
-        include( pathAsPattern(path) );
+    public Pattern include(File file) {
+        String path = DirPattern.cannonize(file);
+        Pattern pattern = pathAsPattern(path); 
+        include(pattern);
+        return pattern;
     }
 
-    public void includeExpression(String regEx) {
-        include( expressionAsPattern(regEx) );
+    public Pattern includePath(String path) {
+        return include( new File(path) );
+    }
+    
+    public Pattern includeExpression(String regEx) {
+        Pattern pattern = expressionAsPattern(regEx);
+        include(pattern);
+        return pattern;
     }
     
     public void includeExpressions(String ... expressions) {
@@ -148,19 +289,31 @@ public class DirEntryConfig implements ArchiveEntryConfig {
         }
     }
     
+    public void exclude(Iterable<? extends Pattern> patterns) {
+        for ( Pattern pattern : patterns ) {
+            getDirectoryPattern().addExcludePattern(pattern);
+        }
+    }
+    
     public void exclude(Pattern pattern) {
         getDirectoryPattern().addExcludePattern(pattern);
     }
 
-    public void exclude(File file) {
-        String path = DirPattern.normalize(file);
-        exclude( pathAsPattern(path) );
+    public Pattern exclude(File file) {
+        String path = DirPattern.cannonize(file);
+        Pattern pattern = pathAsPattern(path);
+        exclude(pattern);
+        return pattern;
     }
 
+    public Pattern excludePath(String path) {
+        return exclude( new File(path) );
+    }
+    
     public void excludeExpression(String regEx) {
         exclude( expressionAsPattern(regEx) );
     }
-    
+
     public void excludeExpressions(String ... expressions) {
         for ( String regEx : expressions ) {
             exclude( expressionAsPattern(regEx) );
@@ -179,31 +332,35 @@ public class DirEntryConfig implements ArchiveEntryConfig {
      */
     @Override
     public void configure(Archive archive) throws IOException {
-        archive.addDirEntry( entryPath, source, filterDirectory() );
+        archive.addDirEntry( entryPrefix, source, filterDirectory() );
     }
 
     /**
      * Recursively select files of the target directory.  Answer the relative
-     * paths of the selected files.  Paths are relative to the source directory.
+     * paths of the selected files, using foward slashes.  Answer paths relative
+     * to the source directory.
      *
-     * @return The selected paths.
+     * Files are matched on their absolute paths.  See {@link DirPattern} for
+     * matching rules.  Most important: An expression matches a path if the
+     * expression occurs anywhere in the path.
+     *
+     * @return The selected relative paths.
      *
      * @throws IOException Thrown if the target source does not exist,
      *     is not a simple file, or could not be added.
      */
     protected List<String> filterDirectory() throws IOException {
-        if ( !source.exists() ) {
-            throw new IOException( BootstrapConstants.format("error.missing.loose.file", source.getAbsolutePath()) );            
-        } else if ( !source.isDirectory() ) {
-            throw new IOException( BootstrapConstants.format("error.nondirectory.loose.file", source.getAbsolutePath()) );
+        // Cannonize the source path, and build on this to generate
+        // paths to match against.  This avoids additional calls
+        // to 'getAbsolutePath'.
 
-        } else {
-            String sourcePath = DirPattern.normalize(source);
+        verifySource(source);
 
-            List<String> selections = new ArrayList<String>();
-            filterDirectory(selections, source, sourcePath, "");
-            return selections;
-        }
+        String sourcePath = DirPattern.cannonize(source);
+
+        List<String> selections = new ArrayList<String>();
+        filterDirectory(selections, source, sourcePath, "");
+        return selections;
     }
 
     /**
@@ -254,6 +411,21 @@ public class DirEntryConfig implements ArchiveEntryConfig {
                 childAbsPath = targetAbsPath + childName;
                 childRelPath = targetRelPath + childName;
             }
+
+            // TODO: Using the absolute path can result in false
+            //       positives: The source path is included in the
+            //       path which is tested.
+            //
+            //       This could be changed, but might affect customer
+            //       specified patterns which use patterns that include
+            //       portions of the source path.
+            //
+            //       To minimize false matches, files and paths which
+            //       are to be matched exactly are added using their
+            //       absolute paths.  To stop using absolute paths for
+            //       matching, files and paths which are added would
+            //       need to be changed to obtain the path relative
+            //       to the source directory.
 
             if ( usePattern.select(childAbsPath) ) {
                 System.out.println(prefix + "Select: " + childAbsPath);

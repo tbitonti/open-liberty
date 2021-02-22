@@ -22,7 +22,6 @@ import com.ibm.ws.kernel.boot.archive.Archive;
 import com.ibm.ws.kernel.boot.archive.ArchiveEntryConfig;
 import com.ibm.ws.kernel.boot.archive.ArchiveFactory;
 import com.ibm.ws.kernel.boot.archive.DirEntryConfig;
-import com.ibm.ws.kernel.boot.archive.DirPattern.PatternStrategy;
 import com.ibm.ws.kernel.boot.archive.FileEntryConfig;
 import com.ibm.ws.kernel.boot.archive.FilteredDirEntryConfig;
 import com.ibm.ws.kernel.boot.internal.BootstrapConstants;
@@ -62,119 +61,100 @@ public class DumpProcessor implements ArchiveProcessor {
         try ( Archive archive = ArchiveFactory.create(dumpFile) ) { 
             archive.addEntryConfigs( createDumpConfigs(serverName) );
             archive.create();
+            return ReturnCode.OK;
 
         } catch ( IOException e ) {
             System.out.println( BootstrapConstants.format("error.unableZipDir", e) );
             return ReturnCode.ERROR_SERVER_DUMP;
         }
-
-        return ReturnCode.OK;
     }
 
-    //
-
-    private static final boolean DO_INCLUDE = true;
-    private static final boolean DO_EXCLUDE = false;
-
-    private static final boolean DO_OBSCURE = true;
-
-    private static DirEntryConfig addDir(
-            List<ArchiveEntryConfig> configs,
-            File source, boolean doInclude, boolean doFilter) {
-
-        PatternStrategy strategy =
-            ( doInclude ? PatternStrategy.IncludePreference
-                        : PatternStrategy.ExcludePreference );
-
-        DirEntryConfig dirEntryConfig;
-        if ( doFilter ) {
-            dirEntryConfig = new FilteredDirEntryConfig(source, doInclude, strategy);
-        } else {
-            dirEntryConfig = new DirEntryConfig("", source, doInclude, strategy);            
-        }
-
-        configs.add(dirEntryConfig);
-
-        return dirEntryConfig;
-    }
-
-    
-    private List<ArchiveEntryConfig> createDumpConfigs(String serverName) {
+    private List<ArchiveEntryConfig> createDumpConfigs(String serverName) throws IOException {
         List<ArchiveEntryConfig> dumpConfigs = new ArrayList<ArchiveEntryConfig>();
 
         File configDir = new File(bootProps.getUserRoot(), "servers/" + serverName);
 
-        // avoid any special characters in serverName when construct patterns
+        // Prefixes used for files which are matched relative
+        // to the server folder.
+        //
+        // TODO: This is approximate ... a server named 'servers' would cause
+        //       problems, as would any subdirectory named 'servers'.
+
         String regexServerName = Pattern.quote(serverName);
         String regexServerPath = REGEX_SEP + regexServerName + REGEX_SEP;        
 
         // Add select contents from the server configuration folder.
-        // Obscure those select contents.
-        DirEntryConfig obscuedConfigs = addDir(dumpConfigs, configDir, DO_EXCLUDE, DO_OBSCURE);
 
-        // Include XML and properties files.
-        obscuedConfigs.includeExpressions(
-                regexServerPath + ".*\\.xml",
-                regexServerPath + ".*\\.properties" );
-        // Include configuration drop-ins.
-        obscuedConfigs.includeExpression(
-                regexServerPath + "configDropins");
-        // Exclude dump directory // TODO: This seems unnecessary, given the default
-        // is to exclude.
-        obscuedConfigs.excludeExpressions(
-                regexServerPath + "dump_" + REGEX_TIMESTAMP,
-                regexServerPath + "autopd");
+        // Obscure some of the files ...
+        //
+        // Use exclude preference: Explicit excludes override
+        // explicit includes.
 
-        // Add the remainder of the server configuration filer.
-        // The remainder is not obscured.
-        DirEntryConfig unobscuredConfigs = addDir(dumpConfigs, configDir, DO_INCLUDE, !DO_OBSCURE);
+        FilteredDirEntryConfig obscuredConfigs =
+            DirEntryConfig.excludeObscuredDir(dumpConfigs, configDir);
 
-        // Exclude user apps
+        // Obscure XML and properties files.
+        obscuredConfigs.includeExpressions(
+            regexServerPath + ".*\\.xml",
+            regexServerPath + ".*\\.properties" );
+        // Obscure configuration drop-ins ...
+        obscuredConfigs.includeExpression(
+            regexServerPath + "configDropins");
+        // Do *not* obscure the dump folders.
+        obscuredConfigs.excludeExpressions(
+            regexServerPath + "dump_" + REGEX_TIMESTAMP,
+            regexServerPath + "autopd");
+
+        // And do not obscure other files ...
+        //
+        // Use include preference ... include everything except
+        // what is excluded.  Explicit includes override explicit
+        // excludes.
+
+        DirEntryConfig unobscuredConfigs =
+            DirEntryConfig.includeDir(dumpConfigs, configDir);
+
+        // Do not include any application files ...
         unobscuredConfigs.excludeExpressions(
-                regexServerPath + "dropins",
-                regexServerPath + "apps");
+            regexServerPath + "dropins",
+            regexServerPath + "apps");
 
-        // TODO: These next two cases won't exclude anything:
-        //
-        //       The patterns are specified with no wild-card matching,
-        //       hence will only exclude exact matches.
-        //
-        //       The patterns also are not absolute, while matching
-        //       is done on absolute paths.
-        //
-        //       Together, that means matches will never be found.
-
-        // Exclude security-sensitive files under resources/security.
+        // Exclude "resources/security".  Files here are sensitive.
         unobscuredConfigs.excludeExpression(
-                REGEX_SEP + "resources" + REGEX_SEP + "security");
-        // As a best effort, try to avoid packaging security-sensitive .jks and .p12 files.
-        unobscuredConfigs.excludeExpressions(
-                "\\.jks$",
-                "\\.p12$");
+            REGEX_SEP + "resources" + REGEX_SEP + "security");
 
-        // {server.config.dir} may be equal {server.output.dir}, so let's first exclude
-        // Exclude dump directory
+        // Also exclude ".jks" and ".p12" files.  These files are
+        // also sensitive.
         unobscuredConfigs.excludeExpressions(
-                regexServerPath + "dump_" + REGEX_TIMESTAMP,
-                regexServerPath + "autopd");
-        // Exclude workarea and logs directoriese
+            "\\.jks$",
+            "\\.p12$");
+
+        // Exclude dump folders.
         unobscuredConfigs.excludeExpressions(
-                regexServerPath + "logs",
-                regexServerPath + "workarea");
+            regexServerPath + "dump_" + REGEX_TIMESTAMP,
+            regexServerPath + "autopd");
+
+        // Exclude "workarea" and "logs" directories.
+        unobscuredConfigs.excludeExpressions(
+            regexServerPath + "logs",
+            regexServerPath + "workarea");
+
         // Exclude server package and dump files.
         unobscuredConfigs.excludeExpressions(
-                REGEX_SEP + regexServerName + "\\.(zip|pax)$",
-                REGEX_SEP + regexServerName + "\\.dump-" + REGEX_TIMESTAMP + "\\.(zip|pax)$",
-                regexServerPath + "core\\.[^\\\\/]+\\.dmp",
-                regexServerPath + "heapdump\\.[^\\\\/]+\\.phd",
-                regexServerPath + "java\\.[^\\\\/]+\\.hprof",
-                regexServerPath + "javacore\\.[^\\\\/]+\\.txt",
-                regexServerPath + "javadump\\.[^\\\\/]+\\.txt");
+            REGEX_SEP + regexServerName + "\\.(zip|pax)$",
+            REGEX_SEP + regexServerName + "\\.dump-" + REGEX_TIMESTAMP + "\\.(zip|pax)$",
+            regexServerPath + "core\\.[^\\\\/]+\\.dmp",
+            regexServerPath + "heapdump\\.[^\\\\/]+\\.phd",
+            regexServerPath + "java\\.[^\\\\/]+\\.hprof",
+            regexServerPath + "javacore\\.[^\\\\/]+\\.txt",
+            regexServerPath + "javadump\\.[^\\\\/]+\\.txt");
 
         // Add server output directory
         File outputDir = bootProps.getOutputFile(null);
-        DirEntryConfig outputConfigs = addDir(dumpConfigs, outputDir, DO_EXCLUDE, !DO_OBSCURE);
+        DirEntryConfig outputConfigs =
+            DirEntryConfig.excludeDir(dumpConfigs, outputDir);
 
+        // Finally, include the dump, logs, and workarea.
         outputConfigs.includeExpressions(
             regexServerPath + "dump_" + REGEX_TIMESTAMP,
             regexServerPath + "autopd",
@@ -182,31 +162,27 @@ public class DumpProcessor implements ArchiveProcessor {
             regexServerPath + "workarea");
 
         String regexWorkareaPath = regexServerPath + "workarea" + REGEX_SEP;
-        
+
+        // But, exclude and lock files.
         outputConfigs.excludeExpressions(
             regexWorkareaPath + "\\.sLock$",
             regexWorkareaPath + "\\.sCommand$");
 
-        // As the sub-osgi system will also create some locked files under .manager directory,
-        // exclude all the org.eclipse.osgi/.manager/*.*
+        // As the sub-osgi system will also create some locked files
+        // under ".manager", exclude "org.eclipse.osgi/.manager/*.*"
         outputConfigs.excludeExpression(
-                regexWorkareaPath+
-                ".*" + "org\\.eclipse\\.osgi"
-                + REGEX_SEP + "\\.manager");
+            regexWorkareaPath +
+            ".*" + "org\\.eclipse\\.osgi" + REGEX_SEP +
+            "\\.manager");
 
-        // exclude application cache files
+        // Exclude application cache files
         outputConfigs.excludeExpression(
-                regexWorkareaPath
-                + "org\\.eclipse\\.osgi" + REGEX_SEP
-                + "bundles" + REGEX_SEP
-                + "\\d+" + REGEX_SEP
-                + "data" + REGEX_SEP
-                + ".*com\\.ibm\\.ws\\.app\\.manager_gen");
+            regexWorkareaPath +
+            "org\\.eclipse\\.osgi" + REGEX_SEP +
+            "bundles" + REGEX_SEP + "\\d +" + REGEX_SEP + "data" + REGEX_SEP +
+            ".*com\\.ibm\\.ws\\.app\\.manager_gen");
 
-        // TODO: The annotation cache would be nice to include in the dump.
-        //       Actually, why not include the application cache?  Is there
-        //       a security issue?
-
+        // Add explicit java dumps.
         for ( String javaDump : javaDumps ) {
             dumpConfigs.add( new FileEntryConfig("", new File(javaDump)) );
         }
