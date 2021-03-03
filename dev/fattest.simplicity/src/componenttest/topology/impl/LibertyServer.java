@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -108,7 +108,6 @@ import componenttest.topology.utils.PrivHelper;
 import componenttest.topology.utils.ServerFileUtils;
 
 public class LibertyServer implements LogMonitorClient {
-
     protected static final Class<?> c = LibertyServer.class;
     protected static final String CLASS_NAME = c.getName();
     protected static Logger LOG = Logger.getLogger(CLASS_NAME); // why don't we always use the Logger directly?
@@ -119,7 +118,6 @@ public class LibertyServer implements LogMonitorClient {
     boolean runAsAWindowService = false;
 
     protected class ServerDebugInfo {
-
         protected static final String SERVER_DEBUG_PREFIX = "debug.server.";
         protected static final String DEBUGGING_PORT_PROP = "debugging.port";
 
@@ -136,9 +134,7 @@ public class LibertyServer implements LogMonitorClient {
          * AND
          * the environment sets a system property with a valid port.
          */
-
         private void calculateDebugInfo() {
-
             if (debuggingAllowed) {
                 debugPort = getDebugPortForServer();
                 if (debugPort == null) {

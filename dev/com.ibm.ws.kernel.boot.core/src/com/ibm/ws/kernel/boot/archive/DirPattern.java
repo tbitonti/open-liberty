@@ -166,7 +166,7 @@ public class DirPattern {
         this.includePatterns = null;
         this.excludePatterns = null;
         
-        System.out.println(this + " <init>");
+        // System.out.println(this + " <init>");
     }
 
     private final boolean includeByDefault;
@@ -193,7 +193,7 @@ public class DirPattern {
         }
         includePatterns.add(pattern);
         
-        System.out.println(this + " include pattern: " + pattern);
+        // System.out.println(this + " include pattern: " + pattern);
     }
 
     /**
@@ -230,7 +230,7 @@ public class DirPattern {
         }
         excludePatterns.add(pattern);
         
-        System.out.println(this + " exclude pattern: " + pattern);        
+        // System.out.println(this + " exclude pattern: " + pattern);        
     }
 
     /**
@@ -306,7 +306,7 @@ public class DirPattern {
         boolean include = includeByDefault;
         boolean explicit = false;
 
-        System.out.println(methodName + ": Default: " + (include ? "Include" : "Exclude") );
+        // System.out.println(methodName + ": Default: " + (include ? "Include" : "Exclude") );
         
         // If we are excluding by default, there is no point to
         // performing exclude checks.
@@ -314,7 +314,7 @@ public class DirPattern {
         // An explicit exclude overrides a default include.
 
         if ( include && isExcluded(path) ) {
-            System.out.println(methodName + ": Exclude: " + path + " (explicit)");
+            // System.out.println(methodName + ": Exclude: " + path + " (explicit)");
             include = false;
             explicit = true;
         }
@@ -328,9 +328,9 @@ public class DirPattern {
 
         if ( !include && isIncluded(path) ) {
             if ( explicit ) {
-                System.out.println(methodName + ": Include: " + path + " (explicit override)");
+                // System.out.println(methodName + ": Include: " + path + " (explicit override)");
             } else {
-                System.out.println(methodName + ": Include: " + path + " (explicit)");                
+                // System.out.println(methodName + ": Include: " + path + " (explicit)");                
             }
             include = true;
             explicit = true;            
@@ -338,9 +338,9 @@ public class DirPattern {
 
         if ( !explicit ) {
             if ( include ) {
-                System.out.println(methodName + ": Include: " + path + " (default)");                
+                // System.out.println(methodName + ": Include: " + path + " (default)");                
             } else {
-                System.out.println(methodName + ": Exclude: " + path + " (default)");                
+                // System.out.println(methodName + ": Exclude: " + path + " (default)");                
             }
         }
         return include;
@@ -360,7 +360,7 @@ public class DirPattern {
         boolean include = includeByDefault;
         boolean explicit = false;
 
-        System.out.println(methodName + ": Default: " + (include ? "Include" : "Exclude") );
+        // System.out.println(methodName + ": Default: " + (include ? "Include" : "Exclude") );
 
         // If we are including by default, there is no point to
         // performing include checks.
@@ -368,7 +368,7 @@ public class DirPattern {
         // An explicit include overrides a default exclude.
 
         if ( !include && isIncluded(path) ) {
-            System.out.println(methodName + ": Include: " + path + " (explicit)");            
+            // System.out.println(methodName + ": Include: " + path + " (explicit)");            
             include = true;
             explicit = true;
         }
@@ -382,9 +382,9 @@ public class DirPattern {
 
         if ( include && isExcluded(path) ) {
             if ( explicit ) {
-                System.out.println(methodName + ": Exclude: " + path + " (explicit override)");
+                // System.out.println(methodName + ": Exclude: " + path + " (explicit override)");
             } else {
-                System.out.println(methodName + ": Exclude: " + path + " (explicit)");                
+                // System.out.println(methodName + ": Exclude: " + path + " (explicit)");                
             }            
             include = false;
             explicit = true;
@@ -392,9 +392,9 @@ public class DirPattern {
 
         if ( !explicit ) {
             if ( include ) {
-                System.out.println(methodName + ": Include: " + path + " (default)");                
+                // System.out.println(methodName + ": Include: " + path + " (default)");                
             } else {
-                System.out.println(methodName + ": Exclude: " + path + " (default)");                
+                // System.out.println(methodName + ": Exclude: " + path + " (default)");                
             }
         }
 

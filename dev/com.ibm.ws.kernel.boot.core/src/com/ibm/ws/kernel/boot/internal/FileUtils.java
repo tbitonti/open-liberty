@@ -292,33 +292,44 @@ public class FileUtils {
      */
     public static String normalizeDirEntryPath(String path) {
         if ( path == null ) {
-            return "";
+            return ""; // Special case 1: Null: Convert to "".
         }
 
         int pathLen = path.length();
         if ( pathLen == 0 ) {
-            return "";
+            return ""; // Special case 2: Empty: Leave as "".
         }
+
+        // If necessary, trim the first character.
 
         char charFirst = path.charAt(0);
-        int startAt;
-        if ( (charFirst == '\\') || (charFirst == '/') ) {
+        if ( charFirst == '\\' ) {
             if ( pathLen == 1 ) {
-                return "";
+                return ""; // Special case 3(a): Single slash: Convert to "".
             } else {
-                startAt = 1;
+                path = path.substring(1, pathLen);
+                pathLen -= 1;
+            }
+        } else if ( charFirst == '/' ) {
+            if ( pathLen == 1 ) {
+                return ""; // Special case 3(b): Single slash: Convert to "". 
+            } else {
+                path = path.substring(1, pathLen);
+                pathLen -= 1;
             }
         } else {
-            startAt = 0;
+            // Nothing to remove.
         }
 
-        char charLast = path.charAt(pathLen - 1);
-        int endAt = (((charLast == '\\') || (charLast == '/')) ? (pathLen - 1) : pathLen);
+        // Convert all slashes ...
+        path = path.replace('\\', '/');
 
-        if ( (startAt != 0) || (endAt != pathLen) ) {
-            path = path.substring(startAt, endAt);
+        // If necessary, append a slash.
+        if ( path.charAt(pathLen - 1) != '/' ) {
+            path += '/';
         }
-        return path.replace('\\', '/');
+
+        return path;
     }
     
     /**
@@ -339,23 +350,28 @@ public class FileUtils {
      */
     public static String normalizeEntryPath(String path) {
         if ( path == null ) {
-            return "";
+            return ""; // Special case: Null: Convert to empty.
         } else if ( path.isEmpty() ) {
-            return path;
+            return path; // Special case: Empty: Leave as empty.
+        }
+
+        char char0 = path.charAt(0);
+        boolean startIsSlash = ((char0 == '\\') || (char0 == '/'));
+
+        int pathLen = path.length();
+
+        // Remove any leading slash.
+        if ( startIsSlash ) {
+            if (pathLen == 1) {
+                return ""; // Easy case.
+            } else {
+                path = path.substring(1, pathLen);
+            }
         }
 
         path = path.replace('\\', '/');
 
-        if ( path.charAt(0) != '/') {
-            return path;
-        }
-        
-        int pathLen = path.length();
-        if ( pathLen == 1 ) {
-            return "";
-        } else {
-            return path.substring(1, pathLen);
-        }
+        return path;
     }
 
     /**

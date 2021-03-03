@@ -231,6 +231,10 @@ public class DirEntryConfig implements ArchiveEntryConfig {
         this.entryPrefix = asDirEntryPath(entryPrefix);
         this.source = source;
 
+        // System.out.println("DirEntryConfig: Prefix (raw) [ " + entryPrefix + " ]");
+        // System.out.println("DirEntryConfig: Prefix [ " + this.entryPrefix + " ]");
+        // System.out.println("DirEntryConfig: Source [ " + this.source.getAbsolutePath() + " ]");
+
         this.dirPattern = new DirPattern(includeByDefault, selectionStrategy);
     }
 
@@ -332,6 +336,9 @@ public class DirEntryConfig implements ArchiveEntryConfig {
      */
     @Override
     public void configure(Archive archive) throws IOException {
+        // System.out.println("configure: Prefix [ " + entryPrefix + " ]");
+        // System.out.println("configure: source [ " + source.getAbsolutePath() + " ]");
+
         archive.addDirEntry( entryPrefix, source, filterDirectory() );
     }
 
@@ -385,16 +392,16 @@ public class DirEntryConfig implements ArchiveEntryConfig {
 
         String prefix = "filterDirectory: ";
 
-        System.out.println(prefix + "Rel [ " + targetRelPath + " ]");
-        System.out.println(prefix + "Abs [ " + targetAbsPath + " ]");
+        // System.out.println(prefix + "Rel [ " + targetRelPath + " ]");
+        // System.out.println(prefix + "Abs [ " + targetAbsPath + " ]");
 
         DirPattern usePattern = getDirectoryPattern();
-        System.out.println(prefix +
-            "Strategy: " + (usePattern.isIncludePreference() ? "include" : "exclude"));
+        // System.out.println(prefix +
+        //     "Strategy: " + (usePattern.isIncludePreference() ? "include" : "exclude"));
 
         File[] children = targetDir.listFiles();
         if ( children == null ) {
-            System.out.println(prefix + "Ignore: Null listing");
+            // System.out.println(prefix + "Ignore: Null listing");
             return; // Strange, but still nothing to do
         }
 
@@ -428,10 +435,10 @@ public class DirEntryConfig implements ArchiveEntryConfig {
             //       to the source directory.
 
             if ( usePattern.select(childAbsPath) ) {
-                System.out.println(prefix + "Select: " + childAbsPath);
+                // System.out.println(prefix + "Select: " + childRelPath);
                 selections.add(childRelPath);
             } else {
-                System.out.println(prefix + "Reject: " + childAbsPath);
+                // System.out.println(prefix + "Reject: " + childRelPath);
             }
 
             if ( isDirectory ) {

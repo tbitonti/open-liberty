@@ -284,9 +284,22 @@ public class FATRunner extends BlockJUnit4ClassRunner {
         String newMsg = sdf.format(new Date()) + " " + orig.getMessage();
         Throwable newThrowable;
 
+        // TODO:
+        // When running with java11, the code below causes warnings to be displayed:
+        //
+        // [junit] WARNING: An illegal reflective access operation has occurred
+        // [junit] WARNING: Illegal reflective access by componenttest.custom.junit.runner.FATRunner (file:/C:/dev/repos-pub/open-liberty/dev/com.ibm.ws.kernel.boot_fat/build/libs/autoFVT/lib/fattest.simplicity.jar) to constructor java.lang.AssertionError(java.lang.String)
+        // [junit] WARNING: Please consider reporting this to the maintainers of componenttest.custom.junit.runner.FATRunner
+        // [junit] WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
+        // [junit] WARNING: All illegal access operations will be denied in a future release
+        //
+        // For now, minimize the occurrences of the warning.
+
         try {
             Constructor<? extends Throwable> ctor = orig.getClass().getDeclaredConstructor(String.class);
-            ctor.setAccessible(true);
+            if ( !ctor.isAccessible() ) {
+                ctor.setAccessible(true);
+            }
             newThrowable = ctor.newInstance(newMsg);
             newThrowable.setStackTrace(orig.getStackTrace());
         } catch (Throwable t) {

@@ -335,7 +335,7 @@ public class PackageProcessor implements ArchiveProcessor {
                         if ( containsAllorNoMinifyRunnable(includeValue) ) {
                             addAllConfigs(optionConfigs, runtimeOnly);
                         } else if ( containsUsr(includeValue) ) {
-                            addUsrConfigs(optionConfigs, true);
+                            addUsrConfigs(optionConfigs, ADD_USER_EXTENSION);
                         } else if ( !isClientProcess && containsMinify(includeValue) ) {
                             addMinifyConfigs(optionConfigs);
                         } else {
@@ -594,7 +594,9 @@ public class PackageProcessor implements ArchiveProcessor {
         }
 
         // Add usr content.
-        addUsrConfigs(packagingConfigs, false);
+        //
+        // TODO: Why does this one case not add the extensions?
+        addUsrConfigs(packagingConfigs, !ADD_USER_EXTENSION);
 
         // add the package_<timestamp>.txt
         addPkgInfoConfigs(packagingConfigs);
@@ -634,7 +636,7 @@ public class PackageProcessor implements ArchiveProcessor {
 
         // Add usr directory
         if (!runtimeOnly) {
-            addUsrConfigs(packagingConfigs, true);
+            addUsrConfigs(packagingConfigs, ADD_USER_EXTENSION);
         }
 
         // add the package_<timestamp>.txt
@@ -658,6 +660,8 @@ public class PackageProcessor implements ArchiveProcessor {
                 packagingConfigs, info.getLocation(), extensionDir);
         }
     }
+
+    private static final boolean ADD_USER_EXTENSION = true;
 
     private void addUsrConfigs(
         List<ArchiveEntryConfig> packagingConfigs, boolean addUsrExtension)
