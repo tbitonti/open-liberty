@@ -175,6 +175,10 @@ public class ProcessorUtils {
         String archiveEntryPrefix,
         boolean isUsr) throws IOException {
 
+        // String methodName = "createLooseExpandedArchiveEntryConfigs";
+
+        // System.out.println(methodName + ": " + looseFile.getAbsolutePath());
+
         List<ArchiveEntryConfig> entryConfigs = new ArrayList<ArchiveEntryConfig>();
         String entryPath = generateBaseEntryPath(looseFile, bootProps, archiveEntryPrefix, isUsr);
 
@@ -230,23 +234,30 @@ public class ProcessorUtils {
         LooseConfig config,
         BootstrapConfig bootProps) throws IOException {
 
+        // String methodName = "processLooseConfig";
+        // System.out.println(methodName + ": " + prefixEntryPath);
+        
         String sourceOnDisk = config.sourceOnDisk;
+        // System.out.println("Source on disk: " + sourceOnDisk);
 
         switch ( config.type ) {
 
         case ARCHIVE: {
             File archiveFile = processArchive(config, null, bootProps); // throws IOException
             String archiveEntryPath = createLooseConfigEntryPath(config, prefixEntryPath);
+            // System.out.println("Archive [ " + archiveEntryPath + " ]");
             return new FileEntryConfig(archiveEntryPath, archiveFile);
         }
 
         case DIR: {
             File archiveDir = FileUtils.convertPathToFile(sourceOnDisk, bootProps);
             String archiveEntryPath = createLooseConfigEntryPath(config, prefixEntryPath);
+            // System.out.println("Directory [ " + archiveEntryPath + " ]");            
             DirEntryConfig dirConfig = new DirEntryConfig(
                 archiveEntryPath, archiveDir,
                 true, PatternStrategy.ExcludePreference);
             if ( config.excludes != null ) {
+                // System.out.println("  Excludes [ " + config.excludes + " ]");
                 dirConfig.exclude( convertToRegex(config.excludes) );
             }
             return dirConfig;
@@ -256,6 +267,7 @@ public class ProcessorUtils {
         default: { // Strange, but consistent with the prior if/else blocks.
             File archiveFile = FileUtils.convertPathToFile(sourceOnDisk, bootProps);
             String archiveEntryPath = createLooseConfigEntryPath(config, prefixEntryPath);
+            // System.out.println("File [ " + archiveEntryPath + " ]");
             return new FileEntryConfig(archiveEntryPath, archiveFile);
         }
         }
@@ -377,7 +389,7 @@ public class ProcessorUtils {
      * Copied from com.ibm.ws.artifact.api.loose.internal.LooseArchive.
      */
     public static Pattern convertToRegex(String excludeStr) {
-        System.out.println("convertToRegex: " + excludeStr + " (pre-escape)");
+        // System.out.println("convertToRegex: " + excludeStr + " (pre-escape)");
 
         // make all "." safe decimles then convert ** to .* and /* to /.* to make it regex
         if (excludeStr.contains(".")) {
@@ -415,7 +427,7 @@ public class ProcessorUtils {
             excludeStr = excludeStr.replace("-", "\\-");
         }
         
-        System.out.println("convertToRegex: " + excludeStr + " (escaped)v");
+        // System.out.println("convertToRegex: " + excludeStr + " (escaped)v");
 
         return Pattern.compile(excludeStr);
     }

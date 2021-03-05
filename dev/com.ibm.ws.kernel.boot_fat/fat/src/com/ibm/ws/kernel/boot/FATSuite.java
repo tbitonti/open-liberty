@@ -23,6 +23,7 @@ import com.ibm.ws.kernel.boot.internal.commands.LogLevelPropertyTest;
 import com.ibm.ws.kernel.boot.internal.commands.PackageCommandTest;
 import com.ibm.ws.kernel.boot.internal.commands.PackageLooseRunnableTest;
 import com.ibm.ws.kernel.boot.internal.commands.PackageLooseContentsTest;
+import com.ibm.ws.kernel.boot.internal.commands.PackageLooseFilterTest;
 import com.ibm.ws.kernel.osgi.OSGiEmbedManagerTest;
 import com.ibm.ws.kernel.provisioning.KernelChangeTest;
 import com.ibm.ws.kernel.provisioning.ProvisioningTest;
@@ -42,29 +43,30 @@ import com.ibm.wsspi.kernel.embeddable.EmbeddedServerTest;
  * in a combined total of 5 minutes or less.
  */
 @SuiteClasses({
-                EmbeddedServerTest.class,
-                EmbeddedServerAddProductExtensionTest.class,
-                EmbeddedServerAddProductExtensionMultipleTest.class,
-                ProvisioningTest.class,
-                KernelChangeTest.class,
-                ServerStartTest.class,
-                ServerStartAsServiceTest.class,
-                ShutdownTest.class,
-                ServerCommandPortTest.class,
-                DumpCommandTest.class,
-                PackageCommandTest.class,
-                PackageLooseRunnableTest.class,
-                PackageLooseContentsTest.class,
-                LogLevelPropertyTest.class,
-                CreateCommandTest.class,
-                StartCommandTest.class,
-                ServerClasspathTest.class,
-                ServerStartJVMOptionsTest.class,
-                ServerStartJavaEnvironmentVariablesTest.class,
-                PauseResumeCommandTest.class,
-                EmbeddedServerMergeProductExtensionTest.class,
-                ServerEndpointControlMBeanTest.class,
-                OSGiEmbedManagerTest.class
+//                EmbeddedServerTest.class,
+//                EmbeddedServerAddProductExtensionTest.class,
+//                EmbeddedServerAddProductExtensionMultipleTest.class,
+//                ProvisioningTest.class,
+//                KernelChangeTest.class,
+//                ServerStartTest.class,
+//                ServerStartAsServiceTest.class,
+//                ShutdownTest.class,
+//                ServerCommandPortTest.class,
+//                DumpCommandTest.class,
+//                PackageCommandTest.class,
+//                PackageLooseRunnableTest.class,
+//                PackageLooseContentsTest.class,
+                PackageLooseFilterTest.class,
+//                LogLevelPropertyTest.class,
+//                CreateCommandTest.class,
+//                StartCommandTest.class,
+//                ServerClasspathTest.class,
+//                ServerStartJVMOptionsTest.class,
+//                ServerStartJavaEnvironmentVariablesTest.class,
+//                PauseResumeCommandTest.class,
+//                EmbeddedServerMergeProductExtensionTest.class,
+//                ServerEndpointControlMBeanTest.class,
+//                OSGiEmbedManagerTest.class
 })
 public class FATSuite {
     // Empty

@@ -620,6 +620,8 @@ public class LibertyServer implements LogMonitorClient {
     }
 
     protected void setup(boolean deleteServerDirIfExist, boolean usePreviouslyConfigured) throws Exception {
+        String method = "setup";
+
         installedApplications = new HashSet<String>();
         machine.connect();
         machine.setWorkDir(installRoot);
@@ -638,6 +640,7 @@ public class LibertyServer implements LogMonitorClient {
         this.serverOutputRoot = this.serverRoot;
         this.logsRoot = serverOutputRoot + relativeLogsRoot;
         this.messageAbsPath = logsRoot + messageFileName;
+        this.consoleAbsPath = logsRoot + consoleFileName;
         this.traceAbsPath = logsRoot + traceFileName;
 
         // delete existing server directory if requested:
@@ -656,7 +659,7 @@ public class LibertyServer implements LogMonitorClient {
         // Now it sets all OS specific stuff
         this.machineJava = LibertyServerUtils.makeJavaCompatible(machineJava, machine);
 
-        Log.info(c, "setup", "Successfully obtained machine. Operating System is: " + machineOS.name());
+        Log.info(c, method, "Successfully obtained machine. Operating System is: " + machineOS.name());
         // Continues with setup, we now validate the Java used is a JDK by looking for java and jar files
         String jar = "jar";
         String java = "java";
@@ -690,6 +693,8 @@ public class LibertyServer implements LogMonitorClient {
         if (!newLogsOnStart) {
             initializeAnyExistingMarks();
         }
+        
+        Log.info(c, "setup", "Setup is complete");
     }
 
     protected void preTestTidyup() {
@@ -2320,11 +2325,11 @@ public class LibertyServer implements LogMonitorClient {
      *                                   logs that were not in the list of ignored warnings/errors.
      */
     public ProgramOutput stopServer(boolean postStopServerArchive, boolean forceStop, String... expectedFailuresRegExps) throws Exception {
+        String method = "stopServer";
 
         ProgramOutput output = null;
         boolean commandPortEnabled = true;
         try {
-            final String method = "stopServer";
             Log.info(c, method, "<<< STOPPING SERVER: " + this.getServerName());
 
             if (!isStarted) {
@@ -2430,10 +2435,15 @@ public class LibertyServer implements LogMonitorClient {
             }
 
             if (isJava2SecurityEnabled()) {
-                try {
-                    new ACEScanner(this).run();
-                } catch (Throwable t) {
-                    LOG.logp(Level.WARNING, c.getName(), "stopServer", "Caught exception trying to scan for AccessControlExceptions", t);
+                if (!getConsoleLogFile().exists()) {
+                    Log.info(c, method, "Skipping ACEScanner security scan: console log [ " + consoleAbsPath + " ] does not exist");
+                } else {                    
+                    try {
+                        new ACEScanner(this).run();
+                    } catch (Throwable t) {
+                        LOG.logp(Level.WARNING, c.getName(), method,
+                                "Caught exception trying to scan for AccessControlExceptions", t);
+                    }
                 }
             }
             if (postStopServerArchive)

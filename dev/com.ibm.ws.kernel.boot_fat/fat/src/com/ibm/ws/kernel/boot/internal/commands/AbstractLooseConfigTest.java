@@ -17,12 +17,18 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.Collection;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
 import com.ibm.websphere.simplicity.ProgramOutput;
 
@@ -251,6 +257,279 @@ public abstract class AbstractLooseConfigTest {
                 fail("Package [ " + archivePath + " ] missing [ " + expandedAppPath + " ]");
             }
         }
+    }
+
+    protected void verifyExpandedContents(
+        String archivePath,
+        String serverRoot, boolean includeUsr, String serverName,
+        String moduleName) throws IOException {
+        
+        String methodName = "verifyExpandedContents";
+
+        String packedPath = serverRoot;
+        if ( includeUsr ) {
+            packedPath += "/usr";
+        }
+        packedPath +=
+            "/servers/" + serverName + '/' +
+            getAppsTargetDir() + '/' +
+            moduleName;
+
+        String unpackedPrefix = serverRoot;
+        if ( includeUsr ) {
+            unpackedPrefix += "/usr";
+        }
+        unpackedPrefix +=
+            "/servers/" + serverName + '/' +
+            getAppsTargetDir() + "/expanded/" +
+            moduleName + '/';
+        int unpackedPrefixLen = unpackedPrefix.length();
+
+        System.out.println(methodName + ":  Packed archive [ " + packedPath + " ]");
+        System.out.println(methodName + ":  Unpacked archive [ " + unpackedPrefix + " ]");
+
+        Map<String, Integer> packedMapping = null;
+        Map<String, Integer> unpackedMapping = null;
+
+        try ( ZipFile packageZip = new ZipFile(archivePath) ) {
+            int unpackedOffset = 0;
+
+            String lastEntry = null;
+            int lastSlash = -1;
+            
+            Enumeration<? extends ZipEntry> entries = packageZip.entries();
+            while ( entries.hasMoreElements() ) {
+                ZipEntry entry = entries.nextElement();
+                String entryName = entry.getName();
+                int slash = entryName.lastIndexOf('/');
+                boolean doLog = (
+                    (lastEntry == null) ||
+                    (slash != lastSlash) ||
+                    !entryName.regionMatches(0, lastEntry, 0, lastSlash) );
+                if ( doLog ) {
+                    lastEntry = entryName;
+                    lastSlash = slash;
+                    System.out.println("Entry [ " + entryName + " ]");
+                }                
+
+                if ( entryName.equals(packedPath) ) {
+                    if ( packedMapping != null ) {
+                        fail("Archive [ " + archivePath + " ] has duplicates of entry [ " + packedPath + " ]");
+                        return;
+                        // Never used; added to avoid a compiler null value warning:
+                        // The compiler doesn't know that 'fail' never returns.                        
+                    }
+                    packedMapping = new HashMap<String, Integer>();
+
+                    try ( InputStream nestedStream = packageZip.getInputStream(entry);
+                          ZipInputStream nestedZipStream = new ZipInputStream(nestedStream); ) {
+
+                        ZipEntry nestedEntry;
+                        for ( int offset = 0;
+                              (nestedEntry = nestedZipStream.getNextEntry()) != null;
+                              offset++ ) { 
+                            packedMapping.put( nestedEntry.getName(), Integer.valueOf(offset) ); 
+                        }
+                    }
+
+                } else {
+                    // '<=' is deliberate: We don't want the entry for
+                    // the directory of the unpacked archive.
+                    if ( entryName.length() <= unpackedPrefixLen ) {
+                        // ignore this entry
+                    } else  if ( entryName.startsWith(unpackedPrefix) ) {
+                        if ( unpackedMapping == null ) {
+                            unpackedMapping = new HashMap<String, Integer>();
+                        }
+                        String suffix = entryName.substring(unpackedPrefix.length());
+                        unpackedMapping.put(suffix, Integer.valueOf(unpackedOffset++));
+                    } else {
+                        // ignore this entry ...
+                    }
+                }
+            }
+        }
+        
+        if ( unpackedMapping == null ) {
+            fail("Archive [ " + archivePath + " ] has no unpacked module entries [ " + unpackedPrefix + " ]");
+            return;
+            // Never used; added to avoid a compiler null value warning:
+            // The compiler doesn't know that 'fail' never returns.
+        }
+
+        if ( packedMapping == null ) {
+            fail("Archive [ " + archivePath + " ] has no packed module [ " + packedPath + " ]");
+            return;
+            // Never used; added to avoid a compiler null value warning:
+            // The compiler doesn't know that 'fail' never returns.
+        }
+
+        int failures = 0;
+
+        for ( Map.Entry<String, Integer> packedEntry : packedMapping.entrySet() ) {
+            String packedName = packedEntry.getKey();
+            Integer packedOffset = packedEntry.getValue();
+            
+            Integer unpackedOffset = unpackedMapping.get(packedName);
+            
+            if ( unpackedOffset == null ) {
+                System.out.println("Extra packed entry [ " + packedName + " ]");
+                failures++;
+            } else {
+                if ( packedOffset.intValue() != unpackedOffset.intValue() ) {
+                    System.out.println("Packed entry [ " + packedName + " ] changed offset from [ " + packedOffset.intValue() + " ] to [ " + unpackedOffset.intValue() + " ]");
+                    failures++;
+                }
+            }
+        }
+        
+        for ( String unpackedName : unpackedMapping.keySet() ) {
+            if ( !packedMapping.containsKey(unpackedName) ) {
+                System.out.println("Extra unpacked entry [ " + unpackedName + " ]");
+                failures++;
+            } else {
+                // The offsets were already verified
+            }
+        }
+            
+        if ( failures != 0 ) {
+            fail("Archive [ " + archivePath + " ] packed archive [ " + packedPath + " ] has [ " + failures + " ] content errors"); 
+        }
+    }
+    
+    
+    protected void verifyFilteredContents(
+        String archivePath,
+        String serverRoot, boolean includeUsr, String serverName,
+        String moduleName,
+        Collection<String> requiredEntries,
+        Collection<String> forbiddenEntries) throws IOException {
+
+        String methodName = "verifyFilteredContents";
+
+        String packedPath = serverRoot;
+        if ( includeUsr ) {
+            packedPath += "/usr";
+        }
+        packedPath +=
+            "/servers/" + serverName + '/' +
+            getAppsTargetDir() + '/' +
+            moduleName;
+
+        String unpackedPrefix = serverRoot;
+        if ( includeUsr ) {
+            unpackedPrefix += "/usr";
+        }
+        unpackedPrefix +=
+            "/servers/" + serverName + '/' +
+            getAppsTargetDir() + "/expanded/" +
+            moduleName + '/';
+        int unpackedPrefixLen = unpackedPrefix.length();
+
+        System.out.println(methodName + ":  Packed archive [ " + packedPath + " ]");
+        System.out.println(methodName + ":  Unpacked archive [ " + unpackedPrefix + " ]");
+
+        System.out.println(methodName + ":  Forbidden entries: " + forbiddenEntries);
+        System.out.println(methodName + ":  Required entries: " + requiredEntries);
+
+        Set<String> forbidden = new HashSet<String>(forbiddenEntries);
+        Set<String> forbiddenButPresentPacked = null;
+        Set<String> forbiddenButPresentUnpacked = null;
+
+        Set<String> requiredButAbsentPacked = new HashSet<String>(requiredEntries);
+        Set<String> requiredButAbsentUnpacked = new HashSet<String>(requiredEntries);
+
+        try ( ZipFile packageZip = new ZipFile(archivePath) ) {
+            String lastEntry = null;
+            int lastSlash = -1;
+                
+            Enumeration<? extends ZipEntry> entries = packageZip.entries();
+            while ( entries.hasMoreElements() ) {
+                ZipEntry entry = entries.nextElement();
+                String entryName = entry.getName();
+                int slash = entryName.lastIndexOf('/');
+                boolean doLog = (
+                    (lastEntry == null) ||
+                    (slash != lastSlash) ||
+                    !entryName.regionMatches(0, lastEntry, 0, lastSlash) );
+                if ( doLog ) {
+                    lastEntry = entryName;
+                    lastSlash = slash;
+                    System.out.println("Entry [ " + entryName + " ]");
+                }                
+
+                if ( entryName.equals(packedPath) ) {
+                    try ( InputStream nestedStream = packageZip.getInputStream(entry);
+                          ZipInputStream nestedZipStream = new ZipInputStream(nestedStream); ) {
+
+                        ZipEntry nestedEntry;
+                        while ( (nestedEntry = nestedZipStream.getNextEntry()) != null ) {
+                            String nestedEntryName = nestedEntry.getName();
+                            if ( forbidden.contains(nestedEntryName) ) {
+                                if ( forbiddenButPresentPacked == null ) {
+                                    forbiddenButPresentPacked = new HashSet<String>(1);
+                                }
+                                forbiddenButPresentPacked.add(nestedEntryName);
+                            }
+                            requiredButAbsentPacked.remove(nestedEntryName);
+                        }
+                    }
+                } else {
+                    // '<=' is deliberate: We don't want the entry for
+                    // the directory of the unpacked archive.
+                    if ( entryName.length() <= unpackedPrefixLen ) {
+                        // ignore this entry
+                    } else  if ( entryName.startsWith(unpackedPrefix) ) {
+                        String suffix = entryName.substring(unpackedPrefix.length());
+                        if ( forbidden.contains(suffix) ) {
+                            if ( forbiddenButPresentUnpacked == null ) {
+                                forbiddenButPresentUnpacked = new HashSet<String>(1);
+                            }                            
+                            forbiddenButPresentUnpacked.add(suffix);
+                        }
+                        requiredButAbsentUnpacked.remove(suffix);
+
+                    } else {
+                        // ignore this entry ...
+                    }
+                }
+            }
+
+            String error1 = null;
+            if ( forbiddenButPresentPacked != null ) {
+                error1 = "Archive has extra packed module entries [ " + packedPath + " ]: " + forbiddenButPresentPacked;
+                System.out.println(error1);
+            }
+            String error2 = null;
+            if ( !requiredButAbsentPacked.isEmpty() ) {
+                error2 = "Archive has missing packed module entries [ " + packedPath + " ]: " + requiredButAbsentPacked;
+                System.out.println(error2);                
+            }
+            String error3 = null;
+            if ( forbiddenButPresentUnpacked != null ) {
+                error3 = "Archive has extra unpacked module entries [ " + unpackedPrefix + " ]: " + forbiddenButPresentUnpacked;
+                System.out.println(error3);
+            }
+            String error4 = null;
+            if ( !requiredButAbsentUnpacked.isEmpty() ) {
+                error4 = "Archive has missing unpacked module entries [ " + unpackedPrefix + " ]: " + requiredButAbsentUnpacked;
+                System.out.println(error4);
+            }            
+            
+            if ( error1 != null ) {
+                fail(error1);
+            }
+            if ( error2 != null ) {
+                fail(error2);
+            }
+            
+            if ( error3 != null ) {
+                fail(error3);
+            }            
+            if ( error4 != null ) {
+                fail(error4);
+            }
+        }    
     }
 
     //

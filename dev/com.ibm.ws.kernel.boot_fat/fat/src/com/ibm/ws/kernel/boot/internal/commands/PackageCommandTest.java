@@ -521,7 +521,7 @@ public class PackageCommandTest {
         };
         verifyPackage(server, packageCmd, packageName, packagePath);
     }
-
+    
     /**
      * This tests that a .tar.gz file type is created when specified by --archive.
      */
