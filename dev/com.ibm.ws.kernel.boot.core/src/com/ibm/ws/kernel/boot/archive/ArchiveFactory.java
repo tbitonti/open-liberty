@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2016 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,7 +24,12 @@ import com.ibm.ws.kernel.boot.Debug;
 import com.ibm.ws.kernel.boot.security.WLPDynamicPolicy;
 
 /**
- * Create the archive.
+ * Archive factory API.  The main factory methods are
+ * {@link #create(File)}, {@link #create(String)}, and
+ * {@link #create(File, boolean)}.
+ * 
+ * The archive type is a subtype of {@link Closeable}.  After
+ * being created, an archive must be closed. 
  */
 public class ArchiveFactory {
     /*
@@ -32,12 +37,20 @@ public class ArchiveFactory {
      * This is done so that archive subclasses (such as ZipArchive) that depend on third party libraries (such
      * as Apache Commons Compress) do not inadvertently make those libraries available to Liberty server and/or
      * application code by being in the JVM's application classpath.
+     * This class uses a URLClassLoader and reflection to provide the
+     * implementations of the Archive interface.
      *
      * Archive implementations should reside in the com.ibm.ws.kernel.boot.archive bundle, and their class names
+     * This is done so that archive subclasses (such as ZipArchive) that
+     * depend on third party libraries (such as Apache Commons Compress)
+     * do not inadvertently make those libraries available to Liberty
+     * server and/or application code by being in the JVM's application
+     * class path.
+     *
+     * Archive implementations must reside in the bundle
+     * "com.ibm.ws.kernel.boot.archive", and their class names
      * should be declared here.
      */
-    private final static String PAX_ARCHIVE_CLASS_NAME = "com.ibm.ws.kernel.boot.archive.internal.PaxArchive";
-    private final static String ZIP_ARCHIVE_CLASS_NAME = "com.ibm.ws.kernel.boot.archive.internal.ZipArchive";
 
     private final static URL ARCHIVE_IMPL_BUNDLE_URL;
     static {
@@ -54,6 +67,35 @@ public class ArchiveFactory {
         ARCHIVE_IMPL_BUNDLE_URL = u;
     }
 
+    // PAX: Portable Archive Exchange file created by pax, a command line utility
+    // used for creating and extracting archives; may store the archive in one
+    // of pax's several supported formats, which include bcpio, cpio, sv4cpio,
+    // sv4crc, tar, and ustar.
+    //
+    // Ref: https://fileinfo.com/extension/pax
+
+    /** Implementation class name for creating PAX archives. */
+    private final static String PAX_ARCHIVE_CLASS_NAME =
+        "com.ibm.ws.kernel.boot.archive.internal.PaxArchive";
+
+    /** Implementation class name for creating ZIP archives. */
+    private final static String ZIP_ARCHIVE_CLASS_NAME =
+        "com.ibm.ws.kernel.boot.archive.internal.ZipArchive";
+
+    /**
+     * Archive factory API: Create an archive.
+     * 
+     * This factory method does not adjust the security policy.  If that
+     * is to be done, use instead {@link #create(File, boolean)}.
+     * 
+     * @param archivePath The path to the file which is to be created.
+     *     This must be an absolute path.
+     *
+     * @return The new archive.
+     *
+     * @throws IOException Thrown if the archive could not be created.
+     *     This may be a reflection exception, wrapped into an IOException.
+     */    
     public static Archive create(final String archivePath) throws IOException {
         File archiveFile = new File(archivePath);
         return create(archiveFile);
@@ -81,16 +123,19 @@ public class ArchiveFactory {
         } catch (Exception ex) {
             throw new IOException(ex);
         }
-
     }
 
     /**
-     * Perform the create by applying the archive impl to the security policy - package minify
+     * Archive factory API.  Create an archive.  If requested,
+     * add the archive bundle URL to the security policy.
+     * See {@link Policy#setPolicy(Policy)}, and
+     * {@link WLPDynamicPolicy}.
      *
-     * @param archiveFile
-     * @param j2security
-     * @return
-     * @throws IOException
+     * @param archiveFile The file which is to be created.
+     * @param j2security Control parameter: Tells if the
+     *    security policy is to be updated.
+     *
+     * @return The new archive.
      */
     public static Archive create(final File archiveFile, boolean j2security) throws IOException {
         Archive arch = null;
