@@ -17,6 +17,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -542,12 +543,12 @@ public class PackageProcessor implements ArchiveProcessor {
             serverSharedDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + "resources" + REGEX_SEPARATOR + "security" + REGEX_SEPARATOR + "key.jks"));
             serverSharedDirConfig.exclude(Pattern.compile(REGEX_SEPARATOR + "resources" + REGEX_SEPARATOR + "security" + REGEX_SEPARATOR + "key.p12"));
 
-            /*
-             * exclude loose xml files from shared directory
-             */
+            // Exclude loose xml files from shared directory
+            URI sharedDirUri = sharedDir.toURI();
             for (File app : looseFiles) {
-                String appName = "." + app.getName().replace(".", "\\.");
-                if (FileUtils.isUnderDirectory(app, sharedDir)) {
+                URI appUri = app.toURI();
+                if (FileUtils.isUnderDirectory(appUri, sharedDirUri)) {
+                    String appName = "." + app.getName().replace(".", "\\.");
                     serverSharedDirConfig.exclude(Pattern.compile(appName));
                 }
             }
