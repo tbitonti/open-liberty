@@ -12,55 +12,64 @@ package com.ibm.ws.ras.instrument.internal.model;
 
 public class PackageInfo {
 
-    private String packageName;
-    private String internalPackageName;
-    private boolean trivial;
-    private TraceOptionsData traceOptionsData = new TraceOptionsData();
-
-    public PackageInfo() {}
+    public PackageInfo() {
+    	this(null, false, null);
+    }
 
     public PackageInfo(String packageName, boolean trivial, TraceOptionsData traceOptionsData) {
-        setPackageName(packageName);
-        this.trivial = trivial;
-        if (traceOptionsData != null) {
-            this.traceOptionsData = traceOptionsData;
-        }
+    	this.setPackageName(packageName);
+        this.setTrivial(trivial);
+        this.setTraceOptionsData(traceOptionsData);
     }
 
-    public boolean isTrivial() {
-        return trivial;
+    public String toString() {
+        StringBuilder sb = new StringBuilder( super.toString() );
+        sb.append(";packageName=").append(packageName);
+        sb.append(",trivial=").append(trivial);
+        sb.append(",traceOptionsData=").append(traceOptionsData);
+        return sb.toString();
     }
 
-    public void setTrivial(boolean trivial) {
-        this.trivial = trivial;
-    }
+    //
 
-    public String getInternalPackageName() {
-        return internalPackageName;
+    private String packageName;
+    private String internalPackageName;
+
+    public void setPackageName(String packageName) {
+        this.packageName = ((packageName == null) ? null : packageName.replace('/', '.'));
+        this.internalPackageName = ((packageName == null) ? null : packageName.replace('.', '/'));
     }
 
     public String getPackageName() {
         return packageName;
     }
 
-    public void setPackageName(String packageName) {
-        this.packageName = packageName.replaceAll("/", "\\.");
-        this.internalPackageName = packageName.replaceAll("\\.", "/");
+    public String getInternalPackageName() {
+        return internalPackageName;
     }
 
-    public TraceOptionsData getTraceOptionsData() {
-        return traceOptionsData;
+    //
+
+    private boolean trivial;
+    
+    public void setTrivial(boolean trivial) {
+        this.trivial = trivial;
     }
+
+    public boolean isTrivial() {
+        return trivial;
+    }
+
+    //
+
+    private TraceOptionsData traceOptionsData;
 
     public void setTraceOptionsData(TraceOptionsData traceOptionsData) {
-        this.traceOptionsData = traceOptionsData;
+        this.traceOptionsData =
+        	( (traceOptionsData != null) ? traceOptionsData : new TraceOptionsData() ); 
     }
-
-    public String toString() {
-        StringBuilder sb = new StringBuilder(super.toString());
-        sb.append(";packageName=").append(packageName);
-        sb.append(",trivial=").append(trivial);
-        sb.append(",traceOptionsData=").append(traceOptionsData);
-        return sb.toString();
+    
+    public TraceOptionsData getTraceOptionsData() {
+        return traceOptionsData;
     }
 }

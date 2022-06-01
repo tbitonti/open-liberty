@@ -43,6 +43,10 @@ public class TraceConfigClassVisitor extends ClassVisitor {
     protected TraceOptionsAnnotationVisitor traceOptionsAnnotationVisitor;
     protected TraceObjectFieldAnnotationVisitor traceObjectFieldAnnotationVisitor;
 
+    public TraceConfigClassVisitor() {
+        super(Opcodes.ASM9);
+    }
+    
     public TraceConfigClassVisitor(ClassVisitor cv) {
         super(Opcodes.ASM9, cv);
     }

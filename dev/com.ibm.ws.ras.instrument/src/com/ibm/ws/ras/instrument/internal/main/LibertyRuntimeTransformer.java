@@ -43,27 +43,70 @@ import com.ibm.ws.ras.instrument.internal.bci.LibertyTracingClassAdapter;
  * the code in classes that are included in the enabled trace spec.
  */
 public class LibertyRuntimeTransformer implements ClassFileTransformer {
+    private final static TraceComponent tc =
+    	Tr.register(LibertyRuntimeTransformer.class, NLSConstants.GROUP, NLSConstants.LOGGING_NLS);
 
-    /**
-     * TraceComponent for this class. This is required for debug.
-     */
-    private final static TraceComponent tc = Tr.register(LibertyRuntimeTransformer.class, NLSConstants.GROUP, NLSConstants.LOGGING_NLS);
+    /** Control value: Enable or disable entry/exit trace for {@link #transform}. */
 
-    /**
-     * Indication that the host is an IBM VM.
-     */
-    @SuppressWarnings("unused")
-    private final static boolean isIBMVirtualMachine = System.getProperty("java.vm.name", "unknown").contains("IBM J9") ||
-                                                       System.getProperty("java.vm.name", "unknown").contains("OpenJ9");
+    @Deprecated
+    public static final String DETAILED_TRACE_PROPERTY_NAME_OLD =
+       "com.ibm.ws.logging.instrumentation.detail.enabled";
+    @Deprecated
+    private static final boolean detailedTraceOld =
+    	Boolean.getBoolean(DETAILED_TRACE_PROPERTY_NAME_OLD);
+    static {
+    	if ( detailedTraceOld ) {
+    		System.err.println("Detailed trace injection logging is enabled [ " + DETAILED_TRACE_PROPERTY_NAME_OLD + " ]");
+    	}
+    }
+    
+    public static final String DETAILED_TRACE_PROPERTY_NAME =
+    	"com.ibm.ws.logging.instrumentation.detail.enabled";    
+    private static final boolean detailedTraceNew =    
+    	Boolean.getBoolean(DETAILED_TRACE_PROPERTY_NAME);
+    static {
+    	if ( detailedTraceNew ) {
+    		System.err.println("Detailed trace injection logging is enabled [ " + DETAILED_TRACE_PROPERTY_NAME + " ]");
+    	}
+    }
 
-    /**
-     * Indication that the host is a Sun VM.
-     */
-    @SuppressWarnings("unused")
-    private final static boolean isSunVirtualMachine = System.getProperty("java.vm.name", "unknown").contains("HotSpot");
+    private static final boolean detailedTrace = detailedTraceOld || detailedTraceNew;
 
-    /** Issue detailed entry/exit trace for class transforms if this is true. */
-    private static final boolean detailedTransformTrace = Boolean.getBoolean("com.ibm.ws.logging.instrumentation.detail.enabled");
+    /** Control value: Display detail information for these clase classes. */
+    
+    public static final String DETAIL_CLASSES_PROPERTY_NAME =
+    	"com.ibm.ws.logging.instrumentation.detail.classes";
+    private static final String detailClasses =
+    	System.getProperty(DETAIL_CLASSES_PROPERTY_NAME, null);
+    static {
+    	if ( detailClasses != null ) {
+    		System.err.println("Detailed trace injection logging is enabled for the classes [ " + DETAIL_CLASSES_PROPERTY_NAME + " ]");
+    	}
+    }
+
+    private static final String[] detailPrefixes;
+    
+    static {
+    	if ( (detailClasses == null) || detailClasses.isEmpty() ) {
+    		detailPrefixes = null;
+    	} else {
+    		detailPrefixes = detailClasses.split(";");
+    	}
+    }
+    
+    private static boolean doShowDetails(String className) {
+    	if ( detailPrefixes == null ) {
+    		return false;
+    	}
+    	for ( String prefix : detailPrefixes ) {
+    		if ( className.startsWith(prefix) ) {
+    			return true;
+    		}
+    	}
+    	return false;
+    }
+
+    //
 
     /**
      * The {@link java.lang.instrument.Instrumentation} reference obtained from
@@ -75,7 +118,7 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
      * The singleton instance of this class that has been registered with
      * the transformer.
      */
-    private static LibertyRuntimeTransformer registeredTransformer = null;
+    private static LibertyRuntimeTransformer registeredTransformer;
 
     /**
      * A map of classes to their associated {@link TraceComponent}s. This is
@@ -83,29 +126,47 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
      * that are not initiated by this class.
      */
     // TODO: Multiple trace components for a single class
-    private static Map<Class<?>, WeakReference<TraceComponent>> traceComponentByClass = Collections.synchronizedMap(new WeakHashMap<Class<?>, WeakReference<TraceComponent>>());
+    private static Map<Class<?>, WeakReference<TraceComponent>> traceComponentByClass =
+    	Collections.synchronizedMap(new WeakHashMap<Class<?>, WeakReference<TraceComponent>>());
 
-    // FIXME: This is a workaround for the J9 hot-code-replace bug
-    /**
-     * An executor that is responsible for transforming
-     */
-   // private static ExecutorService retransformExecutor = isHotCodeReplaceBroken() ? Executors.newSingleThreadExecutor() : null;
+    //
 
     /**
      * Indication that hot-code-replace is not available or should not be used.
      * Class transforms will be done aggressively as classes are defined to the
      * VM.
      */
-    private static boolean injectAtTransform = false;
+    private static boolean injectAtTransform;
+
+    /**
+     * Indicate whether or not to aggressively inject trace at class definition.
+     *
+     * @param injectAtTransform true if classes should be transformed at definition
+     */
+    protected static void setInjectAtTransform(boolean injectAtTransform) {
+        LibertyRuntimeTransformer.injectAtTransform = injectAtTransform;
+        if (injectAtTransform) {
+            addTransformer();
+        }
+    }
+
+    //
 
     /**
      * Flag that indicates we should attempt to work around an emma
      * instrumentation issue by removing the bad local variable table
      * that was left behind.
      */
-    private static boolean skipDebugData = false;
+    private static boolean skipDebugData;
     
-    private static final Boolean isJDK8WithHotReplaceBug = LibertyJava8WorkaroundRuntimeTransformer.checkJDK8WithHotReplaceBug() ? Boolean.TRUE :  Boolean.FALSE;
+    protected static void setSkipDebugData(boolean skipDebugData) {
+        LibertyRuntimeTransformer.skipDebugData = skipDebugData;
+    }
+
+    //
+
+    private static final Boolean isJDK8WithHotReplaceBug =
+    	LibertyJava8WorkaroundRuntimeTransformer.checkJDK8WithHotReplaceBug() ? Boolean.TRUE :  Boolean.FALSE;
 
     /**
      * Set the {@link java.lang.instrument.Instrumenation} instance to use for
@@ -114,9 +175,10 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
      * @param inst the {@code Instrumentation} reference obtained by RAS
      */
     public static synchronized void setInstrumentation(Instrumentation inst) {
-        if (tc.isEntryEnabled())
+        if (tc.isEntryEnabled()) {
             Tr.entry(tc, "setInstrumentation", inst);
-
+        }
+        
         instrumentation = inst;
 
         if (instrumentation == null) {
@@ -133,28 +195,9 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
             }
         }
 
-        if (tc.isEntryEnabled())
+        if (tc.isEntryEnabled()) {
             Tr.exit(tc, "setInstrumentation");
-    }
-
-    /**
-     * Indicate whether or not to aggressively inject trace at class definition.
-     *
-     * @param injectAtTransform true if classes should be transformed at definition
-     */
-    protected static void setInjectAtTransform(boolean injectAtTransform) {
-        LibertyRuntimeTransformer.injectAtTransform = injectAtTransform;
-        if (injectAtTransform) {
-            addTransformer();
         }
-    }
-
-    /**
-     * Indicate whether or not class debug data should be preserved in the
-     * transform.
-     */
-    protected static void setSkipDebugData(boolean skipDebugData) {
-        LibertyRuntimeTransformer.skipDebugData = skipDebugData;
     }
 
     /**
@@ -162,7 +205,7 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
      * instrumentation {@link java.lang.instrument.ClassFileTransformer} list.
      */
     private static synchronized void addTransformer() {
-        if (detailedTransformTrace && tc.isEntryEnabled())
+        if (detailedTrace && tc.isEntryEnabled())
             Tr.entry(tc, "addTransformer");
 
         if (registeredTransformer == null && instrumentation != null) {
@@ -170,7 +213,7 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
             instrumentation.addTransformer(registeredTransformer, true);
         }
 
-        if (detailedTransformTrace && tc.isEntryEnabled())
+        if (detailedTrace && tc.isEntryEnabled())
             Tr.exit(tc, "addTransformer");
     }
 
@@ -218,18 +261,7 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
             if ((traceClass != null) && (traceClass != LibertyRuntimeTransformer.class)) {
                 LibertyRuntimeTransformer.addTransformer();
                 traceComponentByClass.put(traceClass, new WeakReference<TraceComponent>(traceComponent));
-                //if (retransformExecutor == null) {
                     retransformClass(traceClass);
-//                } else {
-//                    // IBM Hot Code Replace Bug:
-//                    // Run async on another thread so this thread can return from <clinit>
-//                    retransformExecutor.execute(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            retransformClass(traceClass);
-//                        }
-//                    });
-//                }
             }
         }
     }
@@ -243,7 +275,7 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
      * @param clazz the class that needs to be instrumented with entry/exit trace
      */
     private final static void retransformClass(Class<?> clazz) {
-        if (detailedTransformTrace && tc.isEntryEnabled())
+        if (detailedTrace && tc.isEntryEnabled())
             Tr.entry(tc, "retransformClass", clazz);
 
         try {
@@ -252,7 +284,7 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
             Tr.error(tc, "INSTRUMENTATION_TRANSFORM_FAILED_FOR_CLASS_2", clazz.getName(), t);
         }
 
-        if (detailedTransformTrace && tc.isEntryEnabled())
+        if (detailedTrace && tc.isEntryEnabled())
             Tr.exit(tc, "retransformClass");
     }
     
@@ -270,7 +302,7 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
      *             the <code>InputStream</code>
      */
     public static byte[] transform(byte[] bytes, boolean skipIfNotPreprocessed) throws IOException {
-        if (detailedTransformTrace && tc.isEntryEnabled())
+        if (detailedTrace && tc.isEntryEnabled())
             Tr.entry(tc, "transform");
         
         ClassReader reader = new ClassReader(bytes);
@@ -295,14 +327,14 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
         }
 
         // Provide a whole lot of detailed information on the resulting class
-        if (detailedTransformTrace && tc.isDumpEnabled() && tracingClassAdapter.isClassModified()) {
+        if (detailedTrace && tc.isDumpEnabled() && tracingClassAdapter.isClassModified()) {
             Tr.dump(tc, "Transformed class", sw);
         }
 
         // Try to short circuit when the class didn't change
         byte[] result = tracingClassAdapter.isClassModified() ? writer.toByteArray() : null;
 
-        if (detailedTransformTrace && tc.isEntryEnabled())
+        if (detailedTrace && tc.isEntryEnabled())
             Tr.exit(tc, "transform", result);
         return result;
     }
@@ -321,7 +353,8 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
                             Class<?> classBeingRedefined,
                             ProtectionDomain protectionDomain,
                             byte[] classfileBuffer) throws IllegalClassFormatException {
-        if (detailedTransformTrace && tc.isEntryEnabled())
+    	
+        if (detailedTrace && tc.isEntryEnabled())
             Tr.entry(this, tc, "transform", loader, className, classBeingRedefined, protectionDomain);
 
         byte[] newClassBytes = null;
@@ -341,7 +374,7 @@ public class LibertyRuntimeTransformer implements ClassFileTransformer {
             }
         }
 
-        if (detailedTransformTrace && tc.isEntryEnabled())
+        if (detailedTrace && tc.isEntryEnabled())
             Tr.exit(this, tc, "transform", newClassBytes);
         return newClassBytes;
     }
