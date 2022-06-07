@@ -37,7 +37,6 @@ import com.ibm.ws.ras.instrument.internal.model.PackageInfo;
  * processing primitives needed by command line tools and ant tasks.
  */
 public abstract class AbstractInstrumentation {
-
     /**
      * The list of class files to process.
      */
@@ -325,7 +324,7 @@ public abstract class AbstractInstrumentation {
      */
     public void instrumentClassFile(File classfile) throws IOException {
         FileInputStream fis = new FileInputStream(classfile);
-        byte[] bytes = transform(fis);
+        byte[] bytes = transform(classfile.getPath(), fis);
         fis.close();
         fis = null;
 
@@ -366,7 +365,7 @@ public abstract class AbstractInstrumentation {
                 byte[] transformedClass = null;
 
                 if (oldEntry.getName().endsWith(".class")) {
-                    transformedClass = transform(zis);
+                    transformedClass = transform(oldEntry.getName(), zis);
                     if (transformedClass == null) {
                         zis = zipFile.getInputStream(oldEntry);
                     }
@@ -486,6 +485,6 @@ public abstract class AbstractInstrumentation {
      * @throws IOException if an error is encountered while reading from
      *             the <code>InputStream</code>
      */
-    protected abstract byte[] transform(InputStream classfileStream) throws IOException;
+    protected abstract byte[] transform(String className, InputStream classfileStream) throws IOException;
 
 }
