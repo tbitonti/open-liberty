@@ -10,14 +10,6 @@
  *******************************************************************************/
 package com.ibm.websphere.metatype;
 
-/**
- * A listener for changes to schema or metatype
- */
 public interface SchemaChangeListener {
-    /**
-     * This method is called when schema is updated.
-     * 
-     */
     void schemaUpdated();
-
 }

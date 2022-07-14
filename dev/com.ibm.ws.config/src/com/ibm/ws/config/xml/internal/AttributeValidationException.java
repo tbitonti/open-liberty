@@ -13,49 +13,30 @@ package com.ibm.ws.config.xml.internal;
 import com.ibm.websphere.config.ConfigEvaluatorException;
 import com.ibm.ws.config.xml.internal.metatype.ExtendedAttributeDefinition;
 
-/**
- *
- */
 class AttributeValidationException extends ConfigEvaluatorException {
-
-    /**  */
     private static final long serialVersionUID = -8873485148740653410L;
 
-    private final String validateResult;
-    private final ExtendedAttributeDefinition attributeDefintion;
+    public AttributeValidationException(ExtendedAttributeDefinition definition, String value, String result) {
+        super(result);
+
+        this.definition = definition;
+        this.value = value;
+        this.result = result;
+    }
+
+    private final ExtendedAttributeDefinition definition;
     private final String value;
+    private final String result;
 
-    /**
-     * @param attrDef
-     * @param validateResult
-     * @param validateResult2
-     */
-    public AttributeValidationException(ExtendedAttributeDefinition inAttrDef, String inValue, String inValidateResult) {
-        super(inValidateResult);
-        this.value = inValue;
-        this.attributeDefintion = inAttrDef;
-        this.validateResult = inValidateResult;
-    }
-
-    /**
-     * @return the validateResult
-     */
-    public String getValidateResult() {
-        return validateResult;
-    }
-
-    /**
-     * @return the attributeDefintion
-     */
     public ExtendedAttributeDefinition getAttributeDefintion() {
-        return attributeDefintion;
+        return definition;
     }
 
-    /**
-     * @return
-     */
     public Object getValue() {
         return this.value;
     }
 
+    public String getValidateResult() {
+        return result;
+    }
 }

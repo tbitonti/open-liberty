@@ -15,64 +15,35 @@ import java.util.List;
 import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.config.admin.ConfigID;
 
-/**
- *
- */
 public class SingletonElement extends MetaTypeElement {
 
-    /**
-     * @param nodeName
-     */
     public SingletonElement(String nodeName, String pid) {
         super(nodeName, pid);
     }
 
-    /**
-     * @param configElement
-     * @param factoryPid
-     */
     public SingletonElement(SimpleElement configElement, String pid) {
         super(configElement, pid);
     }
 
-    /**
-     * @param elements
-     * @throws ConfigMergeException
-     */
     public SingletonElement(List<SimpleElement> elements, String pid) throws ConfigMergeException {
-        super(elements.get(0).getNodeName(), pid);
-        this.mergeBehavior = elements.get(0).mergeBehavior;
-        setDocumentLocation(elements.get(0).getDocumentLocation());
-        merge(elements);
+        this(elements.get(0), elements, pid);
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.ibm.ws.config.xml.internal.ConfigElement#isSingleton()
-     */
+    protected SingletonElement(SimpleElement firstElement, List<SimpleElement> elements, String pid) throws ConfigMergeException {
+        super(firstElement.getNodeName(), pid);
+
+        this.setMergeBehavior(firstElement.mergeBehavior);
+        this.setDocumentLocation(firstElement.getDocumentLocation());
+
+        this.merge(elements);
+    }
+
     @Override
     @Trivial
     public boolean isSingleton() {
         return true;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.ibm.ws.config.xml.internal.ConfigElement#isFactory()
-     */
-    @Override
-    @Trivial
-    public boolean isFactory() {
-        return false;
-    }
-
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.ibm.ws.config.xml.internal.ConfigElement#getId()
-     */
     @Override
     @Trivial
     public String getId() {
@@ -81,7 +52,6 @@ public class SingletonElement extends MetaTypeElement {
 
     @Override
     public ConfigID getConfigID() {
-        return new ConfigID(this.pid, null);
+        return new ConfigID(pid);
     }
-
 }

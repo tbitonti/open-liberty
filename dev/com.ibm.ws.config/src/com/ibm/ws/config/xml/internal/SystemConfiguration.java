@@ -45,256 +45,270 @@ import io.openliberty.checkpoint.spi.CheckpointHook;
 /**
  * Represents the configuration of the entire system at runtime, comprising variables, all XML configuration, and all default configuration
  */
+// @formatter:off
 class SystemConfiguration implements CheckpointHook {
-    static final TraceComponent tc = Tr.register(SystemConfiguration.class, XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
+    static final TraceComponent tc =
+        Tr.register(SystemConfiguration.class,
+                    XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
 
-    private final ServerXMLConfiguration serverXMLConfig;
-    private final ConfigVariableRegistry variableRegistry;
-    private final DefaultConfiguration defaultConfiguration;
+    //
 
     private final BundleProcessor bundleProcessor;
 
-    private final ConfigUpdater configUpdater;
-
-    private final ChangeHandler changeHandler;
-    private final ConfigValidator validator;
-    private final ExtendedMetatypeManager extendedMetatypeManager;
-    private final ConfigRetriever configRetriever;
-    private final ConfigRefresher configRefresher;
-
-    /** Tracker for standard runtime handling of the Location admin service */
-    private ServiceTracker<WsLocationAdmin, WsLocationAdmin> locationTracker = null;
-
-    /** Tracker for variable registry service */
-    private ServiceTracker<VariableRegistry, VariableRegistry> variableRegistryTracker = null;
-
-    /** Tracker for metatype registry service */
-    private ServiceTracker<MetaTypeRegistry, MetaTypeRegistry> metatypeRegistryTracker = null;
-
     private final ServiceRegistration<WSConfigurationHelper> wsConfigurationHelperRegistration;
-
     private final ServiceRegistration<CheckpointHook> checkpointHookRegistration;
 
-    SystemConfiguration(BundleContext bc,
+    //
+
+    SystemConfiguration(BundleContext bundleContext,
                         SystemConfigSupport caSupport,
                         ConfigurationAdmin configAdmin) {
 
-        locationTracker = new ServiceTracker<WsLocationAdmin, WsLocationAdmin>(bc, WsLocationAdmin.class.getName(), null);
-        locationTracker.open();
+        this.locationTracker = new ServiceTracker<>(bundleContext, WsLocationAdmin.class.getName(), null);
+        this.locationTracker.open();
+        WsLocationAdmin locationService = this.locationTracker.getService();
 
-        variableRegistryTracker = new ServiceTracker<VariableRegistry, VariableRegistry>(bc, VariableRegistry.class.getName(), null);
-        variableRegistryTracker.open();
+        //
 
-        metatypeRegistryTracker = new ServiceTracker<MetaTypeRegistry, MetaTypeRegistry>(bc, MetaTypeRegistry.class.getName(), null);
-        metatypeRegistryTracker.open();
+        this.variableRegistryTracker = new ServiceTracker<>(bundleContext, VariableRegistry.class.getName(), null);
+        this.variableRegistryTracker.open();
 
-        WsLocationAdmin locationService = locationTracker.getService();
         VariableRegistry variableRegistryService = null;
         try {
-            // Wait indefinitely for the variable registry service to be available
-            variableRegistryService = variableRegistryTracker.waitForService(0);
-        } catch (InterruptedException e) {
+            variableRegistryService = this.variableRegistryTracker.waitForService(0); // Indefinite wait
+        } catch ( InterruptedException e ) {
             // Auto FFDC
         }
 
-        OnError onError = getOnError();
-        if (onError != OnError.WARN) {
-            // If the value of onError is the default (WARN) instantiate lazily
+        OnError onError = getOnError(variableRegistryService);
+        if ( onError != OnError.WARN ) {
             ErrorHandler.INSTANCE.setOnError(onError);
         }
 
-        ServiceReference<LibertyProcess> procRef = bc.getServiceReference(LibertyProcess.class);
-        LibertyProcess libertyProcess = bc.getService(procRef);
-        ConfigVariableRegistry variableRegistry = new ConfigVariableRegistry(variableRegistryService, libertyProcess.getArgs(), bc.getDataFile("variableCacheData"), locationService);
+        ServiceReference<LibertyProcess> processRef =
+            bundleContext.getServiceReference(LibertyProcess.class);
+        LibertyProcess libertyProcess = bundleContext.getService(processRef);
+        this.configVariableRegistry =
+            new ConfigVariableRegistry( variableRegistryService,
+                                        libertyProcess.getArgs(),
+                                        bundleContext.getDataFile("variableCacheData"),
+                                        locationService );
+        //
 
-        MetaTypeRegistry metatypeRegistry = metatypeRegistryTracker.getService();
+        this.metatypeRegistryTracker =
+            new ServiceTracker<>(bundleContext, MetaTypeRegistry.class.getName(), null);
+        this.metatypeRegistryTracker.open();
+        MetaTypeRegistry metatypeRegistry = this.metatypeRegistryTracker.getService();
 
         this.extendedMetatypeManager = new ExtendedMetatypeManager(metatypeRegistry, configAdmin);
+        this.extendedMetatypeManager.init();
 
-        this.configRetriever = new ConfigRetriever(caSupport, configAdmin, variableRegistry);
-        this.validator = new ConfigValidator(metatypeRegistry, variableRegistry);
+        //
 
-        XMLConfigParser parser = new XMLConfigParser(locationService, variableRegistry);
-        this.serverXMLConfig = new ServerXMLConfiguration(bc, locationService, parser);
+        XMLConfigParser parser = new XMLConfigParser(locationService, this.configVariableRegistry);
+        this.serverXMLConfig = new ServerXMLConfiguration(bundleContext, locationService, parser);
+        this.defaultConfig = new DefaultConfiguration(parser);
 
-        ConfigEvaluator ce = new ConfigEvaluator(configRetriever, metatypeRegistry, variableRegistry, this.serverXMLConfig);
+        this.configRetriever = new ConfigRetriever(caSupport, configAdmin, this.configVariableRegistry);
+        this.configValidator = new ConfigValidator(metatypeRegistry, this.configVariableRegistry);
+        this.configValidator.setConfiguration(this.serverXMLConfig);
 
-        this.configUpdater = new ConfigUpdater(ce, caSupport, variableRegistry, metatypeRegistry, extendedMetatypeManager);
+        ConfigEvaluator ce = new ConfigEvaluator(this.configRetriever, metatypeRegistry, this.configVariableRegistry, this.serverXMLConfig);
+        this.configUpdater = new ConfigUpdater(ce, caSupport, this.configVariableRegistry, metatypeRegistry, this.extendedMetatypeManager);
+        this.configChangeHandler = new ChangeHandler(caSupport, this.configVariableRegistry, this.extendedMetatypeManager, this.configRetriever, this.configValidator, configUpdater, metatypeRegistry);
+        this.configRefresher = new ConfigRefresher(bundleContext, this.configChangeHandler, this.serverXMLConfig, this.configVariableRegistry);
 
-        this.changeHandler = new ChangeHandler(caSupport, variableRegistry, extendedMetatypeManager, configRetriever, validator, configUpdater, metatypeRegistry);
+        this.bundleProcessor =
+            new BundleProcessor(bundleContext, this, locationService, this.configUpdater, this.configChangeHandler, this.configValidator, this.configRetriever);
 
-        this.variableRegistry = variableRegistry;
-        this.defaultConfiguration = new DefaultConfiguration(parser);
-
-        this.validator.setConfiguration(serverXMLConfig);
-
-        bundleProcessor = new BundleProcessor(bc, this, locationService, configUpdater, changeHandler, validator, configRetriever);
-
-        this.configRefresher = new ConfigRefresher(bc, changeHandler, serverXMLConfig, variableRegistry);
-
-        extendedMetatypeManager.init();
-
-        // Create and register WSConfigurationHelper
-        WSConfigurationHelper wsConfigHelper = new WSConfigurationHelperImpl(metatypeRegistry, ce, bundleProcessor);
-        wsConfigurationHelperRegistration = bc.registerService(WSConfigurationHelper.class, wsConfigHelper,
-                                                               FrameworkUtil.asDictionary(Collections.singletonMap("service.vendor", "IBM")));
+        WSConfigurationHelper wsConfigHelper =
+            new WSConfigurationHelperImpl(metatypeRegistry, ce, this.bundleProcessor);
+        Dictionary<String, ?> helperProperties =
+            FrameworkUtil.asDictionary( Collections.singletonMap("service.vendor", "IBM") );
+        this.wsConfigurationHelperRegistration =
+            bundleContext.registerService(WSConfigurationHelper.class, wsConfigHelper, helperProperties);
 
         // register restore hook to reprocess config if necessary
         // Service ranking of checkpointHookRegistration needs to be greater than com.ibm.ws.kernel.service.location.internal.Activator.checkpointHookRegistration.
         // This is important in order to maintain the order of running the hooks.
-        checkpointHookRegistration = bc.registerService(CheckpointHook.class, this, FrameworkUtil.asDictionary(Collections.singletonMap(Constants.SERVICE_RANKING, 1000)));
+        Dictionary<String, ?> checkpointProperties =
+            FrameworkUtil.asDictionary(Collections.singletonMap(Constants.SERVICE_RANKING, 1000));
+        this.checkpointHookRegistration =
+            bundleContext.registerService(CheckpointHook.class, this, checkpointProperties);
     }
 
-    @Override
-    public void restore() {
-        if (serverXMLConfig.isModified()) {
-            configRefresher.refreshConfiguration();
-        } else {
-            Map<String, DeltaType> deltaTypes = variableRegistry.variablesChanged();
-            if (!deltaTypes.isEmpty()) {
-                configRefresher.variableRefresh(deltaTypes);
-            }
+    private OnError getOnError(VariableRegistry variableRegistry) {
+        if ( variableRegistry == null ) {
+            return OnError.WARN; // Should never happen
         }
-    }
 
-    private OnError getOnError() {
-
-        VariableRegistry variableRegistry = variableRegistryTracker.getService();
-
-        if (variableRegistry == null) {
-            // Should never happen
-            return OnError.WARN;
-        }
-        OnError onError;
         String onErrorVar = "${" + OnErrorUtil.CFG_KEY_ON_ERROR + "}";
         String onErrorVal = variableRegistry.resolveString(onErrorVar);
-
-        if ((onErrorVal.equals(onErrorVar))) {
-            onError = OnErrorUtil.OnError.WARN; // Default value if not set
-        } else {
-            String onErrorFormatted = onErrorVal.trim().toUpperCase();
-            try {
-                onError = Enum.valueOf(OnErrorUtil.OnError.class, onErrorFormatted);
-                // Correct the variable registry with a validated entry if needed
-                if (!onErrorVal.equals(onErrorFormatted))
-                    variableRegistry.replaceVariable(OnErrorUtil.CFG_KEY_ON_ERROR, onErrorFormatted);
-            } catch (IllegalArgumentException err) {
-                if (tc.isWarningEnabled()) {
-                    Tr.warning(tc, "warn.config.invalid.value", OnErrorUtil.CFG_KEY_ON_ERROR, onErrorVal, OnErrorUtil.CFG_VALID_OPTIONS);
-                }
-                onError = OnErrorUtil.OnError.WARN; // Default value if error
-                variableRegistry.replaceVariable(OnErrorUtil.CFG_KEY_ON_ERROR, OnErrorUtil.OnError.WARN.toString());
-            }
+        if ( onErrorVal.equals(onErrorVar) ) {
+            return OnErrorUtil.OnError.WARN; // Unset: Assign 'WARN' as a default.
         }
+
+        OnError onError;
+
+        String onErrorFormatted = onErrorVal.trim().toUpperCase();
+        try {
+            onError = Enum.valueOf(OnErrorUtil.OnError.class, onErrorFormatted);
+
+        } catch ( IllegalArgumentException err ) {
+            // Unconditionally display a warning:
+            // The error occurred in determining the on-error value!
+            if ( tc.isWarningEnabled() ) {
+                Tr.warning(tc, "warn.config.invalid.value",
+                           OnErrorUtil.CFG_KEY_ON_ERROR, onErrorVal, OnErrorUtil.CFG_VALID_OPTIONS);
+            }
+
+            onError = OnErrorUtil.OnError.WARN; // Error: Assign 'WARN' as a default.
+            onErrorFormatted = onError.toString();
+        }
+
+        // Correct the variable registry with a validated entry if needed
+        if ( !onErrorVal.equals(onErrorFormatted) ) {
+            variableRegistry.replaceVariable(OnErrorUtil.CFG_KEY_ON_ERROR, onErrorFormatted);
+        }
+
         return onError;
     }
 
+    //
+
+    private ServiceTracker<WsLocationAdmin, WsLocationAdmin> locationTracker;
+
+    private ServiceTracker<VariableRegistry, VariableRegistry> variableRegistryTracker;
+    private final ConfigVariableRegistry configVariableRegistry;
+
+    private ServiceTracker<MetaTypeRegistry, MetaTypeRegistry> metatypeRegistryTracker;
+    private final ExtendedMetatypeManager extendedMetatypeManager;
+
+    //
+
+    private final ServerXMLConfiguration serverXMLConfig;
+    private final DefaultConfiguration defaultConfig;
+
+    private final ConfigRetriever configRetriever;
+    private final ConfigValidator configValidator;
+
+    private final ConfigUpdater configUpdater;
+    private final ChangeHandler configChangeHandler;
+    private final ConfigRefresher configRefresher;
+
+    //
+
+    ServerConfiguration getServerConfiguration() {
+        return serverXMLConfig.getConfiguration();
+    }
+
+    ServerConfiguration copyServerConfiguration() {
+        return serverXMLConfig.copyConfiguration();
+    }
+
+    Collection<String> fetchConfigurationFilePaths() {
+        return serverXMLConfig.getFilesToMonitor();
+    }
+
+    BaseConfiguration loadDefaultConfiguration(Bundle bundle)
+        throws ConfigUpdateException, ConfigValidationException {
+
+        return defaultConfig.load(bundle, serverXMLConfig, configVariableRegistry);
+    }
+
+    BaseConfiguration addDefaultConfiguration(String pid, Dictionary<String, String> props)
+        throws ConfigUpdateException {
+
+        return defaultConfig.add(pid, props, serverXMLConfig, configVariableRegistry);
+    }
+
+    BaseConfiguration addDefaultConfiguration(InputStream input)
+        throws ConfigValidationException, ConfigUpdateException {
+
+        return defaultConfig.add(input, serverXMLConfig, configVariableRegistry);
+    }
+
+    //
+
     void start() throws ConfigUpdateException, ConfigValidationException, ConfigParserException {
-        if (serverXMLConfig.hasConfigRoot()) {
+        if ( serverXMLConfig.hasConfigRoot() ) {
             configRefresher.start();
-            serverXMLConfig.loadInitialConfiguration(variableRegistry);
+            serverXMLConfig.loadInitialConfiguration(configVariableRegistry);
         }
 
-        if (serverXMLConfig.isModified() || !variableRegistry.variablesChanged().isEmpty()) {
-            variableRegistry.clearVariableCache();
-            changeHandler.updateAtStartup(serverXMLConfig.getConfiguration());
+        boolean doReprocess;
+        if ( serverXMLConfig.isModified() || !configVariableRegistry.variablesChanged().isEmpty() ) {
+            configVariableRegistry.clearVariableCache();
+            configChangeHandler.updateAtStartup( serverXMLConfig.getConfiguration() );
             serverXMLConfig.setConfigReadTime();
-            bundleProcessor.startProcessor(true);
+            doReprocess = true;
         } else {
-            bundleProcessor.startProcessor(false);
+            doReprocess = false;
         }
+
+        bundleProcessor.startProcessor(doReprocess);
     }
 
     void stop() {
         bundleProcessor.stopProcessor();
         configRefresher.stop();
 
-        // unregister service registrations
-        if (wsConfigurationHelperRegistration != null) {
+        if ( wsConfigurationHelperRegistration != null ) {
             wsConfigurationHelperRegistration.unregister();
         }
-        if (checkpointHookRegistration != null) {
+        if ( checkpointHookRegistration != null ) {
             checkpointHookRegistration.unregister();
         }
 
-        // close trackers
-        if (null != locationTracker) {
+        if ( null != locationTracker ) {
             locationTracker.close();
             locationTracker = null;
         }
-        if (null != variableRegistryTracker) {
+        if ( null != variableRegistryTracker ) {
             variableRegistryTracker.close();
             variableRegistryTracker = null;
         }
-        if (null != metatypeRegistryTracker) {
+        if ( null != metatypeRegistryTracker ) {
             metatypeRegistryTracker.close();
             metatypeRegistryTracker = null;
         }
     }
 
-    ServerConfiguration getServerConfiguration() {
-        return this.serverXMLConfig.getConfiguration();
+    @Override
+    public void restore() {
+        if ( serverXMLConfig.isModified() ) {
+            configRefresher.refreshConfiguration();
+        } else {
+            Map<String, DeltaType> deltaTypes = configVariableRegistry.variablesChanged();
+            if ( !deltaTypes.isEmpty() ) {
+                configRefresher.variableRefresh(deltaTypes);
+            }
+        }
     }
 
-    ServerConfiguration copyServerConfiguration() {
-        return this.serverXMLConfig.copyConfiguration();
-    }
-
-    Collection<String> fetchConfigurationFilePaths() {
-        return this.serverXMLConfig.getFilesToMonitor();
-    }
-
-    BaseConfiguration loadDefaultConfiguration(Bundle bundle) throws ConfigUpdateException, ConfigValidationException {
-        return defaultConfiguration.load(bundle, serverXMLConfig, variableRegistry);
-    }
-
-    /**
-     * Add configuration to the default configuration add runtime
-     *
-     * @param pid
-     * @param props
-     * @return
-     */
-    BaseConfiguration addDefaultConfiguration(String pid, Dictionary<String, String> props) throws ConfigUpdateException {
-        return defaultConfiguration.add(pid, props, serverXMLConfig, variableRegistry);
-    }
-
-    /**
-     * Add configuration to the default configuration at runtime using a url
-     *
-     * @param pid
-     * @param props
-     * @return
-     * @throws ConfigUpdateException
-     * @throws ConfigValidationException
-     */
-    BaseConfiguration addDefaultConfiguration(InputStream defaultConfig) throws ConfigValidationException, ConfigUpdateException {
-        return defaultConfiguration.add(defaultConfig, serverXMLConfig, variableRegistry);
-    }
+    //
 
     void bundleRemoved(Bundle bundle) {
         BaseConfiguration config = serverXMLConfig.getDefaultConfiguration();
-        config.remove(defaultConfiguration.remove(bundle));
+        config.remove(defaultConfig.remove(bundle));
     }
 
-    /**
-     * @param pid
-     * @throws ConfigUpdateException
-     */
     boolean removeDefaultConfiguration(String pid, String id) throws ConfigUpdateException {
-
-        // Create a copy of the old config
         ServerConfiguration oldConfig = serverXMLConfig.copyConfiguration();
 
-        // Remove the default configuration
         BaseConfiguration cfg = serverXMLConfig.getDefaultConfiguration();
-        boolean removed = cfg.remove(pid, id);
-        BaseConfiguration runtimeCfg = defaultConfiguration.getRuntimeDefaultConfiguration(pid);
-        if (runtimeCfg != null)
-            runtimeCfg.remove(pid, id);
 
-        if (removed) {
-            variableRegistry.setDefaultVariables(cfg.getVariables());
+        // TODO: 'remove', below, can never work.
+        boolean removed = cfg.remove(pid, id);
+
+        BaseConfiguration runtimeCfg = defaultConfig.getRuntimeDefaultConfiguration(pid);
+        if ( runtimeCfg != null ) {
+            // TODO: 'remove', below, can never work.
+            runtimeCfg.remove(pid, id);
+        }
+
+        if ( removed) {
+            configVariableRegistry.setDefaultVariables( cfg.getVariables() );
             removeDefaultConfiguration(oldConfig);
         }
 
@@ -302,7 +316,7 @@ class SystemConfiguration implements CheckpointHook {
     }
 
     void removeDefaultConfiguration(ServerConfiguration oldConfig) throws ConfigUpdateException {
-        changeHandler.removeDefaultConfiguration(oldConfig, serverXMLConfig);
+        configChangeHandler.removeDefaultConfiguration(oldConfig, serverXMLConfig);
     }
-
 }
+// @formatter: on

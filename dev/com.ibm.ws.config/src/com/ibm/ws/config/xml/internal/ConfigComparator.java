@@ -296,11 +296,6 @@ public class ConfigComparator {
         return true;
     }
 
-    /**
-     * @param attributes
-     * @param attributes2
-     * @return
-     */
     private boolean compareAttributes(Map<String, Object> attr1, Map<String, Object> attr2) {
 
         if (attr1 == attr2)

@@ -1673,10 +1673,6 @@ class ConfigEvaluator {
             return this.registryEntry;
         }
 
-        /**
-         * @param attributeDef
-         * @return
-         */
         public boolean hasUnresolvedReference(AttributeDefinition attributeDef) {
             if (attributeDef.getType() != MetaTypeFactory.PID_TYPE)
                 return false;
@@ -1688,26 +1684,14 @@ class ConfigEvaluator {
             return false;
         }
 
-        /**
-         * @param b
-         */
         public void setValid(boolean b) {
             this.valid = b;
-
         }
 
-        /**
-         * @return
-         */
         public boolean isValid() {
             return this.valid;
         }
 
-        /**
-         * @param referencePid
-         * @param value
-         * @param attrID
-         */
         protected void addUnresolvedReference(UnresolvedPidType ref) {
             this.unresolvedReferences.add(ref);
         }
@@ -1879,9 +1863,6 @@ class ConfigEvaluator {
 
         }
 
-        /**
-         * @return
-         */
         public boolean permanent() {
             return false;
         }
@@ -1908,9 +1889,6 @@ class ConfigEvaluator {
                 issueWarning("warning.pid.not.found", getAttributeDefinition().getID(), value);
         }
 
-        /**
-         * @return
-         */
         private boolean pidExistsInRegistry() {
             return metatypeRegistry.getRegistryEntry(pid) != null;
         }
@@ -2063,11 +2041,6 @@ class ConfigEvaluator {
         public void reportError() {
         }
 
-        /*
-         * (non-Javadoc)
-         *
-         * @see com.ibm.ws.config.xml.internal.ConfigEvaluator.UnresolvedPidType#permanent()
-         */
         @Override
         public boolean permanent() {
             return true;
@@ -2130,11 +2103,6 @@ class ConfigEvaluator {
         public void reportError() {
         }
 
-        /*
-         * (non-Javadoc)
-         *
-         * @see com.ibm.ws.config.xml.internal.ConfigEvaluator.UnresolvedPidType#permanent()
-         */
         @Override
         public boolean permanent() {
             return true;

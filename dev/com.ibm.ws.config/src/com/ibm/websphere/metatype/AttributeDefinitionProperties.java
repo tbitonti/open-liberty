@@ -10,167 +10,116 @@
  *******************************************************************************/
 package com.ibm.websphere.metatype;
 
-/**
- *
- */
 public class AttributeDefinitionProperties {
 
-    private String copyOf;
-    private int cardinality;
-    private String[] defaultValue;
-    private String description;
-    private final String id;
-    private String name;
-    private String[] optionLabels;
-    private String[] optionValues;
-    private int type;
-    private String referencePid;
-    private String service;
-    private String serviceFilter;
-    private boolean isFinal;
-    private String variable;
-    private String uniqueCategory;
-    private boolean flat;
-
-    /**
-     * @param string
-     */
     public AttributeDefinitionProperties(String id) {
         this.id = id;
     }
 
-    /**
-     * @return the copyOf
-     */
-    public String getCopyOf() {
-        return copyOf;
-    }
+    private final String id;
 
-    /**
-     * @param copyOf the copyOf to set
-     */
-    public void setCopyOf(String copyOf) {
-        this.copyOf = copyOf;
-    }
-
-    /**
-     * @return the cardinality
-     */
-    public int getCardinality() {
-        return cardinality;
-    }
-
-    /**
-     * @param cardinality the cardinality to set
-     */
-    public void setCardinality(int cardinality) {
-        this.cardinality = cardinality;
-    }
-
-    /**
-     * @return the defaultValue
-     */
-    public String[] getDefaultValue() {
-        return defaultValue;
-    }
-
-    /**
-     * @param defaultValue the defaultValue to set
-     */
-    public void setDefaultValue(String[] defaultValue) {
-        this.defaultValue = defaultValue;
-    }
-
-    /**
-     * @return the description
-     */
-    public String getDescription() {
-        return description;
-    }
-
-    /**
-     * @param description the description to set
-     */
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    /**
-     * @return the id
-     */
     public String getId() {
         return id;
     }
 
-    /**
-     * @return the name
-     */
-    public String getName() {
-        return name;
-    }
+    private String referencePid;
 
-    /**
-     * @param name the name to set
-     */
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    /**
-     * @return the optionLabels
-     */
-    public String[] getOptionLabels() {
-        return optionLabels;
-    }
-
-    /**
-     * @param optionLabels the optionLabels to set
-     */
-    public void setOptionLabels(String[] optionLabels) {
-        this.optionLabels = optionLabels;
-    }
-
-    /**
-     * @return the optionValues
-     */
-    public String[] getOptionValues() {
-        return optionValues;
-    }
-
-    /**
-     * @param optionValues the optionValues to set
-     */
-    public void setOptionValues(String[] optionValues) {
-        this.optionValues = optionValues;
-    }
-
-    /**
-     * @return the type
-     */
-    public int getType() {
-        return type;
-    }
-
-    /**
-     * @param type the type to set
-     */
-    public void setType(int type) {
-        this.type = type;
-    }
-
-    /**
-     * @return the referencePid
-     */
     public String getReferencePid() {
         return referencePid;
     }
 
-    /**
-     * @param referencePid the referencePid to set
-     */
     public void setReferencePid(String referencePid) {
         this.referencePid = referencePid;
     }
+
+    private String name;
+    private String description;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    private int type;
+    private boolean isFinal;
+    private boolean flat;
+
+    public int getType() {
+        return type;
+    }
+
+    public void setType(int type) {
+        this.type = type;
+    }
+
+    public boolean isFinal() {
+        return isFinal;
+    }
+
+    public void setFinal(boolean isFinal) {
+        this.isFinal = isFinal;
+    }
+
+    public boolean isFlat() {
+        return flat;
+    }
+
+    public void setFlat(boolean flat) {
+        this.flat = flat;
+    }
+
+    private int cardinality;
+
+    public int getCardinality() {
+        return cardinality;
+    }
+
+    public void setCardinality(int cardinality) {
+        this.cardinality = cardinality;
+    }
+
+    private String[] defaultValue;
+
+    public String[] getDefaultValue() {
+        return defaultValue;
+    }
+
+    public void setDefaultValue(String[] defaultValue) {
+        this.defaultValue = defaultValue;
+    }
+
+    private String[] optionLabels;
+    private String[] optionValues;
+
+    public String[] getOptionLabels() {
+        return optionLabels;
+    }
+
+    public void setOptionLabels(String[] optionLabels) {
+        this.optionLabels = optionLabels;
+    }
+
+    public String[] getOptionValues() {
+        return optionValues;
+    }
+
+    public void setOptionValues(String[] optionValues) {
+        this.optionValues = optionValues;
+    }
+
+    private String service;
+    private String serviceFilter;
 
     public String getService() {
         return service;
@@ -188,37 +137,18 @@ public class AttributeDefinitionProperties {
         this.serviceFilter = serviceFilter;
     }
 
-    /**
-     * @return the isFinal
-     */
-    public boolean isFinal() {
-        return isFinal;
-    }
+    private String variable;
 
-    /**
-     * @param isFinal the isFinal to set
-     */
-    public void setFinal(boolean isFinal) {
-        this.isFinal = isFinal;
-    }
-
-    /**
-     * @return the variable
-     */
     public String getVariable() {
         return variable;
     }
 
-    /**
-     * @param variable the variable to set
-     */
     public void setVariable(String variable) {
         this.variable = variable;
     }
 
-    /**
-     * @return the unique
-     */
+    private String uniqueCategory;
+
     public boolean isUnique() {
         return uniqueCategory != null;
     }
@@ -227,25 +157,17 @@ public class AttributeDefinitionProperties {
         return this.uniqueCategory;
     }
 
-    /**
-     * @param unique the unique to set
-     */
     public void setUnique(String unique) {
         this.uniqueCategory = unique;
     }
 
-    /**
-     * @return the flat
-     */
-    public boolean isFlat() {
-        return flat;
+    private String copyOf;
+
+    public String getCopyOf() {
+        return copyOf;
     }
 
-    /**
-     * @param flat the flat to set
-     */
-    public void setFlat(boolean flat) {
-        this.flat = flat;
+    public void setCopyOf(String copyOf) {
+        this.copyOf = copyOf;
     }
-
 }

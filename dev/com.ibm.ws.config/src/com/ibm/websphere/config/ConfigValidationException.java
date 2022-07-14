@@ -15,9 +15,8 @@ package com.ibm.websphere.config;
  * An exception representing an error occurred while parsing configuration
  * documents.
  */
-public class ConfigValidationException extends Exception {
+public class ConfigValidationException extends ConfigParserException {
     private static final long serialVersionUID = -8341749732382155484L;
-    public String docLocation = "";
 
     public ConfigValidationException() {
         super();
@@ -29,7 +28,9 @@ public class ConfigValidationException extends Exception {
 
     public ConfigValidationException(String message, String doc) {
         super(message);
+
         this.docLocation = doc;
     }
 
+    public String docLocation = "";
 }

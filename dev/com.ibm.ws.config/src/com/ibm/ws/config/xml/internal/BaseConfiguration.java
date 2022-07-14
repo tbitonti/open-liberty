@@ -30,69 +30,197 @@ import com.ibm.ws.config.xml.internal.XMLConfigParser.MergeBehavior;
 import com.ibm.ws.config.xml.internal.variables.ConfigVariable;
 import com.ibm.wsspi.kernel.service.location.WsResource;
 
+//@formatter:off
 class BaseConfiguration {
+    private static final TraceComponent tc =
+        Tr.register(BaseConfiguration.class,
+                    XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
 
-    private static final TraceComponent tc = Tr.register(BaseConfiguration.class, XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
+    //
+
+    public BaseConfiguration() {
+        // EMPTY
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("configurations: ").append(configurationMap);
+        return builder.toString();
+    }
+
+    //
 
     private String description;
 
-    protected long lastModified = -1;
+    void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    //
 
     private final List<WsResource> includes = new ArrayList<WsResource>();
 
-    protected final Map<String, List<ConfigVariable>> variables = new HashMap<String, List<ConfigVariable>>();
+    public List<WsResource> getIncludes() {
+        return includes;
+    }
+
+    //
+
+    protected long lastModified = -1;
+
+    void updateLastModified(long lastModified) {
+        if (lastModified > this.lastModified) {
+            this.lastModified = lastModified;
+        }
+    }
+
+    public long getLastModified() {
+        return lastModified;
+    }
+
+    //
+
+    protected final Map<String, List<ConfigVariable>> variables =
+        new HashMap<String, List<ConfigVariable>>();
+
+    public void addVariable(@Sensitive ConfigVariable variable) {
+        getVariableEntry(variable.getName()).add(variable);
+    }
+
+    private List<ConfigVariable> getVariableEntry(String name) {
+        List<ConfigVariable> variableList = variables.get(name);
+        if (variableList == null) {
+            variableList = new ArrayList<ConfigVariable>(1);
+            variables.put(name, variableList);
+        }
+        return variableList;
+    }
+
+    @Sensitive
+    public Map<String, LibertyVariable> getVariables() {
+        HashMap<String, LibertyVariable> variableMap = new HashMap<String, LibertyVariable>();
+
+        variables.forEach( (varName, varValues) -> {
+            if (varValues.isEmpty()) {
+                return; // continue the forEach
+            }
+
+            // Merge variables based on merge behavior.
+            //
+            // 'MERGE' is treated the same as 'REPLACE':
+            // Variable values are all treated as atomic values.
+            //
+
+            // REPLACE ("assign always"),
+            // REPLACE_WHEN_EXISTS ("assign only if existing")
+            // IGNORE ("assign only if missing")
+            // == REPLACE_WHEN_MISSING("assign only if missing")
+            //
+            // MERGE ("merge always"),
+            // MERGE_WHEN_EXISTS ("merge only if exists"),
+            // MERGE_WHEN_MISSING; ("merge only if missing")
+            //
+            // MERGE ("merge always")
+            // ==> REPLACE ("assign always")
+            // ==> REPLACE
+            // MERGE_WHEN_EXISTS ("merge only if exists")
+            // ==> REPLACE_WHEN_EXISTS ("assign only if exists")
+            // ==> REPLACE_WHEN_EXISTS
+            // MERGE_WHEN_MISSING ("merge only if missing")
+            // ==> REPLACE_WHEN_MISSING ("assign only if missing")
+            // ==> IGNORE
+            //
+            // (REPLACE || MERGE): Assign
+            // (null && (IGNORE || MERGE_WHEN_MISSING)): Assign
+            //   (null && (MERGE_WHEN_EXISTS): Do not assign
+            // (!null && MERGE_WHEN_EXISTS): Assign
+            //   (!null && (IGNORE || MERGE_WHEN_MISSING)): Do not assign
+
+            ConfigVariable activeValue = null;
+
+            for (ConfigVariable varValue : varValues) {
+                MergeBehavior varBehavior = varValue.getMergeBehavior();
+
+                if ( ( (varBehavior == MergeBehavior.REPLACE) || (varBehavior == MergeBehavior.MERGE) ) ||
+                     ( (activeValue == null) && ((varBehavior == MergeBehavior.IGNORE) || (varBehavior == MergeBehavior.MERGE_WHEN_MISSING) ) ) ||
+                     ( (activeValue != null) && (varBehavior == MergeBehavior.MERGE_WHEN_EXISTS) ) ) {
+                    activeValue = varValue;
+                }
+            }
+
+            if (activeValue != null) {
+                variableMap.put(varName, activeValue);
+            }
+        } );
+
+        return variableMap;
+    }
+
+    //
 
     // Only SimpleElements (corresponding directly to server xml elements) are stored here
-    protected final Map<String, ConfigurationList<SimpleElement>> configurationMap = new ConcurrentHashMap<String, ConfigurationList<SimpleElement>>();
+    protected final Map<String, ConfigurationList<SimpleElement>> configurationMap =
+        new ConcurrentHashMap<String, ConfigurationList<SimpleElement>>();
 
-    public BaseConfiguration() {
+    void getConfigurationNames(Set<String> names) {
+        configurationMap.forEach( (name, elements) -> {
+            if ( !elements.isEmpty() ) {
+                names.add(name);
+            }
+        });
     }
 
     protected ConfigurationList<SimpleElement> getConfigurationList(String name) {
-        ConfigurationList<SimpleElement> list = configurationMap.get(name);
-        if (list == null) {
-            list = new ConfigurationList<SimpleElement>();
-            configurationMap.put(name, list);
-        }
-        return list;
+        return configurationMap.computeIfAbsent(name, newName ->  new ConfigurationList<SimpleElement>() );
     }
 
-    public void addConfigElement(SimpleElement configElement) {
-        ConfigurationList<SimpleElement> list = getConfigurationList(configElement.getNodeName());
-        list.add(configElement);
-    }
-
-    public void append(BaseConfiguration in) {
-        add(in);
-    }
-
-    public void add(BaseConfiguration in) {
-        if (in != null) {
-            for (Map.Entry<String, ConfigurationList<SimpleElement>> entry : in.configurationMap.entrySet()) {
-                ConfigurationList<SimpleElement> list = getConfigurationList(entry.getKey());
-                list.add(entry.getValue());
-            }
-            for (Map.Entry<String, List<ConfigVariable>> entry : in.variables.entrySet()) {
-                getVariableEntry(entry.getKey()).addAll(entry.getValue());
-            }
-        }
-    }
-
-    public void remove(BaseConfiguration in) {
-        if (in != null) {
-            for (Map.Entry<String, ConfigurationList<SimpleElement>> entry : in.configurationMap.entrySet()) {
-                ConfigurationList<SimpleElement> list = getConfigurationList(entry.getKey());
-                list.remove(entry.getValue());
-            }
-            for (Map.Entry<String, List<ConfigVariable>> entry : in.variables.entrySet()) {
-                getVariableEntry(entry.getKey()).removeAll(entry.getValue());
-            }
-        }
+    public void addConfigElement(SimpleElement element) {
+        getConfigurationList( element.getNodeName() ).add(element);
     }
 
     public boolean remove(String name, String id) {
-        ConfigurationList<SimpleElement> list = getConfigurationList(name);
-        return list.remove(id);
+        // TODO: Is this meaningful??  Configuration lists contain configuration elements.
+        return getConfigurationList(name).remove(id);
+    }
+
+    public void append(BaseConfiguration baseConfiguration) {
+        add(baseConfiguration);
+    }
+
+    public void add(BaseConfiguration baseConfiguration) {
+        if ( baseConfiguration == null ) {
+            return;
+        }
+
+        baseConfiguration.configurationMap.forEach( (name, elements) -> getConfigurationList(name).add(elements) );
+        baseConfiguration.variables.forEach( (key, value) -> getVariableEntry(key).addAll(value) );
+    }
+
+    public void remove(BaseConfiguration baseConfiguration) {
+        if ( baseConfiguration == null ) {
+            return;
+        }
+
+        // TODO: Is this correct for keys not present in the receiving configuration?
+        //       The result is the creation of empty buckets for those keys.
+        //
+        // TODO: Do we want to trim out elements which are empty?
+
+        baseConfiguration.configurationMap.forEach( (key, value) -> getConfigurationList(key).remove(value) );
+        baseConfiguration.variables.forEach( (key, value) -> getVariableEntry(key).removeAll(value) );
+    }
+
+    void getDefaultConfigurationNames(Set<String> names) {
+        // no-op unless overridden in subclass
+    }
+
+    Map<ConfigID, List<SimpleElement>> defaultConfigurationFactories(String pid, String alias, String defaultId) {
+        return Collections.emptyMap();
     }
 
     public Set<String> getConfigurationNames() {
@@ -100,19 +228,6 @@ class BaseConfiguration {
         getConfigurationNames(names);
         getDefaultConfigurationNames(names);
         return names;
-    }
-
-    void getDefaultConfigurationNames(Set<String> names) {
-        // no-op unless overridden in subclass
-    }
-
-    void getConfigurationNames(Set<String> names) {
-        for (Map.Entry<String, ConfigurationList<SimpleElement>> entry : configurationMap.entrySet()) {
-            ConfigurationList<SimpleElement> list = entry.getValue();
-            if (!list.isEmpty()) {
-                names.add(entry.getKey());
-            }
-        }
     }
 
     public boolean hasId(String pid) {
@@ -174,13 +289,6 @@ class BaseConfiguration {
         return getSingleton(pid, alias, true);
     }
 
-    /**
-     * @param pid
-     * @param alias
-     * @param includeOverrides - If false, do not include elements marked merge_when_exists
-     * @return
-     * @throws ConfigMergeException
-     */
     public SingletonElement getSingleton(String pid, String alias, boolean includeOverrides) throws ConfigMergeException {
         List<SimpleElement> elements = getSingletonElements(pid, alias);
         if (elements.isEmpty()) {
@@ -232,13 +340,6 @@ class BaseConfiguration {
         return getFactoryInstance(pid, alias, id, true);
     }
 
-    /**
-     * @param pid
-     * @param alias
-     * @param id
-     * @param includeOverrides - If false, do not include elements marked merge_when_exists
-     * @return
-     */
     public FactoryElement getFactoryInstance(String pid, String alias, String id, boolean includeOverrides) throws ConfigMergeException {
         List<SimpleElement> elements = getFactoryElements(pid, alias, id);
         if (elements.isEmpty()) {
@@ -327,7 +428,7 @@ class BaseConfiguration {
                     // the element its merging with is using a default ID.
                     // If it's specified, it will be added back by the configured values.
                     if (defaultElements.get(0).isUsingNonDefaultId() == true && entry.getValue().get(0).isUsingNonDefaultId() == false) {
-                        merged.attributes.remove(XMLConfigConstants.CFG_INSTANCE_ID);
+                        merged.removeAttribute(XMLConfigConstants.CFG_INSTANCE_ID);
                         if (tc.isDebugEnabled()) {
                             Tr.debug(tc, "Removing default id from list of attributes");
                         }
@@ -361,94 +462,5 @@ class BaseConfiguration {
 
         return mergedMap;
     }
-
-    Map<ConfigID, List<SimpleElement>> defaultConfigurationFactories(String pid, String alias, String defaultId) {
-        return Collections.emptyMap();
-    }
-
-    public void addVariable(@Sensitive ConfigVariable variable) {
-        getVariableEntry(variable.getName()).add(variable);
-    }
-
-    private List<ConfigVariable> getVariableEntry(String name) {
-        List<ConfigVariable> variableList = variables.get(name);
-        if (variableList == null) {
-            variableList = new ArrayList<ConfigVariable>(1);
-            variables.put(name, variableList);
-        }
-        return variableList;
-    }
-
-    @Sensitive
-    public Map<String, LibertyVariable> getVariables() {
-        HashMap<String, LibertyVariable> variableMap = new HashMap<String, LibertyVariable>();
-        for (Map.Entry<String, List<ConfigVariable>> entry : variables.entrySet()) {
-            String variableName = entry.getKey();
-            List<ConfigVariable> variableList = entry.getValue();
-
-            if (!variableList.isEmpty()) {
-                ConfigVariable toReturn = null;
-
-                // Merge variables based on onConflict behavior
-
-                for (ConfigVariable var : variableList) {
-                    if (toReturn == null) {
-                        if (var.getMergeBehavior() != MergeBehavior.MERGE_WHEN_EXISTS) {
-                            // Leave the variable as null if behavior is MERGE_WHEN_EXISTS, otherwise set it.
-                            toReturn = var;
-                        }
-
-                    } else {
-                        switch (var.getMergeBehavior()) {
-
-                            case REPLACE:
-                            case MERGE:
-                            case MERGE_WHEN_EXISTS:
-                                toReturn = var;
-                                break;
-                            case IGNORE:
-                            case MERGE_WHEN_MISSING:
-                                break;
-
-                        }
-                    }
-                }
-
-                if (toReturn != null) {
-                    variableMap.put(variableName, toReturn);
-                }
-            }
-        }
-        return variableMap;
-    }
-
-    void updateLastModified(long lastModified) {
-        if (lastModified > this.lastModified) {
-            this.lastModified = lastModified;
-        }
-    }
-
-    public long getLastModified() {
-        return lastModified;
-    }
-
-    public List<WsResource> getIncludes() {
-        return includes;
-    }
-
-    void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder builder = new StringBuilder();
-        builder.append("configurations: ").append(configurationMap);
-        return builder.toString();
-    }
-
 }
+//@formatter:on

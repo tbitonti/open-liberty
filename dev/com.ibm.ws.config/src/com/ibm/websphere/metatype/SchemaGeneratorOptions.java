@@ -17,20 +17,10 @@ import org.osgi.framework.Bundle;
 
 import com.ibm.websphere.ras.annotation.Trivial;
 
-/**
- *
- */
 @Trivial
 public class SchemaGeneratorOptions {
 
     private Bundle[] bundles;
-    private Locale locale;
-    private String encoding;
-    private Set<String> ignoredPids;
-    private boolean isRuntime = false;
-
-    private SchemaVersion schemaVersion;
-    private OutputVersion outputVersion;
 
     public Bundle[] getBundles() {
         return bundles;
@@ -40,29 +30,9 @@ public class SchemaGeneratorOptions {
         this.bundles = bundles;
     }
 
-    public Locale getLocale() {
-        return locale;
-    }
+    //
 
-    public void setLocale(Locale locale) {
-        this.locale = locale;
-    }
-
-    public String getEncoding() {
-        return encoding;
-    }
-
-    public void setEncoding(String encoding) {
-        this.encoding = encoding;
-    }
-
-    public Set<String> getIgnoredPids() {
-        return ignoredPids;
-    }
-
-    public void setIgnoredPids(Set<String> ignoredPids) {
-        this.ignoredPids = ignoredPids;
-    }
+    private boolean isRuntime;
 
     public boolean isRuntime() {
         return this.isRuntime;
@@ -72,31 +42,71 @@ public class SchemaGeneratorOptions {
         this.isRuntime = value;
     }
 
+    private Locale locale;
+
+    public Locale getLocale() {
+        return locale;
+    }
+
+    public void setLocale(Locale locale) {
+        this.locale = locale;
+    }
+
+    private String encoding;
+
+    public String getEncoding() {
+        return encoding;
+    }
+
+    public void setEncoding(String encoding) {
+        this.encoding = encoding;
+    }
+
+    private Set<String> ignoredPids;
+
+    public Set<String> getIgnoredPids() {
+        return ignoredPids;
+    }
+
+    public void setIgnoredPids(Set<String> ignoredPids) {
+        this.ignoredPids = ignoredPids;
+    }
+
+    private SchemaVersion schemaVersion;
+
     @Deprecated
     public String getSchemaVersion() {
         return schemaVersion.toString();
     }
+
+    public SchemaVersion schemaVersion() {
+        return schemaVersion;
+    }
+
+    public void setSchemaVersion(String schemaVersion) {
+        this.schemaVersion = SchemaVersion.getEnum(schemaVersion);
+    }
+
+    public void setSchemaVersion(SchemaVersion schemaVersion) {
+        this.schemaVersion = schemaVersion;
+    }
+
+    private OutputVersion outputVersion;
 
     @Deprecated
     public String getOutputVersion() {
         return outputVersion.toString();
     }
 
-    // New getter
-    public SchemaVersion schemaVersion() {
-        return schemaVersion;
-    }
-
-    // New getter
     public OutputVersion outputVersion() {
         return outputVersion;
     }
 
-    public void setSchemaVersion(String v) {
-        schemaVersion = SchemaVersion.getEnum(v);
+    public void setOutputVersion(String outputVersion) {
+        this.outputVersion = OutputVersion.getEnum(outputVersion);
     }
 
-    public void setOutputVersion(String v) {
-        outputVersion = OutputVersion.getEnum(v);
+    public void setOutputVersion(OutputVersion outputVersion) {
+        this.outputVersion = outputVersion;
     }
 }

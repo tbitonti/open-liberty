@@ -10,16 +10,63 @@
  *******************************************************************************/
 package com.ibm.websphere.metatype;
 
-/**
- *
- */
 public enum OutputVersion {
     v1("1"), v2("2");
 
-    private String value;
+    public static OutputVersion n_lookup(String nVersion) {
+        if (v1.getValue().equals(nVersion)) {
+            return v1;
+        } else if (v2.getValue().equals(nVersion)) {
+            return v2;
+        } else {
+            return null;
+        }
+    }
+
+    public static OutputVersion lookup(String version) {
+        if (version == null) {
+            return v1;
+        }
+
+        version = version.trim();
+
+        int vLen = version.length();
+        if (vLen == 0) {
+            return v1;
+        }
+
+        if (vLen >= 2) {
+            if ((version.charAt(vLen - 2) == '.') &&
+                (version.charAt(vLen - 1) == '0')) {
+                version = version.substring(0, vLen - 2);
+            }
+        }
+
+        return n_lookup(version);
+    }
+
+    public static final boolean DO_THROW = true;
+
+    public static OutputVersion getEnum(String version) {
+        return getEnum(version, DO_THROW);
+    }
+
+    public static OutputVersion getEnum(String version, boolean doThrow) {
+        OutputVersion v = lookup(version);
+        if ((v == null) && doThrow) {
+            throw new IllegalArgumentException(version);
+        }
+        return v;
+    }
+
+    public static boolean isValid(String version) {
+        return (lookup(version) != null);
+    }
+
+    //
 
     private OutputVersion(String version) {
-        value = getNormalizedVersion(version);
+        this.value = version;
     }
 
     @Override
@@ -27,47 +74,53 @@ public enum OutputVersion {
         return value;
     }
 
-    public static OutputVersion getEnum(String version) {
+    //
 
-        String normalizedVersion = getNormalizedVersion(version);
+    private final String value;
 
-        for (OutputVersion v : values()) {
-            if (v.value.equals(normalizedVersion)) {
-                return v;
-            }
-        }
-
-        throw new IllegalArgumentException(version);
+    public String getValue() {
+        return value;
     }
 
-    public static boolean isValid(String version) {
-
-        try {
-            getEnum(version);
-        } catch (IllegalArgumentException iae) {
-            return false;
-        }
-        return true;
-    }
+    //
 
     /**
-     * Strips spaces and ".0" from version parameter.
-     * Default to version "1" if version parameter is null or "";
+     * Normalize a version print string.
+     *
+     * Trim leading and trailing spaces from a non-null print string.
+     *
+     * Answer <code>"1"</code> if the print string is null or empty.
+     *
+     * Remove any trailing ".0" from a non-null print string.
+     *
+     * @return The normalized print string.
      */
+    @Deprecated
     public static String getNormalizedVersion(String version) {
-
         if (version == null) {
-            version = "1";
-        } else {
-            version = version.trim();
-            if (version.length() == 0) {
-                version = "1";
-            }
+            return "1";
         }
 
-        if (version.endsWith(".0")) {
-            return version.substring(0, version.length() - 2);
+        version = version.trim();
+        if (version.isEmpty()) {
+            return "1";
         }
+
+        int vLen = version.length();
+        if (vLen < 2) {
+            return version;
+        }
+
+        // That ".0" normalizes to "" is not a problem:
+        // Neither ".0" nor "" match current output versions.
+        // An exception results after the lookup in either
+        // case.
+
+        if ((version.charAt(vLen - 2) == '.') &&
+            (version.charAt(vLen - 1) == '0')) {
+            return version.substring(0, vLen - 2);
+        }
+
         return version;
     }
 }

@@ -16,73 +16,48 @@ import java.util.Dictionary;
 import java.util.Set;
 import java.util.concurrent.Future;
 
-import org.osgi.service.cm.Configuration;
-import org.osgi.service.cm.Configuration.ConfigurationAttribute;
 import org.osgi.framework.ServiceReference;
+import org.osgi.service.cm.Configuration;
 
-/**
- *
- */
+//@formatter:off
 public interface ExtendedConfiguration extends Configuration {
+    void lock();
+    void unlock();
 
-    public void lock();
+    void setInOverridesFile(boolean inOverridesFile);
+    boolean isInOverridesFile();
 
-    public void unlock();
+    void setFullId(ConfigID id);
+    ConfigID getFullId();
 
-    public void fireConfigurationDeleted(Collection<Future<?>> futureList);
+    Object getProperty(String key);
+    Dictionary<String, Object> getReadOnlyProperties();
+    Set<String> getUniqueVariables();
+    Set<ConfigID> getReferences();
 
-    public void fireConfigurationUpdated(Collection<Future<?>> futureList);
+    void updateProperties(Dictionary<String, Object> properties) throws IOException;
 
-    public void delete(boolean fireNotifications);
+    @Override
+    boolean updateIfDifferent(Dictionary<String, ?> properties) throws IOException;
 
-    public Object getProperty(String key);
+    @Override
+    Dictionary<String, Object> getProcessedProperties(ServiceReference<?> reference);
 
-    public Dictionary<String, Object> getReadOnlyProperties();
+    @Override
+    Set<ConfigurationAttribute> getAttributes();
 
-    public void updateCache(Dictionary<String, Object> properties, Set<ConfigID> references, Set<String> newUniques) throws IOException;
+    @Override
+    void addAttributes(Configuration.ConfigurationAttribute... attrs) throws IOException;
 
-    public void updateProperties(Dictionary<String, Object> properties) throws IOException;
+    @Override
+    void removeAttributes(Configuration.ConfigurationAttribute... attrs) throws IOException;
 
-    public Set<ConfigID> getReferences();
+    void delete(boolean fireNotifications);
+    boolean isDeleted();
 
-    public void setInOverridesFile(boolean inOverridesFile);
+    void fireConfigurationDeleted(Collection<Future<?>> futures);
+    void fireConfigurationUpdated(Collection<Future<?>> futures);
 
-    public boolean isInOverridesFile();
-
-    public Set<String> getUniqueVariables();
-
-    /**
-     * Set the ConfigID that this configuration is registered under
-     *
-     * @param id
-     */
-    public void setFullId(ConfigID id);
-
-    /**
-     *
-     * @return
-     */
-    public ConfigID getFullId();
-
-    /**
-     * Returns true if the configuration has been deleted
-     *
-     * @return true if the configuration has been deleted
-     */
-    public boolean isDeleted();
-
-
-	//
-    // R7 Upgrade
-    //
-
-    public Set<ConfigurationAttribute> getAttributes();
-
-    public void addAttributes(Configuration.ConfigurationAttribute... attrs) throws IOException;
-
-	public void removeAttributes(Configuration.ConfigurationAttribute... attrs) throws IOException;
-
-	public boolean updateIfDifferent(java.util.Dictionary<java.lang.String,?> properties) throws java.io.IOException;
-
-    public java.util.Dictionary<java.lang.String,java.lang.Object> getProcessedProperties(ServiceReference<?> reference);
+    void updateCache(Dictionary<String, Object> properties, Set<ConfigID> references, Set<String> newUniques) throws IOException;
 }
+//@formatter:on

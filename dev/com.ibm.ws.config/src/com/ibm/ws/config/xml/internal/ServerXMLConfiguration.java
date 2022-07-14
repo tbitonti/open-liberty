@@ -34,67 +34,76 @@ import com.ibm.wsspi.kernel.service.location.WsLocationConstants;
 import com.ibm.wsspi.kernel.service.location.WsResource;
 import com.ibm.wsspi.kernel.service.utils.TimestampUtils;
 
-/**
- *
- */
+//@formatter:off
 class ServerXMLConfiguration {
+    private static final TraceComponent tc =
+        Tr.register(ServerXMLConfiguration.class,
+                    XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
 
-    private static final TraceComponent tc = Tr.register(ServerXMLConfiguration.class, XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
+    private static long readConfigStamp(BundleContext bundleContext) {
+        if ( bundleContext == null ) {
+            return 0L;
+        }
 
-    /** The root XML document (server.xml) */
-    private final WsResource configRoot;
-    private final WsResource configDropinDefaults;
-    private final WsResource configDropinOverrides;
-    private final BundleContext bundleContext;
+        File configStamp = bundleContext.getDataFile("configStamp");
+        if ( (configStamp != null) && configStamp.exists() && configStamp.canRead() ) {
+            return TimestampUtils.readTimeFromFile(configStamp);
+        } else {
+            return 0L;
+        }
+    }
 
-    private ServerConfiguration serverConfiguration;
+    //
 
     private static final String CONFIG_DROPINS = "configDropins";
-    private static final String CONFIG_DROPIN_DEFAULTS = CONFIG_DROPINS + "/" + "defaults/";
-    private static final String CONFIG_DROPIN_OVERRIDES = CONFIG_DROPINS + "/" + "overrides/";
-
-    /**
-     * last time config files(root config document and its included documents) are
-     * read
-     */
-    private volatile long configReadTime = 0;
-
-    private final XMLConfigParser parser;
+    private static final String CONFIG_DROPIN_DEFAULTS = CONFIG_DROPINS + '/' + "defaults/";
+    private static final String CONFIG_DROPIN_OVERRIDES = CONFIG_DROPINS + '/' + "overrides/";
 
     ServerXMLConfiguration(BundleContext bundleContext,
                            WsLocationAdmin locationService,
                            XMLConfigParser parser) {
-        this.bundleContext = bundleContext;
-        this.parser = parser;
 
-        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+        if ( TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled() ) {
             Tr.debug(tc, "WsLocationAdmin locations=" + locationService.printLocations(false));
         }
 
+        this.bundleContext = bundleContext;
+        this.parser = parser;
+
+        this.configDir = locationService.resolveResource(WsLocationConstants.SYMBOL_SERVER_CONFIG_DIR);
         this.configRoot = locationService.resolveResource(WsLocationConstants.SYMBOL_SERVER_CONFIG_DIR + "/" + WsLocationConstants.SYMBOL_PROCESS_TYPE + ".xml");
         this.configDropinDefaults = locationService.resolveResource(WsLocationConstants.SYMBOL_SERVER_CONFIG_DIR + "/" + CONFIG_DROPIN_DEFAULTS);
         this.configDropinOverrides = locationService.resolveResource(WsLocationConstants.SYMBOL_SERVER_CONFIG_DIR + "/" + CONFIG_DROPIN_OVERRIDES);
 
         // Determines if any of the configuration files used by current server has
         // been updated since the last run.
-        this.configReadTime = getInitialConfigReadTime(bundleContext);
+        this.configReadTime = readConfigStamp(bundleContext);
 
+    }
+
+    //
+
+    private final BundleContext bundleContext;
+
+    private final XMLConfigParser parser;
+
+    //
+
+    private final WsResource configDir;
+    private final WsResource configRoot;
+    private final WsResource configDropinDefaults;
+    private final WsResource configDropinOverrides;
+
+    private ServerConfiguration serverConfiguration;
+
+    private volatile long configReadTime = 0;
+
+    public WsResource getConfigDir() {
+        return configDir;
     }
 
     boolean hasConfigRoot() {
         return configRoot != null;
-    }
-
-    private static long getInitialConfigReadTime(BundleContext bundleContext) {
-        if (bundleContext == null) {
-            return 0;
-        }
-        File configStamp = bundleContext.getDataFile("configStamp");
-        if (configStamp != null && configStamp.exists() && configStamp.canRead()) {
-            return TimestampUtils.readTimeFromFile(configStamp);
-        } else {
-            return 0;
-        }
     }
 
     /**
@@ -109,7 +118,6 @@ class ServerXMLConfiguration {
      * @throws ConfigParserException
      *
      */
-
     @FFDCIgnore(ConfigParserTolerableException.class)
     public void loadInitialConfiguration(ConfigVariableRegistry variableRegistry) throws ConfigValidationException, ConfigParserException {
         if (configRoot != null && configRoot.exists()) {
@@ -213,9 +221,6 @@ class ServerXMLConfiguration {
         return (value / 1000) * 1000;
     }
 
-    /**
-     * @return
-     */
     public boolean isModified() {
         return reduceTimestampPrecision(getLastResourceModifiedTime()) != reduceTimestampPrecision(configReadTime);
     }
@@ -256,14 +261,15 @@ class ServerXMLConfiguration {
      * Otherwise, "aardvark.xml" would come before "Zebra.xml" on windows, and vice versa on unix.
      */
     private static class AlphaComparator implements Comparator<File> {
-
-        /*
-         * (non-Javadoc)
-         *
-         * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
-         */
         @Override
         public int compare(File o1, File o2) {
+            String n1 = o1.getName();
+            int n1Len = n1.length();
+
+            String n2 = n2.getName();
+            int n2Len = n2.length();
+
+            for ( int cNo = 0)
             return o1.getName().toLowerCase().compareTo(o2.getName().toLowerCase());
         }
 
@@ -405,10 +411,10 @@ class ServerXMLConfiguration {
                 // This is only thrown if OnError = FAIL
                 String message = e.getMessage() == null ? "Parser Failure" : e.getMessage();
                 Tr.error(tc, "error.config.update.init", new Object[] { message });
-            } catch (ConfigParserException e) {
-                Tr.error(tc, "error.config.update.init", new Object[] { e.getMessage() });
             } catch (ConfigValidationException e) {
                 Tr.warning(tc, "warn.configValidator.refreshFailed");
+            } catch (ConfigParserException e) {
+                Tr.error(tc, "error.config.update.init", new Object[] { e.getMessage() });
             }
 
             if (newConfiguration == null) {
@@ -430,24 +436,14 @@ class ServerXMLConfiguration {
         return serverConfiguration;
     }
 
-    /**
-     * @return
-     */
     public BaseConfiguration getDefaultConfiguration() {
         return serverConfiguration.getDefaultConfiguration();
     }
 
-    /**
-     * @return
-     * @throws ConfigMergeException
-     */
     public Map<String, LibertyVariable> getVariables() throws ConfigMergeException {
         return serverConfiguration.getVariables();
     }
 
-    /**
-     * @param newConfiguration
-     */
     public void setNewConfiguration(ServerConfiguration newConfiguration) {
         this.serverConfiguration = newConfiguration;
     }
@@ -462,3 +458,4 @@ class ServerXMLConfiguration {
     }
 
 }
+//@formatter:on

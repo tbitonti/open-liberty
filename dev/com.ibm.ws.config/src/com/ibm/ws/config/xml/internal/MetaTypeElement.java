@@ -12,37 +12,16 @@ package com.ibm.ws.config.xml.internal;
 
 import com.ibm.websphere.ras.annotation.Trivial;
 
-/**
- *
- */
 public abstract class MetaTypeElement extends ConfigElement {
 
-    protected final String pid;
-
-    public abstract boolean isSingleton();
-
-    public abstract boolean isFactory();
-
-    /**
-     * @param element
-     */
     public MetaTypeElement(SimpleElement element, String pid) {
         super(element);
         this.pid = pid;
     }
 
-    /**
-     * @param nodeName
-     */
     public MetaTypeElement(String nodeName, String pid) {
         super(nodeName);
         this.pid = pid;
-    }
-
-    @Override
-    @Trivial
-    public String getFullId() {
-        return getConfigID().toString();
     }
 
     @Override
@@ -51,4 +30,17 @@ public abstract class MetaTypeElement extends ConfigElement {
         return false;
     }
 
+    @Trivial
+    public boolean isSingleton() {
+        return false;
+    }
+
+    @Trivial
+    public boolean isFactory() {
+        return false;
+    }
+
+    //
+
+    protected final String pid;
 }

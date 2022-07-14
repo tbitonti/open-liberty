@@ -27,14 +27,31 @@ import com.ibm.ws.config.xml.internal.MetaTypeRegistry.PidReference;
 import com.ibm.ws.config.xml.internal.MetaTypeRegistry.RegistryEntry;
 import com.ibm.ws.config.xml.internal.XMLConfigParser.MergeBehavior;
 
+// @formatter:off
 public class ServerConfiguration extends BaseConfiguration {
+    private static final TraceComponent tc =
+        Tr.register(ServerConfiguration.class,
+                    XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
 
-    private static final TraceComponent tc = Tr.register(ServerConfiguration.class, XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
-
-    protected BaseConfiguration defaultConfiguration;
+    //
 
     public ServerConfiguration() {
+        // Empty
     }
+
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("configurations: ").append(configurationMap);
+        if (defaultConfiguration != null) {
+            builder.append(" default configurations: ").append(defaultConfiguration);
+        }
+        return builder.toString();
+    }
+
+    //
+
+    protected BaseConfiguration defaultConfiguration;
 
     public void setDefaultConfiguration(BaseConfiguration defaultConfiguration) {
         this.defaultConfiguration = defaultConfiguration;
@@ -60,46 +77,44 @@ public class ServerConfiguration extends BaseConfiguration {
         }
     }
 
-    public boolean isDropinsEnabled() {
-
-        // Default is that drop-ins are enabled
-        boolean dropinsEnabled = true;
-
-        // Determines if drop-ins have been disabled
-        SingletonElement configElement;
-        try {
-            configElement = getSingleton("applicationMonitor", null);
-        } catch (ConfigMergeException e) {
-            // Really shouldn't happen.. just FFDC
-            e.getStackTrace();
-            return false;
+    @Override
+    Map<ConfigID, List<SimpleElement>> defaultConfigurationFactories(String pid, String alias, String defaultId) {
+        if (defaultConfiguration != null) {
+            Map<ConfigID, List<SimpleElement>> factoryElements = defaultConfiguration.getAllFactoryElements(pid, alias, defaultId);
+            if (factoryElements != null) {
+                return factoryElements;
+            }
         }
-        if (configElement != null) {
-            String dropinsEnabledValue = (String) configElement.getAttribute("dropinsEnabled");
-            if (dropinsEnabledValue != null && dropinsEnabledValue.equals("false"))
-                dropinsEnabled = false;
-        }
-
-        return dropinsEnabled;
+        return Collections.emptyMap();
     }
+
+    //
 
     public Set<String> getSingletonNames() {
         Set<String> singletons = new HashSet<String>();
+
         getSingletonNames(singletons);
+
         if (defaultConfiguration != null) {
             defaultConfiguration.getSingletonNames(singletons);
         }
+
         return singletons;
     }
 
     public Set<String> getFactoryNames() {
         Set<String> factories = new HashSet<String>();
+
         getFactoryNames(factories);
+
         if (defaultConfiguration != null) {
             defaultConfiguration.getFactoryNames(factories);
         }
+
         return factories;
     }
+
+    //
 
     @Override
     public SingletonElement getSingleton(String pid, String alias) throws ConfigMergeException {
@@ -110,14 +125,18 @@ public class ServerConfiguration extends BaseConfiguration {
             } else {
                 return defaultConfiguration.getSingleton(pid, alias, false);
             }
+
         } else {
             List<SimpleElement> defaults = Collections.emptyList();
-            if (defaultConfiguration != null)
+
+            if (defaultConfiguration != null) {
                 defaults = defaultConfiguration.getSingletonElements(pid, alias);
+            }
 
             if (defaults.isEmpty()) {
                 SingletonElement merged = new SingletonElement(elements, pid);
                 return merged;
+
             } else {
                 // We have defined elements, so remove any defaults that are marked "merge when missing"
                 Iterator<SimpleElement> iter = defaults.iterator();
@@ -126,11 +145,11 @@ public class ServerConfiguration extends BaseConfiguration {
                         iter.remove();
                     }
                 }
+
                 SingletonElement merged = new SingletonElement(defaults, pid);
                 merged.merge(elements);
                 return merged;
             }
-
         }
     }
 
@@ -143,63 +162,75 @@ public class ServerConfiguration extends BaseConfiguration {
             } else {
                 return defaultConfiguration.getFactoryInstance(pid, alias, id, false);
             }
-        } else {
 
+        } else {
             if (defaultConfiguration != null) {
                 List<SimpleElement> defaults = defaultConfiguration.getFactoryElements(pid, alias, id);
-                if (defaults.isEmpty())
+                if (defaults.isEmpty()) {
                     return new FactoryElement(elements, pid, id);
-                else {
+                } else {
                     FactoryElement merged = new FactoryElement(defaults, pid, id);
                     merged.merge(elements);
                     return merged;
                 }
+
             } else {
                 return new FactoryElement(elements, pid, id);
             }
         }
     }
 
-    @Override
-    Map<ConfigID, List<SimpleElement>> defaultConfigurationFactories(String pid, String alias, String defaultId) {
-        if (defaultConfiguration == null) {
-            return Collections.emptyMap();
-        } else {
-            Map<ConfigID, List<SimpleElement>> retVal = defaultConfiguration.getAllFactoryElements(pid, alias, defaultId);
-            return retVal == null ? Collections.<ConfigID, List<SimpleElement>> emptyMap() : retVal;
-        }
-    }
+    //
 
-    @Override
-    public String toString() {
-        StringBuilder builder = new StringBuilder();
-        builder.append("configurations: ").append(configurationMap);
-        if (defaultConfiguration != null) {
-            builder.append(" default configurations: ").append(defaultConfiguration);
+    /**
+     * Tell if drop-in applications are enabled. (More accurately:
+     * Tell if drop-in applications are not disabled.)
+     *
+     * Answer true unless drop-ins are explicitly disabled within
+     * the application monitor element.
+     *
+     * @return True or false telling if drop-ins are enabled.
+     *
+     */
+    public boolean isDropinsEnabled() {
+        SingletonElement configElement;
+        try {
+            configElement = getSingleton("applicationMonitor", null);
+        } catch (ConfigMergeException e) {
+            return true; // Unexpected.  FFDC and return.
         }
-        return builder.toString();
+
+        if (configElement == null) {
+            return true;
+        }
+
+        String attributeValue = (String) configElement.getAttribute("dropinsEnabled");
+        return ((attributeValue == null) || !attributeValue.equals("false"));
     }
 
     /**
-     * Given a Pid and corresponding metatype registry entry, this finds all the ConfigElements with the parentPID specified in the registry entry
-     * and then all the children with given (factory) pid of those parent instances.
+     * Given a Pid and corresponding metatype registry entry, find all the ConfigElements
+     * with the parentPID specified in the registry entry and all the children with the given
+     * (factory) pid of those parent instances.
      *
      * @param pid (factory) pid of a registry entry.
      *
-     * @return list of all the instances of the supplied (factory) pid that are nested inside a parent of the parentPID from the registry entry.
+     * @return The instances of the supplied (factory) pid that
+     *         are nested inside a parent of the parentPID from the registry entry.
+     *
      * @throws ConfigMergeException
      */
     public List<ConfigElement> getNestedInstances(RegistryEntry re) throws ConfigMergeException {
         return getNestedInstances(re, new HashSet<RegistryEntry>());
     }
 
-    private List<ConfigElement> getNestedInstances(RegistryEntry re, final Set<RegistryEntry> visited) throws ConfigMergeException {
+    private List<ConfigElement> getNestedInstances(RegistryEntry re, Set<RegistryEntry> visited) throws ConfigMergeException {
         String pid = re.getPid();
-        final List<ConfigElement> retVal = new ArrayList<ConfigElement>();
+        List<ConfigElement> retVal = new ArrayList<ConfigElement>();
         for (RegistryEntry test = re; test != null; test = test.getExtendedRegistryEntry()) {
-            for (final PidReference parentRef : test.getReferencingEntries()) {
+            for (PidReference parentRef : test.getReferencingEntries()) {
 
-                final Set<ConfigElement> parentInstances = new HashSet<ConfigElement>();
+                Set<ConfigElement> parentInstances = new HashSet<ConfigElement>();
                 RegistryEntry parentEntry = parentRef.getReferencingEntry();
                 if (tc.isDebugEnabled()) {
                     Tr.debug(tc, "Looking for instances of {0} nested under {1}", pid, parentEntry);
@@ -266,7 +297,7 @@ public class ServerConfiguration extends BaseConfiguration {
                 }
 
                 // Look through all possible parents to find children of the type we're looking for
-                for (final ConfigElement parent : parentInstances) {
+                for (ConfigElement parent : parentInstances) {
                     if (tc.isDebugEnabled()) {
                         Tr.debug(tc, "Examing parent instance {0}", parent);
                     }
@@ -310,6 +341,7 @@ public class ServerConfiguration extends BaseConfiguration {
                                 }
                             }
                         }
+
                         //TODO this code looks extremely odd and appears to add a parent rather than child????
                         //child-first case where nested element is presented directly with pid, not childAlias. Is this actually valid?
                         Object attr = parent.getAttribute(pid);
@@ -343,46 +375,45 @@ public class ServerConfiguration extends BaseConfiguration {
     }
 
     public static class NestedConfigElement extends ConfigElement {
-        private final ConfigElement parent;
-        private final RegistryEntry parentRegistryEntry;
-        private final String id;
-
         public NestedConfigElement(ConfigElement child, ConfigElement parent, RegistryEntry parentEntry) {
             super(child);
+
             this.id = child.getId();
             this.parent = parent;
-            this.parentRegistryEntry = parentEntry;
+            this.parentEntry = parentEntry;
         }
 
-        @Override
-        public ConfigElement getParent() {
-            return this.parent;
-        }
-
-        public RegistryEntry getParentRegistryEntry() {
-            return this.parentRegistryEntry;
-        }
-
-        /*
-         * (non-Javadoc)
-         *
-         * @see com.ibm.ws.config.xml.internal.ConfigElement#getId()
-         */
-        @Override
-        public String getId() {
-            return this.id;
-        }
-
-        /*
-         * (non-Javadoc)
-         *
-         * @see com.ibm.ws.config.xml.internal.ConfigElement#isSimple()
-         */
         @Override
         public boolean isSimple() {
             return true;
         }
 
-    }
+        //
 
+        private final String id;
+
+        @Override
+        public String getId() {
+            return id;
+        }
+
+        //
+
+        private final RegistryEntry parentEntry;
+
+        public RegistryEntry getParentRegistryEntry() {
+            return parentEntry;
+        }
+
+        //
+
+        private final ConfigElement parent;
+
+        @Override
+        public ConfigElement getParent() {
+            return parent;
+        }
+    }
 }
+
+// @formatter:on

@@ -33,15 +33,7 @@ import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.config.xml.internal.XMLConfigParser.MergeBehavior;
 import com.ibm.ws.config.xml.internal.variables.ConfigVariableRegistry;
 
-/**
- *
- */
 class DefaultConfiguration {
-
-    private final Map<Bundle, BaseConfiguration> defaultConfigurationMap;
-    private final Map<String, BaseConfiguration> runtimeDefaultConfigurationMap;
-    private final XMLConfigParser parser;
-
     static final TraceComponent tc = Tr.register(DefaultConfiguration.class, XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
 
     public DefaultConfiguration(XMLConfigParser xmlParser) {
@@ -50,11 +42,11 @@ class DefaultConfiguration {
         this.parser = xmlParser;
     }
 
+    private final Map<Bundle, BaseConfiguration> defaultConfigurationMap;
+    private final Map<String, BaseConfiguration> runtimeDefaultConfigurationMap;
+    private final XMLConfigParser parser;
+
     protected class DefaultConfigFile {
-        /**
-         * @param nextElement
-         * @param merge
-         */
         public DefaultConfigFile(URL url, boolean requireExisting, boolean requireNotExisting) {
             this.fileURL = url;
             if (requireExisting)
@@ -112,28 +104,26 @@ class DefaultConfiguration {
                                  ConfigVariableRegistry variableRegistry) throws ConfigValidationException, ConfigUpdateException {
         BaseConfiguration configuration = new BaseConfiguration();
         try {
+            if (parser.parseServerConfiguration(defaultConfig, "runtimeDefaultConfig", configuration, MergeBehavior.MERGE) == null) {
+                return null;
+            }
 
-            if (!parser.parseServerConfiguration(defaultConfig, "runtimeDefaultConfig", configuration, MergeBehavior.MERGE)) {
-                configuration = null;
-            } else {
-                // We have to keep track of what we're adding so we can remove it later. This involves
-                // splitting the configuration we just parsed so we can store it in a map by pid.
-                for (String name : configuration.getConfigurationNames()) {
-                    BaseConfiguration newConfig = runtimeDefaultConfigurationMap.get(name);
-                    if (newConfig == null) {
-                        newConfig = new BaseConfiguration();
-                        runtimeDefaultConfigurationMap.put(name, newConfig);
-                    }
-
-                    newConfig.getConfigurationList(name).add(configuration.getConfigurationList(name));
+            // We have to keep track of what we're adding so we can remove it later. This involves
+            // splitting the configuration we just parsed so we can store it in a map by pid.
+            for (String name : configuration.getConfigurationNames()) {
+                BaseConfiguration newConfig = runtimeDefaultConfigurationMap.get(name);
+                if (newConfig == null) {
+                    newConfig = new BaseConfiguration();
+                    runtimeDefaultConfigurationMap.put(name, newConfig);
                 }
 
-                BaseConfiguration defaultConfiguration = serverXMLConfig.getDefaultConfiguration();
-                defaultConfiguration.add(configuration);
-
-                variableRegistry.setDefaultVariables(defaultConfiguration.getVariables());
-
+                newConfig.getConfigurationList(name).add(configuration.getConfigurationList(name));
             }
+
+            BaseConfiguration defaultConfiguration = serverXMLConfig.getDefaultConfiguration();
+            defaultConfiguration.add(configuration);
+
+            variableRegistry.setDefaultVariables(defaultConfiguration.getVariables());
 
             return configuration;
 
@@ -180,24 +170,17 @@ class DefaultConfiguration {
         return newConfig;
     }
 
-    /**
-     * @param pid
-     * @param serverXMLConfig
-     * @param variableRegistry
-     * @return
-     */
     public BaseConfiguration getRuntimeDefaultConfiguration(String pid) {
         return runtimeDefaultConfigurationMap.get(pid);
 
     }
 
-    /**
-     * @param bundle
-     * @return
-     */
     public BaseConfiguration remove(Bundle bundle) {
         return defaultConfigurationMap.remove(bundle);
     }
+
+    public static final String REQUIRE_EXISTING = "requireExisting";
+    public static final String REQUIRE_DOES_NOT_EXIST = "addIfMissing";
 
     private Collection<DefaultConfigFile> getDefaultConfigurationFiles(Bundle bundle) throws BundleException {
         Dictionary<String, String> headers = bundle.getHeaders("");
@@ -215,12 +198,12 @@ class DefaultConfiguration {
         for (ManifestElement element : elements) {
             boolean requireExisting = false;
             boolean requireNotExisting = false;
-            String requireExistingStr = element.getAttribute(XMLConfigParser.REQUIRE_EXISTING);
+            String requireExistingStr = element.getAttribute(REQUIRE_EXISTING);
             if (requireExistingStr != null) {
                 requireExisting = Boolean.valueOf(requireExistingStr);
             }
 
-            String requireDoesNotExistStr = element.getAttribute(XMLConfigParser.REQUIRE_DOES_NOT_EXIST);
+            String requireDoesNotExistStr = element.getAttribute(REQUIRE_DOES_NOT_EXIST);
             if (requireDoesNotExistStr != null) {
                 requireNotExisting = Boolean.valueOf(requireDoesNotExistStr);
             }
@@ -263,5 +246,4 @@ class DefaultConfiguration {
 
         return configurationFiles;
     }
-
 }

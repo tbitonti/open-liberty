@@ -14,12 +14,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
 
-/**
- *
- */
 public interface SchemaGenerator {
+    void generate(OutputStream out, SchemaGeneratorOptions options) throws IOException;
 
-    public void generate(OutputStream out, SchemaGeneratorOptions options) throws IOException;
-
-    public void generate(Writer writer, SchemaGeneratorOptions options) throws IOException;
+    void generate(Writer writer, SchemaGeneratorOptions options) throws IOException;
 }

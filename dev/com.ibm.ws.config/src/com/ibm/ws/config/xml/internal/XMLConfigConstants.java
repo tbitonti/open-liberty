@@ -95,4 +95,13 @@ public interface XMLConfigConstants {
     /** Display ID attribute */
     String CFG_CONFIG_INSTANCE_DISPLAY_ID = "config.displayId";
 
+    //
+
+    String INCLUDE = "include";
+    String BEHAVIOR_ATTRIBUTE = "onConflict";
+
+    String VARIABLE = "variable";
+    String VARIABLE_VALUE = "value";
+    String VARIABLE_DEFAULT_VALUE = "defaultValue";
+    String VARIABLE_NAME = "name";
 }

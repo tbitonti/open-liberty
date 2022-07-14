@@ -19,144 +19,197 @@ import java.util.Map;
 import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.config.admin.ConfigID;
 
-/**
- * This class is entirely private to BaseConfiguration
- */
 @Trivial
 class ConfigurationList<T extends ConfigElement> {
-
-    private final List<T> configElements;
-    private Boolean hasId;
-
-    public ConfigurationList() {
-        configElements = new ArrayList<T>();
-        hasId = null;
-    }
-
-    /**
-     * @param configElement
-     */
-    public void add(T configElement) {
-        configElements.add(configElement);
-        hasId = null;
-    }
-
-    public void add(ConfigurationList<T> value) {
-        configElements.addAll(value.configElements);
-        hasId = null;
-    }
-
-    public void remove(ConfigurationList<T> value) {
-        configElements.removeAll(value.configElements);
-        hasId = null;
-    }
-
-    public boolean remove(String id) {
-        boolean removed = false;
-        if (id == null) {
-            removed = (configElements.size() > 0);
-            configElements.clear();
-        } else {
-            Iterator<T> iter = configElements.iterator();
-            while (iter.hasNext()) {
-                T element = iter.next();
-                if (id.equals(element.getId())) {
-                    iter.remove();
-                    removed = true;
-                }
-            }
-        }
-
-        hasId = null;
-        return removed;
-    }
-
-    public boolean isEmpty() {
-        return configElements.isEmpty();
-    }
-
-    public boolean hasId() {
-        // if one "id" attribute is found, assume all elements represent factory instances
-        if (hasId == null) {
-            hasId = hasElementWithId();
-        }
-        return hasId;
-    }
-
-    private boolean hasElementWithId() {
-        for (ConfigElement configElement : configElements) {
-            if (configElement.getId() != null) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     private static String generateId(int index) {
         return "default-" + index;
     }
 
-    /**
-     * Collects elements into Lists based on their ID. If an ID is not specified, the defaultId will be used.
-     * If the defaultId is null, an id will be generated.
-     * 
-     * @param map
-     * @param defaultId
-     * @return
-     */
-    public Map<ConfigID, List<T>> collectElementsById(Map<ConfigID, List<T>> map, String defaultId, String pid) {
-        if (map == null) {
-            map = new HashMap<ConfigID, List<T>>();
-        }
-        int index = 0;
-        for (T configElement : configElements) {
-            String id = configElement.getId();
+    //
 
-            if (id == null) {
-                if (defaultId != null) {
-                    id = defaultId;
-                } else {
-                    id = generateId(index++);
-                }
-            }
-
-            // Create a new config ID based on the old one, but using the generated ID if necessary
-            ConfigID configID = configElement.getConfigID();
-            configID = new ConfigID(configID.getParent(), pid, id, configID.getChildAttribute());
-
-            List<T> elements = map.get(configID);
-            if (elements == null) {
-                elements = new ArrayList<T>();
-                map.put(configID, elements);
-            }
-            elements.add(configElement);
-        }
-        return map;
+    public ConfigurationList() {
+        this.configElements = new ArrayList<T>();
+        this.idCount = 0;
     }
 
-    public List<T> collectElementsWithId(String id, List<T> elements) {
-        if (elements == null) {
-            elements = new ArrayList<T>();
+    //
+
+    private final List<T> configElements;
+
+    public boolean isEmpty() {
+        return configElements.isEmpty();
+    }
+
+    public List<T> collectElements(List<T> collectedElements) {
+        if (configElements.isEmpty()) {
+            return collectedElements;
         }
+
+        if (collectedElements == null) {
+            collectedElements = new ArrayList<T>();
+        }
+        collectedElements.addAll(configElements);
+        return collectedElements;
+    }
+
+    public List<T> collectElementsWithId(String id, List<T> collectedElements) {
+        if (configElements.isEmpty()) {
+            return collectedElements;
+        }
+
         int index = 0;
-        for (T configElement : configElements) {
-            String elementId = configElement.getId();
+        for (T element : configElements) {
+            String elementId = element.getId();
             if (elementId == null) {
                 elementId = generateId(index++);
             }
             if (elementId.equals(id)) {
-                elements.add(configElement);
+                if (collectedElements == null) {
+                    collectedElements = new ArrayList<>();
+                }
+                collectedElements.add(element);
             }
         }
-        return elements;
+        return collectedElements;
     }
 
-    public List<T> collectElements(List<T> elements) {
-        if (elements == null) {
-            elements = new ArrayList<T>();
+    //
+
+    private int idCount;
+
+    /**
+     * Tell if elements of this list have IDs. Answer true or false
+     * based on whether any element has an ID.
+     *
+     * @return True or false, telling if any element has an ID.
+     */
+    public boolean hasId() {
+        return (hasElementWithId());
+    }
+
+    /**
+     * Tell if any element has an ID.
+     *
+     * @return True or false telling if any element has an ID.
+     */
+    private boolean hasElementWithId() {
+        return (idCount > 0);
+    }
+
+    //
+
+    public void add(T element) {
+        configElements.add(element);
+        if (element.getId() != null) {
+            idCount++;
         }
-        elements.addAll(configElements);
-        return elements;
     }
 
+    public void add(ConfigurationList<T> elements) {
+        for (T element : elements.configElements) {
+            add(element);
+        }
+    }
+
+    public void remove(T element) {
+        if (configElements.remove(element)) {
+            if (element.getId() != null) {
+                idCount--;
+            }
+        }
+    }
+
+    public void remove(ConfigurationList<T> elements) {
+        for (T element : elements.configElements) {
+            remove(element);
+        }
+    }
+
+    /**
+     * Remove all elements which have the specified ID.
+     * If the specified ID is null, remove all elements.
+     *
+     * See {@link SimpleElement#getId}.
+     *
+     * @param id The target ID.
+     *
+     * @return True or false telling if any elements were removed.
+     */
+    public boolean remove(String id) {
+        if (id == null) {
+            if (configElements.isEmpty()) {
+                return false;
+            } else {
+                configElements.clear();
+                idCount = 0;
+                return true;
+            }
+
+        } else {
+            boolean removed = false;
+
+            Iterator<T> useElements = configElements.iterator();
+            while (useElements.hasNext()) {
+                T element = useElements.next();
+
+                if (!id.equals(element.getId())) {
+                    continue;
+                }
+
+                useElements.remove();
+                idCount--;
+                removed = true;
+            }
+
+            return removed;
+        }
+    }
+
+    /**
+     * Partition this configuration list by configuration ID.
+     *
+     * Impute configuration IDs for elements which do not have one yet assigned.
+     *
+     * Imputed configuration IDs use either the specified ID, or, if the specified ID
+     * is null, use a sequence of default IDs. See {@link #generateId(int)}.
+     *
+     * @param collectedBuckets A table of collected buckets.
+     * @param defaultID
+     * @return The elements partitioned by configuration ID. The collected elements
+     *         parameter if this list is empty.
+     */
+    public Map<ConfigID, List<T>> collectElementsById(Map<ConfigID, List<T>> collectedBuckets, String id, String usePid) {
+        if (configElements.isEmpty()) {
+            return collectedBuckets;
+        }
+
+        if (collectedBuckets == null) {
+            collectedBuckets = new HashMap<ConfigID, List<T>>();
+        }
+
+        int index = 0;
+        for (T element : configElements) {
+            // Assign an ID if necessary.
+            // Supplying a PID seems strange, and possibly unnecessary.
+            String useId = element.getId();
+            if (useId == null) {
+                if (id != null) {
+                    useId = id;
+                } else {
+                    useId = generateId(index++);
+                }
+            }
+            ConfigID configID = element.getConfigID(usePid, useId);
+
+            List<T> bucketForId = collectedBuckets.get(configID);
+            if (bucketForId == null) {
+                bucketForId = new ArrayList<T>();
+                collectedBuckets.put(configID, bucketForId);
+            }
+            bucketForId.add(element);
+        }
+
+        return collectedBuckets;
+    }
 }

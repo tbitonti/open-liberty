@@ -26,6 +26,7 @@ import com.ibm.ws.config.xml.internal.MetaTypeRegistry.RegistryEntry;
 import com.ibm.ws.config.xml.internal.metatype.ExtendedAttributeDefinition;
 import com.ibm.ws.config.xml.internal.metatype.ExtendedObjectClassDefinition;
 import com.ibm.ws.config.xml.internal.variables.ConfigVariableRegistry;
+import com.ibm.wsspi.kernel.service.location.WsResource;
 
 class ConfigValidator {
 
@@ -41,6 +42,7 @@ class ConfigValidator {
     private final MetaTypeRegistry metatypeRegistry;
 
     private ServerXMLConfiguration configuration;
+    private String configPath;
 
     private final ConfigVariableRegistry variableRegistry;
 
@@ -51,6 +53,25 @@ class ConfigValidator {
 
     public void setConfiguration(ServerXMLConfiguration configuration) {
         this.configuration = configuration;
+
+        if (configuration != null) {
+            WsResource configDir = configuration.getConfigDir();
+            if (configDir != null) {
+                configPath = configDir.asFile().toURI().toString();
+                configPath = variableRegistry.resolveRawString(configPath);
+            }
+        }
+    }
+
+    protected String relativeLocation(String location) {
+        Tr.debug(tc, "Configuration path [ " + configPath + " ]");
+        Tr.debug(tc, "Location [ " + location + " ]");
+
+        if ((configPath == null) || !location.startsWith(configPath)) {
+            return location;
+        } else {
+            return location.substring(configPath.length());
+        }
     }
 
     public boolean validateSingleton(String pid, String alias) {
@@ -215,10 +236,9 @@ class ConfigValidator {
         }
 
         logRegistryEntry(registryEntry);
-
         String validationMessage = generateCollisionMessage(pid, id, registryEntry, conflictedElementLists);
+        Tr.audit(tc, "info.config.multiple.values", validationMessage);
 
-        Tr.audit(tc, "info.config.conflict", validationMessage);
         return false;
     }
 
@@ -283,6 +303,17 @@ class ConfigValidator {
         }
     }
 
+    private void append(StringBuilder builder, String prefix, String msgId, Object... msgArgs) {
+        builder.append(prefix);
+        builder.append(Tr.formatMessage(tc, msgId, msgArgs));
+        builder.append(LINE_SEPARATOR);
+    }
+
+    private boolean isUnset(Object attributeValue) {
+        return ((attributeValue == null) ||
+                (attributeValue instanceof String) && ((String) attributeValue).isEmpty());
+    }
+
     /**
      * Emit a message for all detected conflicting elements.
      *
@@ -291,61 +322,104 @@ class ConfigValidator {
      *
      * The conflict map should never be empty.
      *
-     * Do not emit values for protected (password flagged) attributes. See {@link #isSecureAttribute(RegistryEntry, String)}.
-     *
-     * @param pid                    TBD
-     * @param id                     TBD
-     * @param registryEntry          The registry entry of the conflicted elements.
-     * @param conflictedElementLists All detected conflicted elements.
+     * Do not emit values for secure attributes. See {@link #isSecureAttribute(RegistryEntry, String)}.
      */
     private String generateCollisionMessage(String pid, ConfigID id, RegistryEntry registryEntry,
                                             Map<String, ConfigElementList> conflictMap) {
+
+        String useId = ((id == null) ? null : id.getId());
+
         StringBuilder builder = new StringBuilder();
 
+        String bannerMsg;
         if (id == null) {
-            builder.append(Tr.formatMessage(tc, "config.validator.foundConflictSingleton", pid));
+            bannerMsg = "config.validator.multiple.values.singleton";
         } else {
-            builder.append(Tr.formatMessage(tc, "config.validator.foundConflictInstance", pid, id.getId()));
+            bannerMsg = "config.validator.multiple.values.instance";
         }
-        builder.append(LINE_SEPARATOR);
+        append(builder, "", bannerMsg, pid, useId);
 
         for (Map.Entry<String, ConfigElementList> entry : conflictMap.entrySet()) {
             String attributeName = entry.getKey();
-            ConfigElementList configList = entry.getValue();
 
-            boolean secureAttribute = isSecureAttribute(registryEntry, attributeName);
-
-            if (configList.hasConflict()) {
-                builder.append("  ");
-                builder.append(Tr.formatMessage(tc, "config.validator.attributeConflict", attributeName));
-                builder.append(LINE_SEPARATOR);
-
-                for (ConfigElement element : configList) {
-                    Object value = element.getAttribute(attributeName);
-                    String docLocation = element.getDocumentLocation();
-                    builder.append("    ");
-                    if (secureAttribute) {
-                        builder.append(Tr.formatMessage(tc, "config.validator.valueConflictSecure", docLocation));
-                    } else if (value == null || value.equals("")) {
-                        builder.append(Tr.formatMessage(tc, "config.validator.valueConflictNull", docLocation));
-                    } else {
-                        builder.append(Tr.formatMessage(tc, "config.validator.valueConflict", value, docLocation));
-                    }
-                    builder.append(LINE_SEPARATOR);
-                }
-
-                builder.append("  ");
-                Object activeValue = configList.getActiveValue();
-                if (secureAttribute) {
-                    String activeLoc = configList.getActiveElement().getMergedLocation();
-                    builder.append(Tr.formatMessage(tc, "config.validator.activeValueSecure", attributeName, activeLoc));
-                } else if (activeValue == null || activeValue.equals("")) {
-                    builder.append(Tr.formatMessage(tc, "config.validator.activeValueNull", attributeName));
-                } else {
-                    builder.append(Tr.formatMessage(tc, "config.validator.activeValue", attributeName, activeValue));
-                }
-                builder.append(LINE_SEPARATOR);
+            ConfigElementList conflictList = entry.getValue();
+            if (!conflictList.hasConflict()) {
+                continue;
             }
+
+            boolean isSecure = isSecureAttribute(registryEntry, attributeName);
+            String activeLoc = conflictList.getActiveElement().getMergedLocation();
+
+            append(builder, "  ", "config.validator.attribute", attributeName);
+
+            for (ConfigElement element : conflictList) {
+                String docLocation = element.getDocumentLocation();
+                boolean inUse = docLocation.equals(activeLoc);
+
+                docLocation = relativeLocation(docLocation);
+
+                Object attributeValue;
+                String valueMsg;
+
+                if (isSecure) {
+                    attributeValue = null;
+                    valueMsg = inUse ? "config.validator.attribute.value.secure.inuse" : "config.validator.attribute.value.secure";
+                } else {
+                    attributeValue = element.getAttribute(attributeName);
+                    if (isUnset(attributeValue)) {
+                        attributeValue = null;
+                        valueMsg = inUse ? "config.validator.attribute.value.unset.inuse" : "config.validator.attribute.value.unset";
+                    } else {
+                        valueMsg = inUse ? "config.validator.attribute.value.inuse" : "config.validator.attribute.value";
+                    }
+                }
+
+                if (attributeValue == null) {
+                    append(builder, "    ", valueMsg, docLocation);
+                } else {
+                    append(builder, "    ", valueMsg, docLocation, attributeValue);
+                }
+            }
+
+//            Object activeValue;
+//          // String activeLoc = conflictList.getActiveElement().getMergedLocation();
+//
+//            if (id == null) {
+//                String activeMsg;
+//                if (isSecure) {
+//                    activeValue = null;
+//                    activeMsg = "config.validator.attribute.active.value.secure";
+//                } else {
+//                    activeValue = conflictList.getActiveValue();
+//                    if (isUnset(activeValue)) {
+//                        activeValue = null;
+//                        activeMsg = "config.validator.attribute.active.value.unset";
+//                    } else {
+//                        activeMsg = "config.validator.attribute.active.value";
+//                    }
+//                }
+//                if ( activeValue == null ) {
+//                    append(builder, "  ", activeMsg, attributeName);
+//                } else {
+//                    append(builder, "  ", activeMsg, attributeName, activeValue);
+//                }
+//
+//            } else {
+//                String activeMsg;
+//                if (isSecure) {
+//                    activeValue = null;
+//                    activeMsg = "config.validator.attribute.active.value.secure.id";
+//                } else {
+//                    activeValue = conflictList.getActiveValue();
+//                    if (isUnset(activeValue)) {
+//                        activeValue = null;
+//                        activeMsg = "config.validator.attribute.active.value.unset.id";
+//                    } else {
+//                        activeMsg = "config.validator.attribute.active.value.id";
+//                    }
+//                }
+//                append(builder, "  ", activeMsg, pid, useId, attributeName, activeLoc, activeValue);
+//            }
         }
 
         return builder.toString();

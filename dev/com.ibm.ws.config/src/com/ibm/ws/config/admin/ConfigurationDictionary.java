@@ -18,9 +18,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Dictionary;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.Vector;
 
@@ -30,27 +32,96 @@ import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.wsspi.kernel.service.utils.OnErrorUtil.OnError;
 import com.ibm.wsspi.kernel.service.utils.SerializableProtectedString;
 
+//@formatter:off
 @Trivial
 public class ConfigurationDictionary extends Dictionary<String, Object> implements Serializable {
-
     private static final long serialVersionUID = 7966152868712543805L;
 
-    /** Set of supported simple types */
-    static private final List<Class<?>> simpleTypes = Arrays.asList(new Class<?>[] { String.class, Integer.class, Long.class, Float.class, Double.class,
-                                                                                    Byte.class,
-                                                                                    Short.class, Character.class, Boolean.class });
+    /** Supported simple types. */
+    private static final List<Class<?>> simpleTypes =
+        Arrays.asList( String.class,
+                       Integer.class, Long.class, Float.class, Double.class,
+                       Byte.class, Short.class, Character.class, Boolean.class );
 
-    /** Set of supported primitive array types */
-    static private final List<Class<?>> primitiveArrayTypes = Arrays.asList(new Class<?>[] { long[].class, int[].class, short[].class, char[].class,
-                                                                                            byte[].class,
-                                                                                            double[].class, float[].class, boolean[].class });
+    /** Supported primitive array types. */
+    private static final List<Class<?>> primitiveArrayTypes =
+        Arrays.asList( long[].class, int[].class, short[].class,
+                       char[].class, byte[].class,
+                       double[].class, float[].class,
+                       boolean[].class );
 
-    /** Set of supported simple array types */
-    static private final List<Class<?>> simpleArrayTypes = Arrays.asList(new Class<?>[] { String[].class, Integer[].class, Long[].class, Float[].class,
-                                                                                         Double[].class,
-                                                                                         Byte[].class, Short[].class, Character[].class, Boolean[].class });
-    /** Set of IBM extended types */
-    static private final List<Class<?>> extendedTypes = Arrays.asList(new Class<?>[] { SerializableProtectedString.class, OnError.class });
+    /** Supported simple array types. */
+    private static final List<Class<?>> simpleArrayTypes =
+        Arrays.asList( String[].class,
+                       Integer[].class, Long[].class, Float[].class, Double[].class,
+                       Byte[].class, Short[].class, Character[].class, Boolean[].class );
+
+    /** IBM extended types. */
+    private static final List<Class<?>> extendedTypes =
+        Arrays.asList( SerializableProtectedString.class, OnError.class );
+
+    private static final Set<Class<?>> supportedTypes;
+
+    static {
+        supportedTypes = new HashSet<Class<?>>(
+                        simpleTypes.size() +
+                        primitiveArrayTypes.size() +
+                        simpleArrayTypes.size() +
+                        extendedTypes.size() );
+
+        supportedTypes.addAll(simpleTypes);
+        supportedTypes.addAll(primitiveArrayTypes);
+        supportedTypes.addAll(simpleArrayTypes);
+        supportedTypes.addAll(extendedTypes);
+    }
+
+    /**
+     * Validate a candidate element value.
+     *
+     * The value must be of a supported type, or must be
+     * a collection of values of simple types, or must be
+     * a mapping of strings to simple types.
+     *
+     * @param value A candidate element value.
+     *
+     * @throws IllegalArgumentException Thrown if the value is not valid.
+     */
+    private static void validateValue(Object value) {
+        Class<?> valueClass = value.getClass();
+
+        if ( supportedTypes.contains(valueClass) ) {
+            return;
+        }
+
+        if ( value instanceof Collection<?> ) {
+            for ( Object elementValue : (Collection<?>) value ) {
+                Class<?> elementClass = elementValue.getClass();
+                if ( !simpleTypes.contains(elementClass) ) {
+                    throw new IllegalArgumentException( elementClass.getName() + " in " + valueClass.getName() );
+                }
+            }
+            return;
+        }
+
+        if ( value instanceof Map ) {
+            ((Map<?, ?>) value).forEach( (key, element) -> {
+                Class<?> keyClass = key.getClass();
+                if (keyClass != String.class) {
+                    throw new IllegalArgumentException( keyClass.getName() + " in " + valueClass.getName() );
+                }
+
+                Class<?> elementClass = element.getClass();
+                if (!simpleTypes.contains(elementClass)) {
+                    throw new IllegalArgumentException( elementClass.getName() + " in " + valueClass.getName() );
+                }
+            });
+            return;
+        }
+
+        throw new IllegalArgumentException( valueClass.getName() );
+    }
+
+    //
 
     static final Comparator<String> CASE_INSENSITIVE = new CaseInsensitive();
 
@@ -60,68 +131,68 @@ public class ConfigurationDictionary extends Dictionary<String, Object> implemen
 
         @Override
         public int compare(String s1, String s2) {
-            if (s1 == s2)
+            if ( s1 == s2 ) {
                 return 0;
+            }
             return String.CASE_INSENSITIVE_ORDER.compare(s1, s2);
         }
-
     };
 
-    protected final Map<String, Object> properties = Collections.synchronizedMap(new TreeMap<String, Object>(CASE_INSENSITIVE));
+    //
 
     public ConfigurationDictionary() {
-
+        // EMPTY
     }
 
-    @Trivial
-    private class ValuesEnumeration<T> implements Enumeration<Object> {
-        final Iterator<Object> valuesIterator = properties.values().iterator();
-
-        @Override
-        @Trivial
-        public boolean hasMoreElements() {
-            return valuesIterator.hasNext();
-        }
-
-        @Override
-        @Trivial
-        public Object nextElement() {
-            return valuesIterator.next();
-        }
-    }
-
-    @Override
-    public Enumeration<Object> elements() {
-        return new ValuesEnumeration<Object>();
-    }
+    protected final Map<String, Object> properties =
+        Collections.synchronizedMap(new TreeMap<String, Object>(CASE_INSENSITIVE));
 
     @Override
     public Object get(Object key) {
-        if (key == null)
-            throw new NullPointerException();
         return properties.get(key);
     }
+
+    /**
+     * Add a value to this dictionary.
+     *
+     * The value must be a valid configuration value.
+     * See {@link #validateValue(Object)}.
+     *
+     * @param key The key for the value.
+     * @param value The value which is to be stored.
+     *
+     * @return The value previously stored under the
+     *     specified key.  Null if no value was previously
+     *     stored.
+     *
+     * @throws IllegalArgumentException Thrown if the key or
+     *     the value is null, or if the value is not valid.
+     */
+    @Override
+    public Object put(String key, Object value) {
+        if ( (key == null) || (value == null) ) {
+            throw new NullPointerException();
+        }
+        validateValue(value); // throws IllegalArgumentException
+
+        return properties.put(key, value);
+    }
+
+    @Override
+    public Object remove(Object key) {
+        return properties.remove(key);
+    }
+
+    //
 
     @Override
     public boolean isEmpty() {
         return properties.isEmpty();
     }
 
-    @Trivial
-    private class KeysEnumeration<T> implements Enumeration<String> {
-        Iterator<String> keysIterator = properties.keySet().iterator();
-
-        @Override
-        @Trivial
-        public boolean hasMoreElements() {
-            return keysIterator.hasNext();
-        }
-
-        @Override
-        @Trivial
-        public String nextElement() {
-            return keysIterator.next();
-        }
+    @Override
+    public int size() {
+        return properties.size();
     }
 
     @Override
@@ -130,129 +201,159 @@ public class ConfigurationDictionary extends Dictionary<String, Object> implemen
     }
 
     @Override
-    public Object put(String key, Object value) {
-        if (key == null || value == null)
-            throw new NullPointerException();
-
-        // Will throw an illegal argument exception if not a valid configuration property type
-        validateValue(value);
-
-        return properties.put(key, value);
+    public Enumeration<Object> elements() {
+        return new ValuesEnumeration<Object>();
     }
 
-    @Override
-    public Object remove(Object key) {
-        if (key == null)
-            throw new NullPointerException();
-        return properties.remove(key);
+    public boolean matches(Filter filter) {
+        return filter.matches(properties);
     }
 
-    @Override
-    public int size() {
-        return properties.size();
-    }
+    //
 
-    private static void validateValue(Object value) {
-        Class<?> clazz = value.getClass();
+    @Trivial
+    private class KeysEnumeration<T> implements Enumeration<String> {
+        Iterator<String> iterator = properties.keySet().iterator();
 
-        // Is it in the set of simpleTypes 
-        if (simpleTypes.contains(clazz))
-            return;
-
-        // Is it an array of primitives or simples or extended
-        if (simpleArrayTypes.contains(clazz) || primitiveArrayTypes.contains(clazz) || extendedTypes.contains(clazz))
-            return;
-
-        // Is it a Collection of simpleTypes
-        if (value instanceof Collection<?>) {
-            Collection<?> valueCollection = (Collection<?>) value;
-            for (Iterator<?> it = valueCollection.iterator(); it.hasNext();) {
-                Class<?> containedClazz = it.next().getClass();
-                if (!simpleTypes.contains(containedClazz)) {
-                    throw new IllegalArgumentException(containedClazz.getName() + " in " + clazz.getName()); //$NON-NLS-1$
-                }
-            }
-            return;
+        @Override
+        public boolean hasMoreElements() {
+            return iterator.hasNext();
         }
 
-        // IBM extension to support Maps
-        if (value instanceof Map) {
-            Map<?, ?> valueMap = (Map<?, ?>) value;
-            for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
-                Class<?> keyClazz = entry.getKey().getClass();
-                if (keyClazz != String.class) {
-                    throw new IllegalArgumentException(keyClazz.getName() + " in " + clazz.getName()); //$NON-NLS-1$
-                }
-                Class<?> valueClazz = entry.getValue().getClass();
-                if (!simpleTypes.contains(valueClazz)) {
-                    throw new IllegalArgumentException(valueClazz.getName() + " in " + clazz.getName()); //$NON-NLS-1$
-                }
-            }
-            return;
+        @Override
+        public String nextElement() {
+            return iterator.next();
         }
-
-        throw new IllegalArgumentException(clazz.getName());
     }
 
+    @Trivial
+    private class ValuesEnumeration<T> implements Enumeration<Object> {
+        private final Iterator<Object> iterator = properties.values().iterator();
+
+        @Override
+        public boolean hasMoreElements() {
+            return iterator.hasNext();
+        }
+
+        @Override
+        public Object nextElement() {
+            return iterator.next();
+        }
+    }
+
+    /**
+     * Copy (clone) this dictionary.  Copy array and vector
+     * values.  Simply place all other value types.
+     *
+     * Note: Non-vector collection types, including mappings,
+     * are simply placed.  This is probably an oversight.  See
+     * {@link #validateValue(Object)}.
+     *
+     * @return The copied dictionary.
+     */
     public ConfigurationDictionary copy() {
         ConfigurationDictionary result = new ConfigurationDictionary();
-        for (Map.Entry<String, Object> entry : properties.entrySet()) {
-            String key = entry.getKey();
-            Object value = entry.getValue();
-            if (value.getClass().isArray()) {
-                int arrayLength = Array.getLength(value);
-                Object copyOfArray = Array.newInstance(value.getClass().getComponentType(), arrayLength);
-                System.arraycopy(value, 0, copyOfArray, 0, arrayLength);
-                result.properties.put(key, copyOfArray);
-            } else if (value instanceof Vector)
-                result.properties.put(key, ((Vector<?>) value).clone());
-            else
-                result.properties.put(key, value);
-        }
+
+        // TODO: Should this have cases for Collection and Map?
+        //       'validateValue' allows both.
+
+        properties.forEach( (key, value) -> {
+            Object copyValue;
+            if ( value.getClass().isArray() ) {
+                copyValue = copyArray(value);
+            } else if (value instanceof Vector) {
+                copyValue = ((Vector<?>) value).clone();
+            } else {
+                copyValue = value;
+            }
+            // Bypass the validating 'put': The copied value
+            // must be valid since it is a copy of a valid value.
+            result.properties.put(key, copyValue);
+        });
         return result;
     }
 
+    /**
+     * Copy an array typed value.
+     *
+     * Per {@link #validateValue(Object)}, the array element type must be a
+     * simple value, and can be safely reused without being copied.
+     *
+     * @param value An array typed value.
+     *
+     * @return A copy of the value.
+     */
+    private Object copyArray(Object value) {
+        int arrayLength = Array.getLength(value);
+        Object copyOfArray = Array.newInstance(value.getClass().getComponentType(), arrayLength);
+        System.arraycopy(value, 0, copyOfArray, 0, arrayLength);
+        return copyOfArray;
+    }
+
+    /**
+     * Print the contents of this dictionary.
+     *
+     * The format is:
+     * <code>
+     *   {key=value, key=value, ...}
+     * </code>
+     *
+     * @return A print string for this configuration dictionary.
+     */
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
         builder.append('{');
 
-        synchronized (properties) {
-            for (Iterator<Map.Entry<String, Object>> it = properties.entrySet().iterator(); it.hasNext();) {
-                Map.Entry<String, Object> entry = it.next();
-
-                builder.append(entry.getKey());
-                builder.append('=');
-
-                Object value = entry.getValue();
-                if (value == null || !value.getClass().isArray()) {
-                    builder.append(value);
-                } else {
-                    String name = value.getClass().getComponentType().getName();
-                    builder.append(name, name.lastIndexOf('.') + 1, name.length()).append("[]{");
-                    for (int i = 0, length = Array.getLength(value); i < length; i++) {
-                        if (i != 0) {
-                            builder.append(", ");
-                        }
-                        builder.append(Array.get(value, i));
-                    }
-                    builder.append('}');
-                }
-
-                if (it.hasNext()) {
-                    builder.append(", ");
-                }
+        properties.forEach( (key, value) -> {
+            if ( builder.length() > 1 ) {
+                builder.append(", ");
             }
-        }
+
+            builder.append(key);
+            builder.append('=');
+
+            if ( (value == null) || !value.getClass().isArray() ) {
+                builder.append(value);
+            } else {
+                appendArray(builder, value);
+            }
+        });
 
         return builder.append('}').toString();
     }
 
     /**
-     * @param filter
-     * @return
+     * Append an array value to a string builder.
+     *
+     * The value format is:
+     * <code>
+     *     simpleName[]{ v0, v1, ... }
+     * </code>
+     *
+     * The simple type name is the unqualified array component type
+     * name.  For example, <code>Integer</code> for
+     * <code>java.lang.Integer</code>.
+     *
+     * Nested arrays are not supported: The displayed array elements
+     * are never nested arrays.
+     *
+     * @param builder A string builder.
+     * @param value An array value.
      */
-    public boolean matches(Filter filter) {
-        return filter.matches(this.properties);
+    private void appendArray(StringBuilder builder, Object value) {
+        String name = value.getClass().getComponentType().getName();
+        builder.append(name, name.lastIndexOf('.') + 1, name.length());
+        builder.append("[]");
+
+        builder.append('{');
+        for ( int i = 0, length = Array.getLength(value); i < length; i++ ) {
+            if ( i != 0 ) {
+                builder.append(", ");
+            }
+            builder.append( Array.get(value, i) );
+        }
+        builder.append('}');
     }
 }
+//@formatter:on

@@ -15,24 +15,22 @@ import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-/**
- *
- */
 public interface SystemConfigSupport {
+    void registerConfiguration(ConfigID configId, ExtendedConfiguration config);
 
     ExtendedConfiguration lookupConfiguration(ConfigID referenceId);
 
     Set<ConfigID> getReferences(ConfigID configId);
 
-    void registerConfiguration(ConfigID configId, ExtendedConfiguration config);
-
     ExtendedConfiguration findConfiguration(String alias);
 
-    boolean waitForAll(Collection<Future<?>> endingFuturesForChanges, long timeout, TimeUnit unit);
+    //
 
     void openManagedServiceTrackers();
 
     void fireMetatypeRemovedEvent(String pid);
 
     void fireMetatypeAddedEvent(String pid);
+
+    boolean waitForAll(Collection<Future<?>> endingFuturesForChanges, long timeout, TimeUnit unit);
 }

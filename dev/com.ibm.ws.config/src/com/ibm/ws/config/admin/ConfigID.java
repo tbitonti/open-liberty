@@ -17,15 +17,184 @@ import com.ibm.websphere.ras.annotation.Trivial;
 
 @Trivial
 public class ConfigID implements Serializable {
-
     private static final long serialVersionUID = -7188381474767207297L;
 
-    private final String pid;
-    private final String id;
+    //
 
-    private final ConfigID parent;
+    /**
+     * Parse a configuration ID from a print string.
+     *
+     * The full format is:
+     * <code>
+     * parentConfigID//PID(childAttribute)[ID]
+     * </code>
+     *
+     * Minimally, a PID must be present. There can be any number of parent
+     * configuration ID's. Both child attribute and ID are optional.
+     *
+     * See {@link ConfigID#printString}.
+     *
+     * @param printString The configuration ID print string which is to be parsed.
+     *
+     * @return A new configuration ID.
+     *
+     * @throws IllegalArgumentException If a non-valid print string is provided.
+     */
+    public static ConfigID fromProperty(String printString) {
+        String[] noParentPrintStrings = printString.split("//");
 
-    private final String childAttribute;
+        ConfigID configID = null;
+        for (String noParentPrintString : noParentPrintStrings) {
+            configID = parseConfigId(configID, noParentPrintString);
+        }
+
+        return configID;
+    }
+
+    /**
+     * Parse a no-parent configuration ID print string. Answer
+     * a no-parent configuration ID.
+     *
+     * See {@link #parseConfigId(ConfigID, String)}.
+     *
+     * @param printString A no-parent configuration ID print string.
+     *
+     * @return A new no-parent configuration ID.
+     *
+     * @throws IllegalArgumentException If a non-valid no-parent print string
+     *                                      is provided.
+     */
+    public static ConfigID parseConfigId(String printString) {
+        return parseConfigId(null, printString);
+    }
+
+    /**
+     * Parse a no-parent configuration ID print string. Create and
+     * return a configuration ID using the parse data and using the
+     * supplied parent configuration ID.
+     *
+     * The parent configuration may be null.
+     *
+     * @param parentConfigID    The parent configuration ID for the new configuration ID.
+     * @param printString A no-parent configuration ID print string.
+     *
+     * @return A new configuration ID.
+     *
+     * @throws IllegalArgumentException If a non-valid no-parent print string
+     *                                      is provided.
+     */
+    public static ConfigID parseConfigId(ConfigID parentConfigID, String printString) {
+        int childStart = -1;
+        int childEnd = -1;
+
+        int idStart = -1;
+        int idEnd = -1;
+
+        String failure = null;
+
+        int length = printString.length();
+        if (length == 0) {
+            failure = "Empty";
+        }
+
+        if (failure == null) {
+            for (int charNo = 0; (failure == null) && (charNo < length); charNo++) {
+                char c = printString.charAt(charNo);
+
+                if (c == '/') {
+                    failure = "Unexpected slash character";
+
+                } else if (idEnd != -1) {
+                    if (c == '(') {
+                        failure = "Child attribute after ID";
+                    } else {
+                        failure = "Character after ID";
+                    }
+
+                } else if (c == '(') {
+                    if (charNo == 0) {
+                        failure = "Empty PID";
+                    } else if ((childStart != -1) || (idStart != -1)) {
+                        failure = "Unexpected open parentheses";
+                    } else {
+                        childStart = charNo;
+                    }
+                } else if (c == ')') {
+                    if ((childStart == -1) || (childEnd != -1)) {
+                        failure = "Unexpected close parenthesis";
+                    } else if (charNo == childStart + 1) {
+                        failure = "Empty child attribute";
+                    } else {
+                        childEnd = charNo;
+                    }
+
+                } else if (c == '[') {
+                    if (charNo == 0) {
+                        failure = "Empty PID";
+                    } else if (((childStart != -1) && (childEnd == -1)) || (idStart != -1)) {
+                        failure = "Unexpected open bracket";
+                    } else {
+                        idStart = charNo;
+                    }
+                } else if (c == ']') {
+                    if ((idStart == -1) || (idEnd != -1)) {
+                        failure = "Unexpected close bracket";
+                    } else if (charNo == idStart + 1) {
+                        failure = "Empty ID";
+                    } else {
+                        idEnd = charNo;
+                    }
+
+                } else if ((childEnd != -1) && (idStart == -1)) {
+                    failure = "Character after child attribute";
+
+                } else {
+                    // Valid character
+                }
+            }
+        }
+
+        if (failure == null) {
+            if ((childStart != -1) && (childEnd == -1)) {
+                failure = "Unclosed child attribute";
+            } else if ((idStart != -1) && (idEnd == -1)) {
+                failure = "Unclosed ID";
+            }
+        }
+
+        if (failure != null) {
+            throw new IllegalArgumentException("Configuration ID [ " + printString + " ] is not valid: " + failure);
+        }
+
+        String pid;
+        String childAttribute;
+        String id;
+
+        if (childStart != -1) {
+            pid = printString.substring(0, childStart);
+            childAttribute = printString.substring(childStart + 1, childEnd);
+        } else {
+            pid = null;
+            childAttribute = null;
+        }
+
+        if (idStart != -1) {
+            if (pid == null) {
+                pid = printString.substring(0, idStart);
+            }
+            id = printString.substring(idStart + 1, idEnd);
+        } else {
+            id = null;
+        }
+
+        if (pid == null) {
+            pid = printString;
+        }
+
+        return new ConfigID(parentConfigID, pid, id, childAttribute);
+    }
+
+    //
 
     public ConfigID(String pid) {
         this(null, pid, null, null);
@@ -35,129 +204,53 @@ public class ConfigID implements Serializable {
         this(null, pid, id, null);
     }
 
-    /**
-     * @param parent
-     * @param nodeName
-     * @param id2
-     */
-    public ConfigID(ConfigID parent, String nodeName, String id2) {
-        this(parent, nodeName, id2, null);
+    public ConfigID(ConfigID parent, String pid, String id) {
+        this(parent, pid, id, null);
     }
 
-    public ConfigID(ConfigID parent, String nodeName, String id, String childAttribute) {
-        this.pid = nodeName;
+    public ConfigID(ConfigID parent, String pid, String id, String childAttribute) {
+        this.pid = pid;
         this.id = id;
-        this.parent = parent;
+        this.parentConfigID = parent;
         this.childAttribute = childAttribute;
-    }
 
-    public String getPid() {
-        return pid;
-    }
+        int prime = 31;
+        int useHashCode = 1;
+        useHashCode = prime * useHashCode + ((pid == null) ? 0 : pid.hashCode());
+        useHashCode = prime * useHashCode + ((id == null) ? 0 : id.hashCode());
+        useHashCode = prime * useHashCode + ((parent == null) ? 0 : parent.hashCode());
+        useHashCode = prime * useHashCode + ((childAttribute == null) ? 0 : childAttribute.hashCode());
+        this.hashCode = useHashCode;
 
-    public String getId() {
-        return id;
-    }
-
-    /**
-     * Translate config.id back into an ConfigID object
-     * 
-     * @param property
-     * @return
-     */
-    public static ConfigID fromProperty(String property) {
-        //TODO Perhaps there is a clever regex that could handle this
-        String[] parents = property.split("//");
-
-        ConfigID id = null;
-        for (String parentString : parents) {
-            id = constructId(id, parentString);
-        }
-
-        return id;
-    }
-
-    /**
-     * @param parent2
-     * @param parentString
-     * @return
-     */
-    private static ConfigID constructId(ConfigID parent2, String parentString) {
-        String childAttribute = parseChildAttribute(parentString);
-        String pid = parsePid(parentString);
-        String id = parseId(parentString);
-
-        return new ConfigID(parent2, pid, id, childAttribute);
-    }
-
-    /**
-     * @param parentString
-     * @return
-     */
-    private static String parseId(String parentString) {
-        int idx = parentString.indexOf('[');
-        if (idx == -1)
-            return null;
-
-        return parentString.substring(idx + 1, parentString.indexOf(']'));
-    }
-
-    /**
-     * @param parentString
-     * @return
-     */
-    private static String parsePid(String parentString) {
-        int idx = parentString.indexOf('(');
-        if (idx == -1)
-            idx = parentString.indexOf('[');
-        if (idx == -1)
-            return parentString;
-        else
-            return parentString.substring(0, idx);
-    }
-
-    /**
-     * @param parentString
-     * @return
-     */
-    private static String parseChildAttribute(String parentString) {
-        int idx = parentString.indexOf('(');
-        if (idx != -1) {
-            return parentString.substring(idx + 1, parentString.indexOf(')'));
-        }
-        return null;
+        this.printString = null;
     }
 
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((id == null) ? 0 : id.hashCode());
-        result = prime * result + ((pid == null) ? 0 : pid.hashCode());
-        result = prime * result + ((parent == null) ? 0 : parent.hashCode());
-        result = prime * result + ((childAttribute == null) ? 0 : childAttribute.hashCode());
-        return result;
+        return hashCode;
     }
 
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
-        }
-        if (obj == null) {
+        } else if (obj == null) {
             return false;
-        }
-        if (!(obj instanceof ConfigID)) {
+        } else if (!(obj instanceof ConfigID)) {
             return false;
         }
         ConfigID other = (ConfigID) obj;
-        if (id == null) {
-            if (other.id != null) {
-                return false;
-            }
-        } else if (!id.equals(other.id)) {
+
+        // Can't be equal if they have different hash codes.
+        if (hashCode != other.hashCode) {
             return false;
         }
+
+        // Short cut if the print strings have been generated.
+        if ((printString != null) && (other.printString != null)) {
+            return printString.equals(other.printString);
+        }
+
         if (pid == null) {
             if (other.pid != null) {
                 return false;
@@ -166,11 +259,19 @@ public class ConfigID implements Serializable {
             return false;
         }
 
-        if (parent == null) {
-            if (other.parent != null) {
+        if (id == null) {
+            if (other.id != null) {
                 return false;
             }
-        } else if (!parent.equals(other.parent)) {
+        } else if (!id.equals(other.id)) {
+            return false;
+        }
+
+        if (parentConfigID == null) {
+            if (other.parentConfigID != null) {
+                return false;
+            }
+        } else if (!parentConfigID.equals(other.parentConfigID)) {
             return false;
         }
 
@@ -185,35 +286,70 @@ public class ConfigID implements Serializable {
         return true;
     }
 
+    /**
+     * Answer a print string for this configuration ID.
+     *
+     * The full pattern is:
+     *
+     * <code>
+     * parentID//PID(childAttribute)[ID]
+     * </code>
+     *
+     * Other usual patterns are:
+     *
+     * <code>
+     * PID
+     * PID[ID]
+     * parentID//PID[ID]
+     * </code>
+     *
+     * @return A print string for this configuration ID.
+     */
     @Override
     @Trivial
     public String toString() {
-        StringBuffer buffer = new StringBuffer();
-        if (this.parent != null) {
-            buffer.append(parent.toString());
-            buffer.append("//");
-        }
-        buffer.append(pid);
+        if (printString == null) {
+            StringBuilder builder = new StringBuilder();
+            if (parentConfigID != null) {
+                builder.append(parentConfigID.toString());
+                builder.append("//");
+            }
+            builder.append(pid);
 
-        if (childAttribute != null) {
-            buffer.append('(').append(childAttribute).append(')');
+            if (childAttribute != null) {
+                builder.append('(').append(childAttribute).append(')');
+            }
+            if (id != null) {
+                builder.append('[').append(id).append(']');
+            }
+            printString = builder.toString();
         }
-        if (id != null) {
-            buffer.append('[').append(id).append(']');
-        }
-
-        return buffer.toString();
+        return printString;
     }
 
-    /**
-     * @return
-     */
+    //
+
+    private final String pid;
+    private final String id;
+    private final ConfigID parentConfigID;
+    private final String childAttribute;
+
+    private final int hashCode;
+    private String printString;
+
+    public String getPid() {
+        return pid;
+    }
+
+    public String getId() {
+        return id;
+    }
+
     public ConfigID getParent() {
-        return this.parent;
+        return this.parentConfigID;
     }
 
     public String getChildAttribute() {
         return this.childAttribute;
     }
-
 }
