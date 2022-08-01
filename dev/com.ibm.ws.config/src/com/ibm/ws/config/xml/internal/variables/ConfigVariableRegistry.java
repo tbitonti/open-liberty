@@ -425,27 +425,43 @@ public class ConfigVariableRegistry implements VariableRegistry, ConfigVariables
         return oldValue.equals(newValue) ? null : DeltaType.MODIFIED;
     }
 
-    public String lookupVariableFromAdditionalSources(String variableName) {
-
-        String value = null;
-
-        // Try to resolve as an env variable ( resolve env.var-Name )
-
-        value = lookupVariable("env." + variableName);
-
-        // Try to resolve with non-alpha characters replaced ( resolve env.var_Name )
-        if (value == null) {
-            variableName = stringUtils.replaceNonAlpha(variableName);
-            value = lookupVariable("env." + variableName);
+    public String lookupVariableFromAdditionalSources(String varName) {
+        String value = lookupVariable("env." + varName);
+        if (value != null) {
+            return value;
         }
 
-        // Try to resolve with upper case ( resolve env.VAR_NAME )
-        if (value == null) {
-            variableName = variableName.toUpperCase();
-            value = lookupVariable("env." + variableName);
+        String ucVarName = varName.toUpperCase();
+        if (ucVarName != varName) {
+            value = lookupVariable("env." + ucVarName);
+            if (value != null) {
+                return value;
+            }
+        } else {
+            ucVarName = null;
         }
 
-        return value;
+        String nonAlphaVarName = StringUtils.replaceNonAlpha(varName);
+        if (nonAlphaVarName != varName) {
+            value = lookupVariable("env." + nonAlphaVarName);
+            if (value != null) {
+                return value;
+            }
+        } else {
+            nonAlphaVarName = null;
+        }
+
+        if (ucVarName != null) {
+            String nonAlphaUCVarName = StringUtils.replaceNonAlpha(ucVarName);
+            if (nonAlphaUCVarName != ucVarName) {
+                value = lookupVariable("env." + nonAlphaUCVarName);
+                if (value != null) {
+                    return value;
+                }
+            }
+        }
+
+        return null;
 
     }
 
@@ -789,13 +805,11 @@ public class ConfigVariableRegistry implements VariableRegistry, ConfigVariables
     public String getFileSystemVariableName(File f) {
         String name = f.getName();
 
-        // If the parent file is one of our root directories, just return the file name
         for (File fsVarRootDirectoryFile : this.fsVarRootDirectoryFiles) {
             if (f.getParentFile().compareTo(fsVarRootDirectoryFile) == 0)
                 return name;
         }
 
-        // Otherwise, return the parent directory name + / + file name
         return f.getParentFile().getName() + "/" + name;
     }
 }

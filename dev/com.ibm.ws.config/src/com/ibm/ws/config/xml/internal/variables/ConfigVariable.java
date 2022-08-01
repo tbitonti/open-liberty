@@ -13,46 +13,16 @@ package com.ibm.ws.config.xml.internal.variables;
 import com.ibm.websphere.ras.annotation.Sensitive;
 import com.ibm.ws.config.xml.internal.XMLConfigParser.MergeBehavior;
 
-/**
- *
- */
 public class ConfigVariable extends AbstractLibertyVariable {
-
-    private final String name;
-    private final String value;
-    private final String defaultValue;
-    private final MergeBehavior mergeBehavior;
-    private final String location;
-    private final boolean sensitive;
-
-    public ConfigVariable(String name, @Sensitive String value, @Sensitive String variableDefault, MergeBehavior mb, String l, boolean isSensitive) {
+    public ConfigVariable(String name, @Sensitive String value, @Sensitive String defaultValue, MergeBehavior mergeBehavior, String location, boolean sensitive) {
         this.name = name;
+        this.sensitive = sensitive;
+        this.defaultValue = defaultValue;
+
+        this.location = location;
+        this.mergeBehavior = mergeBehavior;
+
         this.value = value;
-        this.defaultValue = variableDefault;
-        this.mergeBehavior = mb;
-        this.location = l;
-        this.sensitive = isSensitive;
-    }
-
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Sensitive
-    @Override
-    public String getValue() {
-        return value;
-    }
-
-    @Sensitive
-    @Override
-    public String getDefaultValue() {
-        return defaultValue;
-    }
-
-    public MergeBehavior getMergeBehavior() {
-        return this.mergeBehavior;
     }
 
     @Override
@@ -66,17 +36,47 @@ public class ConfigVariable extends AbstractLibertyVariable {
         return builder.toString();
     }
 
-    public String getDocumentLocation() {
-        return location;
+    private final String name;
+    private final boolean sensitive;
+    private final String defaultValue;
+
+    private final String location;
+    private final MergeBehavior mergeBehavior;
+
+    private final String value;
+
+    @Override
+    public String getName() {
+        return name;
     }
 
     @Override
     public boolean isSensitive() {
-        return this.sensitive;
+        return sensitive;
+    }
+
+    @Sensitive
+    @Override
+    public String getDefaultValue() {
+        return defaultValue;
     }
 
     @Override
     public Source getSource() {
         return Source.XML_CONFIG;
+    }
+
+    public String getDocumentLocation() {
+        return location;
+    }
+
+    public MergeBehavior getMergeBehavior() {
+        return mergeBehavior;
+    }
+
+    @Sensitive
+    @Override
+    public String getValue() {
+        return value;
     }
 }

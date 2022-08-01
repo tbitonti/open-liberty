@@ -23,94 +23,137 @@ import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.config.xml.internal.XMLConfigConstants;
 import com.ibm.ws.config.xml.internal.schema.AttributeDefinitionSpecification;
 
-/**
- *
- */
 @Trivial
 public class ExtendedAttributeDefinitionImpl implements ExtendedAttributeDefinition {
 
-    private final AttributeDefinition delegate;
-    private int cachedType;
-    private String group;
-    private boolean isFinal;
-    private boolean isFlat;
-    private boolean isUnique;
-    private String referencePid;
-    private String service;
-    private String serviceFilter;
-    private String rename;
-    private String requiresFalse;
-    private String requiresTrue;
-    private String uniqueCategory;
-    private String variable;
-    private String copyOf;
-    private boolean resolveVariables = true;
-    private List<String> uiReference;
-    private boolean beta;
-    private boolean obscure;
+    public ExtendedAttributeDefinitionImpl(AttributeDefinition delegate) {
+        this.delegate = delegate;
 
-    public ExtendedAttributeDefinitionImpl(AttributeDefinition ad) {
-        delegate = ad;
-        cachedType = ad.getType();
-        if (ad instanceof EquinoxAttributeDefinition)
-            initFromEquinoxAD();
-        else if (ad instanceof WSAttributeDefinitionImpl)
-            initFromWSAD();
-    }
+        int useType;
 
-    private void initFromEquinoxAD() {
-        EquinoxAttributeDefinition delegate = (EquinoxAttributeDefinition) this.delegate;
-        Set<String> supportedExtensions = delegate.getExtensionUris();
-        if (supportedExtensions != null && supportedExtensions.contains(XMLConfigConstants.METATYPE_EXTENSION_URI)) {
-            Map<String, String> extensions = delegate.getExtensionAttributes(XMLConfigConstants.METATYPE_EXTENSION_URI);
-            String typeStr = extensions.get(ATTRIBUTE_TYPE_NAME);
-            if (typeStr != null) {
-                Integer cachedType = MetaTypeFactoryImpl.IBM_TYPES.get(typeStr);
-                if (cachedType != null) {
-                    this.cachedType = cachedType;
+        if (delegate instanceof EquinoxAttributeDefinition) {
+            EquinoxAttributeDefinition equinoxDelegate = (EquinoxAttributeDefinition) delegate;
+
+            Map<String, String> metatypeExtensions = getMetatypeExtensions(equinoxDelegate);
+
+            String typeText = metatypeExtensions.get(ATTRIBUTE_TYPE_NAME);
+            if (typeText != null) {
+                Integer typeValue = MetaTypeFactoryImpl.IBM_TYPES.get(typeText);
+                if (typeValue != null) {
+                    useType = typeValue.intValue();
                 } else {
-                    throw new NullPointerException("Unrecognized ibm type: '" + typeStr + "' in AD " + delegate.getID());
+                    throw new IllegalArgumentException("Unrecognized type '" + typeText + "' in attribute definition " + equinoxDelegate.getID());
                 }
+            } else {
+                useType = delegate.getType();
             }
-            isFinal = extensions.get(FINAL_ATTR_NAME) != null;
-            isFlat = extensions.get(FLAT_ATTR_NAME) != null;
-            copyOf = extensions.get(COPY_OF_ATTR_NAME);
-            isUnique = extensions.get(UNIQUE_ATTR_NAME) != null;
-            referencePid = extensions.get(ATTRIBUTE_REFERENCE_NAME);
-            service = extensions.get(SERVICE);
-            serviceFilter = extensions.get(SERVICE_FILTER);
-            rename = extensions.get(RENAME_ATTR_NAME);
-            uniqueCategory = extensions.get(UNIQUE_ATTR_NAME);
-            variable = extensions.get(VARIABLE_ATTR_NAME);
-            beta = "true".equals(extensions.get(BETA_NAME));
-            obscure = extensions.get(OBSCURE_NAME) != null;
 
-            String variableResolution = extensions.get(VARIABLE_SUBSTITUTION_NAME);
-            if (variableResolution != null && FALSE.equalsIgnoreCase(variableResolution))
-                resolveVariables = false;
-        }
-        if (supportedExtensions != null && supportedExtensions.contains(XMLConfigConstants.METATYPE_UI_EXTENSION_URI)) {
-            Map<String, String> uiExtensions = delegate.getExtensionAttributes(XMLConfigConstants.METATYPE_UI_EXTENSION_URI);
-            group = uiExtensions.get(GROUP_ATTR_NAME);
-            requiresFalse = uiExtensions.get(REQUIRES_FALSE_ATTR_NAME);
-            requiresTrue = uiExtensions.get(REQUIRES_TRUE_ATTR_NAME);
-            if (uiExtensions.get(UI_REFERENCE) != null) {
-                uiReference = Arrays.asList(uiExtensions.get(UI_REFERENCE).split("[, ]+"));
+            this.referencePid = metatypeExtensions.get(ATTRIBUTE_REFERENCE_NAME);
+
+            this.isFinal = (metatypeExtensions.get(FINAL_ATTR_NAME) != null);
+            this.isFlat = (metatypeExtensions.get(FLAT_ATTR_NAME) != null);
+            this.obscure = metatypeExtensions.get(OBSCURE_NAME) != null;
+            // A beta attribute *ONLY IF* explicitly enabled.
+            this.beta = ExtendedAttributeDefinition.isTrueString(metatypeExtensions.get(BETA_NAME));
+            // Resolve variables *UNLESS* explicitly disabled.
+            this.resolveVariables = !(ExtendedAttributeDefinition.isFalseString(metatypeExtensions.get(VARIABLE_SUBSTITUTION_NAME)));
+
+            this.isUnique = metatypeExtensions.get(UNIQUE_ATTR_NAME) != null;
+            this.uniqueCategory = metatypeExtensions.get(UNIQUE_ATTR_NAME);
+
+            this.copyOf = metatypeExtensions.get(COPY_OF_ATTR_NAME);
+            this.rename = metatypeExtensions.get(RENAME_ATTR_NAME);
+            this.variable = metatypeExtensions.get(VARIABLE_ATTR_NAME);
+
+            this.service = metatypeExtensions.get(SERVICE);
+            this.serviceFilter = metatypeExtensions.get(SERVICE_FILTER);
+
+            Map<String, String> metatypeUIExtensions = getMetatypeUIExtensions(equinoxDelegate);
+
+            this.group = metatypeUIExtensions.get(GROUP_ATTR_NAME);
+            this.requiresFalse = metatypeUIExtensions.get(REQUIRES_FALSE_ATTR_NAME);
+            this.requiresTrue = metatypeUIExtensions.get(REQUIRES_TRUE_ATTR_NAME);
+
+            String uiReferenceValue = metatypeUIExtensions.get(UI_REFERENCE);
+            if (uiReferenceValue != null) {
+                this.uiReference = Arrays.asList(uiReferenceValue.split("[, ]+"));
+            } else {
+                this.uiReference = null;
             }
+
+        } else if (delegate instanceof WSAttributeDefinitionImpl) {
+            WSAttributeDefinitionImpl wsDelegate = (WSAttributeDefinitionImpl) this.delegate;
+
+            useType = delegate.getType();
+
+            this.referencePid = wsDelegate.getReferencePid();
+
+            this.isFinal = wsDelegate.isFinal();
+            this.isFlat = wsDelegate.isFlat();
+            this.obscure = false;
+            this.beta = false;
+            this.resolveVariables = true;
+
+            this.isUnique = wsDelegate.isUnique();
+            this.uniqueCategory = wsDelegate.getUnique();
+
+            this.copyOf = wsDelegate.getCopyOf();
+            this.rename = null;
+            this.variable = wsDelegate.getVariable();
+
+            this.service = wsDelegate.getService();
+            this.serviceFilter = wsDelegate.getServiceFilter();
+
+            this.group = null;
+            this.requiresFalse = null;
+            this.requiresTrue = null;
+            this.uiReference = null;
+
+        } else {
+            throw new IllegalArgumentException("Unknown attribute definition type [ " + delegate.getClass() + " ]");
+        }
+
+        this.delegateType = useType;
+    }
+
+    private static Map<String, String> getMetatypeExtensions(EquinoxAttributeDefinition equinoxDelegate) {
+        Set<String> supportedExtensions = equinoxDelegate.getExtensionUris();
+
+        if ((supportedExtensions != null) && supportedExtensions.contains(XMLConfigConstants.METATYPE_EXTENSION_URI)) {
+            return equinoxDelegate.getExtensionAttributes(XMLConfigConstants.METATYPE_EXTENSION_URI);
+        } else {
+            return null;
         }
     }
 
-    private void initFromWSAD() {
-        WSAttributeDefinitionImpl delegate = (WSAttributeDefinitionImpl) this.delegate;
-        isFinal = delegate.isFinal();
-        isFlat = delegate.isFlat();
-        copyOf = delegate.getCopyOf();
-        isUnique = delegate.isUnique();
-        referencePid = delegate.getReferencePid();
-        service = delegate.getService();
-        serviceFilter = delegate.getServiceFilter();
-        uniqueCategory = delegate.getUnique();
-        variable = delegate.getVariable();
+    private static Map<String, String> getMetatypeUIExtensions(EquinoxAttributeDefinition equinoxDelegate) {
+        Set<String> supportedExtensions = equinoxDelegate.getExtensionUris();
+
+        if ((supportedExtensions != null) && supportedExtensions.contains(XMLConfigConstants.METATYPE_UI_EXTENSION_URI)) {
+            return equinoxDelegate.getExtensionAttributes(XMLConfigConstants.METATYPE_UI_EXTENSION_URI);
+        } else {
+            return null;
+        }
+    }
+
+    //
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        } else if (other == null) {
+            return false;
+        } else if (other instanceof ExtendedAttributeDefinitionImpl) {
+            return this.delegate == ((ExtendedAttributeDefinitionImpl) other).delegate;
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        return delegate.hashCode();
     }
 
     @Override
@@ -118,35 +161,116 @@ public class ExtendedAttributeDefinitionImpl implements ExtendedAttributeDefinit
         return super.toString() + '[' + delegate.getID() + ']';
     }
 
-    /** {@inheritDoc} */
+    //
+
+    private final AttributeDefinition delegate;
+    private final int delegateType;
+
     @Override
-    public String getName() {
-        return delegate.getName();
+    public AttributeDefinition getDelegate() {
+        return delegate;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public int getType() {
+        return delegateType;
+    }
+
+    //
+
     @Override
     public String getID() {
         return delegate.getID();
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public String getName() {
+        return delegate.getName();
+    }
+
     @Override
     public String getDescription() {
         return delegate.getDescription();
     }
 
-    /** {@inheritDoc} */
     @Override
     public int getCardinality() {
         return delegate.getCardinality();
     }
 
-    /** {@inheritDoc} */
     @Override
-    public int getType() {
-        return this.cachedType;
+    public String[] getOptionValues() {
+        return delegate.getOptionValues();
     }
+
+    @Override
+    public String[] getOptionLabels() {
+        return delegate.getOptionLabels();
+    }
+
+    @Override
+    public String validate(String value) {
+        return delegate.validate(value);
+    }
+
+    @Override
+    public String[] getDefaultValue() {
+        return delegate.getDefaultValue();
+    }
+
+    //
+
+    @Override
+    public Set<String> getExtensionUris() {
+        if (delegate instanceof EquinoxAttributeDefinition) {
+            return ((EquinoxAttributeDefinition) delegate).getExtensionUris();
+        } else {
+            return Collections.<String> emptySet();
+        }
+    }
+
+    @Override
+    public Map<String, String> getExtensions(String extensionUri) {
+        if (delegate instanceof EquinoxAttributeDefinition) {
+            return ((EquinoxAttributeDefinition) delegate).getExtensionAttributes(extensionUri);
+        } else {
+            return Collections.<String, String> emptyMap();
+        }
+    }
+
+    @Override
+    public String getAttributeName() {
+        if (delegate instanceof AttributeDefinitionSpecification) {
+            return ((AttributeDefinitionSpecification) delegate).getAttributeName();
+        } else {
+            return delegate.getName();
+        }
+    }
+
+    //
+
+    private final String referencePid;
+
+    private final boolean isFinal;
+    private final boolean isFlat;
+    private final boolean obscure;
+    private final boolean resolveVariables;
+    private final boolean beta;
+
+    private final boolean isUnique;
+    private final String uniqueCategory;
+
+    private final String rename;
+    private final String variable;
+    private final String copyOf;
+
+    private final String service;
+    private final String serviceFilter;
+
+    private final String group;
+    private final String requiresFalse;
+    private final String requiresTrue;
+    private final List<String> uiReference;
 
     @Override
     public String getReferencePid() {
@@ -173,166 +297,65 @@ public class ExtendedAttributeDefinitionImpl implements ExtendedAttributeDefinit
         return obscure;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.websphere.config.WSAttributeDefinition#getCopyOf()
-     */
     @Override
     public String getCopyOf() {
         return copyOf;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String[] getOptionValues() {
-        return delegate.getOptionValues();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String[] getOptionLabels() {
-        return delegate.getOptionLabels();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String validate(String value) {
-        return delegate.validate(value);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String[] getDefaultValue() {
-        return delegate.getDefaultValue();
-    }
-
-    /** {@inheritDoc} */
     @Override
     public boolean isFinal() {
         return isFinal;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String getVariable() {
         return variable;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isUnique() {
         return isUnique;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.ws.config.internal.services.ExtendedAttributeDefinition#isFlat()
-     */
     @Override
     public boolean isFlat() {
         return isFlat;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String getUniqueCategory() {
         return uniqueCategory;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String getRequiresTrue() {
-        return requiresTrue;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String getRequiresFalse() {
-        return requiresFalse;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String getGroup() {
-        return group;
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.ws.config.internal.services.ExtendedAttributeDefinition#getDelegate()
-     */
-    @Override
-    public AttributeDefinition getDelegate() {
-        return this.delegate;
-    }
-
-    /** {@inheritDoc} */
     @Override
     public String getRename() {
         return rename;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public Set<String> getExtensionUris() {
-        return delegate instanceof EquinoxAttributeDefinition ? ((EquinoxAttributeDefinition) delegate).getExtensionUris() : Collections.<String> emptySet();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Map<String, String> getExtensions(String extensionUri) {
-        return delegate instanceof EquinoxAttributeDefinition ? ((EquinoxAttributeDefinition) delegate).getExtensionAttributes(extensionUri) : Collections.<String, String> emptyMap();
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.ws.config.internal.services.ExtendedAttributeDefinition#getAttributeName()
-     */
-    @Override
-    public String getAttributeName() {
-        if (delegate instanceof AttributeDefinitionSpecification) {
-            return ((AttributeDefinitionSpecification) delegate).getAttributeName();
-        }
-        return delegate.getName();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o != null && o instanceof ExtendedAttributeDefinitionImpl) {
-            return this.delegate == ((ExtendedAttributeDefinitionImpl) o).delegate;
-        }
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        return delegate.hashCode() + 1;
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.ws.config.xml.internal.metatype.ExtendedAttributeDefinition#resolveVariables()
-     */
     @Override
     public boolean resolveVariables() {
-        return this.resolveVariables;
+        return resolveVariables;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.ws.config.xml.internal.metatype.ExtendedAttributeDefinition#getUIReference()
-     */
+    //
+
+    @Override
+    public String getGroup() {
+        return group;
+    }
+
+    @Override
+    public String getRequiresTrue() {
+        return requiresTrue;
+    }
+
+    @Override
+    public String getRequiresFalse() {
+        return requiresFalse;
+    }
+
     @Override
     public List<String> getUIReference() {
         return uiReference;
     }
-
 }

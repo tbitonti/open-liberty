@@ -11,44 +11,172 @@
 package com.ibm.ws.config.xml.internal;
 
 import java.lang.reflect.Array;
-import java.util.Iterator;
 import java.util.List;
-import java.util.regex.Pattern;
 
 import com.ibm.websphere.ras.annotation.Trivial;
 
+//@formatter:off
+@Trivial
 public class StringUtils {
+
+    // 48-58  0-9
+    // 65-90  A-Z
+    // 97-122 a-z
+
+    public static final boolean isAlphaNumeric(char c) {
+        return ( (c >= '0' && c <= '9') ||
+                 (c >= 'A' && c <= 'Z') ||
+                 (c >= 'a' && c <= 'z') );
+    }
 
     /**
      * Replace non-alphanumeric characters in a string with underscores.
      *
-     * @param name
-     * @return modified name
+     * @param name The name which is to be updated.
+     *
+     * @return The name with non-alphanumeric characters replaced with underscores.
      */
-    public String replaceNonAlpha(String name) {
-        String modifiedName = null;
-        if (p != null)
-            modifiedName = p.matcher(name).replaceAll("_");
-        return modifiedName;
-    }
+    public static String replaceNonAlpha(String name) {
+        StringBuilder builder = null;
 
-    private static final String ALLOWABLE_CHARS = "[^A-Za-z0-9_]";
+        int lastCopied = 0;
+        int length = name.length();
 
-    private static Pattern p = null;
-
-    static {
-        p = Pattern.compile(ALLOWABLE_CHARS);
-    }
-
-    int getNextLocation(int start, String list) {
-        int size = list.length();
-        for (int i = start; i < size; i++) {
-            char ch = list.charAt(i);
-            if (ch == '\\' || ch == ',') {
-                return i;
+        for ( int charNo = 0; charNo < length; charNo++ ) {
+            char c = name.charAt(charNo);
+            if ( isAlphaNumeric(c) ) {
+                continue;
             }
+
+            if ( builder == null ) {
+                builder = new StringBuilder(length);
+            }
+            if ( lastCopied < charNo ) {
+                builder.append(name, lastCopied, charNo);
+            }
+            builder.append('_');
+
+            lastCopied = charNo + 1;
         }
-        return -1;
+
+        if ( builder == null ) {
+            return name;
+        } else {
+            if ( lastCopied != length ) {
+                builder.append(name, lastCopied, length);
+            }
+            return builder.toString();
+        }
+    }
+
+    //
+
+    /**
+     * Convert a value to a string value.
+     *
+     * If the value is a string, answer the string, and do not escape
+     * the value.
+     *
+     * If the value is not a string and is not a collection type,
+     * answer the print string of the value.  Do not escape the value.
+     *
+     * If the value is a collection type (list, or array),
+     * create a comma delimited value, with escaped elements.
+     *
+     * @param value The value which is to be converted.
+     *
+     * @return The converted value.
+     */
+    public static String convertToString(Object value) {
+        if ( value == null ) {
+            return null;
+
+        } else if ( value instanceof String ) {
+            return (String) value;
+
+        } else if ( value instanceof List ) {
+            return convertToString( (List<?>) value );
+
+        } else if ( value instanceof String[] ) {
+            return convertToString( (String[]) value );
+
+        } else if ( value.getClass().isArray() ) {
+            return convertArrayToString(value);
+
+        } else {
+            return value.toString();
+        }
+    }
+
+    public static String convertToString(List<?> list) {
+        int length = list.size();
+        if ( length == 0 ) {
+            return EvaluationContext.EMPTY_STRING;
+
+        } else if ( length == 1 ) {
+            String strValue = String.valueOf(list.get(0));
+            return escapeValue(strValue);
+
+        } else {
+            StringBuilder builder = new StringBuilder();
+            boolean isFirst = true;
+            for ( Object element : list ) {
+                if ( isFirst ) {
+                    isFirst = false;
+                } else {
+                    builder.append(", ");
+                }
+                builder.append( escapeValue( String.valueOf(element) ) );
+            }
+            return builder.toString();
+        }
+    }
+
+    public static String convertToString(String[] array) {
+        if ( array.length == 0 ) {
+            return EvaluationContext.EMPTY_STRING;
+
+        } else if ( array.length == 1 ) {
+            return escapeValue(array[0]);
+
+        } else {
+            StringBuilder builder = new StringBuilder();
+
+            boolean onFirst = true;
+            for ( String element : array ) {
+                if ( onFirst ) {
+                    onFirst = false;
+                } else {
+                    builder.append(", ");
+                }
+                builder.append( escapeValue(element) );
+            }
+
+            return builder.toString();
+        }
+    }
+
+    public static String convertArrayToString(Object value) {
+        int length = Array.getLength(value);
+        if ( length == 0 ) {
+            return EvaluationContext.EMPTY_STRING;
+
+        } else if ( length == 1 ) {
+            return escapeValue( String.valueOf(Array.get(value, 0)) );
+
+        } else {
+            StringBuilder builder = new StringBuilder();
+            boolean onFirst = true;
+            for ( int elementNo = 0; elementNo < length; elementNo++ ) {
+                if ( onFirst ) {
+                    onFirst = false;
+                } else {
+                    builder.append(", ");
+                }
+                builder.append( escapeValue( String.valueOf(Array.get(value, elementNo) ) ) );
+            }
+            return builder.toString();
+        }
     }
 
     /**
@@ -57,93 +185,39 @@ public class StringUtils {
      * @param value
      * @return
      */
-    @Trivial
-    String escapeValue(String value) {
-        int start = 0;
-        int pos = getNextLocation(start, value);
-        if (pos == -1) {
-            return value;
-        }
-        StringBuilder builder = new StringBuilder();
-        while (pos != -1) {
-            builder.append(value, start, pos);
+    public static final String escapeValue(String value) {
+        StringBuilder builder = null;
+
+        int lastCopied = 0;
+        int length = value.length();
+
+        for ( int charNo = 0; charNo < length; charNo++ ) {
+            char c = value.charAt(charNo);
+            if ( (c != ',') && (c != '\\') ) {
+                continue;
+            }
+
+            if ( builder == null ) {
+                builder = new StringBuilder( 2 * length );
+            }
+
+            if ( lastCopied < charNo ) {
+                builder.append(value, lastCopied, charNo);
+            }
             builder.append('\\');
-            builder.append(value.charAt(pos));
-            start = pos + 1;
-            pos = getNextLocation(start, value);
-        }
-        builder.append(value, start, value.length());
-        return builder.toString();
-    }
+            builder.append(c);
 
-    /*
-     * Convert evaluated attribute value into a String.
-     */
-    @Trivial
-    String convertToString(Object value) {
-        if (value == null) {
-            return null;
-        } else if (value instanceof String) {
-            return (String) value;
-        } else if (value instanceof List) {
-            List<?> list = ((List<?>) value);
-            if (list.size() == 0) {
-                return EvaluationContext.EMPTY_STRING;
-            } else if (list.size() == 1) {
-                String strValue = String.valueOf(list.get(0));
-                return escapeValue(strValue);
-            } else {
-                StringBuilder builder = new StringBuilder();
-                Iterator<?> iterator = list.iterator();
-                while (iterator.hasNext()) {
-                    String strValue = String.valueOf(iterator.next());
-                    strValue = escapeValue(strValue);
-                    builder.append(strValue);
-                    if (iterator.hasNext()) {
-                        builder.append(", ");
-                    }
-                }
-                return builder.toString();
-            }
-        } else if (value instanceof String[]) {
-            String[] array = (String[]) value;
-            if (array.length == 0) {
-                return EvaluationContext.EMPTY_STRING;
-            } else if (array.length == 1) {
-                return escapeValue(array[0]);
-            } else {
-                StringBuilder builder = new StringBuilder();
-                for (int i = 0; i < array.length; i++) {
-                    String strValue = escapeValue(array[i]);
-                    builder.append(strValue);
-                    if (i + 1 < array.length) {
-                        builder.append(", ");
-                    }
-                }
-                return builder.toString();
-            }
-        } else if (value.getClass().isArray()) {
-            int size = Array.getLength(value);
-            if (size == 0) {
-                return EvaluationContext.EMPTY_STRING;
-            } else if (size == 1) {
-                String strValue = String.valueOf(Array.get(value, 0));
-                return escapeValue(strValue);
-            } else {
-                StringBuilder builder = new StringBuilder();
-                for (int i = 0; i < size; i++) {
-                    String strValue = String.valueOf(Array.get(value, i));
-                    strValue = escapeValue(strValue);
-                    builder.append(strValue);
-                    if (i + 1 < size) {
-                        builder.append(", ");
-                    }
-                }
-                return builder.toString();
-            }
+            lastCopied = charNo + 1;
+        }
+
+        if ( builder == null ) {
+            return value;
         } else {
-            return value.toString();
+            if ( lastCopied < length ) {
+                builder.append(value, lastCopied, length);
+            }
+            return builder.toString();
         }
     }
-
 }
+// @formatter:on

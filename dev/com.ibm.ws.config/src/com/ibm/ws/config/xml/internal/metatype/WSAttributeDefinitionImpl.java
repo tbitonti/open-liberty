@@ -14,19 +14,18 @@ import org.osgi.service.metatype.AttributeDefinition;
 
 import com.ibm.websphere.metatype.AttributeDefinitionProperties;
 
-/**
- *
- */
 public class WSAttributeDefinitionImpl implements AttributeDefinition {
 
-    private final AttributeDefinitionProperties properties;
-
-    /**
-     * @param props
-     */
-    public WSAttributeDefinitionImpl(AttributeDefinitionProperties props) {
-        this.properties = props;
+    public WSAttributeDefinitionImpl(AttributeDefinitionProperties properties) {
+        this.properties = properties;
     }
+
+    @Override
+    public String validate(String arg0) {
+        return null;
+    }
+
+    private final AttributeDefinitionProperties properties;
 
     @Override
     public int getCardinality() {
@@ -68,12 +67,6 @@ public class WSAttributeDefinitionImpl implements AttributeDefinition {
         return properties.getType();
     }
 
-    @Override
-    public String validate(String arg0) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
     public String getReferencePid() {
         return properties.getReferencePid();
     }
@@ -109,5 +102,4 @@ public class WSAttributeDefinitionImpl implements AttributeDefinition {
     public String getCopyOf() {
         return properties.getCopyOf();
     }
-
 }

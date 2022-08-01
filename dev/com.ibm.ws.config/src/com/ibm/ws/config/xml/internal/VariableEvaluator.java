@@ -24,23 +24,17 @@ import com.ibm.ws.config.xml.internal.metatype.MetaTypeHelper;
 import com.ibm.ws.config.xml.internal.variables.ConfigVariableRegistry;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 
-/**
- *
- */
+//@formatter:off
 public class VariableEvaluator {
 
-    private final ConfigVariableRegistry variableRegistry;
-    private final StringUtils stringUtils = new StringUtils();
-    private final ConfigEvaluator configEvaluator;
-
-    /**
-     * @param variableRegistry
-     * @param configEvaluator
-     */
     public VariableEvaluator(ConfigVariableRegistry variableRegistry, ConfigEvaluator configEvaluator) {
         this.variableRegistry = variableRegistry;
         this.configEvaluator = configEvaluator;
     }
+
+    private final ConfigVariableRegistry variableRegistry;
+    private final StringUtils stringUtils = new StringUtils();
+    private final ConfigEvaluator configEvaluator;
 
     @Sensitive
     private String lookupVariableFromRegistry(String variableName) {
@@ -49,7 +43,6 @@ public class VariableEvaluator {
 
     @Sensitive
     String resolveVariables(@Sensitive String str, EvaluationContext context, boolean ignoreWarnings) throws ConfigEvaluatorException {
-
         // Look for normal variables of the form $(variableName)
         Matcher matcher = XMLConfigConstants.VAR_PATTERN.matcher(str);
         while (matcher.find()) {
@@ -324,3 +317,4 @@ public class VariableEvaluator {
     }
 
 }
+//@formatter:on

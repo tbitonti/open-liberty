@@ -20,87 +20,81 @@ import org.osgi.service.metatype.ObjectClassDefinition;
 
 import com.ibm.websphere.metatype.ObjectClassDefinitionProperties;
 
-/**
- *
- */
+//@formatter:off
 public class WSObjectClassDefinitionImpl implements ObjectClassDefinition {
+    public WSObjectClassDefinitionImpl(
+        ObjectClassDefinitionProperties properties,
+        List<AttributeDefinition> required,
+        List<AttributeDefinition> optional) {
 
-    private final ArrayList<AttributeDefinition> requiredAttributeDefinitions = new ArrayList<AttributeDefinition>();
-    private final ArrayList<AttributeDefinition> optionalAttributeDefinitions = new ArrayList<AttributeDefinition>();
-    private final ObjectClassDefinitionProperties properties;
-
-    /**
-     * @param props ocd properties
-     * @param requiredAttributes required AttributeDefintions
-     * @param optionalAttributes optional AttributeDefintions
-     */
-    public WSObjectClassDefinitionImpl(ObjectClassDefinitionProperties props, List<AttributeDefinition> requiredAttributes, List<AttributeDefinition> optionalAttributes) {
-        if (requiredAttributes == null)
-            throw new IllegalArgumentException("An ObjectClassDefinition must have at least one Attribute");
-
-        this.requiredAttributeDefinitions.addAll(requiredAttributes);
-        this.optionalAttributeDefinitions.addAll(optionalAttributes);
-        this.properties = props;
+        this.required = new ArrayList<>(required);
+        this.optional = new ArrayList<>(optional);
+        this.properties = properties;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.metatype.ObjectClassDefinition#getAttributeDefinitions(int)
-     */
-    @Override
-    public AttributeDefinition[] getAttributeDefinitions(int filter) {
-        List<AttributeDefinition> adList;
-        if (filter == ObjectClassDefinition.ALL) {
-            adList = new ArrayList<AttributeDefinition>(requiredAttributeDefinitions.size() + optionalAttributeDefinitions.size());
-            adList.addAll(requiredAttributeDefinitions);
-            adList.addAll(optionalAttributeDefinitions);
-        } else if (filter == ObjectClassDefinition.OPTIONAL) {
-            adList = optionalAttributeDefinitions;
-        } else if (filter == ObjectClassDefinition.REQUIRED) {
-            adList = requiredAttributeDefinitions;
-        } else {
-            throw new IllegalArgumentException("Unexpected filter value: " + filter);
-        }
-        AttributeDefinition[] ads = new AttributeDefinition[adList.size()];
-        return adList.toArray(ads);
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.metatype.ObjectClassDefinition#getDescription()
-     */
-    @Override
-    public String getDescription() {
-        return properties.getDescription();
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.metatype.ObjectClassDefinition#getID()
-     */
-    @Override
-    public String getID() {
-        return properties.getId();
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.metatype.ObjectClassDefinition#getIcon(int)
-     */
     @Override
     public InputStream getIcon(int arg0) throws IOException {
         return null;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.metatype.ObjectClassDefinition#getName()
-     */
+    public String getChildAlias() {
+        return null;
+    }
+
+    //
+
+    private final ArrayList<AttributeDefinition> required;
+
+    public void addAttributeDefinition(AttributeDefinition definition) {
+        required.add(definition);
+    }
+
+    private final ArrayList<AttributeDefinition> optional;
+
+    @Override
+    public AttributeDefinition[] getAttributeDefinitions(int filter) {
+        int numRequired;
+        int numOptional;
+
+        if ( filter == ObjectClassDefinition.ALL ) {
+            numRequired = required.size();
+            numOptional = optional.size();
+        } else if (filter == ObjectClassDefinition.OPTIONAL) {
+            numRequired = 0;
+            numOptional = optional.size();
+
+        } else if (filter == ObjectClassDefinition.REQUIRED) {
+            numRequired = required.size();
+            numOptional = 0;
+
+        } else {
+            throw new IllegalArgumentException("Unexpected filter value: " + filter);
+        }
+
+        AttributeDefinition[] filtered = new AttributeDefinition[ numRequired + numOptional ];
+        for ( int adNo = 0; adNo < numRequired; adNo++ ) {
+            filtered[adNo] = required.get(adNo);
+        }
+        for ( int adNo = 0; adNo < numOptional; adNo++ ) {
+            filtered[adNo + numRequired] = optional.get(adNo);
+        }
+
+        return filtered;
+    }
+
+    //
+
+    private final ObjectClassDefinitionProperties properties;
+
+    @Override
+    public String getID() {
+        return properties.getId();
+    }
+
+    public List<String> getObjectClass() {
+        return properties.getObjectClass();
+    }
+
     @Override
     public String getName() {
         return properties.getName();
@@ -110,8 +104,13 @@ public class WSObjectClassDefinitionImpl implements ObjectClassDefinition {
         return properties.getAlias();
     }
 
-    public String getChildAlias() {
-        return null;
+    @Override
+    public String getDescription() {
+        return properties.getDescription();
+    }
+
+    public String getParentPID() {
+        return properties.getParentPID();
     }
 
     public String getExtendsAlias() {
@@ -122,10 +121,6 @@ public class WSObjectClassDefinitionImpl implements ObjectClassDefinition {
         return properties.getExtends();
     }
 
-    public String getParentPID() {
-        return properties.getParentPID();
-    }
-
     public boolean supportsExtensions() {
         return properties.supportsExtensions();
     }
@@ -133,17 +128,5 @@ public class WSObjectClassDefinitionImpl implements ObjectClassDefinition {
     public boolean supportsHiddenExtensions() {
         return properties.supportsHiddenExtensions();
     }
-
-    public List<String> getObjectClass() {
-        return properties.getObjectClass();
-    }
-
-    /**
-     *
-     * @param ad
-     */
-    public void addAttributeDefinition(AttributeDefinition ad) {
-        requiredAttributeDefinitions.add(ad);
-    }
-
 }
+//@formatter:on

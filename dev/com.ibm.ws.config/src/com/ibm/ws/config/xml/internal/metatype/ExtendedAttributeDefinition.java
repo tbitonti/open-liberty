@@ -16,54 +16,72 @@ import java.util.Set;
 
 import org.osgi.service.metatype.AttributeDefinition;
 
-/**
- *
- */
+// @formatter: off
 public interface ExtendedAttributeDefinition extends AttributeDefinition {
+    @Deprecated
+    String FALSE = "false";
 
-    static final String ATTRIBUTE_TYPE_NAME = "type";
-    static final String ATTRIBUTE_REFERENCE_NAME = "reference";
+    static boolean isTrueString(String value) {
+        return ((value != null) && value.equalsIgnoreCase("true"));
+    }
 
-    static final String FINAL_ATTR_NAME = "final";
-    static final String VARIABLE_ATTR_NAME = "variable";
-    static final String UNIQUE_ATTR_NAME = "unique";
-    static final String REQUIRES_TRUE_ATTR_NAME = "requiresTrue";
-    static final String REQUIRES_FALSE_ATTR_NAME = "requiresFalse";
-    static final String GROUP_ATTR_NAME = "group";
-    static final String RENAME_ATTR_NAME = "rename";
-    static final String FLAT_ATTR_NAME = "flat";
-    static final String COPY_OF_ATTR_NAME = "copyOf";
-    static final String BETA_NAME = "beta";
-    static final String OBSCURE_NAME = "obscure";
+    static boolean isFalseString(String value) {
+        return ((value != null) && value.equalsIgnoreCase("false"));
+    }
+
+    //
+
+    String ATTRIBUTE_TYPE_NAME = "type";
+
+    //
 
     String SERVICE = "service";
-    String SERVICE_FILTER = "serviceFilter";
-    String UI_REFERENCE = "uiReference";
 
-    static final String VARIABLE_SUBSTITUTION_NAME = "variableSubstitution";
-    static final String FALSE = "false";
+    String SERVICE_FILTER = "serviceFilter";
+
+    String getService();
+
+    String getServiceFilter();
+
+    //
 
     /**
-     * Returns the pid or factory pid of the ObjectClassDefinition that is referenced by this attribute.
-     * This is only valid when the type is PID_TYPE
+     * Answer the group name of the this attribute. This may
+     * be null.
      *
-     * @return the pid or factoryPid
+     * @return the ibm:group String or null if the value does not exist
+     */
+    String getGroup();
+
+    String ATTRIBUTE_REFERENCE_NAME = "reference";
+
+    /**
+     * Answer the PID or factory PID of values referenced by this attribute.
+     * Answer null unless this is a <code>PID_TYPE</code> type attribute.
+     *
+     * @return The PID or factory PID of values referenced by this attribute.
      */
     String getReferencePid();
+
+    String FINAL_ATTR_NAME = "final";
 
     /**
      * Returns true if the value of this attribute can not be specified in the configuration.
      *
      * @return true if the value can not be overridden, false otherwise
      */
-    public boolean isFinal();
+    boolean isFinal();
+
+    String VARIABLE_ATTR_NAME = "variable";
 
     /**
      * Gets the value of a system variable that should be used prior to any default values.
      *
      * @return the variable name or null if not specified
      */
-    public String getVariable();
+    String getVariable();
+
+    String UNIQUE_ATTR_NAME = "unique";
 
     /**
      * Returns true if values for this AttributeDefinition should be unique. If the attribute definition
@@ -80,26 +98,29 @@ public interface ExtendedAttributeDefinition extends AttributeDefinition {
      *
      * @return the category String or null if the value is not specified
      */
-    public String getUniqueCategory();
+    String getUniqueCategory();
+
+    String FLAT_ATTR_NAME = "flat";
 
     /**
-     * Returns true if the nested config element should be flattened
+     * Tell if nested elements should be flattened.
      *
-     * @return true if the nested config element should be flattened
+     * @return True or false telling if nested elements should be flattened.
      */
     boolean isFlat();
 
-    /**
-     * Returns the name of the attribute that should be used to determine the value of this
-     * attribute.
-     *
-     * @return The name of the attribute that gives this attribute its value
-     */
-    public String getCopyOf();
+    String COPY_OF_ATTR_NAME = "copyOf";
 
     /**
-     * @return
+     * The value of this attribute is a copy of the value of another
+     * attribute. Answer the name of that attribute.
+     *
+     * @return The name of the attribute which is copied to obtain the
+     *         value of this attribute. Answer null if this attribute is
+     *         not a copy.
      */
+    String getCopyOf();
+
     AttributeDefinition getDelegate();
 
     /**
@@ -107,7 +128,7 @@ public interface ExtendedAttributeDefinition extends AttributeDefinition {
      *
      * @return A Set of Strings containing the extension Uris.
      */
-    public Set<String> getExtensionUris();
+    Set<String> getExtensionUris();
 
     /**
      * Returns a Map of the extensions for the current extension URI
@@ -115,28 +136,9 @@ public interface ExtendedAttributeDefinition extends AttributeDefinition {
      * @param extensionUri - The Uri that you want the extensions for.
      * @return - A Map of the extensions for the selected extension Uri.
      */
-    public Map<String, String> getExtensions(String extensionUri);
+    Map<String, String> getExtensions(String extensionUri);
 
-    /**
-     * Returns the attribute name that must be true for this attribute to be enabled.
-     *
-     * @return the ibm:requiresTrue String or null if the value does not exist
-     */
-    public String getRequiresTrue();
-
-    /**
-     * Returns the attribute name that must be false for this attribute to be enabled.
-     *
-     * @return the ibm:requiresFalse String or null if the value does not exist
-     */
-    public String getRequiresFalse();
-
-    /**
-     * Returns the group name of the this attribute.
-     *
-     * @return the ibm:group String or null if the value does not exist
-     */
-    public String getGroup();
+    String RENAME_ATTR_NAME = "rename";
 
     /**
      * Returns the id of the attribute on the supertype that should be renamed.
@@ -144,47 +146,83 @@ public interface ExtendedAttributeDefinition extends AttributeDefinition {
      *
      * @return the ibm:rename String or null if the value does not exist
      */
-    public String getRename();
+    String getRename();
+
+    String VARIABLE_SUBSTITUTION_NAME = "variableSubstitution";
 
     /**
-     * Returns a name to be used if the AD is an attribute rather than an element.
+     * Tell if variable resolution is to be performed on the value
+     * of this attribute.
      *
-     * @return
-     */
-    public String getAttributeName();
-
-    /**
-     * Returns true if variable resolution should be performed by the configuration runtime. The default is true.
-     */
-    public boolean resolveVariables();
-
-    /**
-     * returns the service if specified.
+     * Default to true.
      *
-     * @return
+     * @return True or false telling if variable resolution is to be
+     *         performed on this attribute.
      */
-    String getService();
+    boolean resolveVariables();
+
+    String BETA_NAME = "beta";
 
     /**
-     * returns the additional filter for the service if specified.
+     * Tell if this is a beta attribute.
      *
-     * @return
-     */
-    String getServiceFilter();
-
-    /**
-     * Returns the pids that the schema should list as choices for this type.
-     *
-     */
-    List<String> getUIReference();
-
-    /**
-     * @return
+     * @return True or false telling if this is a beta attribute.
      */
     boolean isBeta();
 
+    String OBSCURE_NAME = "obscure";
+
     /**
-     * @return
+     * Tell if the value of this attribute is to be obscured.
+     *
+     * @return True or false telling if the value of this attribute is to
+     *         be obscured.
      */
     boolean isObscured();
+
+    //
+
+    String getAttributeName();
+
+    String GROUP_ATTR_NAME = "group";
+
+    //
+
+    String REQUIRES_TRUE_ATTR_NAME = "requiresTrue";
+
+    String REQUIRES_FALSE_ATTR_NAME = "requiresFalse";
+
+    /**
+     * Conditionally enable this attribute: Answer the name of an attribute of
+     * the same element which must be true for this attribute to be enabled.
+     * Answer null if no such attribute is required to enable this attribute.
+     *
+     * See also {@link #getRequiresFalse()}.
+     *
+     * @return The name of an attribute (of the same element) which must be
+     *         true to enable this attribute.
+     */
+    String getRequiresTrue();
+
+    /**
+     * Conditionally enable this attribute: Answer the name of an attribute of
+     * the same element which must be false for this attribute to be enabled.
+     * Answer null if no such attribute is required to enable this attribute.
+     *
+     * See also {@link #getRequiresTrue()}.
+     *
+     * @return The name of an attribute (of the same element) which must be
+     *         false to enable this attribute.
+     */
+    String getRequiresFalse();
+
+    //
+
+    String UI_REFERENCE = "uiReference";
+
+    /**
+     * Answer the PIDs reference values which are held by this attribute.
+     */
+    List<String> getUIReference();
 }
+//@formatter: on

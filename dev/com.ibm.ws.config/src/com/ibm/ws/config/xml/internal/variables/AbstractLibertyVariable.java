@@ -21,19 +21,21 @@ public abstract class AbstractLibertyVariable implements LibertyVariable {
     final String ENCRYPTION_KEY = "wlp.password.encryption.key";
 
     private String getObscuredValue(String value) {
-        if (isSensitive())
+        if (isSensitive()) {
             return OBSCURED_VALUE;
 
-        if (ENCRYPTION_KEY.equals(getName()))
+        } else if (ENCRYPTION_KEY.equals(getName())) {
             return OBSCURED_VALUE;
 
-        if (value == null)
+        } else if (value == null) {
             return null;
 
-        if (obscuredValuePattern.matcher(value).matches())
+        } else if (obscuredValuePattern.matcher(value).matches()) {
             return OBSCURED_VALUE;
 
-        return value;
+        } else {
+            return value;
+        }
     }
 
     @Override
@@ -45,5 +47,4 @@ public abstract class AbstractLibertyVariable implements LibertyVariable {
     public String getObscuredDefaultValue() {
         return getObscuredValue(getDefaultValue());
     }
-
 }
