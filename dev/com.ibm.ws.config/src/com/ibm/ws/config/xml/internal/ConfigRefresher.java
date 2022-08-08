@@ -100,6 +100,9 @@ public class ConfigRefresher {
 
             ServerConfiguration newConfiguration = serverXMLConfig.loadNewConfiguration();
             if (newConfiguration == null) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "doRefresh: Error loading new configuration - leaving existing configuration");
+                }
                 return;
             }
 

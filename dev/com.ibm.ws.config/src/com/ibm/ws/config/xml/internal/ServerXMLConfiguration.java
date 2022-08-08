@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2021 IBM Corporation and others.
+ * Copyright (c) 2013, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,12 +11,13 @@
 package com.ibm.ws.config.xml.internal;
 
 import java.io.File;
-import java.io.FileFilter;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Map;
 
 import org.osgi.framework.BundleContext;
@@ -34,67 +35,74 @@ import com.ibm.wsspi.kernel.service.location.WsLocationConstants;
 import com.ibm.wsspi.kernel.service.location.WsResource;
 import com.ibm.wsspi.kernel.service.utils.TimestampUtils;
 
-/**
- *
- */
 class ServerXMLConfiguration {
+    private static final TraceComponent tc = Tr.register(ServerXMLConfiguration.class,
+                                                         XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
 
-    private static final TraceComponent tc = Tr.register(ServerXMLConfiguration.class, XMLConfigConstants.TR_GROUP, XMLConfigConstants.NLS_PROPS);
+    private static long readConfigStamp(BundleContext bundleContext) {
+        if (bundleContext == null) {
+            return 0L;
+        }
 
-    /** The root XML document (server.xml) */
-    private final WsResource configRoot;
-    private final WsResource configDropinDefaults;
-    private final WsResource configDropinOverrides;
-    private final BundleContext bundleContext;
+        File configStamp = bundleContext.getDataFile("configStamp");
+        if ((configStamp != null) && configStamp.exists() && configStamp.canRead()) {
+            return TimestampUtils.readTimeFromFile(configStamp);
+        } else {
+            return 0L;
+        }
+    }
 
-    private ServerConfiguration serverConfiguration;
+    //
 
     private static final String CONFIG_DROPINS = "configDropins";
-    private static final String CONFIG_DROPIN_DEFAULTS = CONFIG_DROPINS + "/" + "defaults/";
-    private static final String CONFIG_DROPIN_OVERRIDES = CONFIG_DROPINS + "/" + "overrides/";
-
-    /**
-     * last time config files(root config document and its included documents) are
-     * read
-     */
-    private volatile long configReadTime = 0;
-
-    private final XMLConfigParser parser;
+    private static final String CONFIG_DROPIN_DEFAULTS = CONFIG_DROPINS + '/' + "defaults/";
+    private static final String CONFIG_DROPIN_OVERRIDES = CONFIG_DROPINS + '/' + "overrides/";
 
     ServerXMLConfiguration(BundleContext bundleContext,
                            WsLocationAdmin locationService,
                            XMLConfigParser parser) {
-        this.bundleContext = bundleContext;
-        this.parser = parser;
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
             Tr.debug(tc, "WsLocationAdmin locations=" + locationService.printLocations(false));
         }
 
+        this.bundleContext = bundleContext;
+        this.parser = parser;
+
+        this.configDir = locationService.resolveResource(WsLocationConstants.SYMBOL_SERVER_CONFIG_DIR);
+        this.configDefaults = locationService.resolveResource(WsLocationConstants.SYMBOL_SERVER_CONFIG_DIR + "/" + CONFIG_DROPIN_DEFAULTS);
+        this.configOverrides = locationService.resolveResource(WsLocationConstants.SYMBOL_SERVER_CONFIG_DIR + "/" + CONFIG_DROPIN_OVERRIDES);
         this.configRoot = locationService.resolveResource(WsLocationConstants.SYMBOL_SERVER_CONFIG_DIR + "/" + WsLocationConstants.SYMBOL_PROCESS_TYPE + ".xml");
-        this.configDropinDefaults = locationService.resolveResource(WsLocationConstants.SYMBOL_SERVER_CONFIG_DIR + "/" + CONFIG_DROPIN_DEFAULTS);
-        this.configDropinOverrides = locationService.resolveResource(WsLocationConstants.SYMBOL_SERVER_CONFIG_DIR + "/" + CONFIG_DROPIN_OVERRIDES);
 
         // Determines if any of the configuration files used by current server has
         // been updated since the last run.
-        this.configReadTime = getInitialConfigReadTime(bundleContext);
+        this.configReadTime = readConfigStamp(bundleContext);
 
+    }
+
+    //
+
+    private final BundleContext bundleContext;
+
+    private final XMLConfigParser parser;
+
+    //
+
+    private final WsResource configDir;
+    private final WsResource configDefaults;
+    private final WsResource configOverrides;
+    private final WsResource configRoot;
+
+    private ServerConfiguration serverConfiguration;
+
+    private volatile long configReadTime = 0;
+
+    public WsResource getConfigDir() {
+        return configDir;
     }
 
     boolean hasConfigRoot() {
         return configRoot != null;
-    }
-
-    private static long getInitialConfigReadTime(BundleContext bundleContext) {
-        if (bundleContext == null) {
-            return 0;
-        }
-        File configStamp = bundleContext.getDataFile("configStamp");
-        if (configStamp != null && configStamp.exists() && configStamp.canRead()) {
-            return TimestampUtils.readTimeFromFile(configStamp);
-        } else {
-            return 0;
-        }
     }
 
     /**
@@ -103,17 +111,12 @@ class ServerXMLConfiguration {
      * and any of its included configuration resources, but not individual
      * bundle's default configurations(i.e. bundle.cfg).
      * <P>
-     * Generally, this should be only done once at the beginning before any of the bundle's default configurations are processed.
-     *
-     * @throws ConfigValidationException
-     * @throws ConfigParserException
-     *
+     * Generally, this should be only done once at the beginning before any of
+     * the bundle's default configurations are processed.
      */
-
     @FFDCIgnore(ConfigParserTolerableException.class)
     public void loadInitialConfiguration(ConfigVariableRegistry variableRegistry) throws ConfigValidationException, ConfigParserException {
         if (configRoot != null && configRoot.exists()) {
-
             try {
                 serverConfiguration = loadServerConfiguration();
                 if (serverConfiguration == null) {
@@ -124,7 +127,8 @@ class ServerXMLConfiguration {
                     serverConfiguration = new ServerConfiguration();
                 }
             } catch (ConfigParserTolerableException ex) {
-                // This only gets caught here if OnError = FAIL.. rethrow so the server will shut down
+                // This only gets caught here if OnError = FAIL..
+                // rethrow so the server will shut down
                 throw ex;
             } catch (ConfigParserException ex) {
                 Tr.error(tc, "error.config.update.init", ex.getMessage());
@@ -134,31 +138,25 @@ class ServerXMLConfiguration {
             }
 
             serverConfiguration.setDefaultConfiguration(new BaseConfiguration());
-
         }
 
         try {
             variableRegistry.updateSystemVariables(getVariables());
-            // Register the ConfigVariables service now that we have populated the registry
             Hashtable<String, Object> properties = new Hashtable<String, Object>();
             properties.put("service.vendor", "IBM");
             bundleContext.registerService(ConfigVariables.class, variableRegistry, properties);
         } catch (ConfigMergeException e) {
-            // Rethrow if onError=FAIL. An error message has already been issued otherwise.
             if (ErrorHandler.INSTANCE.fail()) {
                 throw new ConfigParserTolerableException(e);
             }
         }
-
     }
 
     public void setConfigReadTime() {
         setConfigReadTime(getLastResourceModifiedTime());
-
     }
 
     public void setConfigReadTime(long time) {
-        // Update time stamp for configReadTime on next run.
         TimestampUtils.writeTimeToFile(bundleContext.getDataFile("configStamp"), time);
         configReadTime = time;
     }
@@ -168,41 +166,18 @@ class ServerXMLConfiguration {
 
         if (serverConfiguration != null) {
             for (WsResource resource : serverConfiguration.getIncludes()) {
-                long modified = resource.getLastModified();
-                if (modified > lastModified) {
-                    lastModified = modified;
-                }
+                lastModified = Long.max(lastModified, resource.getLastModified());
             }
         }
 
-        if (configDropinDefaults != null) {
-            File[] defaultFiles = getChildXMLFiles(configDropinDefaults);
-            if (defaultFiles != null) {
-                for (File f : defaultFiles) {
-                    String name = f.getName();
-                    WsResource resource = configDropinDefaults.resolveRelative(name);
-                    long modified = resource.getLastModified();
-                    if (modified > lastModified) {
-                        lastModified = modified;
-                    }
-                }
-            }
-
+        for (String name : getChildXMLNames(configDefaults)) {
+            WsResource resource = configDefaults.resolveRelative(name);
+            lastModified = Long.max(lastModified, resource.getLastModified());
         }
 
-        if (configDropinOverrides != null) {
-            File[] overrideFiles = getChildXMLFiles(configDropinOverrides);
-            if (overrideFiles != null) {
-                for (File f : overrideFiles) {
-                    String name = f.getName();
-                    WsResource resource = configDropinOverrides.resolveRelative(name);
-                    long modified = resource.getLastModified();
-                    if (modified > lastModified) {
-                        lastModified = modified;
-                    }
-                }
-            }
-
+        for (String name : getChildXMLNames(configOverrides)) {
+            WsResource resource = configOverrides.resolveRelative(name);
+            lastModified = Long.max(lastModified, resource.getLastModified());
         }
 
         return lastModified;
@@ -213,9 +188,6 @@ class ServerXMLConfiguration {
         return (value / 1000) * 1000;
     }
 
-    /**
-     * @return
-     */
     public boolean isModified() {
         return reduceTimestampPrecision(getLastResourceModifiedTime()) != reduceTimestampPrecision(configReadTime);
     }
@@ -240,12 +212,12 @@ class ServerXMLConfiguration {
      */
     public Collection<String> getDirectoriesToMonitor() {
         Collection<String> files = new HashSet<String>();
-        if (configDropinDefaults != null) {
-            files.add(configDropinDefaults.toRepositoryPath());
+        if (configDefaults != null) {
+            files.add(configDefaults.toRepositoryPath());
         }
 
-        if (configDropinOverrides != null) {
-            files.add(configDropinOverrides.toRepositoryPath());
+        if (configOverrides != null) {
+            files.add(configOverrides.toRepositoryPath());
         }
 
         return files;
@@ -255,18 +227,11 @@ class ServerXMLConfiguration {
      * To maintain the same order across platforms, we have to implement our own comparator.
      * Otherwise, "aardvark.xml" would come before "Zebra.xml" on windows, and vice versa on unix.
      */
-    private static class AlphaComparator implements Comparator<File> {
-
-        /*
-         * (non-Javadoc)
-         *
-         * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
-         */
+    private static class AlphaComparator implements Comparator<String> {
         @Override
-        public int compare(File o1, File o2) {
-            return o1.getName().toLowerCase().compareTo(o2.getName().toLowerCase());
+        public int compare(String n1, String n2) {
+            return n1.compareToIgnoreCase(n2);
         }
-
     }
 
     @FFDCIgnore({ ConfigParserException.class, ConfigParserTolerableException.class })
@@ -280,19 +245,20 @@ class ServerXMLConfiguration {
                 configuration = new ServerConfiguration();
 
                 // Load files from configDropins/defaults first
-                parseDirectoryFiles(configDropinDefaults, configuration);
+                parseDirectoryFiles(configDefaults, configuration);
 
                 // Parse server.xml and its includes
                 parser.parseServerConfiguration(configRoot, configuration);
 
                 // Parse files from configDropins/overrides
-                parseDirectoryFiles(configDropinOverrides, configuration);
+                parseDirectoryFiles(configOverrides, configuration);
 
                 configuration.updateLastModified(configRoot.getLastModified());
 
             } catch (ConfigParserTolerableException ex) {
                 // We know what this is, so no need to retry
                 throw ex;
+
             } catch (ConfigParserException cpe) {
                 // Wait a short period of time and retry. This is to attempt to handle the case where we
                 // parse the configuration in the middle of a file update.
@@ -304,7 +270,6 @@ class ServerXMLConfiguration {
                     // Reset the server configuration so that we can start over from the beginning.
                     configuration = new ServerConfiguration();
                     parser.parseServerConfiguration(configRoot, configuration);
-
                 }
             }
         } catch (ConfigParserException ex) {
@@ -331,63 +296,71 @@ class ServerXMLConfiguration {
         return configuration;
     }
 
-    private File[] getChildXMLFiles(WsResource directory) {
-        File defaultsDir = directory.asFile();
-        if (defaultsDir == null || !defaultsDir.exists())
-            return null;
+    private List<String> getChildXMLNames(WsResource target) {
+        if (target == null) {
+            return Collections.emptyList();
+        }
+        File targetFile = target.asFile();
+        if ((targetFile == null) || !targetFile.exists()) {
+            return Collections.emptyList();
+        }
+        String[] childNames = targetFile.list();
+        if (childNames == null) {
+            return Collections.emptyList();
+        }
 
-        File[] defaultFiles = defaultsDir.listFiles(new FileFilter() {
+        List<String> xmlChildNames = null;
 
-            @Override
-            public boolean accept(File file) {
-                if (file != null && file.isFile()) {
-                    String name = file.getName().toLowerCase();
-                    return name.endsWith(".xml");
-                }
-                return false;
+        for (String childName : childNames) {
+            if (!endsWithIgnoreCase(childName, ".xml")) {
+                continue;
             }
-        });
-        return defaultFiles;
+            File xmlChild = new File(targetFile, childName);
+            if (!xmlChild.isFile()) {
+                continue;
+            }
+            if (xmlChildNames == null) {
+                xmlChildNames = new ArrayList<>(childNames.length);
+            }
+            xmlChildNames.add(childName);
+        }
+
+        return ((xmlChildNames == null) ? Collections.emptyList() : xmlChildNames);
     }
 
-    /**
-     * Parse all of the config files in a directory in platform insensitive alphabetical order
-     */
+    public static boolean endsWithIgnoreCase(String value, String suffix) {
+        int vLen = value.length();
+        int sLen = suffix.length();
+        return ((vLen >= sLen) && value.regionMatches(false, vLen - sLen, suffix, 0, sLen));
+    }
+
     private void parseDirectoryFiles(WsResource directory, ServerConfiguration configuration) throws ConfigParserException, ConfigValidationException {
-        if (directory != null) {
-            File[] defaultFiles = getChildXMLFiles(directory);
-            if (defaultFiles == null)
-                return;
+        List<String> childXMLNames = getChildXMLNames(directory);
 
-            Arrays.sort(defaultFiles, new AlphaComparator());
+        Collections.sort(childXMLNames, (name1, name2) -> name1.compareToIgnoreCase(name2));
 
-            for (int i = 0; i < defaultFiles.length; i++) {
-                File file = defaultFiles[i];
-                if (!file.isFile())
-                    continue;
-
-                WsResource defaultFile = directory.resolveRelative(file.getName());
-                if (defaultFile == null) {
-                    // This should never happen, but it's conceivable that someone could remove a file
-                    // after listFiles and before getChild
-                    if (tc.isDebugEnabled()) {
-                        Tr.debug(tc, file.getName() + " was not found in directory " + directory.getName() + ". Ignoring. ");
-                    }
-                    continue;
+        for (String xmlName : childXMLNames) {
+            WsResource xmlFile = directory.resolveRelative(xmlName);
+            if (xmlFile == null) {
+                // This should never happen, but it's conceivable that someone could remove a file
+                // after listFiles and before getChild
+                if (tc.isDebugEnabled()) {
+                    Tr.debug(tc, xmlName + " was not found in directory " + directory.getName() + ". Ignoring. ");
                 }
-                Tr.audit(tc, "audit.dropin.being.processed", defaultFile.asFile());
-                try {
-                    parser.parseServerConfiguration(defaultFile, configuration);
-                } catch (ConfigParserException ex) {
-                    parser.handleParseError(ex, null);
+                continue;
+            }
 
-                    if (ErrorHandler.INSTANCE.fail()) {
-                        // if onError=FAIL, bubble the exception up the stack
-                        throw ex;
-                    } else {
-                        // Mark the last update for the configuration so that we don't try to load it again
-                        configuration.updateLastModified(configRoot.getLastModified());
-                    }
+            Tr.audit(tc, "audit.dropin.being.processed", xmlFile.asFile());
+            try {
+                parser.parseServerConfiguration(xmlFile, configuration);
+            } catch (ConfigParserException ex) {
+                parser.handleParseError(ex, null);
+
+                if (ErrorHandler.INSTANCE.fail()) {
+                    throw ex; // if onError=FAIL, bubble the exception up the stack
+                } else {
+                    // Mark the last update for the configuration so that we don't try to load it again
+                    configuration.updateLastModified(configRoot.getLastModified());
                 }
             }
         }
@@ -397,7 +370,6 @@ class ServerXMLConfiguration {
     ServerConfiguration loadNewConfiguration() {
         ServerConfiguration newConfiguration = null;
         if (configRoot.exists()) {
-
             try {
                 newConfiguration = loadServerConfiguration();
                 setConfigReadTime();
@@ -405,17 +377,13 @@ class ServerXMLConfiguration {
                 // This is only thrown if OnError = FAIL
                 String message = e.getMessage() == null ? "Parser Failure" : e.getMessage();
                 Tr.error(tc, "error.config.update.init", new Object[] { message });
-            } catch (ConfigParserException e) {
-                Tr.error(tc, "error.config.update.init", new Object[] { e.getMessage() });
             } catch (ConfigValidationException e) {
                 Tr.warning(tc, "warn.configValidator.refreshFailed");
+            } catch (ConfigParserException e) {
+                Tr.error(tc, "error.config.update.init", new Object[] { e.getMessage() });
             }
 
             if (newConfiguration == null) {
-                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "doRefreshConfiguration(): Error loading new configuration - leaving existing configuration unchanged");
-                }
-//                Tr.error(tc, "error.config.update.init", new Object[] { e.getMessage() });
                 return null;
             }
         } else {
@@ -430,24 +398,14 @@ class ServerXMLConfiguration {
         return serverConfiguration;
     }
 
-    /**
-     * @return
-     */
     public BaseConfiguration getDefaultConfiguration() {
         return serverConfiguration.getDefaultConfiguration();
     }
 
-    /**
-     * @return
-     * @throws ConfigMergeException
-     */
     public Map<String, LibertyVariable> getVariables() throws ConfigMergeException {
         return serverConfiguration.getVariables();
     }
 
-    /**
-     * @param newConfiguration
-     */
     public void setNewConfiguration(ServerConfiguration newConfiguration) {
         this.serverConfiguration = newConfiguration;
     }
@@ -460,5 +418,4 @@ class ServerXMLConfiguration {
         copy.setDefaultConfiguration(dflt);
         return copy;
     }
-
 }

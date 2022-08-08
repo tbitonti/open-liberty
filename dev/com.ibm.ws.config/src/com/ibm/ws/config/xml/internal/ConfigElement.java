@@ -12,7 +12,6 @@
 package com.ibm.ws.config.xml.internal;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -248,36 +247,44 @@ abstract class ConfigElement {
         return attributes;
     }
 
+    @SuppressWarnings("unchecked")
     protected void override(ConfigElement in) {
-        MERGE_OP defaultOperation = MERGE_OP.APPEND;
-        boolean sameLocation = in.getDocumentLocation().equals(getDocumentLocation());
+        String loc = getDocumentLocation();
 
-        if (!sameLocation) {
-            if (in.mergeBehavior == MergeBehavior.IGNORE) {
+        String inLoc = in.location;
+        MergeBehavior inBehavior = in.mergeBehavior;
+
+        MERGE_OP inOp;
+        if (!inLoc.equals(loc)) {
+            if (inBehavior == MergeBehavior.IGNORE) {
                 return;
-            } else if (in.mergeBehavior == MergeBehavior.REPLACE) {
-                defaultOperation = MERGE_OP.SET;
-            }
-        }
-        for (Map.Entry<String, Object> entry : in.attributes.entrySet()) {
-            MERGE_OP operation = in.getMergeOperation(entry.getKey());
-            if (operation == null)
-                operation = defaultOperation;
-            Object value = entry.getValue();
-            if (operation == MERGE_OP.APPEND && value instanceof List) {
-                List<Object> attributeValues = getCollectionAttribute(entry.getKey());
-                @SuppressWarnings("unchecked")
-                List<Object> values = (List<Object>) value;
-                attributeValues.addAll(values);
+            } else if (inBehavior == MergeBehavior.REPLACE) {
+                inOp = MERGE_OP.SET;
             } else {
-                setAttribute(entry.getKey(), value);
+                inOp = MERGE_OP.APPEND;
             }
+        } else {
+            inOp = MERGE_OP.APPEND;
         }
+
+        in.attributes.forEach((inAttrName, inAttrValue) -> {
+            MERGE_OP inAttrOp = in.getMergeOperation(inAttrName);
+            if (inAttrOp == null) {
+                inAttrOp = inOp;
+            }
+
+            if ((inAttrOp == MERGE_OP.APPEND) && (inAttrValue instanceof List)) {
+                List<Object> attributeValues = getCollectionAttribute(inAttrName);
+                attributeValues.addAll((List<Object>) inAttrValue);
+            } else {
+                setAttribute(inAttrName, inAttrValue);
+            }
+        });
 
         children.addAll(in.getChildren());
         parent = in.getParent();
         childAttributeName = in.childAttributeName;
-        overrideLocation = in.location;
+        overrideLocation = inLoc;
     }
 
     public void setIdAttribute() {
@@ -439,113 +446,154 @@ abstract class ConfigElement {
     }
 
     /**
-     * The logic for merge has, unfortunately, gotten a bit unwieldy. Previously we were able to simply override in order
-     * of the sequence number to support a "last one wins" policy. We kept the same logic when we added onConflict values
-     * of REPLACE/IGNORE. Everything was fine with that as long as you're only dealing with one level of includes. If you
-     * had multiple levels, a nested 'REPLACE' or 'MERGE' could replace a top level element even though the nested include's
-     * parent was included with 'IGNORE'.
+     * Merge elements into this configuration element.
      *
-     * So, now we have complicated logic. First we flatten all conflict subtrees in the list of elements using the following rules:
+     * Essentially, override the attributes of this element with non-null attributes
+     * of the supplied elements.
      *
-     * 1. If the element preceding the current element in the conflict list is from the same file, merge the current element with
-     * the previous element.
+     * The logic for merge has, unfortunately, gotten a bit unwieldy. Previously we were
+     * able to simply override in order of the sequence number to support a "last one wins"
+     * policy. We kept the same logic when we added onConflict values of REPLACE/IGNORE.
+     * Everything was fine with that as long as you're only dealing with one level of
+     * includes. If you had multiple levels, a nested 'REPLACE' or 'MERGE' could replace
+     * a top level element even though the nested include's parent was included with 'IGNORE'.
      *
-     * 2. If the element preceding the current element in the conflict list is the current element's direct parent, we use the merge
-     * behavior specified on the element to emerge the previous and current elements.
+     * So, now we have complicated logic. First we contract all subtrees:
      *
-     * 3. If the preceding element is an ancestor of the current element, we use the merge behavior from the ancestor's child to merge the
-     * current element with the preceding element.
+     * 1. If the preceding element is from the same file, override the preceding element.
      *
-     * 4. Otherwise, the two elements are not related, so no flattening is done. We add the current element to the flattened list of elements.
+     * 2. If the preceding element is in the current element's direct parent,
+     * use the merge behavior specified on the element.
      *
-     * After everything has been flattened, we can go through each element in the list and call override.
+     * 3. If the preceding element is an ancestor of the current element, use the merge
+     * behavior from the ancestor's child.
      *
-     * There are probably better ways to handle this, but they would require restructuring the way we parse and store configuration.
+     * 4. Otherwise, the two elements are not related. The element cannot be contracted.
+     *
+     * After contracting related elements, override the remaining elements in order.
+     *
+     * @param elements Elements which are to be used to override this element.
      */
     protected void merge(List<? extends ConfigElement> elements) {
-        if (elements.size() > 1) {
-            Collections.sort(elements, ConfigElementComparator.INSTANCE);
+        int numElements = elements.size();
+        if (numElements == 0) {
+            // Nothing to do!
+            return;
+        } else if (numElements == 1) {
+            // Short circuit the remaining processing.  Sorting and contraction
+            // will do nothing.  The entire effect will be the same as this
+            // call to override.
+            override(elements.get(0));
+            return;
         }
 
-        ConfigElement[] elementArray = elements.toArray(new ConfigElement[elements.size()]);
+        // Elements MUST be in sequential order.  This gives us a depth
+        // first ordering of the elements based on their natural order and
+        // within the inclusion tree.
 
-        LinkedList<ConfigElement> flattened = new LinkedList<ConfigElement>();
-        flattened.add(elementArray[elements.size() - 1]);
-        for (int i = (elements.size() - 1); i > 0; i--) {
-            ConfigElement element = new SimpleElement(elementArray[i - 1]);
-            ConfigElement previous = flattened.getLast();
-            if (element.getDocumentLocation().equals(previous.getDocumentLocation())) {
-                // Same document, just merge
-                element.override(previous);
-                flattened.removeLast();
-                flattened.add(element);
-            } else if (previous.getParentDocumentLocation() != null && previous.getParentDocumentLocation().equals(element.getDocumentLocation())) {
-                // 'element' is in the immediate parent document of 'previous'. Just override using the merge behavior that's already specified
-                // on 'previous'
-                element.override(previous);
-                flattened.removeLast();
-                flattened.add(element);
-            } else if (previous.docLocationStack.contains(element.getDocumentLocation())) {
-                // If 'element' is in the hierarchy that included 'previous', 'previous' needs to use the merge behavior specified
-                // in the include statement in the document that contains 'element'.
-                int idx = previous.docLocationStack.indexOf(element.getDocumentLocation());
-                previous.mergeBehavior = previous.behaviorStack.get(idx + 1);
-                element.override(previous);
-                flattened.removeLast();
-                flattened.add(element);
+        elements.sort((e1, e2) -> e1.getSequenceId() - e2.getSequenceId());
+
+        ConfigElement prev = elements.get(numElements - 1);
+        String prevLoc = prev.getDocumentLocation();
+
+        // Merge direct descendants.  That will leave a contracted
+        // list of elements in unrelated includes.
+        //
+        // If we are fortunate, all elements will be contracted, which
+        // will mean the contracted list won't ever be needed.
+
+        LinkedList<ConfigElement> contracted = null;
+
+        // Note: Traverse from the end.  Skip the last, since that has already
+        // been put into 'prev'.
+
+        for (int elementNo = numElements - 1; elementNo > 0; elementNo--) {
+            ConfigElement next = new SimpleElement(elements.get(elementNo - 1));
+            String nextLoc = next.getDocumentLocation();
+
+            boolean contract;
+
+            // Note that 'prev' is sequentially after 'next'.
+            //
+            // The first test is whether the 'next' location is in the same
+            // document as 'prev' or is in the parent of 'prev.
+            //
+            // The stack based test is whether the 'next' location is in a
+            // parent of 'prev' but not in the immediate parent.
+            //
+            // TODO: Strange cases:
+            //
+            // Two elements in an 'ignored' include.
+            // The elements specify an attribute which is not in the including
+            // document.
+            // The 'same document' case will trigger, which will perform
+            // a no-op merge.
+            // This is not a problem if the attribute is present in the including
+            // document, since the merge value will be ignored anyways.
+            //
+            // c1(e[a1=1, a2=21, a3=31])
+            //     -(ignore)-> c2(e[a3=32])
+            //         -(merge)-> c3 (e[a2=22])
+
+            if (nextLoc.equals(prevLoc) || nextLoc.equals(prev.getParentDocumentLocation())) {
+                contract = true;
             } else {
-                // Conflicting element not in stack, add for later merging
-                flattened.add(element);
+                int index = prev.docLocationStack.indexOf(nextLoc);
+                if (index != -1) {
+                    prev.mergeBehavior = prev.behaviorStack.get(index + 1);
+                    contract = true;
+                } else {
+                    contract = false;
+                }
+            }
 
+            if (contract) {
+                next.override(prev);
+            } else {
+                if (contracted == null) {
+                    contracted = new LinkedList<>();
+                }
+                contracted.add(prev);
+            }
+
+            prev = next;
+            prevLoc = nextLoc;
+        }
+
+        override(prev);
+
+        if (contracted != null) {
+            while (!contracted.isEmpty()) {
+                override(contracted.removeLast());
             }
         }
-
-        for (int i = flattened.size(); i > 0; i--) {
-            override(flattened.get(i - 1));
-        }
-
     }
 
     protected void setMergeBehavior(MergeBehavior mb) {
         this.mergeBehavior = mb;
     }
 
-    /**
-     * @return
-     */
     private Object getParentDocumentLocation() {
-        if (docLocationStack.size() == 1)
+        int size = docLocationStack.size();
+        if (size == 1) {
             return null;
-
-        return docLocationStack.get(docLocationStack.size() - 2);
+        } else {
+            return docLocationStack.get(size - 2);
+        }
     }
 
-    /**
-     * @param clone
-     */
     public void setBehaviorStack(LinkedList<MergeBehavior> clone) {
         this.behaviorStack = clone;
-
     }
 
-    /**
-     * @param clone
-     */
     public void setDocLocationStack(LinkedList<String> clone) {
         this.docLocationStack = clone;
-
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see java.lang.Object#toString()
-     */
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder(getClass().getName());
         builder.append("[").append(getFullId()).append("]");
         return builder.toString();
     }
-
 }

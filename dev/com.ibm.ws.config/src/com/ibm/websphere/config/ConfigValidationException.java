@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,9 +15,8 @@ package com.ibm.websphere.config;
  * An exception representing an error occurred while parsing configuration
  * documents.
  */
-public class ConfigValidationException extends Exception {
+public class ConfigValidationException extends ConfigParserException {
     private static final long serialVersionUID = -8341749732382155484L;
-    public String docLocation = "";
 
     public ConfigValidationException() {
         super();
@@ -29,7 +28,9 @@ public class ConfigValidationException extends Exception {
 
     public ConfigValidationException(String message, String doc) {
         super(message);
+
         this.docLocation = doc;
     }
 
+    public String docLocation = "";
 }

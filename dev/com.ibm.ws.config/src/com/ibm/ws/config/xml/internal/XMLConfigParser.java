@@ -14,6 +14,7 @@ package com.ibm.ws.config.xml.internal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.io.StringReader;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -247,20 +248,33 @@ public class XMLConfigParser {
         }
     }
 
-    // test entry point only
+    // test entry points
+
+    public ConfigElement parseConfigElement(String xmlText) throws ConfigParserException {
+        return parseConfigElement("Test Server", MergeBehavior.MERGE, xmlText);
+    }
+
+    public ConfigElement parseConfigElement(String docLocation, MergeBehavior mergeBehavior, String xmlText) throws ConfigParserException {
+        return parseConfigElement(docLocation, mergeBehavior, new StringReader(xmlText));
+    }
+
+    public ConfigElement parseConfigElement(Reader xmlReader) throws ConfigParserException {
+        return parseConfigElement("Test Server", MergeBehavior.MERGE, xmlReader);
+    }
+
     @FFDCIgnore(XMLStreamException.class)
-    public ConfigElement parseConfigElement(Reader reader) throws ConfigParserException {
-        behaviorStack.add(MergeBehavior.MERGE);
-        docLocationStack.add("Test Server");
+    public ConfigElement parseConfigElement(String docLocation, MergeBehavior mergeBehavior, Reader xmlReader) throws ConfigParserException {
+        behaviorStack.add(mergeBehavior);
+        docLocationStack.add(docLocation);
         DepthAwareXMLStreamReader parser = null;
         try {
-            parser = new DepthAwareXMLStreamReader(getXMLInputFactory().createXMLStreamReader(reader));
+            parser = new DepthAwareXMLStreamReader(getXMLInputFactory().createXMLStreamReader(xmlReader));
             ConfigElement configElement = null;
             int depth = parser.getDepth();
             while (parser.hasNext(depth)) {
                 int event = parser.next();
                 if (event == XMLStreamConstants.START_ELEMENT) {
-                    configElement = parseConfigElement(parser, parser.getLocalName(), null, null, null, false);
+                    configElement = parseConfigElement(parser, parser.getLocalName(), null, docLocation, null, false);
                     break;
                 }
             }

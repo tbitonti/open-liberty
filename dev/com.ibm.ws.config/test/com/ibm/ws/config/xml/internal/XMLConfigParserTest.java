@@ -604,27 +604,47 @@ public class XMLConfigParserTest {
 
     private static final boolean isWindows = System.getProperty("os.name", "unknown").toUpperCase(Locale.ENGLISH).contains("WINDOWS");
 
+    private static void testLocation(URI actualURI, String expectedUnresolved) throws Exception {
+        String expectedResolved = variableRegistry.resolveString(expectedUnresolved);
+        URI expectedURI = new URI("file:" + expectedResolved);
+
+        if (expectedURI.equals(actualURI)) {
+            return;
+        }
+
+        // Extra check: BASH adds a leading '/'.
+        URI altExpectedURI = new URI("file:/" + expectedResolved);
+        if (altExpectedURI.equals(actualURI)) {
+            return;
+        }
+
+        // Fail with the original expected URI.
+        assertEquals(expectedURI, actualURI);
+    }
+
+    // Just checking that the include process isn't doing anything crazy with the path
+
     @Test
     public void testIncludesWithVariables() throws Exception {
         changeLocationSettings("default");
-        String base;
-        WsResource resource;
-        base = CONFIG_ROOT;
 
-        // Just checking that the include process isn't doing anything crazy with the path
+        String base = CONFIG_ROOT;
+
         XMLConfigParser parser = new XMLConfigParser(wsLocation, variableRegistry);
-        resource = parser.resolveInclude("${wlp.user.dir}/server.xml", base, wsLocation);
-        String expected = "file:" + variableRegistry.resolveString("${wlp.user.dir}/server.xml");
-        assertEquals(new URI(expected), resource.toExternalURI());
 
+        WsResource resource = parser.resolveInclude("${wlp.user.dir}/server.xml", base, wsLocation);
+        URI resourceURI = resource.toExternalURI();
+
+        testLocation(resourceURI, "${wlp.user.dir}/server.xml");
+
+        // Only run on windows because unix platforms will mangle `c:\` style paths
         if (isWindows) {
-
-            // Only run on windows because unix platforms will mangle `c:\` style paths
             SymbolRegistry.getRegistry().addStringSymbol("myHome", "C:\\users\\fernando");
 
             resource = parser.resolveInclude("${myHome}/server.xml", base, wsLocation);
-            expected = "file:" + variableRegistry.resolveString("${myHome}/server.xml");
-            assertEquals(new URI(expected), resource.toExternalURI());
+            resourceURI = resource.toExternalURI();
+
+            testLocation(resourceURI, "${myHome}/server.xml");
         }
     }
 
