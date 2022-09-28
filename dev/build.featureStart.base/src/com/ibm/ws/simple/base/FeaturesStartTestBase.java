@@ -730,9 +730,8 @@ public class FeaturesStartTestBase {
         // The Rtcomm service is not able to connect to tcp://localhost:1883.
         allowedErrors.put("rtcomm-1.0", new String[] { "CWRTC0002E" });
         // The Rtcomm service is not able to connect to tcp://localhost:1883.
-        allowedErrors.put("rtcommGateway-1.0", new String[] { "CWRTC0002E" });
         // The Rtcomm service - The following virtual hosts could not be found or are not correctly configured: [abcdefg].
-        allowedErrors.put("rtcommGateway-1.0", new String[] { "SRVE9956W" });
+        allowedErrors.put("rtcommGateway-1.0", new String[] { "CWRTC0002E", "SRVE9956W" });
 
         // lets the user now certain config attributes will be ignored depending on whether or not 'inboundPropagation' is configured
         allowedErrors.put("samlWeb-2.0", new String[] { "CWWKS5207W: .* inboundPropagation" });
