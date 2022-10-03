@@ -265,6 +265,11 @@ public class ZipFileHandleImpl implements ZipFileHandle {
         }
     }
 
+    @Override
+    public boolean contains(ZipFile useZipFile, String zipEntryName) throws IOException {
+        return ( useZipFile.getEntry(zipEntryName) != null );        
+    }
+
     private static final ByteArrayInputStream EMPTY_STREAM =
         new ByteArrayInputStream( new byte[0] );
 

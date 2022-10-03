@@ -100,4 +100,17 @@ public interface ZipFileHandle {
      */
     InputStream getInputStream(ZipFile zipFile, String entryName) throws IOException;
     
+    /**
+     * Tell if an entry with the specified name exists within the
+     * zip file.
+     * 
+     * @param zipFile The zip file which is to be examined.
+     * @param entryName The name of the entry.
+     * 
+     * @return True or false telling if an entry having the specified name exists
+     *     within the zip file.
+     *     
+     * @throws IOException Thrown if the zip file cannot be accessed.
+     */
+    boolean contains(ZipFile zipFile, String entryName) throws IOException;
 }
