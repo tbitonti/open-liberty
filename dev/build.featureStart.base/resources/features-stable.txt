@@ -1,0 +1,5 @@
+# Short names of stable features.
+# These features are not tested when the test mode is LITE.
+# Currently empty
+#
+# shortName

@@ -15,8 +15,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -69,16 +72,7 @@ public class FileRewriter {
     }
 
     public List<String> read() throws IOException {
-        try (FileReader fileReader = new FileReader(getTargetFile());
-                        BufferedReader reader = new BufferedReader(fileReader)) {
-
-            List<String> readLines = new ArrayList<>();
-            String nextLine;
-            while ((nextLine = reader.readLine()) != null) {
-                readLines.add(nextLine);
-            }
-            return readLines;
-        }
+        return read(getTargetFile());
     }
 
     public List<String> write(List<String> lines) throws IOException {
@@ -158,5 +152,30 @@ public class FileRewriter {
         }
 
         return lines;
+    }
+
+    //
+
+    public static List<String> read(File file) throws IOException {
+        try (FileReader fileReader = new FileReader(file)) {
+            return read(fileReader);
+        }
+    }
+
+    public static List<String> read(InputStream input) throws IOException {
+        try (InputStreamReader inputReader = new InputStreamReader(input)) {
+            return read(inputReader);
+        }
+    }
+
+    public static List<String> read(Reader baseReader) throws IOException {
+        try (BufferedReader reader = new BufferedReader(baseReader)) {
+            List<String> readLines = new ArrayList<>();
+            String nextLine;
+            while ((nextLine = reader.readLine()) != null) {
+                readLines.add(nextLine);
+            }
+            return readLines;
+        }
     }
 }

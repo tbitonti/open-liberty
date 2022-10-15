@@ -10,7 +10,7 @@
  *******************************************************************************/
 package com.ibm.ws.simple.base;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,17 +20,20 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
-import java.util.TreeMap;
+import java.util.Set;
 import java.util.function.ToLongFunction;
 
 import com.ibm.websphere.simplicity.OperatingSystem;
 import com.ibm.websphere.simplicity.log.Log;
 
+import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.custom.junit.runner.TestModeFilter;
 import componenttest.topology.impl.JavaInfo;
 import componenttest.topology.impl.LibertyServer;
 
@@ -55,96 +58,73 @@ public class FeaturesStartTestBase {
 
     public static void setParameters(Class<?> c,
                                      LibertyServer server, String serverName,
-                                     int numBuckets, int bucketNo, int sparsity) {
+                                     int numBuckets, int bucketNo, int sparsity) throws Exception {
+        setParameters(c,
+                      server, serverName,
+                      numBuckets, bucketNo, sparsity,
+                      null);
+    }
+
+    public static void setParameters(Class<?> c,
+                                     LibertyServer server, String serverName,
+                                     int numBuckets, int bucketNo, int sparsity,
+                                     String singleFeature) throws Exception {
         FeaturesStartTestBase.c = c;
 
-        FeaturesStartTestBase.server = server;
-        FeaturesStartTestBase.serverName = serverName;
-        FeaturesStartTestBase.serverConfigPath = server.getServerConfigurationPath();
+        FeaturesStartTestBase.setServer(server, serverName);
 
-        // TODO: Not sure if having 'NUM_BUCKETS' be set is best.
+        // Setting a single feature will override all of the
+        // feature bucket and feature selection calculations.
+
+        FeaturesStartTestBase.singleFeature = singleFeature;
+
+        // TODO: Not sure if having 'numBuckets' be set is best.
         //       All of the buckets should set the same value.
-        FeaturesStartTestBase.NUM_BUCKETS = numBuckets;
-        FeaturesStartTestBase.BUCKET_NO = bucketNo;
-        FeaturesStartTestBase.SPARSITY = sparsity;
+        FeaturesStartTestBase.numBuckets = numBuckets;
+        FeaturesStartTestBase.bucketNo = bucketNo;
+        FeaturesStartTestBase.sparsity = sparsity;
     }
 
     //
 
-    private static Class<?> c;
+    public static Class<?> c;
 
-    private static void logInfo(String m, String msg) {
+    protected static void logInfo(String m, String msg) {
         Log.info(c, m, msg);
     }
 
-    private static void logError(String m, String msg) {
+    protected static void logError(String m, String msg) {
         Log.error(c, m, null, msg);
     }
 
-    private static void logError(String m, String msg, Throwable th) {
+    protected static void logError(String m, String msg, Throwable th) {
         Log.error(c, m, th, msg);
     }
 
     //
 
-    static int JAVA_LEVEL;
-
-    static boolean isHealthCenterAvailable() {
-        // TODO: Is this the correct implementation of this test?
-        // How is the test specific to the java which is running the test
-        // server?  The test seems to be specific to the java running the
-        // FAT.
-
-        return JavaInfo.isSystemClassAvailable("com.ibm.java.diagnostics.healthcenter.agent.mbean.HealthCenter");
-    }
-
-    // Test features within a bucket, with an assigned range within
-    // the features list.
-    //
-    // Tests run by this class are conditioned entirely on the number
-    // of buckets and the bucket number.
-    //
-    // The server name must be updated to match the bucket parameters.
-
-    static int NUM_BUCKETS;
-    static int BUCKET_NO;
-
-    // Control parameter: Must be 0 or greater.
-    // If greater than 0, test a subset of features, 1 of every SPARSITY.
-    //
-    // For example, setting '10' means run every 10'th test.
-    // (At least 1 test is always run.)
-    //
-    // Use this when testing to limit the number of features which are
-    // started.
-
-    static int SPARSITY;
-
-    static int FIRST_FEATURE_NO; // The first test to be run.
-    static int LAST_FEATURE_NO; // One past the last test to be run.
-
-    static final Map<String, Integer> requiredLevels = new TreeMap<>();
-    static final List<String> features = new ArrayList<>();
-    static final Map<String, String[]> allowedErrors = new HashMap<>();
-
-    // The server name is set according to the bucket parameters.
     public static LibertyServer server;
+
     public static String serverName;
     public static String serverConfigPath;
 
-    // TODO: Should this be cached?  There is currently only
-    //       one use, but that might change.
+    public static boolean serverIsZOS;
+    public static int serverJavaLevel;
+    public static boolean isHealthCenterAvailable;
 
-    public static boolean isServerZOS() {
-        String m = "isServerZOS";
-        try {
-            return server.getMachine().getOperatingSystem().equals(OperatingSystem.ZOS);
-        } catch (Exception e) {
-            // This should never happen; if it does, we will run possibly one extra
-            // test.
-            logError(m, "Unexpected failure", e);
-            return false;
-        }
+    public static void setServer(LibertyServer server, String serverName) throws Exception {
+        FeaturesStartTestBase.server = server;
+        FeaturesStartTestBase.serverName = serverName;
+        FeaturesStartTestBase.serverConfigPath = server.getServerConfigurationPath();
+        FeaturesStartTestBase.serverIsZOS = server.getMachine().getOperatingSystem().equals(OperatingSystem.ZOS);
+
+        FeaturesStartTestBase.serverJavaLevel = JavaInfo.forServer(server).majorVersion();
+
+        // TODO: This is incorrect: The setting is computed for the java running
+        //       the FAT, not for the java running the server.  'JavaInfo' has no
+        //       API which will perform this check on a target server.
+
+        FeaturesStartTestBase.isHealthCenterAvailable = JavaInfo.isSystemClassAvailable("com.ibm.java.diagnostics.healthcenter.agent.mbean.HealthCenter");
     }
 
     /**
@@ -152,7 +132,7 @@ public class FeaturesStartTestBase {
      *
      * @throws Exception Thrown if the attempt to kill the server failed.
      */
-    private static void killProcess(String pid) throws Exception {
+    protected static void killProcess(String pid) throws Exception {
         server.getMachine().killProcess(Integer.parseInt(pid));
     }
 
@@ -163,7 +143,7 @@ public class FeaturesStartTestBase {
      * @return The PID of the running server. Null if the server
      *         is not running.
      */
-    private static String getPid() {
+    protected static String getPid() {
         String m = "getPid";
         try {
             return server.getPid();
@@ -259,11 +239,13 @@ public class FeaturesStartTestBase {
     public static boolean forceStopServer(String shortName,
                                           String pid,
                                           String[] allowedErrors,
-                                          Map<String, String> failures,
+                                          Map<String, Failure> failures,
                                           TimingResult timingResult) {
         String m = "forceStopServer";
 
-        String description = "Server [ " + serverName + " ] PID [ " + pid + " ] Feature [ " + shortName + " ]";
+        String description = "Server [ " + serverName + " ]" +
+                             " PID [ " + pid + " ]" +
+                             " Feature [ " + shortName + " ]";
 
         boolean didStop;
         boolean didKill;
@@ -291,7 +273,7 @@ public class FeaturesStartTestBase {
                 if (boundException == null) {
                     logInfo(m, "Stopped: " + description);
                 } else {
-                    addFailure(m, failures, shortName, "Stop Exception", boundException);
+                    addFailure(m, failures, shortName, "Stop", boundException);
                 }
             } else {
                 logInfo(m, "Not started: " + description);
@@ -317,7 +299,7 @@ public class FeaturesStartTestBase {
                 if (boundException == null) {
                     logInfo(m, "Killed: " + description);
                 } else {
-                    addFailure(m, failures, shortName, "Kill Exception", boundException);
+                    addFailure(m, failures, shortName, "Kill", boundException);
                 }
             } else {
                 logInfo(m, "Null PID: " + description);
@@ -328,47 +310,57 @@ public class FeaturesStartTestBase {
         return (didStop && didKill);
     }
 
+    // Test features within a bucket, with an assigned range within
+    // the features list.
     //
+    // Tests run by this class are conditioned entirely on the number
+    // of buckets and the bucket number.
+    //
+    // The server name must be updated to match the bucket parameters.
 
-    /**
-     * Perform class level initialization:
-     *
-     * The FAT runner must have already injected the test server.
-     *
-     * Read the required java levels for features from the test server.
-     *
-     * Determine the java level used by the test server.
-     *
-     * Read and filter features from the test server.
-     *
-     * Setup the table of allowed errors, per feature short name.
-     *
-     * @throws Exception Thrown if the class level initialization failed. This
-     *                       would be most likely because of a failure to read feature data, or
-     *                       because the build produced no testable features.
-     */
-    public static void setUp() throws Exception {
-        initRequiredLevels(); // This is a static table read.
-        initJavaInfo();
-        initFeatures(); // Uses the java level as one of the feature filters.
-        initAllowedErrors(); // Static table of known allowable errors.
-    }
+    public static String singleFeature;
+
+    public static int numBuckets;
+    public static int bucketNo;
+
+    // Control parameter: Must be 0 or greater.
+    // If greater than 0, test a subset of features, 1 of every SPARSITY.
+    //
+    // For example, setting '10' means run every 10'th test.
+    // (At least 1 test is always run.)
+    //
+    // Use this when testing to limit the number of features which are
+    // started.
+
+    public static int sparsity;
+
+    public static int firstFeatureNo; // The first test to be run.
+    public static int lastFeatureNo; // One past the last test to be run.
+
+    // Feature filters:
+    //
+    // Some features require a minimum java level;
+    // Do not test any features if the server java level is less than that
+    // required level for the feature.
+    //
+    // Some features are stable.
+    // Do not test those features when the test mode is LITE.
+    //
+    // Some features cannot be started individually.
+    // Do not test those features.
+    //
+    // Other features have specific prerequisities.  See 'skipFeature'.
+
+    public static final Map<String, Integer> requiredLevels = new HashMap<>();
+    public static final Set<String> stableFeatures = new HashSet<>();
+    public static final Map<String, String> unstartableFeatures = new HashMap<>();
 
     //
-
-    /**
-     * Determine the major version of the java which is being used by the server.
-     *
-     * This relies on the FAT running having already injected the server.
-     */
-    public static void initJavaInfo() throws Exception {
-        JAVA_LEVEL = JavaInfo.forServer(server).majorVersion();
-    }
 
     // TODO: Should this perhaps be initialized from java code?  Having the
     // external properties file doesn't seem to add anything.
 
-    public static final String REQUIRED_LEVELS_NAME = "/feature-java-levels.properties";
+    public static final String REQUIRED_LEVELS_NAME = "/feature-levels.properties";
 
     /**
      * Read the table of minimum required java levels for features.
@@ -390,6 +382,85 @@ public class FeaturesStartTestBase {
             requiredLevels.put(shortName, requiredLevel);
         });
     }
+
+    /**
+     * Test if the current server java level is sufficient to start
+     * a specified feature. Answer null if the java level is sufficient.
+     * Answer the required level if the java level is not sufficient.
+     *
+     * Three results are possible:
+     *
+     * No minimum java level is specified. Answer null. The feature is
+     * expected to start.
+     *
+     * A minimum java level is specified, and the server java level is
+     * not less than that specified minimum level. Answer null. The
+     * feature is expected to start.
+     *
+     * A minimum java level is specified, and the server java level is
+     * less than that specified minimum level. Answer the specified
+     * minimum level. The feature is not expected to start.
+     *
+     * @param shortName The short name of the feature which is to be tested.
+     *
+     * @return Null if the feature should be startable using the current
+     *         server java. The required minimum java level if the current
+     *         server java level is too low to start the feature.
+     */
+    public static Integer getMinimumJava(String shortName) {
+        Integer minJavaLevel = requiredLevels.get(shortName.toLowerCase());
+        if (minJavaLevel == null) {
+            return null;
+        } else if (serverJavaLevel >= minJavaLevel) {
+            return null;
+        } else {
+            return minJavaLevel;
+        }
+    }
+
+    public static final String STABLE_FEATURES_NAME = "/features-stable.txt";
+
+    public static void initStableFeatures() throws IOException {
+        List<String> features;
+        try (InputStream input = FeaturesStartTestBase.class.getResourceAsStream(STABLE_FEATURES_NAME)) {
+            features = FileRewriter.read(input);
+        }
+        for (String feature : features) {
+            feature = feature.trim();
+            if (!feature.isEmpty() && (feature.charAt(0) != '#')) {
+                stableFeatures.add(feature.toLowerCase());
+            }
+        }
+    }
+
+    public static boolean isStable(String shortName) {
+        return stableFeatures.contains(shortName);
+    }
+
+    //
+
+    public static final String UNSTARTABLE_FEATURES_NAME = "/features-unstartable.properties";
+
+    /**
+     * Read the table of features which cannot run individually.
+     *
+     * Keys are feature names, all lower case. Values are descriptive
+     * reasons for why the feature cannot be run.
+     *
+     * @throws IOException Thrown if the properties file could not be read.
+     */
+    public static void initUnstartableFeatures() throws IOException {
+        Properties props = new Properties();
+        try (InputStream input = FeaturesStartTestBase.class.getResourceAsStream(UNSTARTABLE_FEATURES_NAME)) {
+            props.load(input);
+        }
+        props.forEach((sName, reason) -> {
+            String shortName = ((String) sName).toLowerCase();
+            unstartableFeatures.put(shortName, (String) reason);
+        });
+    }
+
+    public static final List<String> features = new ArrayList<>();
 
     /**
      * Initialize the features which are to be tested.
@@ -429,6 +500,8 @@ public class FeaturesStartTestBase {
 
         List<String> testFeatures = new ArrayList<>();
         List<String> nonPublicFeatures = new ArrayList<>();
+        List<String> stableFeatures = new ArrayList<>();
+        Map<String, String> untestableFeatures = new HashMap<>();
 
         for (File featureManifest : featureManifests) {
             String shortName = parseShortName(featureManifest, nonPublicFeatures, testFeatures);
@@ -436,9 +509,21 @@ public class FeaturesStartTestBase {
                 continue; // Not readable, or filtered.
             }
 
-            String skipReason = skipFeature(shortName);
+            String lcShortName = shortName.toLowerCase();
+
+            if (isStable(lcShortName)) {
+                stableFeatures.add(shortName);
+                if (TestModeFilter.FRAMEWORK_TEST_MODE == TestMode.LITE) {
+                    continue;
+                }
+            }
+
+            String skipReason = unstartableFeatures.get(lcShortName);
+            if (skipReason == null) {
+                skipReason = skipFeature(lcShortName);
+            }
             if (skipReason != null) {
-                logInfo(m, "Cannot test feature [ " + shortName + " ]: " + skipReason);
+                untestableFeatures.put(shortName, skipReason);
                 continue;
             }
 
@@ -446,26 +531,53 @@ public class FeaturesStartTestBase {
         }
 
         if (!nonPublicFeatures.isEmpty()) {
-            logInfo(m, "Cannot test features [ " + nonPublicFeatures.size() + " ]: non-public");
+            logInfo(m, "Non-public features: [ " + nonPublicFeatures.size() + " ]");
             display(m, "    ", 80, nonPublicFeatures);
         }
-
         if (!testFeatures.isEmpty()) {
-            logInfo(m, "Cannot test features [ " + testFeatures.size() + " ]: test");
+            logInfo(m, "Test features: [ " + testFeatures.size() + " ]");
             display(m, "    ", 80, testFeatures);
         }
+        if (!untestableFeatures.isEmpty()) {
+            untestableFeatures.forEach((sName, skipReason) -> {
+                logInfo(m, "Untestable: [ " + sName + " ]: " + skipReason);
+            });
+        }
 
-        if (features.isEmpty()) {
-            throw new IOException("Folder [ " + featuresPath + " ] has no testable features");
+        if (!stableFeatures.isEmpty()) {
+            if (TestModeFilter.FRAMEWORK_TEST_MODE == TestMode.LITE) {
+                logInfo(m, "TestMode [ " + TestModeFilter.FRAMEWORK_TEST_MODE + " ]: Do not test stable features");
+            } else {
+                logInfo(m, "TestMode [ " + TestModeFilter.FRAMEWORK_TEST_MODE + " ]: Do test stable features");
+            }
+            logInfo(m, "Stable features: [ " + stableFeatures.size() + " ]");
+            display(m, "    ", 80, stableFeatures);
         }
 
         // All tests *MUST* use the same features, in the same order.
         features.sort((n1, n2) -> n1.compareTo(n2));
 
-        // Limit the features to the current bucket.
-        int[] range = getRange(features.size(), NUM_BUCKETS, BUCKET_NO);
-        FIRST_FEATURE_NO = range[0];
-        LAST_FEATURE_NO = range[1];
+        logInfo(m, "All testable features: [ " + features.size() + " ]:");
+        display(m, "    ", 80, features);
+
+        if (features.isEmpty()) {
+            throw new IOException("Folder [ " + featuresPath + " ] has no testable features");
+        }
+
+        if (singleFeature != null) {
+            logInfo(m, "Single feature request: Test only [ " + singleFeature + " ]");
+            int singleFeatureNo = features.indexOf(singleFeature);
+            if (singleFeatureNo == -1) {
+                throw new IOException("Feature [ " + singleFeature + " ] is not testable");
+            } else {
+                firstFeatureNo = singleFeatureNo;
+                lastFeatureNo = singleFeatureNo + 1;
+            }
+        } else {
+            int[] range = getRangeForBucket(features.size(), numBuckets, bucketNo);
+            firstFeatureNo = range[0];
+            lastFeatureNo = range[1];
+        }
     }
 
     /**
@@ -581,63 +693,28 @@ public class FeaturesStartTestBase {
     /**
      * Tell if a feature is to be skipped.
      *
-     * Feature testing attempts to start the server using every
-     * configured feature.
-     *
-     * However, for a variaty of reasons, a feature may not be
-     * testable. The most common reasons are because of a JDK or System
-     * dependencies, or a dependency on a configuration value which is
-     * not set by these simple tests.
-     *
-     * These tests are for all buckets, not just the current bucket.
-     *
      * @param shortName The short name of the feature which is to be tested.
      * @return Null if the feature is to be tested. A string message if the
      *         feature is not to be tested.
      */
     public static String skipFeature(String shortName) {
-        // TODO: We don't check if the server is running on z/OS,
-        //       although we do check later in this method.
-        // TODO: Condition this on z/OS.
-        // z/OS Connect is NOT a z/OS only feature.  Every other
-        // "zos" prefix feature is for z/OS.
-        if (((shortName.startsWith("zos") && !shortName.startsWith("zosconnect-")) ||
-             shortName.equalsIgnoreCase("batchSMFLogging-1.0"))) {
-            return "z/OS only";
-        }
-
-        // Don't test this feature if environment is using Java level below minimum required
-        // specified in properties file. Not every feature has a mapping in that file.
-        Integer javaLevel = requiredLevels.get(shortName.toLowerCase());
-        if ((javaLevel != null) && (JAVA_LEVEL < javaLevel)) {
-            return "Requires java " + javaLevel;
-        }
-
-        // This feature is grand-fathered in on not starting cleanly on its own.
-        // Fixing it could potentially break existing configurations
-        if (shortName.equalsIgnoreCase("wsSecurity-1.1")) {
-            return "Cannot start by itself";
-        } else if (shortName.equalsIgnoreCase("constrainedDelegation-1.0")) {
-            return "Requires spnego-1.0 or OIDC";
+        // z/OS Connect is NOT a z/OS only feature.
+        // All other features which start with "zos" are z/OS only features.
+        if (!serverIsZOS) {
+            if (((shortName.startsWith("zos") && !shortName.startsWith("zosconnect-")) ||
+                 shortName.equalsIgnoreCase("batchSMFLogging-1.0"))) {
+                return "z/OS only";
+            }
         }
 
         // Only IBM JDK includes Health Center and IBM JDK 11+ (Semeru)
         // is based on Adopt JDK 11+, which does not include Health Center.
         if (shortName.equalsIgnoreCase("logstashCollector-1.0")) {
-            if (!isHealthCenterAvailable()) {
+            if (!isHealthCenterAvailable) {
                 return "Requires Health Center";
-            } else if (isServerZOS()) {
+            } else if (serverIsZOS) {
                 return "Requires the attach API, which is disabled on z/OS";
             }
-        }
-
-        // WMQ features require a RAR location variable to be set.
-        // These simple tests do not have a RAR and have not set the
-        // location variable.
-        if (shortName.equalsIgnoreCase("wmqMessagingClient-3.0") ||
-            shortName.equalsIgnoreCase("wmqJmsClient-2.0") ||
-            shortName.equalsIgnoreCase("wmqJmsClient-1.1")) {
-            return "Required variable 'wmqJmsClient.rar.location' is not set";
         }
 
         return null;
@@ -655,7 +732,7 @@ public class FeaturesStartTestBase {
      * @return The range as a half open interval: The first offset of the range,
      *         then the last offset of the range plus one.
      */
-    public static int[] getRange(int numElements, int numBuckets, int bucketNo) {
+    public static int[] getRangeForBucket(int numElements, int numBuckets, int bucketNo) {
         // A zero based bucket number is easier to compute with.
         int useBucketNo = bucketNo - 1;
 
@@ -708,6 +785,8 @@ public class FeaturesStartTestBase {
     //     }
     // }
 
+    public static final Map<String, String[]> allowedErrors = new HashMap<>();
+
     /**
      * Initialize the allowed failure messages.
      *
@@ -752,6 +831,36 @@ public class FeaturesStartTestBase {
         allowedErrors.put("healthManager-1.0", COLLECTIVE_MEMBER_WARNINGS);
         allowedErrors.put("scalingController-1.0", COLLECTIVE_MEMBER_WARNINGS);
         allowedErrors.put("scalingMember-1.0", COLLECTIVE_MEMBER_WARNINGS);
+    }
+
+    // The error which is expected when the java level is less than the
+    // required java level.
+
+    public static final String JAVA_LEVEL_ERROR = "CWWKF0032E";
+    public static final String[] JAVA_LEVEL_ERRORS = { JAVA_LEVEL_ERROR };
+
+    //
+
+    /**
+     * Determine the java level used by the test server.
+     *
+     * Read and filter features from the test server.
+     *
+     * Setup the table of allowed errors, per feature short name.
+     *
+     * @throws Exception Thrown if the class level initialization failed. This
+     *                       would be most likely because of a failure to read feature data, or
+     *                       because the build produced no testable features.
+     */
+    public static void setUp() throws Exception {
+        if (server == null) {
+            throw new IllegalStateException("Server is not set");
+        }
+
+        initStableFeatures();
+        initFeatures(); // Uses the stable features.
+        initRequiredLevels();
+        initAllowedErrors(); // Static table of known allowable errors.
     }
 
     //
@@ -807,7 +916,6 @@ public class FeaturesStartTestBase {
         // public long writeNs = UNSET_NS; // Subset of 'update'; no longer used
         public long startNs = UNSET_NS;
         public long pidNs = UNSET_NS;
-        public long verifyNs = UNSET_NS;
         public long stopNs = UNSET_NS;
         public long killNs = UNSET_NS;
 
@@ -843,10 +951,6 @@ public class FeaturesStartTestBase {
             pidNs = getTimeNs(initialNs);
         }
 
-        public void setVerifyNsFromInitial(long initialNs) {
-            verifyNs = getTimeNs(initialNs);
-        }
-
         public void setStopNsFromInitial(long initialNs) {
             stopNs = getTimeNs(initialNs);
         }
@@ -856,7 +960,7 @@ public class FeaturesStartTestBase {
         }
 
         public long totalNs() {
-            return sum(updateNs, startNs, pidNs, verifyNs, stopNs, killNs);
+            return sum(updateNs, startNs, pidNs, stopNs, killNs);
         }
     }
 
@@ -872,7 +976,7 @@ public class FeaturesStartTestBase {
         String m = "testStartFeatures";
 
         logInfo(m, "Test server: " + serverName);
-        logInfo(m, "Test server java: " + JAVA_LEVEL);
+        logInfo(m, "Test server java: " + serverJavaLevel);
 
         if (features.isEmpty()) {
             banner(m);
@@ -881,45 +985,59 @@ public class FeaturesStartTestBase {
             return;
         }
 
-        banner(m);
-        logInfo(m, "Features [ " + features.size() + " ]");
-        logInfo(m, "Bucket [ " + BUCKET_NO + " ] of [ " + NUM_BUCKETS + " ]");
-        logInfo(m, "  Count [ " + (LAST_FEATURE_NO - FIRST_FEATURE_NO) + " ]");
-        logInfo(m, "  First [ " + FIRST_FEATURE_NO + " ]: [ " + features.get(FIRST_FEATURE_NO) + " ]");
-        logInfo(m, "  Last  [ " + (LAST_FEATURE_NO - 1) + " ]: [ " + features.get(LAST_FEATURE_NO - 1) + " ]");
-        if (SPARSITY > 0) {
-            logInfo(m, "  Sparsity [ " + SPARSITY + " ]");
-        }
-        banner(m);
+        int numFeatures = lastFeatureNo - firstFeatureNo;
 
-        int numFeatures = LAST_FEATURE_NO - FIRST_FEATURE_NO;
-        if (SPARSITY > 0) {
-            numFeatures /= SPARSITY;
-            if ((numFeatures % SPARSITY) > 0) {
-                numFeatures++;
+        banner(m);
+        logInfo(m, "Bucket [ " + bucketNo + " ] of [ " + numBuckets + " ]");
+        logInfo(m, "Features [ " + features.size() + " ]");
+        if (singleFeature != null) {
+            logInfo(m, "Feature [ " + singleFeature + " ]");
+        } else {
+            logInfo(m, "  Count [ " + numFeatures + " ]");
+            logInfo(m, "  First [ " + firstFeatureNo + " ]: [ " + features.get(firstFeatureNo) + " ]");
+            logInfo(m, "  Last  [ " + (lastFeatureNo - 1) + " ]: [ " + features.get(lastFeatureNo - 1) + " ]");
+
+            if (sparsity > 1) {
+                int numSparseFeatures = numFeatures / sparsity;
+                if ((numSparseFeatures * sparsity) < numFeatures) {
+                    numSparseFeatures++;
+                }
+                numFeatures = numSparseFeatures;
+                logInfo(m, "  Sparsity [ " + sparsity + " ]");
+                logInfo(m, "  Sparse count [ " + numFeatures + " ]");
             }
         }
 
-        List<String> successes = new ArrayList<>();
-        Map<String, String> failures = new LinkedHashMap<>();
+        banner(m);
+
         List<String> skipped = new ArrayList<>();
+
+        List<String> expectedSuccesses = new ArrayList<>();
+        Map<String, Failure> unexpectedFailures = new LinkedHashMap<>();
+
+        List<String> expectedFailures = new ArrayList<>();
+        Map<String, String> unexpectedSuccesses = new HashMap<>();
 
         Map<String, TimingResult> timingResults = new HashMap<>(numFeatures);
 
         String lastShortName;
         String nextShortName = null;
 
-        for (int featureNo = FIRST_FEATURE_NO; featureNo < LAST_FEATURE_NO; featureNo++) {
+        for (int featureNo = firstFeatureNo; featureNo < lastFeatureNo; featureNo++) {
             String shortName = features.get(featureNo);
 
-            if ((SPARSITY > 0) && (((featureNo - FIRST_FEATURE_NO) % SPARSITY) != 0)) {
-                skipped.add(shortName);
-                logInfo(m, "Skipping [ " + shortName + " ]: Filtered by SPARSITY");
-                continue;
+            if (singleFeature == null) {
+                if ((sparsity > 0) && (((featureNo - firstFeatureNo) % sparsity) != 0)) {
+                    skipped.add(shortName);
+                    logInfo(m, "Skipping [ " + shortName + " ]: Filtered by SPARSITY");
+                    continue;
+                }
             }
 
             lastShortName = nextShortName;
             nextShortName = shortName;
+
+            Integer javaMinimum = getMinimumJava(nextShortName);
 
             TimingResult timingResult = new TimingResult(nextShortName);
             timingResults.put(nextShortName, timingResult);
@@ -927,7 +1045,7 @@ public class FeaturesStartTestBase {
             try {
                 StartupResult startupResult = null;
                 try {
-                    startupResult = startFeature(lastShortName, nextShortName, failures, timingResult);
+                    startupResult = startFeature(lastShortName, nextShortName, unexpectedFailures, timingResult);
 
                 } finally {
                     // A null result is only possible if 'startFeature' failed with a throwable.
@@ -939,9 +1057,29 @@ public class FeaturesStartTestBase {
                     }
 
                     if (startupResult.attempted) {
-                        if (forceStopServer(nextShortName, startupResult.pid, allowedErrors.get(nextShortName), failures, timingResult)) {
-                            if (!failures.containsKey(nextShortName)) {
-                                successes.add(nextShortName);
+                        String[] useAllowedErrors;
+                        if (javaMinimum != null) {
+                            useAllowedErrors = JAVA_LEVEL_ERRORS;
+                        } else {
+                            useAllowedErrors = allowedErrors.get(nextShortName);
+                        }
+
+                        if (forceStopServer(nextShortName, startupResult.pid, useAllowedErrors, unexpectedFailures, timingResult)) {
+                            if (!unexpectedFailures.containsKey(nextShortName)) {
+                                if (javaMinimum != null) {
+                                    List<String> levelErrors = server.findStringsInLogs(JAVA_LEVEL_ERROR);
+                                    if (levelErrors.isEmpty()) {
+                                        String msg = "Unexpected successful start [ " + nextShortName + " ]: Current java [ " + serverJavaLevel + " ]: Required java: [ "
+                                                     + javaMinimum
+                                                     + " ]";
+                                        unexpectedSuccesses.put(nextShortName, msg);
+                                        logError(m, msg);
+                                    } else {
+                                        expectedFailures.add(nextShortName);
+                                    }
+                                } else {
+                                    expectedSuccesses.add(nextShortName);
+                                }
                             }
                         }
                     }
@@ -952,14 +1090,24 @@ public class FeaturesStartTestBase {
             }
         }
 
-        logInfo(m, "Successes [ " + successes.size() + " ]");
-        if (!successes.isEmpty()) {
-            display(m, "    ", 80, successes);
+        logInfo(m, "Expected successes [ " + expectedSuccesses.size() + " ]");
+        if (!expectedSuccesses.isEmpty()) {
+            display(m, "    ", 80, expectedSuccesses);
         }
 
-        logInfo(m, "Failures [ " + failures.size() + " ]");
-        if (!failures.isEmpty()) {
-            display(m, "    ", 80, failures.keySet());
+        logInfo(m, "Expected failures [ " + expectedFailures.size() + " ]");
+        if (!expectedFailures.isEmpty()) {
+            display(m, "    ", 80, expectedFailures);
+        }
+
+        logInfo(m, "Unexpected failures [ " + unexpectedFailures.size() + " ]");
+        if (!unexpectedFailures.isEmpty()) {
+            display(m, "    ", 80, unexpectedFailures.keySet());
+        }
+
+        logInfo(m, "Unexpected successes [ " + unexpectedSuccesses.size() + " ]");
+        if (!unexpectedSuccesses.isEmpty()) {
+            display(m, "    ", 80, unexpectedSuccesses.keySet());
         }
 
         if (!skipped.isEmpty()) {
@@ -969,16 +1117,50 @@ public class FeaturesStartTestBase {
 
         display(m, timingResults);
 
-        if (!failures.isEmpty()) {
-            assertTrue("Features [ " + failures.keySet() + " ] should have started.", false);
+        if (!unexpectedFailures.isEmpty() || !unexpectedSuccesses.isEmpty()) {
+            StringBuilder msgBuilder = new StringBuilder();
+            if (!unexpectedFailures.isEmpty()) {
+                msgBuilder.append("Unexpected feature start failures [ ");
+                msgBuilder.append(unexpectedFailures.keySet());
+                msgBuilder.append(" ]: ");
+                msgBuilder.append(unexpectedFailures.values());
+                msgBuilder.append(".\n");
+            }
+            if (!unexpectedSuccesses.isEmpty()) {
+                if (msgBuilder.length() != 0) {
+                    msgBuilder.append(" ");
+                }
+                msgBuilder.append("Unexpected feature start successes [ ");
+                msgBuilder.append(unexpectedSuccesses.keySet());
+                msgBuilder.append(" ]: ");
+                msgBuilder.append(unexpectedSuccesses.values());
+                msgBuilder.append(".\n");
+            }
+
+            msgBuilder.append("If the failing features are test-only features, add 'IBM-Test-Feature: true'\n");
+            msgBuilder.append("  to the feature manifests.\n");
+
+            msgBuilder.append("If a failing feature requires a higher Java level, update 'feature-levels.properties'\n");
+            msgBuilder.append("  to indicate the required minimum Java level.\n");
+
+            msgBuilder.append("If a feature cannot be started by itself, or always produces particular errors\n");
+            msgBuilder.append("  when started by itself, this class must be updated with the relevant information.\n");
+
+            msgBuilder.append("When a feature fails to start, the defect for the failure should be assigned to\n");
+            msgBuilder.append("  the team which is most responsible for the feature, or which is most responsible\n");
+            msgBuilder.append("  for the underlying function which failed.\n");
+
+            msgBuilder.append("Consider carefully whether to create a new defect or to associate the failure with\n");
+            msgBuilder.append("  an existing defect.  Usually, the exception information must match exactly for\n");
+            msgBuilder.append("  the failure to be associated with an existing defect.");
+
+            fail(msgBuilder.toString());
         }
     }
 
     /**
      * Attempt to start a feature. Set the feature as the single configured feature
      * then start the server.
-     *
-     * If the feature was started, verify that no unexpected errors were logged.
      *
      * Do not stop the feature.
      *
@@ -993,7 +1175,7 @@ public class FeaturesStartTestBase {
      * @return The PID of the started server. Null if the feature could not be
      *         configured, or if the server startup was attempted but failed.
      */
-    public static StartupResult startFeature(String lastShortName, String shortName, Map<String, String> failures, TimingResult timingResult) {
+    public static StartupResult startFeature(String lastShortName, String shortName, Map<String, Failure> failures, TimingResult timingResult) {
         String m = "startFeature";
 
         long initialUpdateNs = timingResult.getTimeNs();
@@ -1002,7 +1184,7 @@ public class FeaturesStartTestBase {
             setFeature(lastShortName, shortName, timingResult);
 
         } catch (Exception e) {
-            addFailure(m, failures, shortName, "Failed to set feature", e);
+            addFailure(m, failures, shortName, "Set feature", e);
 
             // Complete failure: The start was not attempted.
             return new StartupResult(!StartupResult.DID_ATTEMPT, !StartupResult.DID_START, null);
@@ -1021,7 +1203,7 @@ public class FeaturesStartTestBase {
             started = true;
         } catch (Exception e) {
             started = false;
-            addFailure(m, failures, shortName, "Start Exception", e);
+            addFailure(m, failures, shortName, "Start", e);
         } finally {
             timingResult.setStartNsFromInitial(initialStartNs);
         }
@@ -1037,32 +1219,43 @@ public class FeaturesStartTestBase {
 
         timingResult.setPidNsFromInitial(initialPidNs);
 
-        // There is no point to doing feature startup verification if the
-        // server did not start cleanly.
-
-        if (started) {
-            long initialVerifyNs = timingResult.getTimeNs();
-            try {
-                List<String> errors = server.findStringsInLogs("CWWKF0032E");
-                if (!errors.isEmpty()) {
-                    addFailure(m, failures, shortName, "Verification Failure", null);
-                    for (String error : errors) {
-                        logError(m, "Server failure message [ " + error + " ]");
-                    }
-                }
-            } catch (Exception e) {
-                addFailure(m, failures, shortName, "Verify Exception", e);
-            } finally {
-                timingResult.setVerifyNsFromInitial(initialVerifyNs);
-            }
-        }
-
         return new StartupResult(StartupResult.DID_ATTEMPT, started, pid);
     }
 
-    public static void addFailure(String m, Map<String, String> failures, String shortName, String description, Throwable th) {
-        logError(m, "Failed to start feature [ " + shortName + " ]: " + description, th);
-        failures.put(shortName, shortName);
+    public static class Failure {
+        public final String shortName;
+        public final String activity;
+        public final Throwable failure;
+
+        public Failure(String shortName, String activity) {
+            this(shortName, activity, null);
+        }
+
+        public Failure(String shortName, String activity, Throwable failure) {
+            this.shortName = shortName;
+            this.activity = activity;
+            this.failure = failure;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder builder = new StringBuilder();
+            builder.append("Feature [ ");
+            builder.append(shortName);
+            builder.append(" ] Activity [ ");
+            builder.append(activity);
+            builder.append(" ]");
+            if (failure != null) {
+                builder.append(": ");
+                builder.append(failure);
+            }
+            return builder.toString();
+        }
+    }
+
+    public static void addFailure(String m, Map<String, Failure> failures, String shortName, String activity, Throwable th) {
+        logError(m, "Failed to start feature [ " + shortName + " ]: " + activity, th);
+        failures.put(shortName, new Failure(shortName, activity, th));
     }
 
     //
@@ -1083,9 +1276,6 @@ public class FeaturesStartTestBase {
 
         builder.append(format("PID", timingResult.pidNs));
         builder.append(", ");
-
-        builder.append(format("Verify", timingResult.verifyNs));
-        builder.append(',');
 
         logInfo(m, builder.toString());
         builder.setLength(0);
@@ -1112,7 +1302,6 @@ public class FeaturesStartTestBase {
         // summaries.put("Write", statistics("Write", timingResults, (TimingResult result) -> result.writeNs));
         summaries.put("Start", statistics("Start", timingResults, (TimingResult result) -> result.startNs));
         summaries.put("PID", statistics("PID", timingResults, (TimingResult result) -> result.pidNs));
-        summaries.put("Verify", statistics("Verify", timingResults, (TimingResult result) -> result.verifyNs));
         summaries.put("Stop", statistics("Stop", timingResults, (TimingResult result) -> result.stopNs));
         summaries.put("Kill", statistics("Kill", timingResults, (TimingResult result) -> result.killNs));
         summaries.put("Total", statistics("Total", timingResults, (TimingResult result) -> result.totalNs()));

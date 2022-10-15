@@ -43,11 +43,17 @@ public class FeaturesStartTest1 extends FeaturesStartTestBase {
     public static final int BUCKET_NO = 1;
     public static final int SPARSITY = 0;
 
+    // Set this to a feature short name to have just that feature
+    // tested.
+
+    public static final String TEST_SINGLE_FEATURE = null;
+
     @BeforeClass
     public static void setUp() throws Exception {
         FeaturesStartTestBase.setParameters(FeaturesStartTest1.class,
                                             server1, SERVER_NAME_1,
-                                            NUM_BUCKETS, BUCKET_NO, SPARSITY);
+                                            NUM_BUCKETS, BUCKET_NO, SPARSITY,
+                                            TEST_SINGLE_FEATURE);
         FeaturesStartTestBase.setUp();
     }
 
