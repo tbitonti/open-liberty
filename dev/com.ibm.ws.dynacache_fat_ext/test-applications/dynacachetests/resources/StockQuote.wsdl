@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions targetNamespace="http://stock.webservices.cache.ws.ibm.com" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="http://stock.webservices.cache.ws.ibm.com" xmlns:intf="http://stock.webservices.cache.ws.ibm.com" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+ <wsdl:types>
+  <schema elementFormDefault="qualified" targetNamespace="http://stock.webservices.cache.ws.ibm.com" xmlns="http://www.w3.org/2001/XMLSchema" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="http://stock.webservices.cache.ws.ibm.com" xmlns:intf="http://stock.webservices.cache.ws.ibm.com" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+   <element name="getQuote">
+    <complexType>
+     <sequence>
+      <element name="symbol" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="getQuoteResponse">
+    <complexType>
+     <sequence>
+      <element name="getQuoteReturn" type="xsd:float"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="invalidate">
+    <complexType>
+     <sequence>
+      <element name="symbol" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="invalidateResponse">
+    <complexType>
+     <sequence>
+      <element name="invalidateReturn" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="setQuote">
+    <complexType>
+     <sequence>
+      <element name="symbol" nillable="true" type="xsd:string"/>
+      <element name="price" type="xsd:float"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="setQuoteResponse">
+    <complexType>
+     <sequence>
+      <element name="setQuoteReturn" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+  </schema>
+ </wsdl:types>
+
+   <wsdl:message name="setQuoteRequest">
+
+      <wsdl:part element="intf:setQuote" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="invalidateResponse">
+
+      <wsdl:part element="intf:invalidateResponse" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getQuoteResponse">
+
+      <wsdl:part element="intf:getQuoteResponse" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="setQuoteResponse">
+
+      <wsdl:part element="intf:setQuoteResponse" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="invalidateRequest">
+
+      <wsdl:part element="intf:invalidate" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getQuoteRequest">
+
+      <wsdl:part element="intf:getQuote" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:portType name="StockQuote">
+
+      <wsdl:operation name="getQuote">
+
+         <wsdl:input message="intf:getQuoteRequest" name="getQuoteRequest"/>
+
+         <wsdl:output message="intf:getQuoteResponse" name="getQuoteResponse"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="invalidate">
+
+         <wsdl:input message="intf:invalidateRequest" name="invalidateRequest"/>
+
+         <wsdl:output message="intf:invalidateResponse" name="invalidateResponse"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="setQuote">
+
+         <wsdl:input message="intf:setQuoteRequest" name="setQuoteRequest"/>
+
+         <wsdl:output message="intf:setQuoteResponse" name="setQuoteResponse"/>
+
+      </wsdl:operation>
+
+   </wsdl:portType>
+
+   <wsdl:binding name="StockQuoteSoapBinding" type="intf:StockQuote">
+
+      <wsdlsoap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+
+      <wsdl:operation name="getQuote">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="getQuoteRequest">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="getQuoteResponse">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="invalidate">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="invalidateRequest">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="invalidateResponse">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="setQuote">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="setQuoteRequest">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="setQuoteResponse">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:binding>
+
+   <wsdl:service name="StockQuoteService">
+
+      <wsdl:port binding="intf:StockQuoteSoapBinding" name="StockQuote">
+
+         <wsdlsoap:address location="http://localhost:9085/dynacachetests/services/StockQuote"/>
+
+      </wsdl:port>
+
+   </wsdl:service>
+
+</wsdl:definitions>

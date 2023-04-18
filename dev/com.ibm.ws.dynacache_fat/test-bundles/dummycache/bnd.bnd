@@ -1,0 +1,15 @@
+-include= ~../../../ant_build/resources/bnd/bundle.props
+bVersion=1.0.0
+
+Bundle-Name: dummycache
+Bundle-SymbolicName: cache.dummy
+Bundle-Description: Dummy cache provider
+allow.bundle-version.override=true
+Bundle-Version: ${bVersion}
+  
+Import-Package: \
+    *
+Export-Package: cache.dummy;provide:=true
+
+-dsannotations: \
+  cache.dummy.DummyCacheProvider        

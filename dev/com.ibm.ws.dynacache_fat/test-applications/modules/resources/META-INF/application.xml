@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE application PUBLIC "-//Sun Microsystems, Inc.//DTD J2EE Application 1.3//EN" "http://java.sun.com/dtd/application_1_3.dtd">
+   <application id="Application_ID">
+        <module id="WebModule_1">
+         <web>
+            <web-uri>moduleA.war</web-uri>
+            <context-root>/dynacachetests/moduleA</context-root>
+         </web>
+      </module>
+      <module id="WebModule_2">
+         <web>
+            <web-uri>moduleB.war</web-uri>
+            <context-root>/dynacachetests/moduleB</context-root>
+         </web>
+      </module>
+    </application>

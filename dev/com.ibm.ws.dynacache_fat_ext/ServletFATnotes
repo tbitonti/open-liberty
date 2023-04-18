@@ -1,0 +1,19 @@
+Issues:
+
+- 1. XS spi integration with Liberty
+
+- 2. Dynacache core caching code should run without the WebContainer, PMI, JMX and JNDI features.
+     Essential Dynacache core function should run without monitoring, rest and WC support
+     Minify Dynacache and boil it down to its core.
+
+- 3. Translatable and meaningful messages for the metatype
+
+- 4. ID updates to document differences between tWAS and Liberty and provide sample code for using the web cache in Liberty
+
+- 5. Refactor DiskCleanupThread and GarbageCollectorThread to use the deferrable SchedulerService
+     (8.5.5+) Deferrable work
+     To schedule non-urgent work with a delay (e.g., background cleanup tasks), components should get java.util.concurrent.ScheduledExecutorService from the service registry with deferrable=true. This service has lower service.ranking (lower precedence) than the non-deferrable ScheduledExecutorService, but components can explicitly request the deferrable=false. This is similar to the tWAS AlarmManager.createDeferrable API.
+     http://was.pok.ibm.com/xwiki/bin/view/LibertyCookbook/Threading
+        
+- 6. Fix egregious findbugs violations        
+        

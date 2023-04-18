@@ -1,0 +1,33 @@
+<?xml version="1.0" ?>
+<!DOCTYPE cache SYSTEM "cachespec.dtd">
+
+<cache>
+  <cache-entry>
+      <class>servlet</class>
+      <name>com.ibm.ws.cache.servlet.CrossWebApp1.class</name>
+      <cache-id>
+         <component id="cache1" type="parameter">
+            <required>true</required>
+            <value>yes</value>
+         </component>
+         <component id="cache2" type="parameter">
+            <required>false</required>
+         </component>
+         <timeout>0</timeout>
+      </cache-id>  
+  </cache-entry>
+  <cache-entry>
+      <class>servlet</class>
+      <name>CrossWebApp3</name>
+      <cache-id>
+         <timeout>0</timeout>
+      </cache-id>  
+  </cache-entry>
+  <cache-entry>
+      <class>servlet</class>
+      <name>CrossWebApp4</name>
+      <cache-id>
+         <timeout>0</timeout>
+      </cache-id>  
+  </cache-entry>
+</cache>

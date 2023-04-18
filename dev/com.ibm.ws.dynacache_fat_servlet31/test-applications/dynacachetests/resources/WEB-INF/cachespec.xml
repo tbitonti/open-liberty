@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<!DOCTYPE cache SYSTEM "cachespec.dtd">
+<cache>
+  <cache-entry>
+		<class>servlet</class>
+		<name>/servlet31</name>
+		<cache-id>
+			<timeout>0</timeout>
+		</cache-id>
+	</cache-entry> 
+ </cache>

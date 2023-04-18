@@ -1,0 +1,833 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<web-app id="WebApp_ID" version="3.0" 
+        xmlns="http://java.sun.com/xml/ns/javaee" 
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+        xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd">
+
+      <filter id="Filter_1">
+         <filter-name>testFilter</filter-name>
+         <filter-class>com.ibm.ws.cache.servlet.TestFilter</filter-class>
+      </filter>
+
+      <filter id="Filter_79a">
+         <filter-name>PreviewFilter</filter-name>
+         <filter-class>com.ibm.ws.cache.servlet.PreviewFilter</filter-class>
+      </filter>
+
+	<listener>
+		<listener-class>com.ibm.ws.cache.async.MyListener</listener-class>
+	</listener>
+      <filter-mapping id="FilterMapping_1">
+         <filter-name>testFilter</filter-name>
+         <url-pattern>/BasicServlet</url-pattern>
+      </filter-mapping>
+
+      <filter-mapping id="FilterMapping_79a">
+         <filter-name>PreviewFilter</filter-name>
+         <url-pattern>/PreviewServlet</url-pattern>
+      </filter-mapping>
+
+      <servlet id="Servlet_1">
+         <display-name>IncludeServlet</display-name>
+         <servlet-name>IncludeServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.IncludeTestServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_2">
+         <display-name>ESIController</display-name>
+         <servlet-name>ESIController</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.ESIControllerServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_3">
+         <display-name>ClearCacheServlet</display-name>
+         <servlet-name>ClearCacheServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.ClearCacheServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_3a">
+         <display-name>CheckClearCacheServlet</display-name>
+         <servlet-name>CheckClearCacheServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.CheckClearCacheServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_18">
+         <display-name>page1</display-name>
+         <servlet-name>page1</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.page1</servlet-class>
+      </servlet>
+      <servlet id="Servlet_19">
+         <display-name>page2</display-name>
+         <servlet-name>page2</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.page2</servlet-class>
+      </servlet>
+      <servlet id="Servlet_20">
+         <display-name>page3</display-name>
+         <servlet-name>page3</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.page3</servlet-class>
+      </servlet>
+      <servlet id="Servlet_21">
+         <display-name>page4</display-name>
+         <servlet-name>page4</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.page4</servlet-class>
+      </servlet>
+      <servlet id="Servlet_22">
+         <servlet-name>page5</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.page5</servlet-class>
+      </servlet>
+      <servlet id="Servlet_23">
+         <servlet-name>page6</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.page6</servlet-class>
+      </servlet>
+      <servlet id="Servlet_24">
+         <servlet-name>page7</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.page7</servlet-class>
+      </servlet>
+      <servlet id="Servlet_25">
+         <servlet-name>STMTestServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.STMTestServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_25a">
+         <servlet-name>STMTestServlet_shareNone</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.STMTestServlet_shareNone</servlet-class>
+      </servlet>
+      <servlet id="Servlet_25b">
+         <servlet-name>STMTestServlet_sharePush</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.STMTestServlet_sharePush</servlet-class>
+      </servlet>
+      <servlet id="Servlet_25c">
+         <servlet-name>STMTestServlet_sharePull</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.STMTestServlet_sharePull</servlet-class>
+      </servlet>
+      <servlet id="Servlet_25d">
+         <servlet-name>STMTestServlet_sharePushPull</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.STMTestServlet_sharePushPull</servlet-class>
+      </servlet>
+      <servlet id="Servlet_25e">
+         <servlet-name>STMTestServlet_shareDefault</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.STMTestServlet_shareDefault</servlet-class>
+      </servlet>
+      <servlet id="Servlet_26">
+         <servlet-name>reqparmtest</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.reqparmtest</servlet-class>
+      </servlet>
+      <servlet id="Servlet_26a">
+         <servlet-name>reqparmtest_sharePush</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.reqparmtest_sharePush</servlet-class>
+      </servlet>
+      <servlet id="Servlet_27">
+         <servlet-name>pathinfo1</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.pathinfo1</servlet-class>
+      </servlet>
+      <servlet id="Servlet_28">
+         <servlet-name>pathinfo2</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.pathinfo2</servlet-class>
+      </servlet>
+      <servlet id="Servlet_29">
+         <servlet-name>commandtest</servlet-name>
+         <servlet-class>com.ibm.ws.cache.command.CommandTestServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_30">
+         <servlet-name>reqattrtest</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.reqattrtest</servlet-class>
+      </servlet>
+      <servlet id="Servlet_31">
+         <servlet-name>bufferwriter</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.BufferWriterServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_32">
+         <servlet-name>bufferwritercached</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.BufferWriterServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_33">
+         <servlet-name>bufferstream</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.BufferStreamServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_34">
+         <servlet-name>bufferstreamcached</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.BufferStreamServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_35">
+         <servlet-name>RunAwayIncludeServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.RunAwayIncludeTestServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_36">
+         <servlet-name>MapTestServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.command.MapTestServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_37">
+         <servlet-name>CloseAndFlush</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.CloseAndFlushServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_38">
+         <servlet-name>TimeStamp</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.TimeStamp</servlet-class>
+      </servlet>
+      <servlet id="Servlet_39">
+         <servlet-name>BasicServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.BasicServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_40">
+         <servlet-name>CacheEnabledServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.CacheEnabledServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_41">
+         <servlet-name>InvalidationServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.InvalidationServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_42">
+         <servlet-name>DRSServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.DRSServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_43">
+         <servlet-name>DistributedMapJNDIServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.DistributedMapJNDIServlet</servlet-class>
+      </servlet>
+   <servlet id="Servlet_44">
+         <servlet-name>AltUrlController1</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.AltUrlControllerServlet1</servlet-class>
+      </servlet>
+   <servlet id="Servlet_45">
+         <servlet-name>AltUrlController2</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.AltUrlControllerServlet2</servlet-class>
+      </servlet>
+      <servlet id="Servlet_46">
+         <servlet-name>DMapTestServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.DMapTestServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_47">
+         <servlet-name>reqparmlisttest</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.reqparmlisttest</servlet-class>
+      </servlet>
+      <servlet id="Servlet_48">
+         <servlet-name>ErrorCodeForwardingTest</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.ErrorCodeForwardingTest</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_49">
+         <servlet-name>ErrorGeneratorServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.ErrorGeneratorServlet</servlet-class>
+      </servlet>
+       <servlet id="Servlet_50">
+         <servlet-name>AltUrlController3</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.AltUrlControllerServlet3</servlet-class>
+      </servlet>
+
+     <servlet id="Servlet_51">
+         <servlet-name>AltUrlController4</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.AltUrlControllerServlet4</servlet-class>
+      </servlet>
+
+     <servlet id="Servlet_52">
+      <servlet-name>TimeStamp1</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.TimeStamp1</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_53">
+         <servlet-name>DMapPerformance</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.DMapPerformanceServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_54">
+         <servlet-name>HTODTestServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.HTODTestServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_55">
+         <servlet-name>IListenerTestServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.IListenerTestServlet</servlet-class>
+      </servlet>
+      <servlet id="Servlet_56">
+         <servlet-name>ServletPath</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.ServletPath</servlet-class>
+      </servlet>
+
+       <servlet id="Servlet_58a">
+         <servlet-name>DCPServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.DCPServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_58b">
+         <servlet-name>DCPParentServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.DCPParentServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_58c">
+         <servlet-name>DCPGrandParentServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.DCPGrandParentServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_59">
+         <servlet-name>IncludeTimeStamp</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.IncludeTimeStamp</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_60">
+         <servlet-name>AsyncListenerTestServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.AsyncListenerTestServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_61">
+         <servlet-name>CacheUtilityServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.CacheUtilityServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_62">
+         <servlet-name>com_ibm_ws_cache_webservices_addr_AddressBookBean</servlet-name>
+         <servlet-class>com.ibm.ws.cache.webservices.addr.AddressBookBean</servlet-class>
+
+      </servlet>
+
+      <servlet id="Servlet_63">
+         <servlet-name>com_ibm_ws_cache_webservices_counter_Counter</servlet-name>
+         <servlet-class>com.ibm.ws.cache.webservices.counter.Counter</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_64">
+         <servlet-name>com_ibm_ws_cache_webservices_gw_MyGateway</servlet-name>
+         <servlet-class>com.ibm.ws.cache.webservices.gw.MyGateway</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_65">
+        <servlet-name>com_ibm_ws_cache_webservices_stock_StockQuote</servlet-name>
+        <servlet-class>com.ibm.ws.cache.webservices.stock.StockQuote</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_66">
+         <servlet-name>PMITestServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.pmi.PMITestServlet</servlet-class>
+      </servlet>
+
+     <servlet id="Servlet_67">
+        <servlet-name>action</servlet-name>
+         <servlet-class>org.apache.struts.action.ActionServlet</servlet-class>
+        <init-param>
+            <param-name>config</param-name>
+            <param-value>/WEB-INF/struts-config.xml</param-value>
+        </init-param>
+        <init-param>
+            <param-name>debug</param-name>
+            <param-value>2</param-value>
+        </init-param>
+        <init-param>
+            <param-name>detail</param-name>
+            <param-value>2</param-value>
+        </init-param>
+        <init-param>
+            <param-name>validate</param-name>
+            <param-value>false</param-value>
+        </init-param>
+          <init-param>
+            <param-name>definitions-config</param-name>
+            <param-value>/WEB-INF/tilesDefinitions.xml</param-value>
+        </init-param>
+    </servlet>
+     <servlet id="Servlet_68">
+         <servlet-name>STTimeStampServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.strutstiles.STTimeStampServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_69">
+         <servlet-name>TileChildServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.strutstiles.TileChildServlet</servlet-class>
+      </servlet>
+
+     <servlet id="Servlet_70">
+      <servlet-name>TimeStamp2</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.TimeStamp2</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_71">
+         <servlet-name>SaveAttributeParentServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.SaveAttributeParentServlet</servlet-class>
+      </servlet>
+       <servlet id="Servlet_72">
+         <servlet-name>SaveAttributeChildServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.SaveAttributeChildServlet</servlet-class>
+      </servlet>
+
+       <servlet id="Servlet_75">
+         <servlet-name>ServletInstanceTimeStamp</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.ServletInstanceTimeStamp</servlet-class>
+      </servlet>
+
+    <servlet id="Servlet_76a">
+         <servlet-name>DNCForwardServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.DNCForwardServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_76b">
+         <servlet-name>JSTLForwardServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.JSTLForwardServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_77a">
+         <servlet-name>DMapStress2Servlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.htod.DMapStress2Servlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_78">
+         <servlet-name>NioMapTestServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.NioMapTestServlet</servlet-class>
+      </servlet>
+
+       <servlet id="Servlet_79a">
+         <display-name>PrevewServlet</display-name>
+         <servlet-name>PreviewServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.PreviewServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_79b">
+         <display-name>PreviewChildServlet</display-name>
+         <servlet-name>PreviewChildServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.PreviewChildServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_80">
+         <display-name>MBeanCounterTestServlet</display-name>
+         <servlet-name>MBeanCounterTestServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.htod.MBeanCounterTestServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_81">
+         <display-name>ApiWrappingServlet</display-name>
+         <servlet-name>ApiWrappingServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.ApiWrappingServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_82">
+         <display-name>NioMapStressServlet</display-name>
+         <servlet-name>NioMapStressServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.htod.NioMapStressServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_83">
+         <display-name>VBCTestServlet</display-name>
+         <servlet-name>VBCTestServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.VBCTestServlet</servlet-class>
+      </servlet>
+
+      <servlet id="Servlet_84">
+         <display-name>PreInvalidationListenerServlet</display-name>
+         <servlet-name>PreInvalidationListenerServlet</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.PreInvalidationListenerServlet</servlet-class>
+      </servlet>
+      
+     <servlet id="Servlet_85">
+        <display-name>StartAsyncDispatchComplete</display-name>
+        <servlet-name>StartAsyncDispatchComplete</servlet-name>
+        <servlet-class>com.ibm.ws.cache.async.StartAsyncDispatchBase</servlet-class>
+        <async-supported>true</async-supported>
+    </servlet>
+    <servlet id="Servlet_86">
+        <display-name>StartAsyncDispatchCompleteAlt</display-name>
+        <servlet-name>StartAsyncDispatchCompleteAlt</servlet-name>
+        <servlet-class>com.ibm.ws.cache.async.StartAsyncDispatchBase</servlet-class>
+        <async-supported>true</async-supported>
+    </servlet>
+    <servlet id="Servlet_87">
+         <display-name>Servlet31Tests</display-name>
+         <servlet-name>Servlet31Tests</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.Servlet31TestsServlet</servlet-class>
+      </servlet>
+    <servlet>
+        <description></description>
+        <display-name>MyDefinedServlet</display-name>
+        <servlet-name>MyDefinedServlet</servlet-name>
+        <servlet-class>com.ibm.ws.cache.async.MyDefinedServlet</servlet-class>
+    </servlet>
+    <servlet>
+        <description></description>
+        <display-name>MyDefinedServlet2</display-name>
+        <servlet-name>MyDefinedServlet2</servlet-name>
+        <servlet-class>com.ibm.ws.cache.async.MyDefinedServlet2</servlet-class>
+    </servlet>
+      
+      <servlet-mapping id="ServletMapping_1">
+         <servlet-name>IncludeServlet</servlet-name>
+         <url-pattern>/includeservlet</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_2">
+         <servlet-name>ESIController</servlet-name>
+         <url-pattern>/esicontroller</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_3">
+         <servlet-name>ClearCacheServlet</servlet-name>
+         <url-pattern>/clearcacheservlet</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_3a">
+         <servlet-name>CheckClearCacheServlet</servlet-name>
+         <url-pattern>/checkclearcacheservlet</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_18">
+         <servlet-name>page1</servlet-name>
+         <url-pattern>/servlet/page1</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_19">
+         <servlet-name>page2</servlet-name>
+         <url-pattern>/servlet/page2</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_20">
+         <servlet-name>page3</servlet-name>
+         <url-pattern>/servlet/page3</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_21">
+         <servlet-name>page4</servlet-name>
+         <url-pattern>/servlet/page4</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_22">
+         <servlet-name>page5</servlet-name>
+         <url-pattern>/servlet/page5</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_23">
+         <servlet-name>page6</servlet-name>
+         <url-pattern>/servlet/page6</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_24">
+         <servlet-name>page7</servlet-name>
+         <url-pattern>/servlet/page7</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_25">
+         <servlet-name>STMTestServlet</servlet-name>
+         <url-pattern>/STMTestServlet</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_25a">
+         <servlet-name>STMTestServlet_shareNone</servlet-name>
+         <url-pattern>/STMTestServlet_shareNone</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_25b">
+         <servlet-name>STMTestServlet_sharePush</servlet-name>
+         <url-pattern>/STMTestServlet_sharePush</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_25c">
+         <servlet-name>STMTestServlet_sharePull</servlet-name>
+         <url-pattern>/STMTestServlet_sharePull</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_25d">
+         <servlet-name>STMTestServlet_sharePushPull</servlet-name>
+         <url-pattern>/STMTestServlet_sharePushPull</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_25e">
+         <servlet-name>STMTestServlet_shareDefault</servlet-name>
+         <url-pattern>/STMTestServlet_shareDefault</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_26">
+         <servlet-name>reqparmtest</servlet-name>
+         <url-pattern>/reqparmtest</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_26a">
+         <servlet-name>reqparmtest_sharePush</servlet-name>
+         <url-pattern>/reqparmtest_sharePush</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_27">
+         <servlet-name>pathinfo1</servlet-name>
+         <url-pattern>/pathinfo1/*</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_28">
+         <servlet-name>pathinfo2</servlet-name>
+         <url-pattern>/pathinfo2/*</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_29">
+         <servlet-name>commandtest</servlet-name>
+         <url-pattern>/commandtest</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_30">
+         <servlet-name>reqattrtest</servlet-name>
+         <url-pattern>/reqattrtest</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_31">
+         <servlet-name>bufferwriter</servlet-name>
+         <url-pattern>/bufferwriter</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_32">
+         <servlet-name>bufferwritercached</servlet-name>
+         <url-pattern>/bufferwritercached</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_33">
+         <servlet-name>bufferstream</servlet-name>
+         <url-pattern>/bufferstream</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_34">
+         <servlet-name>bufferstreamcached</servlet-name>
+         <url-pattern>/bufferstreamcached</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_35">
+         <servlet-name>RunAwayIncludeServlet</servlet-name>
+         <url-pattern>/runawayincludeservlet</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_36">
+         <servlet-name>MapTestServlet</servlet-name>
+         <url-pattern>/maptest</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_37">
+         <servlet-name>CloseAndFlush</servlet-name>
+         <url-pattern>/CloseAndFlush</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_38">
+         <servlet-name>TimeStamp</servlet-name>
+         <url-pattern>/TimeStamp</url-pattern>
+      </servlet-mapping>
+    <servlet-mapping id="ServletMapping_38a">
+         <servlet-name>TimeStamp</servlet-name>
+         <url-pattern>/TimeStampCM2</url-pattern>
+      </servlet-mapping>
+    <servlet-mapping id="ServletMapping_38b">
+         <servlet-name>TimeStamp</servlet-name>
+         <url-pattern>/TimeStampCM3</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_39">
+         <servlet-name>BasicServlet</servlet-name>
+         <url-pattern>/BasicServlet</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_40">
+         <servlet-name>CacheEnabledServlet</servlet-name>
+         <url-pattern>/cacheenabled</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_41">
+         <servlet-name>InvalidationServlet</servlet-name>
+         <url-pattern>/invalidate</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_42">
+         <servlet-name>DRSServlet</servlet-name>
+         <url-pattern>/drs</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_43">
+         <servlet-name>DistributedMapJNDIServlet</servlet-name>
+         <url-pattern>/distributedmapJNDI</url-pattern>
+      </servlet-mapping>
+   <servlet-mapping id="ServletMapping_44">
+         <servlet-name>AltUrlController1</servlet-name>
+         <url-pattern>/alturlcontroller1</url-pattern>
+      </servlet-mapping>
+   <servlet-mapping id="ServletMapping_45">
+         <servlet-name>AltUrlController2</servlet-name>
+         <url-pattern>/alturlcontroller2</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_46">
+         <servlet-name>DMapTestServlet</servlet-name>
+         <url-pattern>/dmaptest</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_47">
+         <servlet-name>reqparmlisttest</servlet-name>
+         <url-pattern>/reqparmlisttest</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_48">
+         <servlet-name>ErrorCodeForwardingTest</servlet-name>
+         <url-pattern>/errorcode</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_49">
+         <servlet-name>ErrorGeneratorServlet</servlet-name>
+         <url-pattern>/errorgenerator</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_50">
+         <servlet-name>AltUrlController3</servlet-name>
+         <url-pattern>/alturlcontroller3</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_51">
+         <servlet-name>AltUrlController4</servlet-name>
+         <url-pattern>/alturlcontroller4</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_52">
+         <servlet-name>TimeStamp1</servlet-name>
+         <url-pattern>/TimeStamp1</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_53">
+         <servlet-name>DMapPerformance</servlet-name>
+         <url-pattern>/dmapperformance</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_54">
+         <servlet-name>HTODTestServlet</servlet-name>
+         <url-pattern>/htodtest</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_55">
+         <servlet-name>IListenerTestServlet</servlet-name>
+         <url-pattern>/ilistenertest</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_56">
+         <servlet-name>ServletPath</servlet-name>
+         <url-pattern>/ServletPathTest</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_57">
+         <servlet-name>IncludeTimeStamp</servlet-name>
+         <url-pattern>/IncludeTimeStamp</url-pattern>
+      </servlet-mapping>
+
+       <servlet-mapping id="ServletMapping_58a">
+         <servlet-name>DCPServlet</servlet-name>
+         <url-pattern>/DCP</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_58b">
+         <servlet-name>DCPParentServlet</servlet-name>
+         <url-pattern>/DCPParent</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_58c">
+         <servlet-name>DCPGrandParentServlet</servlet-name>
+         <url-pattern>/DCPGrandParent</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_59">
+         <servlet-name>IncludeTimeStamp</servlet-name>
+         <url-pattern>/IncludeTimeStamp</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_60">
+         <servlet-name>AsyncListenerTestServlet</servlet-name>
+         <url-pattern>/asynclistenertest</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_61">
+         <servlet-name>CacheUtilityServlet</servlet-name>
+         <url-pattern>/CacheUtilityServlet</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_66">
+         <servlet-name>PMITestServlet</servlet-name>
+         <url-pattern>/pmitest</url-pattern>
+      </servlet-mapping>
+
+       <servlet-mapping id="ServletMapping_67">
+        <servlet-name>action</servlet-name>
+        <url-pattern>*.do</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping id="ServletMapping_68">
+        <servlet-name>STTimeStampServlet</servlet-name>
+        <url-pattern>/STTimeStamp</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping id="ServletMapping_69">
+        <servlet-name>TileChildServlet</servlet-name>
+        <url-pattern>/tileChildServlet</url-pattern>
+    </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_70">
+         <servlet-name>TimeStamp2</servlet-name>
+         <url-pattern>/TimeStamp2</url-pattern>
+      </servlet-mapping>
+
+     <servlet-mapping id="ServletMapping_71">
+        <servlet-name>SaveAttributeParentServlet</servlet-name>
+        <url-pattern>/SavAttrParent/*</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping id="ServletMapping_72">
+        <servlet-name>SaveAttributeChildServlet</servlet-name>
+        <url-pattern>/SavAttrChild</url-pattern>
+    </servlet-mapping>
+
+        <servlet-mapping id="ServletMapping_73">
+        <servlet-name>ServletInstanceTimeStamp</servlet-name>
+        <url-pattern>/SITimeStamp</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping id="ServletMapping_76a">
+         <servlet-name>DNCForwardServlet</servlet-name>
+         <url-pattern>/DNCForwardServlet</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_76b">
+         <servlet-name>JSTLForwardServlet</servlet-name>
+         <url-pattern>/JSTLForwardServlet</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_77a">
+         <servlet-name>DMapStress2Servlet</servlet-name>
+         <url-pattern>/dmapstress2</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_78">
+         <servlet-name>NioMapTestServlet</servlet-name>
+         <url-pattern>/niomaptest</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_79a">
+         <servlet-name>PreviewServlet</servlet-name>
+         <url-pattern>/PreviewServlet</url-pattern>
+      </servlet-mapping>
+
+       <servlet-mapping id="ServletMapping_79b">
+         <servlet-name>PreviewChildServlet</servlet-name>
+         <url-pattern>/PreviewChildServlet</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping  id="ServletMapping_80">
+         <servlet-name>MBeanCounterTestServlet</servlet-name>
+         <url-pattern>/MBeanCounterTestServlet</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping  id="ServletMapping_81">
+         <servlet-name>ApiWrappingServlet</servlet-name>
+         <url-pattern>/ApiWrappingServlet</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_82">
+         <servlet-name>NioMapStressServlet</servlet-name>
+         <url-pattern>/niomapstress</url-pattern>
+      </servlet-mapping>
+
+      <servlet-mapping id="ServletMapping_83">
+         <servlet-name>VBCTestServlet</servlet-name>
+         <url-pattern>/vbctest</url-pattern>
+      </servlet-mapping>
+
+    <servlet-mapping id="ServletMapping_84">
+         <servlet-name>PreInvalidationListenerServlet</servlet-name>
+         <url-pattern>/PreInvalidationListenerServlet</url-pattern>
+      </servlet-mapping>
+    <servlet-mapping id="ServletMapping_85">
+        <servlet-name>StartAsyncDispatchComplete</servlet-name>
+        <url-pattern>/StartAsyncDispatchComplete</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping id="ServletMapping_86">
+        <servlet-name>StartAsyncDispatchCompleteAlt</servlet-name>
+        <url-pattern>/StartAsyncDispatchCompleteAltPath</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping id="ServletMapping_87">
+         <servlet-name>Servlet31Tests</servlet-name>
+         <url-pattern>/servlet31</url-pattern>
+      </servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>MyDefinedServlet</servlet-name>
+		<url-pattern>/MyDefinedServlet</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>MyDefinedServlet2</servlet-name>
+		<url-pattern>/MyDefinedServlet2</url-pattern>
+	</servlet-mapping>
+
+      <welcome-file-list id="WelcomeFileList_1">
+         <welcome-file>index.jsp</welcome-file>
+      </welcome-file-list>
+
+      <error-page id="ErrorCodeErrorPage_1">
+         <error-code>200</error-code>
+         <location>/error200.html</location>
+      </error-page>
+
+      <resource-ref id="ResourceRef_1">
+         <res-ref-name>cache/one</res-ref-name>
+         <res-type>com.ibm.websphere.cache.DistributedMap</res-type>
+         <res-auth>Container</res-auth>
+      </resource-ref>
+
+      <resource-ref id="ResourceRef_2">
+         <res-ref-name>cache/two</res-ref-name>
+         <res-type>com.ibm.websphere.cache.DistributedMap</res-type>
+         <res-auth>Container</res-auth>
+      </resource-ref>
+
+      <resource-ref id="ResourceRef_3">
+         <res-ref-name>cache/default</res-ref-name>
+         <res-type>com.ibm.websphere.cache.DistributedMap</res-type>
+         <res-auth>Container</res-auth>
+      </resource-ref>
+   </web-app>

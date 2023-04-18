@@ -1,0 +1,10 @@
+<server>
+
+    <include optional="true" location="${shared.config.dir}/bvtTestPorts.xml"/>
+    
+    <featureManager>
+        <feature>servlet-3.0</feature>
+        <feature>distributedMap-1.0</feature>
+    </featureManager>
+    <webApplication id="CacheApp" location="CacheApp.war" name="CacheApp"/>
+</server>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="fat/src"/>
+	<classpathentry kind="src" path="test-applications/cacheprovidertests/src"/>
+	<classpathentry kind="src" path="test-applications/dynacachetests/src"/>
+	<classpathentry kind="src" path="test-applications/moduleA/src"/>
+	<classpathentry kind="src" path="test-applications/moduleB/src"/>
+	<classpathentry kind="src" path="test-bundles/dummycache/src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/fattest.simplicity"/>
+	<classpathentry kind="lib" path="/ant_build/lib/junit.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.ws.dynacache"/>
+	<classpathentry kind="lib" path="test-applications/dynacachetests/resources/WEB-INF/lib/commons-beanutils.jar"/>
+	<classpathentry kind="lib" path="test-applications/dynacachetests/resources/WEB-INF/lib/commons-collections.jar"/>
+	<classpathentry kind="lib" path="test-applications/dynacachetests/resources/WEB-INF/lib/commons-digester.jar"/>
+	<classpathentry kind="lib" path="test-applications/dynacachetests/resources/WEB-INF/lib/commons-logging.jar"/>
+	<classpathentry kind="lib" path="test-applications/dynacachetests/resources/WEB-INF/lib/commons-validator.jar"/>
+	<classpathentry kind="lib" path="test-applications/dynacachetests/resources/WEB-INF/lib/struts.jar"/>
+	<classpathentry kind="lib" path="/build.sharedResources/lib/httpunit/1.7/jars/js-1.6R5.jar"/>
+	<classpathentry kind="lib" path="/build.sharedResources/lib/httpunit/1.7/jars/jtidy-4aug2000r7-dev.jar"/>
+	<classpathentry kind="src" path="/com.ibm.ws.com.meterware.httpunit.1.7"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.ws.org.apache.commons.io"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.ws.monitor"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.ws.jmx.connector.client.rest"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.websphere.org.osgi.core"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.websphere.org.osgi.service.component"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.wsspi.org.osgi.service.component.annotations"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.ws.dynacache.monitor"/>
+	<classpathentry kind="lib" path="/prereq.published/lib/com.ibm.ws.dynacache.web.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.websphere.javaee.servlet.3.0"/>
+	<classpathentry kind="output" path="build/classes"/>
+</classpath>

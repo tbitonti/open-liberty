@@ -332,7 +332,7 @@ public class TimeLimitDaemon extends RealTimeDaemon {
      * It clears the internal tables
      *
      * @param cache The cache instance.
-     * @param id    The cache id.
+     * @param eventId    The cache id.
      */
     public void cacheCleared(DCache cache) {
         final String methodName = "cacheCleared()";

@@ -1,0 +1,10 @@
+<project name="com.ibm.ws.dynacache_bvt" default="bvt">
+	  <property name="skip.validate.project" value="true" />
+
+	  <import file="../ant_build/public_imports/standard_imports.xml"/>
+	  <import file="../ant_build/public_imports/bvt_imports.xml"/>
+		
+	 <property name="profile" value="distributedMapBvt" />
+     <property name="test.url" value="/CacheApp/MyCacheServlet" />
+
+</project>

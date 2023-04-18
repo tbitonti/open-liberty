@@ -1,0 +1,19 @@
+
+<!DOCTYPE tiles-definitions PUBLIC "-//Apache Software Foundation//DTD Tiles Configuration 1.1//EN" "http://jakarta.apache.org/struts/dtds/tiles-config_1_1.dtd">
+<tiles-definitions>
+	<definition name="dynacache.default" path="/layout.jsp">
+		<put name="header" value="/header.jsp" />
+		<put name="body" value="" />
+		<put name="footer" value="/footer.jsp" />
+	</definition>
+
+	<definition name="dynacache.test" extends="dynacache.default">
+		<put name="body" value="/body.jsp" />
+	</definition>
+
+	
+	<definition name="struts.test" extends="dynacache.default" >		
+		<put name="body" value="/stDef.do" />
+	</definition>
+	
+</tiles-definitions>

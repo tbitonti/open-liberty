@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions targetNamespace="http://counter.webservices.cache.ws.ibm.com" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="http://counter.webservices.cache.ws.ibm.com" xmlns:intf="http://counter.webservices.cache.ws.ibm.com" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+ <wsdl:types>
+  <schema targetNamespace="http://counter.webservices.cache.ws.ibm.com" xmlns="http://www.w3.org/2001/XMLSchema" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="http://counter.webservices.cache.ws.ibm.com" xmlns:intf="http://counter.webservices.cache.ws.ibm.com" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+   <element name="in" nillable="true" type="xsd:string"/>
+   <element name="reset1Return" nillable="true" type="xsd:string"/>
+   <element name="string" nillable="true" type="xsd:string"/>
+   <element name="counter1Return" nillable="true" type="xsd:string"/>
+   <element name="reset2Return" nillable="true" type="xsd:string"/>
+   <element name="counter2Return" nillable="true" type="xsd:string"/>
+  </schema>
+ </wsdl:types>
+
+   <wsdl:message name="counter2Response">
+
+      <wsdl:part name="counter2Return" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="reset1Response">
+
+      <wsdl:part name="reset1Return" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="reset2Response">
+
+      <wsdl:part name="reset2Return" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="reset1Request">
+
+      <wsdl:part name="in" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="counter1Response">
+
+      <wsdl:part name="counter1Return" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="counter1Request">
+
+      <wsdl:part name="in" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="reset2Request">
+
+      <wsdl:part name="in" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="counter2Request">
+
+      <wsdl:part name="in" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:portType name="Counter">
+
+      <wsdl:operation name="reset1" parameterOrder="in">
+
+         <wsdl:input message="intf:reset1Request" name="reset1Request"/>
+
+         <wsdl:output message="intf:reset1Response" name="reset1Response"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="counter1" parameterOrder="in">
+
+         <wsdl:input message="intf:counter1Request" name="counter1Request"/>
+
+         <wsdl:output message="intf:counter1Response" name="counter1Response"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="reset2" parameterOrder="in">
+
+         <wsdl:input message="intf:reset2Request" name="reset2Request"/>
+
+         <wsdl:output message="intf:reset2Response" name="reset2Response"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="counter2" parameterOrder="in">
+
+         <wsdl:input message="intf:counter2Request" name="counter2Request"/>
+
+         <wsdl:output message="intf:counter2Response" name="counter2Response"/>
+
+      </wsdl:operation>
+
+   </wsdl:portType>
+
+   <wsdl:binding name="CounterSoapBinding" type="intf:Counter">
+
+      <wsdlsoap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+
+      <wsdl:operation name="reset1">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="reset1Request">
+
+            <wsdlsoap:body namespace="http://counter.webservices.cache.ws.ibm.com" use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="reset1Response">
+
+            <wsdlsoap:body namespace="http://counter.webservices.cache.ws.ibm.com" use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="counter1">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="counter1Request">
+
+            <wsdlsoap:body namespace="http://counter.webservices.cache.ws.ibm.com" use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="counter1Response">
+
+            <wsdlsoap:body namespace="http://counter.webservices.cache.ws.ibm.com" use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="reset2">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="reset2Request">
+
+            <wsdlsoap:body namespace="http://counter.webservices.cache.ws.ibm.com" use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="reset2Response">
+
+            <wsdlsoap:body namespace="http://counter.webservices.cache.ws.ibm.com" use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="counter2">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="counter2Request">
+
+            <wsdlsoap:body namespace="http://counter.webservices.cache.ws.ibm.com" use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="counter2Response">
+
+            <wsdlsoap:body namespace="http://counter.webservices.cache.ws.ibm.com" use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:binding>
+
+   <wsdl:service name="CounterService">
+
+      <wsdl:port binding="intf:CounterSoapBinding" name="Counter">
+
+         <wsdlsoap:address location="http://localhost:9085/dynacachetests/services/Counter"/>
+
+      </wsdl:port>
+
+   </wsdl:service>
+
+</wsdl:definitions>

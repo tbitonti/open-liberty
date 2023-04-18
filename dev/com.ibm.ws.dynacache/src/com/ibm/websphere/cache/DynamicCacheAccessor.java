@@ -4,7 +4,7 @@
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-2.0/
- * 
+ *
  * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
@@ -20,106 +20,131 @@ import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.cache.DCacheBase;
 import com.ibm.ws.cache.ServerCache;
+import com.ibm.ws.ffdc.FFDCFilter;
 
 /**
  * This class provides applications with access to the Dynamic Cache,
  * allowing programmatic inspection and manipulation of WebSphere's
  * cache.
- * @ibm-api 
+ *
+ * @ibm-api
  */
+//@formatter:off
 public final class DynamicCacheAccessor {
-
-    private static TraceComponent tc = Tr.register(DynamicCacheAccessor.class, "WebSphere Dynamic Cache", "com.ibm.ws.cache.resources.dynacache");
+    private static TraceComponent tc =
+        Tr.register(DynamicCacheAccessor.class,
+                    "WebSphere Dynamic Cache", "com.ibm.ws.cache.resources.dynacache");
 
     /**
-     * This obtains a reference to the dynamic cache.
-     * 
-     * @ibm-api 
-     * @return Reference to the cache or null if caching is disabled
+     * Answer the default dynamic cache.
+     *
+     * @return The dynamic cache.  Null if caching is disabled
+     *
      * @see #getDistributedMap()
      * @see DistributedMap
-     * @deprecated Use DistributedMap to store and manage objects
-     *             in cache. DynamicCacheAccessor#getDistributedMap
-     *             will return a DistributedMap for accessing
-     *             base cache.
-     * @ibm-api 
+     *
+     * @deprecated Use {@link DistributedMap} to store and manage objects in cache.
+     *             {@link DynamicCacheAccessor#getDistributedMap}
+     *             will return the distributed for accessing the default dynamic
+     *             cache.
+     * @ibm-api
      */
+    @Deprecated
     public static com.ibm.websphere.cache.Cache getCache() {
-        if (isServletCachingEnabled())
-            return (com.ibm.websphere.cache.Cache)ServerCache.cache;
-        else
+        if ( isServletCachingEnabled() ) {
+            return ServerCache.cache;
+        } else {
             return null;
-    }
-    
-    /**
-    * This determines if Dynamic caching (either servlet or object cache) is enabled.
-    * @return true if caching is enabled, false if it is disabled.
-    * @ibm-api 
-    */
-    public static boolean isCachingEnabled() {
-        return (ServerCache.servletCacheEnabled || ServerCache.objectCacheEnabled); 
+        }
     }
 
     /**
-     * This determines if Dynamic servlet caching is enabled.
-     * @return true if caching is enabled, false if it is disabled.
-     * @ibm-api 
+     * Tell if dynamic caching is enabled.  That is, if either servlet or object
+     * caching is enabled.
+     *
+     * See {@link #isServletCachingEnabled} and {@link #isObjectCachingEnabled}.
+     *
+     * @return True or false telling if dynamic caching is enabled.
+     *
+     * @ibm-api
+     */
+    public static boolean isCachingEnabled() {
+        return ( ServerCache.servletCacheEnabled || ServerCache.objectCacheEnabled );
+    }
+
+    /**
+     * Tell if dynamic servlet caching is enable.
+     *
+     * @return True or false telling if dynamic servlet caching is enabled.
+     *
+     * @ibm-api
      */
      public static boolean isServletCachingEnabled() {
          return ServerCache.servletCacheEnabled;
      }
 
      /**
-      * This determines if Dynamic object caching is enabled.
-      * @return true if caching is enabled, false if it is disabled.
-      * @ibm-api 
+      * Tell if dynamic object caching is enable.
+      *
+      * @return True or false telling if dynamic servlet caching is enabled.
+      *
+      * @ibm-api
       */
       public static boolean isObjectCachingEnabled() {
           return ServerCache.objectCacheEnabled;
       }
 
     /**
-     * This method will return a DistributedMap reference to the dynamic cache.
-     * 
-     * @return Reference to the DistributedMap or null
-     *         if caching is disabled.
+     * Answer the distributed map for the default dynamic object cache.
+     *
+     * @return The distributed map for the default dynamic object cache.
+     *     Null if object caching is disabled.
+     *
      * @since v6.0
-     * @ibm-api 
+     * @ibm-api
      * @deprecated baseCache is used for servlet caching. It should not be used
-     *             as a DistributedMap. 
+     *             as a DistributedMap.
      */
+    @Deprecated
     public static DistributedMap getDistributedMap() {
-        final String methodName="getDistributedMap()";
-        if (tc.isEntryEnabled()) {
+        String methodName="getDistributedMap";
+
+        if ( !isObjectCachingEnabled() ) {
+            Tr.error(tc, "DYNA1060W", new Object[] {DCacheBase.DEFAULT_BASE_JNDI_NAME});
+            // DYNA1060E=DYNA1060E: WebSphere Dynamic Cache instance named {0}
+            //                      cannot be used because of Dynamic Object cache
+            //                      service has not be started.
+            return null;
+        }
+
+        if ( tc.isEntryEnabled() ) {
             Tr.entry(tc, methodName);
         }
+
         DistributedMap distributedMap = null;
         Context context = null;
-        if (isObjectCachingEnabled()) {
+        try {
+            context = new InitialContext();
+            distributedMap  = (DistributedObjectCache)context.lookup(DCacheBase.DEFAULT_BASE_JNDI_NAME);
+        } catch ( NamingException e ) {
+            FFDCFilter.processException(e, "com.ibm.websphere.cache.DynamicCacheAccessor.getDistributedMap", "99",
+                                           com.ibm.websphere.cache.DynamicCacheAccessor.class);
+            // No need to do anything else, since FFDC prints stack traces
+        } finally {
             try {
-                context = new InitialContext();
-                distributedMap  = (DistributedObjectCache)context.lookup(DCacheBase.DEFAULT_BASE_JNDI_NAME);
-            } catch ( NamingException e ) {
-                com.ibm.ws.ffdc.FFDCFilter.processException(e, "com.ibm.websphere.cache.DynamicCacheAccessor.getDistributedMap", "99", com.ibm.websphere.cache.DynamicCacheAccessor.class);
-                // No need to do anything else, since FFDC prints stack traces
-            }
-            finally{
-                try {
-                    if ( context!=null) {
-                        context.close();                        
-                    }
-                } catch ( NamingException e ) {
-                    com.ibm.ws.ffdc.FFDCFilter.processException(e, "com.ibm.websphere.cache.DynamicCacheAccessor.getDistributedMap", "110", com.ibm.websphere.cache.DynamicCacheAccessor.class);
+                if ( context != null ) {
+                    context.close();
                 }
+            } catch ( NamingException e ) {
+                FFDCFilter.processException(e, "com.ibm.websphere.cache.DynamicCacheAccessor.getDistributedMap", "110",
+                                               com.ibm.websphere.cache.DynamicCacheAccessor.class);
             }
-        } else {
-            // DYNA1060E=DYNA1060E: WebSphere Dynamic Cache instance named {0} cannot be used because of Dynamic Object cache service has not be started.
-            Tr.error(tc, "DYNA1060W", new Object[] {DCacheBase.DEFAULT_BASE_JNDI_NAME});
         }
-        if (tc.isEntryEnabled()) {
+
+        if ( tc.isEntryEnabled() ) {
             Tr.exit(tc, methodName, distributedMap);
         }
         return distributedMap;
     }
-
 }
+//@formatter:on

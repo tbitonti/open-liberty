@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="com.ibm.ws.dynacache_fat" default="buildandrun" basedir=".">
+    <import file="../ant_build/public_imports/fat_imports.xml" />
+
+    <property name="connector.client" value="${basedir}/../com.ibm.ws.jmx.connector.client.rest/build/lib/" />
+    <property name="bvt.prop.disable.ffdc.checking" value="true" />
+    <property name="tested.features" value="expressionlanguage-4.0, pages-3.0, restconnector-2.0, xmlws-3.0, expressionlanguage-5.0, pages-3.1, xmlws-4.0"/>
+
+    <!--
+    <property name="fat.test.mode" value="full" />
+    -->
+
+    <target name="addAutoInstallApplications" description="Automatically Install applications on LibertyServer instance creation">
+        <jar jarfile="${basedir}/publish/files/idgenerator.jar" update="yes" id="idgenerator">
+            <fileset dir="${build.dir}/classes" includes="**/com/ibm/ws/cache/MyNioMapObject.class" />
+        </jar>
+        <move file="${basedir}/publish/files/idgenerator.jar" tofile="${basedir}/publish/shared/config/lib/idgenerator/idgenerator.jar" />
+
+        <move file="publish/files/moduleA.zip" tofile="${fat.application.output.dir}/moduleA.war" overwrite="true" />
+        <move file="publish/files/moduleB.zip" tofile="${fat.application.output.dir}/moduleB.war" overwrite="true" />
+
+        <jar destfile="${fat.application.output.dir}/modules.ear">
+            <zipfileset dir="${fat.applications.dir}/modules/resources" />
+            <zipfileset dir="${fat.application.output.dir}" includes="moduleA.war, moduleB.war" />
+        </jar>
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/dynacachetests/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/CacheContents/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/CommandTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/NioMapTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/CacheStressTestClient/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/CacheStatistics/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/CachePolicies/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/MultipleCacheInstances/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/PreInvalidationListenerTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/Servlet30AsyncTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/DiskContents/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/StrutsTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/TilesTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/AttrTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/MiscTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/IncludeTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/ComponentTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/BufferTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/FragmentCachingTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/ConsumeSubfragmentsExcludeTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/DoNotCacheTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/RangeAttrTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/RangeTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/SaveCookieTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/SkipCacheAttributeTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/StaticCacheTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/DiscardTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/PageOneTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/ProgrammaticServletCachingTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/EvictionTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/HTODTest1/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/HTODTest2/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/HTODTest3/apps" overwrite="true" />	
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/MBeanCounterTest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/HTODPMITest/apps" overwrite="true" />
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/PMITest/apps" overwrite="true" />	
+        <copy file="${fat.application.output.dir}/modules.ear" todir="publish/servers/WebServices/apps" overwrite="true" />	
+        
+        <move file="publish/files/dynacachetests.zip" tofile="publish/files/dynacachetests.war" overwrite="true" />	
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/dynacachetests/apps" overwrite="true" />
+    	<copy file="publish/files/dynacachetests.war" todir="publish/servers/CacheContents/apps" overwrite="true" />
+    	<copy file="publish/files/dynacachetests.war" todir="publish/servers/CommandTest/apps" overwrite="true" />
+    	<copy file="publish/files/dynacachetests.war" todir="publish/servers/NioMapTest/apps" overwrite="true" />	
+    	<copy file="publish/files/dynacachetests.war" todir="publish/servers/CacheStressTestClient/apps" overwrite="true" />
+    	<copy file="publish/files/dynacachetests.war" todir="publish/servers/CacheStatistics/apps" overwrite="true" />    	
+    	<copy file="publish/files/dynacachetests.war" todir="publish/servers/CachePolicies/apps" overwrite="true" />
+    	<copy file="publish/files/dynacachetests.war" todir="publish/servers/MultipleCacheInstances/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/PreInvalidationListenerTest/apps" overwrite="true" />
+       	<copy file="publish/files/dynacachetests.war" todir="publish/servers/Servlet30AsyncTest/apps" overwrite="true" />
+       	<copy file="publish/files/dynacachetests.war" todir="publish/servers/DiskContents/apps" overwrite="true" />
+       	<copy file="publish/files/dynacachetests.war" todir="publish/servers/StrutsTest/apps" overwrite="true" />
+       	<copy file="publish/files/dynacachetests.war" todir="publish/servers/TilesTest/apps" overwrite="true" />
+       	<copy file="publish/files/dynacachetests.war" todir="publish/servers/AttrTest/apps" overwrite="true" />
+       	<copy file="publish/files/dynacachetests.war" todir="publish/servers/MiscTest/apps" overwrite="true" />
+       	<copy file="publish/files/dynacachetests.war" todir="publish/servers/IncludeTest/apps" overwrite="true" />
+       	<copy file="publish/files/dynacachetests.war" todir="publish/servers/ComponentTest/apps" overwrite="true" />        	
+       	<copy file="publish/files/dynacachetests.war" todir="publish/servers/BufferTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/FragmentCachingTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/ConsumeSubfragmentsExcludeTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/DoNotCacheTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/RangeAttrTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/RangeTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/SaveCookieTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/SkipCacheAttributeTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/StaticCacheTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/DiscardTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/PageOneTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/ProgrammaticServletCachingTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/EvictionTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/HTODTest1/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/HTODTest2/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/HTODTest3/apps" overwrite="true" />	
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/MBeanCounterTest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/HTODPMITest/apps" overwrite="true" />
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/PMITest/apps" overwrite="true" />	
+        <copy file="publish/files/dynacachetests.war" todir="publish/servers/WebServices/apps" overwrite="true" />	
+    	
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/dynacachetests/" overwrite="true" />
+    	<copy file="publish/files/bootstrap.properties" todir="publish/servers/CacheContents/" overwrite="true" />
+    	<copy file="publish/files/bootstrap.properties" todir="publish/servers/CommandTest/" overwrite="true" />
+    	<copy file="publish/files/bootstrap.properties" todir="publish/servers/NioMapTest/" overwrite="true" />	
+    	<copy file="publish/files/bootstrap.properties" todir="publish/servers/CacheStressTestClient/" overwrite="true" />
+    	<copy file="publish/files/bootstrap.properties" todir="publish/servers/CacheStatistics/" overwrite="true" />    	
+    	<copy file="publish/files/bootstrap.properties" todir="publish/servers/CachePolicies/" overwrite="true" />
+    	<copy file="publish/files/bootstrap.properties" todir="publish/servers/MultipleCacheInstances/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/PreInvalidationListenerTest/" overwrite="true" />
+       	<copy file="publish/files/bootstrap.properties" todir="publish/servers/Servlet30AsyncTest/" overwrite="true" />
+       	<copy file="publish/files/bootstrap.properties" todir="publish/servers/DiskContents/" overwrite="true" />
+       	<copy file="publish/files/bootstrap.properties" todir="publish/servers/StrutsTest/" overwrite="true" />
+       	<copy file="publish/files/bootstrap.properties" todir="publish/servers/TilesTest/" overwrite="true" />
+       	<copy file="publish/files/bootstrap.properties" todir="publish/servers/AttrTest/" overwrite="true" />
+       	<copy file="publish/files/bootstrap.properties" todir="publish/servers/MiscTest/" overwrite="true" />
+       	<copy file="publish/files/bootstrap.properties" todir="publish/servers/IncludeTest/" overwrite="true" />
+       	<copy file="publish/files/bootstrap.properties" todir="publish/servers/ComponentTest/" overwrite="true" />        	
+       	<copy file="publish/files/bootstrap.properties" todir="publish/servers/BufferTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/FragmentCachingTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/ConsumeSubfragmentsExcludeTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/DoNotCacheTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/RangeAttrTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/RangeTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/SaveCookieTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/SkipCacheAttributeTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/StaticCacheTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/DiscardTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/PageOneTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/ProgrammaticServletCachingTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/EvictionTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/HTODTest1/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/HTODTest2/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/HTODTest3/" overwrite="true" />	
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/MBeanCounterTest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/HTODPMITest/" overwrite="true" />
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/PMITest/" overwrite="true" />	
+        <copy file="publish/files/bootstrap.properties" todir="publish/servers/WebServices/" overwrite="true" />	
+
+
+        <move file="publish/files/cacheprovidertests.zip" tofile="publish/servers/cacheProviderServer/dropins/cacheprovidertests.war" overwrite="true" />
+        <move file="publish/bundles/cache.dummy_1.0.0.jar" todir="publish/files/CacheProvider/lib" overwrite="true" />
+    </target>
+
+    <target name="addRequiredLibraries" depends="addTransformerLibs">
+        <copy todir="${required.lib.dir}" overwrite="true" preservelastmodified="true">
+            <fileset dir="${ibm.httpunit.jar.dir}" includes="${ibm.httpunit.jar.name}" />
+          	<fileset dir="${shared.httpunit.jars}" includes="*.jar" />
+            <fileset dir="../build.image/wlp/lib" includes="com.ibm.ws.org.apache.commons.io_*.jar" />
+            <fileset dir="../build.image/wlp/clients/" includes="restConnector.jar" />
+        	<fileset dir="../build.image/wlp/lib" includes="com.ibm.ws.jmx.connector.client.rest_*.jar" />
+           	<fileset dir="../build.image/wlp/lib" includes="com.ibm.ws.monitor_*.jar"/>
+           	<fileset dir="../build.image/wlp/lib" includes="com.ibm.ws.logging_*.jar"/>
+        </copy>
+        <copy todir="${required.files.dir}/publish/bundles" overwrite="true" preservelastmodified="true">
+            <fileset dir="../build.image/wlp/lib" includes="com.ibm.ws.dynacache.cachemonitor_*.jar"/>
+        </copy>
+        <copy todir="${required.files.dir}/publish/features" overwrite="true" preservelastmodified="true">
+            <fileset dir="../build.image/wlp/lib/features" includes="com.ibm.websphere.appserver.webCacheMonitor-1.0.mf"/>
+        </copy>
+    </target>
+
+    <target name="package">
+        <mkdir dir="${lib.dir}" />
+        <jar destfile="${lib.dir}/${ant.project.name}.jar">
+            <fileset dir="${classes.dir}" includes="**/*.class" />
+            <fileset dir="${fat.applications.dir}/dynacachetests/resources/WEB-INF" includes="**/*.properties" />
+        </jar>
+    </target>
+</project>

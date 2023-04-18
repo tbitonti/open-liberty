@@ -1585,7 +1585,7 @@ public class CacheOnDisk implements DynacacheOnDisk {
     /**
      * Call this method to delete speciifed template from the disk.
      *
-     * @param id
+     * @param eventId
      *            - template id.
      */
     @Override

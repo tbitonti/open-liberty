@@ -446,7 +446,7 @@ public class CacheProxyRequest extends HttpServletRequestWrapper implements Comm
    /**
      * This sets the page to be uncachebale
      *
-     * @param value True if the page to be set as uncacheable
+     * @param eventValue True if the page to be set as uncacheable
      */
 
    public void setUncacheable(boolean uncacheable) {

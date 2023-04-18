@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions targetNamespace="http://webservices.cache.ws.ibm.com" xmlns:impl="http://webservices.cache.ws.ibm.com" xmlns:intf="http://webservices.cache.ws.ibm.com" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+ <wsdl:types>
+  <schema elementFormDefault="qualified" targetNamespace="http://webservices.cache.ws.ibm.com" xmlns="http://www.w3.org/2001/XMLSchema" xmlns:impl="http://webservices.cache.ws.ibm.com" xmlns:intf="http://webservices.cache.ws.ibm.com" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+   <element name="reset1">
+    <complexType>
+     <sequence>
+      <element name="in" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="reset1Response">
+    <complexType>
+     <sequence>
+      <element name="reset1Return" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="counter1">
+    <complexType>
+     <sequence>
+      <element name="in" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="counter1Response">
+    <complexType>
+     <sequence>
+      <element name="counter1Return" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="reset2">
+    <complexType>
+     <sequence>
+      <element name="in" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="reset2Response">
+    <complexType>
+     <sequence>
+      <element name="reset2Return" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="counter2">
+    <complexType>
+     <sequence>
+      <element name="in" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="counter2Response">
+    <complexType>
+     <sequence>
+      <element name="counter2Return" nillable="true" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+  </schema>
+ </wsdl:types>
+
+   <wsdl:message name="reset1Response">
+
+      <wsdl:part element="intf:reset1Response" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="reset1Request">
+
+      <wsdl:part element="intf:reset1" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="reset2Response">
+
+      <wsdl:part element="intf:reset2Response" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="reset2Request">
+
+      <wsdl:part element="intf:reset2" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="counter2Request">
+
+      <wsdl:part element="intf:counter2" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="counter2Response">
+
+      <wsdl:part element="intf:counter2Response" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="counter1Response">
+
+      <wsdl:part element="intf:counter1Response" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="counter1Request">
+
+      <wsdl:part element="intf:counter1" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:portType name="CounterService2">
+
+      <wsdl:operation name="reset1">
+
+         <wsdl:input message="intf:reset1Request" name="reset1Request"/>
+
+         <wsdl:output message="intf:reset1Response" name="reset1Response"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="counter1">
+
+         <wsdl:input message="intf:counter1Request" name="counter1Request"/>
+
+         <wsdl:output message="intf:counter1Response" name="counter1Response"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="reset2">
+
+         <wsdl:input message="intf:reset2Request" name="reset2Request"/>
+
+         <wsdl:output message="intf:reset2Response" name="reset2Response"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="counter2">
+
+         <wsdl:input message="intf:counter2Request" name="counter2Request"/>
+
+         <wsdl:output message="intf:counter2Response" name="counter2Response"/>
+
+      </wsdl:operation>
+
+   </wsdl:portType>
+
+   <wsdl:binding name="CounterService2SoapBinding" type="intf:CounterService2">
+
+      <wsdlsoap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+
+      <wsdl:operation name="reset1">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="reset1Request">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="reset1Response">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="counter1">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="counter1Request">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="counter1Response">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="reset2">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="reset2Request">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="reset2Response">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="counter2">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="counter2Request">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="counter2Response">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:binding>
+
+   <wsdl:service name="CounterService2Service">
+
+      <wsdl:port binding="intf:CounterService2SoapBinding" name="CounterService2">
+
+         <wsdlsoap:address location="http://localhost:9085/dynacachetests/services/CounterService2"/>
+
+      </wsdl:port>
+
+   </wsdl:service>
+
+</wsdl:definitions>

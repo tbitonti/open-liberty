@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE web-app PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN" "http://java.sun.com/dtd/web-app_2_3.dtd">
+   <web-app id="WebApp_ID">
+      <servlet id="Servlet_1">
+         <servlet-name>CrossWebApp2</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.CrossWebApp2</servlet-class>
+      </servlet>
+      <servlet id="Servlet_2">
+         <servlet-name>CrossWebApp4</servlet-name>
+         <servlet-class>com.ibm.ws.cache.servlet.CrossWebApp4</servlet-class>
+      </servlet>
+      <servlet-mapping id="ServletMapping_1">
+         <servlet-name>CrossWebApp2</servlet-name>
+         <url-pattern>CrossWebApp2</url-pattern>
+      </servlet-mapping>
+      <servlet-mapping id="ServletMapping_2">
+         <servlet-name>CrossWebApp4</servlet-name>
+         <url-pattern>CrossWebApp4</url-pattern>
+      </servlet-mapping>
+   </web-app>

@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<!DOCTYPE cache SYSTEM "cachespec.dtd">
+
+<cache>
+  <cache-entry>
+      <class>servlet</class>
+      <name>CrossWebApp2</name>
+      <cache-id>
+         <component id="cache" type="parameter">
+            <required>true</required>
+         </component>
+         <timeout>0</timeout>
+      </cache-id>  
+  </cache-entry>
+</cache>

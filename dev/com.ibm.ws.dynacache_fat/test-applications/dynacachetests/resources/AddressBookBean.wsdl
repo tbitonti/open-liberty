@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions targetNamespace="http://addr.webservices.cache.ws.ibm.com" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="http://addr.webservices.cache.ws.ibm.com" xmlns:intf="http://addr.webservices.cache.ws.ibm.com" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+ <wsdl:types>
+  <schema targetNamespace="http://addr.webservices.cache.ws.ibm.com" xmlns="http://www.w3.org/2001/XMLSchema" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="http://addr.webservices.cache.ws.ibm.com" xmlns:intf="http://addr.webservices.cache.ws.ibm.com" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+   <import namespace="http://schemas.xmlsoap.org/soap/encoding/"/>
+   <element name="name" nillable="true" type="xsd:string"/>
+   <element name="country" nillable="true" type="xsd:string"/>
+   <element name="invalidateReturn" nillable="true" type="xsd:string"/>
+   <element name="string" nillable="true" type="xsd:string"/>
+   <element name="getAddressFromNameReturn" nillable="true" type="xsd:string"/>
+  </schema>
+ </wsdl:types>
+
+   <wsdl:message name="getAddressFromNameResponse">
+
+      <wsdl:part name="getAddressFromNameReturn" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="invalidateRequest">
+
+      <wsdl:part name="name" type="xsd:string"/>
+
+      <wsdl:part name="country" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="invalidateResponse">
+
+      <wsdl:part name="invalidateReturn" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getAddressFromNameRequest">
+
+      <wsdl:part name="name" type="xsd:string"/>
+
+      <wsdl:part name="country" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:portType name="AddressBookBean">
+
+      <wsdl:operation name="invalidate" parameterOrder="name country">
+
+         <wsdl:input message="intf:invalidateRequest" name="invalidateRequest"/>
+
+         <wsdl:output message="intf:invalidateResponse" name="invalidateResponse"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="getAddressFromName" parameterOrder="name country">
+
+         <wsdl:input message="intf:getAddressFromNameRequest" name="getAddressFromNameRequest"/>
+
+         <wsdl:output message="intf:getAddressFromNameResponse" name="getAddressFromNameResponse"/>
+
+      </wsdl:operation>
+
+   </wsdl:portType>
+
+   <wsdl:binding name="AddressBookBeanSoapBinding" type="intf:AddressBookBean">
+
+      <wsdlsoap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+
+      <wsdl:operation name="invalidate">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="invalidateRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="http://addr.webservices.cache.ws.ibm.com" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="invalidateResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="http://addr.webservices.cache.ws.ibm.com" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="getAddressFromName">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="getAddressFromNameRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="http://addr.webservices.cache.ws.ibm.com" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="getAddressFromNameResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="http://addr.webservices.cache.ws.ibm.com" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:binding>
+
+   <wsdl:service name="AddressBookBeanService">
+
+      <wsdl:port binding="intf:AddressBookBeanSoapBinding" name="AddressBookBean">
+
+         <wsdlsoap:address location="http://localhost:9085/dynacachetests/services/AddressBookBean"/>
+
+      </wsdl:port>
+
+   </wsdl:service>
+
+</wsdl:definitions>

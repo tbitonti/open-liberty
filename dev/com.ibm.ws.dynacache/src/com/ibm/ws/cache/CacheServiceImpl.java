@@ -4,7 +4,7 @@
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-2.0/
- * 
+ *
  * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
@@ -32,13 +32,13 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.security.auth.login.Configuration;
 import javax.servlet.ServletContainerInitializer;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 
 import org.osgi.framework.InvalidSyntaxException;
-import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -68,42 +68,73 @@ import com.ibm.wsspi.resource.ResourceFactory;
 import com.ibm.wsspi.resource.ResourceInfo;
 
 /**
- * All the servlet related initialization is now done in ServletCacheServiceImpl. All object cache initialization is now
- * done in ObjectCacheServiceImpl. This class holds the CacheConfig's for ALL the cache instances. Registers the
- * Dynacache mbean. Provides helpers for Sevlet and Object cache services to add their configs via the
- * addCacheInstanceConfig* methods. Sets up DRS for a particular Cache.
+ * Servlet cache initialization is now done in ServletCacheServiceImpl.
+ *
+ * Object cache initialization is now done in ObjectCacheServiceImpl.
+ *
+ * This class holds the CacheConfig's for ALL the cache instances, registers the
+ * Dynacache mbean, and provides helpers for Sevlet and Object cache services to
+ * add their configurations via the addCacheInstanceConfig methods.
  */
-
-@Component(service = { CacheService.class, ResourceFactory.class, ServletContainerInitializer.class }, configurationPid = "com.ibm.ws.cache",
-           configurationPolicy = ConfigurationPolicy.REQUIRE,
-           property = {
-                        ResourceFactory.CREATES_OBJECT_CLASS + "=com.ibm.websphere.cache.DistributedObjectCache", "service.vendor=IBM" })
-public class CacheServiceImpl implements CacheService, ResourceFactory, ServletContextListener, ServletContainerInitializer {
-    /**  */
-    private static final String DISK_CACHE_ALIAS = "diskCache";
+//@formatter:off
+@Component(service = {
+    CacheService.class, ResourceFactory.class, ServletContainerInitializer.class },
+    configurationPid = "com.ibm.ws.cache",
+    configurationPolicy = ConfigurationPolicy.REQUIRE,
+    property = { ResourceFactory.CREATES_OBJECT_CLASS + "=com.ibm.websphere.cache.DistributedObjectCache",
+                 "service.vendor=IBM" })
+public class CacheServiceImpl
+    implements CacheService, ResourceFactory, ServletContextListener, ServletContainerInitializer {
 
     private static final String CLASS_NAME = CacheServiceImpl.class.getName();
 
-    private static final String DEFAULT_DISTRIBUTED_MAP_ID = "defaultCache";
+    private static TraceComponent tc =
+        Tr.register(CacheServiceImpl.class,
+                    "WebSphere Dynamic Cache",
+                    "com.ibm.ws.cache.resources.dynacache");
 
-    private static TraceComponent tc = Tr.register(CacheServiceImpl.class, "WebSphere Dynamic Cache", "com.ibm.ws.cache.resources.dynacache");
+    //
 
-    public static final String FACTORY_PID = "com.ibm.ws.cache";
-    private static final String PROPS_JNDI_NAME = "jndiName";
-    private static final String PROPS_GENERATED = "generated";
-    private static final String PROPS_CACHE_PROVIDER_NAME = "cacheProviderName";
+    //
 
-    private static CacheConfig commonCacheConfig = null;
-    private static ConcurrentMap<String, CacheConfig> cacheConfigs = new ConcurrentHashMap<String, CacheConfig>();
+    private static CacheConfig commonCacheConfig;
+
+    private static ConcurrentMap<String, CacheConfig> cacheConfigs =
+        new ConcurrentHashMap<String, CacheConfig>();
 
     public static Map<String, CacheConfig> getCacheConfigs() {
         return cacheConfigs;
     }
 
-    // Inject various Liberty services which are needed
-    private final AtomicReference<ConfigurationAdmin> configAdminRef = new AtomicReference<ConfigurationAdmin>(null);
-    private final AtomicReference<Scheduler> schedulerRef = new AtomicReference<Scheduler>(null);
-    private final AtomicReference<Library> sharedLibRef = new AtomicReference<Library>();
+    //
+
+    private static final ObjectCacheUnit objectCacheUnit = new ObjectCacheUnitImpl();
+
+    static {
+        ServerCache.cacheUnit.setObjectCacheUnit(objectCacheUnit);
+    }
+
+    //
+
+    private String bundleLocation;
+
+    private final AtomicReference<ConfigurationAdmin> configAdminRef =
+        new AtomicReference<ConfigurationAdmin>(null);
+
+    private final AtomicReference<Scheduler> schedulerRef =
+        new AtomicReference<Scheduler>(null);
+
+    private final AtomicReference<Library> sharedLibRef =
+        new AtomicReference<Library>();
+
+    private final AtomicReference<VariableRegistry> variableRegistryRef =
+        new AtomicReference<VariableRegistry>(null);
+
+    private String resolve(String value) {
+        return variableRegistryRef.get().resolveString(value);
+    }
+
+    //
 
     private String cacheName = null;
     private CacheConfig config;
@@ -115,23 +146,12 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
     public static final String WEB_INF_CACHE_INSTANCES_PROPERTIES = "WEB-INF/cacheinstances.properties";
     public static final String WEB_INF_DISTRIBUTED_MAP_PROPERTIES = "WEB-INF/distributedmap.properties";
 
-    private final Set<URL> processedUrls = new CopyOnWriteArraySet<URL>();
-    private static ObjectCacheUnit objectCacheUnit = new ObjectCacheUnitImpl();
-    static {
-        ServerCache.cacheUnit.setObjectCacheUnit(objectCacheUnit);
-    }
-
-    private final AtomicReference<VariableRegistry> variableRegistryRef = new AtomicReference<VariableRegistry>(null);
-
-    private String bundleLocation;
-
     // --------------------------------------------------------------
-    // The passed config is a base cache config object from WAS ;L runtime
+    // The passed config is a base cache config object from WAS runtime
     // --------------------------------------------------------------
     @Activate
     protected void start(ComponentContext context, Map<String, Object> properties) {
-
-        final String methodName = "start()";
+        String methodName = "start";
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
             Tr.entry(tc, methodName, context, properties);
@@ -195,10 +215,10 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
             Tr.info(tc, "DYNA1056I");
 
         } catch (IllegalStateException ex) {
-            com.ibm.ws.ffdc.FFDCFilter.processException(ex, "com.ibm.ws.cache.ObjectCacheServiceImpl.start", "232", this);
+            FFDCFilter.processException(ex, "com.ibm.ws.cache.ObjectCacheServiceImpl.start", "232", this);
             Tr.error(tc, "dynacache.cacheInitFailed", new Object[] { config.getServerServerName(), ex.getMessage() });
         } catch (Throwable ex) {
-            com.ibm.ws.ffdc.FFDCFilter.processException(ex, "com.ibm.ws.cache.ObjectCacheServiceImpl.start", "237", this);
+            FFDCFilter.processException(ex, "com.ibm.ws.cache.ObjectCacheServiceImpl.start", "237", this);
             Tr.error(tc, "dynacache.cacheInitFailed", new Object[] { config.getServerServerName(), ex.getMessage() });
         }
 
@@ -206,6 +226,12 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
             Tr.exit(tc, methodName + " objectCacheEnabled=" + ServerCache.objectCacheEnabled);
 
     }
+
+    private static final String DEFAULT_DISTRIBUTED_MAP_ID = "defaultCache";
+
+    private static final String PROPS_JNDI_NAME = "jndiName";
+    private static final String PROPS_CACHE_PROVIDER_NAME = "cacheProviderName";
+
 
     /*
      * Create a Cache Configuration based on the server.xml configuration received
@@ -307,11 +333,13 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
                     }
                 } catch (IOException e) {
                 }
-                config.externalGroups.add(ecg);
+                config.addExternalGroup(ecg);
             }
         }
 
     }
+
+    private static final String DISK_CACHE_ALIAS = "diskCache";
 
     private void parseDiskConfiguration(Map<String, Object> properties, CacheConfig config) {
         Dictionary<String, Object> diskProperties = null;
@@ -373,7 +401,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
     // ---------------------------------------------------------------------------------
     @Deactivate
     protected void stop() {
-        final String methodName = "stop()";
+        String methodName = "stop";
 
         if (tc.isEntryEnabled())
             Tr.entry(tc, methodName, cacheName);
@@ -443,8 +471,10 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
         deleteOSGiConfiguration(this.cacheName);
     }
 
+    private static final String PROPS_GENERATED = "generated";
+
     private void deleteOSGiConfiguration(String cacheName) {
-        final String methodName = "deleteOSGiConfiguration()";
+        String methodName = "deleteOSGiConfiguration";
 
         if (tc.isEntryEnabled())
             Tr.entry(tc, methodName, cacheName);
@@ -517,7 +547,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
     public CacheConfig addCacheInstanceConfig(Properties properties) {
 
         CacheConfig config = null;
-        final String methodName = "addCacheInstanceConfig(Properties)";
+        String methodName = "addCacheInstanceConfig(Properties)";
         if (tc.isEntryEnabled())
             Tr.entry(tc, methodName + " properties=" + properties);
 
@@ -542,7 +572,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
     // --------------------------------------------------------------
     @Override
     public void addCacheInstanceConfig(CacheConfig config, boolean create) throws Exception {
-        final String methodName = "addCacheInstanceConfig(CacheConfig)";
+        String methodName = "addCacheInstanceConfig(CacheConfig)";
 
         if (tc.isEntryEnabled())
             Tr.entry(tc, methodName + " reference=" + config.cacheName + " cacheName=" + config.cacheName);
@@ -573,6 +603,8 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
             }
         }
     }
+
+    public static final String FACTORY_PID = "com.ibm.ws.cache";
 
     private void findOrCreateOSGiConfiguration(CacheConfig config) throws IOException, InvalidSyntaxException {
 
@@ -640,7 +672,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
                         throw (RuntimeException) e2;
                     }
                 }
-                
+
                 osgiCacheConfig.update(props);
                 if (tc.isDebugEnabled()) {
                     Tr.debug(tc, "Created OSGI Configuration", osgiCacheConfig.getProperties());
@@ -672,7 +704,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
     // --------------------------------------------------------------
     @Override
     public CacheConfig getCacheInstanceConfig(String reference) {
-        final String methodName = "getCacheInstanceConfig()";
+        String methodName = "getCacheInstanceConfig";
         if (tc.isEntryEnabled())
             Tr.entry(tc, methodName + " reference=" + reference);
 
@@ -700,7 +732,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
     // --------------------------------------------------------------
     @Override
     public void destroyCacheInstance(String reference) {
-        final String methodName = "destroyCacheInstance()";
+        String methodName = "destroyCacheInstance";
         if (tc.isEntryEnabled())
             Tr.entry(tc, methodName + " reference=" + reference);
 
@@ -796,7 +828,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
     // Called by CacheInstanceInfo - max entry rate is once in 3 sec
     // -----------------------------------------------------------------
     protected void populateCacheInstanceInfo(CacheInstanceInfo info) {
-        final String methodName = "populateCacheInstanceInfo()";
+        String methodName = "populateCacheInstanceInfo";
         if (tc.isEntryEnabled())
             Tr.entry(tc, methodName);
 
@@ -953,7 +985,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
-        final String methodName = "contextInitialized";
+        String methodName = "contextInitialized";
         if (tc.isEntryEnabled())
             Tr.entry(tc, methodName, new Object[] { sce.getServletContext().getContextPath() });
         try {
@@ -962,8 +994,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
             initializeConfigPropertiesFiles(sce.getServletContext(), "/" + WEB_INF_DISTRIBUTED_MAP_PROPERTIES);
             initializeConfigPropertiesFiles(sce.getServletContext(), "/" + WEB_INF_CACHE_INSTANCES_PROPERTIES);
         } catch (Exception ex) {
-            com.ibm.ws.ffdc.FFDCFilter.processException(ex, "com.ibm.ws.cache.ObjectCacheServiceImpl.contextInitialized(ServletContextEvent)", "169",
-                                                        this);
+            FFDCFilter.processException(ex, "com.ibm.ws.cache.ObjectCacheServiceImpl.contextInitialized(ServletContextEvent)", "169", this);
         }
         if (tc.isEntryEnabled())
             Tr.exit(tc, methodName);
@@ -971,7 +1002,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
-        final String methodName = "contextDestroyed";
+        String methodName = "contextDestroyed";
         if (tc.isEntryEnabled())
             Tr.entry(tc, methodName, new Object[] { sce.getServletContext().getContextPath() });
         try {
@@ -981,8 +1012,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
             unInitializeConfigPropertiesFiles(sce.getServletContext(), "/" + WEB_INF_CACHE_INSTANCES_PROPERTIES);
 
         } catch (Exception ex) {
-            com.ibm.ws.ffdc.FFDCFilter.processException(ex, "com.ibm.ws.cache.ObjectCacheServiceImpl.contextDestroyed(ServletContextEvent)", "184",
-                                                        this);
+            processException(ex, "com.ibm.ws.cache.ObjectCacheServiceImpl.contextDestroyed(ServletContextEvent)", "184", this);
         }
         if (tc.isEntryEnabled())
             Tr.exit(tc, methodName);
@@ -1000,75 +1030,70 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
         variableRegistryRef.compareAndSet(vr, null);
     }
 
+    //
+
+    private final Set<URL> processedUrls = new CopyOnWriteArraySet<URL>();
+
+    private static final boolean IS_PROCESSED = true;
+
+    private void processedUrl(URL url, boolean isProcessed) {
+        if ( isProcessed ) {
+            processedUrls.add(url);
+        } else {
+            processedUrls.remove(url);
+        }
+    }
+
+    private boolean isProcessedUrl(URL url) {
+        return processedUrls.contains(url);
+    }
+
     // --------------------------------------------------------------
     // Called during start() and stateChanged().
     // Reads all the config properties files and
     // creates and binds the maps.
     // --------------------------------------------------------------
     private void initializeConfigPropertiesFiles(ServletContext sc, String fileName) {
-        final String methodName = "initializeConfigPropertiesFiles()";
-
-        if (tc.isEntryEnabled())
+        String methodName = "initializeConfigPropertiesFiles";
+        if (tc.isEntryEnabled()) {
             Tr.entry(tc, methodName + "servletcontext=" + sc + " fileName=" + fileName);
-        try {
-            URL u = sc.getResource(fileName);
-            /*
-             * Set<String> paths = sc.getResourcePaths(fileName);
-             * Iterator<String> it = paths.iterator();
-             * Vector<URL> urls = new Vector<URL>();
-             * while (it.hasNext()) {
-             * String file = it.next();
-             * URL url = new URL(file);
-             * urls.add(url);
-             * }
-             *
-             * for (Enumeration<URL> resources = urls.elements(); resources.hasMoreElements();) {
-             * URL url = resources.nextElement();
-             * if (!processedUrls.contains(url))
-             * processConfigUrl(url);
-             * }
-             */
-            if (u != null && !processedUrls.contains(u))
-                processConfigUrl(u);
-        } catch (Exception ex) {
-            if (tc.isDebugEnabled())
-                Tr.debug(tc, "dynacache config error", ex);
         }
-        if (tc.isEntryEnabled())
+
+        URL url = sc.getResource(fileName);
+        if ( url != null ) {
+            boolean didProcess = process(url);
+        } else {
+            if ( tc.isDebugEnabled() ) {
+                Tr.debug(tc, "Cannot find resource [ " + fileName + " ]");
+            }
+        }
+
+        if ( tc.isEntryEnabled() ) {
             Tr.exit(tc, methodName);
+        }
     }
 
     public void initializeConfigPropertiesFiles(ClassLoader cl, String fileName) {
-        final String methodName = "initializeConfigPropertiesFiles()";
-        if (tc.isEntryEnabled())
+        String methodName = "initializeConfigPropertiesFiles";
+        if ( tc.isEntryEnabled() ) {
             Tr.entry(tc, methodName + " classLoader=" + cl + " fileName=" + fileName);
-        try {
-            Enumeration<URL> resources = cl.getResources(fileName);
-            while (resources.hasMoreElements()) {
-                URL url = resources.nextElement();
-                if (!processedUrls.contains(url))
-                    processConfigUrl(url);
-            }
-        } catch (Exception ex) {
-            com.ibm.ws.ffdc.FFDCFilter.processException(ex, "com.ibm.ws.cache.CacheServiceImpl.initializeConfigPropertiesFiles", "638", this);
         }
-        if (tc.isEntryEnabled())
+
+        Enumeration<URL> resources = cl.getResources(fileName);
+        while ( resources.hasMoreElements() ) {
+            URL url = resources.nextElement();
+            boolean didProcess = process(url);
+        }
+
+        if ( tc.isEntryEnabled() ) {
             Tr.exit(tc, methodName);
+        }
     }
 
     private void unInitializeConfigPropertiesFiles(ServletContext sc, String fileName) {
-        try {
-            URL u = sc.getResource(fileName);
-            processedUrls.remove(u);
-            /*
-             * Enumeration<URL> resources = classLoader.getResources(fileName);
-             * while (resources.hasMoreElements()) {
-             * URL url = resources.nextElement();
-             * processedUrls.remove(url);
-             * }
-             */
-        } catch (Exception ex) {
-
+        URL url = sc.getResource(fileName);
+        if (url != null ) {
+            processedUrl(url, !IS_PROCESSED);
         }
     }
 
@@ -1077,8 +1102,7 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
 
             Enumeration<URL> resources = classLoader.getResources(fileName);
             while (resources.hasMoreElements()) {
-                URL url = resources.nextElement();
-                processedUrls.remove(url);
+                processedUrl(resources.nextElement(), !IS_PROCESSED);
             }
 
         } catch (Exception ex) {
@@ -1086,99 +1110,144 @@ public class CacheServiceImpl implements CacheService, ResourceFactory, ServletC
         }
     }
 
+    private boolean process(URL url) throws Exception {
+        if ( !isProcessedUrl(url) ) {
+            processedUrl(url, IS_PROCESSED);
+
+            try {
+                processConfigUrl(url);
+            } catch ( Exception ex ) {
+                if ( tc.isDebugEnabled() ) {
+                    Tr.debug(tc, "Error processing [ " + url + " ]", ex);
+                }
+                // Values are historical.
+                FFDCFilter.processException(ex, "com.ibm.ws.cache.CacheServiceImpl.initializeConfigPropertiesFiles", "638", this);
+            }
+            return true;
+
+        } else {
+            if ( tc.isDebugEnabled() ) {
+                Tr.debug(tc, "Already processed [ " + url + " ]");
+            }
+            return false;
+        }
+    }
+
     // --------------------------------------------------------------
     // Create cache instances and associated DistributedObjectCache wrapper from a properties file.
     // --------------------------------------------------------------
     private void processConfigUrl(URL url) throws Exception {
-        final String methodName = "processConfigUrl()";
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, methodName + " configUrl=" + url);
-
-        processedUrls.add(url);
-        Properties props = new Properties();
-        InputStream is = url.openStream();
-        try {
-            props.load(is);
-        } finally {
-            is.close();
+        String methodName = "processConfigUrl";
+        if ( tc.isEntryEnabled() ) {
+            Tr.entry(tc, methodName + " url=" + url);
         }
 
-        int i = 0;
-        VariableRegistry vr = variableRegistryRef.get();
-        boolean found = false;
-        do {
+        Properties props = new Properties();
+        try (InputStream is = url.openStream()) {
+            props.load(is);
+        }
+
+        int instanceNo = 0;
+        boolean found = true;
+        while ( found ) {
             // Look for instance name ( JNDI name == cacheName )
-            String instancekey = "cache.instance." + i;
+            String instancekey = "cache.instance." + instanceNo++;
             String instanceName = props.getProperty(instancekey);
-
-            // Remove leading forward slash
-            if (instanceName != null && instanceName.charAt(0) == '/')
-                instanceName = instanceName.substring(1);
-
-            // Do we have an instance name?
-            if (instanceName != null) {
-                instanceName = instanceName.trim();
-                if (tc.isDebugEnabled())
-                    Tr.debug(tc, methodName + " Adding new cache instance. instanceName=" + instanceName);
-                found = true;
-
-                // Build a vMap converted properties object
-                Iterator<Object> it = props.keySet().iterator();
-                Properties ccProps = new Properties();
-                ccProps.put(CacheConfig.CACHE_NAME, instanceName);
-                while (it.hasNext()) {
-                    String s = (String) it.next();
-                    if (s.startsWith(instancekey + ".")) {
-                        String value = vr.resolveString(props.getProperty(s)).trim();
-                        if (tc.isDebugEnabled())
-                            Tr.debug(tc, methodName + " Adding property: " + s + " value:" + value);
-                        ccProps.put("com.ibm.ws.cache.CacheConfig" + s.substring(instancekey.length()), value);
-                        // for external cache provider access
-                        String unmodifiedKey = s.substring(instancekey.length() + 1);
-                        if (tc.isDebugEnabled()) {
-                            Tr.debug(tc, methodName + " Adding property: " + unmodifiedKey + " value:" + value);
-                        }
-                        ccProps.put(unmodifiedKey, value);
-                    }
-                }
-                if (tc.isDebugEnabled())
-                    Tr.debug(tc, methodName + " Final props=" + ccProps);
-
-                // ------------------------------------------------------------
-                // Bind to JNDI if the cache & the config do not exist
-                // ------------------------------------------------------------
-                DCache c = ServerCache.getCache(instanceName);
-
-                CacheConfig cacheConfig = getCacheInstanceConfig(instanceName);
-                if (c == null && cacheConfig == null) {
-                    cacheConfig = addCacheInstanceConfig(ccProps);
-                    if (cacheConfig.isCreateCacheAtServerStartup()) {
-                        if (tc.isDebugEnabled()) {
-                            Tr.debug(tc, "Create cache instance \"" + instanceName + "\" during startup because the cache is configured to.");
-                        }
-                        ServerCache.createCache(cacheConfig.getCacheName(), cacheConfig);
-                    }
-                } else {
-                    // In this case, the instanceName already exists, so output
-                    // a
-                    // warning message for the user
-                    // DYNA1057W=DYNA1057W: Cache instance \"{0}\" defined in
-                    // the \"{1}\" is not added because a cache with this name
-                    // already exists.
-                    // DYNA1057W.explanation=The cache instance is not added
-                    // because a cache with this name already exists.
-                    // DYNA1057W.useraction=Ensure that the cache instance does
-                    // not define more than once in the properties file.
-                    Tr.warning(tc, "DYNA1057W", new Object[] { instanceName, url.toString() });
-                }
-            } else {
+            if ( (instanceName == null) || instanceName.isEmpty() ) {
                 found = false;
+                break;
             }
-            i++;
-        } while (found);
 
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, methodName + " configUrl=" + url);
+            if ( instanceName.charAt(0) == '/' ) {
+                instanceName = instanceName.substring(1);
+            }
+
+            instanceName = instanceName.trim();
+            if ( instanceName.isEmpty() ) {
+                found = false;
+                break;
+            }
+
+            if ( tc.isDebugEnabled() ) {
+                Tr.debug(tc, methodName + " Adding new cache instance. instanceName=" + instanceName);
+            }
+
+            // Bind to JNDI if the cache & the config do not exist
+
+            DCache cache = ServerCache.getCache(instanceName);
+            CacheConfig cacheConfig = getCacheInstanceConfig(instanceName);
+            if ((cache != null) || (cacheConfig != null)) {
+                Tr.warning(tc, "DYNA1057W", new Object[] { instanceName, url.toString() });
+                // DYNA1057W=DYNA1057W: Cache instance \"{0}\" defined in
+                // the \"{1}\" is not added because a cache with this name
+                // already exists.
+                // DYNA1057W.explanation=The cache instance is not added
+                // because a cache with this name already exists.
+                // DYNA1057W.useraction=Ensure that the cache instance does
+                // not define more than once in the properties file.
+
+                continue;
+            }
+
+            Properties cacheProps = transcribe(instanceKey, instanceName, props);
+
+            cacheConfig = addCacheInstanceConfig(cacheProps);
+
+            if ( cacheConfig.isCreateCacheAtServerStartup() ) {
+                if (tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Create cache instance: " + instanceName);
+                }
+                ServerCache.createCache(cacheConfig.getCacheName(), cacheConfig);
+            }
+        }
+
+        if ( tc.isEntryEnabled() ) {
+            Tr.exit(tc, methodName + " url=" + url);
+        }
     }
 
+    private Properties transcribe(String prefix, String cacheName, Properties rawProps) {
+        String methodName = "transcribe";
+
+        Properties cacheProps = new Properties();
+        cacheProps.put(CacheConfig.CACHE_NAME, instanceName);
+
+        rawProps.forEach( (key, value) -> {
+            String sKey = (String) key;
+            String sValue = (String) value;
+
+            // Need the prefix, a '.', and at least one additional character.
+            if ( (sKey.length() < prefix.length() + 2) ||
+                 !sKey.startsWith(prefix) || !(sKey.charAt(prefix.length()) == '.') ) {
+                continue;
+            }
+
+            String tailKey = sKey.substring( prefix.length() ); // Has a leading '.'.
+            String transcribedKey = "com.ibm.ws.cache.CacheConfig" + tailKey;
+            String externalKey = tailKey.substring(1); // Does not have a leading '.'.
+
+            String resolvedValue = resolve(sValue).trim();
+            if ( !sValue.equals(resolvedValue) ) {
+                if ( tc.isDebugEnabled() ) {
+                    Tr.debug(tc, methodName + " Resolved: " + sValue " + as: " + resolvedValue);
+                }
+            }
+
+            if ( tc.isDebugEnabled() ) {
+                Tr.debug(tc, methodName + " Adding property: " + transcribedKey + " value: " + resolvedValue);
+            }
+            cacheProps.put(transcribedKey, resolvedValue); // for internal access
+
+            if (tc.isDebugEnabled()) {
+                Tr.debug(tc, methodName + " Adding property: " + externalKey + " value:" + resolvedValue);
+            }
+            cacheProps.put(externalKey, value); // for external cache provider access
+        });
+
+        if (tc.isDebugEnabled()) {
+            Tr.debug(tc, methodName + " Final props=" + cacheProps);
+        }
+        return cacheProps;
+    }
 }
+//@formatter:on

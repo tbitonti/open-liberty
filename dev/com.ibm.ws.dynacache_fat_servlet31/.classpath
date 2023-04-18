@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="fat/src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/fattest.simplicity"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/wlp-jakartaee-transform"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.websphere.org.osgi.core"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.websphere.org.osgi.service.component"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.wsspi.org.osgi.service.component.annotations"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.ws.org.apache.commons.io"/>
+	<classpathentry kind="lib" path="/ant_build/lib/junit.jar"/>
+	<classpathentry kind="src" path="/com.ibm.ws.com.meterware.httpunit.1.7"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.websphere.javaee.servlet.3.1"/>
+	<classpathentry kind="lib" path="/build.sharedResources/lib/httpunit/1.7/jars/js-1.6R5.jar"/>
+	<classpathentry kind="lib" path="/build.sharedResources/lib/httpunit/1.7/jars/jtidy-4aug2000r7-dev.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.ibm.ws.dynacache.web.servlet31"/>
+	<classpathentry kind="output" path="build/classes"/>
+</classpath>

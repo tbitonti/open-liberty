@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="com.ibm.ws.dynacache_fat_servlet31" default="buildandrun" basedir=".">
+    <import file="../ant_build/public_imports/fat_imports.xml" />
+
+    <property name="tested.features" value="expressionlanguage-4.0, restconnector-2.0, pages-3.0, pages-3.1"/>
+    <property name="connector.client" value="${basedir}/../com.ibm.ws.jmx.connector.client.rest/build/lib/" />
+    <property name="bvt.prop.disable.ffdc.checking" value="true" />
+	
+
+    <target name="addAutoInstallApplications" description="Automatically Install applications on LibertyServer instance creation">
+
+        <move file="publish/files/dynacachetests.zip" tofile="publish/servers/dynacachetests/apps/dynacachetests.war" overwrite="true" />
+
+    </target>
+
+    <target name="addRequiredLibraries" depends="addTransformerLibs">
+        <copy todir="${required.lib.dir}" overwrite="true" preservelastmodified="true">
+            <fileset dir="${ibm.httpunit.jar.dir}" includes="${ibm.httpunit.jar.name}" />
+            <fileset dir="${shared.httpunit.jars}" includes="*.jar" />
+            <fileset dir="../build.image/wlp/lib" includes="com.ibm.ws.org.apache.commons.io_*.jar" />
+        </copy>
+        <copy todir="${required.files.dir}/publish/bundles" overwrite="true" preservelastmodified="true">
+            <fileset dir="${basedir}/../build.image/wlp/lib" includes="com.ibm.ws.dynacache.cachemonitor_1.0.${micro.version}.jar"/>
+        </copy>
+        <copy todir="${required.files.dir}/publish/features" overwrite="true" preservelastmodified="true">
+            <fileset dir="${basedir}/../build.image/wlp/lib/features" includes="com.ibm.websphere.appserver.webCacheMonitor-1.0.mf"/>
+        </copy>
+    </target>
+
+    <target name="package">
+        <mkdir dir="${lib.dir}" />
+        <jar destfile="${lib.dir}/${ant.project.name}.jar">
+            <fileset dir="${classes.dir}" includes="**/*.class" />
+            <fileset dir="${fat.applications.dir}/dynacachetests/resources/WEB-INF" includes="**/*.properties" />
+        </jar>
+    </target>
+</project>
