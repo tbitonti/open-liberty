@@ -19,6 +19,7 @@ import org.springframework.core.env.ConfigurableEnvironment;
 
 import com.ibm.ws.app.manager.springboot.container.ApplicationError;
 import com.ibm.ws.app.manager.springboot.container.ApplicationTr;
+import com.ibm.ws.app.manager.springboot.container.ApplicationTr.Type;
 
 /**
  * Liberty environment verifier. Verify that the liberty environment
@@ -27,6 +28,7 @@ import com.ibm.ws.app.manager.springboot.container.ApplicationTr;
 //@formatter:off
 public class FeatureAuditor implements EnvironmentPostProcessor {
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment env, SpringApplication app) {
@@ -44,32 +46,97 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
                           "com.ibm.ws.springboot.support.web.server.version20.container.LibertyConfiguration");
             checkSpringBootVersion15();
 =======
+=======
+    /**
+     * Generate the resource name for a specified class.
+     *
+     * Convert '.' into '/' and append '.class'.
+     *
+     * Note: This will not work for inner classes, which convert one or
+     * more '.' into '$' instead of '/'.
+     *
+     * @param className A fully qualified non-inner class name.
+     *
+     * @return The name of the resource of the class.
+     */
+>>>>>>> Test cleanups
     protected static String asResourceName(String className) {
         return className.replace('.', '/') + ".class";
     }
 >>>>>>> Initial FeatureAuditor update.
 
-    protected static boolean foundClass(String className) {
-        return ( FeatureAuditor.class.getClassLoader().getResource( asResourceName(className) ) != null );
+    /**
+     * Tell if a class is available in the current classloading environment.
+     *
+     * That is, tell if the resource of the class is available using this class's
+     * classloader.
+     *
+     * Note: This does not work for inner classes.  See {@link #asResourceName(String)}.
+     *
+     * @param className The name of the class which is to be located.
+     *
+     * @return True or false telling if the class resource was located.
+     */
+    protected static boolean isClassAvailable(String className) {
+        ClassLoader classLoader = FeatureAuditor.class.getClassLoader();
+        String resourceName = asResourceName(className);
+        boolean foundClass = ( classLoader.getResource(resourceName) != null );
+
+        System.out.println("Found [ " + foundClass + " ] class [ " + className + " ] as [ " + resourceName + " ]");
+        System.out.println("Using [ " + classLoader + " ]");
+
+        return foundClass;
     }
 
+    /**
+     * Record structure for spring feature requirements.
+     */
     protected static class SpringFeatureRequirement {
-        public static final String minVersion;
-        public static final String maxVersion;
-        public static final String trigger;
-        public static final String required;
-        public static final String messageId;
+        /**
+         * The minimum spring version for which this requirement applies.
+         * Test this requirement only if this minimum version is null, or
+         * the spring version greater or equal to this minimum version.
+         */
+        public final String minVersion;
+
+        /**
+         * The maximum spring version for which this requirement applies.
+         * Test this requirement only if this maximum version is null, or
+         * the spring version less than this maximum version.
+         *
+         * Note: This is not symmetric with {@link #minVersion}: The
+         * range interval is half-open on the upper range limit.
+         */
+        public final String maxVersion;
+
+        /**
+         * The name of the class which must be available in the current
+         * classloading environment to satisfy this requirement.
+         *
+         * The class is a probe, one amoung many which are required.
+         */
+        public final String requiredClassName;
+
+        /**
+         * The ID of the message which is to be displayed if this requirement
+         * is applicable and is not satisfied.
+         *
+         * The message should accept two parameters: First, the spring version,
+         * and second, the required class name.
+         */
+        public final Type messageId;
 
         public SpringFeatureRequirement(String minVersion, String maxVersion,
-                                 String required,
-                                 String messageId) {
+                                        String requiredClassName,
+                                        Type messageId) {
 
             this.minVersion = minVersion;
             this.maxVersion = maxVersion;
-            this.required = required;
+            this.requiredClassName = requiredClassName;
             this.messageId = messageId;
         }
 
+<<<<<<< HEAD
         public SpringFeatureRequirement(String ... requirementData) {
             this.minVersion = requirementData[0];
             this.maxVersion = requirementData[1];
@@ -94,6 +161,8 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
         } catch (ClassNotFoundException e) {
 
 =======
+=======
+>>>>>>> Test cleanups
         // Only run this test if the spring version is in range:
         //   min <= spring < max
 
@@ -107,8 +176,8 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
          *     to the specified version.
          */
         public boolean accept(String springBootVersion) {
-            return ( ((minVersion == null) || (minVersion.compareTo(springBootVersion) >= 0)) &&
-                     ((maxVersion == null) || (maxVersion.compareTo(springBootVersion) > 0)) );
+            return ( ((minVersion == null) || minVersion.compareTo(springBootVersion) <= 0) &&
+                     ((maxVersion == null) || maxVersion.compareTo(springBootVersion) > 0) );
         }
 
         /**
@@ -126,14 +195,20 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
          * @throws ApplicationError Thrown if the requirement is not verified.
          */
         public boolean verify(String springBootVersion) throws ApplicationError {
-            if ( !foundClass(required) ) {
-                throw new ApplicationError(messageId, springBootVersion, required);
+            if ( !isClassAvailable(requiredClassName) ) {
+                System.out.println("Failed to locate required class [ " + requiredClassName + " ]" +
+                                   " for spring boot version [ " + springBootVersion + " ]");
+                throw new ApplicationError(messageId, springBootVersion, requiredClassName);
             }
+<<<<<<< HEAD
 >>>>>>> Initial FeatureAuditor update.
+=======
+            return true;
+>>>>>>> Test cleanups
         }
     }
 
-    protected static void warning(String msgId, Object...parms) {
+    protected static void warning(Type msgId, Object...parms) {
         ApplicationTr.warning(msgId, parms);
     }
 
@@ -188,6 +263,7 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
     public void postProcessEnvironment(ConfigurableEnvironment env, SpringApplication app) {
         String springBootVersion = SpringBootVersion.getVersion();
         System.out.println("spring.boot.version = " + springBootVersion);
+        boolean springIsAtLeast20 = ( springBootVersion.compareTo("2.0.0") >= 0 );
         boolean springIsAtLeast30 = ( springBootVersion.compareTo("3.0.0") >= 0 );
 
         String javaVersion = System.getProperty("java.version");
@@ -196,30 +272,37 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
         String javaSpecVersion = System.getProperty("java.vm.specification.version");
         System.out.println("java.vm.specification.version = " + javaSpecVersion);
 
-        // The java spec version must always be at least 10.
-        // If the spring version is "3.0.0" or higher, the java version
-        // must be at least 17.
         int javaSpecVersionNo = Integer.parseInt(javaSpecVersion);
-        if ( springIsAtLeast30 ) {
-            if ( javaSpecVersionNo < 17 ) {
-                warning(Type.WARNING_UNSUPPORTED_JAVA_VERSION, javaVersion, springBootVersion, "java 17");
-            } else {
-                System.out.println("Validated java version requirement [ Java 17 ]");
-            }
+
+        int requiredJavaVersion;
+        String requiredVersionText;
+        boolean isSatisfied;
+
+        if ( !springIsAtLeast20 ) {
+            requiredJavaVersion = 7;
+            requiredVersionText = "Java 7";
+        } else if ( !springIsAtLeast30 ) {
+            requiredJavaVersion = 8;
+            requiredVersionText = "Java 8";
         } else {
-            if ( javaSpecVersionNo < 10 ) {
-                warning(Type.WARNING_UNSUPPORTED_JAVA_VERSION, javaVersion, springBootVersion, "java ??");
-            } else {
-                System.out.println("Validated java version requirement [ Java ?? ]");
-            }
+            requiredJavaVersion = 17;
+            requiredVersionText = "Java 17";
+        }
+
+        if ( javaSpecVersionNo < requiredJavaVersion ) {
+            warning(Type.WARNING_UNSUPPORTED_JAVA_VERSION, javaVersion, springBootVersion, requiredVersionText);
+        } else {
+            System.out.println("Validated required java version [ " + requiredVersionText + " ]" +
+                               " for Spring Boot version [ " + springBootVersion + " ]");
         }
 >>>>>>> Initial FeatureAuditor update.
 
         // Verify that Spring is all there.  (This test is probably unnecessary: That
         // we were invoked probably means this test can never fail.)
         String factoryClassName = "org.springframework.boot.context.embedded.EmbeddedServletContainerFactory";
-        if ( !foundClass(factoryClassName) ) {
-            throw new ApplicationError("Failed to locate spring factory class [ " + factoryClassName + " ]");
+        if ( !isClassAvailable(factoryClassName) ) {
+            System.out.println("Failed to locate spring factory class [ " + factoryClassName + " ]");
+            // throw new ApplicationError("Failed to locate spring factory class [ " + factoryClassName + " ]");
         }
 
         // Cross-check the spring version against the provisioned classes.
@@ -234,23 +317,39 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
             }
         }
         if ( verified == null ) {
-            System.out.println("Strange: Unknown spring boot version [ " + springBootVersion + " ]")
+            System.out.println("Strange: Unrecognized spring boot version [ " + springBootVersion + " ]");
         } else if ( !verified.booleanValue() ) {
-            System.out.println("No spring feature is provisioned!");
+            System.out.println("Warning: No Liberty spring feature is provisioned!");
         } else {
-            System.out.println("The required spring feature is provisioned.")
+            System.out.println("The required Liberty spring feature is provisioned.");
         }
 
-        // Make sure the servlet and web-socket features are present.
-        // TODO: Will this project be transformed?
+        // Servlet and WebSocket might not be used by the application.
+        // This is detected by the inclusion of a spring class.
+        //
+        // Note: This is an approximate test, depending on whether the
+        // spring packaging is minimal for the function in use.  That is
+        // to say, the spring class might be included in the packaging but
+        // is unused.
+        //
+        // Note: This component is not transformed for jakarta.  That means that
+        // support for both javax and jakarta versions of the required API classes
+        // is provided, and means that the class availability test must not be coded
+        // with reference the target class.
 
-        String servletClassName =
-            ( springIsAtLeast30 ? "jakarta.servlet.Servlet" : "javax.servlet.Servlet");
-        String webSocketClassName =
-            ( springIsAtLeast30 ? "jakarta.websocket.WebSocketContainer" : " javax.websocket.WebSocketContainer" );
-        if ( !foundClass(servletClassName) ) {
-            throw new ApplicationError(Type.ERROR_MISSING_SERVLET_FEATURE);
+        if ( isClassAvailable("org.springframework.web.WebApplicationInitializer") ) {
+            String servletClassName =
+                ( springIsAtLeast30 ? "jakarta.servlet.Servlet" : "javax.servlet.Servlet");
+            if ( !isClassAvailable(servletClassName) ) {
+                throw new ApplicationError(Type.ERROR_MISSING_SERVLET_FEATURE);
+            } else {
+                System.out.println("The Spring Servlet function was located;" +
+                                   " the base Servlet API is provisioned.");
+            }
+        } else {
+            System.out.println("The Spring Servlet function was not located.");
         }
+<<<<<<< HEAD
 <<<<<<< HEAD
 
     }
@@ -265,8 +364,21 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
         if ( !foundClass(webSocketClassName) ) {
             throw new ApplicationError(Type.ERROR_MISSING_WEBSOCKET_FEATURE);
 >>>>>>> Initial FeatureAuditor update.
+=======
+
+        if ( isClassAvailable("org.springframework.web.socket.WebSocketHandler") ) {
+            String webSocketClassName =
+                ( springIsAtLeast30 ? "jakarta.websocket.WebSocketContainer" : " javax.websocket.WebSocketContainer" );
+            if ( !isClassAvailable(webSocketClassName) ) {
+                throw new ApplicationError(Type.ERROR_MISSING_WEBSOCKET_FEATURE);
+            } else {
+                System.out.println("The Spring WebSocket function was located;" +
+                                   " the base WebSocket API is provisioned.");
+            }
+        } else {
+            System.out.println("The Spring WebSocket function was not located.");
+>>>>>>> Test cleanups
         }
-        System.out.println("The necessary Servlet and WebSocket classes are provisioned.");
     }
 }
 //@formatter:on
