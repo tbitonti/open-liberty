@@ -366,11 +366,16 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
 >>>>>>> Initial FeatureAuditor update.
 =======
 
-        if ( isClassAvailable("org.springframework.web.socket.WebSocketHandler") ) {
+        String webSocketHandlerClassName = "org.springframework.web.socket.WebSocketHandler";
+
+        if ( isClassAvailable(webSocketHandlerClassName) ) {
+            System.out.println("Noted WebSocket spring class [ " + webSocketHandlerClassName + " ]");
+
             String webSocketClassName =
                 ( springIsAtLeast30 ? "jakarta.websocket.WebSocketContainer" : " javax.websocket.WebSocketContainer" );
             if ( !isClassAvailable(webSocketClassName) ) {
-                throw new ApplicationError(Type.ERROR_MISSING_WEBSOCKET_FEATURE);
+                System.out.println("Failed to locate websocket class [ " + webSocketClassName + " ]");
+                // throw new ApplicationError(Type.ERROR_MISSING_WEBSOCKET_FEATURE);
             } else {
                 System.out.println("The Spring WebSocket function was located;" +
                                    " the base WebSocket API is provisioned.");
