@@ -28,25 +28,6 @@ import com.ibm.ws.app.manager.springboot.container.ApplicationTr.Type;
 //@formatter:off
 public class FeatureAuditor implements EnvironmentPostProcessor {
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    @Override
-    public void postProcessEnvironment(ConfigurableEnvironment env, SpringApplication app) {
-
-        String sbVersion = SpringBootVersion.getVersion();
-        checkJavaVersion(sbVersion);
-
-        /*
-         * Throw an Application error if the wrong version of spring boot feature is
-         * enabled
-         */
-        try {
-            Class.forName("org.springframework.boot.context.embedded.EmbeddedServletContainerFactory");
-            Class.forName(
-                          "com.ibm.ws.springboot.support.web.server.version20.container.LibertyConfiguration");
-            checkSpringBootVersion15();
-=======
-=======
     /**
      * Generate the resource name for a specified class.
      *
@@ -59,11 +40,9 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
      *
      * @return The name of the resource of the class.
      */
->>>>>>> Test cleanups
     protected static String asResourceName(String className) {
         return className.replace('.', '/') + ".class";
     }
->>>>>>> Initial FeatureAuditor update.
 
     /**
      * Tell if a class is available in the current classloading environment.
@@ -136,33 +115,6 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
             this.messageId = messageId;
         }
 
-<<<<<<< HEAD
-        public SpringFeatureRequirement(String ... requirementData) {
-            this.minVersion = requirementData[0];
-            this.maxVersion = requirementData[1];
-            this.required = requirementData[2];
-            this.messageId = requirementData[3];
-        }
-
-<<<<<<< HEAD
-        try {
-            Class.forName("org.springframework.boot.web.servlet.server.ServletWebServerFactory");
-            Class.forName("io.openliberty.springboot.support.web.server.version30.container.LibertyConfiguration");
-            checkSpringBootVersion30();
-
-        } catch (ClassNotFoundException e) {
-
-        }
-
-        /* Throw an application error if servlet feature is not enabled */
-        try {
-            Class.forName("org.springframework.web.WebApplicationInitializer");
-            checkServletPresent(sbVersion);
-        } catch (ClassNotFoundException e) {
-
-=======
-=======
->>>>>>> Test cleanups
         // Only run this test if the spring version is in range:
         //   min <= spring < max
 
@@ -200,11 +152,7 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
                                    " for spring boot version [ " + springBootVersion + " ]");
                 throw new ApplicationError(messageId, springBootVersion, requiredClassName);
             }
-<<<<<<< HEAD
->>>>>>> Initial FeatureAuditor update.
-=======
             return true;
->>>>>>> Test cleanups
         }
     }
 
@@ -212,32 +160,13 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
         ApplicationTr.warning(msgId, parms);
     }
 
-<<<<<<< HEAD
-    private void checkJavaVersion(String sbVersion) {
-        String javaVersion = System.getProperty("java.version");
+    public static final String SPRING15_FACTORY = "org.springframework.boot.context.embedded.EmbeddedServletContainerFactory";
+    public static final String SPRING20_FACTORY = "org.springframework.boot.web.servlet.server.ServletWebServerFactory";
+    // The Spring 3.0 factory is the same as the Spring 2.0 factory.
 
-        // java version isnt supported by sb version, upgrade to 2.x or higher
-        if (!javaVersion.startsWith("1.")) {
-            try {
-                Class.forName("org.springframework.boot.context.embedded.EmbeddedServletContainerFactory");
-                ApplicationTr.warning(Type.WARNING_UNSUPPORTED_JAVA_VERSION, javaVersion, sbVersion);
-            } catch (ClassNotFoundException e) {
-
-            }
-        }
-    }
-=======
-    protected static SpringFeatureRequirement[] featureRequirements = new SpringFeatureRequirement[] {
-        new SpringFeatureRequirement( "1.5.0", "2.0.0",
-                                      "com.ibm.ws.springboot.support.web.server.version15.container.LibertyConfiguration",
-                                      Type.ERROR_NEED_SPRING_BOOT_VERSION_15 ),
-        new SpringFeatureRequirement( "2.0.0", "3.0.0",
-                                      "com.ibm.ws.springboot.support.web.server.version20.container.LibertyConfiguration",
-                                      Type.ERROR_NEED_SPRING_BOOT_VERSION_20 ),
-        new SpringFeatureRequirement( "3.0.0", null,
-                                      "com.ibm.ws.springboot.support.web.server.version30.container.LibertyConfiguration",
-                                      Type.ERROR_NEED_SPRING_BOOT_VERSION_30 )
-    };
+    public static final String LIBERTY15_CONFIG = "com.ibm.ws.springboot.support.web.server.version15.container.LibertyConfiguration";
+    public static final String LIBERTY20_CONFIG = "com.ibm.ws.springboot.support.web.server.version20.container.LibertyConfiguration";
+    public static final String LIBERTY30_CONFIG = "com.ibm.ws.springboot.support.web.server.version30.container.LibertyConfiguration";
 
     /**
      * Verify that the liberty server is provisioned correctly for the current spring version.
@@ -295,33 +224,31 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
             System.out.println("Validated required java version [ " + requiredVersionText + " ]" +
                                " for Spring Boot version [ " + springBootVersion + " ]");
         }
->>>>>>> Initial FeatureAuditor update.
 
-        // Verify that Spring is all there.  (This test is probably unnecessary: That
-        // we were invoked probably means this test can never fail.)
-        String factoryClassName = "org.springframework.boot.context.embedded.EmbeddedServletContainerFactory";
-        if ( !isClassAvailable(factoryClassName) ) {
-            System.out.println("Failed to locate spring factory class [ " + factoryClassName + " ]");
-            // throw new ApplicationError("Failed to locate spring factory class [ " + factoryClassName + " ]");
-        }
-
-        // Cross-check the spring version against the provisioned classes.
-        Boolean verified = null;
-        for ( SpringFeatureRequirement requirement : featureRequirements ) {
-            if ( requirement.accept(springBootVersion) ) {
-                if ( !requirement.verify(springBootVersion) ) { // throws ApplicationException
-                    verified = Boolean.FALSE;
-                } else {
-                    verified = Boolean.TRUE;
+        if ( springIsAtLeast30 ) {
+            if ( isClassAvailable(SPRING20_FACTORY) &&
+                 (isClassAvailable(LIBERTY15_CONFIG) || isClassAvailable(LIBERTY20_CONFIG)) ) {
+                if ( !isClassAvailable(LIBERTY30_CONFIG) ) {
+                    System.out.println("Failed to liberty spring configuration class [ " + LIBERTY30_CONFIG + " ]");
+                    throw new ApplicationError(Type.ERROR_NEED_SPRING_BOOT_VERSION_30);
                 }
             }
-        }
-        if ( verified == null ) {
-            System.out.println("Strange: Unrecognized spring boot version [ " + springBootVersion + " ]");
-        } else if ( !verified.booleanValue() ) {
-            System.out.println("Warning: No Liberty spring feature is provisioned!");
+        } else if ( springIsAtLeast20 ) {
+            if ( isClassAvailable(SPRING20_FACTORY) &&
+                 (isClassAvailable(LIBERTY15_CONFIG) || isClassAvailable(LIBERTY30_CONFIG)) ) {
+                if ( !isClassAvailable(LIBERTY20_CONFIG) ) {
+                    System.out.println("Failed to liberty spring configuration class [ " + LIBERTY20_CONFIG + " ]");
+                    throw new ApplicationError(Type.ERROR_NEED_SPRING_BOOT_VERSION_20);
+                }
+            }
         } else {
-            System.out.println("The required Liberty spring feature is provisioned.");
+            if ( isClassAvailable(SPRING15_FACTORY) &&
+                 (isClassAvailable(LIBERTY20_CONFIG) || isClassAvailable(LIBERTY30_CONFIG)) ) {
+                if ( !isClassAvailable(LIBERTY15_CONFIG) ) {
+                    System.out.println("Failed to liberty spring configuration class [ " + LIBERTY15_CONFIG + " ]");
+                    throw new ApplicationError(Type.ERROR_NEED_SPRING_BOOT_VERSION_15);
+                }
+            }
         }
 
         // Servlet and WebSocket might not be used by the application.
@@ -337,10 +264,17 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
         // is provided, and means that the class availability test must not be coded
         // with reference the target class.
 
+        // if ( isClassAvailable("org.springframework.web.WebApplicationInitializer") ) {
+        //     if ( !isClassAvailable("javax.servlet.Servlet") ) {
+        //         throw new ApplicationError(Type.ERROR_MISSING_SERVLET_FEATURE);
+        //     }
+        // }
+
         if ( isClassAvailable("org.springframework.web.WebApplicationInitializer") ) {
             String servletClassName =
                 ( springIsAtLeast30 ? "jakarta.servlet.Servlet" : "javax.servlet.Servlet");
             if ( !isClassAvailable(servletClassName) ) {
+                System.out.println("Failed to locate servlet class [ " + servletClassName + " ]");
                 throw new ApplicationError(Type.ERROR_MISSING_SERVLET_FEATURE);
             } else {
                 System.out.println("The Spring Servlet function was located;" +
@@ -349,22 +283,12 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
         } else {
             System.out.println("The Spring Servlet function was not located.");
         }
-<<<<<<< HEAD
-<<<<<<< HEAD
 
-    }
-
-    private void checkSpringBootVersion30() {
-        try {
-            Class.forName(
-                          "io.openliberty.springboot.support.web.server.version30.container.LibertyConfiguration");
-        } catch (ClassNotFoundException e) {
-            throw new ApplicationError(Type.ERROR_NEED_SPRING_BOOT_VERSION_30);
-=======
-        if ( !foundClass(webSocketClassName) ) {
-            throw new ApplicationError(Type.ERROR_MISSING_WEBSOCKET_FEATURE);
->>>>>>> Initial FeatureAuditor update.
-=======
+        // if ( isClassAvailable("org.springframework.web.socket.WebSocketHandler") ) {
+        //     if ( !isClassAvailable("javax.websocket.WebSocketContainer") ) {
+        //         throw new ApplicationError(Type.ERROR_MISSING_WEBSOCKET_FEATURE);
+        //     }
+        // }
 
         String webSocketHandlerClassName = "org.springframework.web.socket.WebSocketHandler";
 
@@ -375,14 +299,13 @@ public class FeatureAuditor implements EnvironmentPostProcessor {
                 ( springIsAtLeast30 ? "jakarta.websocket.WebSocketContainer" : " javax.websocket.WebSocketContainer" );
             if ( !isClassAvailable(webSocketClassName) ) {
                 System.out.println("Failed to locate websocket class [ " + webSocketClassName + " ]");
-                // throw new ApplicationError(Type.ERROR_MISSING_WEBSOCKET_FEATURE);
+                throw new ApplicationError(Type.ERROR_MISSING_WEBSOCKET_FEATURE);
             } else {
                 System.out.println("The Spring WebSocket function was located;" +
                                    " the base WebSocket API is provisioned.");
             }
         } else {
             System.out.println("The Spring WebSocket function was not located.");
->>>>>>> Test cleanups
         }
     }
 }
