@@ -10,16 +10,25 @@
 package com.ibm.ws.feature.tests;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.Test;
 
 import com.ibm.ws.feature.utils.FeatureInfo;
 import com.ibm.ws.feature.utils.FeatureRepo;
 
+//@formatter:off
+
+/**
+ * Versionless feature reporter.
+ *
+ * Display several charts of public features in relation to versionless features.
+ */
 public class VersionlessTest {
 
     public static FeatureRepo getRepository() {
@@ -30,6 +39,28 @@ public class VersionlessTest {
         return getRepository().getFeature(featureName);
     }
 
+    //
+
+    private static final String DOUBLE_DASHES = "============================================================";
+    private static final String DASHES = "------------------------------------------------------------";
+
+    protected static void printDoubleDashes() {
+        System.out.println(DOUBLE_DASHES);
+    }
+
+    protected static void printDashes() {
+        System.out.println(DASHES);
+    }
+
+    /**
+     * Display all current cohorts.
+     *
+     * The cohorts table, as obtained from the feature repository,
+     * is a mapping of feature base name to the collection of the
+     * available versions of that feature.
+     *
+     * Only public features are listed.
+     */
     @Test
     public void listCohorts() {
         Map<String, List<String>> cohorts = getRepository().getCohorts();
@@ -37,53 +68,88 @@ public class VersionlessTest {
         List<String> baseNames = new ArrayList<>(cohorts.keySet());
         baseNames.sort(Comparator.comparing(String::toString));
 
-        System.out.println("Cohorts:");
+        printDoubleDashes();
+
+        System.out.println("All Cohorts:");
+
+        printDashes();
+
         for (String baseName : baseNames) {
             List<String> cohort = cohorts.get(baseName);
             System.out.println("  [ " + baseName + " ] [ " + cohort + " ]");
         }
+
+        printDoubleDashes();
     }
 
+    /**
+     * Display all of the selector cohorts.
+     *
+     * These are a subset of all cohorts:
+     *
+     * Each selector has an associated list of base names of platform
+     * (convenience) features.
+     *
+     * Display each selector name, then display each of the
+     * base names which are associated with the selector, then display
+     * each of the versions of the selector element base names.
+     */
     @Test
     public void listSelectorCohorts() {
         Map<String, List<String>> cohorts = getRepository().getCohorts();
 
+        printDoubleDashes();
+
         System.out.println("Selectors:");
-        getSelectorCohorts().forEach((String baseName, List<String> featureNames) -> {
-            System.out.println("  [ " + baseName + " ]");
-            for (String featureName : featureNames) {
+
+        printDashes();
+
+        VersionlessData.getSelectorCohorts().forEach((String selector, List<String> sBaseNames) -> {
+            System.out.println("  [ " + selector + " ]");
+            for (String featureName : sBaseNames) {
                 System.out.println("    [ " + featureName + " ] [ " + cohorts.get(featureName) + " ]");
             }
         });
+
+        printDoubleDashes();
     }
 
+    /**
+     * Display selector details.
+     *
+     */
     @Test
     public void listSelectorDetails() {
         Map<String, List<String>> cohorts = getRepository().getCohorts();
 
-        System.out.println("Selectors:");
-        getSelectorCohorts().forEach((String baseName, List<String> featureBaseNames) -> {
-            System.out.println("  [ " + baseName + " ]");
-            for (String featureBaseName : featureBaseNames) {
-                List<String> cohort = cohorts.get(featureBaseName);
-                System.out.println("    [ " + featureBaseName + " ] [ " + cohort + " ]");
+        printDoubleDashes();
 
-                for (String version : cohort) {
-                    String featureName = featureBaseName + "-" + version;
-                    FeatureInfo featureInfo = getFeature(featureName);
-                    if (featureInfo == null) {
-                        System.out.println("      [ " + featureName + " ** NOT FOUND ** ]");
+        System.out.println("Selector Details:");
+
+        printDashes();
+
+        VersionlessData.getSelectorCohorts().forEach((String selector, List<String> seBaseNames) -> {
+            System.out.println("  [ " + selector + " ]");
+            for (String seBaseName : seBaseNames) {
+                List<String> seCohort = cohorts.get(seBaseName);
+                System.out.println("    [ " + seBaseName + " ] [ " + seCohort + " ]");
+
+                for (String seVersion : seCohort) {
+                    String seName = seBaseName + "-" + seVersion;
+                    FeatureInfo seInfo = getFeature(seName);
+                    if (seInfo == null) {
+                        System.out.println("      [ " + seName + " ** NOT FOUND ** ]");
                         continue;
                     } else {
-                        System.out.println("      [ " + featureInfo.getName() + " ]");
+                        System.out.println("      [ " + seInfo.getName() + " ]");
                     }
 
-                    featureInfo.forEachSortedDepName((String depName) -> {
+                    seInfo.forEachSortedDepName((String depName) -> {
                         FeatureInfo depInfo = getFeature(depName);
                         if (depInfo == null) {
                             System.out.println("        [ " + depName + " ** NOT FOUND ** ]");
                         } else if (depInfo.isPublic()) {
-                            System.out.println("        [ " + depInfo.getBaseName() + " - " + depInfo.getVersion() + " ]");
+                            System.out.println("        [ " + depInfo.getName() + " ]");
                         } else {
                             // Ignore
                         }
@@ -91,45 +157,203 @@ public class VersionlessTest {
                 }
             }
         });
+
+        printDoubleDashes();
     }
 
-    private static final Map<String, List<String>> selectorCohorts;
+    /**
+     * Append values to a string builder.
+     *
+     * @param builder The builder to which to append values.
+     * @param values Values to append to the builder.
+     */
+    private static void append(StringBuilder builder, Object...values) {
+        for ( Object value : values ) {
+            builder.append(value);
+        }
+    }
 
-    private static void put(Map<String, List<String>> storage, String... data) {
-        String key = data[0];
+    /**
+     * Copy values into storage, then sort them using the base string
+     * comparator.
+     *
+     * @param storage Storage for the sorted values.
+     * @param values Values to put into storage and sorted.
+     */
+    protected static void strSort(List<String> storage, Collection<String> values) {
+        storage.addAll(values);
+        storage.sort(Comparator.comparing(String::toString));
+    }
 
-        List<String> values = new ArrayList<>(data.length - 1);
-        for (int datumNo = 1; datumNo < data.length; datumNo++) {
-            values.add(data[datumNo]);
+    /**
+     * Copy values into storage, then sort them using the version string
+     * comparator.  (See {@link FeatureRepo#compareVersions(String, String)}.
+     *
+     * @param storage Storage for the sorted values.
+     * @param values Values to put into storage and sorted.
+     */
+    protected static void verSort(List<String> storage, Collection<String> values) {
+        storage.addAll(values);
+        storage.sort(FeatureRepo::compareVersions);
+    }
+
+    /**
+     * Display a table of selectors.  For each selector, for each base name of dependencies
+     * of the selector, display the table mapping selector element versions to dependency
+     * versions.
+     */
+    @Test
+    public void listSelectorTable() {
+        Map<String, List<String>> cohorts = getRepository().getCohorts();
+        Map<String, List<String>> useSelectorCohorts = VersionlessData.getSelectorCohorts();
+
+        // selectorName -> depBaseName -> sceVersion -> depVersion
+        Map<String, Map<String, Map<String, String>>> useCohortRanges = VersionlessData.getCohortRanges();
+
+        StringBuilder depBuilder = new StringBuilder();
+
+        Set<String> scVersionsSet = new HashSet<>();
+        List<String> scVersions = new ArrayList<>();
+        List<String> depNames = new ArrayList<>();
+        Set<String> handledDeps = new HashSet<>();
+
+        printDoubleDashes();
+
+        useSelectorCohorts.forEach( (String selectorName, List<String> scBaseNames) -> {
+            System.out.println("Selector [ " + selectorName + " ]");
+            printDashes();
+
+            for ( String scBaseName : scBaseNames ) {
+                List <String> sVersions = cohorts.get(scBaseName);
+                scVersionsSet.addAll(sVersions);
+
+                System.out.println("  [ [ " + scBaseName + " ] [ " + sVersions + " ] ]");
+            }
+            verSort(scVersions, scVersionsSet);
+            scVersionsSet.clear();
+
+            Map<String, Map<String, String>> cohortRange = useCohortRanges.get(selectorName);
+
+            strSort(depNames, cohortRange.keySet());
+
+            // System.out.println("S [ " + selectorName + " ] [ " + depNames + " ]");
+
+            int maxLength = 0;
+            for ( String depName : depNames ) {
+                int depLength = depName.length();
+                if ( depLength > maxLength ) {
+                    maxLength = depLength;
+                }
+            }
+
+            for ( String depName : depNames ) {
+                if ( handledDeps.contains(depName) ) {
+                    continue;
+                }
+
+                String prefixBefore;
+                String prefixAfter;
+                String updatedName;
+
+                if ( VersionlessData.isSpanning(depName) ) {
+                    prefixBefore = SPAN_PREFIX;
+                    prefixAfter = null;
+                    updatedName = null;
+                } else if ( VersionlessData.isAdded(depName)) {
+                    prefixBefore = ADDED_PREFIX;
+                    prefixAfter = null;
+                    updatedName = null;
+                } else if ( VersionlessData.isRetired(depName)) {
+                    prefixBefore = RETIRED_PREFIX;
+                    prefixAfter = null;
+                    updatedName = null;
+                } else if ( VersionlessData.isTemp(depName)) {
+                    prefixBefore = TEMP_PREFIX;
+                    prefixAfter = null;
+                    updatedName = null;
+                } else {
+                    updatedName = VersionlessData.getSharedName(depName);
+                    if ( updatedName != null ) {
+                        prefixBefore = SHARED_PREFIX_BEFORE;
+                        prefixAfter = SHARED_PREFIX_AFTER;
+                    } else {
+                        updatedName = VersionlessData.getChangedName(depName);
+
+                        if ( updatedName != null ) {
+                            prefixBefore = CHANGED_PREFIX_BEFORE;
+                            prefixAfter = CHANGED_PREFIX_AFTER;
+                        } else {
+                            prefixBefore = UNKNOWN_PREFIX;
+                            prefixAfter = null;
+                        }
+                    }
+                }
+
+                printDepLine(depBuilder, maxLength, prefixBefore, depName, cohortRange.get(depName), scVersions);
+
+                if ( updatedName != null ) {
+                    handledDeps.add(updatedName);
+                    printDepLine(depBuilder, maxLength, prefixAfter, updatedName, cohortRange.get(updatedName), scVersions);
+                }
+            }
+
+            scVersions.clear();
+            depNames.clear();
+            handledDeps.clear();
+
+            printDashes();
+        });
+
+        printDoubleDashes();
+    }
+
+    private static final String UNKNOWN_PREFIX = "???";
+
+    private static final String SPAN_PREFIX = ">->";
+
+    private static final String RETIRED_PREFIX = ">-X";
+    private static final String TEMP_PREFIX = "X-X";
+    private static final String ADDED_PREFIX = "X->";
+
+    private static final String CHANGED_PREFIX_BEFORE = ">-*";
+    private static final String CHANGED_PREFIX_AFTER = "*->";
+
+    private static final String SHARED_PREFIX_BEFORE = ">--";
+    private static final String SHARED_PREFIX_AFTER = "-->";
+
+    private void printDepLine(StringBuilder depBuilder, int maxLength,
+                              String prefix, String depName,
+                              Map<String, String> depVersions,
+                              List<String> scVersions) {
+
+        append(depBuilder, prefix, " [ ", depName, " ]: ");
+
+        int missing = maxLength - depName.length();
+        for ( int missingNo = 0; missingNo < missing; missingNo++ ) {
+            depBuilder.append(' ');
         }
 
-        storage.put(key, values);
+        for ( String scVersion : scVersions ) {
+            int scLength = scVersion.length();
+            int scMissing = 4 - scLength;
+            String scAdj = ( (scMissing == 1) ? " " : (scMissing == 2) ? "  " : "");
+
+            String depVersion = depVersions.get(scVersion);
+            if ( depVersion == null ) {
+                append(depBuilder, " [ ", scAdj, scVersion, " - ", "XXXX", " ]");
+
+            } else {
+                int depLength = depVersion.length();
+                int depMissing = 4 - depLength;
+                String depAdj = ( (depMissing == 1) ? " " : (depMissing == 2) ? "  " : "");
+
+                append(depBuilder, " [ ", scAdj, scVersion, " - ", depAdj, depVersion, " ]");
+            }
+        }
+
+        System.out.println(depBuilder.toString());
+
+        depBuilder.setLength(0);
     }
-
-    static {
-        Map<String, List<String>> useCohorts = new LinkedHashMap<>();
-
-        put(useCohorts, "jakartaee",
-            "com.ibm.websphere.appserver.jakartaee", "io.openliberty.jakartaee");
-        put(useCohorts, "jakartaeeClient",
-            "io.openliberty.jakartaeeClient");
-
-        put(useCohorts, "javaee",
-            "com.ibm.websphere.appserver.javaee");
-        put(useCohorts, "javaeeClient",
-            "com.ibm.websphere.appserver.javaeeClient");
-
-        put(useCohorts, "microProfile",
-            "com.ibm.websphere.appserver.microProfile", "io.openliberty.microProfile");
-
-        put(useCohorts, "webProfile",
-            "com.ibm.websphere.appserver.webProfile", "io.openliberty.webProfile");
-
-        selectorCohorts = useCohorts;
-    }
-
-    public Map<String, List<String>> getSelectorCohorts() {
-        return selectorCohorts;
-    }
-
 }
+//@formatter:on
