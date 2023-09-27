@@ -267,10 +267,6 @@ public class VersionlessTest {
                     prefixBefore = RETIRED_PREFIX;
                     prefixAfter = null;
                     updatedName = null;
-                } else if ( VersionlessData.isTemp(depName)) {
-                    prefixBefore = TEMP_PREFIX;
-                    prefixAfter = null;
-                    updatedName = null;
                 } else {
                     updatedName = VersionlessData.getSharedName(depName);
                     if ( updatedName != null ) {
@@ -312,7 +308,6 @@ public class VersionlessTest {
     private static final String SPAN_PREFIX = ">->";
 
     private static final String RETIRED_PREFIX = ">-X";
-    private static final String TEMP_PREFIX = "X-X";
     private static final String ADDED_PREFIX = "X->";
 
     private static final String CHANGED_PREFIX_BEFORE = ">-*";

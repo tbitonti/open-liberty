@@ -246,15 +246,23 @@ public class VersionlessData {
 
     static {
            Map<String, String> useMapping = new HashMap<>();
+
            useMapping.put("com.ibm.websphere.appserver.ejb", "io.openliberty.enterpriseBeans");
            useMapping.put("com.ibm.websphere.appserver.ejbLite", "io.openliberty.enterpriseBeansLite");
            useMapping.put("com.ibm.websphere.appserver.el", "io.openliberty.expressionLanguage");
+           useMapping.put("com.ibm.websphere.appserver.jacc", "io.openliberty.appAuthorization");
+           useMapping.put("com.ibm.websphere.appserver.jaspic", "io.openliberty.appAuthentication");
            useMapping.put("com.ibm.websphere.appserver.javaMail", "io.openliberty.mail");
+           useMapping.put("com.ibm.websphere.appserver.jaxb", "io.openliberty.xmlBinding");
+           useMapping.put("com.ibm.websphere.appserver.jaxws", "io.openliberty.xmlWS");
            useMapping.put("com.ibm.websphere.appserver.jca", "io.openliberty.connectors");
            useMapping.put("com.ibm.websphere.appserver.jcaInboundSecurity", "io.openliberty.connectorsInboundSecurity");
            useMapping.put("com.ibm.websphere.appserver.jms", "io.openliberty.messaging");
+           useMapping.put("com.ibm.websphere.appserver.jpa", "io.openliberty.persistence");
            useMapping.put("com.ibm.websphere.appserver.jsf", "io.openliberty.faces");
            useMapping.put("com.ibm.websphere.appserver.jsp", "io.openliberty.pages");
+           useMapping.put("com.ibm.websphere.appserver.jaxrs", "io.openliberty.restfulWS");
+           useMapping.put("com.ibm.websphere.appserver.jaxrsClient", "io.openliberty.restfulWSClient");
            useMapping.put("com.ibm.websphere.appserver.wasJmsClient", "io.openliberty.messagingClient");
            useMapping.put("com.ibm.websphere.appserver.wasJmsSecurity", "io.openliberty.messagingSecurity");
            useMapping.put("com.ibm.websphere.appserver.wasJmsServer", "io.openliberty.messagingServer");
@@ -272,15 +280,7 @@ public class VersionlessData {
     static {
         Set<String> useNames = new HashSet<>();
 
-        useNames.add("com.ibm.websphere.appserver.jacc");
         useNames.add("com.ibm.websphere.appserver.j2eeManagement");
-
-        useNames.add("com.ibm.websphere.appserver.jaspic");
-        useNames.add("com.ibm.websphere.appserver.jaxb");
-        useNames.add("com.ibm.websphere.appserver.jaxrs");
-        useNames.add("com.ibm.websphere.appserver.jaxws");
-        useNames.add("com.ibm.websphere.appserver.jpa");
-
         useNames.add("com.ibm.websphere.appserver.restConnector");
 
         retiredBaseNames = useNames;
@@ -296,35 +296,9 @@ public class VersionlessData {
     static {
         Set<String> useNames = new HashSet<>();
 
-        useNames.add("io.openliberty.appAuthentication");
-        useNames.add("io.openliberty.appAuthorization");
-
         useNames.add("io.openliberty.data");
-
         useNames.add("io.openliberty.mpTelemetry");
 
-        useNames.add("io.openliberty.persistence");
-        useNames.add("io.openliberty.restfulWS");
-        useNames.add("io.openliberty.restfulWSClient");
-
-        useNames.add("io.openliberty.xmlBinding");
-        useNames.add("io.openliberty.xmlWS");
-
         addedBaseNames = useNames;
-    }
-
-    /** Table of base feature names which were added then removed. */
-    public static final Set<String> tempBaseNames;
-
-    public static boolean isTemp(String baseName) {
-        return tempBaseNames.contains(baseName);
-    }
-
-    static {
-        Set<String> useNames = new HashSet<>();
-
-        useNames.add("com.ibm.websphere.appserver.jaxrsClient");
-
-        tempBaseNames = useNames;
     }
 }
