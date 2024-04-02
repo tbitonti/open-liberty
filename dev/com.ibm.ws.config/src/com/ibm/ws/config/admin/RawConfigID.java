@@ -128,6 +128,6 @@ public class RawConfigID {
     }
 
     public ConfigID asConfigID() {
-        return new ConfigID(parent, pid, id, childAttribute);
+        return new ConfigID(parent, pid, id, childAttribute, ConfigID.DO_VALIDATE);
     }
 }

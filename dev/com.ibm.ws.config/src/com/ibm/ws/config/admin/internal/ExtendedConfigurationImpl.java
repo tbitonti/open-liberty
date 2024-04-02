@@ -1,10 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010,2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-2.0/
- * 
+ *
  * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
@@ -15,7 +15,6 @@ package com.ibm.ws.config.admin.internal;
 
 import java.io.IOException;
 import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -23,7 +22,6 @@ import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
@@ -51,86 +49,76 @@ import com.ibm.ws.config.admin.ExtendedConfiguration;
  *
  * In addition to the standard OSGi Configuration value type support,
  * this implementation also supports Map of Strings as one of the value types.
- *
  */
 class ExtendedConfigurationImpl implements ExtendedConfiguration {
-
-    // R7
-    private final Set<Configuration.ConfigurationAttribute> attributes = new HashSet<Configuration.ConfigurationAttribute>();
-
-    /** bundle location */
-    private String bundleLocation = null;
-    private Bundle boundBundle;
-
-    /** An instance of a factory used for creating ConfigurationAdmin instances. */
-    private final ConfigAdminServiceFactory caFactory;
-
-    /** factory PID (only set for those using ManagedServiceFactory). */
-    private final String factoryPid;
-
-    /** Service PID */
-    private final String pid;
-
-    /** Configuration dictionary */
-    private ConfigurationDictionary properties = null;
-
-    /** hash code */
-    private int hashCode = 0;
-
-    /** set to true when delete() is called to delete this configuration. */
-    private boolean deleted = false;
-
-    /**
-     * set to true if this configuration was specified in server.xml file.
-     */
-    private boolean inOverridesFile = false;
-
-    /**
-     * Set of references to other configurations.
-     */
-    private Set<ConfigID> references;
-
-    /**
-     * Set of variables used for unique checks
-     */
-    private Set<String> uniqueVariables = Collections.emptySet();
-
-    private final ReentrantLock lock = new ReentrantLock();
-
-    private final AtomicLong changeCount = new AtomicLong();
-    private ConfigID configId;
-
-    private volatile boolean sendEvents;
-
-    /**
-     * Constructor to create an instance of Configuration.
-     *
-     * @param caImpl
-     * @param bndlLocation
-     * @param factoryPid
-     * @param pid
-     * @param props
-     * @param casf
-     * @param uniqueVariables
-     */
-    public ExtendedConfigurationImpl(ConfigAdminServiceFactory casf,
-                                     String bndlLocation,
+    public ExtendedConfigurationImpl(ConfigAdminServiceFactory caFactory,
+                                     String bundleLocation,
                                      String factoryPid,
                                      String pid,
-                                     Dictionary<String, Object> props,
+                                     Dictionary<String, Object> properties,
                                      Set<ConfigID> references,
                                      Set<String> uniques) {
-        this.caFactory = casf;
-        this.bundleLocation = bndlLocation;
+
+        this.caFactory = caFactory;
+        this.bundleLocation = bundleLocation;
         this.factoryPid = factoryPid;
         this.pid = pid;
-        setProperties(props);
+
+        this.setProperties(properties);
+        this.attributes = new HashSet<ConfigurationAttribute>();
 
         this.references = references;
         this.uniqueVariables = uniques;
-        addPidMapping();
-        addReferences();
+
+        this.addPidMapping();
+        this.addReferences();
     }
+
+    @Override
+    @Trivial
+    public String toString() {
+        return this.getClass().getSimpleName()
+               + "[pid=" + pid
+               + ",factoryPid=" + factoryPid
+               + ",boundBundle=" + boundBundle
+               + ",bundleLocation=" + bundleLocation
+               + "]";
+
+    }
+
+    private int hashCode;
+
+    @Override
+    @Trivial
+    public int hashCode() {
+        if (hashCode == 0) {
+            hashCode = pid.hashCode();
+        }
+        return hashCode;
+    }
+
+    @Override
+    @Trivial
+    public boolean equals(Object o) {
+        if (o == null) {
+            return false;
+        } else if (!(o instanceof Configuration)) {
+            return false;
+        }
+        Configuration oConfig = (Configuration) o;
+        String oPid = oConfig.getPid();
+        if (pid == null) {
+            return (oPid == null);
+        } else if (oPid == null) {
+            return false;
+        } else {
+            return pid.equals(oPid);
+        }
+    }
+
+    //
+
+    private final ReentrantLock lock = new ReentrantLock();
 
     @Override
     @Trivial
@@ -141,53 +129,41 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
     @Override
     @Trivial
     public void unlock() {
-        if (!lock.isHeldByCurrentThread()) {
-            throw new IllegalStateException("Thread not lock owner"); //$NON-NLS-1$
-        }
+        checkLocked();
         lock.unlock();
     }
 
     @Trivial
     protected void checkLocked() {
         if (!lock.isHeldByCurrentThread()) {
-            throw new IllegalStateException("Thread not lock owner"); //$NON-NLS-1$
+            throw new IllegalStateException("Thread not lock owner");
         }
     }
 
-    // Returns true if the configuration has not been bound to a bundle
+    //
+
+    private boolean isDeleted;
+
+    @Override
     @Trivial
-    protected boolean isUnbound() {
-        return boundBundle == null;
+    public boolean isDeleted() {
+        return isDeleted;
     }
 
     @Trivial
-    protected boolean bind(Bundle bundle) {
-        lock.lock();
-        try {
-            if (boundBundle == null && (bundleLocation == null || bundleLocation.equals(bundle.getLocation())))
-                boundBundle = bundle;
-            return (boundBundle == bundle);
-        } finally {
-            lock.unlock();
+    private void setDeleted(boolean isDeleted) {
+        this.isDeleted = isDeleted;
+    }
+
+    @Trivial
+    private void assertNotDeleted() {
+        if (isDeleted) {
+            throw new IllegalStateException("Configuration pid " + pid + " was deleted.");
         }
     }
 
-    @Trivial
-    protected void unbind(Bundle bundle) {
-        lock.lock();
-        try {
-            if (boundBundle == bundle)
-                boundBundle = null;
-        } finally {
-            lock.unlock();
-        }
-    }
+    //
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.cm.Configuration#delete()
-     */
     @Override
     @Trivial
     public void delete() throws IOException {
@@ -198,8 +174,8 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
     public void delete(boolean fireNotifications) {
         lock.lock();
         try {
-            exceptionIfDeleted();
-            deleted = true;
+            assertNotDeleted();
+            setDeleted(true);
 
             if (fireNotifications) {
                 fireConfigurationDeleted(null);
@@ -214,6 +190,193 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
         caFactory.getConfigurationStore().removeConfiguration(pid);
     }
 
+    //
+
+    public static final String OVERRIDES_PROPERTY = "config.overrides";
+
+    private boolean isOverride;
+
+    @Override
+    @Trivial
+    public void setInOverridesFile(boolean isOverride) {
+        lock.lock();
+        try {
+            this.isOverride = isOverride;
+            if (properties != null) {
+                if (this.isOverride) {
+                    properties.put(OVERRIDES_PROPERTY, "true");
+                } else {
+                    properties.remove(OVERRIDES_PROPERTY);
+                }
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    @Trivial
+    public boolean isInOverridesFile() {
+        lock.lock();
+        try {
+            assertNotDeleted();
+            if (properties == null) {
+                return isOverride;
+            } else {
+                return (properties.get(OVERRIDES_PROPERTY) != null);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    //
+
+    private final AtomicLong changeCount = new AtomicLong();
+    private volatile boolean isChanged;
+
+    @Override
+    @Trivial
+    public long getChangeCount() {
+        return changeCount.get();
+    }
+
+    private void recordChange() {
+        changeCount.incrementAndGet();
+        isChanged = true;
+    }
+
+    @Trivial
+    private boolean clearChanged() {
+        if (isChanged) {
+            isChanged = false;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    //
+
+    private String bundleLocation;
+    private Bundle boundBundle;
+
+    @Override
+    @Trivial
+    public void setBundleLocation(String bundleLocation) {
+        setBundleLocation(bundleLocation, true);
+    }
+
+    private void setBundleLocation(String bundleLocation, boolean checkPerm) {
+        lock.lock();
+        try {
+            assertNotDeleted();
+            if (checkPerm) {
+                caFactory.checkConfigurationPermission();
+            }
+            this.bundleLocation = bundleLocation;
+            boundBundle = null;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    @Trivial
+    public String getBundleLocation() {
+        return getBundleLocation(true);
+    }
+
+    protected String getBundleLocation(boolean checkPermission) {
+        lock.lock();
+        try {
+            assertNotDeleted();
+            if (checkPermission) {
+                caFactory.checkConfigurationPermission();
+            }
+            if (bundleLocation != null) {
+                return bundleLocation;
+            } else if (boundBundle != null) {
+                return boundBundle.getLocation();
+            } else {
+                return null;
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Trivial
+    protected boolean isUnbound() {
+        return (boundBundle == null);
+    }
+
+    @Trivial
+    protected boolean bind(Bundle bundle) {
+        lock.lock();
+        try {
+            if ((boundBundle == null) &&
+                ((bundleLocation == null) || bundleLocation.equals(bundle.getLocation()))) {
+                boundBundle = bundle;
+            }
+            return (boundBundle == bundle);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Trivial
+    protected void unbind(Bundle bundle) {
+        lock.lock();
+        try {
+            if (boundBundle == bundle) {
+                boundBundle = null;
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    // Identity ...
+
+    private final ConfigAdminServiceFactory caFactory;
+    private final String factoryPid;
+    private final String pid;
+    private ConfigID configId;
+
+    @Trivial
+    private void addPidMapping() {
+        if ((properties != null) && (factoryPid != null) && (caFactory != null)) {
+            caFactory.registerConfiguration(getFullId(), this);
+        }
+    }
+
+    @Trivial
+    private void removePidMapping() {
+        if ((properties != null) && (factoryPid != null)) {
+            caFactory.unregisterConfiguration(getFullId());
+        }
+    }
+
+    @Trivial
+    private void addReferences() {
+        if ((properties != null) && (references != null)) {
+            caFactory.addReferences(references, getFullId());
+        }
+    }
+
+    @Trivial
+    private void removeReferences() {
+        if ((properties != null) && (references != null)) {
+            caFactory.removeReferences(references, getFullId());
+        }
+    }
+
+    @Trivial
+    private void store() {
+        caFactory.getConfigurationStore().save();
+    }
+
     @Override
     public void fireConfigurationDeleted(Collection<Future<?>> futureList) {
         Future<?> caFuture = caFactory.notifyConfigurationDeleted(this, factoryPid != null);
@@ -224,38 +387,8 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
         }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.cm.Configuration#getBundleLocation()
-     */
-    @Override
-    @Trivial
-    public String getBundleLocation() {
-        return getBundleLocation(true);
-    }
+    //
 
-    protected String getBundleLocation(boolean checkPermission) {
-        lock.lock();
-        try {
-            exceptionIfDeleted();
-            if (checkPermission)
-                this.caFactory.checkConfigurationPermission();
-            if (bundleLocation != null)
-                return this.bundleLocation;
-            if (boundBundle != null)
-                return boundBundle.getLocation();
-            return null;
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.cm.Configuration#getFactoryPid()
-     */
     @Override
     @Trivial
     public String getFactoryPid() {
@@ -266,18 +399,13 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
         lock.lock();
         try {
             if (checkDeleted)
-                exceptionIfDeleted();
+                assertNotDeleted();
             return this.factoryPid;
         } finally {
             lock.unlock();
         }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.cm.Configuration#getPid()
-     */
     @Override
     @Trivial
     public String getPid() {
@@ -288,39 +416,37 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
         lock.lock();
         try {
             if (checkDeleted)
-                exceptionIfDeleted();
+                assertNotDeleted();
             return this.pid;
         } finally {
             lock.unlock();
         }
     }
 
+    //
+
+    //
+
     @Override
     public Object getProperty(String key) {
         lock.lock();
         try {
-            exceptionIfDeleted();
+            assertNotDeleted();
             // TODO: clone the value
             if (properties != null) {
                 return properties.get(key);
             }
-
             return null;
         } finally {
             lock.unlock();
         }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.cm.Configuration#getProperties()
-     */
     @Override
     public Dictionary<String, Object> getProperties() {
         lock.lock();
         try {
-            exceptionIfDeleted();
+            assertNotDeleted();
             if (this.properties == null)
                 return null;
 
@@ -336,7 +462,7 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
     public Dictionary<String, Object> getReadOnlyProperties() {
         lock.lock();
         try {
-            exceptionIfDeleted();
+            assertNotDeleted();
             return properties;
         } finally {
             lock.unlock();
@@ -344,45 +470,16 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
     }
 
     /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.cm.Configuration#setBundleLocation(java.lang.String)
-     */
-    @Override
-    @Trivial
-    public void setBundleLocation(String bundleLocation) {
-        setBundleLocation(bundleLocation, true);
-    }
-
-    private void setBundleLocation(String bundleLocation, boolean checkPerm) {
-        lock.lock();
-        try {
-            exceptionIfDeleted();
-            if (checkPerm)
-                this.caFactory.checkConfigurationPermission();
-            this.bundleLocation = bundleLocation;
-            boundBundle = null;
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.cm.Configuration#update()
-     *
      * The Configuration Admin service must first store the configuration
-     * information
-     * and then call a configuration target's updated method: either the
+     * information and then call a configuration target's updated method: either the
      * ManagedService.updated or ManagedServiceFactory.updated method.
      */
     @Override
     public void update() throws IOException {
         lock.lock();
         try {
-            exceptionIfDeleted();
-            caFactory.getConfigurationStore().save();
+            assertNotDeleted();
+            store();
             caFactory.notifyConfigurationUpdated(this, factoryPid != null);
         } finally {
             lock.unlock();
@@ -390,100 +487,79 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
     }
 
     /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.cm.Configuration#update(java.util.Dictionary)
-     *
      * The Configuration Admin service must first store the configuration
-     * information
-     * and then call a configuration target's updated method: either the
+     * information and then call a configuration target's updated method: either the
      * ManagedService.updated or ManagedServiceFactory.updated method.
      *
      * Also initiates an asynchronous call to all ConfigurationListeners with a
      * ConfigurationEvent.CM_UPDATED event.
      */
-
     @Override
-    public void update(Dictionary<String, ?> properties) throws IOException {
+    public void update(Dictionary<String, ?> useProperties) throws IOException {
         lock.lock();
         try {
-            doUpdateProperties(properties);
-
+            doUpdateProperties(useProperties);
             fireConfigurationUpdated(null);
         } finally {
             lock.unlock();
         }
     }
 
-    private void doUpdateProperties(Dictionary<String, ?> properties) throws IOException {
-        exceptionIfDeleted();
-        setProperties(properties);
-
-        caFactory.getConfigurationStore().save();
-        changeCount.incrementAndGet();
-        sendEvents = true;
-    }
-
-    /**
-     * without other guards, separating updating the properties and sending configuration events
-     * can result in missing and duplicate update events even if every update is eventually associated with an event.
-     */
     @Override
-    public void updateProperties(Dictionary<String, Object> properties) throws IOException {
+    public void updateProperties(Dictionary<String, Object> useProperties) throws IOException {
         lock.lock();
         try {
-            doUpdateProperties(properties);
+            doUpdateProperties(useProperties);
+            // Almost the same as 'update', but do not fire update events.
         } finally {
             lock.unlock();
         }
     }
 
+    private void doUpdateProperties(Dictionary<String, ?> useProperties) {
+        assertNotDeleted();
+        setProperties(useProperties);
+        store();
+        recordChange();
+    }
+
     @Override
     public void fireConfigurationUpdated(Collection<Future<?>> futureList) {
-        if (sendEvents) {
-            sendEvents = false;
-            Future<?> caFuture = caFactory.notifyConfigurationUpdated(this, factoryPid != null);
-            Future<?> configFuture = caFactory.dispatchEvent(ConfigurationEvent.CM_UPDATED, factoryPid, pid);
-            if (futureList != null) {
-                if (caFuture != null) {
-                    futureList.add(caFuture);
-                }
-                if (configFuture != null) {
-                    futureList.add(configFuture);
-                }
+        if (!clearChanged()) {
+            return;
+        }
+
+        Future<?> caFuture = caFactory.notifyConfigurationUpdated(this, factoryPid != null);
+        Future<?> configFuture = caFactory.dispatchEvent(ConfigurationEvent.CM_UPDATED, factoryPid, pid);
+        if (futureList != null) {
+            if (caFuture != null) {
+                futureList.add(caFuture);
+            }
+            if (configFuture != null) {
+                futureList.add(configFuture);
             }
         }
     }
 
-    /**
-     * Updates ConfigurationAdmin's cache with current config properties.
-     * If replaceProp is set to true, current config properties is replace with
-     * the given properties before caching
-     * and the internal pid-to-config table is updated to reflect the new config
-     * properties.
-     *
-     * @param properties
-     * @param replaceProp
-     * @param isMetaTypeProperties
-     *                                 true if properties is MetaType converted properties
-     * @param newUniques
-     * @throws IOException
-     */
     @Override
-    public void updateCache(Dictionary<String, Object> properties, Set<ConfigID> references, Set<String> newUniques) throws IOException {
+    public void updateCache(Dictionary<String, Object> useProperties,
+                            Set<ConfigID> useReferences,
+                            Set<String> newUniques) throws IOException {
+
         lock.lock();
         try {
             removeReferences();
 
-            setProperties(properties);
-            this.references = references;
-            this.uniqueVariables = newUniques;
+            setProperties(useProperties);
+            setReferences(useReferences);
+            setUniqueVariables(newUniques);
 
-            caFactory.getConfigurationStore().save();
-            changeCount.incrementAndGet();
+            store();
 
             addReferences();
-            sendEvents = true;
+
+            recordChange();
+
         } finally {
             lock.unlock();
         }
@@ -491,18 +567,25 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
 
     @Override
     public ConfigID getFullId() {
-        if (configId != null)
+        if (configId != null) {
             return configId;
+        }
 
         if (factoryPid == null) {
             return new ConfigID(pid);
         } else {
             String id = (String) properties.get(ConfigAdminConstants.CFG_CONFIG_INSTANCE_ID);
-            if (id == null)
+            if (id == null) {
                 return new ConfigID(factoryPid, null);
-
-            return ConfigID.fromProperty(id);
+            } else {
+                return ConfigID.deserialize(id);
+            }
         }
+    }
+
+    @Override
+    public void setFullId(ConfigID configId) {
+        this.configId = configId;
     }
 
     @Override
@@ -516,179 +599,63 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
         }
     }
 
-    @Trivial
-    private void removeReferences() {
-        if (properties != null && references != null) {
-            ConfigID configId = getFullId();
-            caFactory.removeReferences(references, configId);
-        }
-    }
+    // Raw state
+
+    private ConfigurationDictionary properties;
+
+    private final Set<ConfigurationAttribute> attributes;
+
+    private Set<ConfigID> references;
+
+    private Set<String> uniqueVariables;
 
     @Trivial
-    private void addReferences() {
-        if (properties != null && references != null) {
-            ConfigID configId = getFullId();
-            caFactory.addReferences(references, configId);
-        }
-    }
-
-    @Trivial
-    private void addPidMapping() {
-        // save pid of factory configurations only
-        if (properties != null && factoryPid != null && caFactory != null) {
-            caFactory.registerConfiguration(getFullId(), this);
-        }
-    }
-
-    @Trivial
-    private void removePidMapping() {
-        // remove pid of factory configurations only
-        if (properties != null && factoryPid != null) {
-            caFactory.unregisterConfiguration(getFullId());
-        }
-    }
-
-    /**
-     * Equals if PID of each Configuration objects are equal.
-     */
-    @Override
-    @Trivial
-    public boolean equals(Object o) {
-        if ((o != null) && (o instanceof Configuration)) {
-            String oPid = ((Configuration) o).getPid();
-            if (this.pid == null) {
-                return (oPid == null);
-            }
-            return this.pid.equals(oPid);
-        }
+    protected boolean matchesFilter(Filter filter) {
+        if (properties != null)
+            return properties.matches(filter);
         return false;
     }
 
-    /**
-     * Hashcode is generated based on PID.
-     */
-    @Override
     @Trivial
-    public int hashCode() {
-        if (hashCode == 0)
-            hashCode = this.pid.hashCode();
-        return hashCode;
+    private void setReferences(Set<ConfigID> references) {
+        this.references = references;
     }
 
-    /**
-     * This is not part of Configuration interface.
-     * It sets configuration dictionary with specified dictionary
-     * and updates configuration attributes if they are not set
-     * and found in given dictionary.
-     *
-     * @param d
-     */
-    private void setProperties(Dictionary<String, ?> d) {
-        if (d == null) {
+    @Trivial
+    private void setUniqueVariables(Set<String> uniqueVariables) {
+        this.uniqueVariables = uniqueVariables;
+    }
+
+    private void setProperties(Dictionary<String, ?> props) {
+        if (props == null) {
             this.properties = null;
             return;
         }
 
-        ConfigurationDictionary newDictionary = new ConfigurationDictionary();
-        Enumeration<String> keys = d.keys();
+        ConfigurationDictionary newProps = new ConfigurationDictionary();
+
+        Enumeration<String> keys = props.keys();
         while (keys.hasMoreElements()) {
             String key = keys.nextElement();
-            if (newDictionary.get(key) == null) {
-                Object value = d.get(key);
-                if (value.getClass().isArray()) {
-                    int arrayLength = Array.getLength(value);
-                    Object copyOfArray = Array.newInstance(value.getClass().getComponentType(), arrayLength);
-                    System.arraycopy(value, 0, copyOfArray, 0, arrayLength);
-                    newDictionary.put(key, copyOfArray);
-                } else if (value instanceof Collection) {
-                    newDictionary.put(key, new Vector<Object>((Collection<?>) value));
-                } else {
-                    newDictionary.put(key, value);
-                }
-            } else
-                throw new IllegalArgumentException(key + " is already present or is a case variant."); //$NON-NLS-1$
-        }
-
-        // fill in necessary properties
-        if (this.factoryPid != null) {
-            newDictionary.put(ConfigurationAdmin.SERVICE_FACTORYPID, this.factoryPid);
-        }
-        newDictionary.put(Constants.SERVICE_PID, this.pid);
-        if (this.inOverridesFile) {
-            newDictionary.put("config.overrides", "true");
-        }
-
-        this.properties = newDictionary;
-
-        //we got new props so we should redo the mappings in case they changed
-        addPidMapping();
-    }
-
-    @Override
-    @Trivial
-    public void setInOverridesFile(boolean inOverridesFile) {
-        lock.lock();
-        try {
-            this.inOverridesFile = inOverridesFile;
-            if (this.properties != null) {
-                if (inOverridesFile) {
-                    this.properties.put("config.overrides", "true");
-                } else {
-                    this.properties.remove("config.overrides");
-                }
+            if (newProps.get(key) != null) {
+                throw new IllegalArgumentException(key + " is already present or is a case variant.");
             }
-        } finally {
-            lock.unlock();
+            newProps.put(key, copyValue(props.get(key)));
         }
-    }
 
-    @Override
-    @Trivial
-    public boolean isInOverridesFile() {
-        lock.lock();
-        try {
-            exceptionIfDeleted();
-            // TODO: clone the value
-            if (properties != null) {
-                return properties.get("config.overrides") != null;
-            }
-
-            return false;
-        } finally {
-            lock.unlock();
+        if (factoryPid != null) {
+            newProps.put(ConfigurationAdmin.SERVICE_FACTORYPID, factoryPid);
         }
+        newProps.put(Constants.SERVICE_PID, pid);
+        if (isOverride) {
+            newProps.put(OVERRIDES_PROPERTY, "true");
+        }
+
+        this.properties = newProps;
+
+        addPidMapping(); // Update the PID mapping in case the PID changed.
     }
 
-    /**
-     * Checks for deleted flag and throws an IllegalStateException if deleted.
-     */
-    @Trivial
-    private void exceptionIfDeleted() {
-        if (this.deleted)
-            throw new IllegalStateException("Configuration pid " + pid + " was deleted.");
-    }
-
-    @Override
-    @Trivial
-    public boolean isDeleted() {
-        return this.deleted;
-    }
-
-    @Override
-    @Trivial
-    public String toString() {
-        return this.getClass().getSimpleName()
-               + "[pid=" + pid
-               + ",factoryPid=" + factoryPid
-               + ",boundBundle=" + boundBundle
-               + ",bundleLocation=" + bundleLocation
-               + "]";
-
-    }
-
-    /**
-     * @return the uniqueVariables
-     */
     @Override
     @Trivial
     public Set<String> getUniqueVariables() {
@@ -703,55 +670,16 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
         }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.osgi.service.cm.Configuration#getChangeCount()
-     */
-    @Override
-    @Trivial
-    public long getChangeCount() {
-        return changeCount.get();
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.ws.config.admin.ExtendedConfiguration#setFullId(com.ibm.ws.config.admin.ConfigID)
-     */
-    @Override
-    public void setFullId(ConfigID id) {
-        this.configId = id;
-    }
-
-    @Trivial
-    protected boolean matchesFilter(Filter filter) {
-        if (this.properties != null)
-            return properties.matches(filter);
-        return false;
-    }
-
-    //
-    //
-    // R7 Upgrade
-    //
-    //
-
-    // TODO: Check IMPL of attributes...
     @Override
     public Set<ConfigurationAttribute> getAttributes() {
-
-        // TODO: security permissions check ???
-        exceptionIfDeleted();
+        assertNotDeleted(); // TODO: Check security?
 
         return attributes;
     }
 
     @Override
-    public void addAttributes(Configuration.ConfigurationAttribute... attrs) throws IOException {
-
-        // TODO: security permissions check ???
-        exceptionIfDeleted();
+    public void addAttributes(ConfigurationAttribute... attrs) throws IOException {
+        assertNotDeleted(); // TODO: Check security?
 
         for (int i = 0; i < attrs.length; i++) {
             attributes.add(attrs[i]);
@@ -759,140 +687,142 @@ class ExtendedConfigurationImpl implements ExtendedConfiguration {
     }
 
     @Override
-    public void removeAttributes(Configuration.ConfigurationAttribute... attrs) throws java.io.IOException {
+    public void removeAttributes(ConfigurationAttribute... attrs) throws IOException {
+        assertNotDeleted(); // TODO: Check security?
 
-        // TODO: security permissions check ???
-        exceptionIfDeleted();
-
-        for (int i = 0; i < attrs.length; i++) {
-            attributes.remove(attrs[i]);
+        for (int attrNo = 0; attrNo < attrs.length; attrNo++) {
+            attributes.remove(attrs[attrNo]);
         }
     }
 
+    //
+
     @Override
-    public boolean updateIfDifferent(java.util.Dictionary<java.lang.String, ?> properties) throws java.io.IOException {
+    public boolean updateIfDifferent(Dictionary<String, ?> useProperties) throws IOException {
         lock.lock();
         try {
-            exceptionIfDeleted();
-
-            if (equalConfigProperties(this.properties, properties) == false) {
-                update(properties);
-                return true;
-            } else {
+            assertNotDeleted();
+            if (equalConfigProperties(properties, useProperties)) {
                 return false;
+            } else {
+                update(useProperties);
+                return true;
             }
         } finally {
             lock.unlock();
         }
-
     }
 
+    /*
+     * TODO: This is for config plugins, which we dont support...
+     *
+     * However, if this throws an illegal state exception then we get this exception:
+     *
+     * [11/19/18 14:55:51:340 EST] 00000024 LogService-13-com.ibm.ws.org.apache.felix.scr E CWWKE0701E: bundle
+     * com.ibm.ws.org.apache.felix.scr:1.0.23.201811071104 (13)Error while loading components of bundle com.ibm.ws.event:1.0.23.201811021519 (15)
+     * Bundle:com.ibm.ws.org.apache.felix.scr(id=13) java.lang.IllegalStateException: getProcessedProperties(ServiceReference<?> reference) in
+     * ExtendedConfiguraitonImpl.java has not been implemented.
+     * at com.ibm.ws.config.admin.internal.ExtendedConfigurationImpl.getProcessedProperties(ExtendedConfigurationImpl.java:789)
+     * at org.apache.felix.scr.impl.manager.RegionConfigurationSupport.configureComponentHolder(RegionConfigurationSupport.java:211)
+     *
+     * So for now, we'll just return a copy of the current config which lets the server start up.
+     */
     @Override
-    public java.util.Dictionary<java.lang.String, java.lang.Object> getProcessedProperties(ServiceReference<?> reference) {
-
-        //TODO: This is for config plugins, which we dont support...
-
-        /*
-         * However, if this throws an illegal state exception then we get this exception:
-         *
-         * [11/19/18 14:55:51:340 EST] 00000024 LogService-13-com.ibm.ws.org.apache.felix.scr E CWWKE0701E: bundle
-         * com.ibm.ws.org.apache.felix.scr:1.0.23.201811071104 (13)Error while loading components of bundle com.ibm.ws.event:1.0.23.201811021519 (15)
-         * Bundle:com.ibm.ws.org.apache.felix.scr(id=13) java.lang.IllegalStateException: getProcessedProperties(ServiceReference<?> reference) in
-         * ExtendedConfiguraitonImpl.java has not been implemented.
-         * at com.ibm.ws.config.admin.internal.ExtendedConfigurationImpl.getProcessedProperties(ExtendedConfigurationImpl.java:789)
-         * at org.apache.felix.scr.impl.manager.RegionConfigurationSupport.configureComponentHolder(RegionConfigurationSupport.java:211)
-         *
-         * So for now, we'll just return a copy of the current config which lets the server start up.
-         */
-
+    public Dictionary<String, Object> getProcessedProperties(ServiceReference<?> reference) {
         lock.lock();
         try {
-            exceptionIfDeleted();
-            if (this.properties == null)
+            assertNotDeleted();
+            if (properties == null) {
                 return null;
-
-            Dictionary<String, Object> copy = properties.copy();
-            return copy;
+            } else {
+                // TODO: This is not entirely safe:
+                // Property values can be collections, which may be updated
+                // without regard to the lock.
+                return properties.copy();
+            }
         } finally {
             lock.unlock();
         }
     }
 
-    private boolean equalConfigProperties(Dictionary<String, ?> oldProperties,
-                                          Dictionary<String, ?> newProperties) {
-        if ((oldProperties == null || oldProperties.isEmpty()) && (newProperties == null || newProperties.isEmpty())) {
-            return true;
-        }
+    // Dictionary primitives ...
 
-        Map<String, ?> oriMapC = toMap(oldProperties);
-        Map<String, ?> newMapC = toMap(newProperties);
+    private static boolean equalConfigProperties(Dictionary<String, ?> oldP,
+                                                 Dictionary<String, ?> newP) {
 
-        // if the old map has never had properties set and we have properties, update
-        // it, even if all the keys are ignored.
-        if (oriMapC.isEmpty() && !newMapC.isEmpty()) {
+        int oldSize = ((oldP == null) ? 0 : oldP.size());
+        int newSize = ((newP == null) ? 0 : newP.size());
+        if (oldSize != newSize) {
             return false;
         }
 
-        // Go through keys in oriMapC and compare with newMapC.
-        // If same, remove key from newMapC
-        // If there are any different ones, return false.
-        // Then go through trimmed newMapC keys
-        // and check for equality in value. If != found, return false.
-        List<String> removeKeyList = new ArrayList<String>();
-        for (Map.Entry<String, ?> entry : oriMapC.entrySet()) {
-            String keyObj = entry.getKey();
-            if (newMapC.containsKey(keyObj)) {
-                if (equalConfigValues(entry.getValue(), newMapC.get(keyObj))) {
-                    removeKeyList.add(keyObj);
-                } else
-                    return false;
-            } else
+        Map<String, ?> oldMap = toMap(oldP);
+        Map<String, ?> newMap = toMap(newP);
+
+        for (Map.Entry<String, ?> oldEntry : oldMap.entrySet()) {
+            String oldKey = oldEntry.getKey();
+            if (!newMap.containsKey(oldKey)) {
                 return false;
+            } else if (!equalValues(oldEntry.getValue(), newMap.get(oldKey))) {
+                return false;
+            }
         }
 
-        for (Object keyObj : removeKeyList) {
-            if (keyObj != null)
-                newMapC.remove(keyObj);
-        }
-        for (Map.Entry<String, ?> entry : newMapC.entrySet()) {
-            String keyObj = entry.getKey();
-            if ((keyObj != null)) {
-                if (oriMapC.containsKey(keyObj)) {
-                    if (!equalConfigValues(entry.getValue(), oriMapC.get(keyObj))) {
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
+        for (Map.Entry<String, ?> newEntry : newMap.entrySet()) {
+            String newKey = newEntry.getKey();
+            if (!oldMap.containsKey(newKey)) {
+                return false;
             }
         }
 
         return true;
-
     }
 
-    private boolean equalConfigValues(Object c1, Object c2) {
-        if (c1 instanceof String && c2 instanceof String)
-            return c1.equals(c2);
-        if (c1 instanceof String[] && c2 instanceof String[])
-            return Arrays.equals((String[]) c1, (String[]) c2);
-        if (c1 instanceof Map && c2 instanceof Map)
-            return c1.equals(c2);
-        if (c1 != null)
-            return c1.equals(c2);
-        return (c2 == null);
-    }
-
-    private Map<String, ?> toMap(Dictionary<String, ?> d) {
-        if (d == null) {
+    private static Map<String, ?> toMap(Dictionary<String, ?> d) {
+        if ((d == null) || d.isEmpty()) {
             return Collections.emptyMap();
         }
-        HashMap<String, Object> ret = new HashMap<String, Object>(d.size());
-        for (Enumeration<String> keyIter = d.keys(); keyIter.hasMoreElements();) {
-            String key = keyIter.nextElement();
-            ret.put(key, d.get(key));
+
+        HashMap<String, Object> m = new HashMap<String, Object>(d.size());
+        for (Enumeration<String> keys = d.keys(); keys.hasMoreElements();) {
+            String key = keys.nextElement();
+            m.put(key, d.get(key));
         }
-        return ret;
+        return m;
     }
 
+    // Value primitives ...
+
+    private static boolean equalValues(Object c1, Object c2) {
+        if ((c1 instanceof String) && (c2 instanceof String)) {
+            return c1.equals(c2);
+        }
+
+        if ((c1 instanceof String[]) && (c2 instanceof String[])) {
+            return Arrays.equals((String[]) c1, (String[]) c2);
+        }
+
+        if ((c1 instanceof Map) && (c2 instanceof Map)) {
+            return c1.equals(c2);
+        }
+
+        if (c1 != null) {
+            return c1.equals(c2);
+        } else {
+            return (c2 == null);
+        }
+    }
+
+    private static Object copyValue(Object v) {
+        if (v.getClass().isArray()) {
+            int arrayLength = Array.getLength(v);
+            Object copyOfArray = Array.newInstance(v.getClass().getComponentType(), arrayLength);
+            System.arraycopy(v, 0, copyOfArray, 0, arrayLength);
+            return copyOfArray;
+        } else if (v instanceof Collection) {
+            return new Vector<Object>((Collection<?>) v);
+        } else {
+            return v;
+        }
+    }
 }

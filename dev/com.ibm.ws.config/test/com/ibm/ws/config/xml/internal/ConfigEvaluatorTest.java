@@ -4,7 +4,7 @@
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-2.0/
- * 
+ *
  * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
@@ -59,8 +59,8 @@ import com.ibm.ws.config.xml.internal.ConfigEvaluator.UnresolvedService;
 import com.ibm.ws.config.xml.internal.MetaTypeRegistry.RegistryEntry;
 import com.ibm.ws.config.xml.internal.metatype.ExtendedAttributeDefinition;
 import com.ibm.ws.config.xml.internal.metatype.MetaTypeHelper;
-import com.ibm.ws.config.xml.nester.Nester;
 import com.ibm.ws.config.xml.internal.variables.ConfigVariableRegistry;
+import com.ibm.ws.config.xml.nester.Nester;
 import com.ibm.ws.kernel.service.location.internal.SymbolRegistry;
 import com.ibm.ws.kernel.service.location.internal.VariableRegistryHelper;
 import com.ibm.wsspi.kernel.service.location.VariableRegistry;
@@ -319,8 +319,8 @@ public class ConfigEvaluatorTest {
         ConfigID parent = new ConfigID("com.ibm.parent", "one");
         ConfigID child = new ConfigID(parent, "com.ibm.child", "aChild", "child");
 
-        assertEquals("ConfigIDs should round trip", parent, ConfigID.fromProperty(parent.toString()));
-        assertEquals("ConfigIDs should round trip", child, ConfigID.fromProperty(child.toString()));
+        assertEquals("ConfigIDs should round trip", parent, ConfigID.deserialize(parent.toString()));
+        assertEquals("ConfigIDs should round trip", child, ConfigID.deserialize(child.toString()));
     }
 
     @Test
@@ -3538,7 +3538,7 @@ public class ConfigEvaluatorTest {
         assertEquals("c1a", properties.get("c1.0.attr"));
 
         assertEquals(1, result.getNested().size());
-        EvaluationResult nested = result.getNested().get(ConfigID.fromProperty("top[top]//c1(c1)//com.ibm.ws.ref(ref)[default-0]"));
+        EvaluationResult nested = result.getNested().get(ConfigID.deserialize("top[top]//c1(c1)//com.ibm.ws.ref(ref)[default-0]"));
         assertNotNull(nested);
     }
 

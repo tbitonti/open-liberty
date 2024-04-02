@@ -48,6 +48,10 @@ public class ConfigID extends RawConfigID implements Serializable {
         return deserialize(property, null);
     }
 
+    protected static void error(String msgId, Object... parms) {
+        // TODO
+    }
+
     /**
      * Deserialize a configuration ID.
      *
@@ -163,27 +167,22 @@ public class ConfigID extends RawConfigID implements Serializable {
             boolean haveError = (afterId || afterAttr || unclosedId || unclosedAttr);
             if (haveError) {
                 String fragment = property.substring(lastSlash, nextSlash);
-
                 if (afterId) {
-                    System.out.println("Warning: Configuration ID fragment [ " + fragment + " ] of [ " + property + " ]" +
-                                       " has characters after the ID close character ']'.");
+                    error("CWWKG0110E", fragment, property);
                 }
                 if (afterAttr) {
-                    System.out.println("Warning: Configuration ID fragment [ " + fragment + " ] of [ " + property + " ]" +
-                                       " has characters after the child attibute close character ')'.");
+                    error("CWWKG0111E", fragment, property);
                 }
                 if (unclosedId) {
-                    System.out.println("Warning: Configuration ID fragment [ " + fragment + " ] of [ " + property + " ]" +
-                                       " has no closing ID character ']'.");
+                    error("CWWKG0112E", fragment, property);
                 }
                 if (unclosedAttr) {
-                    System.out.println("Warning: Configuration ID fragment [ " + fragment + " ] of [ " + property + " ]" +
-                                       " has no closing child attribute character ')'.");
+                    error("CWWKG01103", fragment, property);
                 }
             }
 
             if (storage == null) {
-                lastParent = new ConfigID(lastParent, pid, id, childAttr);
+                lastParent = new ConfigID(lastParent, pid, id, childAttr, DO_VALIDATE);
 
             } else {
                 RawConfigID lookupId = new RawConfigID(lastParent, pid, id, childAttr);
@@ -313,15 +312,31 @@ public class ConfigID extends RawConfigID implements Serializable {
     //
 
     public ConfigID(String pid) {
-        this(null, pid, null, null);
+        this(null, pid, null, null, DO_VALIDATE);
+    }
+
+    public ConfigID(String pid, boolean doValidate) {
+        this(null, pid, null, null, doValidate);
     }
 
     public ConfigID(String pid, String id) {
-        this(null, pid, id, null);
+        this(null, pid, id, null, DO_VALIDATE);
+    }
+
+    public ConfigID(String pid, String id, boolean doValidate) {
+        this(null, pid, id, null, doValidate);
     }
 
     public ConfigID(ConfigID parent, String pid, String id) {
-        this(parent, pid, id, null);
+        this(parent, pid, id, null, DO_VALIDATE);
+    }
+
+    public ConfigID(ConfigID parent, String pid, String id, boolean doValidate) {
+        this(parent, pid, id, null, doValidate);
+    }
+
+    protected static IllegalArgumentException illegalArgumentException(String msgId, Object... parms) {
+        return new IllegalArgumentException(msgId);
     }
 
     protected static void validate(String pid, String id, String childAttribute) {
@@ -330,9 +345,9 @@ public class ConfigID extends RawConfigID implements Serializable {
             for (int charNo = 0; charNo < pid.length(); charNo++) {
                 char c = pid.charAt(charNo);
                 if ((c == '(') || (c == '[')) {
-                    throw new IllegalArgumentException("Configuration ID PID [ " + pid + " ] includes non-valid character [ " + c + " ]");
+                    throw illegalArgumentException("CWWKG0114E", pid, Character.valueOf(c));
                 } else if ((c == '/') && (lastChar == '/')) {
-                    throw new IllegalArgumentException("Configuration ID PID [ " + pid + " ] includes non-valid characters [ // ]");
+                    throw illegalArgumentException("CWWKG0114E", pid, "//");
                 }
                 lastChar = c;
             }
@@ -343,9 +358,9 @@ public class ConfigID extends RawConfigID implements Serializable {
             for (int charNo = 0; charNo < childAttribute.length(); charNo++) {
                 char c = childAttribute.charAt(charNo);
                 if (c == ')') {
-                    throw new IllegalArgumentException("Configuration ID child attribute [ " + childAttribute + " ] includes non-valid character [ " + c + " ]");
+                    throw illegalArgumentException("CWWKG0115E", childAttribute, ")");
                 } else if ((c == '/') && (lastChar == '/')) {
-                    throw new IllegalArgumentException("Configuration ID child attribute [ " + childAttribute + " ] includes non-valid characters [ // ]");
+                    throw illegalArgumentException("CWWKG0115E", childAttribute, "//");
                 }
                 lastChar = c;
             }
@@ -356,9 +371,9 @@ public class ConfigID extends RawConfigID implements Serializable {
             for (int charNo = 0; charNo < id.length(); charNo++) {
                 char c = id.charAt(charNo);
                 if (c == ']') {
-                    throw new IllegalArgumentException("Configuration ID id [ " + id + " ] includes non-valid character [ " + c + " ]");
+                    throw illegalArgumentException("CWWKG0116E", id, "]");
                 } else if ((c == '/') && (lastChar == '/')) {
-                    throw new IllegalArgumentException("Configuration ID id [ " + id + " ] includes non-valid characters [ // ]");
+                    throw illegalArgumentException("CWWKG0116E", id, "//");
                 }
                 lastChar = c;
             }
@@ -366,7 +381,7 @@ public class ConfigID extends RawConfigID implements Serializable {
     }
 
     public ConfigID(ConfigID parent, String pid, String id, String childAttribute) {
-        this(parent, pid, id, childAttribute, !DO_VALIDATE);
+        this(parent, pid, id, childAttribute, DO_VALIDATE);
     }
 
     public static final boolean DO_VALIDATE = true;

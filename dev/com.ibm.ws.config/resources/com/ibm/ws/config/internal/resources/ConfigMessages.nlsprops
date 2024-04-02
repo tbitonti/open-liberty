@@ -494,5 +494,33 @@ schemagen.info.schema.file.created=CWWKG0109I: The schema was created in the [{0
 schemagen.info.schema.file.created.explanation=The command completed successfully.
 schemagen.info.schema.file.created.useraction=No action is required.
 
+error.config.chars.after.id=CWWKG0110E: Error: Configuration ID fragment [ {0} ] of configuration ID [ {1} ] has characters after the ID close character ']'.
+error.config.chars.after.id.explanation=Extra characters are present within the configuration ID.
+error.config.chars.after.id.useraction=Review the configuration and correct the problem configuration ID.
+
+error.config.chars.after.child=CWWKG0111E: Error: Configuration ID fragment [ {0} ] of configuration ID [ {1} ] has characters after the child attribute close character ')'.
+error.config.chars.after.child.explanation=Extra characters are present within the configuration ID.
+error.config.chars.after.child.useraction=Review the configuration and correct the problem configuration ID.
+
+error.config.no.closing.id=CWWKG0112E: Error: Configuration ID fragment [ {0} ] of configuration ID [ {1} ] has no closing ID character ']'.
+error.config.no.closing.id.explanation=The configuration ID begins an ID (using the opening ID character '[') which has no matching closing ID character.
+error.config.no.closing.id.useraction=Review the configuration and correct the problem configuration ID.
+
+error.config.no.closing.child=CWWKG0113E: Error: Configuration ID fragment [ {0} ] of configuration ID [ {1} ] has no closing child attribute character ')'.
+error.config.no.closing.child.explanation=The configuration ID begins a child attribute (using the opening character ')') which has no matching closing character.
+error.config.no.closing.child.useraction=Review the configuration and correct the problem configuration ID.
+
+error.config.nonvalid.pid=CWWKG0114E: Error: PID [ {0} ] includes non-valid characters [ {1} ].
+error.config.nonvalid.pid.explanation=Non-valid characters were used in a configuration ID.
+error.config.nonvalid.pid.useraction=Remove the non-valid characters from the configuration ID.
+
+error.config.nonvalid.child=CWWKG0115E: Error: Child attribute [ {0} ] includes non-valid characters [ {1} ].
+error.config.nonvalid.child.explanation=Non-valid characters were used in a configuration ID.
+error.config.nonvalid.child=Remove the non-valid characters from the configuration ID.
+
+error.config.nonvalid.id=CWWKG0116E: Error: Id [ {0} ] includes non-valid characters [ {1} ].
+error.config.nonvalid.id.explanation=Non-valid characters were used in a configuration ID.
+error.config.nonvalid.id=Remove the non-valid characters from the configuration ID.
+
 # Non-TR message
 error.invalidOCDRef=ERROR: Metatype PID [{0}] specifies non-existent object class definition ID [{1}]
