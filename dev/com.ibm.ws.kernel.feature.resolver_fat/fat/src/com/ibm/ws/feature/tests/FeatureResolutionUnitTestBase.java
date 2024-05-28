@@ -12,11 +12,6 @@
  *******************************************************************************/
 package com.ibm.ws.feature.tests;
 
-import static com.ibm.ws.feature.tests.RepositoryUtil.getFeature;
-import static com.ibm.ws.feature.tests.RepositoryUtil.getRepository;
-import static com.ibm.ws.feature.tests.RepositoryUtil.ignoreFeatures;
-import static com.ibm.ws.feature.tests.RepositoryUtil.setupLocations;
-import static com.ibm.ws.feature.tests.RepositoryUtil.setupRepo;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -173,13 +168,16 @@ public class FeatureResolutionUnitTestBase {
     public static void doSetupClass(String serverName) throws Exception {
         if (didSetup) {
             return;
+        } else {
+            didSetup = true;
         }
 
-        setupLocations();
-        setupRepo(serverName);
-        setupBeta();
+        RepositoryUtil.setupFeatures();
+        RepositoryUtil.setupProfiles();
 
-        didSetup = true;
+        RepositoryUtil.setupRepo(serverName);
+
+        setupBeta();
     }
 
     //
@@ -248,7 +246,7 @@ public class FeatureResolutionUnitTestBase {
 
         String preferredPlatforms = getPreferredPlatforms();
         if (preferredPlatforms != null) {
-            resolver.setPreferredPlatforms(preferredPlatforms);
+            FeatureResolverImpl.setPreferredPlatforms(preferredPlatforms);
         }
     }
 
@@ -267,7 +265,7 @@ public class FeatureResolutionUnitTestBase {
     public List<String> detectSingletonErrors(List<String> rootFeatures) {
         String rootFeature = rootFeatures.get(0);
 
-        if (getFeature(rootFeature) == null) {
+        if (RepositoryUtil.getFeatureDef(rootFeature) == null) {
             String message = "Root feature [ " + rootFeature + " ]: Missing from baseline";
             return Collections.singletonList(message);
         } else {
@@ -281,14 +279,14 @@ public class FeatureResolutionUnitTestBase {
 
         List<String> rootErrors = null;
 
-        if (getFeature(rootFeature0) == null) {
+        if (RepositoryUtil.getFeatureDef(rootFeature0) == null) {
             String message = "Root feature [ " + rootFeature0 + " ]: Missing from baseline";
 
             rootErrors = new ArrayList<>(2);
             rootErrors.add(message);
         }
 
-        if (getFeature(rootFeature1) == null) {
+        if (RepositoryUtil.getFeatureDef(rootFeature1) == null) {
             String message = "Combination feature [ " + rootFeature1 + " ]: Missing from baseline";
 
             if (rootErrors == null) {
@@ -302,8 +300,8 @@ public class FeatureResolutionUnitTestBase {
     }
 
     public Result resolveFeatures(VerifyCase verifyCase, List<String> rootErrors) throws Exception {
-        return resolver.resolve(getRepository(),
-                                ignoreFeatures("Kernel", verifyCase.input.kernel),
+        return resolver.resolve(RepositoryUtil.getRepository(),
+                                RepositoryUtil.ignoreFeatures("Kernel", verifyCase.input.kernel),
                                 verifyCase.input.roots,
                                 Collections.<String> emptySet(), // pre-resolved feature names
                                 verifyCase.input.isMultiple,
@@ -356,7 +354,7 @@ public class FeatureResolutionUnitTestBase {
         List<String> missing = new ArrayList<>();
         List<String> extra = new ArrayList<>();
 
-        List<String> errors = VerifyDelta.compare(new RepoVisibilitySupplier(getRepository()),
+        List<String> errors = VerifyDelta.compare(new RepoVisibilitySupplier(RepositoryUtil.getRepository()),
                                                   null, warnings,
                                                   inputCase, outputCase,
                                                   !VerifyDelta.UPDATED_USED_KERNEL,

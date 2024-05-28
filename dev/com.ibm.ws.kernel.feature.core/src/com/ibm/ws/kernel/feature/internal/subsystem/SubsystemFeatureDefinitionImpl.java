@@ -1,10 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2021 IBM Corporation and others.
+ * Copyright (c) 2011, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-2.0/
- * 
+ *
  * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
@@ -25,6 +25,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.PropertyResourceBundle;
@@ -54,11 +55,7 @@ import com.ibm.ws.kernel.feature.provisioning.SubsystemContentType;
 import com.ibm.ws.kernel.provisioning.ExtensionConstants;
 import com.ibm.wsspi.kernel.feature.LibertyFeature;
 
-/**
- *
- */
 public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefinition, LibertyFeature {
-
     private static final TraceComponent tc = Tr.register(SubsystemFeatureDefinitionImpl.class);
 
     /** Immutable attributes of the subsystem feature definition */
@@ -226,7 +223,7 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
     @Override
     public boolean isSingleton() {
         return iAttr.isSingleton;
-    };
+    }
 
     @Override
     public String getBundleRepositoryType() {
@@ -255,9 +252,10 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
         if (dir != null && dir.isDirectory()) {
             files = dir.listFiles(new FilenameFilter() {
                 @Override
-                public boolean accept(File dir, String name) {
+                public boolean accept(File useDir, String name) {
                     // KEEP IN SYNC WITH getResourceBundle !!
-                    return name.equals(iAttr.symbolicName + ".properties") || (name.startsWith(iAttr.symbolicName + "_") && name.endsWith(".properties"));
+                    return name.equals(iAttr.symbolicName + ".properties") ||
+                           (name.startsWith(iAttr.symbolicName + "_") && name.endsWith(".properties"));
                 }
             });
         }
@@ -280,6 +278,7 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
                 try {
                     return new PropertyResourceBundle(new FileReader(file));
                 } catch (IOException e) {
+                    // FFDC and ignore
                 }
             }
         }
@@ -287,22 +286,22 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
         return null;
     }
 
-    /** {@inheritDoc} */
+    private ProvisioningDetails verifyDetails() {
+        if (mfDetails == null) {
+            throw new IllegalStateException("Method called outside of provisioining operation or without a registered service");
+        }
+        return mfDetails;
+    }
+
     @Override
     public Collection<FeatureResource> getConstituents(SubsystemContentType type) {
-        if (mfDetails == null)
-            throw new IllegalStateException("Method called outside of provisioining operation or without a registered service");
-
-        return mfDetails.getConstituents(type);
+        return verifyDetails().getConstituents(type);
     }
 
     @Override
     public String getHeader(String header) {
-        if (mfDetails == null)
-            throw new IllegalStateException("Method called outside of provisioining operation or without a registered service");
-
         try {
-            return mfDetails.getMainAttributeValue(header);
+            return verifyDetails().getMainAttributeValue(header);
         } catch (IOException e) {
             // We should be well beyond any IOException issues obtaining the manifest..
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
@@ -310,6 +309,11 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
             }
         }
         return null;
+    }
+
+    @Override
+    public List<String> getAltNames() {
+        return verifyDetails().getAltNames();
     }
 
     @Override
@@ -349,13 +353,11 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
         mfDetails.setHeaderValue(header, value);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         return iAttr.hashCode();
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean equals(Object obj) {
         if (this == obj)
@@ -370,7 +372,6 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
         return this.iAttr.equals(other.iAttr);
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isSuperseded() {
         if (mfDetails == null)
@@ -379,7 +380,6 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
         return mfDetails.isSuperseded();
     }
 
-    /** {@inheritDoc} */
     @Override
     public String getSupersededBy() {
         if (mfDetails == null)
@@ -388,11 +388,6 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
         return mfDetails.getSupersededBy();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.ws.kernel.feature.FeatureDefinition#isCapabilitySatified(java.util.Collection)
-     */
     @Override
     public boolean isCapabilitySatisfied(Collection<ProvisioningFeatureDefinition> featureDefinitionsToCheck) {
         // If it isn't an autofeature, it's satisfied.
@@ -452,7 +447,6 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
         return isCapabilitySatisfied;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isKernel() {
         return false;
@@ -466,11 +460,6 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
             return mfDetails.toString();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.ws.kernel.feature.provisioning.ProvisioningFeatureDefinition#getIcons()
-     */
     @Override
     public Collection<String> getIcons() {
         Collection<String> result = new ArrayList<String>();
@@ -503,11 +492,6 @@ public class SubsystemFeatureDefinitionImpl implements ProvisioningFeatureDefini
         return result;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.wsspi.kernel.feature.LibertyFeature#getBundles()
-     */
     @Override
     public Collection<Bundle> getBundles() {
         if (mfDetails == null)

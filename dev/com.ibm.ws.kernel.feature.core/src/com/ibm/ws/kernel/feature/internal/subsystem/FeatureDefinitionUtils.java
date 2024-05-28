@@ -416,7 +416,6 @@ public class FeatureDefinitionUtils {
          * @return A (possibly empty) set of alternate names.
          */
         List<String> getAltNames() {
-
             if (alternateNames == null) {
                 List<String> result;
                 String ibmAltNames;
@@ -440,13 +439,6 @@ public class FeatureDefinitionUtils {
             return alternateNames;
         }
 
-        /**
-         * @param iAttr
-         * @param autoFeatureCapability
-         * @param apiServices
-         * @param apiPackages
-         * @param spiPackages
-         */
         ProvisioningDetails(ImmutableAttributes iAttr, String autoFeatureCapability, String apiServices, String apiPackages, String spiPackages) {
             this.iAttr = iAttr;
             this.autoFeatureCapability = autoFeatureCapability;

@@ -14,6 +14,7 @@ package com.ibm.ws.kernel.feature.provisioning;
 
 import java.io.File;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 
 import com.ibm.ws.kernel.feature.FeatureDefinition;
@@ -162,4 +163,12 @@ public interface ProvisioningFeatureDefinition extends FeatureDefinition {
      *         satisfied by the supplying features.
      */
     boolean isCapabilitySatisfied(Collection<ProvisioningFeatureDefinition> supplyingDefs);
+
+    /**
+     * Answer the alternate names of this feature.  Answer an empty collection
+     * if there are none.
+     *
+     * @return The alternate names of this feature.
+     */
+    List<String> getAltNames();
 }
