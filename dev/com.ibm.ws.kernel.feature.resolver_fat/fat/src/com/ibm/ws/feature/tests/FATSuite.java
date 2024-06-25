@@ -18,22 +18,15 @@ import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
 @SuiteClasses({
+                ReportFeaturesUnitTest.class,
+                ReportImagesUnitTest.class,
+                FeatureDetailsUnitTest.class,
+                BaselineResolutionSingletonUnitTest.class,
+                BaselineResolutionServletUnitTest.class,
+                BaselineResolutionMicroProfileUnitTest.class,
+                BaselineResolutionGenerationTest.class,
+                AlwaysPassTest.class
 
-// Needs to be refactored into normal build test suite - not as FAT's
-/*
- * ReportFeaturesUnitTest.class,
- * ReportImagesUnitTest.class,
- * 
- * FeatureDetailsUnitTest.class,
- * 
- * BaselineResolutionSingletonUnitTest.class,
- * BaselineResolutionServletUnitTest.class,
- * BaselineResolutionMicroProfileUnitTest.class,
- * 
- * BaselineResolutionGenerationTest.class,
- * BaselineVersionlessSingletonUnitTest.class
- */
-        AlwaysPassTest.class
 // VersionlessServletToMicroProfileTest.class,
 // VersionlessJavaEEToMicroProfileTest.class,
 // VersionlessEnvVarErrorTest.class
