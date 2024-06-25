@@ -65,8 +65,8 @@ public class RepositoryUtil {
 
     //
 
-    public static final String FEATURES_PROJECT_PATH = "../../com.ibm.websphere.appserver.features";
-    public static final String FEATURES_PATH = FEATURES_PROJECT_PATH + "/" + "visibility";
+    public static final String FEATURES_PROJECT_PATH = "../../build.image";
+    public static final String FEATURES_PATH = FEATURES_PROJECT_PATH + "/build/features";
 
     public static String FEATURES_ABS_PATH;
     public static File FEATURES_FILE;
