@@ -58,7 +58,6 @@ task copyFeatures() {
     copy {
       from(fileTree(project(':com.ibm.websphere.appserver.features').file('visibility')))
       into "${buildDir}/autoFVT/lib/features"
-      eachFile { println "  " + it.file }
     }
   }
 }

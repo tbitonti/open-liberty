@@ -14070,6 +14070,7 @@
             <resolved>io.openliberty.cdi3.0-appSecurity</resolved>
             <resolved>io.openliberty.restfulWS3.0-monitor1.0</resolved>
             <resolved>io.openliberty.httpStat-monitor1.0.jakarta</resolved>
+            <resolved>io.openliberty.org.eclipse.microprofile.config.3.1.ee-10.0</resolved>
         </output>
     </case>
     <case>
@@ -14129,6 +14130,7 @@
             <resolved>io.openliberty.org.eclipse.microprofile.config-3.1</resolved>
             <resolved>com.ibm.websphere.appserver.internal.slf4j-1.7</resolved>
             <resolved>mpConfig-3.1</resolved>
+            <resolved>io.openliberty.org.eclipse.microprofile.config.3.1.ee-10.0</resolved>
         </output>
     </case>
     <case>
@@ -15036,6 +15038,7 @@
             <resolved>io.openliberty.cdi3.0-transaction2.0</resolved>
             <resolved>com.ibm.websphere.appserver.securityContext-1.0</resolved>
             <resolved>io.openliberty.httpStat-monitor1.0.jakarta</resolved>
+            <resolved>io.openliberty.org.eclipse.microprofile.config.3.1.ee-10.0</resolved>
         </output>
     </case>
     <case>
@@ -15586,6 +15589,7 @@
             <resolved>io.openliberty.cdi3.0-jndi1.0</resolved>
             <resolved>io.openliberty.cdi4.0-servlet6.0</resolved>
             <resolved>io.openliberty.cdi3.0-transaction2.0</resolved>
+            <resolved>io.openliberty.org.eclipse.microprofile.config.3.1.ee-10.0</resolved>
         </output>
     </case>
     <case>

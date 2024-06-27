@@ -23,6 +23,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import com.ibm.ws.feature.tests.util.FeatureRepositorySupplier;
+import com.ibm.ws.feature.tests.util.RepositoryUtil;
 import com.ibm.ws.kernel.feature.internal.util.VerifyData;
 import com.ibm.ws.kernel.feature.internal.util.VerifyDelta;
 import com.ibm.ws.kernel.feature.internal.util.VerifyEnv;
@@ -345,7 +347,9 @@ public class BaselineResolutionGenerationTest {
                     System.out.println("Actual singleton cases [ " + singletonActualResults.cases.size() + " ]");
 
                     System.out.println("Expected [ " + singletonExpectedResultsPath_OL + " ]; Actual [ " + singletonActualResultsPath + " ]");
-                    singletonErrors = VerifyDelta.compare(singletonExpectedResults_OL, singletonActualResults, !VerifyDelta.UPDATED_USED_KERNEL);
+                    singletonErrors = VerifyDelta.compare(new FeatureRepositorySupplier(RepositoryUtil.getRepository()),
+                                                          singletonExpectedResults_OL,
+                                                          singletonActualResults, !VerifyDelta.UPDATED_USED_KERNEL);
                 }
             }
         }
@@ -371,7 +375,9 @@ public class BaselineResolutionGenerationTest {
                     System.out.println("Actual servlet cases [ " + servletActualResults.cases.size() + " ]");
 
                     System.out.println("Expected [ " + servletExpectedResultsPath_OL + " ]; Actual [ " + servletActualResultsPath + " ]");
-                    servletErrors = VerifyDelta.compare(servletExpectedResults_OL, servletActualResults, !VerifyDelta.UPDATED_USED_KERNEL);
+                    servletErrors = VerifyDelta.compare(new FeatureRepositorySupplier(RepositoryUtil.getRepository()),
+                                                        servletExpectedResults_OL,
+                                                        servletActualResults, !VerifyDelta.UPDATED_USED_KERNEL);
                 }
             }
         }

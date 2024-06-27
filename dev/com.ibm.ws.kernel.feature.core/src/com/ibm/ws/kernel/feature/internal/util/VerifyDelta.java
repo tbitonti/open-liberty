@@ -19,10 +19,11 @@ import java.util.Set;
 import com.ibm.ws.kernel.feature.internal.util.VerifyData.VerifyCase;
 
 public class VerifyDelta {
-    public static Map<String, List<String>> compare(VerifyData expectedCases,
+    public static Map<String, List<String>> compare(FeatureSupplier repo,
+                                                    VerifyData expectedCases,
                                                     VerifyData actualCases, boolean actualUsedKernel) {
         VerifyDelta delta = new VerifyDelta();
-        delta.doCompare(expectedCases, actualCases, actualUsedKernel);
+        delta.doCompare(repo, expectedCases, actualCases, actualUsedKernel);
         return delta.getErrors();
     }
 
@@ -78,12 +79,12 @@ public class VerifyDelta {
         caseErrors.add(error);
     }
 
-    private static List<String> addError(List<String> errors, String error) {
-        if (errors == null) {
-            errors = new ArrayList<>();
+    private static List<String> addMessage(List<String> messages, String message) {
+        if (messages == null) {
+            messages = new ArrayList<>();
         }
-        errors.add(error);
-        return errors;
+        messages.add(message);
+        return messages;
     }
 
     //
@@ -122,7 +123,9 @@ public class VerifyDelta {
 
     public static final boolean USED_KERNEL = true;
 
-    public void doCompare(VerifyData expectedCases, VerifyData actualCases, boolean actualUsedKernel) {
+    public void doCompare(FeatureSupplier repo,
+                          VerifyData expectedCases,
+                          VerifyData actualCases, boolean actualUsedKernel) {
 
         int actualSize = actualCases.cases.size();
         int expectedSize = expectedCases.cases.size();
@@ -160,7 +163,8 @@ public class VerifyDelta {
 
             List<String> caseWarnings = new ArrayList<>(0);
 
-            List<String> caseErrors = compare(null, caseWarnings,
+            List<String> caseErrors = compare(repo,
+                                              null, caseWarnings,
                                               expectedCase,
                                               actualCase, actualUsedKernel,
                                               null, null);
@@ -174,21 +178,7 @@ public class VerifyDelta {
         }
     }
 
-    public static List<String> compare(List<String> caseErrors, List<String> caseWarnings,
-                                       VerifyCase expectedCase,
-                                       VerifyCase actualCase, boolean actualUsedKernel,
-                                       List<String> extra, List<String> missing) {
-
-        return compare(null,
-                       caseErrors, caseWarnings,
-                       expectedCase.output.resolved,
-                       expectedCase.output.kernelOnly,
-                       expectedCase.output.kernelBlocked,
-                       actualCase.output.resolved, actualUsedKernel,
-                       extra, missing);
-    }
-
-    public static List<String> compare(VisibilitySupplier repo,
+    public static List<String> compare(FeatureSupplier repo,
                                        List<String> caseErrors, List<String> caseWarnings,
                                        VerifyCase expectedCase,
                                        VerifyCase actualCase, boolean actualUsedKernel,
@@ -203,23 +193,29 @@ public class VerifyDelta {
                        extra, missing);
     }
 
-    public static interface VisibilitySupplier {
+    public static interface FeatureSupplier {
         String getVisibility(String featureName);
+
+        boolean isNoShip(String featureName);
+
+        boolean dependsOnNoShip(String featureName);
     }
 
-    protected static String getType(VisibilitySupplier repo, String featureName) {
-        return repo.getVisibility(featureName);
-    }
-
-    protected static String addType(VisibilitySupplier repo, String featureName) {
+    protected static String addType(FeatureSupplier repo, String featureName) {
         if (repo == null) {
             return featureName;
         } else {
-            return featureName + " " + getType(repo, featureName);
+            return featureName + " " + repo.getVisibility(featureName);
         }
     }
 
-    public static List<String> compare(VisibilitySupplier repo,
+    private static void add(List<String> storage, String element) {
+        if (storage != null) {
+            storage.add(element);
+        }
+    }
+
+    public static List<String> compare(FeatureSupplier repo,
                                        List<String> caseErrors, List<String> caseWarnings,
                                        List<String> expected,
                                        List<String> expectedKernelOnly,
@@ -228,13 +224,16 @@ public class VerifyDelta {
                                        boolean actualUsedKernel,
                                        List<String> extra, List<String> missing) {
 
-        int actualSize = actual.size();
+        // Don't do this: Rely on the extra/missing checks.
+        // The sizes are allowed to be different if the differences are all no-ship features.
 
-        int expectedSize = expected.size();
-        expectedSize += (actualUsedKernel ? expectedKernelOnly.size() : expectedKernelBlocked.size());
-        if (actualSize != expectedSize) {
-            caseErrors = addError(caseErrors, "Incorrect count: expected [ " + expectedSize + " ] actual [ " + actualSize + " ]");
-        }
+        // int actualSize = actual.size();
+        //
+        // int expectedSize = expected.size();
+        // expectedSize += (actualUsedKernel ? expectedKernelOnly.size() : expectedKernelBlocked.size());
+        // if (actualSize != expectedSize) {
+        //     caseErrors = addMessage(caseErrors, "Incorrect count: expected [ " + expectedSize + " ] actual [ " + actualSize + " ]");
+        // }
 
         Set<String> actualSet = new HashSet<>(actual);
         Set<String> expectedSet = new HashSet<>(expected);
@@ -242,10 +241,12 @@ public class VerifyDelta {
 
         for (String expectedElement : expectedSet) {
             if (!actualSet.contains(expectedElement)) {
-                if (missing != null) {
-                    missing.add(expectedElement);
+                if (repo.isNoShip(expectedElement) || repo.dependsOnNoShip(expectedElement)) {
+                    caseWarnings = addMessage(caseWarnings, "Missing no-ship [ " + addType(repo, expectedElement) + " ]");
+                } else {
+                    add(missing, expectedElement);
+                    caseErrors = addMessage(caseErrors, "Missing [ " + addType(repo, expectedElement) + " ]");
                 }
-                caseErrors = addError(caseErrors, "Missing [ " + addType(repo, expectedElement) + " ]");
             }
         }
 
@@ -253,10 +254,12 @@ public class VerifyDelta {
 
         for (String expectedElement : expectedExtraSet) {
             if (!actualSet.contains(expectedElement)) {
-                if (missing != null) {
-                    missing.add(expectedElement);
+                if (repo.isNoShip(expectedElement) || repo.dependsOnNoShip(expectedElement)) {
+                    caseWarnings = addMessage(caseWarnings, "Missing no-ship [ " + addType(repo, expectedElement) + " ]" + usedKernelTag);
+                } else {
+                    add(missing, expectedElement);
+                    caseErrors = addMessage(caseErrors, "Missing [ " + addType(repo, expectedElement) + " ]" + usedKernelTag);
                 }
-                caseErrors = addError(caseErrors, "Missing [ " + addType(repo, expectedElement) + " ]" + usedKernelTag);
             }
         }
 
@@ -281,10 +284,12 @@ public class VerifyDelta {
             }
 
             if (extraTag != null) {
-                if (extra != null) {
-                    extra.add(actualElement);
+                if (repo.isNoShip(actualElement) || repo.dependsOnNoShip(actualElement)) {
+                    caseWarnings = addMessage(caseErrors, extraTag + " no-ship [ " + addType(repo, actualElement) + " ]");
+                } else {
+                    add(extra, actualElement);
+                    caseErrors = addMessage(caseErrors, extraTag + " [ " + addType(repo, actualElement) + " ]");
                 }
-                caseErrors = addError(caseErrors, extraTag + " [ " + addType(repo, actualElement) + " ]");
             }
         }
 
@@ -292,31 +297,48 @@ public class VerifyDelta {
         // is likely wildly off because of omissions.
 
         if (caseErrors == null) {
+            int actualSize = actual.size();
+            int expectedSize = expected.size();
             int minSize = ((actualSize > expectedSize) ? expectedSize : actualSize);
 
             String orderError = null;
 
             // Only test the order of elements which are unaffected
             // by the presence of kernel features.
-
+            //
             // Always consume this actual.
             //
             // Only consume the expected if the actual is in the
             // unaffected features.
+            //
+            // Skip features which are no-ship.
 
             int actualNo = 0;
             int expectedNo = 0;
-            while ((orderError == null) && (actualNo < minSize)) {
+            while ((orderError == null) && (actualNo < minSize) && (expectedNo < minSize)) {
                 String actualAt = actual.get(actualNo);
-                actualNo++;
-                if (expectedExtraSet.contains(actualAt)) {
+                boolean skipActual = (expectedExtraSet.contains(actualAt) ||
+                                      (repo.isNoShip(actualAt) || repo.dependsOnNoShip(actualAt)));
+
+                String expectedAt = expected.get(expectedNo);
+                boolean skipExpected = (repo.isNoShip(expectedAt) || repo.dependsOnNoShip(expectedAt));
+
+                // !skipA, !skipB: a++, b++;  test: Consume both; do test
+                //  skipA, !skipB: a++;      !test: Consume just A; don't test
+                // !skipA,  skipB: b++,      !test: Consume just B; don't test
+                //  skipA,  skipB: a++, b++, !test: Consume both; don't test.
+
+                if (skipActual || !skipExpected) {
+                    actualNo++;
+                }
+                if (skipExpected || !skipActual) {
+                    expectedNo++;
+                }
+                if (skipActual || skipExpected) {
                     continue;
                 }
 
-                String expectedAt = expected.get(expectedNo);
-                expectedNo++;
-
-                if (!expectedAt.contentEquals(actualAt)) {
+                if (!expectedAt.equals(actualAt)) {
                     orderError = "Order error at [ " + (actualNo - 1) + " ]" +
                                  ": Expected [ " + expectedAt + " ]" +
                                  " Actual [ " + actualAt + " ]";
@@ -327,7 +349,7 @@ public class VerifyDelta {
                 if (caseWarnings != null) {
                     caseWarnings.add(orderError);
                 } else {
-                    caseErrors = addError(caseErrors, orderError);
+                    caseErrors = addMessage(caseErrors, orderError);
                 }
             }
         }
