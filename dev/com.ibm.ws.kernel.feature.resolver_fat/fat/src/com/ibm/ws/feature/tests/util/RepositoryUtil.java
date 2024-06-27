@@ -39,13 +39,41 @@ public class RepositoryUtil {
 
     public static final String INSTALL_PATH_PROPERTY_NAME = "libertyInstallPath";
 
-    public static String IMAGE_PATH;
-    public static File IMAGE_DIR;
+    private static String IMAGE_PATH;
+    private static File IMAGE_DIR;
 
-    public static String BOOTSTRAP_LIB_PATH;
-    public static File BOOTSTRAP_LIB_DIR;
+    private static String BOOTSTRAP_LIB_PATH;
+    private static File BOOTSTRAP_LIB_DIR;
+
+    public static String getImagePath() {
+        requireImageLocations();
+        return IMAGE_PATH;
+    }
+
+    public static File getImageDir() {
+        requireImageLocations();
+        return IMAGE_DIR;
+    }
+
+    public static String getImageLibPath() {
+        requireImageLocations();
+        return BOOTSTRAP_LIB_PATH;
+    }
+
+    public static File getImageLibDir() {
+        requireImageLocations();
+        return BOOTSTRAP_LIB_DIR;
+    }
+
+    //
 
     private static boolean didSetupImageLocations;
+
+    private static void requireImageLocations() {
+        if (!didSetupImageLocations) {
+            throw new IllegalStateException("RepositoryUtil.setupImageLocations has not been run.");
+        }
+    }
 
     public static void setupImageLocations() throws Exception {
         if (didSetupImageLocations) {
@@ -65,13 +93,30 @@ public class RepositoryUtil {
 
     //
 
-    public static final String FEATURES_PROJECT_PATH = "../../build.image";
-    public static final String FEATURES_PATH = FEATURES_PROJECT_PATH + "/build/features";
+    public static final String FEATURES_PATH = "./lib/features";
 
-    public static String FEATURES_ABS_PATH;
-    public static File FEATURES_FILE;
+    private static String FEATURES_ABS_PATH;
+    private static File FEATURES_FILE;
+
+    public static String getFeaturesPath() {
+        requireFeatureLocations();
+        return FEATURES_ABS_PATH;
+    }
+
+    public static File getFeaturesFile() {
+        requireFeatureLocations();
+        return FEATURES_FILE;
+    }
+
+    //
 
     private static boolean didSetupFeatureLocations;
+
+    private static void requireFeatureLocations() {
+        if (!didSetupFeatureLocations) {
+            throw new IllegalStateException("RepositoryUtil.setupFeatureLocations has not been run.");
+        }
+    }
 
     public static void setupFeatureLocations() throws Exception {
         if (didSetupFeatureLocations) {
@@ -80,9 +125,7 @@ public class RepositoryUtil {
             didSetupFeatureLocations = true;
         }
 
-        setupImageLocations();
-
-        File featuresFile = new File(IMAGE_DIR, FEATURES_PATH);
+        File featuresFile = new File(FEATURES_PATH);
         FEATURES_ABS_PATH = featuresFile.getCanonicalPath();
         FEATURES_FILE = new File(FEATURES_ABS_PATH);
     }
@@ -92,10 +135,28 @@ public class RepositoryUtil {
     public static final String PROFILES_PROJECT_PATH = "..";
     public static final String PROFILES_PATH = PROFILES_PROJECT_PATH + "/" + "profiles";
 
-    public static String PROFILES_ABS_PATH;
-    public static File PROFILES_FILE;
+    private static String PROFILES_ABS_PATH;
+    private static File PROFILES_FILE;
+
+    public static String getProfilesPath() {
+        requireProfileLocations();
+        return PROFILES_ABS_PATH;
+    }
+
+    public static File getProfilesFile() {
+        requireProfileLocations();
+        return PROFILES_FILE;
+    }
+
+    //
 
     private static boolean didSetupProfileLocations;
+
+    private static void requireProfileLocations() {
+        if (!didSetupProfileLocations) {
+            throw new IllegalStateException("RepositoryUtil.setupProfileLocations has not been run.");
+        }
+    }
 
     public static void setupProfileLocations() throws Exception {
         if (didSetupProfileLocations) {
@@ -106,14 +167,37 @@ public class RepositoryUtil {
 
         setupImageLocations();
 
-        File profilesFile = new File(IMAGE_DIR, PROFILES_PATH);
+        File profilesFile = new File(getImageDir(), PROFILES_PATH);
         PROFILES_ABS_PATH = profilesFile.getCanonicalPath();
         PROFILES_FILE = new File(PROFILES_ABS_PATH);
     }
 
     //
 
+    public static FeatureResolver.Repository repository;
+
+    public static FeatureResolver.Repository getRepository() {
+        requireRepo();
+        return repository;
+    }
+
+    public static ProvisioningFeatureDefinition getFeatureDef(String featureName) {
+        return getRepository().getFeature(featureName);
+    }
+
+    public static List<ProvisioningFeatureDefinition> getFeatureDefs() {
+        return getRepository().getFeatures();
+    }
+
+    //
+
     private static boolean didSetupRepo;
+
+    private static void requireRepo() {
+        if (!didSetupRepo) {
+            throw new IllegalStateException("RepositoryUtil.setupRepo has not been run.");
+        }
+    }
 
     public static void setupRepo(String serverName) throws Exception {
         if (didSetupRepo) {
@@ -124,12 +208,14 @@ public class RepositoryUtil {
 
         setupImageLocations();
 
-        System.out.println("Image   [ " + IMAGE_DIR.getCanonicalPath() + " ]");
-        System.out.println("BootLib [ " + BOOTSTRAP_LIB_DIR.getCanonicalPath() + " ]");
+        File useImageDir = getImageDir();
+        File useLibDir = getImageLibDir();
+        System.out.println("Image   [ " + useImageDir.getCanonicalPath() + " ]");
+        System.out.println("BootLib [ " + useLibDir.getCanonicalPath() + " ]");
         System.out.println("Server  [ " + serverName + " ]");
 
-        Utils.setInstallDir(IMAGE_DIR);
-        KernelUtils.setBootStrapLibDir(BOOTSTRAP_LIB_DIR);
+        Utils.setInstallDir(useImageDir);
+        KernelUtils.setBootStrapLibDir(useLibDir);
         BundleRepositoryRegistry.initializeDefaults(serverName, true);
 
         FeatureRepository repoImpl = new FeatureRepository();
@@ -163,7 +249,33 @@ public class RepositoryUtil {
 
     //
 
+    public static List<FeatureInfo> features;
+    public static Map<String, FeatureInfo> featuresMap;
+
+    public static List<FeatureInfo> getFeaturesList() {
+        requireFeatures();
+        return features;
+    }
+
+    public static Map<String, FeatureInfo> getFeaturesMap() {
+        requireFeatures();
+        return featuresMap;
+    }
+
+    public static FeatureInfo getFeatureInfo(String name) {
+        requireFeatures();
+        return featuresMap.get(name);
+    }
+
+    //
+
     private static boolean didSetupFeatures;
+
+    private static void requireFeatures() {
+        if (!didSetupFeatures) {
+            throw new IllegalStateException("RepositoryUtil.setupFeatures has not been run.");
+        }
+    }
 
     public static void setupFeatures() throws Exception {
         if (didSetupFeatures) {
@@ -174,7 +286,7 @@ public class RepositoryUtil {
 
         setupFeatureLocations();
 
-        File rootFeaturesInputFile = FEATURES_FILE;
+        File rootFeaturesInputFile = getFeaturesFile();
         String rootInputPath = rootFeaturesInputFile.getCanonicalPath();
         if (!rootFeaturesInputFile.exists()) {
             Assert.fail("Features input [ " + rootInputPath + " ] does not exist");
@@ -195,24 +307,24 @@ public class RepositoryUtil {
         featuresMap = fMap;
     }
 
-    public static List<FeatureInfo> features;
-    public static Map<String, FeatureInfo> featuresMap;
+    //
 
-    public static List<FeatureInfo> getFeaturesList() {
-        return features;
-    }
+    public static Images images;
 
-    public static Map<String, FeatureInfo> getFeaturesMap() {
-        return featuresMap;
-    }
-
-    public static FeatureInfo getFeatureInfo(String name) {
-        return featuresMap.get(name);
+    public static Images getImages() {
+        requireProfiles();
+        return images;
     }
 
     //
 
     private static boolean didSetupProfiles;
+
+    private static void requireProfiles() {
+        if (!didSetupProfiles) {
+            throw new IllegalStateException("RepositoryUtil.setupProfiles has not been run.");
+        }
+    }
 
     public static void setupProfiles() throws Exception {
         if (didSetupProfiles) {
@@ -223,7 +335,7 @@ public class RepositoryUtil {
 
         setupProfileLocations();
 
-        File rootInputFile = PROFILES_FILE;
+        File rootInputFile = getProfilesFile();
         String rootInputPath = rootInputFile.getCanonicalPath();
         if (!rootInputFile.exists()) {
             Assert.fail("Images input [ " + rootInputPath + " ] does not exist");
@@ -238,24 +350,9 @@ public class RepositoryUtil {
         System.out.println("Read [ " + images.getImages().size() + " ] images from [ " + rootInputPath + " ]");
     }
 
-    public static Images images;
-
-    public static Images getImages() {
-        return images;
-    }
-
     //
 
-    public static FeatureResolver.Repository repository;
     public static Map<String, ProvisioningFeatureDefinition> versionlessFeatureDefs;
-
-    public static FeatureResolver.Repository getRepository() {
-        return repository;
-    }
-
-    public static ProvisioningFeatureDefinition getFeatureDef(String featureName) {
-        return getRepository().getFeature(featureName);
-    }
 
     /**
      * If not already done, it first saves a map of versionless feature names to feature definitions.
@@ -267,7 +364,7 @@ public class RepositoryUtil {
      * @return feature definition of the versionless feature associated with the input featureName
      */
     public static ProvisioningFeatureDefinition getVersionlessFeatureDef(String featureName) {
-        final String METHOD_NAME = "getVersionlessFeatureDef ";
+        String METHOD_NAME = "getVersionlessFeatureDef";
         if (versionlessFeatureDefs == null) {
             intializeVersionlessFeatureDefsMap();
         }
@@ -279,7 +376,6 @@ public class RepositoryUtil {
      * Initialize the map of versionless feature names to their feature definitions
      */
     public static void intializeVersionlessFeatureDefsMap() {
-
         Map<String, ProvisioningFeatureDefinition> featureDefs = new HashMap<>();
         for (ProvisioningFeatureDefinition featureDef : getRepository().getFeatures()) {
             if (featureDef.isVersionless()) {

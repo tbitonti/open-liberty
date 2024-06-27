@@ -151,22 +151,8 @@ jar {
     dependsOn publishExtract
 }
 
-task deleteFeatures {
-    delete project.file('build/features')
-}
-
-task copyFeatures {
-    mustRunAfter "deleteFeatures"
-    copy {
-        from(fileTree(project(':com.ibm.websphere.appserver.features').file('visibility')))
-        into project.file('build/features')
-    }
-}
-
 assemble {
     dependsOn publishTemplates
-    dependsOn deleteFeatures
-    dependsOn copyFeatures
     dependsOn copyPropertiesToBuildImage
     dependsOn addServiceFingerprint
     dependsOn copyReadmeToBuildImage
