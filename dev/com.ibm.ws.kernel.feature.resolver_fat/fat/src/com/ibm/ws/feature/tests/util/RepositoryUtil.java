@@ -34,9 +34,6 @@ import componenttest.common.apiservices.Bootstrap;
 import junit.framework.Assert;
 
 public class RepositoryUtil {
-
-    private static final String CLASS_NAME = "RepositoryUtil ";
-
     public static final String INSTALL_PATH_PROPERTY_NAME = "libertyInstallPath";
 
     private static String IMAGE_PATH;
@@ -433,7 +430,6 @@ public class RepositoryUtil {
      * @param featureName the symbolic feature name
      */
     public static String asInternalVersionlessFeatureName(String featureName) {
-
         return "io.openliberty.internal.versionless." + asShortNameWithVersion(featureName);
     }
 
@@ -516,9 +512,15 @@ public class RepositoryUtil {
     }
 
     /**
+     * Answer the platform of a feature.
      *
-     * @param symName symbolic feature name
-     * @return the platform name of the input feature
+     * Answer null if the feature cannot be found, or if the
+     * feature is not public.
+     *
+     * @param symName The symbolic name of a feature.
+     *
+     * @return The platform of the feature. Null if the
+     *         feature is not found, or is not public.
      */
     public static String getPlatformOf(String symName) {
         ProvisioningFeatureDefinition featureDef = getFeatureDef(symName);
@@ -527,10 +529,6 @@ public class RepositoryUtil {
         }
 
         return featureDef.getPlatformName();
-    }
-	
-    public static List<ProvisioningFeatureDefinition> getFeatureDefs() {
-        return getRepository().getFeatures();
     }
 
     // Use this to decide whether to run in WAS liberty mode or in open liberty

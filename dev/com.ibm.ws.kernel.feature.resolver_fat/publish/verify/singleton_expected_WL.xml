@@ -1,5 +1,4 @@
 <cases>
-
 <case>
     <name>com.ibm.websphere.appserver.acmeCA-2.0_SERVER</name>
     <description>Singleton [ com.ibm.websphere.appserver.acmeCA-2.0 ] [ SERVER ]</description>
@@ -84,7 +83,7 @@
     <output>
         <resolved>json-1.0</resolved>
         <resolved>com.ibm.websphere.appserver.eeCompatible-6.0</resolved>
-        <resolved>io.openliberty.servlet.api-3.0</resolved>
+        <resolved>io.openliberty.servlet.api-3.1</resolved>
         <resolved>com.ibm.websphere.appserver.servlet-servletSpi1.0</resolved>
         <resolved>com.ibm.websphere.appserver.channelfw-1.0</resolved>
         <resolved>com.ibm.websphere.appserver.httptransport-1.0</resolved>

@@ -432,11 +432,6 @@ public class BaselineResolutionUnitTest {
             return; // 'fail' never returns.
         }
 
-        System.out.println("DEBUG begin ******");
-        System.out.println(testCase.input);
-        System.out.println(testCase.output);
-        System.out.println("DEBUG end ******");
-
         long startNs = System.nanoTime();
         Result result = resolveFeatures(testCase, rootErrors);
         long endNs = System.nanoTime();
@@ -452,7 +447,7 @@ public class BaselineResolutionUnitTest {
         List<String> extra = new ArrayList<>();
 
         VerifyDelta.ChangeMessages caseMessages = VerifyDelta.compare(RepositoryUtil.getSupplier(),
-                                                                      inputCase, outputCase,
+                                                                      testCase, outputCase,
                                                                       !VerifyDelta.UPDATED_USED_KERNEL,
                                                                       extra, missing);
 
@@ -481,7 +476,7 @@ public class BaselineResolutionUnitTest {
         }
 
         if (caseMessages.hasErrors()) {
-            FailureSummary summary = addFailure(inputCase, extra, missing);
+            FailureSummary summary = addFailure(testCase, extra, missing);
             fail(summary.getMessage());
             return; // 'fail' never returns.
         }
