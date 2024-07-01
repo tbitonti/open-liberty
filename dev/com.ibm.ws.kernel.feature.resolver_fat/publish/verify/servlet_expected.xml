@@ -6811,7 +6811,7 @@
             <resolved>io.openliberty.jakarta.concurrency-2.0</resolved>
             <resolved>io.openliberty.persistentExecutorSubset-2.0</resolved>
             <resolved>enterpriseBeansPersistentTimer-4.0</resolved>
-            <resolved>io.openliberty.internal.versionless.enterpriseBeansPersistentTimer-4.0</resolved>
+            <resolved>io.openliberty.internal.versionless.ejbPersistentTimer-4.0</resolved>
             <resolved>enterpriseBeansPersistentTimer</resolved>
             <resolved>com.ibm.websphere.appserver.javaeePlatform7.0-jndi1.0</resolved>
             <resolved>io.openliberty.emptyHandleListContext-1.0</resolved>
@@ -6874,7 +6874,7 @@
             <resolved>com.ibm.websphere.appserver.transaction-2.0</resolved>
             <resolved>enterpriseBeansLite-4.0</resolved>
             <resolved>enterpriseBeansRemote-4.0</resolved>
-            <resolved>io.openliberty.internal.versionless.enterpriseBeansRemote-4.0</resolved>
+            <resolved>io.openliberty.internal.versionless.ejbRemote-4.0</resolved>
             <resolved>enterpriseBeansRemote</resolved>
             <resolved>com.ibm.websphere.appserver.javaeePlatform7.0-jndi1.0</resolved>
             <resolved>com.ibm.websphere.appserver.jndi1.0-iiop1.0</resolved>
@@ -8862,7 +8862,7 @@
             <resolved>io.openliberty.jakarta.activation-2.0</resolved>
             <resolved>io.openliberty.jakarta.xmlBinding-3.0</resolved>
             <resolved>xmlBinding-3.0</resolved>
-            <resolved>io.openliberty.internal.versionless.xmlBinding-3.0</resolved>
+            <resolved>io.openliberty.internal.versionless.jaxb-3.0</resolved>
             <resolved>xmlBinding</resolved>
         </output>
     </case>
@@ -10078,7 +10078,7 @@
             <resolved>io.openliberty.jakarta.concurrency-3.0</resolved>
             <resolved>io.openliberty.persistentExecutorSubset-2.0</resolved>
             <resolved>enterpriseBeansPersistentTimer-4.0</resolved>
-            <resolved>io.openliberty.internal.versionless.enterpriseBeansPersistentTimer-4.0</resolved>
+            <resolved>io.openliberty.internal.versionless.ejbPersistentTimer-4.0</resolved>
             <resolved>enterpriseBeansPersistentTimer</resolved>
             <resolved>com.ibm.websphere.appserver.javaeePlatform7.0-jndi1.0</resolved>
             <resolved>io.openliberty.emptyHandleListContext-1.0</resolved>
@@ -10143,7 +10143,7 @@
             <resolved>com.ibm.websphere.appserver.transaction-2.0</resolved>
             <resolved>enterpriseBeansLite-4.0</resolved>
             <resolved>enterpriseBeansRemote-4.0</resolved>
-            <resolved>io.openliberty.internal.versionless.enterpriseBeansRemote-4.0</resolved>
+            <resolved>io.openliberty.internal.versionless.ejbRemote-4.0</resolved>
             <resolved>enterpriseBeansRemote</resolved>
             <resolved>com.ibm.websphere.appserver.javaeePlatform7.0-jndi1.0</resolved>
             <resolved>com.ibm.websphere.appserver.jndi1.0-iiop1.0</resolved>
@@ -12206,7 +12206,7 @@
             <resolved>io.openliberty.xmlBinding.internal-4.0</resolved>
             <resolved>io.openliberty.activation.internal-2.1</resolved>
             <resolved>xmlBinding-4.0</resolved>
-            <resolved>io.openliberty.internal.versionless.xmlBinding-4.0</resolved>
+            <resolved>io.openliberty.internal.versionless.jaxb-4.0</resolved>
             <resolved>xmlBinding</resolved>
         </output>
     </case>
@@ -13345,7 +13345,7 @@
             <resolved>io.openliberty.jakarta.concurrency-3.1</resolved>
             <resolved>io.openliberty.persistentExecutorSubset-2.0</resolved>
             <resolved>enterpriseBeansPersistentTimer-4.0</resolved>
-            <resolved>io.openliberty.internal.versionless.enterpriseBeansPersistentTimer-4.0</resolved>
+            <resolved>io.openliberty.internal.versionless.ejbPersistentTimer-4.0</resolved>
             <resolved>enterpriseBeansPersistentTimer</resolved>
             <resolved>com.ibm.websphere.appserver.javaeePlatform7.0-jndi1.0</resolved>
             <resolved>io.openliberty.emptyHandleListContext-1.0</resolved>
@@ -13411,7 +13411,7 @@
             <resolved>com.ibm.websphere.appserver.transaction-2.0</resolved>
             <resolved>enterpriseBeansLite-4.0</resolved>
             <resolved>enterpriseBeansRemote-4.0</resolved>
-            <resolved>io.openliberty.internal.versionless.enterpriseBeansRemote-4.0</resolved>
+            <resolved>io.openliberty.internal.versionless.ejbRemote-4.0</resolved>
             <resolved>enterpriseBeansRemote</resolved>
             <resolved>com.ibm.websphere.appserver.javaeePlatform7.0-jndi1.0</resolved>
             <resolved>com.ibm.websphere.appserver.jndi1.0-iiop1.0</resolved>
@@ -15220,7 +15220,7 @@
             <resolved>io.openliberty.xmlBinding.internal-4.0</resolved>
             <resolved>io.openliberty.activation.internal-2.1</resolved>
             <resolved>xmlBinding-4.0</resolved>
-            <resolved>io.openliberty.internal.versionless.xmlBinding-4.0</resolved>
+            <resolved>io.openliberty.internal.versionless.jaxb-4.0</resolved>
             <resolved>xmlBinding</resolved>
         </output>
     </case>

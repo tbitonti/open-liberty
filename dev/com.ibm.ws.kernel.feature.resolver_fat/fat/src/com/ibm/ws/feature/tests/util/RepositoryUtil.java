@@ -175,6 +175,7 @@ public class RepositoryUtil {
     //
 
     public static FeatureResolver.Repository repository;
+    public static FeatureRepositorySupplier featureSupplier;
 
     public static FeatureResolver.Repository getRepository() {
         requireRepo();
@@ -187,6 +188,11 @@ public class RepositoryUtil {
 
     public static List<ProvisioningFeatureDefinition> getFeatureDefs() {
         return getRepository().getFeatures();
+    }
+
+    public static FeatureRepositorySupplier getSupplier() {
+        requireRepo();
+        return featureSupplier;
     }
 
     //
@@ -245,6 +251,8 @@ public class RepositoryUtil {
                 return baseRepo.getAutoFeatures();
             }
         };
+
+        featureSupplier = new FeatureRepositorySupplier(repository);
     }
 
     //

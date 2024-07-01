@@ -10,6 +10,9 @@
 package com.ibm.ws.kernel.feature.internal.util;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,11 +33,13 @@ public class VerifyDelta {
     public VerifyDelta() {
         this.errors = new LinkedHashMap<>();
         this.warnings = new LinkedHashMap<>();
+        this.info = new LinkedHashMap<>();
     }
 
     public void clear() {
         clearErrors();
         clearWarnings();
+        clearInfo();
     }
 
     //
@@ -119,6 +124,50 @@ public class VerifyDelta {
 
     //
 
+    private final Map<String, List<String>> info;
+
+    public void clearInfo() {
+        info.clear();
+    }
+
+    public int getInfoCount() {
+        return info.size();
+    }
+
+    public int totalInfoCount() {
+        int total = 0;
+
+        for (List<String> caseWarnings : info.values()) {
+            total += caseWarnings.size();
+        }
+
+        return total;
+    }
+
+    public Map<String, List<String>> getInfo() {
+        return info;
+    }
+
+    private void setInfo(String name, List<String> caseInfo) {
+        info.put(name, caseInfo);
+    }
+
+    //
+
+    private void setMessages(String caseKey, ChangeMessages messages) {
+        if (messages.errors != null) {
+            setErrors(caseKey, messages.errors);
+        }
+        if (messages.warnings != null) {
+            setWarnings(caseKey, messages.warnings);
+        }
+        if (messages.info != null) {
+            setInfo(caseKey, messages.info);
+        }
+    }
+
+    //
+
     public static final String GLOBAL_CASE_KEY = "global results";
 
     public static final boolean USED_KERNEL = true;
@@ -161,31 +210,20 @@ public class VerifyDelta {
                 return;
             }
 
-            List<String> caseWarnings = new ArrayList<>(0);
-
-            List<String> caseErrors = compare(repo,
-                                              null, caseWarnings,
-                                              expectedCase,
-                                              actualCase, actualUsedKernel,
-                                              null, null);
-
-            if (caseErrors != null) {
-                setErrors(caseKey, caseErrors);
-            }
-            if (!caseWarnings.isEmpty()) {
-                setWarnings(caseKey, caseWarnings);
-            }
+            ChangeMessages caseMessages = compare(repo,
+                                                  expectedCase,
+                                                  actualCase, actualUsedKernel,
+                                                  null, null);
+            setMessages(caseKey, caseMessages);
         }
     }
 
-    public static List<String> compare(FeatureSupplier repo,
-                                       List<String> caseErrors, List<String> caseWarnings,
-                                       VerifyCase expectedCase,
-                                       VerifyCase actualCase, boolean actualUsedKernel,
-                                       List<String> extra, List<String> missing) {
+    public static ChangeMessages compare(FeatureSupplier repo,
+                                         VerifyCase expectedCase,
+                                         VerifyCase actualCase, boolean actualUsedKernel,
+                                         List<String> extra, List<String> missing) {
 
         return compare(repo,
-                       caseErrors, caseWarnings,
                        expectedCase.output.resolved,
                        expectedCase.output.kernelOnly,
                        expectedCase.output.kernelBlocked,
@@ -215,14 +253,83 @@ public class VerifyDelta {
         }
     }
 
-    public static List<String> compare(FeatureSupplier repo,
-                                       List<String> caseErrors, List<String> caseWarnings,
-                                       List<String> expected,
-                                       List<String> expectedKernelOnly,
-                                       List<String> expectedKernelBlocked,
-                                       List<String> actual,
-                                       boolean actualUsedKernel,
-                                       List<String> extra, List<String> missing) {
+    private static <T> T getAny(Set<T> set) {
+        for (T elem : set) {
+            return elem;
+        }
+        return null;
+    }
+
+    private static Set<String> compactMap(Map<String, Set<String>> map, String key, String value) {
+        Set<String> values = map.get(key);
+        if (values == null) {
+            values = Collections.singleton(value);
+            map.put(key, values);
+        } else if (values.size() == 1) {
+            Set<String> newValues = new HashSet<>(2);
+            newValues.add(getAny(values));
+            newValues.add(value);
+            values = newValues;
+            map.put(key, values);
+        } else {
+            values.add(value);
+        }
+
+        return values;
+    }
+
+    private static Map<String, Set<String>> mapVersions(Collection<String> features) {
+        Map<String, Set<String>> featureVersions = new HashMap<>(features.size());
+
+        for (String feature : features) {
+            int versionOffset = feature.lastIndexOf('-');
+            if (versionOffset == -1) {
+                continue;
+            }
+
+            String base = feature.substring(0, versionOffset);
+            String version = feature.substring(versionOffset + 1);
+
+            @SuppressWarnings("unused")
+            Set<String> versionsOfFeature = compactMap(featureVersions, base, version);
+        }
+
+        return featureVersions;
+    }
+
+    public static class ChangeMessages {
+        public final List<String> errors;
+        public final List<String> warnings;
+        public final List<String> info;
+
+        public ChangeMessages(List<String> errors,
+                              List<String> warnings,
+                              List<String> info) {
+            this.errors = errors;
+            this.warnings = warnings;
+            this.info = info;
+        }
+
+        public boolean hasErrors() {
+            return ((errors != null) && !errors.isEmpty());
+        }
+
+        public boolean hasWarnings() {
+            return ((warnings != null) && !warnings.isEmpty());
+        }
+
+        public boolean hasInfo() {
+            return ((info != null) && !info.isEmpty());
+        }
+    }
+
+    public static ChangeMessages compare(FeatureSupplier repo,
+                                         List<String> expected,
+                                         List<String> expectedKernelOnly,
+                                         List<String> expectedKernelBlocked,
+                                         List<String> actual,
+                                         boolean actualUsedKernel,
+                                         List<String> extra, List<String> missing) {
 
         // Don't do this: Rely on the extra/missing checks.
         // The sizes are allowed to be different if the differences are all no-ship features.
@@ -234,6 +341,10 @@ public class VerifyDelta {
         // if (actualSize != expectedSize) {
         //     caseErrors = addMessage(caseErrors, "Incorrect count: expected [ " + expectedSize + " ] actual [ " + actualSize + " ]");
         // }
+
+        List<String> caseErrors = null;
+        List<String> caseWarnings = null;
+        List<String> caseInfo = null;
 
         Set<String> actualSet = new HashSet<>(actual);
         Set<String> expectedSet = new HashSet<>(expected);
@@ -293,6 +404,32 @@ public class VerifyDelta {
             }
         }
 
+        if (!missing.isEmpty() && !extra.isEmpty()) {
+            Map<String, Set<String>> missingVersions = mapVersions(missing);
+            Map<String, Set<String>> extraVersions = mapVersions(extra);
+
+            for (Map.Entry<String, Set<String>> missingEntry : missingVersions.entrySet()) {
+                String missingBase = missingEntry.getKey();
+                Set<String> missingVersionsOfBase = missingEntry.getValue();
+                if (missingVersionsOfBase.size() != 1) {
+                    continue;
+                }
+
+                Set<String> extraVersionsOfBase = extraVersions.get(missingBase);
+                if (extraVersionsOfBase == null) {
+                    continue;
+                }
+                if (extraVersionsOfBase.size() != 1) {
+                    continue;
+                }
+
+                String oldVersion = getAny(missingVersionsOfBase);
+                String newVersion = getAny(extraVersionsOfBase);
+
+                caseInfo = addMessage(caseInfo, "Feature [ " + missingBase + " ] changed from [ " + oldVersion + " ] to [ " + newVersion + " ]");
+            }
+        }
+
         // Don't bother with the order if the resolved are incorrect.  The order
         // is likely wildly off because of omissions.
 
@@ -301,7 +438,7 @@ public class VerifyDelta {
             int expectedSize = expected.size();
             int minSize = ((actualSize > expectedSize) ? expectedSize : actualSize);
 
-            String orderError = null;
+            String orderMsg = null;
 
             // Only test the order of elements which are unaffected
             // by the presence of kernel features.
@@ -315,7 +452,7 @@ public class VerifyDelta {
 
             int actualNo = 0;
             int expectedNo = 0;
-            while ((orderError == null) && (actualNo < minSize) && (expectedNo < minSize)) {
+            while ((orderMsg == null) && (actualNo < minSize) && (expectedNo < minSize)) {
                 String actualAt = actual.get(actualNo);
                 boolean skipActual = (expectedExtraSet.contains(actualAt) ||
                                       (repo.isNoShip(actualAt) || repo.dependsOnNoShip(actualAt)));
@@ -339,22 +476,18 @@ public class VerifyDelta {
                 }
 
                 if (!expectedAt.equals(actualAt)) {
-                    orderError = "Order error at [ " + (actualNo - 1) + " ]" +
-                                 ": Expected [ " + expectedAt + " ]" +
-                                 " Actual [ " + actualAt + " ]";
+                    orderMsg = "Order error at [ " + (actualNo - 1) + " ]" +
+                               ": Expected [ " + expectedAt + " ]" +
+                               " Actual [ " + actualAt + " ]";
                 }
             }
 
-            if (orderError != null) {
-                if (caseWarnings != null) {
-                    caseWarnings.add(orderError);
-                } else {
-                    caseErrors = addMessage(caseErrors, orderError);
-                }
+            if (orderMsg != null) {
+                caseWarnings = addMessage(caseWarnings, orderMsg);
             }
         }
 
-        return caseErrors;
+        return new ChangeMessages(caseErrors, caseWarnings, caseInfo);
     }
 
     public static final boolean ORIGINAL_USED_KERNEL = true;

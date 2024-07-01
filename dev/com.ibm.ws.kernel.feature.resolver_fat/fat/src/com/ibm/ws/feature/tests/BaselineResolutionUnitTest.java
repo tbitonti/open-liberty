@@ -24,7 +24,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-import com.ibm.ws.feature.tests.util.FeatureRepositorySupplier;
 import com.ibm.ws.feature.tests.util.RepositoryUtil;
 import com.ibm.ws.kernel.boot.cmdline.Utils;
 import com.ibm.ws.kernel.boot.internal.KernelUtils;
@@ -449,35 +448,40 @@ public class BaselineResolutionUnitTest {
 
         VerifyCase outputCase = new VerifyCase(testCase, resolvedFeatures, durationNs);
 
-        List<String> warnings = new ArrayList<>();
         List<String> missing = new ArrayList<>();
         List<String> extra = new ArrayList<>();
 
-        List<String> errors = VerifyDelta.compare(new FeatureRepositorySupplier(RepositoryUtil.getRepository()),
-                                                  null, warnings,
-                                                  testCase, outputCase,
-                                                  !VerifyDelta.UPDATED_USED_KERNEL,
-                                                  extra, missing);
+        VerifyDelta.ChangeMessages caseMessages = VerifyDelta.compare(RepositoryUtil.getSupplier(),
+                                                                      inputCase, outputCase,
+                                                                      !VerifyDelta.UPDATED_USED_KERNEL,
+                                                                      extra, missing);
 
-        if ((errors == null) || errors.isEmpty()) {
+        if (!caseMessages.hasErrors()) {
             System.out.println("Verified");
         } else {
-            System.out.println("Verification errors [ " + errors.size() + " ]:");
-            for (String error : errors) {
+            System.out.println("Verification errors [ " + caseMessages.errors.size() + " ]:");
+            for (String error : caseMessages.errors) {
                 System.out.println("  [ " + error + " ]");
             }
             write("Revised Case:", outputCase, System.out);
         }
 
-        if (!warnings.isEmpty()) {
-            System.out.println("Verification warnings [ " + warnings.size() + " ]:");
-            for (String warning : warnings) {
+        if (caseMessages.hasWarnings()) {
+            System.out.println("Verification warnings [ " + caseMessages.warnings.size() + " ]:");
+            for (String warning : caseMessages.warnings) {
                 System.out.println("  [ " + warning + " ]");
             }
         }
 
-        if ((errors != null) && !errors.isEmpty()) {
-            FailureSummary summary = addFailure(testCase, extra, missing);
+        if (caseMessages.hasInfo()) {
+            System.out.println("Verification info [ " + caseMessages.info.size() + " ]:");
+            for (String infoMsg : caseMessages.info) {
+                System.out.println("  [ " + infoMsg + " ]");
+            }
+        }
+
+        if (caseMessages.hasErrors()) {
+            FailureSummary summary = addFailure(inputCase, extra, missing);
             fail(summary.getMessage());
             return; // 'fail' never returns.
         }
