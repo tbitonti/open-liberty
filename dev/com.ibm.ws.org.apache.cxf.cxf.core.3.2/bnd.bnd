@@ -30,6 +30,8 @@ importVer=3.5.5
 exportVer=3.2.4
 bVersion=1.0
 
+IBM-Test-Fixes: PH65394
+
 -sub: *.bnd
 
 # Using version=! in order to not have a version attached to the import for packages that were removed
