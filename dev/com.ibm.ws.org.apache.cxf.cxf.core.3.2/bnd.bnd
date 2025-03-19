@@ -30,7 +30,7 @@ importVer=3.5.5
 exportVer=3.2.4
 bVersion=1.0
 
-IBM-Interim-Fixes: PH65394
+IBM-Test-Fixes: PH65394
 
 -sub: *.bnd
 
