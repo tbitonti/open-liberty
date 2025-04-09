@@ -407,7 +407,7 @@ public class CryptoUtils {
            rand.nextBytes(seed);
         } else {
             seed = rand.generateSeed(length);
-            return seed;
         }
+            return seed;
     }
 }
