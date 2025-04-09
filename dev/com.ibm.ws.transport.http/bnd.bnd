@@ -155,4 +155,4 @@ instrument.classesExcludes: \
 	com.ibm.ws.wsbytebuffer;version=latest, \
 	com.ibm.ws.kernel.boot;version=latest
 
-IBM-Test-Fixes: PH65944
+IBM-Interim-Fixes: PH65944

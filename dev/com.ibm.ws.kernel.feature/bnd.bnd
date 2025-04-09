@@ -73,4 +73,4 @@ instrument.classesExcludes: com/ibm/ws/kernel/feature/internal/resources/*.class
 	org.eclipse.osgi;version=latest,\
 	com.ibm.ws.kernel.boot.common;version=latest
 
-IBM-Test-Fixes: PH65944
+IBM-Interim-Fixes: PH65944

@@ -50,4 +50,4 @@ publish.wlp.jar.disabled: true
 # 	../build.sharedResources/lib/junit/old/junit.jar;version=file, \
 # 	com.ibm.ws.junit.extensions;version=latest
 
-IBM-Test-Fixes: PH65944
+IBM-Interim-Fixes: PH65944
