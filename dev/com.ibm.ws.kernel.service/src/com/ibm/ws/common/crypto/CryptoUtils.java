@@ -399,6 +399,9 @@ public class CryptoUtils {
         // TODO: Investigate hardware Crypto
         String hardwareCryptoProvider = "IBMJCECCA";
         Provider provider = rand.getProvider();
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc,"generateRandomBytes: "+ provider.getName());
+        }
         if (hardwareCryptoProvider.equals(provider.getName())) {
            seed = new byte[length];
            rand.nextBytes(seed);
