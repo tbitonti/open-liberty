@@ -397,13 +397,14 @@ public class CryptoUtils {
         SecureRandom rand = new SecureRandom();
 
         // TODO: Investigate hardware Crypto
-        //String hardwareCryptoProvider = "IBMJCECCA";
-        //Provider provider = rand.getProvider();
-        //if (hardwareCryptoProvider.equals(provider.getName())) {
-        //    seed = new byte[length];
-        //    rand.nextBytes(seed);
-        //} else {
-        seed = rand.generateSeed(length);
-        return seed;
+        String hardwareCryptoProvider = "IBMJCECCA";
+        Provider provider = rand.getProvider();
+        if (hardwareCryptoProvider.equals(provider.getName())) {
+           seed = new byte[length];
+           rand.nextBytes(seed);
+        } else {
+            seed = rand.generateSeed(length);
+            return seed;
+        }
     }
 }
