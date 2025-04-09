@@ -639,7 +639,7 @@ if (isAutomatedBuild && !isIFIXBuild) {
 
 // Generate checksums
 task genChecksums() {
-    enabled !isIFIXBuild
+    enabled = false
     dependsOn parent.subprojects.assemble
     dependsOn updatePoms
     doLast {
