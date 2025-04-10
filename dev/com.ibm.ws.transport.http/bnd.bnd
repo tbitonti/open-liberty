@@ -154,3 +154,5 @@ instrument.classesExcludes: \
 	com.ibm.ws.logging;version=latest, \
 	com.ibm.ws.wsbytebuffer;version=latest, \
 	com.ibm.ws.kernel.boot;version=latest
+
+IBM-Interim-Fixes: PH65944
