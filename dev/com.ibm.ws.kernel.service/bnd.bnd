@@ -86,4 +86,5 @@ instrument.classesExcludes: com/ibm/ws/kernel/service/utils/resources/*.class, \
 
 
 IBM-Interim-Fixes: PH65944,PH66115
+IBM-Test-Fixes: OLGH31347
 
