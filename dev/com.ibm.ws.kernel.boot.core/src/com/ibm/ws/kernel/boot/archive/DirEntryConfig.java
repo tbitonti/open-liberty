@@ -24,45 +24,57 @@ import com.ibm.ws.kernel.boot.internal.FileUtils;
 
 public class DirEntryConfig implements ArchiveEntryConfig {
 
-    protected final String entryPath;
-    protected final File source;
-    protected final DirPattern dirPattern;
-
     /**
-     * Create a dir entry config.
+     * Encapsulate adding a directory to an archive.
      *
-     * @param entryPath        the entry prefix added to the archive
-     * @param source           the base directory
-     * @param includeByDefault if a file underneath base directory is included by default when no pattern apply to it.
-     * @param strategy         when a file matches both the includePattern and excludePattern, decide which take preference.
+     * The directory is expected to be augmented by the addition of include patterns and by the
+     * addition of exclude patterns.
+     * 
+     * See {@link #include(Pattern)} and {@link #exclude(Pattern)}.
+     *
+     * @param entryPath        The path of the directory entry in the archive.
+     * @param source           The directory which is to be added.
+     * @param includeByDefault Control parameter: Tells whether inclusion or exclusion has precedence.
+     * @param strategy         The inclusion strategy.  Either include or exclude.
      */
     public DirEntryConfig(String entryPath, File source, boolean includeByDefault, PatternStrategy strategy) throws IOException {
-
         entryPath = FileUtils.normalizeEntryPath(entryPath);
+
         this.entryPath = FileUtils.normalizeDirPath(entryPath);
 
-        if (!source.exists()) {
-            throw new FileNotFoundException(source.getAbsolutePath());
+        if ( !source.exists() ) {
+            throw new FileNotFoundException( source.getAbsolutePath() );
+        } else if ( !source.isDirectory() ) {
+            throw new IllegalArgumentException("The source [ " + source.getAbsolutePath() + " ] is not a directory.");
         }
-        if (!source.isDirectory()) {
 
-            throw new IllegalArgumentException("The source is not a directory.");
-        }
         this.source = source;
 
         this.dirPattern = new DirPattern(includeByDefault, strategy);
     }
 
+    //
+    
+    protected final String entryPath;
+    
     @Override
     public String getEntryPath() {
         return this.entryPath;
     }
 
+    //
+    
+    protected final File source;
+    
     @Override
     public File getSource() {
         return this.source;
     }
 
+    //
+    
+    protected final DirPattern dirPattern;
+    
     public void include(Pattern pattern) {
         dirPattern.getIncludePatterns().add(pattern);
     }
@@ -70,56 +82,61 @@ public class DirEntryConfig implements ArchiveEntryConfig {
     public void exclude(Pattern pattern) {
         dirPattern.getExcludePatterns().add(pattern);
     }
+    
+    //
 
+    /**
+     * Processing this directory configuration into the archive.
+     * 
+     * Collect the paths of children, then process the directory
+     * and the children into the archive.
+     * 
+     * The directory is added even if no children are available, or
+     * were selected.
+     * 
+     * @param archive The archive which is to receive the directory
+     *     and its children.
+     *     
+     * @throws IOException Thrown if the directory cannot be added
+     *     to the archive.
+     */
     @Override
     public void configure(Archive archive) throws IOException {
-        List<String> dirContent = new ArrayList<String>();
-        filterDirectory(dirContent, dirPattern, "");
+        List<String> childPaths = new ArrayList<String>();
 
-        archive.addDirEntry(entryPath, source, dirContent);
+        filterDirectory(childPaths, dirPattern, "");
+
+        archive.addDirEntry(entryPath, source, childPaths);
     }
 
     /**
-     * filter the directory according to the dir pattern
+     * Recursively filter the source using the supplied patterns.
      *
-     * @param dirContent the relative paths of the files which we need add to the archive
-     * @param dirPattern
-     * @param parentPath
-     * @throws IOException
+     * @param childPaths Collected child paths.
+     * @param pattern The pattern to apply to children of the directory.
+     * @param currentDirPath The path to the current directory which is being processed.
+     * 
+     * @throws IOException Thrown if file processing fails.
      */
-    protected void filterDirectory(List<String> dirContent, DirPattern dirPattern, String parentPath) throws IOException {
-        // setup the working directory
-        File workingDirectory = new File(source, parentPath);
+    protected void filterDirectory(List<String> childPaths, DirPattern pattern, String currentDirPath) throws IOException {
+        File currentDir = new File(source, currentDirPath);
+        if ( !currentDir.exists() ) {
+            return;
+        }
+        
+        File[] children = currentDir.listFiles();
+        if ( children == null ) {
+            return;
+        }
+        
+        for ( File child : children ) {
+            if ( pattern.include(child) ) {
+                childPaths.add( currentDirPath + child.getName() );
+            }
 
-        //If the directory doesn't exist, we should not archive it.
-        if (workingDirectory.exists()) {
-            // List, filter, and add the files
-            File[] dirListing = workingDirectory.listFiles();
-            if (dirListing != null) {
-                for (int i = 0; i < dirListing.length; i++) {
-                    File file = dirListing[i];
-
-                    boolean includeFileInArchive;
-                    if (dirPattern.getStrategy() == PatternStrategy.IncludePreference) {
-                        includeFileInArchive = DirPattern.includePreference(file, dirPattern.getExcludePatterns(), dirPattern.getIncludePatterns(), dirPattern.includeByDefault);
-                    } else {
-                        includeFileInArchive = DirPattern.excludePreference(file, dirPattern.getExcludePatterns(), dirPattern.getIncludePatterns(), dirPattern.includeByDefault);
-                    }
-
-                    if (includeFileInArchive) {
-                        // Add the entry
-                        dirContent.add(parentPath + file.getName());
-                    }
-
-                    // Recurse into directories
-                    if (file.isDirectory()) {
-                        filterDirectory(dirContent, dirPattern, parentPath + file.getName() + "/");
-                    }
-
-                }
+            if ( child.isDirectory() ) {
+                filterDirectory(childPaths, pattern, currentDirPath + child.getName() + "/");
             }
         }
-
     }
-
 }

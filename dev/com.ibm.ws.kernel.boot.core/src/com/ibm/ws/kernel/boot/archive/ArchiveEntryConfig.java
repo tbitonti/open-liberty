@@ -1,10 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012,2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-2.0/
- * 
+ *
  * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
@@ -16,30 +16,39 @@ import java.io.File;
 import java.io.IOException;
 
 /**
- * Represent an entry adding to Archive
+ * Encapsulate adding entries into an archive.
+ * 
+ * Validation occurs when creating a new configuration.
  */
 public interface ArchiveEntryConfig {
 
     /**
-     * Get the entry path.
+     * Answer the path of the entry which is to be added.
      * 
-     * @return
+     * @return The path of the entry which is to be added.
      */
-    public String getEntryPath();
+    String getEntryPath();
 
     /**
-     * Get the source file of the entry.
+     * The source file which is to be added.
      * 
-     * @return
+     * Contributes a file mode, and, if not a directory, the entries contents.
+     * 
+     * @return A file which is to be added. 
      */
-    public File getSource();
+    File getSource();
 
     /**
-     * Configure the archive
+     * Process this entry configuration into the archive.
      * 
-     * @param archive
-     * @throws IOException
+     * Use either {@link com.ibm.ws.kernel.boot.archive.Archive.addFileEntry(String, File)}
+     * {@link com.ibm.ws.kernel.boot.archive.Archive.addDirEntry(String, File, List<String>)}
+     * to process entries into the archive.
+     * 
+     * @param archive The archive which is to receive entries.
+     * 
+     * @throws IOException Thrown if the entries cannot be processed.
      */
-    public void configure(Archive archive) throws IOException;
+    void configure(Archive archive) throws IOException;
 
 }

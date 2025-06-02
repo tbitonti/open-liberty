@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012-2025 IBM Corporation and others.
+ * Copyright (c) 2012,2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
@@ -61,6 +61,10 @@ public class DumpProcessor implements ArchiveProcessor {
         return bootProps;
     }
 
+    public boolean isServerLogDirConfigured() {
+        return bootProps.isConfigured();
+    }
+    
     private final List<String> javaDumps;
 
     private final File dumpFile;
@@ -92,8 +96,9 @@ public class DumpProcessor implements ArchiveProcessor {
         this.serverName = serverName;
         this.regexServerName = Pattern.quote(serverName); // Avoid special characters.
         this.serverConfigDir = new File( bootProps.getUserRoot(), "servers/" + serverName );
+        // BootstrapConstants.LOC_AREA_NAME_SERVERS
         this.serverOutputDir = bootProps.getOutputFile(null);
-
+        
         this.bootProps = bootProps;
 
         this.javaDumps = javaDumps;
@@ -127,12 +132,47 @@ public class DumpProcessor implements ArchiveProcessor {
         return ReturnCode.OK;
     }
 
-    /** Local synonym of the regular expression separator. */
+    /**
+     * Local synonym of the regular expression separator.
+     * 
+     * This is the file system path separator, escaped if necessary.
+     */
     private static final String SEP = REGEX_SEPARATOR;
     
+    /**
+     * Create a pattern for files in the server folder.
+     * 
+     * @param tail The pattern for files in the server folder.
+     * 
+     * @return A  pattern for files in the server folder.
+     */
     private Pattern serverPattern(String tail) {
         return Pattern.compile(SEP + regexServerName + SEP + tail);
     }
+
+    // See:
+    //   https://www.ibm.com/docs/en/was-liberty/base?topic=liberty-customizing-environment
+    //
+    // Should there be extra steps to collect "server.env"?
+    //   ${wlp.install.dir}/etc/server.env [NOT COLLECTED]
+    //   ${server.config.dir}/server.env [COLLECTED]
+    //
+    // Should there be extra steps to collect "jvm.options"?
+    //   ${wlp.install.dir}/usr/shared/jvm.options [NOT COLLECTED]
+    //   ${server.config.dir}/configDropins/defaults/jvm.options [COLLECTED]
+    //   ${server.config.dir}/jvm.options [COLLECTED]
+    //   ${server.config.dir}/configDropins/overrides/jvm.options [COLLECTED]
+    // 
+    // Should key environment values be collected?
+    //   wlp.install.dir
+    //   server.config.dir
+    //
+    //   JAVA_HOME
+    //   JVM_ARGS
+    //
+    //   WLP_OUTPUT_DIR
+    //   WLP_USER_DIR
+    //   WLP_DEBUG_ADDRESS
 
     /**
      * Create an archive configuration for a server dump.  The archive
@@ -164,9 +204,14 @@ public class DumpProcessor implements ArchiveProcessor {
                                        DirPattern.EXCLUDE_BY_DEFAULT,
                                        PatternStrategy.ExcludePreference); // throws IOException, IllegalArgumentException
         
+        // TODO: Candidates
+        //
+        // *.xml (one directory above the server folder)
+        // *.properties (one directory above the server folder)
+        
         configFiles.include(serverPattern(".*\\.xml"));
         configFiles.include(serverPattern(".*\\.properties"));
-        configFiles.include(serverPattern("configDropins"));
+        configFiles.include(serverPattern("configDropins")); // ? BootstrapConstants
 
         // Include these later ...
         //
@@ -174,7 +219,7 @@ public class DumpProcessor implements ArchiveProcessor {
         //       to exclude by default.
 
         configFiles.exclude(serverPattern("dump_" + REGEX_TIMESTAMP));
-        configFiles.exclude(serverPattern("autopd"));
+        configFiles.exclude(serverPattern("autopd")); // ? BootstrapConstants
 
         // TODO: Should 'logs' and 'workarea' be excluded?
 
@@ -192,24 +237,25 @@ public class DumpProcessor implements ArchiveProcessor {
 
         // Do not include application locations.
 
-        nonConfigFiles.exclude(serverPattern("dropins"));
-        nonConfigFiles.exclude(serverPattern("apps"));
+        nonConfigFiles.exclude(serverPattern("dropins")); // LOC_AREA_NAME_DROP = "dropins";
+        nonConfigFiles.exclude(serverPattern("apps")); // LOC_AREA_NAME_APP = "apps";
 
         // Exclude security-sensitive files:
 
         // TODO: Should these be excluded from the prior filtered entry?  
 
-        nonConfigFiles.exclude(Pattern.compile(SEP + "resources" + SEP + "security")); // the entire 'security' folder is security sensitive
-        nonConfigFiles.exclude(Pattern.compile("\\.jks$")); // 'jks' files are security sensitive
-        nonConfigFiles.exclude(Pattern.compile("\\.p12$")); // p12 files are security sensitive.
+        // LOC_AREA_NAME_RES = "resources";
+        nonConfigFiles.exclude(Pattern.compile(SEP + "resources" + SEP + "security")); // security sensitive
+        nonConfigFiles.exclude(Pattern.compile("\\.jks$")); // security sensitive
+        nonConfigFiles.exclude(Pattern.compile("\\.p12$")); // security sensitive.
 
         // Include these later ...        
         nonConfigFiles.exclude(serverPattern("dump_" + REGEX_TIMESTAMP));
-        nonConfigFiles.exclude(serverPattern("autopd"));
+        nonConfigFiles.exclude(serverPattern("autopd")); // ? BootstrapConstants
         
         // Include these later ...                
-        nonConfigFiles.exclude(serverPattern("logs"));
-        nonConfigFiles.exclude(serverPattern("workarea"));
+        nonConfigFiles.exclude(serverPattern("logs")); // BootstrapConstants.LOC_AREA_NAME_LOGS
+        nonConfigFiles.exclude(serverPattern("workarea")); // BootstrapConstants.LOC_AREA_NAME_WORKING
 
         // Exclude server package files ...
         nonConfigFiles.exclude(Pattern.compile(SEP + regexServerName + "\\.(zip|pax)$"));
@@ -234,21 +280,23 @@ public class DumpProcessor implements ArchiveProcessor {
 
         // Finally, include these.
         outputConfigFiles.include(serverPattern("dump_" + REGEX_TIMESTAMP));
-        outputConfigFiles.include(serverPattern("autopd"));
-        outputConfigFiles.include(serverPattern("logs"));
+        outputConfigFiles.include(serverPattern("autopd")); // ? BootstrapConstants
+        outputConfigFiles.include(serverPattern("logs")); // BootstrapConstants.LOC_AREA_NAME_LOGS
+
+        // Include workearea ... but ...
+
+        // BootstrapConstants.LOC_AREA_NAME_WORKING
         outputConfigFiles.include(serverPattern("workarea"));
 
-        // Exclude work-area locked files.
+        // ... exclude work-area locked files ...
         outputConfigFiles.exclude(serverPattern("workarea" + SEP + "\\.sLock$"));
         outputConfigFiles.exclude(serverPattern("workarea" + SEP + "\\.sCommand$"));
 
+        // ... exclude OSGI specific log files ...
         String OSGI_SUBPATH = "workarea" + SEP + ".*" + "org\\.eclipse\\.osgi" + SEP;
-
-        // Exclude OSGI specific log files.
         outputConfigFiles.exclude(serverPattern(OSGI_SUBPATH + "\\.manager"));
 
-        // Exclude OSGI application cache files.
-
+        // ... and exclude OSGI application cache files.
         String APP_CACHE_PATH = "bundles" + SEP + "\\d+" + SEP + "data" + SEP + ".*com\\.ibm\\.ws\\.app\\.manager_gen";
         outputConfigFiles.exclude(serverPattern(OSGI_SUBPATH + APP_CACHE_PATH));
 
