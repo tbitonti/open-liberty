@@ -107,4 +107,4 @@ instrument.disabled: true
 	org.jmock:jmock-legacy;version=2.5.0, \
 	com.ibm.ws.kernel.boot;version=latest
 
-IBM-Test-Fixes: PH66801
+IBM-Interim-Fixes: PH66801
