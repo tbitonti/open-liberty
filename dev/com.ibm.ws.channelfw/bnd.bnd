@@ -106,3 +106,5 @@ instrument.disabled: true
 	com.ibm.ws.org.objectweb.asm;version=latest, \
 	org.jmock:jmock-legacy;version=2.5.0, \
 	com.ibm.ws.kernel.boot;version=latest
+
+IBM-Interim-Fixes: PH66801
