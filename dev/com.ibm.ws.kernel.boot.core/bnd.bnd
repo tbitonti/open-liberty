@@ -13,6 +13,8 @@
 -include= ~../cnf/resources/bnd/bundle.props
 bVersion=1.0
 
+IBM-Test-Fixes: OLGH31730
+
 Export-Package: \
 	com.ibm.ws.kernel.boot,\
 	com.ibm.ws.kernel.boot.archive,\

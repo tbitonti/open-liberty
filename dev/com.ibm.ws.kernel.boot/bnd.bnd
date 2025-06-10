@@ -18,6 +18,8 @@
 -nouses=true
 bVersion=1.0
 
+IBM-Test-Fixes: OLGH31730
+
 javac.source: 1.7
 javac.target: 1.7
 
