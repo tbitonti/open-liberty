@@ -1,0 +1,121 @@
+<!--
+    Copyright (c) 2019, 2022 IBM Corporation and others.
+    All rights reserved. This program and the accompanying materials
+    are made available under the terms of the Eclipse Public License 2.0
+    which accompanies this distribution, and is available at
+    http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0
+
+    Contributors:
+        IBM Corporation - initial API and implementation
+ -->
+<server>
+
+	<oauth2Login
+		id="openShiftLogin_accessTokenRequiredTrue"
+        scope="user:full"
+        authorizationEndpoint="${bad.oauth.server}/oauth/authorize"
+        userNameAttribute="username"
+        groupNameAttribute="groups"
+        userApiType="kube" 
+        userApi="https://localhost:${bvt.prop.security_2_HTTP_default.secure}/StubbedOpenShift/apis/authentication.k8s.io/v1/tokenreviews"
+        userApiToken="xxx.yyy.zzz"
+		authFilterRef="authFilter_accessTokenRequiredTrue"
+		accessTokenRequired="true"
+	>
+	</oauth2Login>
+	
+	<authFilter id="authFilter_accessTokenRequiredTrue">
+		<requestUrl
+			id="myRequestUrl"
+			urlPattern="helloworld_accessTokenRequiredTrue"
+			matchType="contains" />
+	</authFilter>
+
+	<oauth2Login
+		id="openShiftLogin_mapToUserRegistryTrue"
+        scope="user:full"
+        authorizationEndpoint="${bad.oauth.server}/oauth/authorize"
+        userNameAttribute="username"
+        groupNameAttribute="groups"
+        userApiType="kube" 
+        userApi="https://localhost:${bvt.prop.security_2_HTTP_default.secure}/StubbedOpenShift/apis/authentication.k8s.io/v1/tokenreviews"
+        userApiToken="xxx.yyy.zzz"
+		authFilterRef="authFilter_mapToUserRegistryTrue"
+		accessTokenRequired="true"
+		mapToUserRegistry="true"
+	>
+	</oauth2Login>
+	
+	<authFilter id="authFilter_mapToUserRegistryTrue">
+		<requestUrl
+			id="myRequestUrl"
+			urlPattern="helloworld_mapToUserRegistryTrue"
+			matchType="contains" />
+	</authFilter>
+	
+	<oauth2Login
+		id="openShiftLogin_badUserApiToken"
+        scope="user:full"
+        authorizationEndpoint="${bad.oauth.server}/oauth/authorize"
+        userNameAttribute="username"
+        groupNameAttribute="groups"
+        userApiType="kube" 
+        userApi="https://localhost:${bvt.prop.security_2_HTTP_default.secure}/StubbedOpenShift/apis/authentication.k8s.io/v1/tokenreviews"
+        userApiToken="someBadTokenValue.123456.8796asd"
+		accessTokenRequired="true"
+		authFilterRef="authFilter_bad_userApiToken"
+	>
+	</oauth2Login>
+
+	<authFilter id="authFilter_bad_userApiToken">
+		<requestUrl
+			id="myRequestUrl"
+			urlPattern="helloworld_bad_userApiToken"
+			matchType="contains" />
+	</authFilter>
+
+	<oauth2Login
+		id="openShiftLogin_blankUserApiToken"
+        scope="user:full"
+        authorizationEndpoint="${bad.oauth.server}/oauth/authorize"
+        userNameAttribute="username"
+        groupNameAttribute="groups"
+        userApiType="kube" 
+        userApi="https://localhost:${bvt.prop.security_2_HTTP_default.secure}/StubbedOpenShift/apis/authentication.k8s.io/v1/tokenreviews"
+        userApiToken=" "
+		accessTokenRequired="true"
+		authFilterRef="authFilter_blank_userApiToken"
+	>
+	</oauth2Login>
+
+	<authFilter id="authFilter_blank_userApiToken">
+		<requestUrl
+			id="myRequestUrl"
+			urlPattern="helloworld_blank_userApiToken"
+			matchType="contains" />
+	</authFilter>
+	
+	<oauth2Login
+		id="openShiftLogin_emptyUserApiToken"
+        scope="user:full"
+        authorizationEndpoint="${bad.oauth.server}/oauth/authorize"
+        userNameAttribute="username"
+        groupNameAttribute="groups"
+        userApiType="kube" 
+        userApi="https://localhost:${bvt.prop.security_2_HTTP_default.secure}/StubbedOpenShift/apis/authentication.k8s.io/v1/tokenreviews"
+        userApiToken=""
+		accessTokenRequired="true"
+		authFilterRef="authFilter_empty_userApiToken"
+	>
+	</oauth2Login>	
+	
+	<authFilter id="authFilter_empty_userApiToken">
+		<requestUrl
+			id="myRequestUrl"
+			urlPattern="helloworld_empty_userApiToken"
+			matchType="contains" />
+	</authFilter>
+		
+</server>

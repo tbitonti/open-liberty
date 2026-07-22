@@ -1,12 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.sip.container.proxy;
 
@@ -1416,7 +1415,8 @@ public class StatefullProxy	extends BranchManager
 	 * Notification about timeout according to the m_director.getProxyTimeout()
 	 * 
 	 */
-	public synchronized void proxyTimeout() {
+	//remove sychronized as it caused a deadlock, see OL issue 25962
+	public void proxyTimeout() {
 
 		if (c_logger.isTraceDebugEnabled()) {
 			c_logger.traceDebug(this, "proxyTimeout", getMyInfo());
@@ -1556,7 +1556,6 @@ public class StatefullProxy	extends BranchManager
 	 * @see com.ibm.ws.sip.container.proxy.BranchManager#getAddToPathValue()
 	 */
 	boolean getAddToPathValue() {
-		// TODO Auto-generated method stub
 		return getAddToPath();
 	}
 

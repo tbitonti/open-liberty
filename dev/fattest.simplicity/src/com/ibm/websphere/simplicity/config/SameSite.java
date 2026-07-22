@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -21,6 +23,7 @@ public class SameSite extends ConfigElement {
     private String lax;
     private String strict;
     private String none;
+    private Boolean partitioned;
 
     /**
      * 
@@ -73,6 +76,23 @@ public class SameSite extends ConfigElement {
         this.none = none;
     }
 
+    /**
+     * 
+     * @return The partitioned boolean for this entry
+     */
+    public Boolean isPartitioned() {
+        return this.partitioned;
+    }
+
+    /**
+     * 
+     * @param partitioned Determines if cookies should be partitioned 
+     */
+    @XmlAttribute
+    public void setPartitioned(Boolean partitioned) {
+        this.partitioned = partitioned;
+    }
+
     @Override
     public String toString() {
         StringBuffer buf = new StringBuffer("samesite{");
@@ -83,7 +103,8 @@ public class SameSite extends ConfigElement {
             buf.append("strict=\"" + strict + "\" ");
         if (none != null)
             buf.append("none=\"" + none + "\" ");
-
+        if (partitioned != null)
+            buf.append("partitioned=\"" + partitioned + "\" ");
         buf.append("}");
         return buf.toString();
     }

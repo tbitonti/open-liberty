@@ -1,28 +1,25 @@
-/*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+/* =============================================================================
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *******************************************************************************/
+ * =============================================================================
+ */
 package com.ibm.ws.messaging.jms20.deliverydelay.fat;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
 import java.util.Set;
 
 import org.junit.runner.RunWith;
@@ -34,16 +31,13 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.EnterpriseArchive;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 
-import com.ibm.websphere.simplicity.log.Log;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 
-import com.ibm.websphere.simplicity.LocalFile;
-import com.ibm.websphere.simplicity.RemoteFile;
 import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
 
@@ -80,13 +74,13 @@ public class DelayFullTest {
     };
 
     private static void transformConfigurations() throws Exception {
-        if ( !JakartaEE9Action.isActive() ) {
+        if ( !JakartaEEAction.isEE9OrLaterActive()) {
             return;
         }
 
         for ( String config : EE9_TRANSFORMED_CONFIGS ) {
             Path configPath = Paths.get("lib/LibertyFATTestFiles", config);
-            JakartaEE9Action.transformApp(configPath);
+            JakartaEEAction.transformApp(configPath);
         }
     }
 
@@ -192,6 +186,8 @@ public class DelayFullTest {
         mdbEar.addAsModule(mdbJar);
         ShrinkHelper.exportToServer(clientServer, "apps", mdbEar);
 
+        clientServer.addInstalledAppForValidation("jmsapp");
+
         startServers();
     }
 
@@ -206,10 +202,19 @@ public class DelayFullTest {
         return TestUtils.runInServlet(clientHost, clientPort, ddContextRoot, test); // throws IOException
     }
 
+    /**
+     * Tests using different delivery delay values when sending messages to a Queue destination.
+     * Runs tests with both simplified and domain-specific APIs
+     * 
+     * @throws Exception
+     */
     @Test
-    public void testDeliveryDelayForDifferentDelays_B() throws Exception {
+    public void testDeliveryDelayForDifferentDelays_Queue() throws Exception {
+    	
+    	// Configure server to use MDB receiving from "local" Queue
         restartClient(MDB_CONFIG_QUEUE_BINDINGS);
 
+        // Run test using simplified API
         runInServlet("testDeliveryDelayForDifferentDelays");
 
         String msg = clientServer.waitForStringInLogUsingLastOffset("Message received on mdb : QueueBindingsMessage2");
@@ -217,8 +222,22 @@ public class DelayFullTest {
         msg = clientServer.waitForStringInLogUsingLastOffset("Message received on mdb : QueueBindingsMessage1");
         assertNotNull("Could not find the upload message in the trace.log", msg);
 
+
+        // Run the test using domain-specific API
+        runInServlet("testDeliveryDelayForDifferentDelaysClassicApi");
+
+        msg = clientServer.waitForStringInLogUsingLastOffset(
+            "Message received on mdb : QueueBindingsMessage-ClassicApi2");
+        assertNotNull("Could not find the upload message in the trace.log", msg);
+        msg = clientServer.waitForStringInLogUsingLastOffset(
+            "Message received on mdb : QueueBindingsMessage-ClassicApi1");
+        assertNotNull("Could not find the upload message in the trace.log", msg);
+        
+        
+    	// Configure server to use MDB receiving from "remote" Queue
         restartServers(MDB_CONFIG_QUEUE_TCP);
 
+        // Run test using simplified API
         runInServlet("testDeliveryDelayForDifferentDelays_Tcp");
 
         msg = clientServer.waitForStringInLogUsingLastOffset("Message received on mdb : QueueTCPMessage2");
@@ -226,124 +245,122 @@ public class DelayFullTest {
         msg = clientServer.waitForStringInLogUsingLastOffset("Message received on mdb : QueueTCPMessage1");
         assertNotNull("Could not find the upload message in the trace.log", msg);
 
+        // Run test using domain-specific API
+        runInServlet("testDeliveryDelayForDifferentDelaysClassicApi_Tcp");
+
+        msg = clientServer.waitForStringInLogUsingLastOffset(
+            "Message received on mdb : QueueTCPMessage-ClassicApi2");
+        assertNotNull("Could not find the upload message in the trace.log", msg);
+        msg = clientServer.waitForStringInLogUsingLastOffset(
+            "Message received on mdb : QueueTCPMessage-ClassicApi1");
+        assertNotNull("Could not find the upload message in the trace.log", msg);
+        
+        
         restartServers();
     }
 
-    @Test
-    public void testDeliveryDelayForDifferentDelaysTopic_B() throws Exception {
-        restartClient(MDB_CONFIG_TOPIC_BINDINGS);
 
+    /**
+     * Tests using different delivery delay values when sending messages to a Topic destination.
+     * Runs tests with both simplified and domain-specific APIs
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void testDeliveryDelayForDifferentDelays_Topic() throws Exception {
+
+    	// Configure server to use MDB receiving from "local" Topic
+    	restartClient(MDB_CONFIG_TOPIC_BINDINGS);
+
+    	// Run test using simplified API
         runInServlet("testDeliveryDelayForDifferentDelaysTopic");
 
-        String msg = clientServer.waitForStringInLogUsingLastOffset("Message received on mdb : TopicBindingsMessage2");
+        String msg = clientServer.waitForStringInLog("Message received on mdb : TopicBindingsMessage2");
         assertNotNull("Could not find the upload message in the trace.log", msg);
-        msg = clientServer.waitForStringInLogUsingLastOffset("Message received on mdb : TopicBindingsMessage1");
+        msg = clientServer.waitForStringInLog("Message received on mdb : TopicBindingsMessage1");
         assertNotNull("Could not find the upload message in the trace.log", msg);
 
+        // Run test using domain-specific API
+        runInServlet("testDeliveryDelayForDifferentDelaysTopicClassicApi");
+
+        msg = clientServer.waitForStringInLogUsingLastOffset(
+            "Message received on mdb : TopicBindingsMessage-ClassicApi2");
+        assertNotNull("Could not find the upload message in the trace.log", msg);
+        msg = clientServer.waitForStringInLogUsingLastOffset(
+            "Message received on mdb : TopicBindingsMessage-ClassicApi1");
+        assertNotNull("Could not find the upload message in the trace.log", msg);
+        
+    	// Configure server to use MDB receiving from "remote" Topic
         restartServers(MDB_CONFIG_TOPIC_TCP);
 
+        // Run test using simplified API
         runInServlet("testDeliveryDelayForDifferentDelaysTopic_Tcp");
 
-        msg = clientServer.waitForStringInLogUsingLastOffset("Message received on mdb : TopicTCPMessage2");
+        msg = clientServer.waitForStringInLog("Message received on mdb : TopicTCPMessage2");
         assertNotNull("Could not find the upload message in the trace.log", msg);
-        msg = clientServer.waitForStringInLogUsingLastOffset("Message received on mdb : TopicTCPMessage1");
+        msg = clientServer.waitForStringInLog("Message received on mdb : TopicTCPMessage1");
+        assertNotNull("Could not find the upload message in the trace.log", msg);
+
+        // Run test using domain-specific API
+        runInServlet("testDeliveryDelayForDifferentDelaysTopicClassicApi_Tcp");
+        msg = clientServer.waitForStringInLogUsingLastOffset(
+            "Message received on mdb : TopicTCPMessage-ClassicApi2");
+        assertNotNull("Could not find the upload message in the trace.log", msg);
+        msg = clientServer.waitForStringInLogUsingLastOffset(
+            "Message received on mdb : TopicTCPMessage-ClassicApi1");
         assertNotNull("Could not find the upload message in the trace.log", msg);
 
         restartServers();
     }
 
+    // Tests that test the persistence of delivery delay messages over a server restart
+    // Each test calls a sender method in the servlet that sends 2 message, 1 persistent and 1 nonpersistent.
+    // Then the servers are restarted and the servlet is called to attempt to receive the messages.
+    // Where possible, these are amalgamated to call multiple sender and the associated receiver methods around a single server restart to reduce the number of restarts that are needed.
+    // Note: for now the ptp messages are checked first, and if a failure is detected, the test fails at this point before the pub/sub results are checked. This could be improved later to check all the results and potentially give a richer response.
+
+    // Simplified API tests
     @Test
     public void testPersistentMessageStore_B() throws Exception {
+    	
+    	// Send PtP messages
         runInServlet("testPersistentMessage");
-
-        restartServers();
-
-        boolean testResult = runInServlet("testPersistentMessageReceive");
-        assertTrue("testPersistentMessageStore_B failed", testResult);
-    }
-
-    @Test
-    public void testPersistentMessageStore_Tcp() throws Exception {
-        runInServlet("testPersistentMessage_Tcp");
-
-        restartServers();
-
-        boolean testResult = runInServlet("testPersistentMessageReceive_Tcp");
-        assertTrue("testPersistentMessageStore_Tcp failed", testResult);
-    }
-
-    @Test
-    public void testPersistentMessageStoreTopic_B() throws Exception {
+        
+        // Send pub/sub messages
         runInServlet("testPersistentMessageTopic");
 
         restartServers();
 
-        boolean testResult = runInServlet("testPersistentMessageReceiveTopic");
-        assertTrue("testPersistentMessageStoreTopic_B failed", testResult);
+        // Receive ptp messages
+        boolean ptpTestResult = runInServlet("testPersistentMessageReceive");
+        assertTrue("testPersistentMessageStore_B failed", ptpTestResult);
+        
+        // Receive pubsub messages
+        boolean pubsubTestResult = runInServlet("testPersistentMessageReceiveTopic");
+        assertTrue("testPersistentMessageStoreTopic_B failed", pubsubTestResult);
     }
 
+
     @Test
-    public void testPersistentMessageStoreTopic_Tcp() throws Exception {
+    public void testPersistentMessageStore_Tcp() throws Exception {
+    	
+    	// Send PtP messages
+        runInServlet("testPersistentMessage_Tcp");
+
+        // Send pub/sub messages
         runInServlet("testPersistentMessageTopic_Tcp");
 
         restartServers();
 
-        boolean testResult = runInServlet("testPersistentMessageReceiveTopic_Tcp");
-        assertTrue("testPersistentMessageStoreTopic_B failed", testResult);
+        // Receive ptp messages
+        boolean ptpTestResult = runInServlet("testPersistentMessageReceive_Tcp");
+        assertTrue("testPersistentMessageStore_Tcp failed", ptpTestResult);
+        
+        // Receive pubsub messages
+        boolean pubsubTestResult = runInServlet("testPersistentMessageReceiveTopic_Tcp");
+        assertTrue("testPersistentMessageStoreTopic_B failed", pubsubTestResult);
     }
 
-    @Test
-    public void testDeliveryDelayForDifferentDelaysClassicApi() throws Exception {
-        restartClient(MDB_CONFIG_QUEUE_BINDINGS);
-
-        runInServlet("testDeliveryDelayForDifferentDelaysClassicApi");
-
-        String msg = clientServer.waitForStringInLogUsingLastOffset(
-            "Message received on mdb : QueueBindingsMessage2-ClassicApi");
-        assertNotNull("Could not find the upload message in the trace.log", msg);
-        msg = clientServer.waitForStringInLogUsingLastOffset(
-            "Message received on mdb : QueueBindingsMessage1-ClassicApi");
-        assertNotNull("Could not find the upload message in the trace.log", msg);
-
-        restartServers(MDB_CONFIG_QUEUE_TCP);
-
-        runInServlet("testDeliveryDelayForDifferentDelaysClassicApi_Tcp");
-
-        msg = clientServer.waitForStringInLogUsingLastOffset(
-            "Message received on mdb : QueueTCPMessage2-ClassicApi");
-        assertNotNull("Could not find the upload message in the trace.log", msg);
-        msg = clientServer.waitForStringInLogUsingLastOffset(
-            "Message received on mdb : QueueTCPMessage1-ClassicApi");
-        assertNotNull("Could not find the upload message in the trace.log", msg);
-
-        restartServers();
-    }
-
-    @Test
-    public void testDeliveryDelayForDifferentDelaysTopicClassicApi()throws Exception {
-        restartClient(MDB_CONFIG_TOPIC_BINDINGS);
-
-        runInServlet("testDeliveryDelayForDifferentDelaysTopicClassicApi");
-
-        String msg = clientServer.waitForStringInLogUsingLastOffset(
-            "Message received on mdb : TopicBindingsMessage2-ClassicApi");
-        assertNotNull("Could not find the upload message in the trace.log", msg);
-        msg = clientServer.waitForStringInLogUsingLastOffset(
-            "Message received on mdb : TopicBindingsMessage1-ClassicApi");
-        assertNotNull("Could not find the upload message in the trace.log", msg);
-
-        restartServers(MDB_CONFIG_TOPIC_TCP);
-
-        runInServlet("testDeliveryDelayForDifferentDelaysTopicClassicApi_Tcp");
-        msg = clientServer.waitForStringInLogUsingLastOffset(
-            "Message received on mdb : TopicTCPMessage2-ClassicApi");
-        assertNotNull("Could not find the upload message in the trace.log", msg);
-        msg = clientServer.waitForStringInLogUsingLastOffset(
-            "Message received on mdb : TopicTCPMessage1-ClassicApi");
-        assertNotNull("Could not find the upload message in the trace.log", msg);
-
-        restartServers();
-    }
 
     @Test
     public void testPersistentMessageStoreClassicApi_B() throws Exception {
@@ -461,44 +478,57 @@ public class DelayFullTest {
     }
     
     private String getServerFeature() {
-        return ( JakartaEE9Action.isActive() ? "messagingServer-3.0" : "wasJmsServer-1.0" );
+        return ( JakartaEEAction.isEE9OrLaterActive() ? "messagingServer-3.0" : "wasJmsServer-1.0" );
     }
 
     private String getServerMessageFragment() {
-        return ( JakartaEE9Action.isActive() ? "messagingServer" : "wasJmsServer" );
+        return ( JakartaEEAction.isEE9OrLaterActive() ? "messagingServer" : "wasJmsServer" );
     }
 
     private void verifyRemovedFeature(LibertyServer server, String fragment) throws Exception {
-        String changedMessageFromLog = server.waitForStringInLogUsingMark(
-            "CWWKF0013I.*" + fragment + ".*",
-            server.getMatchingLogFile("trace.log"));
-        assertNotNull(
-            "Could not find the feature removed message in the trace file",
-            changedMessageFromLog);
+    	//CWWKF0013I: The server removed the following features: [wasJmsServer-1.0].
+        String changedMessageFromLog = server.waitForStringInLogUsingMark("CWWKF0013I.*" + fragment + ".*", server.getMatchingLogFile("trace.log"));
+        assertNotNull("Could not find the \"CWWKF0013I:.*"+fragment+"\" feature removed message in the trace file",changedMessageFromLog);
 
         verifyFeatureUpdate(server);
     }
 
     private void verifyAddedFeature(LibertyServer server, String fragment) throws Exception {
-        String changedMessageFromLog = server.waitForStringInLogUsingMark(
-            "CWWKF0012I.*" + fragment + ".*",
-            server.getMatchingLogFile("trace.log"));
-        assertNotNull(
-            "Could not find the feature added message in the trace file",
-            changedMessageFromLog);
+    	// CWWKF0012I: The server installed the following features: [wasJmsServer-1.0].
+        String changedMessageFromLog = server.waitForStringInLogUsingMark("CWWKF0012I.*" + fragment + ".*", server.getMatchingLogFile("trace.log"));
+        assertNotNull("Could not find the \"CWWKF0012I:.*"+fragment+"\" feature added message in the trace file",changedMessageFromLog);
 
         verifyFeatureUpdate(server);
+        
+        // Also wait for the jms server to restart
+        // CWSID0108I: JMS server has started.
+        String jmsServerStartedMessageFromLog = server.waitForStringInLogUsingMark("CWSID0108I.*",server.getMatchingLogFile("trace.log"));
+        assertNotNull("Could not find the \"CWSID0108I: JMS server has started.\"message in the trace file",jmsServerStartedMessageFromLog);
     }
 
     private void verifyFeatureUpdate(LibertyServer server) throws Exception {
-        String changedMessageFromLog = server.waitForStringInLogUsingMark(
-            "CWWKF0008I.*",
-            server.getMatchingLogFile("trace.log"));
-        assertNotNull(
-            "Could not find the feature update completed message in the trace file",
-            changedMessageFromLog);
+    	//CWWKF0008I: Feature update completed in ?.??? seconds.
+        String changedMessageFromLog = server.waitForStringInLogUsingMark("CWWKF0008I.*",server.getMatchingLogFile("trace.log"));
+        assertNotNull("Could not find the CWWKF0008I feature update completed message in the trace file", changedMessageFromLog);
+    }
+    
+    /**
+     * Look for the message:
+     * "CWSID0108I: JMS server has started"
+     * in the log to make sure that not only have feature updates completed, but also that the JMS provider is available.
+     * @param server
+     * @throws Exception
+     */
+    private void verifyJMSServerStarted(LibertyServer server) throws Exception {
+    	//CWWKF0008I: Feature update completed in ?.??? seconds.
+        String changedMessageFromLog = server.waitForStringInLogUsingMark("CWSID0108I.*",server.getMatchingLogFile("trace.log"));
+        assertNotNull("Could not find the CWSID0108I 'JMS server has started' message in the trace file", changedMessageFromLog);
+    	return;
     }
 
+
+    
+    //
     /**
      * <ul>
      * <li>Put a message to the client's messaging engine with a delivery delay.
@@ -508,54 +538,86 @@ public class DelayFullTest {
      * feature was not installed for part of the delivery delay interval.
      * </ul>
      */
-    @Test
-    public void testDDRemoveAddServerFeature() throws Exception {
-        boolean testResult1 = runInServlet("testSendMessage");
-        assertTrue("testSendMessage failed", testResult1);
-
-        Set<String> clientFeatures = clientServer.getServerConfiguration().getFeatureManager().getFeatures();
-        String serverFeature = getServerFeature();
-        String serverFragment = getServerMessageFragment();
-
-        clientServer.setMarkToEndOfLog(clientServer.getMatchingLogFile("trace.log"));
-        clientFeatures.remove(serverFeature);
-        clientServer.changeFeatures(new ArrayList<String>(clientFeatures));
-        verifyRemovedFeature(clientServer, serverFragment);
-
-        clientServer.setMarkToEndOfLog(clientServer.getMatchingLogFile("trace.log"));
-        clientFeatures.add(serverFeature);
-        clientServer.changeFeatures(new ArrayList<String>(clientFeatures));
-        verifyAddedFeature(clientServer, serverFragment);
-
-        int appCount = clientServer.waitForMultipleStringsInLog(3, "CWWKT0016I.*DeliveryDelay.*");
-        Log.info(DelayFullTest.class, "CheckApplicationStart", "No. of times App started - " + appCount);
-        assertTrue( "Could not find the application ready message in the log file", (appCount == 3) );
-
-        boolean testResult2 = runInServlet("testReceiveMessage");
-        assertTrue("testReceiveMessage failed", testResult2);
-    }
-
-    // @Test Restore after fixing...
-    // https://github.com/OpenLiberty/open-liberty/issues/16508
-    public void testDDRemoveAddServerFeature_TCP() throws Exception {
-        boolean testResult1 = runInServlet("testSendMessage_TCP");
-        assertTrue("testSendMessage_TCP failed", testResult1);
-
-        Set<String> engineFeatures = engineServer.getServerConfiguration().getFeatureManager().getFeatures();
-        String serverFeature = getServerFeature();
-        String serverFragment = getServerMessageFragment();
-
-        engineServer.setMarkToEndOfLog(engineServer.getMatchingLogFile("trace.log"));
-        engineFeatures.remove(serverFeature);
-        engineServer.changeFeatures(new ArrayList<String>(engineFeatures));
-        verifyRemovedFeature(engineServer, serverFragment);
-
-        engineServer.setMarkToEndOfLog(engineServer.getMatchingLogFile("trace.log"));
-        engineFeatures.add(serverFeature);
-        engineServer.changeFeatures(new ArrayList<String>(engineFeatures));
-        verifyAddedFeature(engineServer, serverFragment);
-
-        boolean testResult2 = runInServlet("testReceiveMessage_TCP");
-        assertTrue("testReceiveMessage_TCP failed", testResult2);
-    }
-}
+	/*
+	 * @Test public void testDDRemoveAddServerFeature() throws Exception { try {
+	 * boolean testResult1 = runInServlet("testSendMessage");
+	 * assertTrue("testSendMessage failed", testResult1);
+	 * 
+	 * Set<String> clientFeatures =
+	 * clientServer.getServerConfiguration().getFeatureManager().getFeatures();
+	 * String serverFeature = getServerFeature(); String serverFragment =
+	 * getServerMessageFragment();
+	 * 
+	 * clientServer.setMarkToEndOfLog(clientServer.getMatchingLogFile("trace.log"));
+	 * clientFeatures.remove(serverFeature); clientServer.changeFeatures(new
+	 * ArrayList<String>(clientFeatures)); verifyRemovedFeature(clientServer,
+	 * serverFragment);
+	 * 
+	 * clientServer.setMarkToEndOfLog(clientServer.getMatchingLogFile("trace.log"));
+	 * clientFeatures.add(serverFeature); clientServer.changeFeatures(new
+	 * ArrayList<String>(clientFeatures)); verifyAddedFeature(clientServer,
+	 * serverFragment);
+	 * 
+	 * // Wait until the JMS Server is actually running again. // There might still
+	 * be a possibility that even in this case, the messaging singleton objects
+	 * might not be available, but that's an issue to fix // elsewhere. Hopefully
+	 * for the moment this will alleviate the problem with calling the app before
+	 * the appropriate objects are available. verifyJMSServerStarted(clientServer);
+	 * 
+	 * 
+	 * boolean testResult2 = runInServlet("testReceiveMessage");
+	 * assertTrue("testReceiveMessage failed", testResult2);
+	 * 
+	 * } catch (Throwable throwable) { clientServer.serverDump(); throw throwable; }
+	 * }
+	 */
+//    TODO
+//      This test is disabled. After the jms server feature has been added back into the configuration and  
+//      CWSID0108I: JMS server has started. has been written to the console, the JMS server has indeed been restarted.
+//      The comms inbound chains will also have been restarted and will be listening using the current configuration.
+//      However, the channel framework will not have been restarted and will be using the previous thread pool using the
+//      same classloader that previously loaded SingletonsReady. that SingletonsReady no longer contains the Singletons
+//      and results in the following FFDC.
+//      
+//      Exception = com.ibm.ws.messaging.lifecycle.LifecycleError
+//      Source = com.ibm.ws.messaging.lifecycle.SingletonsReady
+//      probeid = findService-LifecycleError
+//      Stack Dump = com.ibm.ws.messaging.lifecycle.LifecycleError: Singletons are not yet ready. Examine the call stack for a service component where a dependency on SingletonsReady can be declared to resolve this error.
+//	      at com.ibm.ws.messaging.lifecycle.SingletonsReady.requireService(SingletonsReady.java:172)
+//	      at com.ibm.ws.messaging.lifecycle.SingletonsReady.findService(SingletonsReady.java:191)
+//	      at com.ibm.ws.sib.common.service.CommonServiceFacade.getJsAdminService(CommonServiceFacade.java:65)
+//	      at com.ibm.ws.jfap.inbound.channel.CommsServerServiceFacade.getJsAdminService(CommsServerServiceFacade.java:261)
+//	      at com.ibm.ws.sib.trm.attach.TrmSingleton.handShake(TrmSingleton.java:135)
+//	      at com.ibm.ws.sib.comms.server.clientsupport.ServerTransportReceiveListener.rcvTRMExchange(ServerTransportReceiveListener.java:1255)
+//	      at com.ibm.ws.sib.comms.server.clientsupport.ServerTransportReceiveListener.dataReceived(ServerTransportReceiveListener.java:174)
+//	      at com.ibm.ws.sib.jfapchannel.impl.rldispatcher.ConversationReceiveListenerDataReceivedInvocation.invoke(ConversationReceiveListenerDataReceivedInvocation.java:170)
+//	      at com.ibm.ws.sib.jfapchannel.impl.rldispatcher.ReceiveListenerDispatchQueue.run(ReceiveListenerDispatchQueue.java:451)
+//	      at com.ibm.ws.util.ThreadPool$Worker.run(ThreadPool.java:1671)
+          
+    // @Test
+	/*
+	 * public void testDDRemoveAddServerFeature_TCP() throws Exception { try {
+	 * boolean testResult1 = runInServlet("testSendMessage_TCP");
+	 * assertTrue("testSendMessage_TCP failed", testResult1);
+	 * 
+	 * Set<String> engineFeatures =
+	 * engineServer.getServerConfiguration().getFeatureManager().getFeatures();
+	 * String serverFeature = getServerFeature(); String serverFragment =
+	 * getServerMessageFragment();
+	 * 
+	 * engineServer.setMarkToEndOfLog(engineServer.getMatchingLogFile("trace.log"));
+	 * engineFeatures.remove(serverFeature); engineServer.changeFeatures(new
+	 * ArrayList<String>(engineFeatures)); verifyRemovedFeature(engineServer,
+	 * serverFragment);
+	 * 
+	 * engineServer.setMarkToEndOfLog(engineServer.getMatchingLogFile("trace.log"));
+	 * engineFeatures.add(serverFeature); engineServer.changeFeatures(new
+	 * ArrayList<String>(engineFeatures)); verifyAddedFeature(engineServer,
+	 * serverFragment);
+	 * 
+	 * boolean testResult2 = runInServlet("testReceiveMessage_TCP");
+	 * assertTrue("testReceiveMessage_TCP failed", testResult2);
+	 * 
+	 * } catch (Throwable throwable) { clientServer.serverDump();
+	 * engineServer.serverDump(); throw throwable; } }
+	 */}

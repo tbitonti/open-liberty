@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -52,7 +54,10 @@ import com.ibm.ejs.container.EJSRemoteWrapper;
 import com.ibm.ejs.container.EJSWrapper;
 import com.ibm.ejs.container.RemoteAsyncResult;
 import com.ibm.ejs.container.WrapperManager;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
+import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.ejbcontainer.jitdeploy.CORBA_Utils;
 import com.ibm.ws.ejbcontainer.osgi.EJBRemoteRuntime;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
@@ -64,6 +69,7 @@ import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 
 @Component
 public class EJBRemoteRuntimeImpl implements EJBRemoteRuntime, RemoteObjectReplacer {
+    private static final TraceComponent tc = Tr.register(EJBRemoteRuntimeImpl.class);
     /**
      * The primary POA name. This name must not be changed or else existing
      * serialized stubs will fail.
@@ -99,10 +105,20 @@ public class EJBRemoteRuntimeImpl implements EJBRemoteRuntime, RemoteObjectRepla
     private POA asyncResultAdapter;
     private NamingContext rootNamingContext;
 
-    @Reference(service = LibertyProcess.class, target = "(wlp.process.type=server)")
-    protected void setLibertyProcess(ServiceReference<LibertyProcess> reference) {}
+    /**
+     * The "corbaname::<host>:<port>#" prefix used when building corbaname URLs
+     * for the CNTR0167I binding message. Computed once at activate time from
+     * the "nameService" property of the injected ORB's ServiceReference.
+     * Null if the property is not available.
+     */
+    private String corbanamePrefix;
 
-    protected void unsetLibertyProcess(ServiceReference<LibertyProcess> reference) {}
+    @Reference(service = LibertyProcess.class, target = "(wlp.process.type=server)")
+    protected void setLibertyProcess(ServiceReference<LibertyProcess> reference) {
+    }
+
+    protected void unsetLibertyProcess(ServiceReference<LibertyProcess> reference) {
+    }
 
     @Reference(name = REFERENCE_ORB, service = ORBRef.class, target = "(id=defaultOrb)")
     protected void setOrbRef(ServiceReference<ORBRef> ref) {
@@ -118,6 +134,24 @@ public class EJBRemoteRuntimeImpl implements EJBRemoteRuntime, RemoteObjectRepla
     protected void activate(ComponentContext cc) {
         orbRefSR.activate(cc);
         serverPolicySource.activate(cc);
+
+        // The ORB's ServiceReference carries a "nameService" property of the form
+        // "corbaname::<host>:<port>" — append "#" to form the corbaname URL prefix.
+        ServiceReference<ORBRef> orbRef = orbRefSR.getReference();
+        if (orbRef != null) {
+            String nameService = (String) orbRef.getProperty("nameService");
+            if (nameService != null && nameService.startsWith("corbaname::")) {
+                corbanamePrefix = nameService + "#";
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(tc, "corbanamePrefix = " + corbanamePrefix);
+            } else {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(tc, "corbanamePrefix = null : nameService = " + nameService);
+            }
+        } else {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "corbanamePrefix = null : orbRef = null");
+        }
     }
 
     @Deactivate
@@ -126,6 +160,7 @@ public class EJBRemoteRuntimeImpl implements EJBRemoteRuntime, RemoteObjectRepla
             ejbAdapter.destroy(false, false);
         }
 
+        corbanamePrefix = null;
         orbRefSR.deactivate(cc);
         serverPolicySource.deactivate(cc);
     }
@@ -161,6 +196,31 @@ public class EJBRemoteRuntimeImpl implements EJBRemoteRuntime, RemoteObjectRepla
         }
 
         return new BindingData(bmd, contextNames);
+    }
+
+    @Trivial
+    @Override
+    public String getCorbaBindingName(Object bindingDataObject, String interfaceName) {
+        if (corbanamePrefix == null) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "getCorbaBindingName : null");
+            return null;
+        }
+        BindingData bindingData = (BindingData) bindingDataObject;
+        // Escape dots in the interface name so it is valid in a corbaname URL.
+        // A single backslash in the log (e.g. "com\.example\.Remote") is the intended output.
+        String escapedInterfaceName = interfaceName.replace(".", "\\.");
+        String bindingName = bindingData.beanMetaData.enterpriseBeanName + '!' + escapedInterfaceName;
+        // contextNames is e.g. ["ejb","global","appName","moduleName"] or ["ejb","global","moduleName"]
+        // joining with '/' produces the naming path beneath the root context
+        StringBuilder namingPath = new StringBuilder(corbanamePrefix);
+        for (String contextName : bindingData.contextNames) {
+            namingPath.append(contextName).append('/');
+        }
+        namingPath.append(bindingName);
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+            Tr.debug(tc, "getCorbaBindingName : " + namingPath.toString());
+        return namingPath.toString();
     }
 
     @Override
@@ -314,6 +374,23 @@ public class EJBRemoteRuntimeImpl implements EJBRemoteRuntime, RemoteObjectRepla
             createPOA(poa);
         }
         return ejbAdapter;
+    }
+
+    /**
+     * Checks if we are able to successfully obtain the ORB and CORBA name server.
+     *
+     * @return true if the ORB and CORBA name server are available
+     */
+    @Override
+    @FFDCIgnore(IllegalStateException.class)
+    public boolean isRemoteEjbAdapterAvailable() {
+        try {
+            return (getEjbAdapter() != null);
+        } catch (IllegalStateException ise) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "The orb is not available");
+            return false;
+        }
     }
 
     private void createPOA(POA rootAdapter) {

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,9 +16,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
-import java.lang.reflect.Method;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -24,14 +23,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import javax.management.AttributeNotFoundException;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanException;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
+import javax.management.ReflectionException;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
-import com.ibm.ws.kernel.service.util.JavaInfo.Vendor;
 
 /**
  * Provides information about the memory of the underlying operating system.
@@ -269,9 +271,9 @@ public class MemoryInformation {
      * Create a new instance of the API with various options.
      *
      * @param cacheTotalRam
-     *            Cache total RAM after first calculation.
+     *                                       Cache total RAM after first calculation.
      * @param useLightweightAvailableRam
-     *            Use the less accurate but more lightweight method to calculate available RAM.
+     *                                       Use the less accurate but more lightweight method to calculate available RAM.
      */
     public MemoryInformation(boolean cacheTotalRam, boolean useLightweightAvailableRam) {
         this.cacheTotalRam = cacheTotalRam;
@@ -648,51 +650,58 @@ public class MemoryInformation {
         return Long.parseLong(line);
     }
 
-    @FFDCIgnore({ OperatingSystemException.class })
     private long getTotalMemoryWindows() throws MemoryInformationException {
-        try {
-            List<String> lines = OperatingSystem.executeProgram("wmic", "os", "get", "totalvisiblememorysize", "/format:list");
-            for (String line : lines) {
-                // https://msdn.microsoft.com/en-us/library/aa394239(v=vs.85).aspx
-                if (line.startsWith("TotalVisibleMemorySize=")) {
-                    return processWmicLine(line) * 1024;
-                }
-            }
-            throw new MemoryInformationException(Tr.formatMessage(tc, "memory.information.unexpected", "wmic", lines));
-        } catch (OperatingSystemException e) {
-            throw new MemoryInformationException(e);
-        }
+        // This was previously implemented using wmic, which is deprecated 
+        // and removed in modern Windows (Windows 10 21H1+, Windows 11, Server 2022+)
+        // Use Java MXBean instead which is available in Java 8+.
+        return getTotalMemoryJDK();
     }
 
-    private long processWmicLine(String line) {
-        return Long.parseLong(line.substring(line.indexOf('=') + 1));
-    }
-
-    @FFDCIgnore({ OperatingSystemException.class })
+    @FFDCIgnore({ MemoryInformationException.class })
     private long getAvailableMemoryWindows() throws MemoryInformationException {
+        // wmic is deprecated and removed in modern Windows (Windows 10 21H1+, Windows 11, Server 2022+)
+        // Try PowerShell first to maintain the same level of detail (AvailableBytes + CacheBytes)
         try {
-            long available = 0;
-            List<String> lines = OperatingSystem.executeProgram("wmic", "path", "Win32_PerfFormattedData_PerfOS_Memory", "get",
-                                                                "/format:list");
+            return getAvailableMemoryWindowsPowerShell();
+        } catch (OperatingSystemException | MemoryInformationException e) {
+            // If PowerShell fails, fall back to Java MXBean
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "PowerShell failed, falling back to Java MXBean", e);
+            }
+			
+            // Note: JDK free memory does not include cached/standby memory, and might
+            // be lower than previous implementation (wmic) and new PowerShell results.
+            return getFreeMemoryJDK();
+        }
+    }
 
-            // https://technet.microsoft.com/en-ca/aa394268(v=vs.71)
+    private long getAvailableMemoryWindowsPowerShell() throws OperatingSystemException, MemoryInformationException {
+        // Use PowerShell to get the same memory information that wmic provided
+        // Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory provides AvailableBytes and CacheBytes
+        List<String> lines = OperatingSystem.executeProgram("powershell", "-NoProfile", "-Command",
+                "$mem = Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory; " +
+                "Write-Output ($mem.AvailableBytes + $mem.CacheBytes)");
+        
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "PowerShell returned " + lines.size() + " line(s): " + lines);
+        }
 
-            for (String line : lines) {
-                if (line.startsWith("AvailableBytes=")) {
-                    available += processWmicLine(line);
-                } else if (line.startsWith("CacheBytes=")) {
-                    available += processWmicLine(line);
+        for (String line : lines) {
+            line = line.trim();
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                 Tr.debug(tc, "Processing line: '" + line + "'");
+            }
+            if (!line.isEmpty() && line.matches("\\d+")) {
+                long available = Long.parseLong(line);
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                     Tr.debug(tc, "Parsed available memory: " + available + " bytes");
+                }
+                if (available > 0) {
+                    return available;
                 }
             }
-
-            if (available <= 0) {
-                throw new MemoryInformationException(Tr.formatMessage(tc, "memory.information.unexpected", "wmic", lines));
-            }
-
-            return available;
-        } catch (OperatingSystemException e) {
-            throw new MemoryInformationException(e);
         }
+        throw new MemoryInformationException(Tr.formatMessage(tc, "memory.information.unexpected", "PowerShell", lines));
     }
 
     @FFDCIgnore({ OperatingSystemException.class })
@@ -866,7 +875,7 @@ public class MemoryInformation {
 
         long result = getFreeMemoryJDK();
 
-        // Testing has shown that IBM Java returns -1
+        // J9 returns -1: https://github.com/eclipse/omr/blob/37e866c/port/zos390/omrvmem.c#L1614
         if (result <= 0) {
             throw new MemoryInformationException(Tr.formatMessage(tc, "memory.information.unavailable"));
         }
@@ -877,14 +886,38 @@ public class MemoryInformation {
     private static OperatingSystemMXBean osMxBean;
     private static MBeanServer mBeanServer;
     private static ObjectName osObjectName;
+    private static String totalPhysicalMemoryAttribute;
 
-    @FFDCIgnore({ MalformedObjectNameException.class })
+    @FFDCIgnore({ MalformedObjectNameException.class, MBeanException.class })
     private synchronized void ensureInitializedMBean() throws MemoryInformationException {
         if (osMxBean == null) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "ensureInitializedMBean needs initialization");
+            }
+
             osMxBean = ManagementFactory.getOperatingSystemMXBean();
             mBeanServer = ManagementFactory.getPlatformMBeanServer();
             try {
                 osObjectName = new ObjectName("java.lang", "type", "OperatingSystem");
+
+                // OpenJDK uses TotalPhysicalMemorySize [1] whereas J9
+                // uses TotalPhysicalMemory, so cache which one to use.
+                // [1]: https://docs.oracle.com/javase/8/docs/jre/api/management/extension/com/sun/management/OperatingSystemMXBean.html
+
+                try {
+                    mBeanServer.getAttribute(osObjectName, "TotalPhysicalMemory");
+                    totalPhysicalMemoryAttribute = "TotalPhysicalMemory";
+                } catch (InstanceNotFoundException | AttributeNotFoundException | ReflectionException | MBeanException e) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "Could not find TotalPhysicalMemory attribute", e);
+                    }
+                    totalPhysicalMemoryAttribute = "TotalPhysicalMemorySize";
+                }
+
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Set totalPhysicalMemoryAttribute to " + totalPhysicalMemoryAttribute);
+                }
+
             } catch (MalformedObjectNameException e) {
                 throw new MemoryInformationException(e);
             }
@@ -896,11 +929,7 @@ public class MemoryInformation {
         try {
             ensureInitializedMBean();
 
-            if (JavaInfo.vendor() == Vendor.IBM) {
-                return (Long) mBeanServer.getAttribute(osObjectName, "TotalPhysicalMemory");
-            } else {
-                return (Long) mBeanServer.getAttribute(osObjectName, "TotalPhysicalMemorySize");
-            }
+            return (Long) mBeanServer.getAttribute(osObjectName, totalPhysicalMemoryAttribute);
         } catch (Throwable e) {
             throw new MemoryInformationException(e);
         }
@@ -917,6 +946,12 @@ public class MemoryInformation {
         }
     }
 
+    /**
+     * java -cp dev/com.ibm.ws.kernel.service/bin/:dev/com.ibm.ws.logging.core/bin/ com.ibm.ws.kernel.service.util.MemoryInformation
+     *
+     * @param args
+     * @throws Throwable
+     */
     public static void main(String... args) throws Throwable {
         out(MemoryInformation.class.getName() + " started");
         out("Operating System      : " + String.format("%15s", OperatingSystem.instance().getOperatingSystemType()));

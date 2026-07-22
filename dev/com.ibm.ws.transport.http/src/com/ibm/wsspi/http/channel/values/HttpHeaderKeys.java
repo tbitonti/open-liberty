@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2021 IBM Corporation and others.
+ * Copyright (c) 2004, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,7 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.ibm.wsspi.genericbnf.BNFHeaders;
+import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.wsspi.genericbnf.HeaderKeys;
 import com.ibm.wsspi.genericbnf.KeyMatcher;
 
@@ -72,8 +74,6 @@ public class HttpHeaderKeys extends HeaderKeys {
     public static final HttpHeaderKeys HDR_CONTENT_DISPOSITION = new HttpHeaderKeys("Content-Disposition");
     /** Enumerated object for the HTTP header key CONTENT-LOCATION */
     public static final HttpHeaderKeys HDR_CONTENT_LOCATION = new HttpHeaderKeys("Content-Location");
-    /** Enumerated object for the HTTP header key CONTENT-MD5 */
-    public static final HttpHeaderKeys HDR_CONTENT_MD5 = new HttpHeaderKeys("Content-MD5");
     /** Enumerated object for the HTTP header key CONTENT-RANGE */
     public static final HttpHeaderKeys HDR_CONTENT_RANGE = new HttpHeaderKeys("Content-Range");
     /** Enumerated object for the HTTP header key DATE */
@@ -218,12 +218,27 @@ public class HttpHeaderKeys extends HeaderKeys {
     public static final HttpHeaderKeys HDR_$WSODRINFO = new HttpHeaderKeys("$WSODRINFO");
     /** Cache related header */
     public static final HttpHeaderKeys HDR_EDGE_CONTROL = new HttpHeaderKeys("Edge-control");
+
+    public static final HttpHeaderKeys HDR_FORWARDED = new HttpHeaderKeys("Forwarded");
+
+    public static final HttpHeaderKeys HDR_X_FORWARDED_BY = new HttpHeaderKeys("X-Forwarded-By");
+
+    public static final HttpHeaderKeys HDR_X_FORWARDED_FOR = new HttpHeaderKeys("X-Forwarded-For");
+
+    public static final HttpHeaderKeys HDR_X_FORWARDED_HOST = new HttpHeaderKeys("X-Forwarded-Host");
+
+    public static final HttpHeaderKeys HDR_X_FORWARDED_PORT = new HttpHeaderKeys("X-Forwarded-Port");
     /** De facto standard header for original protocol (similar to $WSIS) */
     public static final HttpHeaderKeys HDR_X_FORWARDED_PROTO = new HttpHeaderKeys("X-Forwarded-Proto");
     /** Private WAS header used by the HTTP Session Manager to determine if a request is failed over */
     public static final HttpHeaderKeys HDR_$WSFO = new HttpHeaderKeys("$WSFO");
 
     public static final HttpHeaderKeys HDR_HSTS = new HttpHeaderKeys("Strict-Transport-Security");
+
+    public static final HttpHeaderKeys HDR_AUTHORIZATION_ENCODING = new HttpHeaderKeys("Authorization-Encoding");
+
+    public static final HttpHeaderKeys HDR_ORIGIN = new HttpHeaderKeys("Origin");
+
     /** Max value of header keys that will be kept in key storage */
     public static final int ORD_MAX = 1024;
 
@@ -233,7 +248,7 @@ public class HttpHeaderKeys extends HeaderKeys {
      *
      * @param name
      */
-    public HttpHeaderKeys(String name) {
+    private HttpHeaderKeys(String name) {
         super(name, generateNextOrdinal());
         if (NEXT_ORDINAL.get() <= ORD_MAX) {
 
@@ -268,7 +283,7 @@ public class HttpHeaderKeys extends HeaderKeys {
      * @param shouldLog
      * @param shouldFilter
      */
-    public HttpHeaderKeys(String name, boolean shouldLog, boolean shouldFilter) {
+    private HttpHeaderKeys(String name, boolean shouldLog, boolean shouldFilter) {
         super(name, generateNextOrdinal());
         super.setShouldLogValue(shouldLog);
         super.setUseFilters(shouldFilter);
@@ -294,9 +309,9 @@ public class HttpHeaderKeys extends HeaderKeys {
      *
      * @param name
      * @param offset
-     *            - starting point in that name
+     *                   - starting point in that name
      * @param length
-     *            - length to use from that starting point
+     *                   - length to use from that starting point
      * @return HttpHeaderKeys
      */
     public static HttpHeaderKeys match(String name, int offset, int length) {
@@ -312,9 +327,9 @@ public class HttpHeaderKeys extends HeaderKeys {
      *
      * @param name
      * @param offset
-     *            - starting point in that name
+     *                   - starting point in that name
      * @param length
-     *            - length to use from that offset
+     *                   - length to use from that offset
      * @return HttpHeaderKeys
      */
     public static HttpHeaderKeys match(byte[] name, int offset, int length) {
@@ -329,16 +344,18 @@ public class HttpHeaderKeys extends HeaderKeys {
      *
      * @param name
      * @param offset
-     *            - starting point in that input name
+     *                                     - starting point in that input name
      * @param length
-     *            - length to use from that offset
+     *                                     - length to use from that offset
+     * @param returnNullForInvalidName
+     *                                     - return null instead of throw IllegalArgumentException for header name validation
      * @return HttpHeaderKeys
      * @throws NullPointerException
-     *             if input name is null
+     *                                      if input name is null
      * @throws IllegalArgumentException
-     *             if the input name contains CR or LF chars
+     *                                      if the input name contains invalid chars
      */
-    public static HttpHeaderKeys find(byte[] name, int offset, int length) {
+    public static HttpHeaderKeys find(byte[] name, int offset, int length, boolean returnNullForInvalidName) {
         HttpHeaderKeys key = (HttpHeaderKeys) myMatcher.match(name, offset, length);
         if (null == key) {
             synchronized (HttpHeaderKeys.class) {
@@ -346,13 +363,11 @@ public class HttpHeaderKeys extends HeaderKeys {
                 // testing again inside a sync block
                 key = (HttpHeaderKeys) myMatcher.match(name, offset, length);
                 if (null == key) {
+                    String headerName = new String(name, offset, length);
                     // make sure the name is valid
-                    for (int i = offset; i < length; i++) {
-                        if (BNFHeaders.CR == name[i] || BNFHeaders.LF == name[i]) {
-                            throw new IllegalArgumentException("Invalid CRLF in name: " + i);
-                        }
+                    if (validateHeaderName(headerName, returnNullForInvalidName)) {
+                        key = new HttpHeaderKeys(headerName, true);
                     }
-                    key = new HttpHeaderKeys(new String(name, offset, length), true);
                 }
             } // end-sync
 
@@ -365,13 +380,15 @@ public class HttpHeaderKeys extends HeaderKeys {
      * never been seen prior, then a new object is created by this call.
      *
      * @param name
+     * @param returnNullForInvalidName
+     *                                     - return null instead of throw IllegalArgumentException for header name validation
      * @return HttpHeaderKeys
      * @throws NullPointerException
-     *             if input name is null
+     *                                      if input name is null
      * @throws IllegalArgumentException
-     *             if the input name contains CR or LF chars
+     *                                      if the input name contains invalid chars
      */
-    public static HttpHeaderKeys find(String name) {
+    public static HttpHeaderKeys find(String name, boolean returnNullForInvalidName) {
         HttpHeaderKeys key = (HttpHeaderKeys) myMatcher.match(name, 0, name.length());
         if (null == key) {
             synchronized (HttpHeaderKeys.class) {
@@ -380,32 +397,84 @@ public class HttpHeaderKeys extends HeaderKeys {
                 key = (HttpHeaderKeys) myMatcher.match(name, 0, name.length());
                 if (null == key) {
                     // make sure the name is valid
-                    for (int i = 0, size = name.length(); i < size; i++) {
-                        char c = name.charAt(i);
-                        if (BNFHeaders.CR == c || BNFHeaders.LF == c) {
-                            throw new IllegalArgumentException("Invalid CRLF in name: " + i);
-                        }
+                    if (validateHeaderName(name, returnNullForInvalidName)) {
+                        key = new HttpHeaderKeys(name, true);
                     }
-                    key = new HttpHeaderKeys(name, true);
                 }
             } // end-sync
         }
         return key;
     }
 
-    /**
-     * Find the enumerated object matching the input name. If this name has
-     * never been seen prior, then a new object is created by this call.
+    /*
+     * A valid header name is "!" / "#" / "$" / "%" / "&" / "'" /
+     * "*" / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~" / DIGIT / ALPHA
      *
-     * @param name
-     * @return HttpHeaderKeys
-     * @throws NullPointerException
-     *             if input name is null
-     * @throws IllegalArgumentException
-     *             if the input name contains CR or LF chars
+     * The information about valid chars in a header name comes from
+     * RCF 9110 section 5.6.2 tchars
+     * https://www.rfc-editor.org/rfc/rfc9110.html#section-5.6.2
+     *
+     * PH52074
      */
-    public static HttpHeaderKeys find(byte[] name) {
-        return find(name, 0, name.length);
+    private static boolean validateHeaderName(String name, boolean returnFalseForInvalidName) {
+        for (int i = 0, size = name.length(); i < size; i++) {
+            char c = name.charAt(i);
+            // if we found an error, throw the exception now
+            if (!isValidTchar(c)) {
+                if (returnFalseForInvalidName) {
+                    return false;
+                }
+                final String msg = "Header name contained an invalid character " + i 
+                                   + " | char=" + toPrintable(c)
+                                   + " code=" + (int) c + "(0x" + Integer.toHexString(c) + ")"
+                                   + " pos=" + (i + 1)
+                                   + " name=\"" + name + "\"";
+
+                final IllegalArgumentException iae = new IllegalArgumentException(msg);
+                FFDCFilter.processException(
+                                            iae,
+                                            HttpHeaderKeys.class.getName() + ".validateHeaderName(String)",
+                                            "1",
+                                            name);
+                throw iae;
+            }
+        }
+        return true;
+    }
+
+    public static boolean isValidTchar(char c) {
+        boolean valid = ((c >= 'a') && (c <= 'z')) ||
+                        ((c >= 'A') && (c <= 'Z')) ||
+                        ((c >= '0') && (c <= '9')) ||
+                        (c == '!') || (c == '#') ||
+                        (c == '$') || (c == '%') ||
+                        (c == '&') || (c == '\'') ||
+                        (c == '*') || (c == '+') ||
+                        (c == '-') || (c == '.') ||
+                        (c == '^') || (c == '_') ||
+                        (c == '`') || (c == '|') ||
+                        (c == '~');
+
+        return valid;
+    }
+
+    /**
+     * Returns a compact representation of a header-name character
+     * suitable for diagnostics. This is for header name, not values.
+     *
+     * @param c the character from the header name being validated
+     * @return a short printable form of {@code c} for logging
+     */
+    private static String toPrintable(char c) {
+        if (c == ' ')
+            return "\\u0020(SPACE)";
+        if (c == '\t')
+            return "\\u0009(TAB)";
+        if (c == '\r')
+            return "\\u000D(CR)";
+        if (c == '\n')
+            return "\\u000A(LF)";
+        return Character.isISOControl(c) ? String.format("\\u%04x", (int) c) : String.valueOf(c);
     }
 
     /** private headers defined as sensitive */
@@ -420,7 +489,7 @@ public class HttpHeaderKeys extends HeaderKeys {
         if (headerName == null) {
             return false;
         }
-        return sensitiveHeaderList.contains(headerName);
+        return headerName.length() > 0 && headerName.charAt(0) == '$' && sensitiveHeaderList.contains(headerName);
     }
 
     /** private headers defined as sensitive */
@@ -440,7 +509,7 @@ public class HttpHeaderKeys extends HeaderKeys {
         if (headerName == null) {
             return false;
         }
-        return privateHeaderList.contains(headerName);
+        return headerName.length() > 0 && headerName.charAt(0) == '$' && privateHeaderList.contains(headerName);
     }
 
     private static int generateNextOrdinal() {

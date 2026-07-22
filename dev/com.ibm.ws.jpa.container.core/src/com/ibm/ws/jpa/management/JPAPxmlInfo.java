@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2020 IBM Corporation and others.
+ * Copyright (c) 2006, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -43,6 +45,13 @@ class JPAPxmlInfo {
 
     // List of persistence units defined in this persistence.xml.
     private final Map<String, JPAPUnitInfo> ivPuList;
+
+    /**
+     * @return the ivPuList
+     */
+    public Map<String, JPAPUnitInfo> getIvPuList() {
+        return ivPuList;
+    }
 
     /**
      * Constructor.
@@ -106,6 +115,12 @@ class JPAPxmlInfo {
 
             // Set <provider>
             puInfo.setPersistenceProviderClassName(pu.getProvider());
+
+            // Set <qualifier>
+            puInfo.setQualifierAnnotationNames(pu.getQualifier());
+
+            // Set <scope>
+            puInfo.setScopeAnnotationName(pu.getScope());
 
             // Set <jta-data-source>
             puInfo.setJtaDataSource(pu.getJtaDataSource());

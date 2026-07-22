@@ -1,0 +1,127 @@
+/*******************************************************************************
+ * Copyright (c) 2017,2026 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
+
+configurations {
+    app17
+    app18
+    app19
+    app20
+    app21
+    app22
+    app23
+    app24
+    app25
+    app26
+    requiredLibs {
+        transitive = false
+    }
+ }
+ 
+ dependencies {
+    app17 'io.openliberty:java-apps:17.0.0'
+    app18 'io.openliberty:java-apps:18.0.0'
+    app19 'io.openliberty:java-apps:19.0.0'
+    app20 'io.openliberty:java-apps:20.0.0'
+    app21 'io.openliberty:java-apps:21.0.0'
+    app22 'io.openliberty:java-apps:22.1.0'
+    app23 'io.openliberty:java-apps:23.1.0'
+    app24 'io.openliberty:java-apps:24.1.0'
+    app25 'io.openliberty:java-apps:25.1.0'
+    app26 'io.openliberty:java-apps:26.1.0'
+    requiredLibs project(':com.ibm.ws.kernel.service')
+ }
+
+task copyApp17A(type: Copy) {
+  from configurations.app17
+  into new File(autoFvtDir, 'publish/servers/java17-cdi-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_17.war'
+}
+
+task copyApp17B(type: Copy) {
+  from configurations.app17
+  into new File(autoFvtDir, 'publish/servers/java17-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_17.war'
+}
+
+task copyApp18A(type: Copy) {
+  from configurations.app18
+  into new File(autoFvtDir, 'publish/servers/java18-cdi-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_18.war'
+}
+
+task copyApp18B(type: Copy) {
+  from configurations.app18
+  into new File(autoFvtDir, 'publish/servers/java18-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_18.war'
+}
+
+task copyApp19(type: Copy) {
+  from configurations.app19
+  into new File(autoFvtDir, 'publish/servers/java19-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_19.war'
+}
+
+task copyApp20(type: Copy) {
+  from configurations.app20
+  into new File(autoFvtDir, 'publish/servers/java20-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_20.war'
+}
+
+task copyApp21(type: Copy) {
+  from configurations.app21
+  into new File(autoFvtDir, 'publish/servers/java21-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_21.war'
+}
+
+task copyApp22(type: Copy) {
+  from configurations.app22
+  into new File(autoFvtDir, 'publish/servers/java22-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_22.war'
+}
+
+task copyApp23(type: Copy) {
+  from configurations.app23
+  into new File(autoFvtDir, 'publish/servers/java23-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_23.war'
+}
+
+task copyApp24(type: Copy) {
+  from configurations.app24
+  into new File(autoFvtDir, 'publish/servers/java24-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_24.war'
+}
+
+task copyApp25(type: Copy) {
+  from configurations.app25
+  into new File(autoFvtDir, 'publish/servers/java25-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_25.war'
+}
+
+task copyApp26(type: Copy) {
+  from configurations.app26
+  into new File(autoFvtDir, 'publish/servers/java26-server/apps/')
+  rename 'java-apps-*.*.*.*', 'io.openliberty.java.internal_fat_26.war'
+}
+
+addRequiredLibraries.dependsOn copyApp17A
+addRequiredLibraries.dependsOn copyApp17B
+addRequiredLibraries.dependsOn copyApp18A
+addRequiredLibraries.dependsOn copyApp18B
+addRequiredLibraries.dependsOn copyApp19
+addRequiredLibraries.dependsOn copyApp20
+addRequiredLibraries.dependsOn copyApp21
+addRequiredLibraries.dependsOn copyApp22
+addRequiredLibraries.dependsOn copyApp23
+addRequiredLibraries.dependsOn copyApp24
+addRequiredLibraries.dependsOn copyApp25
+addRequiredLibraries.dependsOn copyApp26

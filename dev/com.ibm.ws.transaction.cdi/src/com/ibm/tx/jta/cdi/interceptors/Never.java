@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2021 IBM Corporation and others.
+ * Copyright (c) 2015, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -41,7 +43,7 @@ public class Never extends TransactionalInterceptor {
             throw new TransactionalException("TxType.NEVER method called within a global tx", new InvalidTransactionException());
         }
 
-        return runUnderUOWNoEnablement(UOWSynchronizationRegistry.UOW_TYPE_LOCAL_TRANSACTION, true, context, "NEVER");
+        return runUnderUOW(UOWSynchronizationRegistry.UOW_TYPE_LOCAL_TRANSACTION, true, context, "NEVER", true);
 
     }
 }

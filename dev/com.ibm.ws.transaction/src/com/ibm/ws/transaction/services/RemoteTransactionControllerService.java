@@ -1,16 +1,19 @@
-/*******************************************************************************
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+/* *****************************************************************************
+ * Copyright (c) 2015, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *******************************************************************************/
+ * *****************************************************************************/
 package com.ibm.ws.transaction.services;
 
 import java.io.Serializable;
+import java.util.Set;
 
 import javax.transaction.HeuristicCommitException;
 import javax.transaction.HeuristicMixedException;
@@ -22,9 +25,12 @@ import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
+import com.ibm.tx.config.ConfigurationProviderManager;
+import com.ibm.tx.jta.embeddable.impl.EmbeddableTranManagerSet;
 import com.ibm.tx.jta.embeddable.impl.EmbeddableTransactionImpl;
 import com.ibm.tx.jta.embeddable.impl.WSATRecoveryCoordinator;
 import com.ibm.tx.jta.impl.LocalTIDTable;
@@ -37,10 +43,15 @@ import com.ibm.tx.remote.Vote;
 import com.ibm.tx.util.TMHelper;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.LocalTransaction.LocalTransactionCoordinator;
-import com.ibm.ws.Transaction.JTA.HeuristicHazardException;
 import com.ibm.ws.Transaction.UOWCoordinator;
 import com.ibm.ws.Transaction.UOWCurrent;
+import com.ibm.ws.Transaction.JTA.HeuristicHazardException;
+import com.ibm.ws.Transaction.JTS.Configuration;
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+import com.ibm.ws.recoverylog.spi.RecLogService;
+import com.ibm.ws.recoverylog.spi.SharedServerLeaseLog;
 
 /**
  *
@@ -53,18 +64,27 @@ public class RemoteTransactionControllerService implements RemoteTransactionCont
     private final ThreadLocal<LocalTransactionCoordinator> _suspendedLTC = new ThreadLocal<LocalTransactionCoordinator>();
     private final ThreadLocal<DistributableTransaction> _threadImportedTran = new ThreadLocal<DistributableTransaction>();
 
-    private UOWCurrent _uowc;
+    private final UOWCurrent _uowc;
+    private final TransactionManager _tm;
+    private final RecLogService _rls;
 
-    private TransactionManager _tm;
+    @Activate
+    public RemoteTransactionControllerService(@Reference UOWCurrent uowc,
+                                              @Reference TransactionManager tm,
+                                              @Reference RecLogService rls) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+            Tr.debug(tc, "RemoteTransactionControllerService activation");
 
-    @Reference
-    protected void setUOWCurrent(UOWCurrent uowc) {
         _uowc = uowc;
-    }
-
-    @Reference
-    protected void setTransactionManager(TransactionManager tm) {
         _tm = tm;
+        _rls = rls;
+
+        try {
+            TMHelper.checkTMState();
+        } catch (NotSupportedException e) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "RemoteTransactionControllerService", e);
+        }
     }
 
     /*
@@ -76,11 +96,8 @@ public class RemoteTransactionControllerService implements RemoteTransactionCont
     public boolean importTransaction(String globalId, int expires) throws SystemException {
 
         // Make sure TM is open for business
-        try {
-            TMHelper.checkTMState();
-        } catch (NotSupportedException e) {
+        if (((EmbeddableTranManagerSet) EmbeddableTranManagerSet.instance()).isQuiesced()) {
             final SystemException se = new SystemException();
-            se.initCause(e);
             throw se;
         }
 
@@ -259,7 +276,8 @@ public class RemoteTransactionControllerService implements RemoteTransactionCont
      * @param xid
      * @return
      */
-    private DistributableTransaction getTransactionForID(String globalId) {
+    @Override
+    public DistributableTransaction getTransactionForID(String globalId) {
 
         for (TransactionImpl tx : LocalTIDTable.getAllTransactions()) {
             if (globalId.equals(((DistributableTransaction) tx).getGlobalId())) {
@@ -386,5 +404,75 @@ public class RemoteTransactionControllerService implements RemoteTransactionCont
         }
 
         return ((DistributableTransaction) uowCoord).getGlobalId();
+    }
+
+    @Override
+    @FFDCIgnore({ SystemException.class })
+    public Object getResource(String globalId) {
+        TransactionWrapper tw;
+        try {
+            tw = TransactionWrapper.getTransactionWrapper(globalId);
+        } catch (SystemException e) {
+            return null;
+        }
+
+        if (tw != null) {
+            EmbeddableTransactionImpl tx = tw.getTransaction();
+
+            if (tx != null) {
+                return tx.getResource(globalId);
+            } else {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(tc, "No matching Transaction");
+            }
+        } else {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "No matching TransactionWrapper");
+
+            DistributableTransaction tx = getTransactionForID(globalId);
+
+            if (tx instanceof EmbeddableTransactionImpl) {
+                return ((EmbeddableTransactionImpl) tx).getResource(globalId);
+            } else {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(tc, "No matching DistributableTransaction");
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    @Trivial
+    public void putResource(String globalId, Object o) {
+        ((TransactionImpl) getTransactionForID(globalId)).putResource(globalId, o);
+    }
+
+    @Override
+    @Trivial
+    public String getRecoveryId() {
+        return ConfigurationProviderManager.getConfigurationProvider().getRecoveryIdentity();
+    }
+
+    // Retrieve address from lease log
+    @Override
+    public String getAddress(String recoveryId) {
+        SharedServerLeaseLog leaseLog = Configuration.getLogManager().getLeaseLog();
+
+        try {
+            if (leaseLog != null) {
+                return leaseLog.getBackendURL(recoveryId);
+            }
+        } catch (Exception e) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "getAddress", e);
+        }
+
+        return null;
+    }
+
+    @Override
+    public Set<String> getRecoveryIds() {
+        return _rls.getRecoveryIds();
     }
 }

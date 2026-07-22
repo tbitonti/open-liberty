@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -37,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -98,10 +101,10 @@ import com.ibm.ws.app.manager.springboot.util.SpringBootThinUtil;
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.ContainerInfo;
 import com.ibm.ws.container.service.app.deploy.ContainerInfo.Type;
-import com.ibm.ws.container.service.app.deploy.ManifestClassPathUtils;
 import com.ibm.ws.container.service.app.deploy.ModuleClassesContainerInfo;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
 import com.ibm.ws.container.service.app.deploy.extended.ExtendedApplicationInfo;
+import com.ibm.ws.container.service.app.deploy.extended.ManifestClassPathHelper;
 import com.ibm.ws.container.service.metadata.MetaDataException;
 import com.ibm.ws.container.service.metadata.extended.ModuleMetaDataExtender;
 import com.ibm.ws.container.service.metadata.extended.NestedModuleMetaDataFactory;
@@ -123,6 +126,9 @@ import com.ibm.wsspi.kernel.service.location.WsLocationConstants;
 import com.ibm.wsspi.kernel.service.location.WsResource;
 import com.ibm.wsspi.kernel.service.utils.FrameworkState;
 
+import io.openliberty.checkpoint.spi.CheckpointHook;
+import io.openliberty.checkpoint.spi.CheckpointPhase;
+
 public class SpringBootApplicationImpl extends DeployedAppInfoBase implements SpringBootConfigFactory, SpringBootApplication {
     private static final TraceComponent tc = Tr.register(SpringBootApplicationImpl.class);
     final CountDownLatch applicationReadyLatch = new CountDownLatch(2);
@@ -133,7 +139,7 @@ public class SpringBootApplicationImpl extends DeployedAppInfoBase implements Sp
                                          Container moduleContainer, Entry altDDEntry,
                                          String moduleURI,
                                          ModuleClassLoaderFactory moduleClassLoaderFactory,
-                                         ModuleClassesInfoProvider moduleClassesInfo,
+                                         ManifestClassPathProvider moduleClassesInfo,
                                          List<ContainerInfo> containerInfos) throws UnableToAdaptException {
             super(moduleHandler, moduleMetaDataExtenders, nestedModuleMetaDataFactories, moduleContainer, altDDEntry, moduleURI, ContainerInfo.Type.WEB_MODULE, moduleClassLoaderFactory, moduleClassesInfo, WebApp.class);
             this.classesContainerInfo.addAll(containerInfos);
@@ -280,7 +286,7 @@ public class SpringBootApplicationImpl extends DeployedAppInfoBase implements Sp
             checkExistingConfig(config);
 
             if (config.getVirtualHosts().isEmpty()) {
-                if (!instance.isEndpointConfigured()) {
+                if (!installVirtualHostOnRestore(instance, config) && !instance.isEndpointConfigured()) {
                     //use app configured port with default_host
                     virtualHostConfig.updateAndGet((b) -> installVirtualHostBundle(b, config));
                 }
@@ -289,6 +295,36 @@ public class SpringBootApplicationImpl extends DeployedAppInfoBase implements Sp
                 virtualHostConfig.updateAndGet((b) -> installVirtualHostBundle(b, config));
             }
             instance.start();
+        }
+
+        public boolean installVirtualHostOnRestore(Instance instance, ServerConfiguration config) {
+            if (CheckpointPhase.getPhase() != CheckpointPhase.INACTIVE) {
+                if (!CheckpointPhase.getPhase().restored()) {
+                    Hashtable<String, Object> hookProps = new Hashtable<>();
+                    // We want this to be one of the last restore hooks called. It has to be after the hook in
+                    // com.ibm.ws.http.internal.VirtualHostImpl.RegistrationHolder.listenOnRestore because this hook installs virtual host bundle to use app configured port with default_host
+                    // Using max rank with multi-thread hook will run the restore hook "last"
+                    hookProps.put(Constants.SERVICE_RANKING, Integer.MAX_VALUE);
+                    hookProps.put(CheckpointHook.MULTI_THREADED_HOOK, Boolean.TRUE);
+                    final AtomicReference<ServiceRegistration<CheckpointHook>> hookReg = new AtomicReference<>();
+                    hookReg.set(SpringBootApplicationImpl.this.factory.getBundleContext().registerService(CheckpointHook.class, new CheckpointHook() {
+                        @Override
+                        public void restore() {
+                            //Do not install virtual host bundle if the default virtual host is already configured
+                            if (!instance.isEndpointConfigured()) {
+                                //use app configured port with default_host
+                                virtualHostConfig.updateAndGet((b) -> installVirtualHostBundle(b, config));
+                            }
+                            ServiceRegistration<CheckpointHook> currentReg = hookReg.get();
+                            if (currentReg != null) {
+                                currentReg.unregister();
+                            }
+                        }
+                    }, hookProps));
+                }
+                return true;
+            }
+            return false;
         }
 
         @Override
@@ -507,6 +543,7 @@ public class SpringBootApplicationImpl extends DeployedAppInfoBase implements Sp
     private final Set<Runnable> shutdownHooks = new CopyOnWriteArraySet<>();
     private final AtomicBoolean uninstalled = new AtomicBoolean();
     private final List<String> appArgs;
+    private final boolean setEEContextOnStartup;
     private volatile AtomicReference<String> applicationActivated;
 
     public SpringBootApplicationImpl(ApplicationInformation<DeployedAppInfo> applicationInformation,
@@ -544,6 +581,9 @@ public class SpringBootApplicationImpl extends DeployedAppInfoBase implements Sp
         } else {
             appArgs = Collections.emptyList();
         }
+
+        Object setEEContextOnStartup = applicationInformation.getConfigProperty(SpringConstants.APP_SET_EE_CONTEXT_ON_STARTUP);
+        this.setEEContextOnStartup = Boolean.TRUE.equals(setEEContextOnStartup);
     }
 
     private static SpringBootManifest getSpringBootManifest(ApplicationInformation<DeployedAppInfo> appInfo) throws UnableToAdaptException {
@@ -676,6 +716,10 @@ public class SpringBootApplicationImpl extends DeployedAppInfoBase implements Sp
         return appArgs;
     }
 
+    boolean setEEContextOnStartup() {
+        return setEEContextOnStartup;
+    }
+
     @Override
     public Container createContainerFor(String id) throws IOException, UnableToAdaptException {
         Container container = setupContainer(applicationInformation.getPid(), rawContainer, factory, deployedAppServices);
@@ -764,7 +808,7 @@ public class SpringBootApplicationImpl extends DeployedAppInfoBase implements Sp
         Entry libEntry = moduleContainer.getEntry(manifest.getSpringBootLib());
         if (libEntry != null) {
             Container libContainer = libEntry.adapt(Container.class);
-            final SpringBootThinUtil.StarterFilter starterFilter = SpringBootThinUtil.getStarterFilter(stringStream(libContainer));
+            final SpringBootThinUtil.StarterFilter starterFilter = SpringBootThinUtil.getStarterFilter(stringStream(libContainer), manifest);
             if (libContainer != null) {
                 for (Entry entry : libContainer) {
                     if (!starterFilter.apply(entry.getName())) {
@@ -773,7 +817,7 @@ public class SpringBootApplicationImpl extends DeployedAppInfoBase implements Sp
                         if (jarContainer != null) {
                             ContainerInfo containerInfo = new ContainerInfoImpl(Type.WEB_INF_LIB, manifest.getSpringBootLib() + '/' + jarEntryName, jarContainer);
                             result.add(containerInfo);
-                            ManifestClassPathUtils.addCompleteJarEntryUrls(result, entry, resolved);
+                            ManifestClassPathHelper.addCompleteJarEntryUrls(result, entry, jarContainer, resolved);
                         }
                     }
                 }

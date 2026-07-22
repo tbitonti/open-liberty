@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -18,6 +20,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import com.ibm.ws.install.internal.InstallUtils.FeaturesPlatforms;
 import com.ibm.ws.install.internal.asset.ServerAsset;
 import com.ibm.ws.install.internal.asset.ServerPackageAsset;
 import com.ibm.ws.repository.connections.RepositoryConnectionList;
@@ -52,7 +55,7 @@ public interface InstallKernelInteractive {
     /**
      * Adds a listener with a given notification type
      *
-     * @param listener the listener
+     * @param listener         the listener
      * @param notificationType the notification type
      */
     public void addListener(InstallEventListener listener, String notificationType);
@@ -73,11 +76,22 @@ public interface InstallKernelInteractive {
      */
     public void resolve(Collection<String> assetIds, boolean download) throws InstallException;
 
+
+    /**
+     * Resolves assetIds and platforms into a map of installation resources.
+     *
+     * @param assetIds the asset Ids
+     * @param platforms the platforms
+     * @param download if assets should be downloaded or not
+     * @throws InstallException
+     */
+    public void resolve(Collection<String> assetIds, Collection<String> platforms, boolean download) throws InstallException;
+
     /**
      * Resolves a feature from a local file.
      *
-     * @param feature feature to resolve
-     * @param esaFile file where esa is
+     * @param feature     feature to resolve
+     * @param esaFile     file where esa is
      * @param toExtension location of a product extension
      * @throws InstallException
      */
@@ -87,8 +101,8 @@ public interface InstallKernelInteractive {
      * Resolves features and returns true if the class installResources is not empty
      *
      * @param featureNames the features
-     * @param repoDir where the features exist
-     * @param isOverwrite if the features will be overwritten or not
+     * @param repoDir      where the features exist
+     * @param isOverwrite  if the features will be overwritten or not
      * @return true if there are features to install
      * @throws InstallException
      */
@@ -151,8 +165,8 @@ public interface InstallKernelInteractive {
     /**
      * Installs assets
      *
-     * @param toExtension location of a product extension
-     * @param rollbackAll if assets should be rolled back
+     * @param toExtension          location of a product extension
+     * @param rollbackAll          if assets should be rolled back
      * @param downloadDependencies if any dependencies should be downloaded
      * @return map of asset types to a collection of installed assets as Strings of that type
      * @throws InstallException
@@ -186,7 +200,7 @@ public interface InstallKernelInteractive {
 
     /**
      *
-     * @param servers set of ServerAssets
+     * @param servers     set of ServerAssets
      * @param offlineOnly if features should only be acquired offline
      * @return Collection of server features as Strings
      * @throws InstallException
@@ -195,10 +209,20 @@ public interface InstallKernelInteractive {
     public Collection<String> getServerFeaturesToInstall(Set<ServerAsset> servers, boolean offlineOnly) throws InstallException, IOException;
 
     /**
+     *
+     * @param servers     set of ServerAssets
+     * @param offlineOnly if features should only be acquired offline
+     * @return FeaturesPlatforms Collections of server features and platforms as Strings
+     * @throws InstallException
+     * @throws IOException
+     */
+    public FeaturesPlatforms getServerFeaturesAndPlatformsToInstall(Set<ServerAsset> servers, boolean offlineOnly) throws InstallException, IOException;
+
+    /**
      * Deploys the server package given by an archive file
      *
-     * @param archiveFile The archive file to deploy
-     * @param toExtension location of a product extension
+     * @param archiveFile          The archive file to deploy
+     * @param toExtension          location of a product extension
      * @param downloadDependencies if dependencies should be downloaded
      * @return The ServerPackageAsset that is deployed
      * @throws InstallException
@@ -212,4 +236,13 @@ public interface InstallKernelInteractive {
      * @throws InstallException
      */
     public void checkAssetsNotInstalled(Collection<String> assetIds) throws InstallException;
+
+    /**
+     * Checks if the assets are installed. If so throws an Install Exception.
+     *
+     * @param assetIds          Collection of assetIds as String
+     * @param installingFeature True if called from featureUtility
+     * @throws InstallException
+     */
+    public void checkAssetsNotInstalled(Collection<String> assetIds, boolean installingFeature) throws InstallException;
 }

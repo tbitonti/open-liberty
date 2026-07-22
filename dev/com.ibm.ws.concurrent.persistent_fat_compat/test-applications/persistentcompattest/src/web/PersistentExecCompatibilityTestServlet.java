@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -145,7 +147,7 @@ public class PersistentExecCompatibilityTestServlet extends FATServlet {
         }
         map.put("PARTN", executorPartitionId);
 
-        String insert = "INSERT INTO EXECTASK VALUES(DEFAULT";
+        String insert = "INSERT INTO EXECTASK VALUES(NEXT VALUE FOR EXECSEQ";
         for (int i = map.size(); i >= 1; i--)
             insert += ",?";
         insert += ')';
@@ -162,7 +164,7 @@ public class PersistentExecCompatibilityTestServlet extends FATServlet {
                     pstmt.setObject(++i, value);
                 pstmt.executeUpdate();
                 pstmt.close();
-                pstmt = con.prepareStatement("VALUES IDENTITY_VAL_LOCAL()");
+                pstmt = con.prepareStatement("SELECT CURRVAL('EXECSEQ')");
                 ResultSet result = pstmt.executeQuery();
                 result.next();
                 return result.getLong(1);

@@ -1,39 +1,39 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2020 IBM Corporation and others.
+ * Copyright (c) 2013, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- * IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.openidconnect.client.internal;
 
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.GeneralSecurityException;
+import java.security.Key;
 import java.security.KeyStoreException;
+import java.security.PrivilegedExceptionAction;
 import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.StringTokenizer;
 
 import javax.net.ssl.SSLSocketFactory;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.StatusLine;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.conn.ssl.DefaultHostnameVerifier;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.util.EntityUtils;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -53,23 +53,37 @@ import com.ibm.websphere.crypto.PasswordUtil;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
+import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.websphere.ssl.Constants;
 import com.ibm.websphere.ssl.SSLException;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+import com.ibm.ws.kernel.productinfo.ProductInfo;
 import com.ibm.ws.security.common.config.CommonConfigUtils;
 import com.ibm.ws.security.common.config.DiscoveryConfigUtils;
+import com.ibm.ws.security.common.crypto.HashUtils;
+import com.ibm.ws.security.common.http.SocialLoginWrapperException;
 import com.ibm.ws.security.common.jwk.impl.JWKSet;
+import com.ibm.ws.security.common.ssl.NoSSLSocketFactoryException;
+import com.ibm.ws.security.common.ssl.SecuritySSLUtils;
+import com.ibm.ws.security.common.structures.SingleTableCache;
+import com.ibm.ws.security.jwt.config.ConsumerUtils;
+import com.ibm.ws.security.jwt.utils.JwtUtils;
 import com.ibm.ws.security.openidconnect.clients.common.ClientConstants;
-import com.ibm.ws.security.openidconnect.clients.common.HashUtils;
+import com.ibm.ws.security.openidconnect.clients.common.ConfigUtils;
+import com.ibm.ws.security.openidconnect.clients.common.InMemoryOidcSessionCache;
 import com.ibm.ws.security.openidconnect.clients.common.OIDCClientAuthenticatorUtil;
 import com.ibm.ws.security.openidconnect.clients.common.OidcClientConfig;
+import com.ibm.ws.security.openidconnect.clients.common.OidcCommonClientRequest;
+import com.ibm.ws.security.openidconnect.clients.common.OidcSessionCache;
 import com.ibm.ws.security.openidconnect.clients.common.OidcUtil;
-import com.ibm.ws.security.openidconnect.common.ConfigUtils;
-import com.ibm.ws.security.openidconnect.common.OidcCommonClientRequest;
 import com.ibm.ws.ssl.KeyStoreService;
 import com.ibm.wsspi.kernel.service.location.WsLocationAdmin;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 import com.ibm.wsspi.kernel.service.utils.SerializableProtectedString;
 import com.ibm.wsspi.ssl.SSLSupport;
+import com.ibm.wsspi.webcontainer.util.ThreadContextHelper;
+
+import io.openliberty.security.oidcclientcore.discovery.DiscoveryHandler;
 
 /**
  * Process the OpenID Connect client entry in the server.xml file
@@ -96,6 +110,8 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     public static final String CFG_KEY_REALM_NAME = "realmName";
     public static final String CFG_KEY_UNIQUE_USER_IDENTIFIER = "uniqueUserIdentifier";
     public static final String CFG_KEY_TOKEN_ENDPOINT_AUTH_METHOD = "tokenEndpointAuthMethod";
+    public static final String CFG_KEY_TOKEN_ENDPOINT_AUTH_SIGNING_ALGORITHM = "tokenEndpointAuthSigningAlgorithm";
+    public static final String CFG_KEY_KEY_ALIAS_NAME = "keyAliasName";
     public static final String CFG_KEY_USER_IDENTITY_TO_CREATE_SUBJECT = "userIdentityToCreateSubject";
     public static final String CFG_KEY_MAP_IDENTITY_TO_REGISTRY_USER = "mapIdentityToRegistryUser";
     public static final String CFG_KEY_OidcclientRequestParameterSupported = "oidcclientRequestParameterSupported";
@@ -108,6 +124,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     public static final String CFG_KEY_NONCE_ENABLED = "nonceEnabled";
     public static final String CFG_KEY_SSL_REF = "sslRef";
     public static final String CFG_KEY_SIGNATURE_ALGORITHM = "signatureAlgorithm";
+    public static final String CFG_KEY_ALLOWED_SIGNATURE_ALGORITHMS = "allowedSignatureAlgorithms";
     public static final String CFG_KEY_CLOCK_SKEW = "clockSkew";
     public static final String CFG_KEY_AUTHENTICATION_TIME_LIMIT = "authenticationTimeLimit";
     public static final String CFG_KEY_DISCOVERY_ENDPOINT_URL = "discoveryEndpointUrl";
@@ -136,6 +153,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     public static final String CFG_KEY_CREATE_SESSION = "createSession";
     public static final String CFG_KEY_INBOUND_PROPAGATION = "inboundPropagation";
     public static final String CFG_KEY_VALIDATION_METHOD = "validationMethod";
+    public static final String CFG_KEY_JWT_ACCESS_TOKEN_REMOTE_VALIDATION = "jwtAccessTokenRemoteValidation";
     public static final String CFG_KEY_HEADER_NAME = "headerName";
     public static final String CFG_KEY_propagation_authnSessionDisabled = "authnSessionDisabled";
     public static final String CFG_KEY_reAuthnOnAccessTokenExpire = "reAuthnOnAccessTokenExpire";
@@ -158,6 +176,15 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     public static final String CFG_KEY_FORWARD_LOGIN_PARAMETER = "forwardLoginParameter";
     public static final String CFG_KEY_REQUIRE_EXP_CLAIM = "requireExpClaimForIntrospection";
     public static final String CFG_KEY_REQUIRE_IAT_CLAIM = "requireIatClaimForIntrospection";
+    public static final String CFG_KEY_KEY_MANAGEMENT_KEY_ALIAS = "keyManagementKeyAlias";
+    public static final String CFG_KEY_ACCESS_TOKEN_CACHE_ENABLED = "accessTokenCacheEnabled";
+    public static final String CFG_KEY_ACCESS_TOKEN_CACHE_TIMEOUT = "accessTokenCacheTimeout";
+    public static final String CFG_KEY_PKCE_CODE_CHALLENGE_METHOD = "pkceCodeChallengeMethod";
+    public static final String CFG_KEY_TOKEN_REQUEST_ORIGIN_HEADER = "tokenRequestOriginHeader";
+    public static final String CFG_KEY_TOKEN_ORDER_TOFETCH_CALLER_CLAIMS = "tokenOrderToFetchCallerClaims";
+    public static final String CFG_KEY_PROTECTED_RESOURCE_METADATA = "protectedResourceMetadata";
+    public static final String CFG_KEY_ADVERTISED_SCOPES = "advertisedScopes";
+    public static final String CFG_KEY_JWT_BUILDER_REF = "jwtBuilderRef";
 
     public static final String OPDISCOVERY_AUTHZ_EP_URL = "authorization_endpoint";
     public static final String OPDISCOVERY_TOKEN_EP_URL = "token_endpoint";
@@ -197,6 +224,8 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     private String realmName;
     private String uniqueUserIdentifier;
     private String tokenEndpointAuthMethod;
+    private String tokenEndpointAuthSigningAlgorithm;
+    private String keyAliasName;
     private String userIdentityToCreateSubject;
     private boolean mapIdentityToRegistryUser;
     private boolean oidcclientRequestParameterSupported;
@@ -210,6 +239,8 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     private String sslRef;
     private String sslConfigurationName;
     private String signatureAlgorithm;
+    private String[] allowedSignatureAlgorithms;
+    private long clockSkew;
     private long clockSkewInSeconds;
     private long authenticationTimeLimitInSeconds;
     private String discoveryEndpointUrl;
@@ -239,6 +270,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     private boolean createSession;
     private String inboundPropagation;
     private String validationMethod;
+    private String jwtAccessTokenRemoteValidation;
     private String headerName;
     private boolean disableIssChecking;
     private String[] audiences;
@@ -248,6 +280,11 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     private List<String> forwardLoginParameter;
     private boolean requireExpClaimForIntrospection = true;
     private boolean requireIatClaimForIntrospection = true;
+    private String keyManagementKeyAlias;
+    private boolean accessTokenCacheEnabled = true;
+    private long accessTokenCacheTimeout = 1000 * 60 * 5;
+    private String pkceCodeChallengeMethod = null;
+    private String tokenRequestOriginHeader = null;
 
     private String oidcClientCookieName;
     private boolean authnSessionDisabled;
@@ -274,9 +311,19 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     private final CommonConfigUtils configUtils = new CommonConfigUtils();
     private final ConfigUtils oidcConfigUtils = new ConfigUtils(configAdminRef);
     private final DiscoveryConfigUtils discoveryUtils = new DiscoveryConfigUtils();
+    private ConsumerUtils consumerUtils = null;
+
+    private SingleTableCache cache = null;
 
     private boolean useSystemPropertiesForHttpClientConnections = false;
     private boolean tokenReuse = false;
+
+    private List<String> tokenOrderToFetchCallerClaims;
+    private boolean serveProtectedResourceMetadata = false;
+    private List<String> protectedResourceMetadataAdvertisedScopes = null;
+    private String protectedResourceMetadataJwtBuilderRef = null;
+
+    private final OidcSessionCache oidcSessionCache = new InMemoryOidcSessionCache();
 
     // see defect 218708
     static String firstRandom = OidcUtil.generateRandom(32);
@@ -311,7 +358,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         locationAdminRef.unsetReference(ref);
     }
 
-    @Reference(service = SSLSupport.class, name = KEY_SSL_SUPPORT, policy = ReferencePolicy.DYNAMIC, cardinality = ReferenceCardinality.OPTIONAL)
+    @Reference(service = SSLSupport.class, name = KEY_SSL_SUPPORT, policy = ReferencePolicy.DYNAMIC, cardinality = ReferenceCardinality.MANDATORY)
     protected void setSslSupport(ServiceReference<SSLSupport> ref) {
         sslSupportRef.setReference(ref);
         if (tc.isDebugEnabled()) {
@@ -357,6 +404,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         sslSupportRef.deactivate(cc);
         keyStoreServiceRef.deactivate(cc);
         locationAdminRef.deactivate(cc);
+        consumerUtils = null;
     }
 
     private void processConfigProps(Map<String, Object> props) {
@@ -404,6 +452,8 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         realmName = trimIt((String) props.get(CFG_KEY_REALM_NAME));
         uniqueUserIdentifier = trimIt((String) props.get(CFG_KEY_UNIQUE_USER_IDENTIFIER));
         tokenEndpointAuthMethod = trimIt((String) props.get(CFG_KEY_TOKEN_ENDPOINT_AUTH_METHOD));
+        tokenEndpointAuthSigningAlgorithm = trimIt((String) props.get(CFG_KEY_TOKEN_ENDPOINT_AUTH_SIGNING_ALGORITHM));
+        keyAliasName = trimIt((String) props.get(CFG_KEY_KEY_ALIAS_NAME));
 
         userIdentityToCreateSubject = trimIt((String) props.get(CFG_KEY_USER_IDENTITY_TO_CREATE_SUBJECT));
         checkForValidValue(userIdentityToCreateSubject);
@@ -425,9 +475,12 @@ public class OidcClientConfigImpl implements OidcClientConfig {
             // 220146
             Tr.warning(tc, "OIDC_CLIENT_NONE_ALG", new Object[] { id, signatureAlgorithm });
         }
-        clockSkewInSeconds = (Long) props.get(CFG_KEY_CLOCK_SKEW) / 1000; // Duration types are always in milliseconds, convert to seconds.
+        allowedSignatureAlgorithms = trimIt((String[]) props.get(CFG_KEY_ALLOWED_SIGNATURE_ALGORITHMS));
+        clockSkew = (Long) props.get(CFG_KEY_CLOCK_SKEW);
+        clockSkewInSeconds = clockSkew / 1000; // Duration types are always in milliseconds, convert to seconds.
         authenticationTimeLimitInSeconds = (Long) props.get(CFG_KEY_AUTHENTICATION_TIME_LIMIT) / 1000;
         validationMethod = trimIt((String) props.get(CFG_KEY_VALIDATION_METHOD));
+        jwtAccessTokenRemoteValidation = configUtils.getConfigAttribute(props, CFG_KEY_JWT_ACCESS_TOKEN_REMOTE_VALIDATION);
         userInfoEndpointEnabled = (Boolean) props.get(CFG_KEY_USERINFO_ENDPOINT_ENABLED);
         discoveryEndpointUrl = trimIt((String) props.get(CFG_KEY_DISCOVERY_ENDPOINT_URL));
         discoveryPollingRate = (Long) props.get(CFG_KEY_DISCOVERY_POLLING_RATE);
@@ -515,14 +568,29 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         forwardLoginParameter = oidcConfigUtils.readAndSanitizeForwardLoginParameter(props, id, CFG_KEY_FORWARD_LOGIN_PARAMETER);
         requireExpClaimForIntrospection = configUtils.getBooleanConfigAttribute(props, CFG_KEY_REQUIRE_EXP_CLAIM, requireExpClaimForIntrospection);
         requireIatClaimForIntrospection = configUtils.getBooleanConfigAttribute(props, CFG_KEY_REQUIRE_IAT_CLAIM, requireIatClaimForIntrospection);
+        keyManagementKeyAlias = configUtils.getConfigAttribute(props, CFG_KEY_KEY_MANAGEMENT_KEY_ALIAS);
+        accessTokenCacheEnabled = configUtils.getBooleanConfigAttribute(props, CFG_KEY_ACCESS_TOKEN_CACHE_ENABLED, accessTokenCacheEnabled);
+        accessTokenCacheTimeout = configUtils.getLongConfigAttribute(props, CFG_KEY_ACCESS_TOKEN_CACHE_TIMEOUT, accessTokenCacheTimeout);
+        pkceCodeChallengeMethod = configUtils.getConfigAttribute(props, CFG_KEY_PKCE_CODE_CHALLENGE_METHOD);
+        tokenRequestOriginHeader = configUtils.getConfigAttribute(props, CFG_KEY_TOKEN_REQUEST_ORIGIN_HEADER);
+
+        // Process protectedResourceMetadata sub-element
+        processProtectedResourceMetadata(props);
+
         // TODO - 3Q16: Check the validationEndpointUrl to make sure it is valid
         // before continuing to process this config
         // checkValidationEndpointUrl();
 
         // validateAuthzTokenEndpoints(); //TODO: update tests to expect the error if the validation here fails
-
+        String tokens = configUtils.getConfigAttributeWithDefaultValue(props, CFG_KEY_TOKEN_ORDER_TOFETCH_CALLER_CLAIMS, "IDToken");
+        tokenOrderToFetchCallerClaims = split(tokens);
         if (discovery) {
             logDiscoveryMessage("OIDC_CLIENT_DISCOVERY_COMPLETE");
+        }
+
+        consumerUtils = new ConsumerUtils(keyStoreServiceRef);
+        if (accessTokenCacheEnabled) {
+            initializeAccessTokenCache();
         }
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
@@ -539,6 +607,8 @@ public class OidcClientConfigImpl implements OidcClientConfig {
             Tr.debug(tc, "realmName: " + realmName);
             Tr.debug(tc, "uniqueUserIdentifier: " + uniqueUserIdentifier);
             Tr.debug(tc, "tokenEndpointAuthMethod: " + tokenEndpointAuthMethod);
+            Tr.debug(tc, "tokenEndpointAuthSigningAlgorithm: " + tokenEndpointAuthSigningAlgorithm);
+            Tr.debug(tc, "keyAliasName: " + keyAliasName);
             Tr.debug(tc, "userIdentityToCreateSubject: " + userIdentityToCreateSubject);
             Tr.debug(tc, "mapIdentityToRegistryUser: " + mapIdentityToRegistryUser);
             Tr.debug(tc, "oidcclientRequestParameterSupported: " + oidcclientRequestParameterSupported);
@@ -550,6 +620,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
             Tr.debug(tc, "nonceEnabled: " + nonceEnabled);
             Tr.debug(tc, "sslRef: " + sslRef);
             Tr.debug(tc, "signatureAlgorithm: " + signatureAlgorithm);
+            Tr.debug(tc, "allowedSignatureAlgorithms: " + Arrays.toString(allowedSignatureAlgorithms));
             Tr.debug(tc, "clockSkew: " + clockSkewInSeconds);
             Tr.debug(tc, "discoveryEndpointUrl: " + discoveryEndpointUrl);
             Tr.debug(tc, "discoveryPollingRate: " + discoveryPollingRate);
@@ -574,6 +645,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
             Tr.debug(tc, "createSession: " + createSession);
             Tr.debug(tc, "inboundPropagation: " + inboundPropagation);
             Tr.debug(tc, "validationMethod: " + validationMethod);
+            Tr.debug(tc, "jwtAccessTokenRemoteValidation: " + jwtAccessTokenRemoteValidation);
             Tr.debug(tc, "headerName: " + headerName);
             Tr.debug(tc, "authnSessionDisabled:" + authnSessionDisabled);
             Tr.debug(tc, "disableIssChecking:" + disableIssChecking);
@@ -583,6 +655,22 @@ public class OidcClientConfigImpl implements OidcClientConfig {
             Tr.debug(tc, "useAccessTokenAsIdToken:" + useAccessTokenAsIdToken);
             Tr.debug(tc, "tokenReuse:" + tokenReuse);
             Tr.debug(tc, "forwardLoginParameter:" + forwardLoginParameter);
+            Tr.debug(tc, "accessTokenCacheEnabled:" + accessTokenCacheEnabled);
+            Tr.debug(tc, "accessTokenCacheTimeout:" + accessTokenCacheTimeout);
+            Tr.debug(tc, "pkceCodeChallengeMethod:" + pkceCodeChallengeMethod);
+            Tr.debug(tc, "tokenRequestOriginHeader:" + tokenRequestOriginHeader);
+            Tr.debug(tc, "tokenOrderToFetchCallerClaims:" + tokenOrderToFetchCallerClaims);
+            Tr.debug(tc, "serveProtectedResourceMetadata:" + serveProtectedResourceMetadata);
+            Tr.debug(tc, "protectedResourceMetadataAdvertisedScopes:" + protectedResourceMetadataAdvertisedScopes);
+            Tr.debug(tc, "protectedResourceMetadataJwtBuilderRef:" + protectedResourceMetadataJwtBuilderRef);
+        }
+    }
+
+    private void initializeAccessTokenCache() {
+        if (cache == null) {
+            cache = new SingleTableCache(500, accessTokenCacheTimeout);
+        } else {
+            cache.rescheduleCleanup(accessTokenCacheTimeout);
         }
     }
 
@@ -603,24 +691,6 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         oidcConfigUtils.populateCustomRequestParameterMap(configAdmin, paramMapToPopulate, configuredCustomRequestParams, CFG_KEY_PARAM_NAME, CFG_KEY_PARAM_VALUE);
     }
 
-    private void validateAuthzTokenEndpoints() {
-        if (this.tokenEndpointUrl == null) {
-            logConfigError("CONFIG_REQUIRED_ATTRIBUTE_NULL", CFG_KEY_TOKEN_ENDPOINT_URL);
-        }
-        if (this.authorizationEndpointUrl == null && this.getGrantType() != ClientConstants.IMPLICIT) {
-            logConfigError("CONFIG_REQUIRED_ATTRIBUTE_NULL", CFG_KEY_AUTHORIZATION_ENDPOINT_URL);
-        }
-    }
-
-    /**
-     * @param key
-     * @param attrib
-     */
-    private void logConfigError(String key, String attrib) {
-        Tr.error(tc, key, attrib);
-
-    }
-
     /**
      *
      */
@@ -639,6 +709,50 @@ public class OidcClientConfigImpl implements OidcClientConfig {
      */
     private void logDiscoveryMessage(String key) {
         Tr.info(tc, key, getId(), getDiscoveryEndpointUrl());
+    }
+
+    /**
+     * Process the protectedResourceMetadata sub-element configuration.
+     * Because ibm:flat="true" is set on the AD, the child element properties are
+     * flattened onto the parent props map as "protectedResourceMetadata.0.{childProp}".
+     * This feature is only available in beta mode.
+     *
+     * @param props
+     *                  The configuration properties map
+     */
+    private void processProtectedResourceMetadata(Map<String, Object> props) {
+        // Beta fencing: only process if running in beta mode
+        if (!ProductInfo.getBetaEdition()) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "protectedResourceMetadata sub-element is only available in beta mode");
+            }
+            return;
+        }
+
+        // With ibm:flat="true" the child properties are available directly on props
+        // under the key "protectedResourceMetadata.0.<childPropertyId>".
+        // Only process if the sub-element is present (i.e. at least one flat key was contributed).
+        final String flatAdvertisedScopesKey = CFG_KEY_PROTECTED_RESOURCE_METADATA + ".0." + CFG_KEY_ADVERTISED_SCOPES;
+        final String flatJwtBuilderRefKey = CFG_KEY_PROTECTED_RESOURCE_METADATA + ".0." + CFG_KEY_JWT_BUILDER_REF;
+        if (props.containsKey(flatAdvertisedScopesKey) || props.containsKey(flatJwtBuilderRefKey)) {
+            String advertisedScopes = configUtils.getConfigAttribute(props, flatAdvertisedScopesKey);
+            protectedResourceMetadataAdvertisedScopes = advertisedScopes == null ? null
+                    : Arrays.stream(advertisedScopes.split(","))
+                            .map(String::trim)
+                            .collect(java.util.stream.Collectors.toList());
+
+            protectedResourceMetadataJwtBuilderRef = configUtils.getConfigAttributeWithDefaultValue(props,
+                    flatJwtBuilderRefKey, "defaultProtectedResourceMetadataJwtBuilder");
+
+            if (protectedResourceMetadataAdvertisedScopes != null || protectedResourceMetadataJwtBuilderRef != null) {
+                serveProtectedResourceMetadata = true;
+            }
+
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "protectedResourceMetadata configured - advertisedScopes: " + protectedResourceMetadataAdvertisedScopes
+                        + ", jwtBuilderRef: " + protectedResourceMetadataJwtBuilderRef);
+            }
+        }
     }
 
     // @Override
@@ -738,6 +852,10 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         }
     }
 
+    void adjustTokenEndpointAuthSigningAlgorithm() {
+        this.tokenEndpointAuthSigningAlgorithm = discoveryUtils.adjustTokenEndpointAuthSigningAlgorithm();
+    }
+
     void adjustSignatureAlgorithm() {
 
         ArrayList<String> discoverySigAlgorithm = discoveryUtils.discoverOPConfig(discoveryjson.get(OPDISCOVERY_IDTOKEN_SIGN_ALG));
@@ -762,8 +880,8 @@ public class OidcClientConfigImpl implements OidcClientConfig {
      */
     private String rpSupportsOPConfig(String key, ArrayList<String> values) {
 
-        String rpSupportedSignatureAlgorithms = "HS256 RS256";
-        String rpSupportedTokenEndpointAuthMethods = "post basic";
+        String rpSupportedSignatureAlgorithms = "HS256 HS384 HS512 RS256 RS384 RS512 ES256 ES384 ES512";
+        String rpSupportedTokenEndpointAuthMethods = "post basic private_key_jwt";
         String rpSupportedScopes = "openid profile";
 
         if ("alg".equals(key) && values != null) {
@@ -861,7 +979,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         return true;
     }
 
-    @FFDCIgnore({ SSLException.class })
+    @FFDCIgnore({ IOException.class, SocialLoginWrapperException.class })
     public boolean handleDiscoveryEndpoint(String discoveryUrl) {
 
         String jsonString = null;
@@ -873,22 +991,26 @@ public class OidcClientConfigImpl implements OidcClientConfig {
             return false;
         }
         try {
-            setNextDiscoveryTime(); //
+            setNextDiscoveryTime();
             SSLSocketFactory sslSocketFactory = getSSLSocketFactory(discoveryUrl, sslConfigurationName, sslSupportRef.getService());
-            HttpClient client = createHTTPClient(sslSocketFactory, discoveryUrl, hostNameVerificationEnabled);
-            jsonString = getHTTPRequestAsString(client, discoveryUrl);
+            DiscoveryHandler discoveryHandler = new DiscoveryHandler(sslSocketFactory);
+            jsonString = discoveryHandler.fetchDiscoveryDataString(discoveryUrl, hostNameVerificationEnabled, useSystemPropertiesForHttpClientConnections);
             if (jsonString != null) {
                 parseJsonResponse(jsonString);
                 if (this.discoveryjson != null) {
                     valid = discoverEndpointUrls(this.discoveryjson);
                 }
             }
-
-        } catch (SSLException e) {
+        } catch (IOException e) {
+            logErrorMessage(discoveryUrl, 0, "IOException: " + e.getMessage() + " " + e.getCause());
             if (tc.isDebugEnabled()) {
                 Tr.debug(tc, "Fail to get successful discovery response : ", e.getCause());
             }
-
+        } catch (SocialLoginWrapperException e) {
+            logErrorMessage(e.getUrl(), e.getStatusCode(), e.getNlsMessage());
+            if (tc.isDebugEnabled()) {
+                Tr.debug(tc, "Fail to get successful discovery response : ", e.getCause());
+            }
         } catch (Exception e) {
             // could be ignored
             if (tc.isDebugEnabled()) {
@@ -916,6 +1038,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     boolean discoverEndpointUrls(JSONObject json) {
 
         if (calculateDiscoveryDocumentHash(json)) {
+            discoveryUtils.discoveryDocumentResult(json);
             this.authorizationEndpointUrl = discoveryUtils.discoverOPConfigSingleValue(json.get(OPDISCOVERY_AUTHZ_EP_URL));
             this.tokenEndpointUrl = discoveryUtils.discoverOPConfigSingleValue(json.get(OPDISCOVERY_TOKEN_EP_URL));
             this.jwkEndpointUrl = discoveryUtils.discoverOPConfigSingleValue(json.get(OPDISCOVERY_JWKS_EP_URL));
@@ -927,6 +1050,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
             }
             adjustSignatureAlgorithm();
             adjustTokenEndpointAuthMethod();
+            adjustTokenEndpointAuthSigningAlgorithm();
             adjustScopes();
         }
 
@@ -1018,46 +1142,6 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         }
     }
 
-    @FFDCIgnore({ Exception.class })
-    protected String getHTTPRequestAsString(HttpClient httpClient, String url) throws Exception {
-
-        String json = null;
-        try {
-            HttpGet request = new HttpGet(url);
-            request.addHeader("content-type", "application/json");
-            HttpResponse result = null;
-            try {
-                result = httpClient.execute(request);
-            } catch (IOException ioex) {
-                logErrorMessage(url, 0, "IOException: " + ioex.getMessage() + " " + ioex.getCause());
-                throw ioex;
-            }
-            StatusLine statusLine = result.getStatusLine();
-            int iStatusCode = statusLine.getStatusCode();
-            if (iStatusCode == 200) {
-                json = EntityUtils.toString(result.getEntity(), "UTF-8");
-                if (tc.isDebugEnabled()) {
-                    Tr.debug(tc, "Response: ", json);
-                }
-                if (json == null || json.isEmpty()) { // NO json response returned
-                    throw new Exception(logErrorMessage(url, iStatusCode, json));
-                }
-            } else {
-                String errMsg = statusLine.getReasonPhrase();
-                // String errMsg = EntityUtils.toString(result.getEntity(), "UTF-8");
-                // error in getting the discovery response
-                if (tc.isDebugEnabled()) {
-                    Tr.debug(tc, "status:" + iStatusCode + " errorMsg:" + errMsg);
-                }
-                throw new Exception(logErrorMessage(url, iStatusCode, errMsg));
-            }
-        } catch (Exception e) {
-            throw e;
-        }
-
-        return json;
-    }
-
     private String logErrorMessage(String url, int iStatusCode, String errMsg) {
 
         String defaultMessage = "Error processing discovery request";
@@ -1065,81 +1149,49 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         String message = TraceNLS.getFormattedMessage(getClass(),
                 "com.ibm.ws.security.openidconnect.client.internal.resources.OidcClientMessages", "OIDC_CLIENT_DISC_RESPONSE_ERROR",
                 new Object[] { url, Integer.valueOf(iStatusCode), errMsg }, defaultMessage);
-        ;
         Tr.error(tc, message, new Object[0]);
         return message;
     }
 
-    public HttpClient createHTTPClient(SSLSocketFactory sslSocketFactory, String url, boolean isHostnameVerification) {
+    // issue# 19832
+    public HttpClient createHTTPClient(SSLSocketFactory sslSocketFactory, String url, boolean isHostnameVerification, boolean useSystemPropertiesForHttpClientConnections) {
 
         HttpClient client = null;
-        boolean addBasicAuthHeader = false;
 
-        //        if (jwkClientId != null && jwkClientSecret != null) {
-        //            addBasicAuthHeader = true;
-        //        }
-
-        BasicCredentialsProvider credentialsProvider = null;
-        if (addBasicAuthHeader) {
-            credentialsProvider = createCredentialsProvider();
-        }
-
-        client = createHttpClient(url.startsWith("https:"), isHostnameVerification, sslSocketFactory, addBasicAuthHeader, credentialsProvider);
-        return client;
-
-    }
-
-    private HttpClient createHttpClient(boolean isSecure, boolean isHostnameVerification, SSLSocketFactory sslSocketFactory, boolean addBasicAuthHeader, BasicCredentialsProvider credentialsProvider) {
-
-        HttpClient client = null;
-        if (isSecure) {
+        ClassLoader origCL = ThreadContextHelper.getContextClassLoader();
+        ThreadContextHelper.setClassLoader(getClass().getClassLoader());
+        try {
             SSLConnectionSocketFactory connectionFactory = null;
             if (!isHostnameVerification) {
                 connectionFactory = new SSLConnectionSocketFactory(sslSocketFactory, new NoopHostnameVerifier());
             } else {
                 connectionFactory = new SSLConnectionSocketFactory(sslSocketFactory, new DefaultHostnameVerifier());
             }
-            if (addBasicAuthHeader) {
-                client = HttpClientBuilder.create().setDefaultCredentialsProvider(credentialsProvider).setSSLSocketFactory(connectionFactory).build();
-            } else {
-                client = HttpClientBuilder.create().setSSLSocketFactory(connectionFactory).build();
-            }
-        } else {
-            if (addBasicAuthHeader) {
-                client = HttpClientBuilder.create().setDefaultCredentialsProvider(credentialsProvider).build();
-            } else {
-                client = HttpClientBuilder.create().build();
-            }
+            client = createBuilder(useSystemPropertiesForHttpClientConnections).setSSLSocketFactory(connectionFactory).build();
+        } finally {
+            ThreadContextHelper.setClassLoader(origCL);
         }
+
         return client;
+
     }
 
-    private BasicCredentialsProvider createCredentialsProvider() {
-        BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(jwkClientId, jwkClientSecret));
-        return credentialsProvider;
+    // issue# 19832
+    private HttpClientBuilder createBuilder(boolean useSystemProperties) {
+        return useSystemProperties ? HttpClientBuilder.create().disableCookieManagement().useSystemProperties() : HttpClientBuilder.create().disableCookieManagement();
+
     }
 
-    @FFDCIgnore({ javax.net.ssl.SSLException.class })
+    @FFDCIgnore({ javax.net.ssl.SSLException.class, NoSSLSocketFactoryException.class })
     protected SSLSocketFactory getSSLSocketFactory(String requestUrl, String sslConfigurationName,
             SSLSupport sslSupport) throws SSLException {
         SSLSocketFactory sslSocketFactory = null;
-
         try {
-            if (sslSupport != null) {
-                sslSocketFactory = sslSupport.getSSLSocketFactory(sslConfigurationName);
-            }
-
+            sslSocketFactory = SecuritySSLUtils.getSSLSocketFactory(sslSupport, sslConfigurationName);
         } catch (javax.net.ssl.SSLException e) {
             throw new SSLException(e.getMessage());
-        }
-        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-            Tr.debug(tc, "sslSocketFactory (" + ") get: " + sslSocketFactory);
-        }
-
-        if (sslSocketFactory == null) {
-            throw new SSLException(Tr.formatMessage(tc, "OIDC_CLIENT_HTTPS_WITH_SSLCONTEXT_NULL",
-                    new Object[] { "Null ssl socket factory", getId() }));
+        } catch (NoSSLSocketFactoryException e) {
+            throw new SSLException(Tr.formatMessage(tc, "OIDC_CLIENT_HTTPS_WITH_SSLCONTEXT_NULL", new Object[] { "Null ssl socket factory", getId() }));
         }
         return sslSocketFactory;
     }
@@ -1161,66 +1213,6 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         }
 
     }
-
-    /**
-     * Verify that validationEndpointUrl is non-null, begins with "http", and
-     * contains "/". If inboundPropagation="required" and the URL does not meet
-     * the requirements, this config is considered bad. If
-     * inboundPropagation="supported" and the URL does not meet the
-     * requirements, set inboundPropagation to "none".
-     */
-    private void checkValidationEndpointUrl() {
-        if (validationEndpointUrl == null || // it can not be null
-                (!validationEndpointUrl.startsWith("http")) || // it has to
-                                                               // starts http
-                (validationEndpointUrl.indexOf("/") < 0)) { // no "/"
-
-            // Inbound propagation requires a valid validationEndpointUrl;
-            // either fall back to inboundPropagation="none" or consider this a
-            // bad config
-            if (ClientConstants.PROPAGATION_REQUIRED.equalsIgnoreCase(inboundPropagation)) {
-                goodConfig = false;
-                // BAD_INBOUND_PRPAGATION_REQUIRED=CWWKS1732E: The OpenID
-                // Connect client [{0}] configuration is disabled because the
-                // validationEndpointUrl [{1}] is not properly set and
-                // inboundPropagation is "required".
-                Tr.error(tc, "BAD_INBOUND_PRPAGATION_REQUIRED", getId(), validationEndpointUrl);
-            } else if (ClientConstants.PROPAGATION_SUPPORTED.equalsIgnoreCase(inboundPropagation)) {
-                // Behave as if inboundPropagation="none"
-                inboundPropagation = ClientConstants.PROPAGATION_NONE;
-                // BAD_INBOUND_PRPAGATION_SUPPORTED=CWWKS1733W: The
-                // validationEndpointUrl [{0}] is not properly set, the OpenID
-                // Connect client [{1}] will act as if its inboundPropagation is
-                // "none".
-                Tr.warning(tc, "BAD_INBOUND_PRPAGATION_SUPPORTED", validationEndpointUrl, getId());
-            }
-        }
-    }
-
-    // private String getSSLConfigurationName(String sslRef) {
-    // String sslConfigurationName = null;
-    // if (sslRef != null) {
-    // Configuration config = null;
-    // ConfigurationAdmin configAdmin = configAdminRef.getService();
-    // if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-    // Tr.debug(tc, "ConfigurationAdmin: " + configAdmin);
-    // }
-    // if( configAdmin != null ){
-    // try {
-    // config = configAdmin.getConfiguration(sslRef, null);
-    // Dictionary<String, Object> props = config.getProperties();
-    // if (props != null) {
-    // sslConfigurationName = (String) props.get(CFG_KEY_ID);
-    // }
-    // } catch (IOException e) {
-    // if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-    // Tr.debug(tc, "Invalid sslRef configuration", e.getMessage());
-    // }
-    // }
-    // }
-    // }
-    // return sslConfigurationName;
-    // }
 
     @Sensitive
     private String processProtectedString(Map<String, Object> props, String cfgKey) {
@@ -1274,7 +1266,7 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     /** {@inheritDoc} */
     @Override
     public String getRedirectUrlFromServerToClient() {
-        return new OIDCClientAuthenticatorUtil().getRedirectUrlFromServerToClient(getId(), getContextPath(), redirectToRPHostAndPort);
+        return OIDCClientAuthenticatorUtil.getRedirectUrlFromServerToClient(getId(), getContextPath(), redirectToRPHostAndPort);
     }
 
     /** {@inheritDoc} */
@@ -1319,6 +1311,18 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     @Override
     public String getTokenEndpointAuthMethod() {
         return tokenEndpointAuthMethod;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getTokenEndpointAuthSigningAlgorithm() {
+        return tokenEndpointAuthSigningAlgorithm;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getKeyAliasName() {
+        return keyAliasName;
     }
 
     /** {@inheritDoc} */
@@ -1397,6 +1401,11 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         return signatureAlgorithm;
     }
 
+    @Override
+    public String[] getAllowedSignatureAlgorithms() {
+        return allowedSignatureAlgorithms;
+    }
+
     /** {@inheritDoc} */
     @Override
     public long getClockSkewInSeconds() {
@@ -1455,6 +1464,29 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     public PublicKey getPublicKey() throws KeyStoreException, CertificateException {
         KeyStoreService keyStoreService = keyStoreServiceRef.getService();
         return keyStoreService.getCertificateFromKeyStore(trustStoreRef, trustAliasName).getPublicKey();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws CertificateException
+     * @throws KeyStoreException
+     */
+    @Override
+    public PublicKey getPublicKey(String alias) throws KeyStoreException, CertificateException {
+        KeyStoreService keyStoreService = keyStoreServiceRef.getService();
+        return keyStoreService.getCertificateFromKeyStore(trustStoreRef, alias).getPublicKey();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws Exception
+     */
+    @Override
+    public Collection<String> getTrustedCertAliases(String trustStoreRef) throws KeyStoreException {
+        KeyStoreService keyStoreService = keyStoreServiceRef.getService();
+        return keyStoreService.getTrustedCertEntriesInKeyStore(trustStoreRef);
     }
 
     /** {@inheritDoc} */
@@ -1536,7 +1568,6 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     /** {@inheritDoc} */
     @Override
     public boolean createSession() {
-        // TODO Auto-generated method stub
         return createSession;
     }
 
@@ -1550,6 +1581,11 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         return this.validationMethod;
     }
 
+    @Override
+    public String getJwtAccessTokenRemoteValidation() {
+        return this.jwtAccessTokenRemoteValidation;
+    }
+
     // This is either null or not_empty_string
     @Override
     public String getHeaderName() {
@@ -1559,14 +1595,12 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     /** {@inheritDoc} */
     @Override
     public String getUserIdentifier() {
-        // TODO Auto-generated method stub
         return userIdentifier;
     }
 
     /** {@inheritDoc} */
     @Override
     public String getIntrospectionTokenTypeHint() {
-        // TODO Auto-generated method stub
         return introspectionTokenTypeHint;
     }
 
@@ -1646,7 +1680,6 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     /** {@inheritDoc} */
     @Override
     public boolean disableIssChecking() {
-        // TODO Auto-generated method stub
         return disableIssChecking;
     }
 
@@ -1723,6 +1756,12 @@ public class OidcClientConfigImpl implements OidcClientConfig {
 
     /** {@inheritDoc} */
     @Override
+    public boolean isInboundPropagationEnabled() {
+        return !inboundPropagation.equalsIgnoreCase(ClientConstants.PROPAGATION_NONE);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public boolean isOidcclientRequestParameterSupported() {
         return oidcclientRequestParameterSupported;
     }
@@ -1738,7 +1777,6 @@ public class OidcClientConfigImpl implements OidcClientConfig {
 
     @Override
     public String jwtRef() {
-        // TODO Auto-generated method stub
         return jwtRef;
     }
 
@@ -1767,7 +1805,6 @@ public class OidcClientConfigImpl implements OidcClientConfig {
     /** {@inheritDoc} */
     @Override
     public boolean getAccessTokenInLtpaCookie() {
-        // TODO Auto-generated method stub
         return accessTokenInLtpaCookie;
     }
 
@@ -1869,4 +1906,169 @@ public class OidcClientConfigImpl implements OidcClientConfig {
         return requireIatClaimForIntrospection;
     }
 
+    @Override
+    public String getKeyManagementKeyAlias() {
+        return keyManagementKeyAlias;
+    }
+
+    @Override
+    public boolean getAccessTokenCacheEnabled() {
+        return accessTokenCacheEnabled;
+    }
+
+    @Override
+    public long getAccessTokenCacheTimeout() {
+        return accessTokenCacheTimeout;
+    }
+
+    @Override
+    @Sensitive
+    public Key getJweDecryptionKey() throws GeneralSecurityException {
+        String keyAlias = getKeyManagementKeyAlias();
+        if (keyAlias != null) {
+            String keyStoreRef = getKeyStoreRef();
+            return JwtUtils.getPrivateKey(keyAlias, keyStoreRef);
+        }
+        return null;
+    }
+
+    @Override
+    public String getIssuer() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public boolean ignoreAudClaimIfNotConfigured() {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    @Override
+    public String getKeyStoreRef() {
+        String keyStoreName = null;
+        String sslRef = getSslRef();
+        if (sslRef == null) {
+            if (tc.isDebugEnabled()) {
+                Tr.debug(tc, "sslRef not configured");
+            }
+            return null;
+        }
+        Properties sslConfigProps = getSslConfigProperties(sslRef);
+        if (sslConfigProps != null) {
+            keyStoreName = sslConfigProps.getProperty(com.ibm.websphere.ssl.Constants.SSLPROP_KEY_STORE_NAME);
+        }
+        return keyStoreName;
+    }
+
+    @Trivial
+    @FFDCIgnore(Exception.class)
+    Properties getSslConfigProperties(String sslRef) {
+        SSLSupport sslSupportService = sslSupportRef.getService();
+        if (sslSupportService == null) {
+            return null;
+        }
+        Properties sslConfigProps;
+        try {
+            final Map<String, Object> connectionInfo = new HashMap<String, Object>();
+            connectionInfo.put(Constants.CONNECTION_INFO_DIRECTION, Constants.DIRECTION_INBOUND);
+            sslConfigProps = (Properties) AccessController.doPrivileged(new PrivilegedExceptionAction<Object>() {
+                @Override
+                public Object run() throws Exception {
+                    return sslSupportService.getJSSEHelper().getProperties(sslRef, connectionInfo, null, true);
+                }
+            });
+        } catch (Exception e) {
+            if (tc.isDebugEnabled()) {
+                Tr.debug(tc, "Caught exception getting SSL properties: " + e);
+            }
+            return null;
+        }
+        return sslConfigProps;
+    }
+
+    @Override
+    public String getTrustedAlias() {
+        return trustAliasName;
+    }
+
+    @Override
+    public long getClockSkew() {
+        return clockSkew;
+    }
+
+    @Override
+    public boolean getJwkEnabled() {
+        return false;
+    }
+
+    @Override
+    public ConsumerUtils getConsumerUtils() {
+        return consumerUtils;
+    }
+
+    @Override
+    public boolean isValidationRequired() {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    @Override
+    public List<String> getAMRClaim() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public SingleTableCache getCache() {
+        return cache;
+    }
+
+    @Override
+    public OidcSessionCache getOidcSessionCache() {
+        return oidcSessionCache;
+    }
+
+    @Override
+    public String getPkceCodeChallengeMethod() {
+        return pkceCodeChallengeMethod;
+    }
+
+    @Override
+    public String getTokenRequestOriginHeader() {
+        return tokenRequestOriginHeader;
+    }
+
+    @Override
+    public boolean getServeProtectedResourceMetadata() {
+        return serveProtectedResourceMetadata;
+    }
+
+    @Override
+    public List<String> getProtectedResourceMetadataAdvertisedScopes() {
+        return protectedResourceMetadataAdvertisedScopes;
+    }
+
+    @Override
+    public String getProtectedResourceMetadataJwtBuilderRef() {
+        return protectedResourceMetadataJwtBuilderRef;
+    }
+
+    @Override
+    public List<String> getTokenOrderToFetchCallerClaims() {
+        return tokenOrderToFetchCallerClaims;
+    }
+
+    List<String> split(String str) {
+        List<String> rvalue = new ArrayList<String>();
+        if (str.contains(" ")) {
+            StringTokenizer st = new StringTokenizer(str, " ");
+            while (st.hasMoreElements()) {
+                rvalue.add(st.nextToken());
+            }
+        } else {
+            rvalue.add(str);
+        }
+        return rvalue;
+    }
 }

@@ -1,16 +1,16 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.testcontainers.example;
-
-import static componenttest.custom.junit.runner.Mode.TestMode.FULL;
 
 import java.time.Duration;
 
@@ -27,20 +27,22 @@ import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.containers.SimpleLogConsumer;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.custom.junit.runner.Mode;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 import web.generic.ContainersTestServlet;
 
+import componenttest.rules.SkipJavaSemeruWithFipsEnabled;
+
 /**
- * Example test class showing how to setup a regular predefined
- * TestContainer for use to test against.
+ * Example test class showing how to setup a GenericContainer
+ * Note: The annotation @SkipJavaSemeruWithFipsEnabled.SkipJavaSemeruWithFipsEnabledRule is used only when the build environment is eanbled with FIPS,
+ * which indicates the test is excluded as out of scope for FIPS compliant testing due to sample usage.
  */
+@SkipJavaSemeruWithFipsEnabled.SkipJavaSemeruWithFipsEnabledRule
 @RunWith(FATRunner.class)
-@Mode(FULL)
 public class ContainersTest extends FATServletClient {
 
-    public static final String APP_NAME = "containerApp";
+    public static final String APP_NAME = "app";
 
     @Server("build.example.testcontainers")
     @TestServlet(servlet = ContainersTestServlet.class, contextRoot = APP_NAME)
@@ -51,12 +53,14 @@ public class ContainersTest extends FATServletClient {
     public static final String POSTGRES_PASSWORD = "test";
     public static final int POSTGRE_PORT = 5432;
 
-    /*
+    /**
      * When using a generic container you will need to provide all the information needed
      * to run that container. This is equivalent of constructing a docker run command.
+     * <br>
      *
      * This is annotated as a ClassRule which will call start/stop on the container automatically
      *
+     * <pre>
      * ~~Common settings~~
      * Constructor: accepts image name in form user/container:version
      * - withExposedPorts: what ports does that container use that need to be exposed
@@ -65,12 +69,13 @@ public class ContainersTest extends FATServletClient {
      * - withLogConsumer: redirect stout/sterr from container to a log consumer
      * Use the SimpleLogConsumer from fattest.simplicity to redirect those logs to output.txt
      * - waitingFor: defines a wait strategy to know when container has started
+     * </pre>
      *
      * NOTE: the testcontainers project has a pre-configured PostgreSQLContainer class that could
      * have been used here. This is just an example of how to setup a GenericContainer.
      */
     @ClassRule
-    public static GenericContainer<?> container = new GenericContainer<>("postgres:9.6.12")
+    public static GenericContainer<?> container = new GenericContainer<>("public.ecr.aws/docker/library/postgres:17-alpine")
                     .withExposedPorts(POSTGRE_PORT)
                     .withEnv("POSTGRES_DB", POSTGRES_DB)
                     .withEnv("POSTGRES_USER", POSTGRES_USER)
@@ -80,6 +85,9 @@ public class ContainersTest extends FATServletClient {
                                     .withRegEx(".*database system is ready to accept connections.*\\s")
                                     .withTimes(2)
                                     .withStartupTimeout(Duration.ofSeconds(60)));
+
+    @ClassRule
+    public static final SkipJavaSemeruWithFipsEnabled skipJavaSemeruWithFipsEnabled = new SkipJavaSemeruWithFipsEnabled("build.example.testcontainers");    
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -92,7 +100,7 @@ public class ContainersTest extends FATServletClient {
          * Main use:
          * testcontainers always exposes ports onto RANDOM port numbers to avoid port conflicts.
          */
-        server.addEnvVar("PS_URL", "jdbc:postgresql://" + container.getContainerIpAddress() //
+        server.addEnvVar("PS_URL", "jdbc:postgresql://" + container.getHost() //
                                    + ":" + container.getMappedPort(POSTGRE_PORT)
                                    + "/" + POSTGRES_DB);
         server.addEnvVar("PS_USER", POSTGRES_USER);

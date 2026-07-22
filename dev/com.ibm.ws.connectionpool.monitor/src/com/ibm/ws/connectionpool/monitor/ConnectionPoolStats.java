@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013 IBM Corporation and others.
+ * Copyright (c) 2013, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,15 +17,18 @@ import com.ibm.websphere.monitor.meters.Counter;
 import com.ibm.websphere.monitor.meters.Gauge;
 import com.ibm.websphere.monitor.meters.Meter;
 import com.ibm.websphere.monitor.meters.StatisticsMeter;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
 
 /**
  * This class is the actual class where we declare counters using different Meter Objects like Counter,Gauge and handles the increments and decrements of
  * the declared counter.In future if we need add a new counter this is the place where we need to declare and add the getter ,setter methods.
  */
 public class ConnectionPoolStats extends Meter implements ConnectionPoolStatsMXBean {
+    private static final TraceComponent tc = Tr.register(ConnectionPoolMonitor.class, "ConnectionPoolStats");
 
     private final Counter createCount, destroyCount;
-    private final Gauge poolSize, freeConnectionCount;
+    private final Gauge poolSize, freeConnectionCount, maxConnections;
     private final Gauge managedConnectionCount, connectionHandleCount;
     private final StatisticsMeter waitTime, inUseTime;
 
@@ -36,6 +41,7 @@ public class ConnectionPoolStats extends Meter implements ConnectionPoolStatsMXB
         waitTime = new StatisticsMeter();
         freeConnectionCount = new Gauge();
         inUseTime = new StatisticsMeter();
+        maxConnections = new Gauge();
     }
 
     /**
@@ -158,6 +164,21 @@ public class ConnectionPoolStats extends Meter implements ConnectionPoolStatsMXB
     public String toString() {
         return "ConnectionPoolStats [createCount=" + createCount + ", destroyCount=" + destroyCount + ", poolSize=" + poolSize + ", freeConnectionCount=" + freeConnectionCount
                + ", managedConnectionCount=" + managedConnectionCount + ", connectionHandleCount=" + connectionHandleCount + ", waitTime=" + waitTime + "]";
+    }
+
+    @Override
+    public long getMaxConnectionsLimit() {
+        return this.maxConnections.getCurrentValue();
+    }
+
+    public void updateMaxConnectionsLimit(long maxConnections) {
+        long initValue = this.maxConnections.getCurrentValue();
+        if (maxConnections != initValue) {
+            this.maxConnections.setCurrentValue(maxConnections);
+            if (tc.isDebugEnabled()) {
+                Tr.debug(tc, "Maximum connections value " + initValue + " was changed to " + this.maxConnections.getCurrentValue());
+            }
+        }
     }
 
 }

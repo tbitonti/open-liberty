@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 1997, 2004 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -89,6 +91,9 @@ public class TagFileScanVisitor extends JspVisitor {
         String dirName = tagFilePath.substring(0, tagFilePath.lastIndexOf('/'));
         if (dirName.startsWith("/WEB-INF/tags")) {
             dirName = dirName.substring(dirName.indexOf("/WEB-INF/tags") + 13);
+        } else if (dirName.startsWith("/META-INF/resources/WEB-INF/tags")) {
+            // Handle tag files from JARs: /META-INF/resources/WEB-INF/tags/...
+            dirName = dirName.substring(dirName.indexOf("/META-INF/resources/WEB-INF/tags") + 32);
         } else if (dirName.startsWith("/META-INF/tags")) {
             dirName = dirName.substring(dirName.indexOf("/META-INF/tags") + 14);
         }

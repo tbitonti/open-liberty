@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2017 IBM Corporation and others.
+ * Copyright (c) 2015, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -18,6 +20,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 
 class StreamReader extends Thread {
     InputStream is;
@@ -40,6 +43,7 @@ class StreamReader extends Thread {
         this.os = redirect;
     }
 
+    @Override
     public void run() {
         try {
             // stdin, process stream is output
@@ -60,7 +64,7 @@ class StreamReader extends Thread {
         if (os != null)
             pw = new PrintWriter(os);
 
-        InputStreamReader isr = new InputStreamReader(is, "UTF-8");
+        InputStreamReader isr = new InputStreamReader(is, StandardCharsets.UTF_8);
         BufferedReader br = new BufferedReader(isr);
         String line = null;
         while ((line = br.readLine()) != null) {
@@ -75,7 +79,7 @@ class StreamReader extends Thread {
     }
 
     public void runOutputStream() throws IOException {
-        OutputStreamWriter osr = new OutputStreamWriter(os, "UTF-8");
+        OutputStreamWriter osr = new OutputStreamWriter(os, StandardCharsets.UTF_8);
         BufferedWriter br = new BufferedWriter(osr);
         br.write("Y");
     }

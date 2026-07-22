@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -47,6 +49,6 @@ public class MailSessionInjectionTest extends FATServletClient {
     @AfterClass
     public static void tearDown() throws Exception {
         server.stopServer("J2CA0086W.*State:STATE_TRAN_WRAPPER_INUSE", // EXPECTED: One test intentionally leaves an open connection
-                          "CWWKG0007W"); // let Nathan handle this : The system could not delete C:\Users\IBM_ADMIN\Documents\workspace\build.image/wlp/usr/servers\com.ibm.ws.jca.fat\workarea\org.eclipse.osgi\9\data\configs\com.ibm.ws.jca.jmsConnectionFactory.properties_83!-723947066
+                          "CWWKG0007W", "CWWKE0921W", "CWWKE0912W"); // let Nathan handle this : The system could not delete C:\Users\IBM_ADMIN\Documents\workspace\build.image/wlp/usr/servers\com.ibm.ws.jca.fat\workarea\org.eclipse.osgi\9\data\configs\com.ibm.ws.jca.jmsConnectionFactory.properties_83!-723947066
     }
 }

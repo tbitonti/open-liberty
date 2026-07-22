@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c)  2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.ejbcontainer.bindings.fat.tests;
 
@@ -26,6 +25,7 @@ import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.websphere.simplicity.config.EJBContainerElement;
 import com.ibm.websphere.simplicity.config.ServerConfiguration;
 import com.ibm.websphere.simplicity.log.Log;
@@ -43,7 +43,7 @@ import componenttest.topology.utils.FATServletClient;
  *
  */
 @RunWith(FATRunner.class)
-public class BindToJavaGlobalTest extends FATServletClient {
+public class BindToJavaGlobalTest extends AbstractTest {
 
     @Rule
     public TestWatcher watchman = new TestWatcher() {
@@ -68,8 +68,23 @@ public class BindToJavaGlobalTest extends FATServletClient {
     @TestServlet(servlet = BindToJavaGlobalServlet.class, contextRoot = "ConfigTestsWeb")
     public static LibertyServer server;
 
+    /*@formatter:off*/
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().fullFATOnly().forServers("com.ibm.ws.ejbcontainer.bindings.fat.server")).andWith(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.ejbcontainer.bindings.fat.server"));
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.bindings.fat.server"))
+                                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.bindings.fat.server"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.bindings.fat.server"))
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.bindings.fat.server"))
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.bindings.fat.server"));
+    /*@formatter:on*/
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -89,16 +104,14 @@ public class BindToJavaGlobalTest extends FATServletClient {
         ConfigTestsTestApp.addAsModules(ConfigTestsEJB, ConfigTestsWeb);
         ShrinkHelper.addDirectory(ConfigTestsTestApp, "test-applications/ConfigTestsTestApp.ear/resources");
 
-        ShrinkHelper.exportDropinAppToServer(server, ConfigTestsTestApp);
+        ShrinkHelper.exportDropinAppToServer(server, ConfigTestsTestApp, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }
 
     @AfterClass
     public static void cleanUp() throws Exception {
-        if (server != null && server.isStarted()) {
-            server.stopServer();
-        }
+        stopServer(server);
     }
 
     private void updateConfigElement(Boolean bindToJavaGlobal) throws Exception {

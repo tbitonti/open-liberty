@@ -1,33 +1,39 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2019 IBM Corporation and others.
+ * Copyright (c) 2013, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.repository.resolver;
 
-import static org.hamcrest.MatcherAssert.assertThat;
+import static com.ibm.ws.repository.resolver.MissingRequirementMatcher.missingRequirement;
+import static java.util.Collections.emptyList;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasProperty;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,6 +41,9 @@ import java.util.Set;
 import org.hamcrest.Matchers;
 import org.jmock.Mockery;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 import org.osgi.service.resolver.ResolutionException;
 
 import com.ibm.ws.kernel.feature.provisioning.ProvisioningFeatureDefinition;
@@ -56,19 +65,29 @@ import com.ibm.ws.repository.resources.IfixResource;
 import com.ibm.ws.repository.resources.RepositoryResource;
 import com.ibm.ws.repository.resources.SampleResource;
 import com.ibm.ws.repository.resources.writeable.EsaResourceWritable;
-import com.ibm.ws.repository.resources.writeable.IfixResourceWritable;
 import com.ibm.ws.repository.resources.writeable.SampleResourceWritable;
 import com.ibm.ws.repository.resources.writeable.WritableResourceFactory;
 
 /**
  * Tests for {@link RepositoryResolver}
  */
+@SuppressWarnings("deprecation")
+@RunWith(Parameterized.class)
 public class ResolutionTests {
 
-    /**
-     * Used to autogenerate unique names
-     */
-    private int _count = 0;
+    private static enum TestType {
+        RESOLVE,
+        RESOLVE_AS_SET
+    }
+
+    @Parameters
+    public static Iterable<Object[]> data() {
+        return Arrays.asList(new Object[][] {
+                                              { TestType.RESOLVE }, { TestType.RESOLVE_AS_SET }
+        });
+    }
+
+    private final TestType testType;
 
     /**
      * Features which should be returned from the repository for the test. Tests should modify the list before calling {@link #createConnectionList()}.
@@ -86,6 +105,10 @@ public class ResolutionTests {
      */
     private final List<IfixResource> repoIfixes = new ArrayList<>();
 
+    public ResolutionTests(TestType testType) {
+        this.testType = testType;
+    }
+
     /**
      * Test to make sure a single feature can be obtained from Massive by symbolic name
      *
@@ -93,13 +116,13 @@ public class ResolutionTests {
      */
     @Test
     public void testSingleFeatureBySymbolicName() throws Throwable {
-        // Add a test resource to massive
+        // Add a test resource
         String symbolicName = "com.ibm.ws.test-1.0";
         EsaResourceWritable testResource = createEsaResource(symbolicName, null, null);
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one we supplied", resolvedResources.iterator().next().contains(testResource));
@@ -119,7 +142,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(shortName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, shortName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one we supplied", resolvedResources.iterator().next().contains(testResource));
@@ -139,7 +162,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve("TEst-1.0");
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, "TEst-1.0");
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one we supplied", resolvedResources.iterator().next().contains(testResource));
@@ -158,7 +181,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver(Collections.singleton(mockFeatureDefinition));
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("The resource is already installed so should not of been returned", 0, resolvedResources.size());
 
         // Make sure the mockery was happy
@@ -182,7 +205,7 @@ public class ResolutionTests {
         // Now see if we can resolve it!
         String toResolve = symbolicName + "/" + correctVersion;
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(toResolve);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, toResolve);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one we supplied at the right version", resolvedResources.iterator().next().contains(correctResource));
@@ -201,7 +224,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(firstSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, firstSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be two resolved resource", 2, resolvedResources.iterator().next().size());
         assertEquals("The dependency should be installed first", dependencyResource, resolvedResources.iterator().next().get(0));
@@ -223,7 +246,7 @@ public class ResolutionTests {
         // Now see if we can resolve it!
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.singleton(mockFeatureDefinition),
                                                              Collections.<IFixInfo> emptySet(), createConnectionList());
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(firstSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, firstSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertEquals("The resource being resolved should be the one in the list", firstResource, resolvedResources.iterator().next().get(0));
@@ -244,7 +267,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one with the latest version", resolvedResources.iterator().next().contains(secondResource));
@@ -265,7 +288,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver(Collections.singleton(mockFeatureDefinition));
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(firstSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, firstSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertEquals("The resource being resolved should be the one in the list", firstResource, resolvedResources.iterator().next().get(0));
@@ -292,7 +315,7 @@ public class ResolutionTests {
         // Now see if we can resolve it!
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> singleton(new ProductInfoProductDefinition(productInfo)),
                                                              Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(), createConnectionList());
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one with the correct applies to", resolvedResources.iterator().next().contains(correctResource));
@@ -313,7 +336,7 @@ public class ResolutionTests {
         // Now see if we can resolve it!
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> singleton(new ProductInfoProductDefinition(productInfo)),
                                                              Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(), createConnectionList());
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one with the correct applies to", resolvedResources.iterator().next().contains(correctResource));
@@ -346,7 +369,7 @@ public class ResolutionTests {
                                                              createConnectionList());
 
         try {
-            resolver.resolve(Arrays.asList("com.example.featureA", "com.example.featureB", "com.example.featureC"));
+            resolve(resolver, Arrays.asList("com.example.featureA", "com.example.featureB", "com.example.featureC"));
             fail("A resolution exception should have been thrown");
         } catch (RepositoryResolutionException ex) {
             assertThat("featureC should not have resolved", ex.getTopLevelFeaturesNotResolved(), contains("com.example.featureC"));
@@ -380,7 +403,7 @@ public class ResolutionTests {
         // Now see if we can resolve it!
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.singleton(mockFeatureDefinition),
                                                              Collections.<IFixInfo> emptySet(), createConnectionList());
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(firstSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, firstSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be two resolved resource", 2, resolvedResources.iterator().next().size());
         assertEquals("The dependency in massive should be installed first", dependencyInMassive, resolvedResources.iterator().next().get(0));
@@ -405,7 +428,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(firstSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, firstSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be three resolved resource", 3, resolvedResources.iterator().next().size());
         assertEquals("The final dependency in massive should be installed first", secondDependency, resolvedResources.iterator().next().get(0));
@@ -433,7 +456,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(firstSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, firstSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be four resolved resource", 4, resolvedResources.iterator().next().size());
         assertEquals("The final dependency in massive should be installed first", finalDependency, resolvedResources.iterator().next().get(0));
@@ -453,8 +476,10 @@ public class ResolutionTests {
     public void testResolutionMessage() throws RepositoryException {
         String missingSymbolicName = "does.not.exist";
         try {
-            new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(),
-                                   createConnectionList()).resolve(missingSymbolicName);
+            RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.<ProvisioningFeatureDefinition> emptySet(),
+                                                                 Collections.<IFixInfo> emptySet(),
+                                                                 createConnectionList());
+            resolve(resolver, missingSymbolicName);
             fail("The resource does not exist so should not resolve");
         } catch (RepositoryResolutionException e) {
             assertTrue("The resolution message should state what couldn't be resolved but it is: " + e.getMessage(), e.getMessage().contains("resource=" + missingSymbolicName));
@@ -485,8 +510,10 @@ public class ResolutionTests {
         createEsaResource(firstSymbolicName, null, null, Collections.singleton(secondSymbolicName), null);
         EsaResourceWritable secondResource = createEsaResource(secondSymbolicName, null, "1.0.0.1", Collections.singleton(thirdSymbolicName), null);
         try {
-            new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(),
-                                   createConnectionList()).resolve(Collections.singleton(firstSymbolicName));
+            RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.<ProvisioningFeatureDefinition> emptySet(),
+                                                                 Collections.<IFixInfo> emptySet(),
+                                                                 createConnectionList());
+            resolve(resolver, Collections.singleton(firstSymbolicName));
             fail("The resource does not exist so should not resolve");
         } catch (RepositoryResolutionException e) {
             assertTrue("The resolution message should state the top level feature that couldn't be resolved but it is: " + e.getMessage(),
@@ -517,8 +544,10 @@ public class ResolutionTests {
         String secondSymbolicName = "com.ibm.ws.test.dep-1.0";
         RepositoryResource resource = createEsaResource(firstSymbolicName, firstShortName, null, Collections.singleton(secondSymbolicName), null);
         try {
-            new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(),
-                                   createConnectionList()).resolve(Collections.singleton(firstShortName));
+            RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.<ProvisioningFeatureDefinition> emptySet(),
+                                                                 Collections.<IFixInfo> emptySet(),
+                                                                 createConnectionList());
+            resolve(resolver, Collections.singleton(firstShortName));
             fail("The resource does not exist so should not resolve");
         } catch (RepositoryResolutionException e) {
             assertTrue("The resolution message should state the top level feature that couldn't be resolved but it is: " + e.getMessage(),
@@ -550,8 +579,10 @@ public class ResolutionTests {
         String secondSymbolicName = "com.ibm.ws.test.dep-1.0";
         RepositoryResource resource = createEsaResource(firstSymbolicName, firstShortName, null, Collections.singleton(secondSymbolicName), null);
         try {
-            new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(),
-                                   createConnectionList()).resolve(Collections.singleton(otherCaseShortName));
+            RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.<ProvisioningFeatureDefinition> emptySet(),
+                                                                 Collections.<IFixInfo> emptySet(),
+                                                                 createConnectionList());
+            resolve(resolver, Collections.singleton(otherCaseShortName));
             fail("The resource does not exist so should not resolve");
         } catch (RepositoryResolutionException e) {
             assertTrue("The resolution message should state the top level feature that couldn't be resolved but it is: " + e.getMessage(),
@@ -591,7 +622,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(namesToResolve);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, namesToResolve);
         assertEquals("There should be a list of resources for each top level feature", 2, resolvedResources.size());
         Collection<RepositoryResource> allResolvedResources = new ArrayList<RepositoryResource>();
         for (List<RepositoryResource> massiveResourceList : resolvedResources) {
@@ -619,8 +650,10 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         try {
-            new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(),
-                                   createConnectionList()).resolve(namesToResolve);
+            RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.<ProvisioningFeatureDefinition> emptySet(),
+                                                                 Collections.<IFixInfo> emptySet(),
+                                                                 createConnectionList());
+            resolve(resolver, namesToResolve);
             fail("Missing the second feature so should have failed to resolve");
         } catch (RepositoryResolutionException e) {
             assertTrue("The exception should contain the info about the missing resource but was: " + e.getMessage(), e.getMessage().contains("resource=" + secondSymbolicName));
@@ -663,7 +696,7 @@ public class ResolutionTests {
         namesToResolve.add(thirdShortName.toLowerCase());
 
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(namesToResolve);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, namesToResolve);
         // Flatten the list of resolvedResources
         Set<RepositoryResource> flatResolvedResources = new HashSet<RepositoryResource>();
         for (List<RepositoryResource> massiveResourceList : resolvedResources) {
@@ -692,7 +725,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve just the single feature
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be a single list of resources, set is:" + resolvedResources, 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one we supplied", resolvedResources.iterator().next().contains(testResource));
@@ -714,7 +747,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be two lists of resources one for the feature being installed and one for the auto feature, set is:" + resolvedResources, 2,
                      resolvedResources.size());
         boolean foundFeatureList = false;
@@ -733,6 +766,45 @@ public class ResolutionTests {
         }
         assertTrue("Should have found feature", foundFeatureList);
         assertTrue("Should have found auto", foundAutoList);
+    }
+
+    /**
+     * Test to make sure an auto feature is automatically installed if its capabilities are met by a combination of what is being installed and what is already installed
+     *
+     * @throws Throwable
+     */
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testAutoFeatureSatisfiedByNewFeatureAndInstalledFeature() throws Throwable {
+        // Add a test resource which is going to be installed
+        String symbolicName = "com.ibm.ws.test-1.0";
+        EsaResourceWritable testResource = createEsaResource(symbolicName, null, null);
+
+        // Add a feature which is already installed
+        String installedName = "com.ibm.ws.installed-1.0";
+        MockFeature installedFeature = new MockFeature(installedName);
+        installedFeature.setVisibility(com.ibm.ws.kernel.feature.Visibility.PUBLIC);
+
+        // Now add the soon-to-be-satisfied auto feature
+        EsaResourceWritable autoFeature = createEsaResource("satisfied.auto.feature", null, null, null, null, Arrays.asList(symbolicName, installedName), true, null);
+
+        // Now see if we can resolve it!
+        RepositoryResolver resolver = createResolver(Collections.singletonList(installedFeature));
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
+
+        if (testType == TestType.RESOLVE) {
+            assertThat(resolvedResources, containsInAnyOrder(contains(testResource),
+                                                             contains(testResource, autoFeature)));
+        } else {
+            // Only restResource installed when installing as set because the autofeature isn't required to start the set with just the new feature
+            assertThat(resolvedResources, contains(contains(testResource)));
+        }
+
+        // Now see how it resolves when we ask for the installed feature as well
+        resolvedResources = resolve(resolver, Arrays.asList(symbolicName, installedName));
+        // Now resolveAsSet also returns the autofeature, because it is required by the set
+        assertThat(resolvedResources, containsInAnyOrder(contains(testResource),
+                                                         contains(testResource, autoFeature)));
     }
 
     /**
@@ -756,11 +828,12 @@ public class ResolutionTests {
                                         + "))\", osgi.identity; filter:=\"(&(type=osgi.subsystem.feature)(osgi.identity=" + requiredAutoFeatureSymbolicName + "))\"";
         autoFeature.setProvisionCapability(ibmProvisionCapability.toString());
         autoFeature.setInstallPolicy(InstallPolicy.WHEN_SATISFIED);
+        autoFeature.setVisibility(Visibility.PRIVATE);
         repoFeatures.add(autoFeature);
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be three lists of resources one for the feature being installed and one for each of the auto feature, set is:" + resolvedResources, 3,
                      resolvedResources.size());
         boolean foundFeatureList = false;
@@ -808,11 +881,12 @@ public class ResolutionTests {
                                       + "))(&(type=osgi.subsystem.feature)(osgi.identity=other)))\"");
         autoFeature.setProvisionCapability(ibmProvisionCapability.toString());
         autoFeature.setInstallPolicy(InstallPolicy.WHEN_SATISFIED);
+        autoFeature.setVisibility(Visibility.PRIVATE);
         repoFeatures.add(autoFeature);
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be two lists of resources one for the feature being installed and one for the auto feature, set is:" + resolvedResources, 2,
                      resolvedResources.size());
         boolean foundFeatureList = false;
@@ -851,7 +925,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be a single list of resources, set is:" + resolvedResources, 1, resolvedResources.size());
         assertEquals("There should be one resolved resources", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resources should contain the one we were looking for", resolvedResources.iterator().next().contains(testResource));
@@ -878,7 +952,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(mainFeatureSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, mainFeatureSymbolicName);
         assertEquals("There should be two lists of resources, set is:" + resolvedResources, 2, resolvedResources.size());
         boolean foundAutoList = false;
         boolean foundMainList = false;
@@ -916,12 +990,16 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(autoSymbolicName);
-        assertEquals("There should only be a single list of resources, set is:" + resolvedResources, 1, resolvedResources.size());
-        List<RepositoryResource> resolvedList = resolvedResources.iterator().next();
-        assertEquals("There should be 2 resolved resources in the auto list", 2, resolvedList.size());
-        assertEquals("Auto should be installed last", autoFeature, resolvedList.get(1));
-        assertEquals("Main feature should be installed first", testResource, resolvedList.get(0));
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, autoSymbolicName);
+
+        if (testType == TestType.RESOLVE) {
+            // For a basic resolve, we should install the features which enable the auto-feature
+            assertThat(resolvedResources, contains(contains(testResource, autoFeature)));
+        } else {
+            // For resovle as set, we resolve exactly as the kernel resolver would, returning just the auto-feature
+            // Note that this scenario is unusual as it's only possible if the autofeature is public
+            assertThat(resolvedResources, contains(contains(autoFeature)));
+        }
     }
 
     /**
@@ -940,7 +1018,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve just the single feature
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be a single list of resources, set is:" + resolvedResources, 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one we supplied", resolvedResources.iterator().next().contains(testResource));
@@ -949,6 +1027,7 @@ public class ResolutionTests {
     /**
      * Test to make sure an auto feature is automatically installed if its capabilities are met by what is already installed
      */
+    @SuppressWarnings("unchecked")
     @Test
     public void testAutoFeatureSatisfiedByInstalledFeature() throws RepositoryException, ResolutionException {
         // Add one test resource to massive, but make a dependency to an already installed feature
@@ -964,15 +1043,21 @@ public class ResolutionTests {
         // Now see if we can resolve it!
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> emptySet(), Collections.singleton(mockFeatureDefinition),
                                                              Collections.<IFixInfo> emptySet(), createConnectionList());
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(repoSymbolicName);
-        assertEquals("There should be two lists of resources as the auto feature doesn't require the massive resource, set is:" + resolvedResources, 2, resolvedResources.size());
-        Collection<RepositoryResource> allResolvedResources = new ArrayList<RepositoryResource>();
-        for (List<RepositoryResource> massiveResourceList : resolvedResources) {
-            allResolvedResources.addAll(massiveResourceList);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, repoSymbolicName);
+
+        if (testType == TestType.RESOLVE) {
+            assertThat(resolvedResources, containsInAnyOrder(contains(testResource),
+                                                             contains(autoFeature)));
+        } else {
+            // Autofeature not installed because it's not needed for the requested set of features
+            assertThat(resolvedResources, contains(contains(testResource)));
         }
-        assertEquals("There should be two resolved resources", 2, allResolvedResources.size());
-        assertTrue("The resolved resources should contain the one we were looking for", allResolvedResources.contains(testResource));
-        assertTrue("The resolved resources should contain the now satisified auto feature", allResolvedResources.contains(autoFeature));
+
+        // Now try resolving both the installed and the new feature
+        resolvedResources = resolve(resolver, Arrays.asList(repoSymbolicName, installedSymbolicName));
+        // Now resolveAsSet also installs the autofeature
+        assertThat(resolvedResources, containsInAnyOrder(contains(testResource),
+                                                         contains(autoFeature)));
 
         // Make sure the mockery was happy
         mockery.assertIsSatisfied();
@@ -1001,7 +1086,7 @@ public class ResolutionTests {
         // Now see if we can resolve it!
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> emptySet(), installedFeatures, Collections.<IFixInfo> emptySet(),
                                                              createConnectionList());
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(repoSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, repoSymbolicName);
         assertEquals("There should only be a single list of resources, set is:" + resolvedResources, 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertEquals("The resource being resolved should be the one in the list", testResource, resolvedResources.iterator().next().get(0));
@@ -1029,7 +1114,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(requiredFeatures);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, requiredFeatures);
         assertEquals("There should be three lists of resources one for each of the features asked for and one for the auto feature, set is:" + resolvedResources, 3,
                      resolvedResources.size());
 
@@ -1074,10 +1159,45 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName1);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName1);
         assertEquals("There should only be a single list of resources as the auto feature isn't satisified, set is:" + resolvedResources, 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertEquals("The resource being resolved should be the one in the list", testResource, resolvedResources.iterator().next().get(0));
+    }
+
+    /**
+     * Test that if additional dependencies are pulled in by autofeatures, we check whether they in turn satisfy more autofeatures
+     *
+     * Test setup:
+     * <ul>
+     * <li>There are regular features A, B and C
+     * <li>autoAB is enabled by A and B and depends on C
+     * <li>autoAC is enabled by A and C
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testAutoFeatureDependencySatisfiesAnotherAutoFeature() throws RepositoryException {
+        EsaResourceWritable featureA = createEsaResource("com.ibm.test.A", null, null);
+        EsaResourceWritable featureB = createEsaResource("com.ibm.test.B", null, null);
+        EsaResourceWritable featureC = createEsaResource("com.ibm.test.C", null, null);
+
+        Collection<String> acProvisionedBy = Arrays.asList(featureA.getProvideFeature(),
+                                                           featureC.getProvideFeature());
+        EsaResourceWritable autoAC = createEsaResource("com.ibm.test.autoAC", null, null, null, null, acProvisionedBy, true, null);
+
+        Collection<String> abDependencies = Collections.singleton(featureC.getProvideFeature());
+        Collection<String> abProvisionedBy = Arrays.asList(featureA.getProvideFeature(),
+                                                           featureB.getProvideFeature());
+        EsaResourceWritable autoAB = createEsaResource("com.ibm.test.autoAB", null, null, abDependencies, null, abProvisionedBy, true, null);
+
+        RepositoryResolver resolver = createResolver();
+        Collection<String> toResolve = Arrays.asList(featureA.getProvideFeature(),
+                                                     featureB.getProvideFeature());
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, toResolve);
+        assertThat(resolvedResources, containsInAnyOrder(contains(featureA),
+                                                         contains(featureB),
+                                                         contains(featureC, featureA, featureB, autoAB),
+                                                         contains(featureA, featureC, autoAC)));
     }
 
     /**
@@ -1093,13 +1213,13 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> firstResolution = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> firstResolution = resolve(resolver, symbolicName);
         assertEquals("There should only be a single list of resources", 1, firstResolution.size());
         List<RepositoryResource> firstResolutionList = firstResolution.iterator().next();
         assertEquals("There should be one resolved resource", 1, firstResolutionList.size());
         assertTrue("The resolved resource should be the one we supplied", firstResolutionList.contains(testResource));
 
-        Collection<List<RepositoryResource>> secondResolution = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> secondResolution = resolve(resolver, symbolicName);
         assertEquals("Multiple invocations of resolve should return the same result", firstResolution, secondResolution);
     }
 
@@ -1120,7 +1240,7 @@ public class ResolutionTests {
         Collection<String> symbolicNames = new HashSet<String>();
         symbolicNames.add(aSymbolicName);
         symbolicNames.add(cSymbolicName);
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicNames);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicNames);
         assertEquals("There should be two lists of resolved resources", 2, resolvedResources.size());
         boolean foundAList = false;
         boolean foundCList = false;
@@ -1175,7 +1295,7 @@ public class ResolutionTests {
 
         // Resolve
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(aSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, aSymbolicName);
 
         // Test result
         assertEquals("There should be a single list of resolved resources", 1, resolvedResources.size());
@@ -1226,7 +1346,7 @@ public class ResolutionTests {
 
         // Resolve
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(aSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, aSymbolicName);
 
         // Test result
         assertEquals("There should be a single list of resolved resources", 1, resolvedResources.size());
@@ -1270,7 +1390,7 @@ public class ResolutionTests {
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> singleton(new ProductInfoProductDefinition(productInfo)),
                                                              Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(), createConnectionList());
         try {
-            resolver.resolve(firstSymbolicName);
+            resolve(resolver, firstSymbolicName);
             fail("The resource should not resolve and neither should it's dependency");
         } catch (RepositoryResolutionException e) {
             assertTrue("The resolution message should state what couldn't be resolved but it is: " + e.getMessage(), e.getMessage().contains("resource=" + firstSymbolicName));
@@ -1295,7 +1415,7 @@ public class ResolutionTests {
         }
         // Just double check we can't resolve the second item either (otherwise this might be the cause of the "correct" error message coming out)
         try {
-            resolver.resolve(secondSymbolicName);
+            resolve(resolver, secondSymbolicName);
             fail("The resource should not resolve");
         } catch (RepositoryResolutionException e) {
 
@@ -1328,7 +1448,7 @@ public class ResolutionTests {
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> singleton(new ProductInfoProductDefinition(productInfo)),
                                                              Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(), createConnectionList());
         try {
-            resolver.resolve(firstSymbolicName);
+            resolve(resolver, firstSymbolicName);
             fail("The resource should not resolve and neither should it's dependency");
         } catch (RepositoryResolutionException e) {
             assertTrue("The resolution message should state what couldn't be resolved but it is: " + e.getMessage(), e.getMessage().contains("resource=" + firstSymbolicName));
@@ -1375,7 +1495,7 @@ public class ResolutionTests {
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> singleton(new ProductInfoProductDefinition(productInfo)),
                                                              Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(), createConnectionList());
         try {
-            resolver.resolve(symbolicName);
+            resolve(resolver, symbolicName);
             fail("The resource should not resolve and neither should it's dependency");
         } catch (RepositoryResolutionException e) {
             assertTrue("The resolution message should state what couldn't be resolved but it is: " + e.getMessage(), e.getMessage().contains("resource=" + symbolicName));
@@ -1433,7 +1553,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(name);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, name);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one we supplied", resolvedResources.iterator().next().contains(testResource));
@@ -1451,7 +1571,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(name.toLowerCase());
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, name.toLowerCase());
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one we supplied", resolvedResources.iterator().next().contains(testResource));
@@ -1471,7 +1591,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(name);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, name);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one we supplied", resolvedResources.iterator().next().contains(testResource));
@@ -1494,7 +1614,7 @@ public class ResolutionTests {
         names.add(name1);
         names.add(name2);
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(names);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, names);
         assertEquals("There should be a two lists of resources", 2, resolvedResources.size());
         boolean found1 = false;
         boolean found2 = false;
@@ -1526,8 +1646,8 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(name);
-        assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, name);
+        assertEquals("There should only be a single list of resources: " + resolvedResources, 1, resolvedResources.size());
         List<RepositoryResource> installList = resolvedResources.iterator().next();
         assertEquals("There should be two resolved resource", 2, installList.size());
         assertEquals("The feature needs installing first so it should be first in the list", feature, installList.get(0));
@@ -1660,7 +1780,7 @@ public class ResolutionTests {
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> singleton(new ProductInfoProductDefinition(productInfo)),
                                                              Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(), createConnectionList());
         try {
-            resolver.resolve(name);
+            resolve(resolver, name);
             fail("The sample does not apply to this product so should not have resolved");
         } catch (RepositoryResolutionException e) {
             assertTrue("The resolution message should state what couldn't be resolved but it is: " + e.getMessage(), e.getMessage().contains("resource=" + name));
@@ -1701,7 +1821,7 @@ public class ResolutionTests {
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
         try {
-            resolver.resolve(name);
+            resolve(resolver, name);
             fail("The sample is missing a dependency so should not resolve");
         } catch (RepositoryResolutionException e) {
             assertTrue("The resolution message should state the top level feature that couldn't be resolved but it is: " + e.getMessage(),
@@ -1737,7 +1857,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(firstSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, firstSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
 
         // Order is weird here, the two resources are effectively symbiotic so could be installed in either order but we asked for the first one so expect that to be installed last
@@ -1763,7 +1883,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(symbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, symbolicName);
         assertEquals("There should only be two lists of resources one for the feature being installed and one for the auto feature, set is:" + resolvedResources, 2,
                      resolvedResources.size());
         boolean foundFeatureList = false;
@@ -1804,7 +1924,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(firstSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, firstSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be four resolved resource", 4, resolvedResources.iterator().next().size());
         assertEquals("The final dependency in massive should be installed first", finalDependency, resolvedResources.iterator().next().get(0));
@@ -1833,7 +1953,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(firstSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, firstSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be four resolved resource", 3, resolvedResources.iterator().next().size());
         assertEquals("The resource being resolved should be installed last", firstResource, resolvedResources.iterator().next().get(2));
@@ -1874,7 +1994,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(aSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, aSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be 7 resolved resources", 7, resolvedResources.iterator().next().size());
         List<RepositoryResource> resourceList = resolvedResources.iterator().next();
@@ -1905,7 +2025,7 @@ public class ResolutionTests {
 
         // Now see if we can resolve it!
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(aSymbolicName);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, aSymbolicName);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be 3 resolved resources", 3, resolvedResources.iterator().next().size());
         List<RepositoryResource> resourceList = resolvedResources.iterator().next();
@@ -1921,12 +2041,13 @@ public class ResolutionTests {
      * Feature X -> Feature I 1.0
      * Feature Y -> Feature I 1.1 tolerate 1.0
      *
-     * Expected: Feature X, Feature Y, Feature I1.0
-     * Actual: Feature X, Feature Y, Feature I1.0
-     * This test case works as expected.
+     * Expected AsSet: Feature X, Feature Y, Feature I1.0
+     * Expected Basic: Feature X, Feature Y, Feature I1.0, Feature I1.1
      */
+    @SuppressWarnings("unchecked")
     @Test
     public void testSet() throws RepositoryException {
+
         // initialize all of the features
         EsaResourceWritable featureX = WritableResourceFactory.createEsa(null);
         featureX.setProvideFeature("com.example.featureX-1.0");
@@ -1954,11 +2075,15 @@ public class ResolutionTests {
 
         // build repository and resolve the features
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolved = resolver.resolveAsSet(Arrays.asList(featureX.getProvideFeature(), featureY.getProvideFeature()));
+        Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList(featureX.getProvideFeature(), featureY.getProvideFeature()));
 
-        assertThat(resolved, containsInAnyOrder(
-                                                Matchers.<RepositoryResource> contains(featureI10, featureX),
-                                                Matchers.<RepositoryResource> contains(featureI10, featureY)));
+        if (testType == TestType.RESOLVE_AS_SET) {
+            assertThat(resolved, containsInAnyOrder(contains(featureI10, featureX),
+                                                    contains(featureI10, featureY)));
+        } else {
+            assertThat(resolved, containsInAnyOrder(contains(featureI10, featureX),
+                                                    contains(featureI11, featureI10, featureY)));
+        }
 
     }
 
@@ -1971,10 +2096,13 @@ public class ResolutionTests {
      * Feature A -> Feature X -> Feature I 1.0
      * Feature B -> Feature Y -> Feature I 1.1 tolerate 1.0
      *
-     * Expected: resolution fails because Feature B does not tolerate Feature I 1.0
+     * Expected AsSet: resolution fails because Feature B does not tolerate Feature I 1.0
+     * Expected Basic: resolution succeeds, includes Feature I 1.1 and 1.0
      */
+    @SuppressWarnings("unchecked")
     @Test
     public void testSetTransitivePublic() throws RepositoryException {
+
         // initialize all the features
         EsaResourceWritable featureA = WritableResourceFactory.createEsa(null);
         featureA.setProvideFeature("com.example.featureA-1.0");
@@ -2014,11 +2142,18 @@ public class ResolutionTests {
 
         // build the repository and resolve the features
         RepositoryResolver resolver = createResolver();
-        try {
-            Collection<List<RepositoryResource>> resolved = resolver.resolveAsSet(Arrays.asList(featureA.getProvideFeature(), featureB.getProvideFeature()));
-            fail("Resolution should fail, actual result: " + resolved);
-        } catch (RepositoryResolutionException e) {
-            // Expected
+
+        if (testType == TestType.RESOLVE_AS_SET) {
+            try {
+                Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList(featureA.getProvideFeature(), featureB.getProvideFeature()));
+                fail("Resolution should fail, actual result: " + resolved);
+            } catch (RepositoryResolutionException e) {
+                // Expected
+            }
+        } else {
+            Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList(featureA.getProvideFeature(), featureB.getProvideFeature()));
+            assertThat(resolved, containsInAnyOrder(contains(featureI10, featureX, featureA),
+                                                    contains(featureI11, featureI10, featureY, featureB)));
         }
 
     }
@@ -2032,10 +2167,13 @@ public class ResolutionTests {
      * Feature A -> Feature X -> Feature I 1.0
      * Feature B -> Feature Y -> Feature I 1.1 tolerate 1.0
      *
-     * Expected: resolution succeeds because although Feature B does not tolerate Feature I 1.0, Feature I is private.
+     * Expected AsSet: resolution succeeds because although Feature B does not tolerate Feature I 1.0, Feature I is private.
+     * Expected Basic: resolution succeeds and includes Feature I 1.1 and 1.0
      */
+    @SuppressWarnings("unchecked")
     @Test
     public void testSetTransitivePrivate() throws RepositoryException {
+
         // initialize all the features
         EsaResourceWritable featureA = WritableResourceFactory.createEsa(null);
         featureA.setProvideFeature("com.example.featureA-1.0");
@@ -2075,10 +2213,15 @@ public class ResolutionTests {
 
         // build the repository and resolve the features
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolved = resolver.resolveAsSet(Arrays.asList(featureA.getProvideFeature(), featureB.getProvideFeature()));
-        assertThat(resolved, containsInAnyOrder(
-                                                Matchers.<RepositoryResource> contains(featureI10, featureX, featureA),
-                                                Matchers.<RepositoryResource> contains(featureI10, featureY, featureB)));
+        Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList(featureA.getProvideFeature(), featureB.getProvideFeature()));
+
+        if (testType == TestType.RESOLVE_AS_SET) {
+            assertThat(resolved, containsInAnyOrder(contains(featureI10, featureX, featureA),
+                                                    contains(featureI10, featureY, featureB)));
+        } else {
+            assertThat(resolved, containsInAnyOrder(contains(featureI10, featureX, featureA),
+                                                    contains(featureI11, featureI10, featureY, featureB)));
+        }
 
     }
 
@@ -2095,10 +2238,13 @@ public class ResolutionTests {
      * Feature A -> Feature X -> Feature I 1.1
      * Feature B -> Feature Y -> Feature I 1.0 tolerate 1.1
      *
-     * Expected: resolution succeeds because although Feature B does not tolerate Feature I 1.1, Feature I is private.
+     * Expected AsSet: resolution succeeds because although Feature B does not tolerate Feature I 1.1, Feature I is private.
+     * Expected Basic: resolution succeeds and includes Feature I 1.0 and 1.1
      */
+    @SuppressWarnings("unchecked")
     @Test
     public void testSetTransitivePrivateTolerateNewer() throws RepositoryException {
+
         // initialize all the features
         EsaResourceWritable featureA = WritableResourceFactory.createEsa(null);
         featureA.setProvideFeature("com.example.featureA-1.0");
@@ -2138,10 +2284,15 @@ public class ResolutionTests {
 
         // build the repository and resolve the features
         RepositoryResolver resolver = createResolver();
-        Collection<List<RepositoryResource>> resolved = resolver.resolveAsSet(Arrays.asList(featureA.getProvideFeature(), featureB.getProvideFeature()));
-        assertThat(resolved, containsInAnyOrder(
-                                                Matchers.<RepositoryResource> contains(featureI11, featureX, featureA),
-                                                Matchers.<RepositoryResource> contains(featureI11, featureY, featureB)));
+        Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList(featureA.getProvideFeature(), featureB.getProvideFeature()));
+
+        if (testType == TestType.RESOLVE_AS_SET) {
+            assertThat(resolved, containsInAnyOrder(contains(featureI11, featureX, featureA),
+                                                    contains(featureI11, featureY, featureB)));
+        } else {
+            assertThat(resolved, containsInAnyOrder(contains(featureI11, featureX, featureA),
+                                                    contains(featureI10, featureI11, featureY, featureB)));
+        }
 
     }
 
@@ -2159,6 +2310,7 @@ public class ResolutionTests {
      * <p>
      * Expected: featureA-1.0 and autoFeature are both resolved
      */
+    @SuppressWarnings("unchecked")
     @Test
     public void testAutofeatureDependsOnKernelFeature() throws RepositoryException {
         Mockery mockery = new Mockery();
@@ -2176,12 +2328,448 @@ public class ResolutionTests {
         autoFeature.setInstallPolicy(InstallPolicy.WHEN_SATISFIED);
         autoFeature.setProvisionCapability("osgi.identity; filter:=\"(&(type=osgi.subsystem.feature)(osgi.identity=com.example.featureA-1.0))\","
                                            + "osgi.identity; filter:=\"(&(type=osgi.subsystem.feature)(osgi.identity=com.example.kernelFeature-1.0))\"");
+        autoFeature.setVisibility(Visibility.PRIVATE);
         repoFeatures.add(autoFeature);
 
         RepositoryResolver resolver = createResolver(Collections.singleton(kernelFeature));
-        Collection<List<RepositoryResource>> resolved = resolver.resolve(Collections.singleton(featureA.getProvideFeature()));
+        Collection<List<RepositoryResource>> resolved = resolve(resolver, Collections.singleton(featureA.getProvideFeature()));
         assertThat(resolved, containsInAnyOrder(Matchers.<RepositoryResource> contains(featureA),
                                                 Matchers.<RepositoryResource> contains(featureA, autoFeature)));
+    }
+
+    /**
+     * Test that if an installed feature has a tolerated dependency and satisfying the dependencies of the requested features requires a different tolerated dependency, that
+     * feature is included in the returned install lists.
+     *
+     * Dependency chart (starred features are already installed)
+     *
+     * <pre>
+     * *B-1.0 -> *base-1.0
+     *  B-2.0 ->  base-2.0
+     * *A-1.0 -> *A.internal-1.0 -> *base-1.0
+     *       `->  A.internal-2.0 ->  base-2.0
+     * </pre>
+     *
+     * Test: Attempt to resolve [A-1.0, B-2.0]
+     * Expected AsSet: Resolves B-2.0, Base-2.0 and A.internal-2.0 because A.internal-2.0 is required to form a valid set
+     * Expected Basic: Resolves B-2.0, Base-2.0 and A.internal-2.0 because all tolerated dependencies are installed, even for already installed features
+     *
+     * Test: Attempt to resolve [B-2.0]
+     * Expected AsSet: Resolves B-2.0, Base-2.0
+     * Expected Basic: Resolves B-2.0, Base-2.0 and A.internal-2.0 because all tolerated dependencies are installed, even for already installed features
+     *
+     * @throws RepositoryException
+     */
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testInstalledFeatureNeedsDifferentToleratedDependency() throws RepositoryException {
+
+        ArrayList<ProvisioningFeatureDefinition> installedFeatures = new ArrayList<>();
+
+        // Hypothetical base features which delineate other features into two groups (like our eeCompatible features)
+
+        MockFeature base10 = new MockFeature("com.example.base-1.0");
+        base10.setVisibility(com.ibm.ws.kernel.feature.Visibility.PRIVATE);
+        installedFeatures.add(base10);
+
+        EsaResourceWritable base20 = WritableResourceFactory.createEsa(null);
+        base20.setProvideFeature("com.example.base-2.0");
+        base20.setSingleton("true");
+        base20.setVisibility(Visibility.PRIVATE);
+        repoFeatures.add(base20);
+
+        // Already installed features
+
+        // a-1.0 supports both base-1.0 and base-2.0 through a tolerated dependency on a.internal-1.0 & 2.0
+        MockFeature a10 = new MockFeature("com.example.a-1.0");
+        a10.addDependency("com.example.a.internal-1.0", "2.0");
+        a10.setVisibility(com.ibm.ws.kernel.feature.Visibility.PUBLIC);
+        installedFeatures.add(a10);
+
+        MockFeature aInternal10 = new MockFeature("com.example.a.internal-1.0");
+        aInternal10.addDependency("com.example.base-1.0");
+        installedFeatures.add(aInternal10);
+
+        MockFeature b10 = new MockFeature("com.example.b-1.0");
+        b10.addDependency("com.example.base-1.0");
+        installedFeatures.add(b10);
+
+        // Not installed features
+        EsaResourceWritable aInternal20 = WritableResourceFactory.createEsa(null);
+        aInternal20.setProvideFeature("com.example.a.internal-2.0");
+        aInternal20.setVisibility(Visibility.PRIVATE);
+        aInternal20.addRequireFeatureWithTolerates("com.example.base-2.0", emptyList());
+        repoFeatures.add(aInternal20);
+
+        EsaResourceWritable b20 = WritableResourceFactory.createEsa(null);
+        b20.setProvideFeature("com.example.b-2.0");
+        b20.setVisibility(Visibility.PUBLIC);
+        b20.addRequireFeatureWithTolerates("com.example.base-2.0", emptyList());
+        repoFeatures.add(b20);
+
+        RepositoryResolver resolver = createResolver(installedFeatures);
+
+        // First test: resolve [A-1.0, B-2.0]
+        Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList(a10.getSymbolicName(), b20.getProvideFeature()));
+        assertThat(resolved, containsInAnyOrder(Matchers.contains(base20, b20),
+                                                Matchers.contains(base20, aInternal20)));
+
+        // Second test: resolve [B-2.0]
+        Collection<List<RepositoryResource>> resolved2 = resolve(resolver, Arrays.asList(b20.getProvideFeature()));
+        if (testType == TestType.RESOLVE_AS_SET) {
+            assertThat(resolved2, contains(contains(base20, b20)));
+        } else {
+            assertThat(resolved2, containsInAnyOrder(contains(base20, b20),
+                                                     contains(base20, aInternal20)));
+        }
+    }
+
+    /**
+     * Test that if an installed auto feature has a tolerated dependency and satisfying the dependencies of the requested features requires a different tolerated dependency, that
+     * feature is included in the returned install lists.
+     *
+     * Dependency chart (starred features are already installed)
+     *
+     * <pre>
+     * *C-1.0
+     * *B-1.0 -> *base-1.0
+     *  B-2.0 ->  base-2.0
+     * *A-1.0 -> *A.internal-1.0 -> *base-1.0
+     *       `->  A.internal-2.0 ->  base-2.0
+     * </pre>
+     *
+     * A-1.0 is an autofeature, activated when C-1.0 is present
+     *
+     * Test: Attempt to resolve [C-1.0, B-2.0]
+     * Expected AsSet: Resolves B-2.0, Base-2.0 and A.internal-2.0 because A.internal-2.0 is required to form a valid set
+     * Expected Basic: Resolves B-2.0, Base-2.0 and A.internal-2.0 because all tolerated dependencies are installed, even for already installed features
+     *
+     * Test: Attempt to resolve [C-1.0]
+     * Expected AsSet: Resolves nothing because C-1.0 and A-1.0 are already installed
+     * Expected Basic: Resolves Base-2.0 and A.internal-2.0 because all tolerated dependencies of autofeatures are installed
+     *
+     * Test: Attempt to resolve [B-2.0]
+     * Expected AsSet: Resolves B-2.0 and Base-2.0 because they are needed to form a valid set. A.internal-2.0 is not needed.
+     * Expected Basic: Resolves B-2.0, Base-2.0 and A.internal-2.0 because all tolerated dependencies of autofeatures are installed
+     *
+     * @throws RepositoryException
+     */
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testInstalledAutoFeatureNeedsDifferentToleratedDependency() throws RepositoryException {
+
+        ArrayList<ProvisioningFeatureDefinition> installedFeatures = new ArrayList<>();
+
+        // Hypothetical base features which delineate other features into two groups (like our eeCompatible features)
+
+        MockFeature base10 = new MockFeature("com.example.base-1.0");
+        base10.setVisibility(com.ibm.ws.kernel.feature.Visibility.PRIVATE);
+        installedFeatures.add(base10);
+
+        EsaResourceWritable base20 = WritableResourceFactory.createEsa(null);
+        base20.setProvideFeature("com.example.base-2.0");
+        base20.setSingleton("true");
+        base20.setVisibility(Visibility.PRIVATE);
+        repoFeatures.add(base20);
+
+        // Already installed features
+        MockFeature c10 = new MockFeature("com.example.c-1.0");
+        c10.setVisibility(com.ibm.ws.kernel.feature.Visibility.PUBLIC);
+        installedFeatures.add(c10);
+
+        // a-1.0 is an auto-feature, activated when c-1.0 is present
+        // a-1.0 supports both base-1.0 and base-2.0 through a tolerated dependency on a.internal-1.0 & 2.0
+        MockFeature a10 = new MockFeature("com.example.a-1.0");
+        a10.addDependency("com.example.a.internal-1.0", "2.0");
+        a10.setVisibility(com.ibm.ws.kernel.feature.Visibility.PRIVATE);
+        a10.setProvisionCapability("osgi.identity; filter:=\"(&(type=osgi.subsystem.feature)(osgi.identity=com.example.c-1.0))\"");
+        installedFeatures.add(a10);
+
+        MockFeature aInternal10 = new MockFeature("com.example.a.internal-1.0");
+        aInternal10.addDependency("com.example.base-1.0");
+        installedFeatures.add(aInternal10);
+
+        MockFeature b10 = new MockFeature("com.example.b-1.0");
+        b10.addDependency("com.example.base-1.0");
+        installedFeatures.add(b10);
+
+        // Not installed features
+        EsaResourceWritable aInternal20 = WritableResourceFactory.createEsa(null);
+        aInternal20.setProvideFeature("com.example.a.internal-2.0");
+        aInternal20.setVisibility(Visibility.PRIVATE);
+        aInternal20.addRequireFeatureWithTolerates("com.example.base-2.0", emptyList());
+        repoFeatures.add(aInternal20);
+
+        EsaResourceWritable b20 = WritableResourceFactory.createEsa(null);
+        b20.setProvideFeature("com.example.b-2.0");
+        b20.setVisibility(Visibility.PUBLIC);
+        b20.addRequireFeatureWithTolerates("com.example.base-2.0", emptyList());
+        repoFeatures.add(b20);
+
+        RepositoryResolver resolver = createResolver(installedFeatures);
+
+        Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList(c10.getSymbolicName(), b20.getProvideFeature()));
+        // AsSet: Resolves B-2.0, Base-2.0 and A.internal-2.0 because A.internal-2.0 is required to form a valid set
+        // Basic: Resolves B-2.0, Base-2.0 and A.internal-2.0 because all tolerated dependencies are installed, even for already installed features
+        assertThat(resolved, containsInAnyOrder(contains(base20, b20),
+                                                contains(base20, aInternal20)));
+
+        resolved = resolve(resolver, Arrays.asList(c10.getSymbolicName()));
+        if (testType == TestType.RESOLVE_AS_SET) {
+            // Resolves nothing because C-1.0 and A-1.0 are already installed
+            assertThat(resolved, is(empty()));
+        } else {
+            // Resolves Base-2.0 and A.internal-2.0 because all tolerated dependencies of autofeatures are installed
+            assertThat(resolved, contains(contains(base20, aInternal20)));
+        }
+
+        resolved = resolve(resolver, Arrays.asList(b20.getProvideFeature()));
+        if (testType == TestType.RESOLVE_AS_SET) {
+            // Resolves B-2.0 and Base-2.0 because they are needed to form a valid set. A.internal-2.0 is not needed.
+            assertThat(resolved, contains(contains(base20, b20)));
+        } else {
+            // Resolves B-2.0, Base-2.0 and A.internal-2.0 because all tolerated dependencies of autofeatures are installed
+            assertThat(resolved, containsInAnyOrder(contains(base20, b20),
+                                                    contains(base20, aInternal20)));
+        }
+    }
+
+    /**
+     * If the user requests we install an auto-feature with basic resolution, we will install any features which enable that autofeature.
+     * <p>
+     * However, we don't want to install any features which enable an already installed autofeature.
+     * <p>
+     * Scenario: <ul>
+     * <li>A-1.0 is an autofeature which is enabled by either B-1.0 or C-1.0.
+     * <li>A-1.0 and B-1.0 are already installed.
+     * <li>User requests we install D-1.0.
+     * </ul>
+     * Expected: D-1.0 is resolved, C-1.0 is not resolved.
+     *
+     * @throws RepositoryException
+     */
+    @Test
+    public void testDontInstallFeaturesWhichEnableInstalledAutoFeature() throws RepositoryException {
+
+        ArrayList<ProvisioningFeatureDefinition> installedFeatures = new ArrayList<>();
+
+        MockFeature b10 = new MockFeature("com.example.b-1.0");
+        b10.setVisibility(com.ibm.ws.kernel.feature.Visibility.PUBLIC);
+        installedFeatures.add(b10);
+
+        MockFeature a10 = new MockFeature("com.example.a-1.0");
+        a10.setVisibility(com.ibm.ws.kernel.feature.Visibility.PRIVATE);
+        a10.setProvisionCapability("osgi.identity; filter:=\"(&(type=osgi.subsystem.feature)(|(osgi.identity=com.example.b-1.0)(osgi.identity=com.example.c-1.0)))\"");
+        installedFeatures.add(a10);
+
+        EsaResourceWritable c10 = WritableResourceFactory.createEsa(null);
+        c10.setProvideFeature("com.example.c-1.0");
+        c10.setVisibility(Visibility.PUBLIC);
+        repoFeatures.add(c10);
+
+        EsaResourceWritable d10 = WritableResourceFactory.createEsa(null);
+        d10.setProvideFeature("com.example.d-1.0");
+        d10.setVisibility(Visibility.PUBLIC);
+        repoFeatures.add(d10);
+
+        RepositoryResolver resolver = createResolver(installedFeatures);
+        Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList(d10.getProvideFeature()));
+
+        // Expected: D-1.0 is resolved, C-1.0 is not resolved.
+        assertThat(resolved, contains(contains(d10)));
+    }
+
+    /**
+     * Test that trying to resolve as a set two conflicting features fails
+     *
+     * @throws RepositoryException
+     */
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testConflict() throws RepositoryException {
+        EsaResourceWritable featureA10 = createEsaResource("com.example.featureA-1.0", "featureA-1.0", "1.0");
+        featureA10.setSingleton("true");
+
+        EsaResourceWritable featureA20 = createEsaResource("com.example.featureA-2.0", "featureA-2.0", "1.0");
+        featureA20.setSingleton("true");
+
+        RepositoryResolver resolver = createResolver();
+
+        if (testType == TestType.RESOLVE_AS_SET) {
+            try {
+                Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList("featureA-1.0", "featureA-2.0"));
+                fail("No resolution exception thrown. Result: " + resolved);
+            } catch (RepositoryResolutionException e) {
+                assertThat(e.getFeatureConflicts().keySet(), contains("com.example.featureA"));
+            }
+        } else {
+            Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList("featureA-1.0", "featureA-2.0"));
+            assertThat(resolved, containsInAnyOrder(contains(featureA10), contains(featureA20)));
+        }
+    }
+
+    /**
+     * Test that trying to resolve as a set two features which have dependencies which conflict fails
+     *
+     * @throws RepositoryException
+     */
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testConflictingDependencies() throws RepositoryException {
+        EsaResourceWritable featureA10 = createEsaResource("com.example.featureA-1.0", null, "1.0");
+        featureA10.setSingleton("true");
+
+        EsaResourceWritable featureA20 = createEsaResource("com.example.featureA-2.0", null, "1.0");
+        featureA20.setSingleton("true");
+
+        EsaResourceWritable featureB10 = createEsaResource("com.example.featureB-1.0", "featureB-1.0", "1.0",
+                                                           Collections.singleton("com.example.featureA-1.0"), null);
+
+        EsaResourceWritable featureC20 = createEsaResource("com.example.featureC-2.0", "featureC-2.0", "1.0",
+                                                           Collections.singleton("com.example.featureA-2.0"), null);
+
+        RepositoryResolver resolver = createResolver();
+
+        if (testType == TestType.RESOLVE_AS_SET) {
+            try {
+                Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList("featureB-1.0", "featureC-2.0"));
+                fail("No resolution exception thrown. Result: " + resolved);
+            } catch (RepositoryResolutionException e) {
+                assertThat(e.getFeatureConflicts().keySet(), contains("com.example.featureA"));
+                assertThat(e.getAllRequirementsResourcesNotFound(), empty());
+            }
+        } else {
+            Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList("featureB-1.0", "featureC-2.0"));
+            assertThat(resolved, containsInAnyOrder(contains(featureA10, featureB10),
+                                                    contains(featureA20, featureC20)));
+        }
+    }
+
+    /**
+     * Test that when trying to resolve as a set two conflicting features which also have missing dependencies, resolution fails and reports the conflict and not the missing
+     * dependency.
+     *
+     * @throws RepositoryException
+     */
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testConflictAndMissingDeps() throws RepositoryException {
+        EsaResourceWritable featureA10 = createEsaResource("com.example.featureA-1.0", "featureA-1.0", "1.0", Collections.singleton("com.example.missingDep-1.0"), null);
+        featureA10.setSingleton("true");
+
+        EsaResourceWritable featureA20 = createEsaResource("com.example.featureA-2.0", "featureA-2.0", "1.0", Collections.singleton("com.example.missingDep-2.0"), null);
+        featureA20.setSingleton("true");
+
+        RepositoryResolver resolver = createResolver();
+
+        try {
+            Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList("featureA-1.0", "featureA-2.0"));
+            fail("No resolution exception thrown. Result: " + resolved);
+        } catch (RepositoryResolutionException e) {
+            assertThat(e.getTopLevelFeaturesNotResolved(), containsInAnyOrder("featureA-1.0", "featureA-2.0"));
+
+            if (testType == TestType.RESOLVE_AS_SET) {
+                // Fails due to conflict
+                assertThat(e.getFeatureConflicts().keySet(), contains("com.example.featureA"));
+                assertThat(e.getAllRequirementsResourcesNotFound(), empty());
+            } else {
+                // Fails due to missing dependency
+                assertThat(e.getFeatureConflicts().entrySet(), hasSize(0));
+                assertThat(e.getAllRequirementsResourcesNotFound(),
+                           containsInAnyOrder(missingRequirement("com.example.missingDep-1.0", featureA10),
+                                              missingRequirement("com.example.missingDep-2.0", featureA20)));
+            }
+        }
+    }
+
+    /**
+     * Test that an unsatisfied installed feature doesn't cause resolution to fail
+     *
+     * @throws RepositoryException
+     */
+    @Test
+    public void testUnsatisfiedInstalledFeature() throws RepositoryException {
+        ArrayList<ProvisioningFeatureDefinition> installedFeatures = new ArrayList<>();
+
+        MockFeature unsatisfied = new MockFeature("com.example.unsatisfied-1.0");
+        unsatisfied.setVisibility(com.ibm.ws.kernel.feature.Visibility.PUBLIC);
+        unsatisfied.addDependency("com.example.nonExistant-1.0");
+        installedFeatures.add(unsatisfied);
+
+        EsaResourceWritable featureA10 = createEsaResource("com.example.featureA-1.0", "featureA-1.0", "1.0");
+
+        RepositoryResolver resolver = createResolver(installedFeatures);
+        Collection<List<RepositoryResource>> resolved = resolve(resolver, Arrays.asList(featureA10.getShortName()));
+        assertThat(resolved, contains(contains(featureA10)));
+    }
+
+    /**
+     * Test a big tree of features - mostly for local performance checking
+     *
+     * @throws RepositoryException
+     */
+    @Test
+    public void testBigTree() throws RepositoryException {
+        List<String> names = createFeatureTree("bigtree", 5, 5); // Should be around 1000 features on the fifth layer
+
+        RepositoryResolver resolver = createResolver();
+
+        long startTime = System.nanoTime();
+        resolve(resolver, names);
+        Duration duration = Duration.ofNanos(System.nanoTime() - startTime);
+
+        System.out.println("BigTree resolve took " + duration);
+    }
+
+    /**
+     * Test a big interlocking tree of features - mostly for local performance checking
+     *
+     * @throws RepositoryException
+     */
+    @Test
+    public void testInterlockTree() throws RepositoryException {
+        List<String> names = createInterlockTree("interlockTree", 5, 5); // Should be around 1000 features on the fifth layer
+
+        RepositoryResolver resolver = createResolver();
+        long startTime = System.nanoTime();
+        resolve(resolver, names);
+        Duration duration = Duration.ofNanos(System.nanoTime() - startTime);
+
+        System.out.println("InterlockTree resolve took " + duration);
+    }
+
+    private List<String> createFeatureTree(String name, int depth, int width) throws RepositoryResourceException, RepositoryBackendException {
+        if (depth == 0) {
+            return Collections.emptyList();
+        }
+        List<String> names = new ArrayList<>();
+        for (int i = 0; i < width; i++) {
+            String myName = name + "-" + i;
+            List<String> children = createFeatureTree(myName, depth - 1, width);
+            createEsaResource(myName, null, null, children, null);
+            names.add(myName);
+        }
+        return names;
+    }
+
+    private List<String> createInterlockTree(String name, int depth, int width) throws RepositoryResourceException, RepositoryBackendException {
+        if (depth == 0) {
+            return Collections.emptyList();
+        }
+        List<String> names = new ArrayList<>();
+        List<String> children = new ArrayList<>();
+        for (int i = 0; i < width; i++) {
+            String myName = name + "-" + i;
+            List<String> newChildren = createFeatureTree(myName, depth - 1, width);
+            children.addAll(newChildren);
+        }
+
+        for (int i = 0; i < width; i++) {
+            String myName = name + "-" + i;
+            createEsaResource(myName, null, null, children, null);
+            names.add(myName);
+        }
+        return names;
     }
 
     /**
@@ -2222,7 +2810,7 @@ public class ResolutionTests {
         ProductInfo productInfo = ResolverTestUtils.createProductInfo("com.ibm.ws.test.product", "DEVELOPERS", productVersion, null, null);
         RepositoryResolver resolver = new RepositoryResolver(Collections.<ProductDefinition> singleton(new ProductInfoProductDefinition(productInfo)),
                                                              Collections.<ProvisioningFeatureDefinition> emptySet(), Collections.<IFixInfo> emptySet(), createConnectionList());
-        Collection<List<RepositoryResource>> resolvedResources = resolver.resolve(name);
+        Collection<List<RepositoryResource>> resolvedResources = resolve(resolver, name);
         assertEquals("There should only be a single list of resources", 1, resolvedResources.size());
         assertEquals("There should be one resolved resource", 1, resolvedResources.iterator().next().size());
         assertTrue("The resolved resource should be the one we supplied", resolvedResources.iterator().next().contains(testResource));
@@ -2267,19 +2855,6 @@ public class ResolutionTests {
     }
 
     /**
-     * Creates an ESA resource with a set of required iFixes, only the symbolic name will be set from the core fields.
-     *
-     * @param symbolicName
-     * @param singleton
-     * @return
-     * @throws RepositoryResourceException
-     * @throws RepositoryBackendException
-     */
-    private EsaResourceWritable createEsaResource(String symbolicName, Collection<String> fixes) throws RepositoryResourceException, RepositoryBackendException {
-        return createEsaResource(symbolicName, null, null, null, null, null, false, fixes);
-    }
-
-    /**
      * Creates an {@link EsaResourceWritable} and adds it to the list of features in the repo
      *
      * @param symbolicName           The symbolic name of the resource
@@ -2318,6 +2893,7 @@ public class ResolutionTests {
         testResource.setVersion(version);
         testResource.setRequireFeature(dependencySymoblicNames);
         testResource.setAppliesTo(appliesTo);
+        testResource.setVisibility(Visibility.PUBLIC);
         String name = "name";
         if (shortName != null) {
             name = shortName;
@@ -2348,27 +2924,6 @@ public class ResolutionTests {
     }
 
     /**
-     * Creates and uploads a new IfixResource in Massive
-     *
-     * @param fixId
-     * @param appliesTo
-     * @param lastUpdateDate
-     * @return
-     * @throws RepositoryResourceException
-     * @throws RepositoryBackendException
-     */
-    private IfixResourceWritable createIFixResource(String fixId, String appliesTo, Date lastUpdateDate) throws RepositoryResourceException, RepositoryBackendException {
-        IfixResourceWritable iFixResource = WritableResourceFactory.createIfix(null);
-        iFixResource.setProvideFix(Collections.singleton(fixId));
-        iFixResource.setAppliesTo(appliesTo);
-        iFixResource.setDate(lastUpdateDate);
-        iFixResource.setName("ifix " + _count++);
-        iFixResource.setProviderName("IBM");
-        repoIfixes.add(iFixResource);
-        return iFixResource;
-    }
-
-    /**
      * Create a resolver with no install information
      */
     private RepositoryResolver createResolver() throws RepositoryException {
@@ -2395,6 +2950,21 @@ public class ResolutionTests {
         conn.addResources(repoIfixes);
 
         return new RepositoryConnectionList(conn);
+    }
+
+    private Collection<List<RepositoryResource>> resolve(RepositoryResolver resolver, Collection<String> toResolve) throws RepositoryResolutionException {
+        switch (testType) {
+            case RESOLVE:
+                return resolver.resolve(toResolve);
+            case RESOLVE_AS_SET:
+                return resolver.resolveAsSet(toResolve);
+            default:
+                throw new IllegalStateException("Invalid test type: " + testType);
+        }
+    }
+
+    private Collection<List<RepositoryResource>> resolve(RepositoryResolver resolver, String toResolve) throws RepositoryResolutionException {
+        return resolve(resolver, Collections.singleton(toResolve));
     }
 
 }

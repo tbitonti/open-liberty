@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2021 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.acme.fat;
 
@@ -15,9 +14,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
-import componenttest.containers.ExternalTestServiceDockerClientStrategy;
-import componenttest.rules.repeater.EmptyAction;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.containers.TestContainerSuite;
+import componenttest.rules.repeater.FeatureReplacementAction;
 import componenttest.rules.repeater.RepeatTests;
 
 @RunWith(Suite.class)
@@ -32,25 +30,17 @@ import componenttest.rules.repeater.RepeatTests;
 	AcmeURIConfigVariationsTest.class,
 	AcmeRevocationTest.class
 })
-public class FATSuite {
+public class FATSuite extends TestContainerSuite {
     /*
      * Repeat with EE9. Since most, if not all, servers don't have an EE feature enabled, we
-     * will add servlet-5.0 for the EE9 repeats to test that the acmeCA-2.0 feature supports
-     * EE9 since there are no EE features for the JakartaEE9Action to replace in the server 
-     * XMLs.
+     * will add servlet-5.0 for the EE9, servlet-6.0 for EE10, and servlet-6.1 for EE11 repeats
+     * to test that the acmeCA-2.0 feature supports EE9/EE10/EE11 since there are no EE features
+     * for the JakartaEE9Action to replace in the server XMLs.
      */
     @ClassRule
-	public static RepeatTests repeat = RepeatTests.with(new EmptyAction())
-			.andWith(new JakartaEE9Action().alwaysAddFeature("servlet-5.0"));
+	public static RepeatTests repeat = RepeatTests.withoutModification()
+			.andWith(FeatureReplacementAction.EE9_FEATURES().alwaysAddFeature("servlet-5.0").conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11))
+			.andWith(FeatureReplacementAction.EE10_FEATURES().alwaysAddFeature("servlet-6.0").conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17))
+			.andWith(FeatureReplacementAction.EE11_FEATURES().alwaysAddFeature("servlet-6.1"));
     
-    //Required to ensure we calculate the correct strategy each run even when
-    //switching between local and remote docker hosts.
-    static {
-        ExternalTestServiceDockerClientStrategy.setupTestcontainers();
-        
-        // Filter out any external docker servers in the 'libhpike' cluster
-        ExternalTestServiceDockerClientStrategy.serviceFilter = (svc) -> {
-                return !svc.getAddress().contains("libhpike-dockerengine");
-        };
-    }
 }

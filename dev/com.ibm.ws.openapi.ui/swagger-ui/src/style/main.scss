@@ -1,23 +1,31 @@
+@use "sass:meta";
+@use 'variables';
+
+@include meta.load-css('../original/style/main');
+
 .swagger-ui
 {
-    @import '~tachyons-sass/tachyons.scss';
-    @import 'mixins';
-    @import 'variables';
-    @import 'colors';
-    @import 'type';
-    @import 'layout';
-    @import 'buttons';
-    @import 'form';
-    @import 'modal';
-    @import 'models';
-    @import 'servers';
-    @import 'table';
-    @import 'topbar';
-    @import 'information';
-    @import 'authorize';
-    @import 'errors';
-    @import 'headerbar';
-    @import 'footer';
-    @include text_body();
-    @import 'split-pane-mode';
+    @include meta.load-css('headerbar');
+    @include meta.load-css('footer');
+    @include meta.load-css('info');
+}
+
+html
+{
+  box-sizing: border-box;
+  overflow: -moz-scrollbars-vertical;
+  overflow-y: scroll;
+}
+
+*,
+*:before,
+*:after
+{
+  box-sizing: inherit;
+}
+
+body
+{
+  margin:0;
+  background: #fafafa;
 }

@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2019, 2020 IBM Corporation and others.
+# Copyright (c) 2019, 2023 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -30,24 +32,29 @@ src: \
 	test-applications/InitTxRecoveryLogEJB.jar/src, \
 	test-applications/MetaDataAsyncBean.jar/src, \
 	test-applications/NestedAsyncEJB.jar/src, \
-	test-applications/NestedAsyncTest.war/src
+	test-applications/NestedAsyncTest.war/src, \
+	test-applications/SingletonLifecycleDeadlockEJB.jar/src, \
+	test-applications/SingletonLifecycleDeadlockWeb.war/src
 
 fat.project: true
 
 tested.features: \
 	appsecurity-3.0,\
 	appsecurity-4.0,\
-	cdi-2.0,\
-	cdi-3.0,\
+	appsecurity-5.0,\
+	appsecurity-6.0,\
 	concurrent-2.0,\
-	el-3.0,\
-	expressionLanguage-4.0,\
+	concurrent-3.0,\
+	concurrent-3.1,\
 	ejbLite-3.2,\
 	ejbRemote-3.2,\
 	enterpriseBeansLite-4.0,\
 	enterpriseBeansRemote-4.0,\
+	servlet-3.1,\
 	servlet-4.0,\
-	servlet-5.0
+	servlet-5.0,\
+	servlet-6.0,\
+	servlet-6.1
 
 -buildpath: \
 	com.ibm.websphere.javaee.annotation.1.1;version=latest,\

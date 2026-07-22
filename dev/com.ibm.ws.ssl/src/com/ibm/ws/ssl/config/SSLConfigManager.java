@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2021 IBM Corporation and others.
+ * Copyright (c) 2007, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,20 +19,27 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.Security;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
+import com.ibm.ws.kernel.productinfo.ProductInfo;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
@@ -39,11 +48,13 @@ import com.ibm.websphere.ssl.SSLConfig;
 import com.ibm.websphere.ssl.SSLConfigChangeEvent;
 import com.ibm.websphere.ssl.SSLConfigChangeListener;
 import com.ibm.websphere.ssl.SSLException;
+import com.ibm.ws.common.crypto.CryptoUtils;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.ssl.JSSEProviderFactory;
 import com.ibm.ws.ssl.internal.LibertyConstants;
 import com.ibm.ws.ssl.provider.AbstractJSSEProvider;
 import com.ibm.wsspi.kernel.service.utils.FrameworkState;
+import com.ibm.websphere.ssl.Constants;
 
 /**
  * Class that reads and controls access to SSL configuration objects. It
@@ -67,8 +78,8 @@ public class SSLConfigManager {
         static final SSLConfigManager INSTANCE = new SSLConfigManager();
     }
 
-    private final String SOCKET_FACTORY_PROP = "ssl.SocketFactory.provider";
-    private final String SOCKET_FACTORY_CLASS = "com.ibm.ws.kernel.boot.security.SSLSocketFactoryProxy";
+    private static final String SOCKET_FACTORY_PROP = "ssl.SocketFactory.provider";
+    public static final String SOCKET_FACTORY_CLASS = "com.ibm.ws.kernel.boot.security.SSLSocketFactoryProxy";
 
     private boolean isServerProcess = false;
     private boolean transportSecuritySet = false;
@@ -85,6 +96,33 @@ public class SSLConfigManager {
     private final OutboundSSLSelections outboundSSL = new OutboundSSLSelections();
 
     private Map<String, String> aliasPIDs = null; // map LDAP ssl ref, example com.ibm.ws.ssl.repertoire_102 to LDAPSettings. Issue 876
+
+    //get the protocolHelper
+    private final ProtocolHelper protocolHelper = new ProtocolHelper();
+
+    // Unsaved cfgs due to error
+    private static final List<String> unSavedCfgs = new ArrayList<>();
+    private static boolean messageIssued = false;
+
+    /*
+     * The outbound connection from the collective member to the controller in the
+     * collective is protected by SSL. This SSL configuration also represents
+     * the SSL certificate authentication for the connection.
+     */
+    private static final String CONTROLLER_SSL_CONFIG = "controllerConnectionConfig";
+
+    /*
+     * The outbound connection from the collective controller to a member server is
+     * protected by SSL. This SSL configuration also represents the SSL
+     * certificate authentication for the connection.
+     */
+    private static final String MEMBER_SSL_CONFIG = "memberConnectionConfig";
+
+    // Collective controller and member serverIdentity
+    private static final String SERVER_IDENTITY = "serverIdentity";
+
+    private static final Set<String> securityLevelWarningLoggedConfigs = ConcurrentHashMap.newKeySet();
+    private static final Set<String> weakCipherWarningLoggedConfigs = ConcurrentHashMap.newKeySet();
 
     /**
      * Private constructor, use getInstance().
@@ -105,11 +143,11 @@ public class SSLConfigManager {
     /***
      * This method parses the configuration.
      *
-     * @param map Global SSL configuration properties, most likely injected from SSLComponent
-     * @param reinitialize Boolean flag to indicate if the configuration should be re-loaded
-     * @param isServer Boolean flag to indiciate if the code is running within a server process
+     * @param map                      Global SSL configuration properties, most likely injected from SSLComponent
+     * @param reinitialize             Boolean flag to indicate if the configuration should be re-loaded
+     * @param isServer                 Boolean flag to indiciate if the code is running within a server process
      * @param transportSecurityEnabled Boolean flag to indicate if the transportSecurity-1.0 feature is enabled
-     * @param aliasPIDs Map of OSGi PID-indexed repertoire IDs
+     * @param aliasPIDs                Map of OSGi PID-indexed repertoire IDs
      * @throws Exception
      ***/
     public synchronized void initializeSSL(Map<String, Object> map,
@@ -164,18 +202,26 @@ public class SSLConfigManager {
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
             Tr.debug(tc, "initializeSSL on " + alias, properties);
 
-        SSLConfig config = parseSSLConfig(properties, true);
+        try {
+            SSLConfig config = parseSecureSocketLayer(properties, true);
 
-        if (config != null && config.requiredPropertiesArePresent()) {
-            config.setProperty(Constants.SSLPROP_ALIAS, alias);
-            config.decodePasswords();
+            if (config != null && config.requiredPropertiesArePresent()) {
+                config.setProperty(Constants.SSLPROP_ALIAS, alias);
+                config.decodePasswords();
 
-            addSSLConfigToMap(alias, config);
-        }
+                addSSLConfigToMap(alias, config);
+                if (unSavedCfgs.contains(alias))
+                    unSavedCfgs.remove(alias);
+            }
 
-        if (transportSecurityEnabled) {
-            Set<String> newConnectionInfo = new HashSet<String>(); // will remove later
-            outboundSSL.loadOutboundConnectionInfo(alias, properties, newConnectionInfo);
+            if (transportSecurityEnabled) {
+                Set<String> newConnectionInfo = new HashSet<String>(); // will remove later
+                outboundSSL.loadOutboundConnectionInfo(alias, properties, newConnectionInfo);
+            }
+        } catch (Exception e) {
+            unSavedCfgs.add(alias);
+            Tr.error(tc, "ssl.protocol.error.CWPKI0833E", new Object[] { alias });
+            throw e;
         }
 
     }
@@ -215,6 +261,11 @@ public class SSLConfigManager {
         if (defaultSSLConfig != null)
             JSSEProviderFactory.getInstance(null).setServerDefaultSSLContext(defaultSSLConfig);
         else {
+            String defaultAlias = getGlobalProperty(Constants.SSLPROP_DEFAULT_ALIAS);
+            if (unSavedCfgs.contains(defaultAlias) && !messageIssued) {
+                Tr.error(tc, "ssl.config.error.CWPKI0834E", defaultAlias);
+                messageIssued = true;
+            }
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                 Tr.debug(tc, "There is no default SSLConfig.");
         }
@@ -282,10 +333,14 @@ public class SSLConfigManager {
             Tr.entry(tc, "keyStoreModified");
 
         String ksPropValue = defaultSSLConfig.getProperty(Constants.SSLPROP_KEY_STORE, null);
+        boolean ksFileBased = Boolean.parseBoolean(defaultSSLConfig.getProperty(Constants.SSLPROP_KEY_STORE_FILE_BASED));
+        String ksProp = WSKeyStore.getCannonicalPath(ksPropValue, ksFileBased);
         String tsPropValue = defaultSSLConfig.getProperty(Constants.SSLPROP_TRUST_STORE, null);
+        boolean tsFileBased = Boolean.parseBoolean(defaultSSLConfig.getProperty(Constants.SSLPROP_TRUST_STORE_FILE_BASED));
+        String tsProp = WSKeyStore.getCannonicalPath(ksPropValue, tsFileBased);
 
-        if ((ksPropValue != null && ksPropValue.equals(modifiedFile)) ||
-            (tsPropValue != null && tsPropValue.equals(modifiedFile))) {
+        if ((ksProp != null && ksProp.equals(modifiedFile)) ||
+            (tsProp != null && tsProp.equals(modifiedFile))) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
                 Tr.exit(tc, "keyStoreModified true");
             return true;
@@ -303,21 +358,6 @@ public class SSLConfigManager {
                 return System.getProperty(key);
             }
         });
-    }
-
-    /**
-     * Helper method to build the SSLConfig properties from the SSLConfig model
-     * object.
-     */
-    private SSLConfig parseSSLConfig(Map<String, Object> properties, boolean reinitialize) throws Exception {
-        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
-            Tr.entry(tc, "parseSSLConfig: " + properties.get(LibertyConstants.KEY_ID), properties);
-
-        SSLConfig rc = parseSecureSocketLayer(properties, reinitialize);
-
-        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
-            Tr.exit(tc, "parseSSLConfig");
-        return rc;
     }
 
     /**
@@ -349,8 +389,18 @@ public class SSLConfigManager {
 
         // Obtain miscellaneous attributes from system properties
         String sslProtocol = getSystemProperty(Constants.SSLPROP_PROTOCOL);
-        if (sslProtocol != null && !sslProtocol.equals(""))
-            sslprops.setProperty(Constants.SSLPROP_PROTOCOL, sslProtocol);
+        if (sslProtocol != null && !sslProtocol.equals("")) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "Setting default SSLProtocol: " + sslProtocol);
+
+            // Use PROTOCOL_TLS_FIPS if FIPS 140-3 is enabled
+            if (CryptoUtils.isFips140_3Enabled()) {
+                sslprops.setProperty(Constants.SSLPROP_PROTOCOL, Constants.PROTOCOL_TLS_FIPS);
+
+            } else {
+                sslprops.setProperty(Constants.SSLPROP_PROTOCOL, sslProtocol);
+            }
+        }
 
         String contextProvider = getSystemProperty(Constants.SSLPROP_CONTEXT_PROVIDER);
         if (contextProvider != null && !contextProvider.equals("")) {
@@ -387,7 +437,8 @@ public class SSLConfigManager {
         if (enabledCiphers != null && 0 < enabledCiphers.length()) {
             //Removing extra white space
             StringBuffer buf = new StringBuffer();
-            String[] ciphers = enabledCiphers.split("\\s+");
+            //Allowing for commas and spaces to follow the format as seen in csiv2 code
+            String[] ciphers = enabledCiphers.split("[,\\s]+");
             for (int i = 0; i < ciphers.length; i++) {
                 buf.append(ciphers[i]);
                 buf.append(" ");
@@ -396,12 +447,27 @@ public class SSLConfigManager {
             sslprops.setProperty(Constants.SSLPROP_ENABLED_CIPHERS, enabledCiphers);
         }
 
+
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
             Tr.debug(tc, "Saving SSLConfig." + sslprops.toString());
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
             Tr.exit(tc, "parseDefaultSecureSocketLayer");
         return sslprops;
+    }
+
+    /**
+     * Log CWPKI0838I once per SSL config to inform users it is no longer used.
+     * && !LibertyConstants.DEFAULT_SSL_CONFIG_ID.equals(configId)
+     *
+     * @param configId The SSL configuration ID
+     */
+    private static void logSecurityLevelInfo(String configId) {
+        // Skip logging for Liberty's internal defaultSSLConfig
+        if (configId != null 
+            && securityLevelWarningLoggedConfigs.add(configId)) {
+            Tr.info(tc, "ssl.securitylevel.ignored.CWPKI0838I", configId);
+        }
     }
 
     /**
@@ -421,16 +487,21 @@ public class SSLConfigManager {
 
         // READ KEYSTORE OBJECT(S)
         WSKeyStore wsks_key = null;
-        String keyStoreName = (String) map.get(LibertyConstants.KEY_KEYSTORE_REF);
-        if (null != keyStoreName) {
-            wsks_key = KeyStoreManager.getInstance().getKeyStore(keyStoreName);
+        String keyStoreName = null;
+        String alias = null;
+        String prop = null;
+        String keyStoreRef = (String) map.get(LibertyConstants.KEY_KEYSTORE_REF);
+        if (null != keyStoreRef) {
+            wsks_key = KeyStoreManager.getInstance().getKeyStore(keyStoreRef);
         }
 
         if (wsks_key != null) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                 Tr.debug(tc, "Adding keystore properties from KeyStore object.");
-            sslprops.setProperty(Constants.SSLPROP_KEY_STORE_NAME, keyStoreName);
+            sslprops.setProperty(Constants.SSLPROP_KEY_STORE_NAME, keyStoreRef);
             addSSLPropertiesFromKeyStore(wsks_key, sslprops);
+            //addSSLPorpertiesFromKeyStore actually set the SSL_PROP_KEY_STORE_NAME
+            keyStoreName = sslprops.getProperty(Constants.SSLPROP_KEY_STORE_NAME);
         }
 
         String trustStoreName = (String) map.get(LibertyConstants.KEY_TRUSTSTORE_REF);
@@ -468,8 +539,18 @@ public class SSLConfigManager {
 
         // MISCELLANEOUS ATTRIBUTES
         String sslProtocol = (String) map.get("sslProtocol");
-        if (sslProtocol != null && !sslProtocol.isEmpty())
-            sslprops.setProperty(Constants.SSLPROP_PROTOCOL, sslProtocol);
+        if (sslProtocol != null && !sslProtocol.isEmpty()) {
+            try {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "sslProtocol: " + sslProtocol);
+                }
+                //Print stack trace
+                protocolHelper.checkProtocolValueGood(sslProtocol);
+                sslprops.setProperty(Constants.SSLPROP_PROTOCOL, sslProtocol);
+            } catch (Exception e) {
+                throw e;
+            }
+        }
 
         String contextProvider = (String) map.get("jsseProvider");
         if (contextProvider != null && !contextProvider.isEmpty()) {
@@ -492,9 +573,21 @@ public class SSLConfigManager {
             sslprops.setProperty(Constants.SSLPROP_CLIENT_AUTHENTICATION_SUPPORTED, clientAuthSup.toString());
         }
 
-        String prop = (String) map.get("securityLevel");
+        prop = (String) map.get("securityLevel");
         if (null != prop && !prop.isEmpty()) {
-            sslprops.setProperty(Constants.SSLPROP_SECURITY_LEVEL, prop);
+            
+            // Get the SSL config ID for per-config logging
+            String configId = (String) map.get("id");
+
+            if(prop.equalsIgnoreCase(Constants.SECURITY_LEVEL_HIGH)){
+                // Check for HIGH cipher specifications and issue an info log once per config
+                logSecurityLevelInfo(configId);
+            }
+            else if(prop.equalsIgnoreCase(Constants.SECURITY_LEVEL_MEDIUM) || prop.equalsIgnoreCase(Constants.SECURITY_LEVEL_LOW)){
+                // Check for LOW or MEDIUM cipher specifications and issue warning once per config
+                weakCipherLogging(configId);
+            }
+            
         }
 
         prop = (String) map.get("clientKeyAlias");
@@ -507,20 +600,73 @@ public class SSLConfigManager {
             sslprops.setProperty(Constants.SSLPROP_KEY_STORE_SERVER_ALIAS, prop);
         }
 
-        prop = (String) map.get("enabledCiphers");
-        if (null != prop && !prop.isEmpty()) {
-            sslprops.setProperty(Constants.SSLPROP_ENABLED_CIPHERS, prop);
-        }
-
         prop = (String) map.get("id");
         if (null != prop && !prop.isEmpty()) {
             sslprops.setProperty(Constants.SSLPROP_ALIAS, prop);
+            alias = prop;
+        }
+
+        prop = (String) map.get("enabledCiphers");
+        if (null != prop && !prop.isEmpty()) {
+            
+            // Validate that enabledCiphers doesn't mix static entries with filter entries (+/-)
+            if (hasMixedCipherConfiguration(prop)) {
+                Tr.error(tc, "ssl.enabledCiphers.mixed.mode.error", prop, alias);
+                // Leave the value unset so JDK defaults are used
+            } else {
+                // Check for wildcards in + (add) entries
+                String invalidPlusCiphers = getInvalidPlusWildcardCiphers(prop);
+                if (invalidPlusCiphers != null) {
+                    Tr.error(tc, "ssl.enabledCiphers.wildcard.in.plus.error", invalidPlusCiphers, alias);
+                    // Leave the value unset so JDK defaults are used
+                } else {
+                    // Check for wildcards in static entries (no +/- prefix)
+                    String invalidStaticCiphers = getInvalidStaticWildcardCiphers(prop);
+                    if (invalidStaticCiphers != null) {
+                        Tr.error(tc, "ssl.enabledCiphers.wildcard.in.static.error", invalidStaticCiphers, alias);
+                        // Leave the value unset so JDK defaults are used
+                    } else {
+                        sslprops.setProperty(Constants.SSLPROP_ENABLED_CIPHERS, prop);
+                    }
+                }
+            }
+            
+        }
+
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.debug(tc, "keyStoreRef: " + keyStoreRef);
+            Tr.debug(tc, "keyStoreName: " + keyStoreName);
+            Tr.debug(tc, "sslAlias: " + alias);
         }
 
         Boolean hostnameVerification = (Boolean) map.get("verifyHostname");
-        if (null != hostnameVerification) {
-            sslprops.setProperty(Constants.SSLPROP_HOSTNAME_VERIFICATION, hostnameVerification.toString());
+        if (hostnameVerification != null && hostnameVerification) {
+            sslprops.setProperty(Constants.SSLPROP_HOSTNAME_VERIFICATION, "true");
+
+            if (SERVER_IDENTITY.equalsIgnoreCase(keyStoreName) &&
+                (CONTROLLER_SSL_CONFIG.equalsIgnoreCase(alias) || MEMBER_SSL_CONFIG.equalsIgnoreCase(alias))) {
+                boolean isCollectiveCertSanExist = wsks_key.isCollectiveCertSubjectAltNamesExist(wsks_key, keyStoreName);
+                if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+                    Tr.debug(tc, alias + " isCollectiveCertSanExist: " + isCollectiveCertSanExist);
+                }
+                if (!isCollectiveCertSanExist) { //collective certificates do not have SAN so disable hostnameVerification
+                    sslprops.setProperty(Constants.SSLPROP_HOSTNAME_VERIFICATION, "false");
+                    //Tr.warning(tc, "ssl.san.warning.CWPKI0050W", new Object[] { alias, ksName });
+                }
+            }
+
+            String skipHostnameVerificationForHosts = (String) map.get("skipHostnameVerificationForHosts");
+            if (skipHostnameVerificationForHosts != null && !skipHostnameVerificationForHosts.isEmpty())
+                sslprops.setProperty(Constants.SSLPROP_SKIP_HOSTNAME_VERIFICATION_FOR_HOSTS, skipHostnameVerificationForHosts);
+
+        } else {
+            sslprops.setProperty(Constants.SSLPROP_HOSTNAME_VERIFICATION, "false");
+            Tr.warning(tc, "ssl.hnv.disabled.warning.CWPKI0063W", new Object[] { alias });
         }
+
+        String skipHostnameVerificationForHosts = (String) map.get("skipHostnameVerificationForHosts");
+        if (skipHostnameVerificationForHosts != null && !skipHostnameVerificationForHosts.isEmpty())
+            sslprops.setProperty(Constants.SSLPROP_SKIP_HOSTNAME_VERIFICATION_FOR_HOSTS, skipHostnameVerificationForHosts);
 
         Boolean useDefaultCerts = (Boolean) map.get("trustDefaultCerts");
         if (null != useDefaultCerts) {
@@ -531,6 +677,7 @@ public class SSLConfigManager {
         if (null != enforceCipherOrder) {
             sslprops.setProperty(Constants.SSLPROP_ENFORCE_CIPHER_ORDER, enforceCipherOrder.toString());
         }
+
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
             Tr.debug(tc, "Saving SSLConfig: " + sslprops);
@@ -555,8 +702,9 @@ public class SSLConfigManager {
             String value = wsks.getProperty(property);
             sslprops.setProperty(property, value);
         }
+
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
-            Tr.exit(tc, "addSSLPropertiesFromKeyStore");
+            Tr.exit(tc, "addSSLPropertiesFromKeyStore: " + sslprops.toString());
     }
 
     /**
@@ -1009,6 +1157,84 @@ public class SSLConfigManager {
     }
 
     /***
+     * Validates that enabledCiphers configuration doesn't mix static entries with filter entries (+/-).
+     *
+     * @param enabledCiphers The cipher configuration string
+     * @return true if the configuration mixes static and filter entries, false otherwise
+     ***/
+    private boolean hasMixedCipherConfiguration(String enabledCiphers) {
+        if (enabledCiphers == null || enabledCiphers.isEmpty()) {
+            return false;
+        }
+        
+        String[] entries = enabledCiphers.split("[,\\s]+");
+        boolean hasStaticEntries = false;
+        boolean hasFilterEntries = false;
+        
+        for (String entry : entries) {
+            if (entry.isEmpty()) {
+                continue;
+            }
+            if (entry.startsWith("+") || entry.startsWith("-")) {
+                hasFilterEntries = true;
+            } else {
+                hasStaticEntries = true;
+            }
+            
+            // Early exit if we've found both types
+            if (hasStaticEntries && hasFilterEntries) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /***
+     * Common helper method to validate cipher entries based on a predicate.
+     *
+     * @param enabledCiphers The cipher configuration string
+     * @param isInvalid Predicate to determine if an entry is invalid
+     * @return a comma-separated string of invalid entries, or null if none found
+     ***/
+    private String getInvalidCiphers(String enabledCiphers, Predicate<String> isInvalid) {
+        if (enabledCiphers == null || enabledCiphers.isEmpty()) {
+            return null;
+        }
+        String[] entries = enabledCiphers.split("[,\\s]+");
+        String result = Arrays.stream(entries)
+            .filter(entry -> !entry.isEmpty())
+            .filter(isInvalid)
+            .collect(Collectors.joining(", "));
+        return result.isEmpty() ? null : result;
+    }
+
+    /***
+     * Validates that enabledCiphers configuration doesn't contain wildcards in
+     * + (add) entries. Wildcards are only allowed in - (remove) entries.
+     *
+     * @param enabledCiphers The cipher configuration string
+     * @return a comma-separated string of all + entries with invalid wildcards, or null if none found
+     ***/
+    private String getInvalidPlusWildcardCiphers(String enabledCiphers) {
+        return getInvalidCiphers(enabledCiphers,
+            entry -> entry.startsWith("+") && entry.contains("*"));
+    }
+
+    /***
+     * Validates that enabledCiphers configuration doesn't contain wildcards in
+     * static entries (entries without +/- prefix). Wildcards are only allowed
+     * in - (remove) entries.
+     *
+     * @param enabledCiphers The cipher configuration string
+     * @return a comma-separated string of all static entries with invalid wildcards, or null if none found
+     ***/
+    private String getInvalidStaticWildcardCiphers(String enabledCiphers) {
+        return getInvalidCiphers(enabledCiphers,
+            entry -> !entry.startsWith("+") && !entry.startsWith("-") && entry.contains("*"));
+    }
+
+    /***
      * This method converts the enabled ciphers property into a String[].
      *
      * @param enabledCiphers
@@ -1016,7 +1242,7 @@ public class SSLConfigManager {
      ***/
     public synchronized String[] parseEnabledCiphers(String enabledCiphers) {
         if (enabledCiphers != null)
-            return enabledCiphers.split("\\s");
+            return enabledCiphers.split("[,\\s]+");
 
         return null;
     }
@@ -1033,28 +1259,19 @@ public class SSLConfigManager {
         return (Constants.adjustSupportedCiphersToSecurityLevel(supportedCiphers, securityLevel));
     }
 
-    /***
-     * This method converts the cipher suite String[] to a space-delimited String.
+    /**
+     * Check if securityLevel contains LOW or MEDIUM
+     * and issue a warning once per SSL config if found.
      *
-     * @param cipherList
-     * @return String
-     ***/
-    public synchronized String convertCipherListToString(String[] cipherList) {
-        if (cipherList == null || cipherList.length == 0) {
-            return "null";
+     * @param configId The SSL configuration ID
+     */
+    private void weakCipherLogging(String configId) {
+        if (configId != null && weakCipherWarningLoggedConfigs.add(configId)) {
+            Tr.warning(tc, "ssl.weak.cipher.spec.CWPKI0839W");
         }
-
-        StringBuilder sb = new StringBuilder();
-
-        for (int i = 0; i < cipherList.length; i++) {
-            if (0 < sb.length()) {
-                sb.append(' ');
-            }
-            sb.append(cipherList[i]);
-        }
-
-        return sb.toString();
     }
+    
+
 
     /***
      * This method masks passwords using asterisks instead of the real characters.
@@ -1195,7 +1412,7 @@ public class SSLConfigManager {
 
         if (urlHostNameVerification == null || urlHostNameVerification.equalsIgnoreCase("false") || urlHostNameVerification.equalsIgnoreCase("no")) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
-                Tr.debug(tc, "com.ibm.ssl.performURLHostNameVerification disabled");
+                Tr.debug(tc, "com.ibm.ssl.performURLHostNameVerification disabled, disabling HttpsURLConnection default verifier");
             HostnameVerifier verifier = new HostnameVerifier() {
                 @Override
                 public boolean verify(String urlHostname, SSLSession session) {
@@ -1374,19 +1591,37 @@ public class SSLConfigManager {
         String cipherString = props.getProperty(Constants.SSLPROP_ENABLED_CIPHERS);
 
         try {
+            
+            // Use unified logic: adjustSupportedCiphers handles both custom and modifier modes
+            ciphers = Constants.adjustSupportedCiphers(socket.getSupportedCipherSuites(), cipherString);
+            
+        } catch (Exception e) {
+            if (tc.isDebugEnabled())
+                Tr.debug(tc, "Exception setting ciphers in SSL Socket Factory.", new Object[] { e });
+        }
 
-            if (cipherString != null) {
-                ciphers = cipherString.split("\\s+");
-            } else {
-                String securityLevel = props.getProperty(Constants.SSLPROP_SECURITY_LEVEL);
-                if (tc.isDebugEnabled())
-                    Tr.debug(tc, "securityLevel from properties is " + securityLevel);
-                if (securityLevel == null)
-                    securityLevel = "HIGH";
+        if (tc.isEntryEnabled())
+            Tr.exit(tc, "getCipherList");
 
-                ciphers = adjustSupportedCiphersToSecurityLevel(socket.getEnabledCipherSuites(), securityLevel);
+        return ciphers;
+    }
 
-            }
+    /**
+     * @param sslProps
+     * @param socket
+     * @return
+     */
+    public String[] getCipherList(java.util.Properties props, SSLServerSocket socket) {
+        if (tc.isEntryEnabled())
+            Tr.entry(tc, "getCipherList");
+
+        String ciphers[] = null;
+        String cipherString = props.getProperty(Constants.SSLPROP_ENABLED_CIPHERS);
+
+        try {
+            
+            // Use unified logic: adjustSupportedCiphers handles both custom and modifier modes
+            ciphers = Constants.adjustSupportedCiphers(socket.getSupportedCipherSuites(), cipherString);
         } catch (Exception e) {
             if (tc.isDebugEnabled())
                 Tr.debug(tc, "Exception setting ciphers in SSL Socket Factory.", new Object[] { e });

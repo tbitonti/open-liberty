@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -47,15 +49,15 @@ public class Constants {
 
 
 	public static final String LICENSE_DISTRIBUTION_REPO = "repo";
-	public static final String LICENSE_NAME_EPL = "Eclipse Public License";
-	public static final String LICENSE_URL_EPL = "https://www.eclipse.org/legal/epl-v10.html";
+	public static final String LICENSE_NAME_EPL = "Eclipse Public License 2.0";
+	public static final String LICENSE_URL_EPL = "https://www.eclipse.org/legal/epl-2.0/";
 	public static final String LICENSE_NAME_FEATURE_TERMS = "Additional Features Terms & Conditions";
-	public static final String LICENSE_URL_FEATURE_TERMS_PREFIX = "http://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/wasdev/downloads/wlp/";
+	public static final String LICENSE_URL_FEATURE_TERMS_PREFIX = "https://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/wasdev/downloads/wlp/";
 	public static final String LICENSE_URL_FEATURE_TERMS_SUFFIX = "/lafiles/featureTerms/";
 	public static final String LICENSE_URL_FEATURE_TERMS_RESTRICTED_SUFFIX = "/lafiles/featureTerms-restricted/";
 	public static final String LICENSE_NAME_MAVEN = "IBM International License Agreement for Non-Warranted Programs";
-	public static final String LICENSE_URL_MAVEN = "http://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/wasdev/maven/licenses/L-JTHS-8SZMHX/HTML/";
-	public static final String LICENSE_COMMENTS_MAVEN = "Additional notices http://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/wasdev/maven/licenses/L-JTHS-8SZMHX/HTML/notices.html";
+	public static final String LICENSE_URL_MAVEN = "https://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/wasdev/maven/licenses/L-JTHS-8SZMHX/HTML/";
+	public static final String LICENSE_COMMENTS_MAVEN = "Additional notices https://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/wasdev/maven/licenses/L-JTHS-8SZMHX/HTML/notices.html";
 
 	public static final String WEBSPHERE_LIBERTY_BOM = "WebSphere Liberty features bill of materials";
 	public static final String WEBSPHERE_LIBERTY_JSON = "WebSphere Liberty features JSON";
@@ -66,6 +68,11 @@ public class Constants {
 	public static final String OPEN_LIBRETY_SCM_URL = "git@github.com:OpenLiberty/open-liberty.git";
 	public static final String OPEN_LIBERTY_SCM_TAG = "HEAD";
 	public static final String OPEN_LIBERTY_URL = "https://openliberty.io/";
+
+	public static final String WEBSPHERE_LIBERTY_SCM_CONNECTION = "scm:private";
+	public static final String WEBSPHERE_LIBRETY_SCM_URL = "private";
+	public static final String WEBSPHERE_LIBERTY_SCM_TAG = "private";
+	public static final String WEBSPHERE_LIBERTY_URL = "https://www.ibm.com/";
 
 	public static final String DEV_ID = "ericglau";
 	public static final String DEV_NAME = "Eric Lau";

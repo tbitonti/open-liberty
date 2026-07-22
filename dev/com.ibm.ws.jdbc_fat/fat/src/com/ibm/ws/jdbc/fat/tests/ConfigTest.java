@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,14 +15,18 @@ package com.ibm.ws.jdbc.fat.tests;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.EnterpriseArchive;
@@ -53,11 +59,13 @@ import com.ibm.websphere.simplicity.config.dsprops.Properties_derby_client;
 import com.ibm.websphere.simplicity.config.dsprops.Properties_derby_embedded;
 import com.ibm.websphere.simplicity.log.Log;
 
+import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.ExpectedFFDC;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.topology.database.H2Database;
 import componenttest.topology.database.container.DatabaseContainerFactory;
 import componenttest.topology.database.container.DatabaseContainerType;
 import componenttest.topology.database.container.DatabaseContainerUtil;
@@ -75,14 +83,19 @@ public class ConfigTest extends FATServletClient {
     private static final String jdbcapp = "jdbcapp";
     private static final String dsdfat = "dsdfat";
     private static final String dsdfat_global_lib = "dsdfat_global_lib";
+    private static final String dsdfat_override_lib = "dsdfat_override_lib";
 
     //Server used for ConfigTest.java and DataSourceTest.java
     @Server("com.ibm.ws.jdbc.fat")
     public static LibertyServer server;
 
     //Test container
+    private static final H2Database h2Database = H2Database.create("dbuser1", "dbpwd1")
+                    .withUser("dbuser2", "dbpwd2")
+                    .withDatabaseName("jdbcfat");
+
     @ClassRule
-    public static final JdbcDatabaseContainer<?> testContainer = DatabaseContainerFactory.create();
+    public static final JdbcDatabaseContainer<?> testContainer = DatabaseContainerFactory.createH2(Optional.of(h2Database));
 
     //List of apps tested by this test suite
     private static final Set<String> appNames = new HashSet<String>(Arrays.asList(dsdfat, jdbcapp));
@@ -112,6 +125,11 @@ public class ConfigTest extends FATServletClient {
     private static ServerConfiguration originalServerConfig;
     private static ServerConfiguration originalServerConfigUpdatedForJDBC;
 
+    static final long FIVE_MINUTE_MS_TIMEOUT = 300000; // Five minutes in milliseconds
+
+    // Interval (in milliseconds) that tests should use for polling
+    static final long POLLING_INTERVAL_MS = 500; // 500 milliseconds
+
     @BeforeClass
     public static void setUp() throws Exception {
         // Delete the Derby database that might be left over from last run
@@ -129,6 +147,9 @@ public class ConfigTest extends FATServletClient {
         server.addEnvVar("ANON_DRIVER", type.getAnonymousDriverName());
         server.addEnvVar("DB_USER", testContainer.getUsername());
         server.addEnvVar("DB_PASSWORD", testContainer.getPassword());
+        String h2DbDir = Paths.get("results", "h2").toAbsolutePath().toString();
+        server.addEnvVar("H2_DB_DIR", h2DbDir);
+        server.addBootstrapProperties(Collections.singletonMap("h2.db.dir", h2DbDir));
 
         //Setup server DataSource properties (use database specific properties in order to run testTrace() )
         DatabaseContainerUtil.setupDataSourceDatabaseProperties(server, testContainer);
@@ -150,6 +171,7 @@ public class ConfigTest extends FATServletClient {
         // Default app - dsdfat.war and dsdfat_global_lib.war
         ShrinkHelper.defaultApp(server, dsdfat, dsdfat);
         ShrinkHelper.defaultApp(server, dsdfat_global_lib, dsdfat_global_lib);
+        ShrinkHelper.defaultApp(server, dsdfat_override_lib, dsdfat_override_lib);
 
         // Default app - jdbcapp.ear [basicfat.war, application.xml]
         WebArchive basicfatWAR = ShrinkHelper.buildDefaultApp(basicfat, basicfat);
@@ -1001,7 +1023,6 @@ public class ConfigTest extends FATServletClient {
      */
     @Test
     @ExpectedFFDC({ "com.ibm.ws.rsadapter.exceptions.DataStoreAdapterException",
-                    "java.sql.SQLException",
                     "java.sql.SQLNonTransientConnectionException",
                     "javax.resource.spi.ResourceAllocationException" })
     public void testConfigChangePurgePolicy() throws Throwable {
@@ -1032,7 +1053,7 @@ public class ConfigTest extends FATServletClient {
      * Update data source configuration to add, modify and remove validationTimeout while the server is running.
      */
     @Test
-    @ExpectedFFDC({ "javax.resource.ResourceException" })
+    @AllowedFFDC({ "javax.resource.ResourceException", "java.sql.SQLNonTransientConnectionException" })
     public void testConfigChangeForValidationTimeout() throws Throwable {
         String method = "testConfigChangeForValidationTimeout";
         Log.info(c, method, "Executing " + method);
@@ -1150,10 +1171,13 @@ public class ConfigTest extends FATServletClient {
     public void testConfigChangeWithActiveConnections() throws Throwable {
         String method = "testConfigChangeWithActiveConnections";
         Log.info(c, method, "Executing " + method);
+        final long start = System.currentTimeMillis();
+        Object result;
+        boolean success = false;
 
         // On a separate thread, run a servlet that keeps a connection open for a few seconds
-        // and checks the default queryTimeout value every 100 milliseconds.
-        // this will fail if the timeout does not increase or goes above a certain hardcoded value.
+        // and frequently checks the default queryTimeout value.
+        // this will fail if the timeout does not increase during the test interval.
         final BlockingQueue<Object> results = new LinkedBlockingQueue<Object>();
         new Thread() {
             @Override
@@ -1170,9 +1194,10 @@ public class ConfigTest extends FATServletClient {
         ServerConfiguration config = server.getServerConfiguration();
         DataSource dsfat5 = config.getDataSources().getBy("id", "dsfat5derby");
         try {
-            // Increase the queryTimeout several times
-            for (int qt = 31; qt <= 34; qt++) {
-                dsfat5.setQueryTimeout("" + qt);
+            final long testTimeout = FIVE_MINUTE_MS_TIMEOUT - (System.currentTimeMillis() - start); // Roughly calculate a 5 minute total timeout
+            // Continually increase the queryTimeout every interval
+            for (int qt = 30; !success && System.currentTimeMillis() - start < testTimeout; Thread.sleep(POLLING_INTERVAL_MS)) {
+                dsfat5.setQueryTimeout("" + ++qt);
                 /*
                  * each time we change the file we toggle beginTranForResultSetScrollingAPIs from true to false to change the file size
                  * otherwise defect 58455 may occur as when the file is changed but remains the same size and has the same timestamp the
@@ -1184,18 +1209,21 @@ public class ConfigTest extends FATServletClient {
                     dsfat5.setBeginTranForResultSetScrollingAPIs("false");
                 }
                 updateServerConfig(config, EMPTY_EXPR_LIST);
-                Thread.sleep(100);
+                result = results.poll(POLLING_INTERVAL_MS, TimeUnit.MILLISECONDS);
+                if (result != null && "successful".equals(result)) {
+                    success = true;
+                } else if (result instanceof Throwable) {
+                    throw (Throwable) result;
+                }
+            }
+
+            if (!success) {
+                throw new Exception("Test testConfigChangeWithActiveConnections did not complete within the allotted time of " + FIVE_MINUTE_MS_TIMEOUT + " ms.");
             }
         } catch (Throwable x) {
-            System.out.println("Failure during " + method + " with the following config:");
-            System.out.println(config);
+            Log.warning(c, "Failure during " + method + " with the following config:");
+            Log.warning(c, config.toString());
             throw x;
-        } finally {
-            Object result = results.poll(10, TimeUnit.SECONDS);
-            if (result == null)
-                throw new Exception("Test did not complete within allotted time");
-            else if (result instanceof Throwable)
-                throw (Throwable) result;
         }
 
         cleanUpExprs = EMPTY_EXPR_LIST;
@@ -1392,6 +1420,7 @@ public class ConfigTest extends FATServletClient {
                 server.addEnvVar("ANON_DRIVER", "driver" + DatabaseContainerType.valueOf(testContainer).ordinal() + ".jar");
                 server.addEnvVar("DB_USER", testContainer.getUsername());
                 server.addEnvVar("DB_PASSWORD", testContainer.getPassword());
+                server.addEnvVar("DB_URL", testContainer.getJdbcUrl());
             } finally {
                 server.startServer();
             }
@@ -1438,11 +1467,6 @@ public class ConfigTest extends FATServletClient {
         List<String> matches = new ArrayList<String>();
 
         DataSource dsfat1 = config.getDataSources().getBy("id", "dsfat1");
-        JdbcDriver jdbcDriver = config.getJdbcDrivers().getBy("id", "FATJDBCDriver");
-        Library driverLibrary = jdbcDriver.getNestedLibrary();
-        Fileset libraryFileset = driverLibrary.getNestedFileset();
-        String includes = libraryFileset.getIncludes();
-        includes = includes == null ? null : includes.toLowerCase();
         String dsPropsAlias = dsfat1.getDataSourcePropertiesUsedAlias();
         String traceString = null, traceSpec = null, platform = null;
 
@@ -1454,6 +1478,8 @@ public class ConfigTest extends FATServletClient {
             return;
         }
 
+        boolean configUpdated = false;
+
         // 1) Disable all tracing
         switch (dsPropsAlias) {
             case DataSourceProperties.DB2_JCC:
@@ -1462,15 +1488,22 @@ public class ConfigTest extends FATServletClient {
                 traceString = "\\[jcc\\]\\[";
 
                 ConfigElementList<Properties_db2_jcc> db2JccProps = dsfat1.getProperties_db2_jcc();
-                if (!db2JccProps.isEmpty())
+                if (!db2JccProps.isEmpty() && db2JccProps.get(0).getTraceLevel() != null) {
                     db2JccProps.get(0).setTraceLevel(null);
+                    configUpdated = true;
+                }
+
                 break;
             case DataSourceProperties.DERBY_EMBEDDED:
                 platform = "Derby Embedded";
                 traceSpec = "com.ibm.ws.derby.logwriter=all=enabled";
                 traceString = "new org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource40()";
 
-                dsfat1.setSupplementalJDBCTrace(null);
+                if (dsfat1.getSupplementalJDBCTrace() != null) {
+                    dsfat1.setSupplementalJDBCTrace(null);
+                    configUpdated = true;
+                }
+
                 break;
             case DataSourceProperties.DERBY_CLIENT:
                 platform = "Derby Network Client";
@@ -1478,56 +1511,49 @@ public class ConfigTest extends FATServletClient {
                 traceString = "Driver: Apache Derby Network Client JDBC Driver";
 
                 ConfigElementList<Properties_derby_client> derbyProps = dsfat1.getProperties_derby_client();
-                if (!derbyProps.isEmpty())
+                if (!derbyProps.isEmpty() && derbyProps.get(0).getTraceLevel() != null) {
                     derbyProps.get(0).setTraceLevel(null);
+                    configUpdated = true;
+                }
                 break;
             case DataSourceProperties.ORACLE_JDBC:
-                // Oracle tracing will only work if we are using *_g.jar
-                // Make a best effort to check for it
-                if (includes != null) {
-                    platform = "Oracle";
-                    traceSpec = "oracle.*=all";
-                    traceString = "oracle.jdbc.driver.OracleDriver";
-                    if (!includes.contains("_g.jar")) {
-                        // make an effort to use the correct jars
-                        StringBuilder sb = new StringBuilder();
-                        String[] jars = includes.split(" ");
-                        for (int i = 0; i < jars.length; ++i) {
-                            if (jars[i].startsWith("ojdbc")) {
-                                int index = jars[i].indexOf('.');
-                                sb.append(jars[i].substring(0, index) + "_g.jar");
-                                if (i + 1 != jars.length)
-                                    sb.append(' ');
-                            }
-                        }
-
-                        libraryFileset.setIncludes(sb.toString());
-                    }
-                } else {
-                    Log.info(c, method, "Did not find *_g.jar required for Oracle tracing - aborting test");
-                    return;
-                }
+                // ~Database Rotation infrastructure guarantees that the _g driver is used~
+                // Database Rotation now uses Oracle 23 which does not have the _g driver
+                // The base driver now supports trace, but the levels and trace strings have changed
+                platform = "Oracle";
+                traceSpec = "oracle.*=all";
+                traceString = Pattern.quote("createNSProperties entering args (oracle.jdbc.") + ".*" + Pattern.quote(")");
                 break;
             case DataSourceProperties.DATADIRECT_SQLSERVER:
                 platform = "SQL Server (DataDirect)";
                 traceSpec = "com.ibm.ws.sqlserver.logwriter=all=enabled";
                 traceString = "jdbc:datadirect:sqlserver:";
 
-                dsfat1.setSupplementalJDBCTrace(null);
+                if (dsfat1.getSupplementalJDBCTrace() != null) {
+                    dsfat1.setSupplementalJDBCTrace(null);
+                    configUpdated = true;
+                }
+
                 break;
             case DataSourceProperties.MICROSOFT_SQLSERVER:
                 platform = "SQL Server (Microsoft)";
                 traceSpec = "com.ibm.ws.sqlserver.logwriter=all=enabled";
                 traceString = "setURL\\(\"jdbc:sqlserver://\"\\)|setApplicationName\\(\"Microsoft JDBC Driver for SQL Server\"\\)";
 
-                dsfat1.setSupplementalJDBCTrace(null);
+                if (dsfat1.getSupplementalJDBCTrace() != null) {
+                    dsfat1.setSupplementalJDBCTrace(null);
+                    configUpdated = true;
+                }
                 break;
             case DataSourceProperties.SYBASE:
                 platform = "Sybase";
                 traceString = "new com.sybase.jdbc4.jdbc.SybConnectionPoolDataSource()|new com.sybase.jdbc3.jdbc.SybConnectionPoolDataSource()";
                 traceSpec = "com.ibm.ws.sybase.logwriter=all=enabled";
 
-                dsfat1.setSupplementalJDBCTrace(null);
+                if (dsfat1.getSupplementalJDBCTrace() != null) {
+                    dsfat1.setSupplementalJDBCTrace(null);
+                    configUpdated = true;
+                }
                 break;
             default:
                 // skip the test since we don't know what we are running with
@@ -1546,23 +1572,26 @@ public class ConfigTest extends FATServletClient {
 
         Log.info(c, method, "Trace spec found for " + platform + " and result is: " + traceSpec);
 
-        try {
-            updateServerConfig(config, EMPTY_EXPR_LIST);
+        if (configUpdated) {
             try {
-                server.stopServer(ALLOWED_MESSAGES);
+                updateServerConfig(config, EMPTY_EXPR_LIST);
+                try {
+                    server.stopServer(ALLOWED_MESSAGES);
 
-                //Get driver type
-                server.addEnvVar("DB_DRIVER", DatabaseContainerType.valueOf(testContainer).getDriverName());
-                server.addEnvVar("ANON_DRIVER", "driver" + DatabaseContainerType.valueOf(testContainer).ordinal() + ".jar");
-                server.addEnvVar("DB_USER", testContainer.getUsername());
-                server.addEnvVar("DB_PASSWORD", testContainer.getPassword());
-            } finally {
-                server.startServer();
+                    //Get driver type
+                    server.addEnvVar("DB_DRIVER", DatabaseContainerType.valueOf(testContainer).getDriverName());
+                    server.addEnvVar("ANON_DRIVER", "driver" + DatabaseContainerType.valueOf(testContainer).ordinal() + ".jar");
+                    server.addEnvVar("DB_USER", testContainer.getUsername());
+                    server.addEnvVar("DB_PASSWORD", testContainer.getPassword());
+                    server.addEnvVar("DB_URL", testContainer.getJdbcUrl());
+                } finally {
+                    server.startServer();
+                }
+            } catch (Throwable t) {
+                System.out.println("Failure during " + method + " with the following config: ");
+                System.out.println(config);
+                throw t;
             }
-        } catch (Throwable t) {
-            System.out.println("Failure during " + method + " with the following config: ");
-            System.out.println(config);
-            throw t;
         }
 
         // 2) execute testBasicQuery and ensure that NO trace is found
@@ -1628,6 +1657,7 @@ public class ConfigTest extends FATServletClient {
                 server.addEnvVar("ANON_DRIVER", "driver" + DatabaseContainerType.valueOf(testContainer).ordinal() + ".jar");
                 server.addEnvVar("DB_USER", testContainer.getUsername());
                 server.addEnvVar("DB_PASSWORD", testContainer.getPassword());
+                server.addEnvVar("DB_URL", testContainer.getJdbcUrl());
             } finally {
                 server.startServer();
             }

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2008, 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,6 +27,7 @@ import com.ibm.sip.util.log.Log;
 import com.ibm.sip.util.log.LogMgr;
 //TODO Liberty probably remove this include as we don't support HA on Liberty
 //import com.ibm.ws.sip.hamanagment.util.SipClusterUtil;
+import com.ibm.ws.common.crypto.CryptoUtils;
 
 /**
  * Utility class used for securing flow tokens,
@@ -83,7 +86,7 @@ class FlowTokenSecurity
 	private volatile ArrayList<Secret> m_secretSet;
 
 	/** the algorithm for message-authentication and key generation */
-	private static final String HMACSHA1 = "HmacSHA1";
+	private static final String HMACSHA1 = CryptoUtils.HMACSHA1;
 
 	/** thread-local byte array used for MAC calculations */
 	private static final ThreadLocal<byte[]> s_workByteArray = new ThreadLocal<byte[]>();

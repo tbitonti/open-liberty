@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -48,6 +50,7 @@ import org.junit.runner.RunWith;
 import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.ws.jaxws.jmx.test.fat.util.ClientConnector;
 
+import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
@@ -118,6 +121,8 @@ public class WebServiceMonitorTest {
         server.waitForStringInLog("CWPKI0803A.*");
         //Check to see if Rest service is up
         server.waitForStringInLog("CWWKX0103I.*");
+        //Wait till LTPA configuration is ready
+        server.waitForLTPAConfigReady();
 
         ClientConnector cc = new ClientConnector(server.getServerRoot(), server.getHostname(), server.getHttpDefaultSecurePort());
         mbsc = cc.getMBeanServer();
@@ -134,6 +139,7 @@ public class WebServiceMonitorTest {
     }
 
     @Test
+    @AllowedFFDC({ "java.lang.IllegalArgumentException", "com.ibm.websphere.security.auth.TokenCreationFailedException", "javax.security.auth.login.CredentialException" })
     public void testMonitorEnabled() throws Exception {
         String serviceName = "ConverterService";
         accessServiceWSDL(serviceName);

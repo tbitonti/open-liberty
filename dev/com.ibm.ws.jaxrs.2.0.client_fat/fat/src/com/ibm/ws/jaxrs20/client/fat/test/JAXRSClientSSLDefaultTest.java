@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -26,11 +28,9 @@ import org.junit.runner.RunWith;
 import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.annotation.Server;
-import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
 
-@SkipForRepeat("EE9_FEATURES") // Continue to skip this test for EE9 as Default SSL is not supported yet
 @RunWith(FATRunner.class)
 public class JAXRSClientSSLDefaultTest extends AbstractTest {
 
@@ -59,8 +59,7 @@ public class JAXRSClientSSLDefaultTest extends AbstractTest {
                       server.waitForStringInLog("CWWKF0011I"));
 
         // wait for LTPA key to be available to avoid CWWKS4000E
-        assertNotNull("CWWKS4105I.* not received on server",
-                      server.waitForStringInLog("CWWKS4105I.*"));
+        server.waitForLTPAConfigReady();
     }
 
     @AfterClass
@@ -81,24 +80,10 @@ public class JAXRSClientSSLDefaultTest extends AbstractTest {
     }
 
     @Test
-    public void testClientBasicSSLDefault_ClientBuilder() throws Exception {
+    public void testClientBasicSSLDefault() throws Exception {
         Map<String, String> p = new HashMap<String, String>();
         p.put("param", "alex");
-        this.runTestOnServer(target, "testClientBasicSSLDefault_ClientBuilder", p, "[Basic Resource]:alex");
-    }
-
-    @Test
-    public void testClientBasicSSLDefault_Client() throws Exception {
-        Map<String, String> p = new HashMap<String, String>();
-        p.put("param", "alex");
-        this.runTestOnServer(target, "testClientBasicSSLDefault_Client", p, "[Basic Resource]:alex");
-    }
-
-    @Test
-    public void testClientBasicSSLDefault_WebTarget() throws Exception {
-        Map<String, String> p = new HashMap<String, String>();
-        p.put("param", "alex");
-        this.runTestOnServer(target, "testClientBasicSSLDefault_WebTarget", p, "[Basic Resource]:alex");
+        this.runTestOnServer(target, "testClientBasicSSLDefault", p, "[Basic Resource]:alex");
     }
 
 //    @Test

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2008, 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -113,6 +115,9 @@ public class SIPStackConfiguration
 
 	/** Timer B - INVITE client transaction timeout timer */
 	private int m_timerB;
+
+	/** Timer C - INVITE client transaction timeout timer */
+	private int m_timerC;
 
 	/** Timer D - Wait time for INVITE response retransmits */
 	private int m_timerD;
@@ -333,6 +338,16 @@ public class SIPStackConfiguration
 		}else{
 			if (s_logger.isInfoEnabled()) {
 				Object[] params = { "Timer B", Integer.valueOf(m_timerB) };
+				s_logger.info("info.sip.stack.timer", Situation.SITUATION_CONFIGURE, params);
+			}
+		}
+		m_timerC = ApplicationProperties.getProperties().getDuration(StackProperties.TIMER_C);
+		if (m_timerC == -1) {
+			m_timerC = StackProperties.TIMER_C_DEFAULT;
+		}
+		if (m_timerC != StackProperties.TIMER_C_DEFAULT) {
+			if (s_logger.isInfoEnabled()) {
+				Object[] params = { "Timer C", Integer.valueOf(m_timerC) };
 				s_logger.info("info.sip.stack.timer", Situation.SITUATION_CONFIGURE, params);
 			}
 		}
@@ -668,6 +683,11 @@ public class SIPStackConfiguration
 	/** @return Timer B - INVITE client transaction timeout timer */
 	public int getTimerB() {
 		return m_timerB;
+	}
+
+	/** @return Timer C - INVITE client transaction timeout timer */
+	public int getTimerC() {
+		return m_timerC;
 	}
 
 	/** @return Timer D - Wait time for INVITE response retransmits */

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,13 +13,17 @@
 package io.openliberty.restfulWS.internal.ssl.component;
 
 import java.security.AccessController;
+import java.security.KeyStore;
+import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import javax.net.ssl.SSLContext;
-import javax.ws.rs.client.ClientBuilder;
+import jakarta.ws.rs.client.ClientBuilder;
 
+import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
@@ -28,15 +34,16 @@ import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ssl.JSSEHelper;
 import com.ibm.websphere.ssl.SSLException;
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.wsspi.ssl.SSLSupport;
 
+import io.openliberty.org.jboss.resteasy.common.client.JAXRSClientConstants;
 import io.openliberty.restfulWS.client.ClientBuilderListener;
 
-@Component(property = { "service.vendor=IBM" })
+@Component(immediate = true, property = { "service.vendor=IBM" }, service = ClientBuilderListener.class)
 public class SslClientBuilderListener implements ClientBuilderListener {
-    private final static String SSL_REFKEY = "com.ibm.ws.jaxrs.client.ssl.config";
 
-    private JSSEHelper jsseHelper;
+    private static JSSEHelper jsseHelper;
 
     @Reference(name = "SSLSupportService",
                service = SSLSupport.class,
@@ -55,24 +62,49 @@ public class SslClientBuilderListener implements ClientBuilderListener {
     }
 
     @Override
-    public void building(ClientBuilder clientBuilder) {
-        Object sslRef = clientBuilder.getConfiguration().getProperty(SSL_REFKEY);
-        if (sslRef != null) {
-            try {
-                clientBuilder.sslContext(getSSLContext(toString(sslRef)));
-            } catch (SSLException ex) {
+    @FFDCIgnore(SSLException.class)
+    public void building(ClientBuilder clientBuilder) { // for JAX-RS clients
+        Object sslRef = clientBuilder.getConfiguration().getProperty(JAXRSClientConstants.SSL_REFKEY);
+        try {
+            SSLContext sslContext = ((ResteasyClientBuilder) clientBuilder).getSSLContext();
+            KeyStore keyStore = ((ResteasyClientBuilder) clientBuilder).getKeyStore();
+            KeyStore trustStore = ((ResteasyClientBuilder) clientBuilder).getTrustStore();
+            
+            boolean property = AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
+                @Override
+                public Boolean run() {
+                    return Boolean.parseBoolean(System.getProperty("io.openliberty.restfulws.prioritizeClientBuilderSSLConfig"));
+                }
+            });
+            
+            // don't override SSL config provided by the user
+            if (!property && sslContext == null) { // default behavior
+                getSSLContext(toRefString(sslRef)).ifPresent(clientBuilder::sslContext);
+            } else if (property && sslContext == null && keyStore == null && trustStore == null) { // prioritize client API if System Property is set
+                getSSLContext(toRefString(sslRef)).ifPresent(clientBuilder::sslContext);
+            }
+        } catch (SSLException ex) {
+            // Check if the user has supplied a KeyStore or TrustStore and throw an exception if they haven't
+            // Otherwise, continue and use the supplied KeyStore/TrustStore
+            KeyStore keyStore = ((ResteasyClientBuilder) clientBuilder).getKeyStore();
+            KeyStore trustStore = ((ResteasyClientBuilder) clientBuilder).getTrustStore();
+            if (keyStore == null && trustStore == null) {
                 throw new IllegalStateException(ex);
             }
         }
     }
 
-    private SSLContext getSSLContext(String sslRef) throws SSLException {
+    @FFDCIgnore(PrivilegedActionException.class)
+    static Optional<SSLContext> getSSLContext(String sslRef) throws SSLException {
+        if (jsseHelper == null) {
+            return Optional.empty();
+        }
         if (null == System.getSecurityManager()) {
-            return jsseHelper.getSSLContext(sslRef, null, null);
+            return Optional.of(jsseHelper.getSSLContext(sslRef, null, null));
         }
         try {
-            return AccessController.doPrivileged((PrivilegedExceptionAction<SSLContext>) () -> {
-                return jsseHelper.getSSLContext(sslRef, null, null);
+            return AccessController.doPrivileged((PrivilegedExceptionAction<Optional<SSLContext>>) () -> {
+                return Optional.of(jsseHelper.getSSLContext(sslRef, null, null));
             });
         } catch (PrivilegedActionException pae) {
             Throwable cause = pae.getCause();
@@ -85,17 +117,17 @@ public class SslClientBuilderListener implements ClientBuilderListener {
             if (cause instanceof Error) {
                 throw (Error) cause;
             }
-            throw new SSLException((Exception)cause);
+            throw new SSLException((Exception) cause);
         }
     }
 
-    private String toString(Object o) {
+    static String toRefString(Object o) {
         if (o instanceof Supplier) {
             o = ((Supplier<?>)o).get();
         }
         if (o instanceof String) {
             return (String) o;
         }
-        return o == null ? "null" : o.toString();
+        return o == null ? null : o.toString();
     }
 }

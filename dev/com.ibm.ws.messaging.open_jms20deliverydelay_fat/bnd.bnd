@@ -1,12 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2018, 2020 IBM Corporation and others.
+# Copyright (c) 2018, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
 bVersion=1.0
@@ -31,11 +30,14 @@ tested.features:\
   messagingServer-3.0,\
   messagingClient-3.0,\
   messagingSecurity-3.0,\
-  mdb-4.0
+  mdb-4.0,\
+  connectors-2.1,\
+  pages-3.1,\
+  pages-4.0
 
 # To define a global minimum java level for the FAT, use the following property.
 # If unspecified, the default value is ${javac.source}
-# runtime.minimum.java.level: 1.8
+# fat.minimum.java.level: 11
 
 # Dependencies may be local bundles (com.ibm.websphere.javaee.servlet.3.1)
 # or binaries from Artifactory (org.apache.derby:derbynet).
@@ -49,9 +51,13 @@ tested.features:\
   com.ibm.websphere.javaee.annotation.1.1;version=latest,\
   com.ibm.ws.logging;version=latest,\
   com.ibm.websphere.javaee.servlet.3.0;version=latest,\
-  com.ibm.ws.security.registry_test.servlet;version=latest,\
   com.ibm.websphere.javaee.ejb.3.1;version=latest,\
   com.ibm.websphere.javaee.jms.2.0;version=latest,\
   com.ibm.websphere.javaee.transaction.1.1;version=latest,\
+  com.ibm.ws.kernel.boot.core;version=latest, \
+  com.ibm.ws.kernel.service;version=latest,\
+  com.ibm.ws.kernel.security.thread;version=latest,\
   com.ibm.websphere.javaee.cdi.1.0;version=latest
 
+# Copy in FIPS keys
+ltpa.fips.enabled: true

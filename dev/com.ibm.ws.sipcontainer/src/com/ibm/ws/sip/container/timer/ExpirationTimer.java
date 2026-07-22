@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -106,12 +108,13 @@ public class ExpirationTimer extends BaseTimer {
      * @see java.lang.Runnable#run()
      */
     public void run() {
-    	synchronized (getSynchronizer()) {
-    		if(m_expInvoker != null) {
-    			m_expInvoker.invokeExpiredTimer(); // defect 642320, the invocation has to be in-sync with the 
-    		}									//cancel method of both the timer and the listener to avoid NPEs		
-    	}								//Note that AppSessionTimerListener.cancel is also synced on 
-    }										//the same handle
+	//remove syncronized as it can cause deadlock in proxy mode
+    	//synchronized (getSynchronizer()) {
+    	if(m_expInvoker != null) {
+    		m_expInvoker.invokeExpiredTimer(); 	// defect 642320, the invocation has to be in-sync with the 
+    	}						//cancel method of both the timer and the listener to avoid NPEs		
+    	//}						//Note that AppSessionTimerListener.cancel is also synced on 
+    }							//the same handle
 
 	/**
 	 * Gets ExpirationTimerListener

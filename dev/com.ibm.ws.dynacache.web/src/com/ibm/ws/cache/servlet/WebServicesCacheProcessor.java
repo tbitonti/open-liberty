@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2005 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -27,10 +29,11 @@ import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 
 import com.ibm.ws.cache.config.Component;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.xml.ParserFactory;
 import com.ibm.ws.cache.intf.DCache;
 import com.ibm.ws.cache.ServerCache;
+import com.ibm.ws.common.crypto.CryptoUtils;
 
 public class WebServicesCacheProcessor extends FragmentCacheProcessor {
    protected static TraceComponent tc = Tr.register(WebServicesCacheProcessor.class, "WebSphere Dynamic Cache", "com.ibm.ws.cache.resources.dynacache");
@@ -40,6 +43,7 @@ public class WebServicesCacheProcessor extends FragmentCacheProcessor {
    // id constants for type=BODY
    public static final String HASH = "Hash";
    public static final String LITERAL = "Literal";
+   private static final String HASH_TYPE = CryptoUtils.isFips140_3Enabled() ? CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA256 : CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA;
 
    SAXParserFactory factory = null;
    SAXParser parser = null;
@@ -216,7 +220,7 @@ public class WebServicesCacheProcessor extends FragmentCacheProcessor {
                // else if(c.id.equalsIgnoreCase(HASH)){
                else { //default is hash value.
                   if (md == null)
-                     md = MessageDigest.getInstance("SHA");
+                     md = MessageDigest.getInstance(HASH_TYPE);
                   byte[] reqHash = md.digest(reqContent);
                   return Base64Coder.encode(reqHash);
                }

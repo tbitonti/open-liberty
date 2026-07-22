@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2013, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -118,7 +120,7 @@ public class genericWebClientCredentialTest extends ServerCommonTest {
         WebConversation wc = new WebConversation();
         TestSettings updatedTestSettings = testSettings.copyTestSettings();
         updatedTestSettings.setClientID("client01");
-        updatedTestSettings.setClientSecret("secret");
+        updatedTestSettings.setClientSecret("secret1234");
         updatedTestSettings.setScope("openid");
 
         List<validationData> expectations = expectGoodStatusCodeForAllSteps();
@@ -163,7 +165,7 @@ public class genericWebClientCredentialTest extends ServerCommonTest {
         WebConversation wc = new WebConversation();
         TestSettings updatedTestSettings = testSettings.copyTestSettings();
         updatedTestSettings.setClientID("client01");
-        updatedTestSettings.setClientSecret("secret");
+        updatedTestSettings.setClientSecret("secret1234");
         updatedTestSettings.setScope("openid");
 
         List<validationData> expectations = expectGoodStatusCodeForAllSteps();
@@ -201,7 +203,7 @@ public class genericWebClientCredentialTest extends ServerCommonTest {
         WebConversation wc = new WebConversation();
         TestSettings updatedTestSettings = testSettings.copyTestSettings();
         updatedTestSettings.setClientID("client01");
-        updatedTestSettings.setClientSecret("secret");
+        updatedTestSettings.setClientSecret("secret1234");
         updatedTestSettings.setScope("openid");
 
         List<validationData> expectations = expectGoodStatusCodeForAllSteps();
@@ -313,7 +315,7 @@ public class genericWebClientCredentialTest extends ServerCommonTest {
 
         TestSettings updatedTestSettings = testSettings.copyTestSettings();
         updatedTestSettings.setClientID("unregisteredClient");
-        updatedTestSettings.setClientSecret("secret");
+        updatedTestSettings.setClientSecret("secret1234");
 
         List<validationData> expectations = expectGoodStatusCodesExceptForTokenEndpoint();
         expectations = setNegativeExpectationsForUnauthorized();
@@ -378,7 +380,7 @@ public class genericWebClientCredentialTest extends ServerCommonTest {
 
         TestSettings updatedTestSettings = testSettings.copyTestSettings();
         updatedTestSettings.setClientID("client01");
-        updatedTestSettings.setClientSecret("secret");
+        updatedTestSettings.setClientSecret("secret1234");
 
         List<validationData> expectations = expectGoodStatusCodesExceptForTokenEndpoint();
         expectations = vData.addResponseStatusExpectation(null, Constants.INVOKE_TOKEN_ENDPOINT, Constants.NOT_ALLOWED_STATUS);
@@ -493,7 +495,7 @@ public class genericWebClientCredentialTest extends ServerCommonTest {
 
         TestSettings updatedTestSettings = testSettings.copyTestSettings();
         updatedTestSettings.setClientID("client01");
-        updatedTestSettings.setClientSecret("secret");
+        updatedTestSettings.setClientSecret("secret1234");
         updatedTestSettings.setScope("openid");
 
         List<validationData> expectations = expectGoodStatusCodesExceptForTokenEndpoint();
@@ -532,7 +534,7 @@ public class genericWebClientCredentialTest extends ServerCommonTest {
 
         TestSettings updatedTestSettings = testSettings.copyTestSettings();
         updatedTestSettings.setClientID("client01");
-        updatedTestSettings.setClientSecret("secret");
+        updatedTestSettings.setClientSecret("secret1234");
 
         List<validationData> expectations = expectGoodStatusCodesExceptForTokenEndpoint();
         expectations = setNegativeExpectationsForBadRequest();

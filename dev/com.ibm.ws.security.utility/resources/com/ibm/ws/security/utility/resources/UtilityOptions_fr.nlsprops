@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2010, 2020 IBM Corporation and others.
+# Copyright (c) 2010, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -18,8 +20,7 @@ global.actions=Actions :
 global.options=Options :
 global.usage=Syntaxe :
 global.required=Obligatoire :
-global.options.statement=\tUtilisez help [actionName] pour obtenir des informations \
-d\u00e9taill\u00e9es sur les options de chaque action.
+global.options.statement=\tUtilisez help [actionName] pour obtenir des informations d\u00e9taill\u00e9es sur les options de chaque action.
 
 
 
@@ -48,36 +49,29 @@ help.usage.options=\t{0} help [actionName]
 #------------------------------\n at 72 chars -------------------------\n\#
 #------------------------------\n at 72 chars Leading "\ \ \ \ "-------\n\#
 #------------------------------\n at 72 chars Leading "\t"-------------\n\#
-encode.desc=\tCoder le texte fourni.
+encode.desc=\tEncoder le texte fourni.\n\n\tSi votre mot de passe comprend des caract\u00e8res sp\u00e9ciaux, vous devez \u00e9chapper chacun d''entre eux afin de garantir que le mot de passe est correctement encod\u00e9.\n\tLes caract\u00e8res sp\u00e9ciaux et les caract\u00e8res d''\u00e9chappement peuvent varier en fonction de votre syst\u00e8me d''exploitation.\n\tPar exemple, sur les syst\u00e8mes UNIX, pa$$W0rd doit \u00eatre fourni sous la forme pa\\$\\$W0rd.\n\tPour plus d''informations, voir la documentation de l''encodeur Open Liberty securityUtility.
 #Note to translator the word "encode" should not be translated
-encode.usage.options=\t{0} encode [options]
-encode.option-key.text=\ \ \ \ textToEncode
-encode.option-desc.text=\tSans aucun argument sp\u00e9cifi\u00e9, passage en mode   \n\
-\tinteractif ; sinon, le texte fourni sera cod\u00e9.\n\
-\tUn texte incluant des espaces doit \u00eatre plac\u00e9 entre guillemets s''il est sp\u00e9cifi\u00e9 en tant qu''argument.
-encode.option-key.encoding=\ \ \ \ --encoding=[xor|aes|hash{1}]
-encode.option-desc.encoding=\tIndiquez le mode de codage du mot de passe. Les \
-codages pris en charge sont xor, aes\n\
-\tet hash. Le codage par d\u00e9faut est xor. {2}
+encode.usage.options=\t{0} encode [options] textToEncode
+encode.option-key.1.text=\ \ \ \ textToEncode
+encode.option-desc.1.text=\tSi aucun argument n''est sp\u00e9cifi\u00e9, l''outil entrera en mode interactif sinon, le texte fourni sera encod\u00e9.\n\tLe texte contenant des espaces doit \u00eatre enti\u00e8rement mis entre guillemets s''il est sp\u00e9cifi\u00e9 comme argument.
+encode.option-key.encoding=\ \ \ \ --encoding=[xor|aes|aes-128|hash{1}]
+encode.option-desc.encoding=\tIndiquez comment coder le mot de passe. Les encodages pris en charge sont xor, aes, aes-128, et hash. Le codage par d\u00e9faut est xor. Le cryptage Aes s''effectue \u00e0 l''aide d''une cl\u00e9 de aes-256 bits.\n\taes-128 peut \u00eatre utilis\u00e9 pour assurer la compatibilit\u00e9 avec les versions du serveur ant\u00e9rieures \u00e0 25.0.0.2. {2}
 encode.option-key.key=\ \ \ \ --key=[key]
-encode.option-desc.key=\tIndiquez une cl\u00e9 \u00e0 utiliser lors du codage utilisant la norme AES (Advanced Encryption Standard).\n \tCette cha\u00eene sera hach\u00e9e afin de produire une cl\u00e9 de chiffrement qui sera utilis\u00e9e\n\
-\tpour le chiffrement et le d\u00e9chiffrement du mot de passe. \n\
-\t La cl\u00e9 peut \u00eatre fournie au serveur en\n\
-\td\u00e9finissant la variable wlp.password.encryption.key dont la valeur est la\n\
-\tcl\u00e9. Sans cette option fournie, une cl\u00e9 par d\u00e9faut est utilis\u00e9e.
+encode.option-desc.key=\tIndiquer une cl\u00e9 \u00e0 utiliser lors du codage \u00e0 l''aide\nde la norme AES. Cette cha\u00eene servira\n\u00e0 g\u00e9n\u00e9rer une cl\u00e9 de chiffrement AES, qui sera utilis\u00e9e pour chiffrer et\nd\u00e9chiffrer le mot de passe. La cl\u00e9 peut \u00eatre fournie au serveur en d\u00e9finissant\nla variable wlp.password.encryption.key dont la valeur correspond \u00e0 la\ncl\u00e9. \u00c0 partir d'' 26.0.0.3, la cl\u00e9 par d\u00e9faut n''est plus utilis\u00e9e. \u00c0 la place,\nindiquez l''un des arguments suivants : --key, --base64Key, --aesConfigFile, ou --keyring.
+encode.option-key.base64Key=\ \ \ \ --base64Key=base64Key
+encode.option-desc.base64Key=\tUne Base64-encodedAES-256 cl\u00e9 doit \u00eatre utilis\u00e9e pour crypter et d\u00e9crypter le\nmot de passe. Fournissez cette cl\u00e9 au serveur en d\u00e9finissant la\nwlp.aes.encryption.key variable. Si --base64Key est\nsp\u00e9cifi\u00e9, alors --aesConfigFile et --key ne peuvent pas \u00eatre sp\u00e9cifi\u00e9s.
+encode.option-key.aesConfigFile=\ \ \ \ --aesConfigFile=aesConfigFile
+encode.option-desc.aesConfigFile=\tUn fichier de propri\u00e9t\u00e9s XML ou Java avec une variable nomm\u00e9e wlp.password.encryption.key ou wlp.aes.encryption.key avec des valeurs respectivement. Les deux variables ne peuvent pas \u00eatre sp\u00e9cifi\u00e9es dans le m\u00eame fichier.\n\tSi --aesConfigFile est sp\u00e9cifi\u00e9, --key et --base64Key ne peuvent pas \u00eatre sp\u00e9cifi\u00e9s.
 encode.option-key.notrim=\ \ \ \ --notrim
-encode.option-desc.notrim=\tIndiquez si les caract\u00e8res espace sont retir\u00e9s en d\u00e9but et\n\
-\ten fin du texte sp\u00e9cifi\u00e9. Si cette option est sp\u00e9cifi\u00e9e, le texte\n\
-\tfourni sera cod\u00e9 tel quel.\n\
-\tSans cette option sp\u00e9cifi\u00e9e, les caract\u00e8res espace de \n\
-\td\u00e9but et de fin du texte sp\u00e9cifi\u00e9 sont retir\u00e9s. 
+encode.option-desc.notrim=\tIndiquez si les caract\u00e8res espace sont retir\u00e9s en d\u00e9but et\n\ten fin du texte sp\u00e9cifi\u00e9. Si cette option est sp\u00e9cifi\u00e9e, le texte\n\tfourni sera cod\u00e9 tel quel.\n\tSans cette option sp\u00e9cifi\u00e9e, les caract\u00e8res espace de \n\td\u00e9but et de fin du texte sp\u00e9cifi\u00e9 sont retir\u00e9s. 
 encode.option-key.listCustom=\ \ \ \ --listCustom
-encode.option-desc.listCustom=\tAffiche les informations de chiffrement personnalis\u00e9 de mot de passe au\n\
-\tformat JSON (JavaScript Object Notation).\n\
-\tCes informations comprennent les \u00e9l\u00e9ments suivants :\n\
-\tname : nom pour un algorithme de chiffrement personnalis\u00e9 de mot de passe\n\
-\tfeaturename : nom de la fonction\n\
-\tdescription : description du chiffrement personnalis\u00e9 de mot de passe
+encode.option-desc.listCustom=\tAffiche les informations de chiffrement personnalis\u00e9 de mot de passe au\n\tformat JSON (JavaScript Object Notation).\n\tCes informations comprennent les \u00e9l\u00e9ments suivants :\n\tname : nom pour un algorithme de chiffrement personnalis\u00e9 de mot de passe\n\tfeaturename : nom de la fonction\n\tdescription : description du chiffrement personnalis\u00e9 de mot de passe
+encode.option-key.keyring=\ \ \ \ --keyring=[fichier de cl\u00e9s]
+encode.option-desc.keyring=\tSp\u00e9cifiez le fichier de cl\u00e9s SAF dans lequel se trouve la cl\u00e9 de chiffrement AES.
+encode.option-key.keyringType=\ \ \ \ --keyringType=[Type de fichier de cl\u00e9s]
+encode.option-desc.keyringType=\tSp\u00e9cifiez le type de fichier de cl\u00e9s SAF du fichier de cl\u00e9s dans lequel se trouve le chiffrement\n\tAES.
+encode.option-key.keyLabel=\ \ \ \ --keyLabel=[Libell\u00e9 de cl\u00e9]
+encode.option-desc.keyLabel=\tSp\u00e9cifiez le libell\u00e9 du certificat SAF de la cl\u00e9 de chiffrement AES.
 
 
 
@@ -88,71 +82,45 @@ encode.option-desc.listCustom=\tAffiche les informations de chiffrement personna
 #------------------------------\n at 72 chars -------------------------\n\#
 #------------------------------\n at 72 chars Leading "\ \ \ \ "-------\n\#
 #------------------------------\n at 72 chars Leading "\t"-------------\n\#
-sslCert.desc=\tCr\u00e9er un certificat SSL par d\u00e9faut \u00e0 utiliser par la configuration serveur ou          \n\
-\tclient. 
+sslCert.desc=\tCr\u00e9er un certificat SSL par d\u00e9faut \u00e0 utiliser par la configuration serveur ou          \n\tclient. 
 #Note to translator the word "createSSLCertificate" should not be translated
-sslCert.usage.options=\t{0} createSSLCertificate '{--server=servername |--client=clientname'}\n\
-\t--password[=password] [options]
+sslCert.usage.options=\t{0} createSSLCertificate '{--server=servername |--client=clientname'}\n\t--password[=password] [options]
 sslCert.required-key.server=\ \ \ \ --server=name
-sslCert.required-desc.server=\tServeur pour lequel cr\u00e9er le certificat.  Cet argument ne peut pas    \n\
-\t\u00eatre utilis\u00e9 si l''argument --client est utilis\u00e9.
+sslCert.required-desc.server=\tServeur pour lequel cr\u00e9er le certificat.  Cet argument ne peut pas    \n\t\u00eatre utilis\u00e9 si l''argument --client est utilis\u00e9.
 sslCert.required-key.client=\ \ \ \ --client=name
-sslCert.required-desc.client=\tClient pour lequel cr\u00e9er le certificat.  Cet argument ne peut pas    \n\
-\t\u00eatre utilis\u00e9 si l''argument --server est utilis\u00e9.
+sslCert.required-desc.client=\tClient pour lequel cr\u00e9er le certificat.  Cet argument ne peut pas    \n\t\u00eatre utilis\u00e9 si l''argument --server est utilis\u00e9.
 sslCert.required-key.password=\ \ \ \ --password[=pwd]
-sslCert.required-desc.password=\tMot de passe du fichier de cl\u00e9s (keystore), {1} caract\u00e8res au minimum.\n\
-\tSi aucune valeur n''est d\u00e9finie, vous serez invit\u00e9 \u00e0 en entrer une.
+sslCert.required-desc.password=\tMot de passe du fichier de cl\u00e9s (keystore), {1} caract\u00e8res au minimum.\n\tSi aucune valeur n''est d\u00e9finie, vous serez invit\u00e9 \u00e0 en entrer une.
 sslCert.option-key.validity=\ \ \ \ --validity=days
-sslCert.option-desc.validity=\tLe nombre de jours de validit\u00e9 du certificat est valide. La p\u00e9riode de validit\u00e9 par d\u00e9faut est  \n\
-\t{2}. La p\u00e9riode de validit\u00e9 minimale est {3}.
+sslCert.option-desc.validity=\tLe nombre de jours de validit\u00e9 du certificat est valide. La p\u00e9riode de validit\u00e9 par d\u00e9faut est  \n\t{2}. La p\u00e9riode de validit\u00e9 minimale est {3}.
 sslCert.option-key.subject=\ \ \ \ --subject=DN
-sslCert.option-desc.subject=\tNom distinctif du sujet et de l''\u00e9metteur. Le nom distinctif    \n\
-\tpar d\u00e9faut est bas\u00e9 sur le nom d''h\u00f4te.
-sslCert.option.addon=Le certificat sera cr\u00e9\u00e9 avec l''alias {4}.\n\
-L''algorithme de cl\u00e9 est {5} et l''algorithme de signature est {6}.\n\
-Pour un contr\u00f4le plus pr\u00e9cis de la cr\u00e9ation de certificat, utilisez directement l''outil keytool.
+sslCert.option-desc.subject=\tNom distinctif du sujet et de l''\u00e9metteur. Le nom distinctif    \n\tpar d\u00e9faut est bas\u00e9 sur le nom d''h\u00f4te.
+sslCert.option.addon=Le certificat sera cr\u00e9\u00e9 avec l''alias {4}.\nL''algorithme de cl\u00e9 est {5} et l''algorithme de signature est {6}.\nPour un contr\u00f4le plus pr\u00e9cis de la cr\u00e9ation de certificat, utilisez directement l''outil keytool.
 sslCert.option-key.password.encoding=\ \ \ \ --passwordEncoding=[xor|aes]
-sslCert.option-desc.password.encoding=\tIndiquez le mode de codage du mot de passe de fichier de cl\u00e9s. Les codages pris en charge sont\n\
-\txor et aes. Le codage par d\u00e9faut est xor. \n\
-\tUtilisez la commande securityUtility encode --listCustom pour d\u00e9terminer si \n \tdes chiffrements personnalis\u00e9s suppl\u00e9mentaires sont pris en charge.
+sslCert.option-desc.password.encoding=\tIndiquez le mode de codage du mot de passe de fichier de cl\u00e9s. Les codages pris en charge sont\n\txor et aes. Le codage par d\u00e9faut est xor. \n\tUtilisez la commande securityUtility encode --listCustom pour d\u00e9terminer si \n \tdes chiffrements personnalis\u00e9s suppl\u00e9mentaires sont pris en charge.
 sslCert.option-key.password.key=\ \ \ \ --passwordKey=[key]
-sslCert.option-desc.password.key=\tIndiquez une cl\u00e9 \u00e0 utiliser lors du codage du mot de passe de fichier de cl\u00e9s \u00e0 l''aide de la norme\n\
-\tAES. Cette cha\u00eene sera hach\u00e9e afin de produire une cl\u00e9 de chiffrement qui sera\n\
-\tutilis\u00e9e pour le chiffrement et le d\u00e9chiffrement du mot de passe. La cl\u00e9 peut \u00eatre\n\
-\tfournie au serveur en d\u00e9finissant la variable\n\
-\twlp.password.encryption.key dont la valeur est la cl\u00e9. Si cette option n''est\n\
-\tpas fournie, une cl\u00e9 par d\u00e9faut sera utilis\u00e9e.
+sslCert.option-desc.password.key=\tIndiquez une cl\u00e9 \u00e0 utiliser lors du codage du mot de passe de fichier de cl\u00e9s \u00e0 l''aide de la norme\n\tAES. Cette cha\u00eene sera hach\u00e9e afin de produire une cl\u00e9 de chiffrement qui sera\n\tutilis\u00e9e pour le chiffrement et le d\u00e9chiffrement du mot de passe. La cl\u00e9 peut \u00eatre\n\tfournie au serveur en d\u00e9finissant la variable\n\twlp.password.encryption.key dont la valeur est la cl\u00e9. Si cette option n''est\n\tpas fournie, une cl\u00e9 par d\u00e9faut sera utilis\u00e9e.
 
 sslCert.option-key.createConfigFile=\ \ \ \ --createConfigFile=file
-sslCert.option-desc.createConfigFile=\tFacultatif. Le fragment de code sera \u00e9crit dans le fichier sp\u00e9cifi\u00e9\n\
-\tau lieu d''\u00eatre affich\u00e9 sur l''\u00e9cran de la console. Le fichier peut ensuite \u00eatre inclus dans\n\
-\tla configuration server.xml \u00e0 l''aide du fragment de code fourni.
+sslCert.option-desc.createConfigFile=\tFacultatif. Le fragment de code sera \u00e9crit dans le fichier sp\u00e9cifi\u00e9\n\tau lieu d''\u00eatre affich\u00e9 sur l''\u00e9cran de la console. Le fichier peut ensuite \u00eatre inclus dans\n\tla configuration server.xml \u00e0 l''aide du fragment de code fourni.
 
 sslCert.option-key.keySize=\ \ \ \ --keySize=taille
-sslCert.option-desc.keySize=\tTaille de la cl\u00e9 du certificat.  \
-La taille de cl\u00e9 par d\u00e9faut est {7}.
+sslCert.option-desc.keySize=\tTaille de la cl\u00e9 du certificat.  La taille de cl\u00e9 par d\u00e9faut est {7}.
 
 sslCert.option-key.sigAlg=\ \ \ \ --sigAlg=signature algorithm
-sslCert.option-desc.sigAlg=\tAlgorithme de signature du certificat.\n\
-\tL''algorithme de signature par d\u00e9faut est {8}.
+sslCert.option-desc.sigAlg=\tAlgorithme de signature du certificat.\n\tL''algorithme de signature par d\u00e9faut est {8}.
 
 sslCert.option-key.keyType=\ \ \ \ --keyType
-sslCert.option-desc.keyType=\tFacultatif. Par d\u00e9faut, un magasin de cl\u00e9s PKCS12 est g\u00e9n\u00e9r\u00e9. Pour\n\
-\tg\u00e9n\u00e9rer un magasin de cl\u00e9s JKS, sp\u00e9cifiez l''option --keyType avec la valeur\n\
-\tJKS. Il n''est pas n\u00e9cessaire de sp\u00e9cifier cette option si vous voulez g\u00e9n\u00e9rer un magasin de cl\u00e9s\n\
-\tPKCS12.\n\
-\tLe format PKCS12 pr\u00e9sente plusieurs avantages : il est plus extensible ; il prend en charge\n\
-\tdes algorithmes de cryptographie plus forts ; il a \u00e9t\u00e9 largement adopt\u00e9. Il est\n\
-\tfr\u00e9quemment fourni par les autorit\u00e9s de certification lors de l''\u00e9mission de\n\
-\tcertificats.
+sslCert.option-desc.keyType=\tFacultatif. Par d\u00e9faut, un magasin de cl\u00e9s PKCS12 est g\u00e9n\u00e9r\u00e9. Pour\n\tg\u00e9n\u00e9rer un magasin de cl\u00e9s JKS, sp\u00e9cifiez l''option --keyType avec la valeur\n\tJKS. Il n''est pas n\u00e9cessaire de sp\u00e9cifier cette option si vous voulez g\u00e9n\u00e9rer un magasin de cl\u00e9s\n\tPKCS12.\n\tLe format PKCS12 pr\u00e9sente plusieurs avantages : il est plus extensible ; il prend en charge\n\tdes algorithmes de cryptographie plus forts ; il a \u00e9t\u00e9 largement adopt\u00e9. Il est\n\tfr\u00e9quemment fourni par les autorit\u00e9s de certification lors de l''\u00e9mission de\n\tcertificats.
 
 sslCert.option-key.ext=\ \ \ \ --extInfo=informations d''extension de certificat
-sslCert.option-desc.ext=\tInformations d''extension de certificat \u00e0 ajouter au certificat.\n\
-\tL''extension par d\u00e9faut est une entr\u00e9e Subject Alternative Name (SAN) qui utilise\n\
-\tle nom d''h\u00f4te. Cet indicateur respecte la m\u00eame syntaxe que l''indicateur -ext de la commande\n\
-\tJava Keytool. Il peut \u00eatre utilis\u00e9 plusieurs fois sur la ligne de\n\
-\ \
-commande.
+sslCert.option-desc.ext=\tInformations d''extension de certificat \u00e0 ajouter au certificat.\n\tL''extension par d\u00e9faut est une entr\u00e9e Subject Alternative Name (SAN) qui utilise\n\tle nom d''h\u00f4te. Cet indicateur respecte la m\u00eame syntaxe que l''indicateur -ext de la commande\n\tJava Keytool. Il peut \u00eatre utilis\u00e9 plusieurs fois sur la ligne de\n commande.
+#line.
+
+sslCert.option-key.passwordBase64Key=\ \ \ \ --passwordBase64Key=base64Key
+sslCert.option-desc.passwordBase64Key=\tUne Base64-encodedAES-256 cl\u00e9 doit \u00eatre utilis\u00e9e pour crypter et d\u00e9crypter le\nmot de passe. Fournissez cette cl\u00e9 au serveur en d\u00e9finissant la\nwlp.aes.encryption.key variable. Si l''option --passwordBase64Key est\nsp\u00e9cifi\u00e9e, vous ne pouvez pas sp\u00e9cifier les --aesConfigFile options --passwordKey ou.
+sslCert.option-key.aesConfigFile=\ \ \ \ --aesConfigFile=aesConfigFile
+sslCert.option-desc.aesConfigFile=\tUn fichier de propri\u00e9t\u00e9s XML ou Java avec une variable nomm\u00e9e wlp.password.encryption.key ou wlp.aes.encryption.key avec des valeurs respectivement. Les deux variables ne peuvent pas \u00eatre sp\u00e9cifi\u00e9es dans le m\u00eame fichier.\n\tSi --aesConfigFile est sp\u00e9cifi\u00e9, --passwordBase64Key et --passwordKey ne peuvent pas \u00eatre sp\u00e9cifi\u00e9s.
 
 # -------- CREATE LTPA KEYS OPTIONS --------------------------------------#
 # List of descriptive text for options. Use "\n\" for line continuations.
@@ -162,37 +130,23 @@ commande.
 #------------------------------\n at 72 chars Leading "\ \ \ \ "-------\n\#
 #------------------------------\n at 72 chars Leading "\t"-------------\n\#
 # Note to translator: the words 'LTPA' and 'ltpa.keys' should not be translated 
-createLTPAKeys.desc=\tCr\u00e9e un jeu de cl\u00e9s LTPA pouvant \u00eatre utilis\u00e9es par le serveur ou \n\
-\tpouvant \u00eatre partag\u00e9es par plusieurs serveurs. Si aucun serveur ou \n\
-\tfichier n''est sp\u00e9cifi\u00e9, un fichier ltpa.keys sera cr\u00e9\u00e9 dans le \n\
-\tr\u00e9pertoire de travail en cours.
+createLTPAKeys.desc=\tCr\u00e9e un jeu de cl\u00e9s LTPA pouvant \u00eatre utilis\u00e9es par le serveur ou \n\tpouvant \u00eatre partag\u00e9es par plusieurs serveurs. Si aucun serveur ou \n\tfichier n''est sp\u00e9cifi\u00e9, un fichier ltpa.keys sera cr\u00e9\u00e9 dans le \n\tr\u00e9pertoire de travail en cours.
 #Note to translator the word "createLTPAKeys" should not be translated
 createLTPAKeys.usage.options=\t{0} createLTPAKeys --password[=pwd] [options]
 createLTPAKeys.required-key.password=\ \ \ \ --password[=pwd]
-createLTPAKeys.required-desc.password=\tMot de passe des cl\u00e9s LTPA. \
-Si aucune valeur n''est d\u00e9finie, vous serez invit\u00e9 \u00e0 en entrer une.
+createLTPAKeys.required-desc.password=\tMot de passe des cl\u00e9s LTPA. Si aucune valeur n''est d\u00e9finie, vous serez invit\u00e9 \u00e0 en entrer une.
 createLTPAKeys.option-key.server=\ \ \ \ --server=name
-createLTPAKeys.option-desc.server=\tServeur pour lequel cr\u00e9er les cl\u00e9s LTPA. \n\
-\tCet argument ne peut pas \u00eatre utilis\u00e9 si l''argumen --file est utilis\u00e9.
+createLTPAKeys.option-desc.server=\tServeur pour lequel cr\u00e9er les cl\u00e9s LTPA. \n\tCet argument ne peut pas \u00eatre utilis\u00e9 si l''argumen --file est utilis\u00e9.
 createLTPAKeys.option-key.file=\ \ \ \ --file=name
-createLTPAKeys.option-desc.file=\tFichier dans lequel \u00e9crire les cl\u00e9s LTPA. \n\
-\tCet argument ne peut pas \u00eatre utilis\u00e9 sur l''argument --server est \n\
-\test utilis\u00e9.
+createLTPAKeys.option-desc.file=\tFichier dans lequel \u00e9crire les cl\u00e9s LTPA. \n\tCet argument ne peut pas \u00eatre utilis\u00e9 sur l''argument --server est \n\test utilis\u00e9.
 createLTPAKeys.option-key.password.encoding=\ \ \ \ --passwordEncoding=[xor|aes]
-createLTPAKeys.option-desc.password.encoding=\tIndiquez le mode de codate du mot de passe des cl\u00e9s LTPA dans le \n\
-\tfichier server.xml.\n\
-\tLes codages pris en charge sont xor et aes. Le codage par d\u00e9faut est xor. \n\
-\tUtilisez la commande securityUtility encode --listCustom pour \n\
-\td\u00e9terminer si des chiffrements personnalis\u00e9s suppl\u00e9mentaires sont \n\
-\tpris en charge.
+createLTPAKeys.option-desc.password.encoding=\tIndiquez le mode de codate du mot de passe des cl\u00e9s LTPA dans le \n\tfichier server.xml.\n\tLes codages pris en charge sont xor et aes. Le codage par d\u00e9faut est xor. \n\tUtilisez la commande securityUtility encode --listCustom pour \n\td\u00e9terminer si des chiffrements personnalis\u00e9s suppl\u00e9mentaires sont \n\tpris en charge.
 createLTPAKeys.option-key.password.key=\ \ \ \ --passwordKey=[key]
-createLTPAKeys.option-desc.password.key=\tIndiquez une cl\u00e9 \u00e0 utiliser lors du codage du mot de passe des \n\
-\tcl\u00e9s LTPA avec AES. Cette cha\u00eene sera hach\u00e9e afin de produire une cl\u00e9 \n\
-\tde chiffrement qui sera utilis\u00e9e pour le chiffrement et le \n\
-\td\u00e9chiffrement du mot de passe. La cl\u00e9 peut \u00eatre fournie au serveur \n\
-\ten d\u00e9finissant la variable twlp.password.encryption.key dont la valeur \n\
-\test la cl\u00e9. Si cette option n''est pas fournie, une cl\u00e9 par d\u00e9faut \n\
-\tsera utilis\u00e9e.
+createLTPAKeys.option-desc.password.key=\tIndiquez une cl\u00e9 \u00e0 utiliser lors du codage du mot de passe des \n\tcl\u00e9s LTPA avec AES. Cette cha\u00eene sera hach\u00e9e afin de produire une cl\u00e9 \n\tde chiffrement qui sera utilis\u00e9e pour le chiffrement et le \n\td\u00e9chiffrement du mot de passe. La cl\u00e9 peut \u00eatre fournie au serveur \n\ten d\u00e9finissant la variable twlp.password.encryption.key dont la valeur \n\test la cl\u00e9. Si cette option n''est pas fournie, une cl\u00e9 par d\u00e9faut \n\tsera utilis\u00e9e.
+createLTPAKeys.option-key.passwordBase64Key=\ \ \ \ --passwordBase64Key=base64Key
+createLTPAKeys.option-desc.passwordBase64Key=\tUne Base64-encodedAES-256 cl\u00e9 doit \u00eatre utilis\u00e9e pour crypter et d\u00e9crypter le\nmot de passe. Fournissez cette cl\u00e9 au serveur en d\u00e9finissant la\nwlp.aes.encryption.key variable. Si l''option --passwordBase64Key est\nsp\u00e9cifi\u00e9e, vous ne pouvez pas sp\u00e9cifier les --aesConfigFile options --passwordKey ou.
+createLTPAKeys.option-key.aesConfigFile=\ \ \ \ --aesConfigFile=aesConfigFile
+createLTPAKeys.option-desc.aesConfigFile=\tUn fichier de propri\u00e9t\u00e9s XML ou Java avec une variable nomm\u00e9e wlp.password.encryption.key ou wlp.aes.encryption.key avec des valeurs respectivement. Les deux variables ne peuvent pas \u00eatre sp\u00e9cifi\u00e9es dans le m\u00eame fichier.\n\tSi --aesConfigFile est sp\u00e9cifi\u00e9, --passwordBase64Key et --passwordKey ne peuvent pas \u00eatre sp\u00e9cifi\u00e9s.
 
 # -------- tlsProfiler OPTIONS ------------------------------------------------#
 # List of descriptive text for options. Use "\n\" for line continuations.
@@ -208,7 +162,51 @@ tlsProfiler.required-desc.port=\tSp\u00e9cifiez le port.
 tlsProfiler.required-key.host=\ \ \ \ --host
 tlsProfiler.required-desc.host=\tSp\u00e9cifiez l''h\u00f4te.
 tlsProfiler.option-key.file=\ \ \ \ --file
-tlsProfiler.option-desc.file=\tFacultatif. Le r\u00e9sultat sera \u00e9crit dans le fichier sp\u00e9cifi\u00e9 \n\
-\tau lieu d''\u00eatre affich\u00e9 sur l''\u00e9cran de la console.
+tlsProfiler.option-desc.file=\tFacultatif. Le r\u00e9sultat sera \u00e9crit dans le fichier sp\u00e9cifi\u00e9 \n\tau lieu d''\u00eatre affich\u00e9 sur l''\u00e9cran de la console.
 tlsProfiler.option-key.verbose=\ \ \ \ --verbose
 tlsProfiler.option-desc.verbose=\tIncluez des informations suppl\u00e9mentaires sur les protocoles non s\u00e9curis\u00e9s.
+
+# -------- CONFIGURE FIPS OPTIONS --------------------------------------#
+# List of descriptive text for options. Use "\n\" for line continuations.
+# The code provides no whitespace: begin keys with "\ \ \ \ " for leading
+# whitespace, and begin descriptions with \t 
+#------------------------------\n at 72 chars -------------------------\n\#
+#------------------------------\n at 72 chars Leading "\ \ \ \ "-------\n\#
+#------------------------------\n at 72 chars Leading "\t"-------------\n\# 
+configureFIPS.desc=\tConfigurez FIPS 140-3 en fonction de l''installation Java configur\u00e9e par les variables d''environnement JAVA_HOME, JRE_HOME ou WLP_DEFAULT_JAVA_HOME, dans cet ordre. Si aucune n''a \u00e9t\u00e9 configur\u00e9e, la norme FIPS 140-3 est configur\u00e9e en fonction de la JVM utilis\u00e9e pour ex\u00e9cuter la commande sur la base de la JVM utilis\u00e9e pour ex\u00e9cuter la commande securityUtility. La commande configure FIPS 140-3 pour IBM Semeru Runtimes ou IBM SDK, ou renvoie une erreur si aucun des deux n''a pu \u00eatre d\u00e9termin\u00e9.\n\n\tPour IBM Semeru Runtimes : Cr\u00e9e un fichier contenant le profil personnalis\u00e9 FIPS 140-3 \u00e0 utiliser par votre application votre application, qui \u00e9tend le profil Liberty FIPS140-3-Liberty, qui \u00e9tend le profil IBM Semeru Runtimes FIPS140-3-Strongly-Enforced profil. En outre, cr\u00e9e ou met \u00e0 jour le fichier default.env, server.env, ou client.env pour activer la norme FIPS 140-3 en d\u00e9\
+    finissant la variable d''environnement ENABLE_FIPS140_3 au chemin d''acc\u00e8s du fichier de profil personnalis\u00e9.\n\n\tPour IBM SDK : Cr\u00e9e ou met \u00e0 jour le fichier default.env, server.env ou client.env pour activer la norme FIPS 140-3 en d\u00e9finissant l''environnement fIPS 140-3 en d\u00e9finissant la variable d''environnement ENABLE_FIPS140_3 \u00e0 true.
+
+configureFIPS.usage.options=\t{0} configureFIPS [options]
+
+configureFIPS.option-key.1.server=\ \ \ \ --server =nom
+
+configureFIPS.option-desc.1.server=\tServeur pour lequel configurer FIPS 140-3. Si cette valeur n''est pas et qu''aucun client n''est sp\u00e9cifi\u00e9, la norme FIPS 140-3 est configur\u00e9e pour tous les clients, serveurs et commandes pour tous les clients, serveurs et commandes.
+
+configureFIPS.option-key.2.client=\ \ \ \ --client =nom
+
+configureFIPS.option-desc.2.client=\tClient pour lequel configurer FIPS 140-3. Si cette valeur n''est pas et qu''aucun serveur n''est sp\u00e9cifi\u00e9, la norme FIPS 140-3 est configur\u00e9e pour tous les clients, serveurs et commandes pour tous les clients, serveurs et commandes.
+
+configureFIPS.option-key.3.customProfileFile=\ \ \ \ --customProfileFile=name
+
+configureFIPS.option-desc.3.customProfileFile=\tLe fichier dans lequel \u00e9crire le profil personnalis\u00e9 IBM Semeru Runtimes FIPS 140-3.\n\tSi cette valeur n''est pas fournie, le fichier est cr\u00e9\u00e9 sous le nom de FIPS140-3-Liberty-Application.properties dans le r\u00e9pertoire etc de l''installation du l''installation de WLP. Si l''option serveur ou client a \u00e9t\u00e9 utilis\u00e9e, le fichier est cr\u00e9\u00e9 dans le r\u00e9pertoire security/resources pour le serveur ou le client sp\u00e9cifi\u00e9 sp\u00e9cifi\u00e9.\n\n\tLe nom du fichier, sans l''extension, est utilis\u00e9 pour cr\u00e9er le nom du profil personnalis\u00e9 il \u00e9tend le profil Liberty FIPS140-3-Liberty.\n\tLe nom du fichier ne doit contenir que des caract\u00e8res alphanum\u00e9riques, des traits d''union (-), les traits de soulignement (_) et les points (.). Le nom de base du fichier ne peut pas \u00eatre FIPS140-3-Liberty.\n\n\tPlusieurs fichiers peuvent \u00eatre sp\u00e9cifi\u00e9s avec\
+    \ cette option en utilisant les s\u00e9parateurs de chemin s\u00e9parateurs de chemin. Pour Windows, le s\u00e9parateur de chemin est un point-virgule (;). Pour les syst\u00e8mes Unix, le s\u00e9parateur de chemin est un deux-points ( :). Chaque profil personnalis\u00e9 s''\u00e9tend les uns aux autres dans l''ordre o\u00f9 ils sont sp\u00e9cifi\u00e9s.
+
+configureFIPS.option-key.4.disable=\ \ \ \ --disable
+
+configureFIPS.option-desc.4.disable=\tD\u00e9sactivez FIPS 140-3 en d\u00e9finissant la variable d''environnement ENABLE_FIPS140_3 \u00e0 false. Cette option peut \u00eatre utilis\u00e9e avec les options client et serveur pour sp\u00e9cifier le client ou le serveur qui doit d\u00e9sactiver la norme FIPS 140-3.\n\tSinon, il d\u00e9sactive la norme FIPS 140-3 pour tous les clients, serveurs et commandes, \u00e0 l''exception des clients et des serveurs qui ont \u00e9t\u00e9 individuellement modifi\u00e9s en fonction de la norme FIPS 140-3 commandes, \u00e0 l''exception des clients et des serveurs qui ont \u00e9t\u00e9 activ\u00e9s individuellement individuellement.
+
+
+
+# -------- Generate AES-256 KEY OPTIONS --------------------------------------#
+# List of descriptive text for options. Use "\n\" for line continuations.
+# The code provides no whitespace: begin keys with "\ \ \ \ " for leading
+# whitespace, and begin descriptions with \t 
+#------------------------------\n at 72 chars -------------------------\n\#
+#------------------------------\n at 72 chars Leading "\ \ \ \ "-------\n\#
+#------------------------------\n at 72 chars Leading "\t"-------------\n\#
+generateaeskey.desc=\tG\u00e9n\u00e8re une valeur \u00e0 placer dans la variable de configuration wlp.aes.encryption.key pour le cryptage aes.
+generateaeskey.usage.options=\t{0} generateAESKey [options]
+generateaeskey.option-key.key=\ \ \ \ --key =[cl\u00e9]
+generateaeskey.option-desc.key=\tCette cha\u00eene est hach\u00e9e pour produire une cl\u00e9 de chiffrement\nqui est utilis\u00e9e pour chiffrer et d\u00e9chiffrer les mots de passe. Si cette option est\nomise, une cl\u00e9 al\u00e9atoire est g\u00e9n\u00e9r\u00e9e.
+generateaeskey.option-key.createConfigFile=\ \ \ \ --createConfigFile=name
+generateaeskey.option-desc.createConfigFile=\tCr\u00e9e un fichier XML avec la valeur g\u00e9n\u00e9r\u00e9e sauvegard\u00e9e dans une variable nomm\u00e9e wlp.aes.encryption.key. Si elle n''est pas fournie, la valeur g\u00e9n\u00e9r\u00e9e sera \u00e9crite sur l''\u00e9cran de la console.

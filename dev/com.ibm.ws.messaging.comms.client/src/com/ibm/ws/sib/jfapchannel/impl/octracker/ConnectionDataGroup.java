@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2010 IBM Corporation and others.
+ * Copyright (c) 2004, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.sib.jfapchannel.impl.octracker;
 
@@ -33,8 +32,11 @@ import com.ibm.ws.sib.jfapchannel.framework.NetworkConnectionFactory;
 import com.ibm.ws.sib.jfapchannel.framework.NetworkTransportFactory;
 import com.ibm.ws.sib.jfapchannel.impl.JFapAddress;
 import com.ibm.ws.sib.jfapchannel.impl.OutboundConnection;
+import com.ibm.ws.sib.jfapchannel.netty.NettyNetworkConnection;
 import com.ibm.ws.sib.utils.Semaphore;
 import com.ibm.ws.sib.utils.ras.SibTr;
+
+import io.openliberty.netty.internal.exception.NettyException;
 
 /**
  * Groups together connection data objects by remote host. Groups are used by the
@@ -698,6 +700,17 @@ public class ConnectionDataGroup
 
                         NetworkConnection vc = connectOverNetwork(jfapAddressHolder, ncfHolder);
                         connectionDataToUse = createnewConnectionData(vc);
+                        if(connectionDataToUse.getConnection().isUsingNetty()) {
+                            if(vc instanceof NettyNetworkConnection) {
+                                try {
+                                    ((NettyNetworkConnection) vc).linkOutboundConnection(connectionDataToUse.getConnection());
+                                } catch (NettyException e) {
+                                    throw new JFapConnectFailedException(e.getMessage());
+                                }
+                            } else {
+                                throw new JFapConnectFailedException("Couldn't link outbound channel appropriately");
+                            }
+                        }
                         isNewConnectionData = true;
                     } catch (FrameworkException frameworkException)
                     {
@@ -1021,6 +1034,11 @@ public class ConnectionDataGroup
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
             SibTr.entry(this, tc, "purgeFromInvalidateImpl", new Object[] { connection, Boolean.valueOf(notifyPeer) });
         purge(connection, true, notifyPeer);
+        
+        // Clear any connections that were already in the IdleConnectionPool.          
+        IdleConnectionPool p = IdleConnectionPool.getInstance();
+        while (p.remove(groupEndpointDescriptor) != null);
+       
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
             SibTr.exit(this, tc, "purgeFromInvalidateImpl");
     }

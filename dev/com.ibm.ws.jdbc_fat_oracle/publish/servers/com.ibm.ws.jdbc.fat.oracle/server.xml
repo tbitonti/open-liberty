@@ -1,16 +1,18 @@
 <!--
-    Copyright (c) 2016, 2021 IBM Corporation and others.
+    Copyright (c) 2016, 2023 IBM Corporation and others.
     All rights reserved. This program and the accompanying materials
-    are made available under the terms of the Eclipse Public License v1.0
+    are made available under the terms of the Eclipse Public License 2.0
     which accompanies this distribution, and is available at
-    http://www.eclipse.org/legal/epl-v10.html
+    http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0
    
     Contributors:
         IBM Corporation - initial API and implementation
  -->
 <server>
     <featureManager>
-      <feature>servlet-3.1</feature>
+      <feature>servlet-4.0</feature>
       <feature>jdbc-4.2</feature>
       <feature>jndi-1.0</feature>
       <feature>componenttest-1.0</feature>
@@ -27,35 +29,56 @@
     </application>
 
     <library id="DBLib">
-    	<fileset dir="${shared.resource.dir}/oracle"/>
+    	<fileset dir="${shared.resource.dir}/oracle" includes="oracleunknown.jar"/>
     </library>
     
-    <dataSource id="DefaultDataSource" enableBranchCouplingExtension="true"><!-- TODO remove attribute once GA -->
+    <dataSource id="DefaultDataSource">
     	<jdbcDriver libraryRef="DBLib"/>
-    	<properties.oracle URL="${env.URL}" user="${env.USER}" password="${env.PASSWORD}"/>
+    	<properties.oracle URL="${ORACLE_URL}" user="${ORACLE_USER}" password="${ORACLE_PASSWORD}"/>
     </dataSource>
 
     <dataSource id="casting-ds" jndiName="jdbc/casting-ds" enableConnectionCasting="true">
     	<jdbcDriver libraryRef="DBLib"/>
-    	<properties.oracle URL="${env.URL}" user="${env.USER}" password="${env.PASSWORD}" roleName="TestRole"/>
+    	<properties.oracle URL="${ORACLE_URL}" user="${ORACLE_USER}" password="${ORACLE_PASSWORD}" roleName="TestRole"/>
     	<onConnect>UPDATE CONCOUNT SET NUMCONNECTIONS = NUMCONNECTIONS + 1</onConnect>
     	<onConnect>CREATE GLOBAL TEMPORARY TABLE ${TEMP_TABLE_NAME}(CURTIME NVARCHAR2(100)) ON COMMIT PRESERVE ROWS</onConnect>
     	<onConnect>INSERT INTO ${TEMP_TABLE_NAME} VALUES (CURRENT_TIMESTAMP)</onConnect>
     </dataSource>
     
     <dataSource id="driver-ds" jndiName="jdbc/driver-ds" type="java.sql.Driver">
-    	<properties.oracle URL="${env.URL}" user="${env.USER}" password="${env.PASSWORD}"/>
+    	<properties.oracle URL="${ORACLE_URL}" user="${ORACLE_USER}" password="${ORACLE_PASSWORD}"/>
     	<jdbcDriver libraryRef="DBLib"/>
     </dataSource>
     
     <dataSource id="generic-driver-ds" jndiName="jdbc/generic-driver-ds">
-    	<properties URL="${env.URL}" user="${env.USER}" password="${env.PASSWORD}"/>
+    	<properties URL="${ORACLE_URL}" user="${ORACLE_USER}" password="${ORACLE_PASSWORD}"/>
     	<jdbcDriver libraryRef="DBLib"/>
     </dataSource>
     
+    <variable name="ORACLE_PORT" defaultValue="9999" />
     <dataSource id="inferred-ds" jndiName="jdbc/inferred-ds">
-    	<properties databaseName="${env.DBNAME}" portNumber="${env.PORT}" serverName="${env.HOST}" user="${env.USER}" password="${env.PASSWORD}" driverType="thin"/>
+    	<properties databaseName="${ORACLE_DBNAME}" portNumber="${ORACLE_PORT}" serverName="${ORACLE_HOST}" user="${ORACLE_USER}" password="${ORACLE_PASSWORD}" driverType="thin"/>
     	<jdbcDriver libraryRef="DBLib"/>
+    </dataSource>
+    
+    <!-- 
+    	 Verify precedence of connection properties on Driver
+    -->
+    <dataSource id="driver-url-preferred" jndiName="jdbc/driver-url-preferred" type="java.sql.Driver">
+      <jdbcDriver libraryRef="DBLib"/>
+      <containerAuthData user="${ORACLE_USER}" password="${ORACLE_PASSWORD}"/>
+      <properties.oracle url="jdbc:oracle:thin:@${ORACLE_HOST}:${ORACLE_PORT}:${ORACLE_DBNAME}"
+      serverName="$INVALID" portNumber="000" serviceName="$INVALID"/> <!-- Should be ignored -->
+    </dataSource>
+    
+    <!-- 
+    	 Verify precedence of connection properties on DataSource
+    -->
+    <dataSource id="ds-url-preferred" jndiName="jdbc/ds-url-preferred" type="javax.sql.DataSource">
+      <jdbcDriver libraryRef="DBLib"/>
+      <containerAuthData user="${ORACLE_USER}" password="${ORACLE_PASSWORD}"/>
+      <properties.oracle URL="jdbc:oracle:thin:@${ORACLE_HOST}:${ORACLE_PORT}:${ORACLE_DBNAME}"
+      serverName="$INVALID" portNumber="000" serviceName="$INVALID"/> <!-- Should be ignored -->
     </dataSource>
     
     <javaPermission codebase="${shared.resource.dir}/oracle/oracleunknown.jar" className="java.security.AllPermission"/>

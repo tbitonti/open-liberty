@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -18,10 +20,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import componenttest.annotation.AllowedFFDC;
-import componenttest.annotation.MinimumJavaLevel;
 import componenttest.custom.junit.runner.FATRunner;
 
-@MinimumJavaLevel(javaLevel = 8)
 @RunWith(FATRunner.class)
 public class OAuth20DerbyClient01Hash extends OAuth20Client01Common {
 
@@ -57,13 +57,16 @@ public class OAuth20DerbyClient01Hash extends OAuth20Client01Common {
     public void testOAuthDerbyCodeFlow() throws Exception {
         super.testOAuthDerbyCodeFlow();
 
+        boolean isFips = server.isFIPS140_3EnabledAndSupported();
+        String iterations = isFips ? "210000" : "2048";
+
         String msg = checkDerbyEntry("http://" + server.getHostname() + ":" + server.getHttpDefaultPort(), server.getHttpDefaultPort(), "dclient01", "OAuthConfigDerby");
         assertNotNull("Servlet should have returned a secret type", msg);
         assertEquals("Secret type is incorrect in the database.", "hash", msg);
 
         msg = checkDerbyIteration("http://" + server.getHostname() + ":" + server.getHttpDefaultPort(), server.getHttpDefaultPort(), "dclient01", "OAuthConfigDerby");
         assertNotNull("Servlet should have returned an iteration type for " + clientID, msg);
-        assertEquals("Iteration is incorrect in the database for client " + clientID, "2048", msg);
+        assertEquals("Iteration is incorrect in the database for client " + clientID, iterations, msg);
 
         msg = checkDerbyAlgorithm("http://" + server.getHostname() + ":" + server.getHttpDefaultPort(), server.getHttpDefaultPort(), "dclient01", "OAuthConfigDerby");
         assertNotNull("Servlet should have returned an algorithm type for " + clientID, msg);
@@ -74,3 +77,4 @@ public class OAuth20DerbyClient01Hash extends OAuth20Client01Common {
     }
 
 }
+

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -28,14 +30,11 @@ import javax.xml.ws.WebServiceFeature;
 
 import org.apache.cxf.Bus;
 import org.apache.cxf.endpoint.Client;
+import org.apache.cxf.ext.logging.AbstractLoggingInterceptor;
 import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.interceptor.Fault;
-import org.apache.cxf.interceptor.Interceptor;
-import org.apache.cxf.interceptor.LoggingInInterceptor;
-import org.apache.cxf.interceptor.LoggingOutInterceptor;
 import org.apache.cxf.jaxws.DispatchImpl;
 import org.apache.cxf.jaxws.ServiceImpl;
-import org.apache.cxf.message.Message;
 import org.apache.cxf.ws.addressing.EndpointReferenceType;
 
 import com.ibm.websphere.ras.Tr;
@@ -131,7 +130,7 @@ public class LibertyServiceImpl extends ServiceImpl {
 
     /**
      * Add the LibertyCustomizeBindingOutInterceptor in the out interceptor chain.
-     * 
+     *
      * @param client
      * @param portName
      */
@@ -151,13 +150,13 @@ public class LibertyServiceImpl extends ServiceImpl {
             if (null != portProps) {
                 requestContext.putAll(portProps);
             }
+        }
 
-            if (null != wsrProps && Boolean.valueOf(wsrProps.get(JaxWsConstants.ENABLE_lOGGINGINOUTINTERCEPTOR))) {
-                List<Interceptor<? extends Message>> inInterceptors = client.getInInterceptors();
-                inInterceptors.add(new LoggingInInterceptor());
-                List<Interceptor<? extends Message>> outInterceptors = client.getOutInterceptors();
-                outInterceptors.add(new LoggingOutInterceptor());
-            }
+        if (!(TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())) {
+            AbstractLoggingInterceptor.setDisableLogging(true);
+        } else {
+            Tr.debug(tc, "Client:Trace is enabled through interceptors.");
+            AbstractLoggingInterceptor.setDisableLogging(false);
         }
 
         Set<ConfigProperties> configPropsSet = servicePropertiesMap.get(portName);
@@ -229,7 +228,7 @@ public class LibertyServiceImpl extends ServiceImpl {
 
     /**
      * merge the serviceRef properties and port properties, and update the merged properties in the configAdmin service.
-     * 
+     *
      * @param configAdmin
      * @param serviceRefProps
      * @param portProps
@@ -276,10 +275,10 @@ public class LibertyServiceImpl extends ServiceImpl {
 
     /**
      * Extract the properties according to the property prefix.
-     * 
+     *
      * @param propertyPrefix
      * @param properties
-     * @param removeProps if is true, will remove the properties that have be extracted.
+     * @param removeProps    if is true, will remove the properties that have be extracted.
      * @return
      */
     protected Map<String, String> extract(String propertyPrefix, Map<String, String> properties, boolean removeProps) {
@@ -306,7 +305,7 @@ public class LibertyServiceImpl extends ServiceImpl {
 
     /**
      * Extract the properties according to the property prefix, will remove the extracted properties from original properties.
-     * 
+     *
      * @param propertyPrefix
      * @param properties
      * @return

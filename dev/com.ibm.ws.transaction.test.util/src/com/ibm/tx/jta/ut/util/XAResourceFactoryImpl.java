@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -94,8 +96,7 @@ public class XAResourceFactoryImpl implements XAResourceFactory {
 
     @Override
     public XAResource getXAResource(Serializable xaResInfo) throws XAResourceNotAvailableException {
-        if (!_stateLoaded) {
-            _stateLoaded = true;
+        if (!XAResourceImpl.isStateLoaded()) {
             XAResourceImpl.loadState(((XAResourceInfoImpl) xaResInfo).getStateFile());
         }
         final Object action = _getActions.get(xaResInfo);
@@ -130,11 +131,15 @@ public class XAResourceFactoryImpl implements XAResourceFactory {
         return XAResourceImpl.getXAResourceImpl(((XAResourceInfoImpl) xaresinfo).getKey());
     }
 
-    public LastingXAResourceImpl getLastingXAResourceImpl() throws XAResourceNotAvailableException {
-        return LastingXAResourceImpl.getLastingXAResourceImpl();
+    public LastingXAResourceImpl getLastingXAResourceImpl(int i) throws XAResourceNotAvailableException {
+        return LastingXAResourceImpl.getLastingXAResourceImpl(i);
     }
     
     public AbortableXAResourceImpl getAbortableXAResourceImpl(Serializable xaresinfo) throws XAResourceNotAvailableException {
         return AbortableXAResourceImpl.getAbortableXAResourceImpl(((XAResourceInfoImpl) xaresinfo).getKey());
     }
+
+	public LastingXAResourceImpl getLastingXAResourceImpl() {
+        return LastingXAResourceImpl.getLastingXAResourceImpl();
+	}
 }

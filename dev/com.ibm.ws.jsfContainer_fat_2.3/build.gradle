@@ -1,58 +1,132 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2021 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
 configurations {
-    mojarra
-    myfaces
-    myfacesLibs
-    mojarra30
-    myfaces30
+    mojarra {
+        transitive = false
+    }
+    myfaces {
+        transitive = false
+    }
+    myfacesLibs {
+        transitive = false
+    }
+    mojarra30 {
+        transitive = false
+    }
+    myfaces30 {
+        transitive = false
+    }
+    mojarra40 {
+        transitive = false
+    }
+    myfaces40 {
+        transitive = false
+    }
+    mojarra41 {
+        transitive = false
+    }
+    myfaces41 {
+        transitive = false
+    }
 }
 
+apply from: '../wlp-gradle/subprojects/maven-central-mirror.gradle'
+
 dependencies {
+    requiredLibs 'org.seleniumhq.selenium:selenium-java:4.8.3'
+    requiredLibs 'com.google.guava:guava:32.0.1-jre'
     requiredLibs 'net.sourceforge.cssparser:cssparser:0.9.23'
     requiredLibs 'net.sourceforge.htmlunit:htmlunit:2.20'
     requiredLibs 'net.sourceforge.htmlunit:htmlunit-core-js:2.17'
-    requiredLibs 'org.apache.commons:commons-lang3:3.8'
+    requiredLibs project(':com.ibm.ws.org.apache.commons.lang3')
     requiredLibs project(':io.openliberty.org.apache.commons.codec')
     requiredLibs 'org.apache.httpcomponents:httpmime:4.5.3'
     requiredLibs 'org.apache.httpcomponents:httpclient:4.5.4'
     requiredLibs 'org.apache.httpcomponents:httpcore:4.4.9'
     requiredLibs 'org.apache.httpcomponents:httpmime:4.3.1'
-    requiredLibs('org.eclipse.jetty:jetty-io:9.2.15.v20160210'){ force = true }
-    requiredLibs('org.eclipse.jetty:jetty-websocket:8.2.0.v20160908'){ force = true }
-    requiredLibs('org.eclipse.jetty.websocket:websocket-client:9.2.15.v20160210'){ force = true }
-    requiredLibs('org.eclipse.jetty.websocket:websocket-api:9.2.15.v20160210'){ force = true }
-    requiredLibs('org.eclipse.jetty.websocket:websocket-common:9.2.15.v20160210'){ force = true }
-    requiredLibs('org.eclipse.jetty:jetty-websocket:8.2.0.v20160908'){ force = true }
-    requiredLibs('org.eclipse.jetty:jetty-util:9.2.15.v20160210'){ force = true }
-    requiredLibs('org.eclipse.jetty:jetty-http:9.4.9.v20180320'){ force = true }
-    requiredLibs('org.eclipse.birt.runtime:org.w3c.css.sac:1.3.1.v200903091627'){ force = true }
+    requiredLibs('org.eclipse.jetty:jetty-io') { 
+        version {
+            strictly '9.2.15.v20160210'
+        }
+    }
+    requiredLibs('org.eclipse.jetty:jetty-websocket') {
+        version {
+            strictly '8.2.0.v20160908'
+        }
+    }
+    requiredLibs('org.eclipse.jetty.websocket:websocket-client') {
+        version {
+            strictly '9.2.15.v20160210'
+        }
+    }
+    requiredLibs('org.eclipse.jetty.websocket:websocket-api') {
+        version {
+            strictly '9.2.15.v20160210'
+        }
+    }
+    requiredLibs('org.eclipse.jetty.websocket:websocket-common') {
+        version {
+            strictly '9.2.15.v20160210'
+        }
+    }
+    requiredLibs('org.eclipse.jetty:jetty-websocket') {
+        version {
+            strictly '8.2.0.v20160908'
+        }
+    }
+    requiredLibs('org.eclipse.jetty:jetty-util') {
+        version {
+            strictly '9.2.15.v20160210'
+        }
+    }
+    requiredLibs('org.eclipse.jetty:jetty-http') {
+        version {
+            strictly '9.4.9.v20180320'
+        }
+    }
+    requiredLibs('org.eclipse.birt.runtime:org.w3c.css.sac') {
+        version {
+            strictly '1.3.1.v200903091627'
+        }
+    }
     requiredLibs project(':io.openliberty.org.apache.commons.codec')
-    requiredLibs project(':io.openliberty.org.apache.commons.logging')
+    // transitive = false makes it so that io.openliberty.faces.fat.selenium.util.internal dependencies are not imported
+    // it is required to keep from guava-android being imported
+    // guava-android is missing the toImmutableSortedSet method which is required so guava-android cannot be included
+    requiredLibs( project(':io.openliberty.faces.fat.selenium.util.internal') ) {
+        transitive = false
+    }
     requiredLibs 'xml-apis:xml-apis:1.4.01'
-    mojarra 'org.glassfish:javax.faces:2.3.3',
+    mojarra 'org.glassfish:javax.faces:2.3.9',
       'javax.faces:javax.faces-api:2.3'
-    myfaces 'org.apache.myfaces.core:myfaces-api:2.3.8',
-      'org.apache.myfaces.core:myfaces-impl:2.3.8'
+    myfaces 'org.apache.myfaces.core:myfaces-api:2.3.11',
+      'org.apache.myfaces.core:myfaces-impl:2.3.11'
     myfacesLibs 'commons-digester:commons-digester:1.8',
       'commons-collections:commons-collections:3.2.1',
       project(':io.openliberty.org.apache.commons.logging'),
       'commons-beanutils:commons-beanutils:1.9.4',
       project(':io.openliberty.org.apache.commons.codec'),
       'javax.xml.bind:jaxb-api:2.3.0'
-    mojarra30 'org.glassfish:jakarta.faces:3.0.0-RC3'
-    myfaces30 'org.apache.myfaces.core:myfaces-api:3.0.0',
-      'org.apache.myfaces.core:myfaces-impl:3.0.0'
+    mojarra30 'org.glassfish:jakarta.faces:3.0.1'
+    myfaces30 'org.apache.myfaces.core:myfaces-api:3.0.3',
+      'org.apache.myfaces.core:myfaces-impl:3.0.3'
+    mojarra40 'org.glassfish:jakarta.faces:4.0.0'
+    // Do not update since newer JS (in MyFaces 4.0.0-RC5+) is not supported 
+    myfaces40 'org.apache.myfaces.core:myfaces-api:4.0.3',
+      'org.apache.myfaces.core:myfaces-impl:4.0.3'
+    mojarra41 'org.glassfish:jakarta.faces:4.1.0'
+    myfaces41 'org.apache.myfaces.core:myfaces-api:4.1.1',
+      'org.apache.myfaces.core:myfaces-impl:4.1.1'
     }
+    
 
 task addMojarra(type: Copy) {
     from configurations.mojarra
@@ -64,6 +138,16 @@ task addMojarra30(type: Copy) {
     into "${buildDir}/autoFVT/publish/files/mojarra30/"
 }
 
+task addMojarra40(type: Copy) {
+    from configurations.mojarra40
+    into "${buildDir}/autoFVT/publish/files/mojarra40/"
+}
+
+task addMojarra41(type: Copy) {
+    from configurations.mojarra41
+    into "${buildDir}/autoFVT/publish/files/mojarra41/"
+}
+
 task addMyFaces(type: Copy) {
     from configurations.myfaces
     into "${buildDir}/autoFVT/publish/files/myfaces"
@@ -72,6 +156,16 @@ task addMyFaces(type: Copy) {
 task addMyFaces30(type: Copy) {
     from configurations.myfaces30
     into "${buildDir}/autoFVT/publish/files/myfaces30"
+}
+
+task addMyFaces40(type: Copy) {
+    from configurations.myfaces40
+    into "${buildDir}/autoFVT/publish/files/myfaces40"
+}
+
+task addMyFaces41(type: Copy) {
+    from configurations.myfaces41
+    into "${buildDir}/autoFVT/publish/files/myfaces41"
 }
 
 task addMyFacesLibs(type: Copy) {
@@ -87,9 +181,14 @@ task copyPermissionFile(type: Copy) {
 addRequiredLibraries {
     dependsOn addMojarra
     dependsOn addMojarra30
+    dependsOn addMojarra40
+    dependsOn addMojarra41
     dependsOn addMyFaces
     dependsOn addMyFaces30
+    dependsOn addMyFaces40
+    dependsOn addMyFaces41
     dependsOn addMyFacesLibs
     dependsOn copyPermissionFile
     dependsOn addJakartaTransformer
+    dependsOn copyTestContainers
 }

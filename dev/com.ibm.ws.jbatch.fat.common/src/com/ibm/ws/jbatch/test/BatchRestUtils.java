@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *   IBM Corporation - initial API and implementation
@@ -28,6 +30,7 @@ import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.cert.CertificateException;
 import java.text.DateFormat;
@@ -44,9 +47,9 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import javax.batch.runtime.BatchStatus;
-import javax.batch.runtime.JobExecution;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonNumber;
@@ -76,11 +79,13 @@ import com.ibm.websphere.simplicity.config.DatabaseStore;
 import com.ibm.websphere.simplicity.config.JdbcDriver;
 import com.ibm.websphere.simplicity.config.ServerConfiguration;
 import com.ibm.websphere.simplicity.log.Log;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.jbatch.test.dbservlet.DbServletClient;
 
 import componenttest.common.apiservices.Bootstrap;
 import componenttest.common.apiservices.BootstrapProperty;
+import componenttest.topology.database.container.DatabaseContainerType;
+import componenttest.topology.database.container.DatabaseContainerUtil;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.HttpUtils;
 import componenttest.topology.utils.HttpUtils.HTTPRequestMethod;
@@ -130,6 +135,126 @@ public class BatchRestUtils {
         }
         return builder.build();
     }
+
+    /*
+     * Change the schema value to user1 in case of a oracle database,
+     * or dbuser1 in the case of a sql server database
+     * 
+     * If oracle, set keyGenerationStrategy to "IDENTITY" since it seems to want to use a sequence by default
+     * and I want to avoid extra steps to create the sequence.
+     */
+    public static void updateDatabaseStoreIfNecessary(LibertyServer server, DatabaseContainerType containerType) throws Exception {
+
+        ServerConfiguration config = server.getServerConfiguration();
+        Bootstrap bs = Bootstrap.getInstance();
+        
+        if(containerType == DatabaseContainerType.Oracle ||
+        		containerType == DatabaseContainerType.SQLServer) {
+      
+            String user1 = bs.getValue(BootstrapProperty.DB_USER1.getPropertyName());
+            for (DatabaseStore ds : config.getDatabaseStores()) {
+            	 ds.setSchema(user1);
+                
+            	 //No schema for Oracle with the test containers
+                if(containerType == DatabaseContainerType.Oracle) {
+                    ds.setKeyGenerationStrategy("IDENTITY");
+                    ds.setSchema(null);
+                }
+            } 
+            
+            server.updateServerConfiguration(config);
+            if (server.isStarted()) {
+                server.waitForConfigUpdateInLogUsingMark(null);
+            }
+        }
+    }
+    
+    /*
+     * Utility method to get the instance log diractory
+     * 
+     * @param The instance id for which to obtain the log directory
+     * @return A File object representing the instance log directory
+     */
+    public File getInstanceDirectory(Long jobInstanceId) {
+        String method = "getInstanceDirectory";
+
+        File joblogsDir = new File(server.getServerRoot() + File.separator + "logs" + File.separator + "joblogs");
+        Path path = Paths.get(joblogsDir.getAbsolutePath());
+
+        File instanceDir = null;
+
+        Stream<Path> files = null;
+        try {
+            files = Files.walk(path);
+
+            Iterator<Path> iterator = files.iterator();
+            while (iterator.hasNext()) {
+                Path p = iterator.next();
+                p.getFileName();
+                if(p.endsWith("instance." + jobInstanceId)) {
+                    instanceDir = p.toFile();
+                    break;
+                }
+            }
+        } catch (IOException e) {
+             log(method,"Could not determine whether instance directory exists: " + e);
+        } finally {
+            if(files != null)
+                files.close();
+        }
+
+        return instanceDir;
+    }
+    
+    /**
+     * Expects response code 409 instead of 200 
+     * 
+     * @param jobInstanceId
+     * @param baseUrl
+     * @param username
+     * @param password
+     * 
+     * @return jobInstance
+     */
+    public void purgeJobInstanceExpectHttpConflict(long jobInstanceId, String baseUrl, String username, String password) throws IOException {
+        String method = "purgeJobInstanceExpectHttpConflict";
+
+        HttpURLConnection con = HttpUtils.getHttpConnection(buildURL(baseUrl + "jobinstances/" + jobInstanceId),
+                                                            HttpURLConnection.HTTP_CONFLICT,
+                                                            new int[0],
+                                                            10 * 1000,
+                                                            HTTPRequestMethod.DELETE,
+                                                            BatchRestUtils.buildHeaderMap(username,password),
+                                                            null);
+
+        logReaderContents(method, "Purge response: ", HttpUtils.getErrorStream(con));
+
+      }
+    
+    /**
+     * Expects response code 400 instead of 200 
+     * 
+     * @param jobInstanceId
+     * @param baseUrl
+     * @param username
+     * @param password
+     * 
+     * @return jobInstance
+     */
+    public void purgeJobInstanceExpectBadRequest(long jobInstanceId, String baseUrl, String username, String password) throws IOException {
+        String method = "purgeJobInstanceExpectBadRequest";
+
+        HttpURLConnection con = HttpUtils.getHttpConnection(buildURL(baseUrl + "jobinstances/" + jobInstanceId),
+                                                            HttpURLConnection.HTTP_BAD_REQUEST,
+                                                            new int[0],
+                                                            10 * 1000,
+                                                            HTTPRequestMethod.DELETE,
+                                                            BatchRestUtils.buildHeaderMap(username,password),
+                                                            null);
+
+        logReaderContents(method, "Purge response: ", HttpUtils.getErrorStream(con));
+
+      }
 
 
     /**
@@ -820,11 +945,17 @@ public class BatchRestUtils {
         // Get step executions for this step
         HttpURLConnection con = HttpUtils.getHttpConnection(buildURL(baseUrl + "jobexecutions/" + jobExecutionId + "/stepexecutions/" + stepName),
                                                             HttpURLConnection.HTTP_OK,
-                                                            new int[0],
+                                                            new int[] { HttpURLConnection.HTTP_INTERNAL_ERROR },
                                                             10 * 1000,
                                                             HTTPRequestMethod.GET,
                                                             BatchRestUtils.buildHeaderMap(),
                                                             null);
+
+        // If we got a 500 error, the step execution doesn't exist yet - return empty array
+        if (con.getResponseCode() == HttpURLConnection.HTTP_INTERNAL_ERROR) {
+            log("getStepExecutionFromExecutionIdAndStepName", "Step execution not found (500 error), returning empty array");
+            return Json.createArrayBuilder().build();
+        }
 
         assertEquals(MEDIA_TYPE_APPLICATION_JSON, con.getHeaderField("Content-Type"));
 
@@ -1267,36 +1398,49 @@ public class BatchRestUtils {
     /**
      * Poll the partitions from the step execution for status until any one's batchStatus changes to STARTED.
      * Polls once a second. Times out after 30 seconds.
-     * 
-     * Assumes stepExecution already exists
-     * 
+     *
+     * Waits for any partition to start, retrying if stepExecution doesn't exist yet
+     *
      * @return the partition array record (JSON)
-     * 
+     *
      * @throws RuntimeException times out after 30 seconds
      */
-    public JsonArray waitForAnyPartitionToStart(long jobExecutionId, String stepName, String baseUrl) throws IOException, InterruptedException {
+    public JsonArray waitForAnyPartitionToStart(long jobExecutionId, String stepName, String baseUrl)
+            throws IOException, InterruptedException {
 
-    	JsonObject stepExecution = null;
-    	JsonArray partitions = null;
+        String methodName = "waitForAnyPartitionToStart";
+
+        JsonObject stepExecution = null;
+        JsonArray partitions = null;
 
         for (int i = 0; i < 30; ++i) {
 
-        	stepExecution = getStepExecutionFromExecutionIdAndStepName(jobExecutionId, stepName, baseUrl).getJsonObject(0);
-        	partitions = stepExecution.getJsonArray("partitions");
-        	
-            log("waitForAnyPartitionToStart", "Partitions = " + partitions);
-        	if (partitions != null) {
-        		for (int j = 0; j < partitions.size(); j++) {
-        			if (partitions.getJsonObject(j).getString("batchStatus").equals(BatchStatus.STARTED.toString())) {
-        				return partitions;
-        			}
-        		}
-        	}
+            JsonArray stepExecutions = getStepExecutionFromExecutionIdAndStepName(jobExecutionId, stepName, baseUrl);
+
+            // Check if stepExecution exists yet
+            if (stepExecutions.isEmpty()) {
+                log(methodName, "Step execution does not exist yet, retrying...");
+                Thread.sleep(1 * 1000);
+                continue;
+            }
+
+            stepExecution = stepExecutions.getJsonObject(0);
+            partitions = stepExecution.getJsonArray("partitions");
+
+            log(methodName, "Partitions = " + partitions);
+            if (partitions != null) {
+                for (int j = 0; j < partitions.size(); j++) {
+                    if (partitions.getJsonObject(j).getString("batchStatus").equals(BatchStatus.STARTED.toString())) {
+                        return partitions;
+                    }
+                }
+            }
             // Sleep a second then try again
             Thread.sleep(1 * 1000);
         }
 
-        throw new RuntimeException("Timed out waiting for a partition to start.  Last step execution: " + stepExecution.toString());
+        throw new RuntimeException("Timed out waiting for a partition to start.  Last step execution: "
+                + (stepExecution != null ? stepExecution.toString() : "null"));
     }
     
     /**
@@ -1458,6 +1602,7 @@ public class BatchRestUtils {
     /**
      * Inner class that holds the output from a process.
      */
+    @Deprecated // TODO switch to use the DDLGenScriptHelper from fattest.simplicity
     private static class ProcessOutput {
         private final List<String> sysout;
         private final List<String> syserr;
@@ -1510,7 +1655,7 @@ public class BatchRestUtils {
         }
     }
     
-
+    @Deprecated // TODO switch to use the DDLGenScriptHelper from fattest.simplicity
     private ProcessBuilder getProcessBuilder(LibertyServer server) throws Exception {
         String scriptName;
         String serverName = server.getServerName();
@@ -1526,6 +1671,7 @@ public class BatchRestUtils {
         return new ProcessBuilder(scriptName, "generate", serverName).directory(new File(installRoot));
     }
 
+    @Deprecated // TODO switch to use the DDLGenScriptHelper from fattest.simplicity
     public String getBatchDDL(LibertyServer server) throws Exception {
 
         ProcessBuilder processBuilder = getProcessBuilder(server);

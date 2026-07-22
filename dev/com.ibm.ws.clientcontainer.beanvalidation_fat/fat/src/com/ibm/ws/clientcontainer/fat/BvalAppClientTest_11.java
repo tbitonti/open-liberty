@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2018 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.clientcontainer.fat;
 
@@ -17,11 +16,13 @@ import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyClientFactory;
+import componenttest.annotation.SkipForRepeat;
 
 @RunWith(FATRunner.class)
 public class BvalAppClientTest_11 extends AbstractAppClientTest {
     
 	@Test
+	@SkipForRepeat({SkipForRepeat.EE9_FEATURES, SkipForRepeat.EE10_FEATURES, SkipForRepeat.EE11_FEATURES})
 	public void testApacheBvalConfig_11_AppClient() throws Exception {
 		String testClientName = "com.ibm.ws.clientcontainer.beanvalidation.fat.ApacheBvalConfig_11";
 		client = LibertyClientFactory.getLibertyClient(testClientName);
@@ -34,6 +35,7 @@ public class BvalAppClientTest_11 extends AbstractAppClientTest {
 	}
 	
 	@Test
+    @SkipForRepeat({SkipForRepeat.EE9_FEATURES, SkipForRepeat.EE10_FEATURES, SkipForRepeat.EE11_FEATURES})
 	public void testBeanvalidation_11_AppClient() throws Exception {
 		String testClientName = "com.ibm.ws.clientcontainer.beanvalidation.fat.beanvalidation_11";
 		client = LibertyClientFactory.getLibertyClient(testClientName);
@@ -47,6 +49,7 @@ public class BvalAppClientTest_11 extends AbstractAppClientTest {
 	}
 	
 	@Test
+    @SkipForRepeat({SkipForRepeat.EE9_FEATURES, SkipForRepeat.EE10_FEATURES, SkipForRepeat.EE11_FEATURES})
 	public void testBeanValidationCDI_11_AppClient() throws Exception {
 		String testClientName = "com.ibm.ws.clientcontainer.beanvalidation.fat.BeanValidationCDI_11";
 		client = LibertyClientFactory.getLibertyClient(testClientName);
@@ -60,6 +63,7 @@ public class BvalAppClientTest_11 extends AbstractAppClientTest {
 	}
 	
 	@Test
+    @SkipForRepeat({SkipForRepeat.EE9_FEATURES, SkipForRepeat.EE10_FEATURES, SkipForRepeat.EE11_FEATURES})
 	public void testDefaultbeanvalidation_11_AppClient() throws Exception {
 		String testClientName = "com.ibm.ws.clientcontainer.beanvalidation.fat.defaultbeanvalidation_11";
 		client = LibertyClientFactory.getLibertyClient(testClientName);
@@ -73,6 +77,7 @@ public class BvalAppClientTest_11 extends AbstractAppClientTest {
 	}
 	
 	@Test
+    @SkipForRepeat({SkipForRepeat.EE9_FEATURES, SkipForRepeat.EE10_FEATURES, SkipForRepeat.EE11_FEATURES})
 	public void testDefaultBeanValidationCDI_11_AppClient() throws Exception {
 		String testClientName = "com.ibm.ws.clientcontainer.beanvalidation.fat.DefaultBeanValidationCDI_11";
 		client = LibertyClientFactory.getLibertyClient(testClientName);

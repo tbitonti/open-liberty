@@ -1,15 +1,23 @@
 /*******************************************************************************
  * Copyright (c) 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 
 ant.importBuild 'import.xml'
+
+// Running javascript tasks in parallel can hang the build, so wait for other projects to finish before running ours.
+project.tasks['compile-js'].mustRunAfter(':com.ibm.ws.ui.tool.javaBatch:compile-js')
+project.tasks['compile-dojo'].mustRunAfter(':com.ibm.ws.ui.tool.javaBatch:compile-dojo')
+project.tasks['dojo-release-execute'].mustRunAfter(':com.ibm.ws.ui.tool.javaBatch:dojo-release-execute')
+project.tasks['post-compile'].mustRunAfter(':com.ibm.ws.ui.tool.javaBatch:post-compile')
 
 jar {
     dependsOn 'compile-js'

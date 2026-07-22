@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -40,6 +42,7 @@ import com.ibm.ws.jpa.fvt.injectiondpu.web.applevel.jta.AppLevelJTADPUMethodInje
 import com.ibm.ws.jpa.fvt.injectiondpu.web.applevel.jta.InjectionDPUServlet;
 import com.ibm.ws.jpa.fvt.injectiondpu.web.applevel.rl.AppLevelRLDPUFieldInjectionServlet;
 import com.ibm.ws.jpa.fvt.injectiondpu.web.applevel.rl.AppLevelRLDPUMethodInjectionServlet;
+import com.ibm.ws.testtooling.vehicle.web.JPAFATServletClient;
 
 import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
@@ -221,6 +224,11 @@ public class JPA10InjectionDPU_Applevel extends JPAFATServletClient {
             ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
             ClassloaderElement loader = new ClassloaderElement();
             loader.getCommonLibraryRefs().add("HibernateLib");
+            cel.add(loader);
+        } else if (FATSuite.repeatPhase != null && FATSuite.repeatPhase.contains("openjpa")) {
+            ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
+            ClassloaderElement loader = new ClassloaderElement();
+            loader.getCommonLibraryRefs().add("OpenJPALib");
             cel.add(loader);
         }
 

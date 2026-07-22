@@ -1,16 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2021 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.mp.jwt.tai;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -32,6 +34,7 @@ import com.ibm.ws.security.jwt.utils.JwtUtils;
 import com.ibm.ws.security.mp.jwt.TraceConstants;
 import com.ibm.ws.security.mp.jwt.error.MpJwtProcessingException;
 import com.ibm.ws.security.mp.jwt.impl.DefaultJsonWebTokenImpl;
+import com.ibm.ws.common.crypto.CryptoUtils;
 
 public class TAIJwtUtils {
 
@@ -67,7 +70,7 @@ public class TAIJwtUtils {
 
     public static boolean isJwtPreviouslyLoggedOut(String rawToken) {
         if (loggedOutJwts.isEmpty()) {
-          return false;
+            return false;
         }
         boolean result = loggedOutJwts.get(getSha256Digest(rawToken)) != null;
         return result;
@@ -84,11 +87,11 @@ public class TAIJwtUtils {
     private static String getSha256Digest(String in) {
         MessageDigest md = null;
         try {
-            md = MessageDigest.getInstance("SHA-256");
+            md = MessageDigest.getInstance(CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA_256);
         } catch (NoSuchAlgorithmException e) {
             return null; // and emit ffdc
         }
-        byte[] digest = md.digest(in.getBytes(Charset.forName("UTF-8")));
+        byte[] digest = md.digest(in.getBytes(StandardCharsets.UTF_8));
         return new String(digest);
     }
 
@@ -141,7 +144,7 @@ public class TAIJwtUtils {
         //        }
         //        jwtclaims.setStringClaim(org.eclipse.microprofile.jwt.Claims.raw_token.name(), compact);
         //        fixJoseTypes(jwtclaims);
-        DefaultJsonWebTokenImpl token = new DefaultJsonWebTokenImpl(compact, type, username);
+        DefaultJsonWebTokenImpl token = new DefaultJsonWebTokenImpl(compact, type, username, jwtToken);
         if (tc.isDebugEnabled()) {
             Tr.exit(tc, methodName, token);
         }

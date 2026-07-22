@@ -1,12 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
- *     IBM Corporation - initial API and implementation
+ * IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.fat.testTokenEndpoint;
 
@@ -18,6 +20,7 @@ import java.util.Base64;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Set;
 
 import javax.json.Json;
@@ -28,7 +31,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.ibm.json.java.JSONObject;
-import com.ibm.websphere.security.jwt.Claims;
 import com.ibm.websphere.security.jwt.JwtBuilder;
 import com.ibm.websphere.security.jwt.JwtToken;
 import com.ibm.ws.security.fat.common.utils.KeyTools;
@@ -38,6 +40,7 @@ public class TokenEndpointServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private final String servletName = "TokenEndpointServlet";
     private String token = null;
+    private String idTokenRequestParameter = null;
 
     public TokenEndpointServlet() {
     }
@@ -70,35 +73,43 @@ public class TokenEndpointServlet extends HttpServlet {
         JwtBuilder builder = null;
         JwtToken builtToken = null;
 
-        Map<String, String[]> foo = req.getParameterMap();
-        foo.entrySet().iterator();
+        Map<String, String[]> parms = req.getParameterMap();
+        parms.entrySet().iterator();
         Iterator<Entry<String, String[]>> itr = req.getParameterMap().entrySet().iterator();
         while (itr.hasNext()) {
             Map.Entry<String, String[]> entry = itr.next();
             System.out.println("Parm: " + entry.getKey() + " with Value: " + req.getParameter(entry.getKey()));
         }
 
-        String builderId = req.getParameter("builderId");
-        System.out.println("Using builderId: " + builderId);
+        String builderId = null;
         try {
             token = req.getParameter("overrideToken");
+            idTokenRequestParameter = req.getParameter("overrideIDToken");
             if (token == null) { // if the calling test hacked up a token that we want to use, skip creating a new token
+                builderId = req.getParameter("builderId");
+                System.out.println("Using builderId: " + builderId);
                 if (builderId == null) {
                     // just use the default builder
                     builder = JwtBuilder.create();
                 } else {
                     builder = JwtBuilder.create(builderId);
                 }
+                builder.claim("token_src", "tokenEndpoint stub");
                 builder.claim("test", "token for testing");
                 builder.claim("at_hash", "dummy_hash_value");
                 builder.claim("uniqueSecurityName", "testuser");
                 builder.claim("realmName", "BasicRealm");
                 builder.subject("testuser");
+                builder.claim("sid", randomSessionId());
                 //System.out.println("Token value: " + builder.toString());
                 setEncryptWith(builder, req);
                 builtToken = builder.buildJwt();
                 token = builtToken.compact();
-                //            token = hackHeader(writer, token, req);
+            }
+            if (idTokenRequestParameter == null) {
+            	idTokenRequestParameter = token;
+            } else {
+            	System.out.println("Saving id token: " + idTokenRequestParameter);
             }
         } catch (Exception e) {
             writer.println(e);
@@ -127,7 +138,7 @@ public class TokenEndpointServlet extends HttpServlet {
      * @throws IOException
      */
     protected void handleReturnTokenRequest(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        System.out.println("Returning token: " + token);
+        System.out.println("Token Endpoint Returning token: " + token);
 
         JSONObject theResponse = new JSONObject();
         theResponse.put("access_token", token);
@@ -135,7 +146,7 @@ public class TokenEndpointServlet extends HttpServlet {
         theResponse.put("expires_in", 7199);
         theResponse.put("scope", "openid profile");
         theResponse.put("refresh_token", "21MhoIC95diaQo9tb5UpFBDFlHh45NixhcKkCwRipszH6WIzKz");
-        theResponse.put("id_token", token);
+        theResponse.put("id_token", idTokenRequestParameter);
 
         PrintWriter writer = resp.getWriter();
         //        writer.println("ServletName: " + servletName);
@@ -166,25 +177,17 @@ public class TokenEndpointServlet extends HttpServlet {
             pw.println("Header: Key: " + key + " value: " + headerInfo.get(key));
         }
 
-        Claims theClaims = jwtToken.getClaims();
-        if (theClaims == null) {
+        Map<String, Object> claims = jwtToken.getClaims();
+        if (null == claims || claims.isEmpty()) {
             pw.println("Token contained no claims");
-            return;
-        }
-
-        // Print everything that is in the payload
-        String jString = theClaims.toJsonString();
-        pw.println("JSON String: " + jString);
-
-        if (jString != null) {
-            JsonObject jObject = Json.createReader(new StringReader(jString)).readObject();
-            Set<String> claimKeys = jObject.keySet();
-            for (String key : claimKeys) {
-                pw.println("Claim: Key: " + key + " value: " + jObject.get(key));
-            }
         } else {
-            pw.println("Claim json string is null");
+            Iterator<Map.Entry<String, Object>> claimItr = claims.entrySet().iterator();
+            while (claimItr.hasNext()) {
+                Map.Entry<String, Object> claim = claimItr.next();
+                pw.println("Claim: Key: " + claim.getKey() + " value: " + claim.getValue());
+            }
         }
+
     }
 
     /**
@@ -217,8 +220,7 @@ public class TokenEndpointServlet extends HttpServlet {
             if (encryptKeyString != null) {
                 encryptKey = KeyTools.getKeyFromPem(encryptKeyString);
             }
-            System.out.println("Calling encryptWith with parms: keyManagementAlg=" + keyMgmtAlg + ", keyManagementKey=" + encryptKey + ", contentEncryptionAlg="
-                               + contentEncryptAlg);
+            System.out.println("Calling encryptWith with parms: keyManagementAlg=" + keyMgmtAlg + ", keyManagementKey=" + encryptKey + ", contentEncryptionAlg=" + contentEncryptAlg);
             // encryptWith will use default values for all but the actual key - that must be passed
             builder.encryptWith(keyMgmtAlg, encryptKey, contentEncryptAlg);
             //            }
@@ -228,53 +230,23 @@ public class TokenEndpointServlet extends HttpServlet {
 
     }
 
-    //    protected String hackHeader(PrintWriter pw, String origToken, HttpServletRequest req) throws Exception {
-    //
-    //        String type = req.getParameter("type");
-    //        String contentType = req.getParameter("contentType");
-    //
-    //        if (type != null || contentType != null) {
-    //            if (token == null) {
-    //                pw.println("Token was null");
-    //                throw new Exception("Null token was passed");
-    //            }
-    //
-    //            String[] tokenParts = token.split("\\.");
-    //            if (tokenParts == null) {
-    //                pw.println("Token array is null");
-    //                throw new Exception("Split token was null Null");
-    //            }
-    //
-    //            //            String decodedHeader = new String(Base64.getDecoder().decode(tokenParts[0]), "UTF-8");
-    //            //            pw.println("Decoded header: " + decodedHeader);
-    //            //
-    //            //            JsonObject headerInfo = Json.createReader(new StringReader(decodedHeader)).readObject();
-    //            JsonWebEncryption _origjwe = (JsonWebEncryption) JsonWebEncryption.fromCompactSerialization(origToken);
-    //            JsonWebEncryption _jwe = new JsonWebEncryption();
-    //            //            Headers foo = _origjwe.getHeaders();
-    //
-    //            //Set<String> headerKeys = headerInfo.keySet();
-    //            if (type != null) {
-    //                //                headerInfo.put("typ", JsonValue.class.cast(type)) ;
-    //                _jwe.setHeader("typ", type);
-    //                //                foo.setStringHeaderValue("typ", type);
-    //            }
-    //            if (contentType != null) {
-    //                //                headerInfo.put("cty", JsonValue.class.cast(contentType));
-    //                _jwe.setHeader("cty", contentType);
-    //                //                foo.setStringHeaderValue("cty", contentType);
-    //            }
-    //            //            String encryptKeyString = req.getParameter("encrypt_key");
-    //            //            if (encryptKeyString != null) {
-    //            //                Key key = KeyTools.getKeyFromPem(encryptKeyString);
-    //            //                _jwe.setKey(key);
-    //            //            }
-    //            _jwe.setPayload(_origjwe.getPayload());
-    //            _jwe.setKey(_origjwe.getKey());
-    //            return _jwe.getCompactSerialization();
-    //        } else {
-    //            return origToken;
-    //        }
-    //    }
+    /**
+     * generate a random 20 digit sid to be used for the sid. It just has to be random enough to be unique for our testing.
+     *
+     * @return - random string
+     */
+    public static String randomSessionId() {
+
+        int length = 20;
+        StringBuffer sid = new StringBuffer(length);
+        Random rand = new Random();
+
+        for (int n = 0; n < length; n++) {
+            int randomNumber = rand.nextInt(9);
+            sid.append(randomNumber);
+        }
+
+        return sid.toString();
+    }
 
 }

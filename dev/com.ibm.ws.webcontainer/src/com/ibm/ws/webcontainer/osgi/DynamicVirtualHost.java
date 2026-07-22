@@ -1,23 +1,23 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2020 IBM Corporation and others.
+ * Copyright (c) 2004, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 /*
  * Created on Jan 1, 2004
- *
- * To change the template for this generated file go to
- * Window&gt;Preferences&gt;Java&gt;Code Generation&gt;Code and Comments
  */
 package com.ibm.ws.webcontainer.osgi;
 
 import java.io.IOException;
 import java.net.URLDecoder;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -28,6 +28,7 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 
+import com.ibm.ejs.ras.TraceNLS;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.servlet.request.IRequest;
@@ -48,6 +49,7 @@ import com.ibm.wsspi.http.channel.values.HttpHeaderKeys;
 import com.ibm.wsspi.http.channel.values.StatusCodes;
 import com.ibm.wsspi.webcontainer.RequestProcessor;
 import com.ibm.wsspi.webcontainer.WCCustomProperties;
+import com.ibm.wsspi.webcontainer.WebContainerRequestState;
 
 /**
  * Thin shim over the base webcontainer VirtualHost to satisfy the HttpContainer
@@ -58,6 +60,8 @@ import com.ibm.wsspi.webcontainer.WCCustomProperties;
  */
 public class DynamicVirtualHost extends com.ibm.ws.webcontainer.VirtualHost implements HttpContainer {
     private static final TraceComponent tc = Tr.register(DynamicVirtualHost.class, WebContainerConstants.TR_GROUP, WebContainerConstants.NLS_PROPS);
+    private static final TraceNLS nls = TraceNLS.getTraceNLS(DynamicVirtualHost.class, "com.ibm.ws.webcontainer.resources.Messages");
+
 
 // logger is defined in com.ibm.ws.webcontainer.VirtualHost
 //  protected static Logger logger = LoggerFactory.getInstance().getLogger("com.ibm.ws.webcontainer.osgi");
@@ -101,91 +105,101 @@ public class DynamicVirtualHost extends com.ibm.ws.webcontainer.VirtualHost impl
     @SuppressWarnings("unchecked")
     @Override
     public void addWebApplication(DeployedModule deployedModule, List extensionFactories) throws WebAppNotLoadedException {
-       
-        com.ibm.ws.webcontainer.osgi.container.DeployedModule deployedModuleImpl = (com.ibm.ws.webcontainer.osgi.container.DeployedModule) deployedModule;
-        String ct = deployedModuleImpl.getProperContextRoot();
-        String contextRoot = deployedModuleImpl.getMappingContextRoot();
-
-        String displayName = deployedModule.getDisplayName();
-        
-        if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)){
-            logger.logp(Level.FINE, CLASS_NAME,"addWebApplication",  "enter ["+ displayName +"]");
-        }
-
-
-        WebGroup webGroup = (WebGroup) requestMapper.map(contextRoot);
-
-        if (webGroup != null && ct.equalsIgnoreCase(webGroup.getConfiguration().getContextRoot())) {
-            // begin 296368 Nested exceptions lost for problems during
-            // application startup WAS.webcontainer
-            List list = webGroup.getWebApps();
-            String originalName = "";
-            if (list != null && (list.size() > 0)) {
-                WebApp originalWebApp = (WebApp) list.get(0);
-                originalName = originalWebApp.getWebAppName();
-            }
-            logger.logp(Level.SEVERE, CLASS_NAME, "addWebApplication", "context.root.already.in.use", new Object[] { displayName, contextRoot, originalName, displayName });
-            throw new WebAppNotLoadedException("Context root " + contextRoot + " is already bound. Cannot start application " + displayName);
-            // end 296368 Nested exceptions lost for problems during application
-            // startup WAS.webcontainer
-        }
-        // The following is used by/for Liberty: requred to create the webgroup & 
-        // webgroup configuration
-        webGroup = new WebGroup(contextRoot, this);
-        WebGroupConfiguration wgConfig = new WebGroupConfiguration(deployedModule.getName());
-        wgConfig.setContextRoot(deployedModule.getContextRoot());
-        wgConfig.setVersionID(deployedModule.getWebAppConfig().getVersion());
-        // begin LIDB2356.1: WebContainer work for incorporating SIP
-
-        // Liberty: if this is one of the "new" WebAppConfiguration objects,
-        // add this as the virtual host for better delegation (and less object copying)
-        com.ibm.ws.webcontainer.webapp.WebAppConfiguration baseAppConfig = deployedModule.getWebAppConfig();
         try {
-            ((com.ibm.ws.webcontainer.osgi.webapp.WebAppConfiguration) baseAppConfig).setVirtualHost(this);
-        } catch (ClassCastException cce) {
-            baseAppConfig.setVirtualHostName(getName());
-        }
+            dhostConfig.incrementAppStartingCount();
+            com.ibm.ws.webcontainer.osgi.container.DeployedModule deployedModuleImpl = (com.ibm.ws.webcontainer.osgi.container.DeployedModule) deployedModule;
+            String ct = deployedModuleImpl.getProperContextRoot();
+            String contextRoot = deployedModuleImpl.getMappingContextRoot();
 
-        wgConfig.setWebAppHost(this);
-        // end LIDB2356.1: WebContainer work for incorporating SIP
-        webGroup.initialize(wgConfig);
-        try {
-            webGroup.addWebApplication(deployedModule, extensionFactories);
-            Object[] args = { displayName, vHostConfig.toString() };
-            logger.logp(Level.INFO, CLASS_NAME, "addWebApplication", "module.[{0}].successfully.bound.to.virtualhost.[{1}]", args);
-        } catch (Throwable t) {
-            //PI58875
-            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)){
-                logger.logp(Level.FINE, CLASS_NAME,"addWebApplication",  "error adding web app ["+ displayName +"]");
+            String displayName = deployedModule.getDisplayName();
+
+            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)){
+                logger.logp(Level.FINE, CLASS_NAME,"addWebApplication", "enter ["+ displayName +"]");
             }
-            webGroup.destroy();  //preventing the classLoader memory leak
-            webGroup = null;
-            //PI58875 end 
 
-            // requestMapper.removeMapping(contextRoot);
-            // Do not need to remove mapping because we wait until we're sure we should add it!
-            // PK67698 removeMapping(contextRoot);
-            // 296368 added rootCause to newly created exception.
-            throw new WebAppNotLoadedException(t.getMessage(), t);
-        }
+            WebGroup webGroup = (WebGroup) requestMapper.map(contextRoot);
 
-        // PK67698 Start
-        try {
-            addMapping(contextRoot, webGroup);
+            if (webGroup != null && ct.equalsIgnoreCase(webGroup.getConfiguration().getContextRoot())) {
+                // begin 296368 Nested exceptions lost for problems during
+                // application startup WAS.webcontainer
+                List list = webGroup.getWebApps();
+                String originalName = "";
+                if (list != null && (list.size() > 0)) {
+                    WebApp originalWebApp = (WebApp) list.get(0);
+                    originalName = originalWebApp.getWebAppName();
+                }
+               
+                //Use container's attribute to skip the stopModule.         
+                WebContainerRequestState reqState = WebContainerRequestState.getInstance(true);
+                reqState.setAttribute("com.ibm.ws.webcontainer.contextRootAlreadyInUse", true); 
 
-            webGroup.notifyStart();
-        } catch (Exception exc) {
-            // begin 296368 Nested exceptions lost for problems during
-            // application startup WAS.webcontainer
-            if (TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
-                logger.logp(Level.FINE, CLASS_NAME, "addWebApplication", "error adding mapping ", exc); /* @283348.1 */
+
+                String s = MessageFormat.format(nls.getString("context.root.already.in.use"), new Object[] { displayName, contextRoot, originalName, displayName });
+                logger.logp(Level.SEVERE, CLASS_NAME, "addWebApplication", s);
+
+                throw new WebAppNotLoadedException(s); 
+                // end 296368 Nested exceptions lost for problems during application
+                // startup WAS.webcontainer
             }
-            webGroup.destroy();
-            throw new WebAppNotLoadedException("Context root " + contextRoot + " mapping unable to be bound. Application " + displayName + " unavailable.", exc);
-            // end 296368 Nested exceptions lost for problems during application
-            // startup WAS.webcontainer
+            // The following is used by/for Liberty: required to create the webgroup &
+            // webgroup configuration
+            webGroup = new WebGroup(contextRoot, this);
+            WebGroupConfiguration wgConfig = new WebGroupConfiguration(deployedModule.getName());
+            wgConfig.setContextRoot(deployedModule.getContextRoot());
+            wgConfig.setVersionID(deployedModule.getWebAppConfig().getVersion());
+            // begin LIDB2356.1: WebContainer work for incorporating SIP
+
+            // Liberty: if this is one of the "new" WebAppConfiguration objects,
+            // add this as the virtual host for better delegation (and less object copying)
+            com.ibm.ws.webcontainer.webapp.WebAppConfiguration baseAppConfig = deployedModule.getWebAppConfig();
+            try {
+                ((com.ibm.ws.webcontainer.osgi.webapp.WebAppConfiguration) baseAppConfig).setVirtualHost(this);
+            } catch (ClassCastException cce) {
+                baseAppConfig.setVirtualHostName(getName());
+            }
+
+            wgConfig.setWebAppHost(this);
+            // end LIDB2356.1: WebContainer work for incorporating SIP
+            webGroup.initialize(wgConfig);
+            try {
+                webGroup.addWebApplication(deployedModule, extensionFactories);
+                Object[] args = { displayName, vHostConfig.toString() };
+                logger.logp(Level.INFO, CLASS_NAME, "addWebApplication", "module.[{0}].successfully.bound.to.virtualhost.[{1}]", args);
+            } catch (Throwable t) {
+                //PI58875
+                if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)){
+                    logger.logp(Level.FINE, CLASS_NAME,"addWebApplication",  "error adding web app ["+ displayName +"]");
+                }
+                webGroup.destroy();  //preventing the classLoader memory leak
+                webGroup = null;
+                //PI58875 end 
+                // requestMapper.removeMapping(contextRoot);
+                // Do not need to remove mapping because we wait until we're sure we should add it!
+                // PK67698 removeMapping(contextRoot);
+                // 296368 added rootCause to newly created exception.
+                throw new WebAppNotLoadedException(t.getMessage(), t);
+            }
+
+            // PK67698 Start
+            try {
+                addMapping(contextRoot, webGroup);
+                webGroup.notifyStart();
+            } catch (Exception exc) {
+                // begin 296368 Nested exceptions lost for problems during
+                // application startup WAS.webcontainer
+                if (TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+                    logger.logp(Level.FINE, CLASS_NAME, "addWebApplication", "error adding mapping ", exc); /* @283348.1 */
+                }
+                webGroup.destroy();
+                throw new WebAppNotLoadedException("Context root " + contextRoot + " mapping unable to be bound. Application " + displayName + " unavailable.", exc);
+                // end 296368 Nested exceptions lost for problems during application
+                // startup WAS.webcontainer
+            }
+            // PK67698 End
+
+        } finally {
+            dhostConfig.decrementAppStartingCount();
         }
-        // PK67698 End
     }
 
     @SuppressWarnings("unchecked")

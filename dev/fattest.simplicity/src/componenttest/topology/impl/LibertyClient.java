@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2017 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package componenttest.topology.impl;
 
@@ -28,6 +27,9 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -57,7 +59,6 @@ import com.ibm.websphere.simplicity.OperatingSystem;
 import com.ibm.websphere.simplicity.PortType;
 import com.ibm.websphere.simplicity.ProgramOutput;
 import com.ibm.websphere.simplicity.RemoteFile;
-import com.ibm.websphere.simplicity.application.ApplicationType;
 import com.ibm.websphere.simplicity.config.ClientConfiguration;
 import com.ibm.websphere.simplicity.config.ClientConfigurationFactory;
 import com.ibm.websphere.simplicity.log.Log;
@@ -67,6 +68,7 @@ import componenttest.common.apiservices.Bootstrap;
 import componenttest.common.apiservices.LocalMachine;
 import componenttest.custom.junit.runner.LogPolice;
 import componenttest.exception.TopologyException;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.JavaInfo.Vendor;
 import componenttest.topology.impl.LibertyFileManager.LogSearchResult;
 import componenttest.topology.utils.FileUtils;
@@ -87,14 +89,18 @@ public class LibertyClient {
     public static boolean VALIDATE_APPS = DEFAULT_VALIDATE_APPS;
 
     protected static final JavaInfo javaInfo = JavaInfo.forCurrentVM();
-    protected static final boolean J9_JVM_RUN = javaInfo.vendor() == Vendor.IBM;
 
     protected static final boolean FAT_TEST_LOCALRUN = Boolean.getBoolean("fat.test.localrun");
     protected static final String MAC_RUN = PrivHelper.getProperty("fat.on.mac");
     protected static final String GLOBAL_TRACE = PrivHelper.getProperty("global.trace.spec", "").trim();
-    protected static final boolean GLOBAL_JAVA2SECURITY = FAT_TEST_LOCALRUN //
+    protected static final boolean GLOBAL_JAVA2SECURITY = javaInfo.MAJOR > 17 ? false : FAT_TEST_LOCALRUN //
                     ? Boolean.parseBoolean(PrivHelper.getProperty("global.java2.sec", "true")) //
                     : Boolean.parseBoolean(PrivHelper.getProperty("global.java2.sec", "false"));
+
+    //FIPS 140-3
+    protected static final boolean GLOBAL_CLIENT_FIPS_140_3 = Boolean.parseBoolean(PrivHelper.getProperty("global.client.fips_140-3", "false"));
+    protected static final boolean GLOBAL_ENHANCED_ALGO = Boolean.parseBoolean(PrivHelper.getProperty("global.use.enhanced.security.algorithms", "false"));
+
     protected static final String GLOBAL_JVM_ARGS = PrivHelper.getProperty("global.jvm.args", "").trim();
     protected static final String TMP_DIR = PrivHelper.getProperty("java.io.tmpdir");
     protected static final boolean DO_COVERAGE = PrivHelper.getBoolean("test.coverage");
@@ -123,7 +129,6 @@ public class LibertyClient {
     protected static final String EBCDIC_CHARSET_NAME = "IBM1047";
 
     protected volatile boolean isStarted = false;
-    protected volatile boolean isStopped = false;
     protected boolean isStartedConsoleLogLevelOff = false;
 
     protected int osgiConsolePort = 5678; // The port number of the OSGi Console
@@ -245,6 +250,8 @@ public class LibertyClient {
 
     protected boolean checkingDisabled;
 
+    private final Map<String, String> envVars = new HashMap<>();
+
     /**
      * @param clientCleanupProblem the clientCleanupProblem to set
      */
@@ -286,7 +293,7 @@ public class LibertyClient {
 
         // This is the only case where we will allow the messages.log name to  be changed
         // by the fat framework -- because we want to look at messasges.log for start/stop/blah
-        // messags, we shouldn't be pointing it all over everywhere else. For those FAT tests
+        // messages, we shouldn't be pointing it all over everywhere else. For those FAT tests
         // that need a messages file in an alternate location, they should set the corresponding
         // com.ibm.ws.logging.message.file.name property in bootstrap.properties
         String nonDefaultLogFile = b.getValue("NonDefaultConsoleLogFileName");
@@ -401,12 +408,12 @@ public class LibertyClient {
             jar += ".exe";
             java += ".exe";
         }
-        RemoteFile testJar = new RemoteFile(machine, machineJava + "/bin/" + jar);
-        RemoteFile testJava = new RemoteFile(machine, machineJava + "/bin/" + java);
+        RemoteFile testJar = machine.getFile(machineJava + "/bin/" + jar);
+        RemoteFile testJava = machine.getFile(machineJava + "/bin/" + java);
         machineJarPath = testJar.getAbsolutePath();
         if (!!!testJar.exists()) {
             //if we come in here we might be pointing at a JRE instead of a JDK so we'll go up a level in hope it's there
-            testJar = new RemoteFile(machine, machineJava + "/../bin/" + jar);
+            testJar = machine.getFile(machineJava + "/../bin/" + jar);
             machineJarPath = testJar.getAbsolutePath();
             if (!!!testJar.exists()) {
                 throw new TopologyException("cannot find a " + jar + " file in " + machineJava + "/bin. Please ensure you have set the machine javaHome to point to a JDK");
@@ -435,7 +442,7 @@ public class LibertyClient {
             // Ignore if doesn't exist
         }
         try {
-            RemoteFile applicationsFolder = new RemoteFile(machine, installRoot + "/usr/shared/apps");
+            RemoteFile applicationsFolder = machine.getFile(installRoot + "/usr/shared/apps");
             applicationsFolder.delete();
             applicationsFolder.mkdir();
         } catch (Exception e) {
@@ -452,7 +459,7 @@ public class LibertyClient {
      * @throws Exception
      */
     public void changeFeatures(List<String> newFeatures) throws Exception {
-        RemoteFile clientXML = new RemoteFile(machine, clientRoot + "/" + CLIENT_CONFIG_FILE_NAME);
+        RemoteFile clientXML = machine.getFile(clientRoot + "/" + CLIENT_CONFIG_FILE_NAME);
         LocalFile tempclientXML = new LocalFile(CLIENT_CONFIG_FILE_NAME);
         boolean createOriginalList;
         if (originalFeatureSet == null) {
@@ -552,7 +559,11 @@ public class LibertyClient {
         if (preClean)
             preStartClientLogsTidy();
 
-        Properties envVars = new Properties();
+        Properties useEnvVars = new Properties();
+        useEnvVars.putAll(envVars);
+        if (!useEnvVars.isEmpty())
+            Log.info(c, method, "Adding env vars: " + useEnvVars);
+        envVars.clear();
 
         final String cmd = installRoot + "/bin/client";
         ArrayList<String> parametersList = new ArrayList<String>();
@@ -561,7 +572,7 @@ public class LibertyClient {
             Log.info(c, method, "Setting up commands for debug");
             parametersList.add("debug");
             parametersList.add(clientToUse);
-            envVars.setProperty("DEBUG_PORT", DEBUGGING_PORT);
+            useEnvVars.setProperty("DEBUG_PORT", DEBUGGING_PORT);
             // set client time out to 15 minutes to give time to connect. Timed exit likely kicks in after that, so
             // a larger value is worthless (and, since we multiply it by two later, will wrap if you use MAX_VALUE)
             clientStartTimeout = 15 * 60 * 60 * 1000;
@@ -592,13 +603,16 @@ public class LibertyClient {
         final String[] parameters = parametersList.toArray(new String[] {});
 
         //Need to ensure JAVA_HOME is set correctly - can't rely on user's environment to be set to the same Java as the build/runtime environment
-        envVars.setProperty("JAVA_HOME", machineJava);
+        useEnvVars.setProperty("JAVA_HOME", machineJava);
 
         // Pick up global JVM args (forced by build properties)
         String JVM_ARGS = GLOBAL_JVM_ARGS;
 
         // Always set tmp dir.
         JVM_ARGS += " -Djava.io.tmpdir=" + TMP_DIR;
+
+        //FIPS 140-3
+        JavaInfo clientJavaInfo = JavaInfo.forClient(this);
 
         // Add JaCoCo java agent to generate code coverage for FAT test run
         if (DO_COVERAGE) {
@@ -611,6 +625,8 @@ public class LibertyClient {
             JVM_ARGS += " " + MAC_RUN;
         }
 
+        boolean startedWithJavaSecurity = false;
+
         // if we have java 2 security enabled, add java.security.manager and java.security.policy
         if (GLOBAL_JAVA2SECURITY) {
             RemoteFile f = getClientBootstrapPropertiesFile();
@@ -619,9 +635,87 @@ public class LibertyClient {
             if (clientNeedsToRunWithJava2Security()) {
                 addJava2SecurityPropertiesToBootstrapFile(f);
                 Log.info(c, "startClientWithArgs", "Java 2 Security enabled for client " + getClientName() + " because GLOBAL_JAVA2SECURITY=true");
+                startedWithJavaSecurity = true;
             } else {
                 LOG.warning("The build is configured to run FAT tests with Java 2 Security enabled, but the FAT client " + getClientName() +
                             " is exempt from Java 2 Security regression testing.");
+            }
+        } else {
+            // Check if "websphere.java.security" has been added to bootstrapping.properties
+            // as some tests will add it for their own security enable tests
+            boolean bootstrapHasJava2SecProps = false;
+            RemoteFile f = getClientBootstrapPropertiesFile();
+            java.io.BufferedReader reader = null;
+            try {
+                reader = new java.io.BufferedReader(new java.io.InputStreamReader(f.openForReading()));
+                String line = reader.readLine();
+                while (line != null) {
+                    if (line != null && line.trim().equals("websphere.java.security")) {
+                        bootstrapHasJava2SecProps = true;
+                        break;
+                    }
+                    line = reader.readLine();
+                }
+            } catch (Exception e) {
+                Log.info(c, method, "caught exception checking bootstap.properties file for Java 2 Security properties, e: ", e.getMessage());
+            } finally {
+                if (reader != null)
+                    reader.close();
+            }
+
+            startedWithJavaSecurity = bootstrapHasJava2SecProps;
+
+            if (bootstrapHasJava2SecProps) {
+                if (clientJavaInfo.majorVersion() >= 24) {
+                    // Security manager is permanently disabled starting in Java 24
+                    LOG.severe("The build is configured to run FAT tests with Java 2 security enabled, but the security manager is permanently disabled in Java versions 24 and later.  The security manager cannot be set!");
+                    throw new RuntimeException("The security manager is permanently disabled in Java versions 24 and later.  When running FATs, use @MaximumJavaLevel(javaLevel = 23) or disable Java 2 security to prevent this test from failing running in Java 24 or later.");
+                } else if (clientJavaInfo.majorVersion() >= 18) {
+                    // If we are running on Java 18 through 23, then we need to explicitly enable the security manager
+                    Log.info(c, method, "Java 18 + Java2Sec requested, setting -Djava.security.manager=allow");
+                    JVM_ARGS += " -Djava.security.manager=allow";
+                }
+            }
+        }
+
+        //FIPS 140-3
+        // if we have FIPS 140-3 enabled, and the matched java/platform, add JVM arg
+        if (isFIPS140_3EnabledAndSupported(clientJavaInfo)) {
+            if (GLOBAL_ENHANCED_ALGO) {
+                JVM_ARGS += " -Duse.enhanced.security.algorithms=true";
+                JVM_ARGS += " -Dcom.ibm.ws.beta.edition=true";
+            } else {
+                // If the test is setting itself up for FIPS140-3, don't enable if through through here
+                Properties clientEnv = getClientEnv();
+                Properties defaultEnv = getDefaultEnv();
+                Map<String, String> opts = getJvmOptionsAsMap();
+                if (clientEnv.containsKey("ENABLE_FIPS140_3") || defaultEnv.containsKey("ENABLE_FIPS140_3") || opts.containsKey("-Xenablefips140-3")
+                    || opts.containsKey("-Dsemeru.fips")) {
+                    Log.info(c, method, "Test has defined its own settings for FIPS140-3");
+                } else {
+                    Log.info(c, "startClientWithArgs", "The JDK version: " + clientJavaInfo.majorVersion() + " and vendor: " + JavaInfo.Vendor.IBM);
+
+                    if (clientJavaInfo.majorVersion() >= 11) {
+                        Log.info(c, "startClientWithArgs", "FIPS 140-3 global build properties is set for Client " + getClientName()
+                                                           + " with IBM Java " + clientJavaInfo.majorVersion() + ", adding required JVM arguments to run with FIPS 140-3 enabled");
+
+                        JVM_ARGS += " -Dsemeru.fips=true";
+                        JVM_ARGS += " -Dsemeru.customprofile=OpenJCEPlusFIPS.FIPS140-3-Custom";
+                        JVM_ARGS += " -Djava.security.propertiesList=" + getLibertySemeruFips140_3ProfileLocationAndPrintFileContents() + File.pathSeparator
+                                    + getSemeruFips140_3CustomProfileLocationAndPrintFileContents();
+                        JVM_ARGS += " -Dcom.ibm.fips.mode=140-3";
+                        // JVM_ARGS += " -Djavax.net.debug=all";  // Uncomment as needed for additional debugging
+                    } else if (clientJavaInfo.majorVersion() == 8) {
+                        Log.info(c, "startClientWithArgs", "FIPS 140-3 global build properties is set for Client " + getClientName()
+                                                           + " with IBM Java 8, adding JVM arguments -Xenablefips140-3, ...,  to run with FIPS 140-3 enabled");
+
+                        JVM_ARGS += " -Xenablefips140-3";
+                        JVM_ARGS += " -Dcom.ibm.jsse2.usefipsprovider=true";
+                        JVM_ARGS += " -Dcom.ibm.jsse2.usefipsProviderName=IBMJCEPlusFIPS";
+                        JVM_ARGS += " -Dcom.ibm.fips.mode=140-3";
+                        // JVM_ARGS += " -Djavax.net.debug=all";  // Uncomment as needed for additional debugging
+                    }
+                }
             }
         }
 
@@ -652,7 +746,7 @@ public class LibertyClient {
                 if (includeFiles != null) {
                     String[] files = includeFiles.split("\\s*,\\s*");
                     for (String fileName : files) {
-                        RemoteFile x = new RemoteFile(machine, clientRoot + "/" + fileName);
+                        RemoteFile x = machine.getFile(clientRoot + "/" + fileName);
                         if (x.exists()) {
                             props.clear();
                             InputStream is = null;
@@ -683,15 +777,65 @@ public class LibertyClient {
             JVM_ARGS += " -Dcom.ibm.ws.logging.trace.specification=" + configuredTrace;
         }
 
-        envVars.setProperty("JVM_ARGS", JVM_ARGS);
+        useEnvVars.setProperty("JVM_ARGS", JVM_ARGS);
 
         // This takes the custom console file name used for tests into consideration
-        envVars.setProperty("LOG_DIR", logsRoot);
-        envVars.setProperty("LOG_FILE", consoleFileName);
+        useEnvVars.setProperty("LOG_DIR", logsRoot);
+        useEnvVars.setProperty("LOG_FILE", consoleFileName);
 
-        Log.info(c, method, "Using additional env props: " + envVars.toString());
+        // default ltpa keys password for FAT tests
+        if (!useEnvVars.containsKey("ltpa_keys_password")) {
+            useEnvVars.setProperty("ltpa_keys_password", "WebAS");
+        }
+
+        Log.info(c, method, "Using additional env props: " + useEnvVars.toString());
 
         Log.info(c, method, "Starting Client with command: " + cmd);
+
+        if (isFIPS140_3EnabledAndSupported(clientJavaInfo)) {
+            String clientSecurityDir = clientRoot + File.separator + "resources" + File.separator + "security";
+            File ltpaFIPSKeys = new File(clientSecurityDir, "ltpaFIPS.keys");
+            File ltpaKeys = new File(clientSecurityDir, "ltpa.keys");
+
+            if (!ltpaKeys.exists() && !ltpaFIPSKeys.exists()) {
+                Log.info(this.getClass(), "startClientWithArgs",
+                         "FIPS 140-3 global build properties are set for client " + getClientName()
+                                                                 + ", but neither ltpa.keys nor ltpaFIPS.keys is found in " + clientSecurityDir);
+            } else {
+                Log.info(this.getClass(), "startClientWithArgs",
+                         "FIPS 140-3 global build properties are set for client " + getClientName()
+                                                                 + ", swapping ltpaFIPS.keys into ltpa.keys");
+
+                try {
+                    // Delete ltpa.keys if it exists
+                    if (ltpaKeys.exists()) {
+                        if (!ltpaKeys.delete()) {
+                            Log.info(this.getClass(), "startClientWithArgs", "Failed to delete existing ltpa.keys.");
+                        } else {
+                            Log.info(this.getClass(), "startClientWithArgs", "Waiting for 1 second after deleting ltpa.keys.");
+                            Thread.sleep(1000);
+                        }
+                    }
+
+                    // Rename ltpaFIPS.keys to ltpa.keys if ltpaFIPS.keys exists
+                    if (ltpaFIPSKeys.exists()) {
+                        if (!ltpaFIPSKeys.renameTo(ltpaKeys)) {
+                            Log.info(this.getClass(), "startClientWithArgs", "Failed to rename ltpaFIPS.keys to ltpa.keys.");
+                        } else {
+                            Log.info(this.getClass(), "startClientWithArgs", "Waiting for 1 second after rename.");
+                            Thread.sleep(1000);
+                        }
+
+                        // Log the content of ltpa.keys
+                        String content = FileUtils.readFile(ltpaKeys.getAbsolutePath());
+                        Log.info(this.getClass(), "printLtpaKeys", "Content of ltpa.keys: " + content);
+                    }
+
+                } catch (Exception e) {
+                    Log.info(this.getClass(), "startClientWithArgs", "Error during ltpa.keys handling: " + e.getMessage());
+                }
+            }
+        }
 
         ProgramOutput output;
         if (executeAsync) {
@@ -705,11 +849,11 @@ public class LibertyClient {
                 f.getParentFile().mkdirs();
             OutputStream redirect = new FileOutputStream(f);
             String workDir = new File(this.clientOutputRoot).getAbsolutePath();
-            localMachine.executeAsync(cmd, parameters, workDir, envVars, redirect);
+            localMachine.executeAsync(cmd, parameters, workDir, useEnvVars, redirect);
             Log.info(c, method, "Started client process in debug mode");
             output = null;
         } else {
-            output = machine.execute(cmd, parameters, envVars);
+            output = machine.execute(cmd, parameters, machine.getWorkDir(), useEnvVars, 300);
 
             int rc = output.getReturnCode();
             Log.info(c, method, "Response from script is: " + output.getStdout());
@@ -734,11 +878,81 @@ public class LibertyClient {
         // Create a marker file to indicate client is started
         createClientMarkerFile();
 
+        if (startedWithJavaSecurity && isEE11Enabled()) {
+            final String JAVA2_SECURITY_DISABLED = "CWWKE0971W";
+            fixedIgnoreErrorsList.add(JAVA2_SECURITY_DISABLED);
+        }
+
         if ("run".equals(clientCmd)) {
             validateClientStopped(output, expectStartFailure);
         }
         postStopClientArchive();
         return output;
+    }
+
+    private boolean isEE11Enabled() throws Exception {
+        if (JakartaEEAction.isEE9Active() || JakartaEEAction.isEE10Active()) {
+            return false;
+        }
+
+        // EE 11 which doesn't support Java security manager can run with Java 17.
+
+        RemoteFile serverXML = machine.getFile(getClientConfigurationPath());
+        InputStreamReader in = new InputStreamReader(serverXML.openForReading());
+        try (Scanner s = new Scanner(in)) {
+            while (s.hasNextLine()) {
+                String line = s.nextLine();
+                if (line.contains("<featureManager>")) {//So has reached featureSets
+                    while (s.hasNextLine()) {
+                        line = s.nextLine();
+                        if (line.contains("</featureManager>"))
+                            break;
+
+                        line = line.replaceAll("<feature>", "");
+                        line = line.replaceAll("</feature>", "");
+                        line = line.trim();
+                        String lowerCaseFeatureName = line.toLowerCase();
+
+                        if ("jakartaeeclient-11.0".equals(lowerCaseFeatureName)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private String getLibertySemeruFips140_3ProfileLocationAndPrintFileContents() throws Exception {
+        String location = installRoot + "/lib/security/fips140_3/FIPS140-3-Liberty.properties";
+
+        byte[] fileContents = Files.readAllBytes(Paths.get(location));
+        Log.info(c, "getLibertySemeruFips140_3ProfileLocationAndPrintFileContents",
+                 "FIPS140-3-Liberty.properties contents:\n" + new String(fileContents, StandardCharsets.UTF_8));
+
+        return location;
+    }
+
+    private String getSemeruFips140_3CustomProfileLocationAndPrintFileContents() throws Exception {
+        Properties localProperties = getLocalProperties();
+        String basedir = localProperties.getProperty("basedir");
+        String location = basedir + "/semeruFips140_3CustomProfile.properties";
+
+        byte[] fileContents = Files.readAllBytes(Paths.get(location));
+        Log.info(c, "getSemeruFips140_3CustomProfileLocationAndPrintFileContents",
+                 "semeruFips140_3CustomProfile.properties contents:\n" + new String(fileContents, StandardCharsets.UTF_8));
+
+        return location;
+    }
+
+    public Properties getLocalProperties() throws Exception {
+        String localPropertiesLocation = System.getProperty("local.properties");
+        Properties localProperties = new Properties();
+        FileInputStream in = new FileInputStream(localPropertiesLocation);
+        localProperties.load(in);
+        in.close();
+        return localProperties;
     }
 
     private void addJava2SecurityPropertiesToBootstrapFile(RemoteFile f) throws Exception {
@@ -749,6 +963,7 @@ public class LibertyClient {
             w.write("\n".getBytes());
             w.write("websphere.java.security.norethrow=false".getBytes());
             w.write("\n".getBytes());
+
             Log.info(c, "addJava2SecurityPropertiesToBootstrapFile", "Successfully updated bootstrap.properties file with Java 2 Security properties");
         } catch (Exception e) {
             Log.info(c, "addJava2SecurityPropertiesToBootstrapFile", "Caught exception updating bootstap.properties file with Java 2 Security properties, e: ", e.getMessage());
@@ -1240,7 +1455,7 @@ public class LibertyClient {
                             + " seconds for client confirmation:  "
                             + START_MESSAGE_CODE.toString() + " to be found in " + messageAbsPath);
 
-        RemoteFile messagesLog = new RemoteFile(machine, messageAbsPath);
+        RemoteFile messagesLog = machine.getFile(messageAbsPath);
 
         try {
             RemoteFile f = getClientBootstrapPropertiesFile();
@@ -1304,7 +1519,7 @@ public class LibertyClient {
                             + " seconds for client confirmation:  "
                             + STOP_MESSAGE_CODE.toString() + " to be found in " + messageAbsPath);
 
-        RemoteFile messagesLog = new RemoteFile(machine, messageAbsPath);
+        RemoteFile messagesLog = machine.getFile(messageAbsPath);
 
         try {
             RemoteFile f = getClientBootstrapPropertiesFile();
@@ -1329,7 +1544,7 @@ public class LibertyClient {
             // If the client started successfully, we're started
             // (but the opposite isn't true since the client could already have been running)
             if (clientStopped) {
-                isStopped = true;
+                isStarted = false;
                 Log.info(c, method, "Client has stopped successfully");
             }
         } catch (Exception e) {
@@ -1350,7 +1565,7 @@ public class LibertyClient {
     protected void checkLogsForErrorsAndWarnings() throws Exception {
         final String method = "checkLogsForErrorsAndWarnings";
 
-        if (!checkingDisabled) {
+        if (!isClientExemptFromChecking()) {
             // Get all warnings and errors in logs
             List<String> errorsInLogs = null;
             try {
@@ -1438,7 +1653,7 @@ public class LibertyClient {
 
             String logDirectoryName = pathToAutoFVTOutputClientsFolder + "/" + clientToUse + "-" + logStamp;
             LocalFile logFolder = new LocalFile(logDirectoryName);
-            RemoteFile clientFolder = new RemoteFile(machine, clientRoot);
+            RemoteFile clientFolder = machine.getFile(clientRoot);
 
             runJextract(clientFolder);
 
@@ -1460,15 +1675,27 @@ public class LibertyClient {
 
                     Properties envVars = new Properties();
                     envVars.setProperty("JAVA_HOME", machineJava);
-                    Log.info(c, "runJextract", "Running jextract on file: " + filename);
 
                     String outputFilename = filename + ".zip.DMP"; //adding .DMP to ensure it is collected even when not collecting archives
-                    String cmd = machineJava + "/bin/jextract";
-                    String[] parms = new String[] { filename, outputFilename };
-                    ProgramOutput output = machine.execute(cmd, parms, clientFolder.getAbsolutePath(), envVars);
-                    Log.info(c, "runJextract stdout", output.getStdout());
-                    Log.info(c, "runJextract stderr", output.getStderr());
-                    Log.info(c, "runJextract", "rc = " + output.getReturnCode());
+                    String tool = null;
+
+                    if (new File(machineJava + "/bin/jpackcore").exists()) {
+                        tool = "jpackcore";
+                    } else if (new File(machineJava + "/bin/jextract").exists()) {
+                        tool = "jextract";
+                    }
+
+                    if (tool != null) {
+                        String cmd = machineJava + "/bin/" + tool;
+                        Log.info(c, "runJextract", "Running " + tool + " on file: " + filename);
+                        String[] parms = new String[] { filename, outputFilename };
+                        ProgramOutput output = machine.execute(cmd, parms, clientFolder.getAbsolutePath(), envVars);
+                        Log.info(c, "runJextract stdout", output.getStdout());
+                        Log.info(c, "runJextract stderr", output.getStderr());
+                        Log.info(c, "runJextract", "rc = " + output.getReturnCode());
+                    } else {
+                        Log.info(c, "runJextract", "Skipping, unable to find jpackcore or jextract to run");
+                    }
                 }
             }
         }
@@ -1505,7 +1732,7 @@ public class LibertyClient {
                 continue;
             }
 
-            RemoteFile toCopy = new RemoteFile(machine, remoteDirectory, l);
+            RemoteFile toCopy = machine.getFile(remoteDirectory, l);
             LocalFile toReceive = new LocalFile(destination, l);
             String absPath = toCopy.getAbsolutePath();
 
@@ -1574,7 +1801,7 @@ public class LibertyClient {
      * @throws Exception
      */
     public LocalFile copyFileToTempDir(String pathInClientRoot, String destination) throws Exception {
-        return copyFileToTempDir(new RemoteFile(machine, clientRoot + "/" + pathInClientRoot), destination);
+        return copyFileToTempDir(machine.getFile(clientRoot + "/" + pathInClientRoot), destination);
     }
 
     /**
@@ -1590,7 +1817,7 @@ public class LibertyClient {
      * @throws Exception
      */
     public LocalFile copyInstallRootFileToTempDir(String pathInInstallRoot, String destination) throws Exception {
-        return copyFileToTempDir(new RemoteFile(machine, installRoot + "/" + pathInInstallRoot), destination);
+        return copyFileToTempDir(machine.getFile(installRoot + "/" + pathInInstallRoot), destination);
     }
 
     protected LocalFile copyFileToTempDir(RemoteFile remoteToCopy, String destination) throws Exception {
@@ -1756,7 +1983,7 @@ public class LibertyClient {
     }
 
     public RemoteFile getClientBootstrapPropertiesFile() throws Exception {
-        return new RemoteFile(machine, clientRoot + "/bootstrap.properties");
+        return machine.getFile(clientRoot + "/bootstrap.properties");
     }
 
     /**
@@ -1809,7 +2036,7 @@ public class LibertyClient {
 
     protected ArrayList<String> listDirectoryContents(String path, String fileName) throws Exception {
 
-        RemoteFile clientDir = new RemoteFile(machine, path);
+        RemoteFile clientDir = machine.getFile(path);
         return listDirectoryContents(clientDir, fileName);
 
     }
@@ -2002,7 +2229,7 @@ public class LibertyClient {
         LibertyFileManager.copyFileIntoLiberty(machine, getClientRoot(), "client.xml", "productSampleClient.xml");
 
         //Move the test client bootstrap.properties into sample.properties if it exists
-        RemoteFile clientBootStrapProps = new RemoteFile(machine, getClientRoot() + "/bootstrap.properties");
+        RemoteFile clientBootStrapProps = machine.getFile(getClientRoot() + "/bootstrap.properties");
         if (clientBootStrapProps.exists()) {
             //This is optional
             RemoteFile samplePropertiesFile = LibertyFileManager.createRemoteFile(machine, getClientRoot() + "/sample.properties");
@@ -2025,7 +2252,7 @@ public class LibertyClient {
      * Method used by exposed installApp methods that calls into the ApplicationManager
      * to actually install the required application
      *
-     * @param  appPath   Absoulte path to application (includes app name)
+     * @param  appPath   Absolute path to application (includes app name)
      * @throws Exception
      */
     protected void finalInstallApp(String appPath) throws Exception {
@@ -2051,45 +2278,6 @@ public class LibertyClient {
 
     public String getHostname() {
         return machine.getHostname();
-    }
-
-    /**
-     * Shortcut for new FATTests to uninstall apps
-     *
-     * @param  appName   The name of the application
-     * @throws Exception
-     */
-    public void uninstallApp(String appName) throws Exception {
-        ApplicationType type = this.getApplictionType(appName);
-        if (type.equals(ApplicationType.ZIP)) {
-            appName = appName.substring(0, (appName.length() - 4));
-        }
-
-        if (type.equals(ApplicationType.EAR) || type.equals(ApplicationType.WAR)) {
-            //do the same thing as above
-            appName = appName.substring(0, (appName.length() - 4));
-        }
-
-    }
-
-    protected ApplicationType getApplictionType(String appName) throws Exception {
-        ApplicationType type = null;
-        if (appName.endsWith("zip") || appName.endsWith("ZIP")) {
-            type = ApplicationType.ZIP;
-        } else if (appName.endsWith("ear") || appName.endsWith("EAR")) {
-            type = ApplicationType.EAR;
-        } else if (appName.endsWith("war") || appName.endsWith("WAR")) {
-            type = ApplicationType.WAR;
-        } else if (appName.endsWith("eba") || appName.endsWith("EBA")) {
-            type = ApplicationType.EBA;
-        }
-
-        if (type == null) {
-            //Application type not recognised
-            throw new TopologyException("Can't install the application " + appName
-                                        + " as the application type is not recognised.  We only support WAR, EAR, ZIP or EBA");
-        }
-        return type;
     }
 
     protected String getJvmOptionsFilePath() {
@@ -2203,6 +2391,7 @@ public class LibertyClient {
                 optionList.add(option.toString());
             }
         }
+
         this.setJvmOptions(optionList);
     }
 
@@ -2296,17 +2485,12 @@ public class LibertyClient {
     }
 
     private void waitIfNeeded() throws Exception {
-        String osName = System.getProperty("os.name");
-        boolean isUnix = !(osName.startsWith("win") || osName.startsWith("Win"));
         boolean lastConfigLessThanOneSecAgo = (System.currentTimeMillis() - lastConfigUpdate) < 1000;
 
-        Log.finer(c, "replaceClientConfiguration", "isUnix=" + isUnix + " lastConfigLessThanOneSecAgo=" + lastConfigLessThanOneSecAgo);
-        if (lastConfigLessThanOneSecAgo && isUnix) {
-            // Due to a java limitation on Unix, we need to wait at least
-            // 1 second between config updates so the client can see it.
-            // See https://www-01.ibm.com/support/docview.wss?uid=swg21446506
-            // Note that the above page says that it affects versions up to 1.6, but if you look at the sun bug it is not fixed until java 8.
-            Log.finer(c, "replaceClientConfiguration", "Sleeping for 1 second to work around Unix / JDK limitation fixed in Java 8");
+        Log.finer(c, "replaceClientConfiguration", "lastConfigLessThanOneSecAgo=" + lastConfigLessThanOneSecAgo);
+        if (lastConfigLessThanOneSecAgo) {
+            // Sleeping 1 second to ensure config is processed properly
+            Log.finer(c, "replaceClientConfiguration", "Sleeping for 1 second to ensure config is processed.");
             Thread.sleep(1000);
         }
     }
@@ -2346,7 +2530,7 @@ public class LibertyClient {
      */
     public void saveClientConfiguration() throws Exception {
         try {
-            savedClientXml = new RemoteFile(machine, clientRoot + "/savedClientXml" + System.currentTimeMillis() + ".xml");
+            savedClientXml = machine.getFile(clientRoot + "/savedClientXml" + System.currentTimeMillis() + ".xml");
             getClientConfigurationFile().copyToDest(savedClientXml);
         } catch (Exception e) {
             savedClientXml = null;
@@ -2499,9 +2683,9 @@ public class LibertyClient {
         // Find the currently configured/in-use console log file.
         final RemoteFile remoteFile;
         if (machineOS == OperatingSystem.ZOS) {
-            remoteFile = new RemoteFile(machine, consoleAbsPath, Charset.forName(EBCDIC_CHARSET_NAME));
+            remoteFile = machine.getFile(consoleAbsPath, Charset.forName(EBCDIC_CHARSET_NAME));
         } else {
-            remoteFile = new RemoteFile(machine, consoleAbsPath);
+            remoteFile = machine.getFile(consoleAbsPath);
         }
         return remoteFile;
     }
@@ -2598,7 +2782,7 @@ public class LibertyClient {
         final RemoteFile remoteFile;
         String absolutePath = clientRoot + "/" + filePath;
         if (machineOS == OperatingSystem.ZOS && absolutePath.equalsIgnoreCase(consoleAbsPath)) {
-            remoteFile = new RemoteFile(machine, absolutePath, Charset.forName(EBCDIC_CHARSET_NAME));
+            remoteFile = machine.getFile(absolutePath, Charset.forName(EBCDIC_CHARSET_NAME));
         } else {
             remoteFile = LibertyFileManager.getLibertyFile(machine, absolutePath);
         }
@@ -2621,7 +2805,13 @@ public class LibertyClient {
 
     public List<String> findStringsInCopiedLogs(String regexp) throws Exception {
         String logFile = pathToAutoFVTOutputClientsFolder + "/" + clientToUse + "-" + logStamp + "/logs/messages.log";
-        RemoteFile remoteLogFile = new RemoteFile(machine, logFile);
+        RemoteFile remoteLogFile = machine.getFile(logFile);
+        return findStringsInLogs(regexp, remoteLogFile);
+    }
+
+    public List<String> findStringsInCopiedTraceLogs(String regexp, String filePath) throws Exception {
+        String logFile = pathToAutoFVTOutputClientsFolder + "/" + clientToUse + "-" + logStamp + "/" + filePath;
+        RemoteFile remoteLogFile = machine.getFile(logFile);
         return findStringsInLogs(regexp, remoteLogFile);
     }
 
@@ -3226,7 +3416,7 @@ public class LibertyClient {
 
     public String waitForStringInCopiedLog(String regexp, long timeout) {
         String logFile = pathToAutoFVTOutputClientsFolder + "/" + clientToUse + "-" + logStamp + "/logs/messages.log";
-        RemoteFile remoteLogFile = new RemoteFile(machine, logFile);
+        RemoteFile remoteLogFile = machine.getFile(logFile);
         return waitForStringInLogUsingMark(regexp, timeout, remoteLogFile);
     }
 
@@ -3559,7 +3749,7 @@ public class LibertyClient {
         if (messageAbsPath == null) {
             Log.info(c, method, "Messages file path  is null - no check for message in logs");
         } else {
-            RemoteFile outputFile = new RemoteFile(machine, messageAbsPath);
+            RemoteFile outputFile = machine.getFile(messageAbsPath);
             int oldNumber = counter.getAndIncrement();
             int newNumber = oldNumber + 1;
             int numberFound = waitForMultipleStringsInLog(newNumber, message_code, clientStartTimeout, outputFile);
@@ -3835,6 +4025,10 @@ public class LibertyClient {
         }
     }
 
+    protected boolean isClientExemptFromChecking() {
+        return checkingDisabled;
+    }
+
     protected Properties getBootstrapProperties() {
         Properties props = new Properties();
         try {
@@ -3845,7 +4039,7 @@ public class LibertyClient {
         return props;
     }
 
-    private boolean clientNeedsToRunWithJava2Security() {
+    protected boolean clientNeedsToRunWithJava2Security() {
         // Allow clients to opt-out of j2sec by setting
         // websphere.java.security.exempt=true
         // in their ${client.config.dir}/bootstrap.properties
@@ -3864,6 +4058,85 @@ public class LibertyClient {
         // of course there is a test fix installed ...it is a test fix build
         fixedIgnoreErrorsList.add("CWWKF0014W:");
 
+    }
+
+    //FIPS 140-3
+    public boolean isFIPS140_3EnabledAndSupported() throws Exception {
+        return isFIPS140_3EnabledAndSupported(JavaInfo.forClient(this));
+    }
+
+    private boolean isFIPS140_3EnabledAndSupported(JavaInfo clientJavaInfo) throws Exception {
+        String methodName = "isFIPS140_3EnabledAndSupported";
+
+        // short circuit this function so that it returns true if GLOBAL_ENHANCED_ALGO is true, this way the tests behave as though FIPS is enabled.
+        if (GLOBAL_ENHANCED_ALGO) {
+            Log.info(c, methodName, "use.enhanced.security.algorithms enabled, returning true");
+            return true;
+        }
+
+        boolean isIBMJVM8 = (clientJavaInfo.majorVersion() == 8) && (clientJavaInfo.VENDOR == Vendor.IBM);
+        boolean isIBMJVMGreaterOrEqualTo11 = (clientJavaInfo.majorVersion() >= 11) && (clientJavaInfo.VENDOR == Vendor.IBM);
+        if (GLOBAL_CLIENT_FIPS_140_3) {
+            Log.info(c, methodName, "Liberty client is running JDK version: " + clientJavaInfo.majorVersion() + " and vendor: " + clientJavaInfo.VENDOR);
+            if (isIBMJVM8) {
+                Log.info(c, methodName, "global build properties FIPS_140_3 is set for client " + getClientName() +
+                                        " and IBM java 8 is available to run with FIPS 140-3 enabled.");
+            } else if (isIBMJVMGreaterOrEqualTo11) {
+                Log.info(c, methodName, "global build properties FIPS_140_3 is set for client " + getClientName() +
+                                        " and IBM java " + clientJavaInfo.majorVersion() + " is available to run with FIPS 140-3 enabled.");
+            } else {
+                throw new RuntimeException("The global build properties FIPS_140_3 is set for client " + getClientName() +
+                                           ",  but no IBM java on liberty client to run with FIPS 140-3 enabled.");
+            }
+        }
+        return GLOBAL_CLIENT_FIPS_140_3 && (isIBMJVM8 || isIBMJVMGreaterOrEqualTo11);
+    }
+
+    public void addEnvVar(String key, String value) {
+        if (!Pattern.matches("[a-zA-Z_]+[a-zA-Z0-9_]*", key)) {
+            throw new IllegalArgumentException("Invalid environment variable key '" + key +
+                                               "'. Environment variable keys must consist of characers [a-zA-Z0-9_] " +
+                                               "in order to work on all OSes.");
+        }
+        if (isStarted())
+            throw new RuntimeException("Cannot add env vars to a running server");
+        envVars.put(key, value);
+    }
+
+    //FIPS 140-3
+    public Properties getClientEnv() {
+        Properties props = new Properties();
+
+        props.put("JAVA_HOME", getMachineJavaJDK());
+
+        // First load ${wlp.install.dir}/etc/client.env
+        try {
+            String clientEnv = FileUtils.readFile(getInstallRoot() + "/etc/client.env");
+            props.load(new StringReader(clientEnv.replace("\\", "\\\\")));
+        } catch (IOException ignore) {
+        }
+
+        // Then load ${server.config.dir}/client.env
+        try {
+            String clientEnv = FileUtils.readFile(getClientRoot() + "/client.env");
+            props.load(new StringReader(clientEnv.replace("\\", "\\\\")));
+        } catch (IOException ignore) {
+        }
+
+        return props;
+    }
+
+    public Properties getDefaultEnv() {
+        Properties props = new Properties();
+
+        try {
+            String serverEnv = FileUtils.readFile(getInstallRoot() + "/etc/default.env");
+            props.load(new StringReader(serverEnv.replace("\\", "\\\\")));
+        } catch (IOException ignore) {
+            // Ignore
+        }
+
+        return props;
     }
 
 }

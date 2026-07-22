@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,6 +27,8 @@ import org.osgi.service.cm.ConfigurationAdmin;
 import com.ibm.ws.app.manager.internal.AppManagerConstants;
 import com.ibm.ws.app.manager.internal.ApplicationConfigurator;
 import com.ibm.wsspi.kernel.service.utils.FrameworkState;
+
+import io.openliberty.checkpoint.spi.CheckpointPhase;
 
 /**
  *
@@ -71,6 +75,7 @@ public final class ApplicationStateCoordinator {
     private static volatile LatchAndAppSet unstoppedApps;
     private static long startTimeout;
     private static long stopTimeout;
+    private static final CheckpointPhase checkpointPhase = CheckpointPhase.getPhase();
 
     public static void setApplicationConfigurator(ApplicationConfigurator applicationConfigurator) {
         appConfigurator = applicationConfigurator;
@@ -86,7 +91,7 @@ public final class ApplicationStateCoordinator {
     }
 
     public static long getApplicationStartTimeout() {
-        return startTimeout;
+        return checkpointPhase.restored() ? startTimeout : startTimeout * 3;
     }
 
     public static void setApplicationStopTimeout(long applicationStoptimeout) {
@@ -116,7 +121,6 @@ public final class ApplicationStateCoordinator {
     }
 
     public static String[] getSlowlyStartingApps() {
-        TimeUnit unit = TimeUnit.SECONDS;
         try {
             while (true) {
                 if (waitForStartingAppPidsLatch.await(1, TimeUnit.SECONDS)) {
@@ -131,27 +135,15 @@ public final class ApplicationStateCoordinator {
             //autoFFDC
         }
         if (appConfigurator != null) {
-            long endTime = System.nanoTime() + unit.toNanos(getApplicationStartTimeout());
             try {
-                do {
-                    if (unconfiguredApps.await(1, TimeUnit.SECONDS)) {
-                        break;
-                    }
-                } while (System.nanoTime() < endTime);
-
+                unconfiguredApps.await(getApplicationStartTimeout(), TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 // Auto FFDC
             }
 
             appConfigurator.readyForAppsToStart();
-            endTime = System.nanoTime() + unit.toNanos(getApplicationStartTimeout());
             try {
-                do {
-                    if (unstartedApps.await(1, TimeUnit.SECONDS)) {
-                        break;
-                    }
-                } while (System.nanoTime() < endTime);
-
+                unstartedApps.await(getApplicationStartTimeout(), TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 // Auto FFDC
             }
@@ -180,19 +172,12 @@ public final class ApplicationStateCoordinator {
     }
 
     public static String[] getSlowlyStoppingApps() {
-        TimeUnit unit = TimeUnit.SECONDS;
         if (appConfigurator == null) {
             return null;
         }
         appConfigurator.readyForAppsToStop();
-        long endTime = System.nanoTime() + unit.toNanos(getApplicationStopTimeout());
         try {
-            do {
-                if (unstoppedApps.await(1, TimeUnit.SECONDS)) {
-                    break;
-                }
-            } while (System.nanoTime() < endTime);
-
+            unstoppedApps.await(getApplicationStopTimeout(), TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             // Auto FFDC
         }

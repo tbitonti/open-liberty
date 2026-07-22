@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2020 IBM Corporation and others.
+ * Copyright (c) 2009, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -427,6 +429,7 @@ public final class MetaTypeRegistry {
             this.isParentFirst = isParentFirst;
         }
 
+        @Trivial // Prevent 'calling traceable methods' warning from PidReference.toString
         public String getAccessor() {
             return baseAccessor;
         }
@@ -1289,7 +1292,7 @@ public final class MetaTypeRegistry {
                                 attributeMap = ocd.getAttributeMap();
                                 if (attributeMap != null) {
                                     ExtendedAttributeDefinition id = attributeMap.get("id");
-                                    if (id.isFinal())
+                                    if (id != null && id.isFinal())
                                         return -1; // cardinality is negative for Vector, positive for array
                                 }
                             }

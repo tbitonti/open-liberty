@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,14 +15,24 @@ package com.ibm.tx.jta.cdi.interceptors;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
+import java.security.AccessController;
+import java.util.Set;
 
 import javax.enterprise.inject.Stereotype;
 import javax.interceptor.InvocationContext;
 import javax.transaction.Transactional;
+import javax.transaction.TransactionalException;
+
+import org.osgi.framework.FrameworkUtil;
 
 import com.ibm.tx.TranConstants;
-import com.ibm.tx.util.logging.Tr;
-import com.ibm.tx.util.logging.TraceComponent;
+import com.ibm.tx.config.ConfigurationProviderManager;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.cdi.CDIService;
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+import com.ibm.ws.kernel.service.util.SecureAction;
 import com.ibm.ws.tx.jta.embeddable.UserTransactionController;
 import com.ibm.wsspi.uow.ExtendedUOWAction;
 import com.ibm.wsspi.uow.UOWManager;
@@ -31,6 +43,10 @@ public abstract class TransactionalInterceptor implements Serializable {
     private static final long serialVersionUID = 485903803670044161L;
 
     private static final TraceComponent tc = Tr.register(TransactionalInterceptor.class, TranConstants.TRACE_GROUP, TranConstants.NLS_FILE);
+
+    private static final SecureAction priv = AccessController.doPrivileged(SecureAction.get());
+
+    private final boolean behaveAccordingToSpec = behaveAccordingToSpec();
 
     /*
      * Find the Transactional annotation being processed
@@ -47,6 +63,21 @@ public abstract class TransactionalInterceptor implements Serializable {
             // Getting the class of the target only gives us a WELD proxy that won't have the annotations
             // if they're not defined as @Inherited, so we need to go a level higher in the class hierarchy.
             interceptor = findTransactionalInterceptor(context.getTarget().getClass().getSuperclass());
+
+            if (interceptor == null) {
+                CDIService cdiService = priv.getService(FrameworkUtil.getBundle(CDIService.class), CDIService.class);
+                if (cdiService != null) {
+                    Set<Annotation> bindings = cdiService.getInterceptorBindingsFromInvocationContext(context);
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                        Tr.debug(this, tc, "bindings:", bindings);
+                    if (bindings != null)
+                        for (Annotation anno : bindings)
+                            if (Transactional.class.equals(anno.annotationType())) {
+                                interceptor = (Transactional) anno;
+                                break;
+                            }
+                }
+            }
         }
 
         if (interceptor == null) {
@@ -119,7 +150,12 @@ public abstract class TransactionalInterceptor implements Serializable {
         return UOWManagerFactory.getUOWManager();
     }
 
-    protected Object runUnderUOWManagingEnablement(int uowType, boolean join, final InvocationContext context, String txLabel) throws Exception {
+    private boolean behaveAccordingToSpec() {
+        return ConfigurationProviderManager.getConfigurationProvider().isUTAsSpecified();
+    }
+
+    @FFDCIgnore(Exception.class)
+    protected Object runUnderUOW(int uowType, boolean join, final InvocationContext context, String txLabel, boolean uTEnabled) throws Exception {
 
         // Get hold of the actual annotation so we can pass the lists of exceptions to runUnderUOW
         final Transactional t = getTransactionalAnnotation(context, txLabel);
@@ -132,13 +168,19 @@ public abstract class TransactionalInterceptor implements Serializable {
             @Override
             public Object run() throws Exception {
                 //disable access to UserTransaction while we're running the user code
-                tranCont.setEnabled(false);
+                if (tc.isDebugEnabled())
+                    Tr.debug(tc, "1: uTEnabled: {0}, behaveAccordingToSpec: {1}", uTEnabled, behaveAccordingToSpec);
+                if (!uTEnabled || behaveAccordingToSpec)
+                    tranCont.setEnabled(uTEnabled);
                 try {
                     return context.proceed();
                 } finally {
                     // reenable access to the UT after we're done. Allows WAS UOW code to
                     // access UT if it needs to.
-                    tranCont.setEnabled(true);
+                    if (tc.isDebugEnabled())
+                        Tr.debug(tc, "2: uTEnabled: {0}, behaveAccordingToSpec: {1}", uTEnabled, behaveAccordingToSpec);
+                    if (!uTEnabled || behaveAccordingToSpec)
+                        tranCont.setEnabled(isUTEnabled);
                 }
             }
         };
@@ -146,28 +188,53 @@ public abstract class TransactionalInterceptor implements Serializable {
         try {
             // allow access to UT while we're within App Server code.  Allows WAS UOW code to use
             // UT methods if it needs to.
-            tranCont.setEnabled(true);
+            if (tc.isDebugEnabled())
+                Tr.debug(tc, "3: uTEnabled: {0}, behaveAccordingToSpec: {1}", uTEnabled, behaveAccordingToSpec);
+            if (!uTEnabled || behaveAccordingToSpec)
+                tranCont.setEnabled(true);
 
             return getUOWM().runUnderUOW(uowType, join, a, t.rollbackOn(), t.dontRollbackOn());
+        } catch (Exception e) {
+            throw processException(context, e);
         } finally {
             // Reset access to UT to what it was when we started the method.
-            tranCont.setEnabled(isUTEnabled);
+            if (tc.isDebugEnabled())
+                Tr.debug(tc, "4: uTEnabled: {0}, behaveAccordingToSpec: {1}", uTEnabled, behaveAccordingToSpec);
+            if (!uTEnabled || behaveAccordingToSpec)
+                tranCont.setEnabled(isUTEnabled);
         }
     }
 
-    protected Object runUnderUOWNoEnablement(int uowType, boolean join, final InvocationContext context, String txLabel) throws Exception {
+    @Trivial
+    private Exception processException(final InvocationContext context, Exception e) {
+        if (ConfigurationProviderManager.getConfigurationProvider().isThrowCheckedExceptions()) {
+            if (tc.isDebugEnabled())
+                Tr.debug(tc, "processException: configured to throw any exceptions.");
+            return e;
+        }
 
-        // Get hold of the actual annotation so we can pass the lists of exceptions to runUnderUOW
-        final Transactional t = getTransactionalAnnotation(context, txLabel);
-
-        final ExtendedUOWAction a = new ExtendedUOWAction() {
-            @Override
-            public Object run() throws Exception {
-                return context.proceed();
+        for (Class<?> declaredException : context.getMethod().getExceptionTypes()) {
+            if (declaredException.isAssignableFrom(e.getClass())) {
+                if (tc.isDebugEnabled())
+                    Tr.debug(tc, "processException: {0} is assignable from {1}. We can just return it.", declaredException, e.getClass());
+                return e;
+            } else {
+                if (tc.isDebugEnabled())
+                    Tr.debug(tc, "processException: {0} is not assignable from {1}", declaredException, e.getClass());
             }
-        };
+        }
 
-        return getUOWM().runUnderUOW(uowType, join, a, t.rollbackOn(), t.dontRollbackOn());
+        // If it's already a RuntimeException, we can throw it
+        if (e instanceof RuntimeException) {
+            if (tc.isDebugEnabled())
+                Tr.debug(tc, "processException: {0} is already a RuntimeException. We can just return it.", e.getClass().getName());
+            return e;
+        }
 
+        // So we need to wrap it in a RuntimeException
+        final TransactionalException te = new TransactionalException(e.getMessage(), e);
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "processException: wrapping {0} in a TransactionalException", e.getClass().getName());
+        return te;
     }
 }

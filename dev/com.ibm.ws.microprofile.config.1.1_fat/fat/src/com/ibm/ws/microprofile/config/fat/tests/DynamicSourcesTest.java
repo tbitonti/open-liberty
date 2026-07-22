@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2018 IBM Corporation and others.
+ * Copyright (c) 2016, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,6 +22,7 @@ import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.microprofile.appConfig.dynamicSources.test.DynamicSourcesTestServlet;
 import com.ibm.ws.microprofile.config.fat.suite.SharedShrinkWrapApps;
 
@@ -60,7 +63,7 @@ public class DynamicSourcesTest extends FATServletClient {
                                                                                   + ".war/resources/META-INF/services/org.eclipse.microprofile.config.spi.ConfigSource"),
                                                                          "services/org.eclipse.microprofile.config.spi.ConfigSource");
 
-        ShrinkHelper.exportDropinAppToServer(server, dynamicSources_war);
+        ShrinkHelper.exportDropinAppToServer(server, dynamicSources_war, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }

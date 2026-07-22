@@ -1,18 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2017,2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.beanvalidation.fat.basic;
 
-import static com.ibm.websphere.simplicity.ShrinkHelper.buildDefaultApp;
-import static com.ibm.websphere.simplicity.ShrinkHelper.defaultDropinApp;
-import static com.ibm.websphere.simplicity.ShrinkHelper.exportToServer;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
@@ -21,7 +20,9 @@ import java.util.List;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 
-import componenttest.rules.repeater.JakartaEE9Action;
+import com.ibm.websphere.simplicity.ShrinkHelper;
+
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 
@@ -35,35 +36,35 @@ public abstract class BasicValidation_Common extends FATServletClient {
     protected static int bvalVersion;
 
     public static void createAndExportCommonWARs(LibertyServer server) throws Exception {
-        defaultDropinApp(server, "defaultbeanvalidation_10.war", "defaultbeanvalidation10.web.*");
-        defaultDropinApp(server, "defaultbeanvalidation_11.war", "defaultbeanvalidation11.web.*");
-        WebArchive beanvalidation_10War = buildDefaultApp("beanvalidation_10.war", "beanvalidation10.*");
-        WebArchive beanvalidation_11War = buildDefaultApp("beanvalidation_11.war", "beanvalidation11.*");
+        ShrinkHelper.defaultDropinApp(server, "defaultbeanvalidation_10.war", "defaultbeanvalidation10.web.*");
+        ShrinkHelper.defaultDropinApp(server, "defaultbeanvalidation_11.war", "defaultbeanvalidation11.web.*");
+        WebArchive beanvalidation_10War = ShrinkHelper.buildDefaultApp("beanvalidation_10.war", "beanvalidation10.*");
+        WebArchive beanvalidation_11War = ShrinkHelper.buildDefaultApp("beanvalidation_11.war", "beanvalidation11.*");
 
-        if (JakartaEE9Action.isActive()) {
+        if (JakartaEEAction.isEE9OrLaterActive()) {
             beanvalidation_10War.move("/WEB-INF/constraints-house_EE9.xml", "/WEB-INF/constraints-house.xml");
             beanvalidation_11War.move("/WEB-INF/constraints-house_EE9.xml", "/WEB-INF/constraints-house.xml");
         }
 
-        exportToServer(server, "dropins", beanvalidation_10War);
-        exportToServer(server, "dropins", beanvalidation_11War);
+        ShrinkHelper.exportDropinAppToServer(server, beanvalidation_10War);
+        ShrinkHelper.exportDropinAppToServer(server, beanvalidation_11War);
     }
 
     public static void createAndExportApacheWARs(LibertyServer server) throws Exception {
-        defaultDropinApp(server, "ApacheBvalConfig_10.war", "beanvalidation.apachebvalconfig10.web");
-        defaultDropinApp(server, "ApacheBvalConfig_11.war", "beanvalidation.apachebvalconfig11.web");
+        ShrinkHelper.defaultDropinApp(server, "ApacheBvalConfig_10.war", "beanvalidation.apachebvalconfig10.web");
+        ShrinkHelper.defaultDropinApp(server, "ApacheBvalConfig_11.war", "beanvalidation.apachebvalconfig11.web");
     }
 
     public static void createAndExportCDIWARs(LibertyServer server) throws Exception {
-        defaultDropinApp(server, "BeanValidationCDI_11" + ".war", "beanvalidation.cdi.*");
-        defaultDropinApp(server, "DefaultBeanValidationCDI_11" + ".war", "defaultbeanvalidation.cdi.*");
+        ShrinkHelper.defaultDropinApp(server, "BeanValidationCDI_11" + ".war", "beanvalidation.cdi.*");
+        ShrinkHelper.defaultDropinApp(server, "DefaultBeanValidationCDI_11" + ".war", "defaultbeanvalidation.cdi.*");
     }
 
     public abstract LibertyServer getServer();
 
     protected void run(String war, String servlet) throws Exception {
         String originalTestName = testName.getMethodName();
-        originalTestName = originalTestName.replace("_EE9_FEATURES", "");
+        originalTestName = removeEETag(originalTestName);
         String servletTest = originalTestName.substring(0, originalTestName.length() - 2);
         run(war, servlet, servletTest);
     }
@@ -74,6 +75,14 @@ public abstract class BasicValidation_Common extends FATServletClient {
      */
     protected void run(String war, String servlet, String testMethod) throws Exception {
         FATServletClient.runTest(getServer(), war + "/" + servlet, testMethod);
+    }
+
+    /**
+     * Removes the _EEXX_FEATURES tag appended to test names.
+     * For example: testName_EE9_FEATURES -> testName
+     */
+    public static String removeEETag(String s) {
+        return s.replaceAll("_EE\\d*_FEATURES", "");
     }
 
     /**

@@ -1,18 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.microprofile.reactive.messaging.fat.suite;
 
-import static com.ibm.ws.microprofile.reactive.messaging.fat.suite.ConnectorProperties.simpleIncomingChannel;
-import static com.ibm.ws.microprofile.reactive.messaging.fat.suite.ConnectorProperties.simpleOutgoingChannel;
-import static com.ibm.ws.microprofile.reactive.messaging.fat.suite.KafkaUtils.kafkaClientLibs;
+import static com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.ConnectorProperties.simpleIncomingChannel;
+import static com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.ConnectorProperties.simpleOutgoingChannel;
+import static com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.KafkaUtils.kafkaClientLibs;
+import static com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.KafkaUtils.kafkaStopServer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
@@ -41,6 +41,7 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -49,9 +50,12 @@ import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.microprofile.reactive.messaging.fat.apps.kafka.BasicMessagingBean;
 import com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.KafkaTestConstants;
+import com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.KafkaUtils;
+import com.ibm.ws.microprofile.reactive.messaging.fat.repeats.ReactiveMessagingActions;
 
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 
 /**
@@ -62,8 +66,13 @@ public class KafkaMessagingTest {
 
     private static final String APP_NAME = "basicKafkaTest";
 
-    @Server("SimpleRxMessagingServer")
+    public static final String SERVER_NAME = "SimpleRxMessagingServer";
+
+    @Server(SERVER_NAME)
     public static LibertyServer server;
+
+    @ClassRule
+    public static RepeatTests r = ReactiveMessagingActions.repeatDefault(SERVER_NAME);
 
     private static KafkaConsumer<String, String> kafkaConsumer;
     private static KafkaProducer<String, String> kafkaProducer;
@@ -71,8 +80,8 @@ public class KafkaMessagingTest {
     @BeforeClass
     public static void setup() throws Exception {
         PropertiesAsset config = new PropertiesAsset()
-                        .include(simpleOutgoingChannel(PlaintextTests.kafkaContainer, "test-out"))
-                        .include(simpleIncomingChannel(PlaintextTests.kafkaContainer, "test-in", "test-consumer"));
+                        .include(simpleOutgoingChannel(PlaintextTests.connectionProperties(), "test-out"))
+                        .include(simpleIncomingChannel(PlaintextTests.connectionProperties(), "test-in", "test-consumer"));
 
         WebArchive war = ShrinkWrap.create(WebArchive.class, APP_NAME + ".war")
                         .addPackage(BasicMessagingBean.class.getPackage())
@@ -148,13 +157,17 @@ public class KafkaMessagingTest {
     }
 
     @AfterClass
-    public static void testdownProducer() {
+    public static void teardownProducer() {
         kafkaProducer.close();
     }
 
     @AfterClass
     public static void teardownTest() throws Exception {
-        server.stopServer();
+        try {
+            kafkaStopServer(server);
+        } finally {
+            KafkaUtils.deleteKafkaTopics(PlaintextTests.getAdminClient());
+        }
     }
 
 }

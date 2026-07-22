@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2020 IBM Corporation and others.
+ * Copyright (c) 2009, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -43,6 +45,9 @@ import org.eclipse.equinox.region.RegionFilter;
 import org.eclipse.equinox.region.RegionFilterBuilder;
 import org.eclipse.osgi.container.Module;
 import org.eclipse.osgi.container.ModuleWiring;
+import org.eclipse.osgi.report.resolution.ResolutionReport;
+import org.eclipse.osgi.report.resolution.ResolutionReport.Entry;
+import org.eclipse.osgi.report.resolution.ResolutionReport.Entry.Type;
 import org.eclipse.osgi.util.ManifestElement;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -60,6 +65,8 @@ import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.framework.wiring.FrameworkWiring;
 import org.osgi.namespace.service.ServiceNamespace;
 import org.osgi.resource.Capability;
+import org.osgi.resource.Requirement;
+import org.osgi.resource.Resource;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
@@ -67,6 +74,7 @@ import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.kernel.boot.internal.BootstrapConstants;
 import com.ibm.ws.kernel.feature.ApiRegion;
 import com.ibm.ws.kernel.feature.internal.BundleList.FeatureResourceHandler;
+import com.ibm.ws.kernel.feature.internal.PackageInspectorImpl.PackageInfo;
 import com.ibm.ws.kernel.feature.internal.subsystem.FeatureDefinitionUtils;
 import com.ibm.ws.kernel.feature.provisioning.ActivationType;
 import com.ibm.ws.kernel.feature.provisioning.FeatureResource;
@@ -99,6 +107,11 @@ public class Provisioner {
 
     private static final Pattern INVALID_REGION_CHARS = Pattern.compile("[:=\\n*?\"\\\\]");
 
+    // RegionFilter.VISIBLE_SERVICE_NAMESPACE is deprecated.
+    // The deprecation comment suggests using RegionFilter.VISIBLE_OSGI_SERVICE_NAMESPACE ("osgi.service").
+    @SuppressWarnings("deprecation")
+    private static final String VISIBLE_SERVICE_NAMESPACE = RegionFilter.VISIBLE_SERVICE_NAMESPACE;
+
     /**
      * This rule denies all capabilities with the namespace
      * osgi.wiring.package, osgi.wiring.bundle, or osgi.wiring.host.
@@ -125,7 +138,7 @@ public class Provisioner {
                                                                         "(" + RegionFilter.VISIBLE_ALL_NAMESPACE_ATTRIBUTE + "=" + RegionFilter.VISIBLE_BUNDLE_NAMESPACE + ")" +
                                                                         "(" + RegionFilter.VISIBLE_ALL_NAMESPACE_ATTRIBUTE + "=" + RegionFilter.VISIBLE_BUNDLE_LIFECYCLE_NAMESPACE
                                                                         + ")" +
-                                                                        "(" + RegionFilter.VISIBLE_ALL_NAMESPACE_ATTRIBUTE + "=" + RegionFilter.VISIBLE_SERVICE_NAMESPACE + ")" +
+                                                                        "(" + RegionFilter.VISIBLE_ALL_NAMESPACE_ATTRIBUTE + "=" + VISIBLE_SERVICE_NAMESPACE + ")" +
                                                                         "(" + RegionFilter.VISIBLE_ALL_NAMESPACE_ATTRIBUTE + "=" + ServiceNamespace.SERVICE_NAMESPACE + ")))";
 
     /**
@@ -150,6 +163,8 @@ public class Provisioner {
     private static final String THREAD_CONTEXT_FILTER = "(thread-context=true)";
 
     private static final String REGION_KERNEL = "org.eclipse.equinox.region.kernel";
+
+    private static final String REGION_ALL_SPI = "liberty.all.spi";
 
     /** Owning/Associated feature manager */
     private final FeatureManager featureManager;
@@ -302,9 +317,9 @@ public class Provisioner {
                             bsl.setStartLevel(level);
 
                         }
-
-                        installStatus.addBundleToStart(bundle);
                     }
+                    // always add to start even for fragments to get proper resolution reporting
+                    installStatus.addBundleToStart(bundle);
 
                     // need to get a resource for the bundle list createAssociation
                     // call, if we end up with a null resource then bad things
@@ -475,27 +490,50 @@ public class Provisioner {
      * to avoid intermittent issues with BundleException.STATECHANGED
      * during Bundle start as other bundles resolve asynchronously
      *
+     * @param resolutionReport
+     *
      * @return BundleStartStatus object containing exceptions encountered while
      *         starting bundles
      * @see BundleLifecycleStatus
      */
     @FFDCIgnore(BundleException.class)
-    public BundleLifecycleStatus preStartBundles(List<Bundle> installedBundles) {
+    public BundleLifecycleStatus preStartBundles(List<Bundle> installedBundles, ResolutionReportHelper resolutionReportHelper) {
         BundleLifecycleStatus startStatus = new BundleLifecycleStatus();
+
+        ResolutionReport resolutionReport = resolutionReportHelper != null ? resolutionReportHelper.getResolutionReport() : null;
+        Map<Resource, List<Entry>> resolutionEntries = resolutionReport != null ? resolutionReport.getEntries() : Collections.emptyMap();
 
         if (installedBundles == null || installedBundles.size() == 0)
             return startStatus;
 
         for (Bundle b : installedBundles) {
             // Skip any null bundles in the list
-            if (b == null)
+            if (b == null) {
                 continue;
+            }
 
             int state = b.getState();
-
+            BundleRevision bRev = b.adapt(BundleRevision.class);
             // Only start bundles that are in certain states (not UNINSTALLED, or already STARTING)
-            if (state == Bundle.UNINSTALLED || state >= org.osgi.framework.Bundle.STARTING)
+            if (state == Bundle.UNINSTALLED || state >= org.osgi.framework.Bundle.STARTING) {
                 continue;
+            }
+
+            if (bRev == null) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    // This should never be null if the state was not UNINSTALLED above
+                    Tr.debug(this, tc, "bRev is null for bundle: " + b);
+                }
+                continue;
+            }
+            if ((bRev.getTypes() & BundleRevision.TYPE_FRAGMENT) == BundleRevision.TYPE_FRAGMENT) {
+                // Need to log for fragments here because they are not logged anywhere else.
+                // TODO we should log this, but FATs don't expect it yet
+                // if (state == Bundle.INSTALLED && resolutionEntries.containsKey(bRev)) {
+                //     startStatus.addStartException(b, new BundleException(resolutionReport.getResolutionReportMessage(bRev), BundleException.RESOLVE_ERROR));
+                // }
+                continue;
+            }
 
             try {
                 b.start(Bundle.START_ACTIVATION_POLICY);
@@ -513,9 +551,9 @@ public class Provisioner {
      *
      * @param bundlesToResolve
      */
-    public void resolveBundles(BundleContext bContext, List<Bundle> bundlesToResolve) {
+    public ResolutionReportHelper resolveBundles(BundleContext bContext, List<Bundle> bundlesToResolve, ShutdownHookManager shutdownHook) {
         if (bundlesToResolve == null || bundlesToResolve.size() == 0) {
-            return;
+            return null;
         }
 
         // do a quick check if there is any work to do
@@ -525,24 +563,66 @@ public class Provisioner {
             allResolved &= (bundle.getState() & resolveMask) != 0;
         }
         if (allResolved) {
-            return;
+            return null;
         }
+        ResolutionReportHelper rrh = null;
         FrameworkWiring wiring = adaptSystemBundle(bContext, FrameworkWiring.class);
         if (wiring != null) {
-            ResolutionReportHelper rrh = null;
-            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                rrh = new ResolutionReportHelper();
-                rrh.startHelper(bContext);
+            rrh = doResolveBundles(bContext, wiring, bundlesToResolve);
+            Collection<Bundle> toRefresh = forceHostsRefresh(rrh.getResolutionReport(), wiring);
+            if (!toRefresh.isEmpty()) {
+                refreshBundles(toRefresh, shutdownHook);
+                rrh = doResolveBundles(bContext, wiring, bundlesToResolve);
             }
-            try {
-                wiring.resolveBundles(bundlesToResolve);
-            } finally {
-                if (rrh != null) {
-                    rrh.stopHelper();
-                    Tr.debug(this, tc, rrh.getResolutionReportString());
+        }
+        return rrh;
+    }
+
+    private Collection<Bundle> forceHostsRefresh(ResolutionReport report, FrameworkWiring wiring) {
+        Map<Resource, List<Entry>> reportEntries = report.getEntries();
+        Collection<Bundle> toRefresh = new ArrayList<>();
+        for (Map.Entry<Resource, List<Entry>> entry : reportEntries.entrySet()) {
+            // only check entries for fragment resources
+            if ((((BundleRevision) entry.getKey()).getTypes() & BundleRevision.TYPE_FRAGMENT) == BundleRevision.TYPE_FRAGMENT) {
+                List<Entry> values = entry.getValue();
+                for (Entry valueEntry : values) {
+                    // When a fragment cannot be attached to a host dynamically then it shows up as a MISSING_CAPABILITY
+                    // for the HOST_NAMESPACE
+                    if (valueEntry.getType() == Type.MISSING_CAPABILITY && valueEntry.getData() instanceof Requirement) {
+                        if (HostNamespace.HOST_NAMESPACE.equals(((Requirement) valueEntry.getData()).getNamespace())) {
+                            // check for install host that match the requriement
+                            Collection<BundleCapability> hosts = wiring.findProviders((Requirement) valueEntry.getData());
+                            if (!hosts.isEmpty()) {
+                                for (BundleCapability hostCap : hosts) {
+                                    Bundle hostBundle = hostCap.getResource().getBundle();
+                                    int hostState = hostBundle.getState();
+                                    if (hostState != Bundle.UNINSTALLED && hostState != Bundle.INSTALLED) {
+                                        // if the host bundle is resolved then add it to be refreshed
+                                        toRefresh.add(hostBundle);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
+        return toRefresh;
+    }
+
+    private ResolutionReportHelper doResolveBundles(BundleContext bContext, FrameworkWiring wiring, List<Bundle> bundlesToResolve) {
+        ResolutionReportHelper rrh = new ResolutionReportHelper();
+        rrh.startHelper(bContext);
+
+        try {
+            wiring.resolveBundles(bundlesToResolve);
+        } finally {
+            rrh.stopHelper();
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(this, tc, rrh.getResolutionReportString());
+            }
+        }
+        return rrh;
     }
 
     /**
@@ -740,7 +820,7 @@ public class Provisioner {
         RegionFilterBuilder builder = digraph.createRegionFilterBuilder();
         // allow all services into the product hub so that all services registered by
         //  gateway bundles are visible for all to use (JNDI needs this).
-        builder.allowAll(RegionFilter.VISIBLE_SERVICE_NAMESPACE);
+        builder.allowAll(VISIBLE_SERVICE_NAMESPACE);
         RegionFilter filter = builder.build();
 
         for (ApiRegion apiRegion : ApiRegion.values()) {
@@ -749,6 +829,12 @@ public class Provisioner {
                 regionApiHub = digraph.createRegion(apiRegion.getRegionName());
                 productHub.connectRegion(regionApiHub, filter);
             }
+        }
+
+        Region regionSpiHub = digraph.getRegion(REGION_ALL_SPI);
+        if (regionSpiHub == null) {
+            regionSpiHub = digraph.createRegion(REGION_ALL_SPI);
+            productHub.connectRegion(regionSpiHub, filter);
         }
     }
 
@@ -790,6 +876,8 @@ public class Provisioner {
         List<String> userDefinedApiFilters = new ArrayList<String>();
         List<String> internalApiFilters = new ArrayList<String>();
         List<String> osgiAppsAPIFilters = new ArrayList<String>();
+        List<String> spiFilters = new ArrayList<String>();
+
         for (Iterator<String> gatewayPackages = featureManager.packageInspector.getGatewayPackages(productName); gatewayPackages.hasNext();) {
             String packageName = gatewayPackages.next();
             if (apiPackagesToIgnore.contains(packageName)) {
@@ -799,10 +887,14 @@ public class Provisioner {
                 }
                 continue;
             }
-            String clause = "(" + PackageNamespace.PACKAGE_NAMESPACE + "=" + packageName + ")";
-            // all types of gateway packages are available to osgi apps
-            osgiAppsAPIFilters.add(clause);
+
             PackageType type = featureManager.packageInspector.getExportedPackageType(packageName);
+            String clause = "(" + PackageNamespace.PACKAGE_NAMESPACE + "=" + packageName + ")";
+
+            // all types of api gateway packages are available to osgi apps
+            if (((PackageInfo) type).isApi()) {
+                osgiAppsAPIFilters.add(clause);
+            }
             if (type.isInternalApi()) {
                 // TODO For internal types only add to the internal region
                 // All the defined api type regions delegate to internal
@@ -826,6 +918,9 @@ public class Provisioner {
                 if (type.isUserDefinedApi()) {
                     userDefinedApiFilters.add(clause);
                 }
+                if (type.isSpi()) {
+                    spiFilters.add(clause);
+                }
             }
         }
 
@@ -838,6 +933,8 @@ public class Provisioner {
         connectGatewayRegion(ApiRegion.USER, userDefinedApiFilters, productRegion, null, digraph);
         connectGatewayRegion(ApiRegion.INTERNAL, internalApiFilters, productRegion, null, digraph);
         connectGatewayRegion(ApiRegion.THREAD_CONTEXT, Collections.singletonList(THREAD_CONTEXT_FILTER), productRegion, null, digraph);
+
+        connectGatewaySpiRegion(spiFilters, productRegion, digraph);
     }
 
     /**
@@ -889,7 +986,7 @@ public class Provisioner {
                         }
                         toProductBuilder.allow(ServiceNamespace.SERVICE_NAMESPACE, serviceFilterBuilder.toString());
                         // TODO Need to remove the following allow once it is deprecated by equinox regions
-                        toProductBuilder.allow(RegionFilter.VISIBLE_SERVICE_NAMESPACE, serviceFilterBuilder.toString());
+                        toProductBuilder.allow(VISIBLE_SERVICE_NAMESPACE, serviceFilterBuilder.toString());
                     }
                 }
             }
@@ -897,12 +994,28 @@ public class Provisioner {
             for (String commonServiceFilter : COMMON_OSGI_APPS_SERVICE_REQUIREMENTS) {
                 toProductBuilder.allow(ServiceNamespace.SERVICE_NAMESPACE, commonServiceFilter);
                 // TODO Need to remove the following allow once it is deprecated by equinox regions
-                toProductBuilder.allow(RegionFilter.VISIBLE_SERVICE_NAMESPACE, commonServiceFilter);
+                toProductBuilder.allow(VISIBLE_SERVICE_NAMESPACE, commonServiceFilter);
             }
         }
 
         Region regionApiHub = digraph.getRegion(apiRegion.getRegionName());
         regionApiHub.connectRegion(productRegion, toProductBuilder.build());
+    }
+
+    private void connectGatewaySpiRegion(List<String> packageFilters, Region productRegion, RegionDigraph digraph) throws InvalidSyntaxException, BundleException {
+        RegionFilterBuilder toProductBuilder = digraph.createRegionFilterBuilder();
+
+        toProductBuilder.allow(RegionFilter.VISIBLE_ALL_NAMESPACE, COMMON_ALL_NAMESPACE_FILTER);
+        toProductBuilder.allow(BundleNamespace.BUNDLE_NAMESPACE, COMMON_BUNDLE_NAMESPACE_FILTER);
+
+        // Create a sharing rule for importing all capabilities in the osgi.wiring.package namespace
+        // which are SPI packages.
+        for (String packageFilter : packageFilters) {
+            toProductBuilder.allow(RegionFilter.VISIBLE_PACKAGE_NAMESPACE, packageFilter);
+        }
+
+        Region regionSpiHub = digraph.getRegion(REGION_ALL_SPI);
+        regionSpiHub.connectRegion(productRegion, toProductBuilder.build());
     }
 
     /**

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2013 IBM Corporation and others.
+ * Copyright (c) 2010, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -297,6 +299,17 @@ public class Launcher {
         return rc;
     }
 
+    // logDirectory
+    // com.ibm.ws.logging.log.directory
+    // LOG_DIR
+    //
+    // You can use this setting to set a directory for all log files, excluding the console.log file,
+    // but including FFDC. The default is WLP_OUTPUT_DIR/serverName/logs. It is not recommended to set
+    // the logDirectory in the server.xml file since it can result in some log data being written to the
+    // default location prior to when the server.xml file is read.
+    //
+    // During launching, only "LOG_DIR" is known!
+    
     /**
      * Find main locations
      *
@@ -317,15 +330,21 @@ public class Launcher {
         // Check for the variable calculated by the shell script first (X_LOG_DIR)
         // If that wasn't found, check for LOG_DIR set for java -jar invocation
         String logDirStr = getEnv(BootstrapConstants.ENV_X_LOG_DIR);
-        if (logDirStr == null)
+        // String logDirSource;
+        if (logDirStr == null) {
             logDirStr = getEnv(BootstrapConstants.ENV_LOG_DIR);
+            // logDirSource = BootstrapConstants.ENV_LOG_DIR;
+        } else {
+            // logDirSource = BootstrapConstants.ENV_X_LOG_DIR;
+        }
+        // System.out.println("findLocations: Log Dir [ " + logDirStr + " ] from [ " + logDirSource + " ]");
 
         // Likewise for X_LOG_FILE and LOG_FILE.
         String consoleLogFileStr = getEnv(BootstrapConstants.ENV_X_LOG_FILE);
         if (consoleLogFileStr == null)
             consoleLogFileStr = getEnv(BootstrapConstants.ENV_LOG_FILE);
 
-        String serviceBindingRoot = getEnv(BootstrapConstants.ENV_SERVICE_BINDING_ROOT);
+        String variablePath = getEnv(BootstrapConstants.ENV_VARIABLE_SOURCE_DIRS);
 
         BootstrapLocations locations = new BootstrapLocations();
         locations.setProcessName(processName);
@@ -333,7 +352,7 @@ public class Launcher {
         locations.setServerDir(serversDirStr);
         locations.setLogDir(logDirStr);
         locations.setConsoleLogFile(consoleLogFileStr);
-        locations.setServiceBindingRoot(serviceBindingRoot);
+        locations.setVariableSourceDirs(variablePath);
 
         // Do enough processing to know where the directories should be.
         // this should not cause any directories to be created

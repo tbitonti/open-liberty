@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -92,9 +94,9 @@ public class MinifiedServerTestUtils {
     /**
      * This sets up the class ready to be used but does not create the minified server.
      *
-     * @param className  The name of the test class
+     * @param className The name of the test class
      * @param serverName The name of the server being used
-     * @param lserver    The server to be minified
+     * @param lserver The server to be minified
      * @throws Exception
      */
     public void setup(String className, String serverName, LibertyServer lserver) throws Exception {
@@ -118,9 +120,9 @@ public class MinifiedServerTestUtils {
     /**
      * This minifies a server and then extracts the minified server and starts it.
      *
-     * @param className  The name of the test class
+     * @param className The name of the test class
      * @param serverName The name of the server being used
-     * @param lserver    The server to be minified
+     * @param lserver The server to be minified
      * @throws Exception
      */
     public void setupAndStartMinifiedServer(String className, String serverName, LibertyServer lserver) throws Exception {
@@ -149,11 +151,11 @@ public class MinifiedServerTestUtils {
             useMinifiedServer(packageZip);
 
             // Put the required test files into the right place for new server..
-            fatTestCommon.copyToDest(new RemoteFile(server.getMachine(), server.getServerRoot() + "/../fatTestCommon.xml"));
-            fatTestPorts.copyToDest(new RemoteFile(server.getMachine(), server.getServerRoot() + "/../fatTestPorts.xml"));
-            testPortsProps.copyToDest(new RemoteFile(server.getMachine(), server.getServerRoot() + "/../testports.properties"));
+            fatTestCommon.copyToDest(server.getMachine().getFile(server.getServerRoot() + "/../fatTestCommon.xml"));
+            fatTestPorts.copyToDest(server.getMachine().getFile(server.getServerRoot() + "/../fatTestPorts.xml"));
+            testPortsProps.copyToDest(server.getMachine().getFile(server.getServerRoot() + "/../testports.properties"));
             if (serverEnv.exists())
-                serverEnv.copyToDest(new RemoteFile(server.getMachine(), server.getInstallRoot() + "/etc/server.env"));
+                serverEnv.copyToDest(server.getMachine().getFile(server.getInstallRoot() + "/etc/server.env"));
 
             Log.info(MinifiedServerTestUtils.class, "setup", "minified Install Root : " + server.getInstallRoot());
             Log.info(MinifiedServerTestUtils.class, "setup", "minified  Server Root : " + server.getServerRoot());
@@ -345,6 +347,20 @@ public class MinifiedServerTestUtils {
         }
     }
 
+    /**
+     * Checks if the manifest or lib/extract folders were created for the this test.
+     * If they were created they are invalid and may cause other test buckets to fail.
+     *
+     * @return true if the manifest or lib/extract was created with dummy values; else false
+     */
+    public boolean isManifestOrLibExtractCreatedForTest() {
+
+        if (createdManifest || createdLibExtract)
+            return true;
+        else
+            return false;
+    }
+
     public void tearDown() throws Exception {
         Log.info(MinifiedServerTestUtils.class, "tearDown", "issuing stop to server at " + server.getInstallRoot());
 
@@ -461,5 +477,4 @@ public class MinifiedServerTestUtils {
             br.close();
         }
     }
-
 }

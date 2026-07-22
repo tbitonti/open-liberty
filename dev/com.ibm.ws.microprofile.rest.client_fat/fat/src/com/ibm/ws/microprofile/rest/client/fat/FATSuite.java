@@ -1,29 +1,29 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.microprofile.rest.client.fat;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Locale;
 
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
-import componenttest.rules.repeater.FeatureReplacementAction;
+
+import componenttest.custom.junit.runner.FATRunner;
+import componenttest.rules.repeater.MicroProfileActions;
+import componenttest.rules.repeater.RepeatTests;
 
 @RunWith(Suite.class)
 @SuiteClasses({
                 AsyncMethodTest.class,
                 BasicTest.class,
                 BasicCdiTest.class,
-                BasicCdiInEE8Test.class,
                 BasicEJBTest.class,
                 CdiPropsAndProvidersTest.class,
                 CollectionsTest.class,
@@ -35,53 +35,167 @@ import componenttest.rules.repeater.FeatureReplacementAction;
                 MultiClientCdiTest.class,
                 ProduceConsumeTest.class,
                 PropsTest.class,
+                RESTClientUserFeatureTest.class,
                 SseTest.class
 })
 public class FATSuite {
-    private static final String[] ALL_VERSIONS = {"1.0", "1.1", "1.2", "1.3", "1.4", "2.0"};
+    private static final boolean isWindows = System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("win");
 
-    static FeatureReplacementAction MP_REST_CLIENT(String version, String serverName) {
-        return MP_REST_CLIENT(new FeatureReplacementAction(), version, serverName);
-    }
+    /*
+     * If you are adding a new MicroProfile version to this list of repeats, don't forget to update
+     * `publish/features/javax/MyRESTClient.mf` and `publish/features/jakarta/MyRESTClient.mf` to
+     * tolerate the new versions.
+     */
+    public static RepeatTests repeatMP13Up(String...servers) {
 
-    static FeatureReplacementAction MP_REST_CLIENT(FeatureReplacementAction action, String version, String serverName) {
-        return use(action, "mpRestClient", version)
-                        .withID("mpRestClient-" + version)
-                        .forServers(serverName);
-    }
+        // To avoid bogus timeout build-breaks on slow Windows hardware only run a few versions on
+        // Windows.
+        if (!(isWindows) || FATRunner.FAT_TEST_LOCALRUN) {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP61, // 3.0+EE10
+                                              MicroProfileActions.MP13, //mpRestClient-1.0
+                                              MicroProfileActions.MP20, //mpRestClient-1.1
+                                              MicroProfileActions.MP22, // 1.2
+                                              MicroProfileActions.MP30, // 1.3
+                                              MicroProfileActions.MP33, // 1.4
+                                              MicroProfileActions.MP40, // 2.0
+                                              MicroProfileActions.MP50);// 3.0
 
-    static FeatureReplacementAction MP_REST_CLIENT_WITH_CONFIG(String version, String serverName) {
-        return MP_REST_CLIENT_WITH_CONFIG(new FeatureReplacementAction(), version, serverName);
-    }
+        } else {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP13); //mpRestClient-1.0
 
-    static FeatureReplacementAction MP_REST_CLIENT_WITH_CONFIG(FeatureReplacementAction action, String version, String serverName) {
-        action = use(action, "mpRestClient", version)
-                        .withID("mpRestClient-" + version)
-                        .forServers(serverName);
-        switch(version) {
-            case "1.0":
-            case "1.1": return use(action, "mpConfig", "1.1", "1.0", "1.2", "1.3", "1.4", "2.0");
-            case "1.2":
-            case "1.3": return use(action, "mpConfig", "1.3", "1.0", "1.1", "1.2", "1.4", "2.0");
-            case "1.4": return use(action, "mpConfig", "1.4", "1.0", "1.1", "1.2", "1.3", "2.0");
-            case "2.0":
-            default:    return use(action, "mpConfig", "2.0", "1.0", "1.1", "1.2", "1.3", "1.4");
         }
+
     }
 
-    private static FeatureReplacementAction use(FeatureReplacementAction action, String featureName, String version) {
-        return use(action, featureName, version, ALL_VERSIONS);
-    }
+    public static RepeatTests repeatMP14Up(String...servers) {
 
-    private static FeatureReplacementAction use(FeatureReplacementAction action, String featureName, String version, String... versionsToRemove) {
-        action = action.addFeature(featureName + "-" + version);
-        Set<String> featuresToRemove = new HashSet<>();
-        for (String remove : versionsToRemove) {
-            if (!version.equals(remove)) {
-                featuresToRemove.add(featureName + "-" + remove);
-            }
+        // To avoid bogus timeout build-breaks on slow Windows hardware only run a few versions on
+        // Windows.
+        if (!(isWindows) || FATRunner.FAT_TEST_LOCALRUN) {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP61, // 3.0+EE10
+                                              MicroProfileActions.MP14, //mpRestClient-1.1
+                                              MicroProfileActions.MP20, //mpRestClient-1.1
+                                              MicroProfileActions.MP22, // 1.2
+                                              MicroProfileActions.MP30, // 1.3
+                                              MicroProfileActions.MP33, // 1.4
+                                              MicroProfileActions.MP40, // 2.0
+                                              MicroProfileActions.MP50);// 3.0
+
+        } else {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP14); //mpRestClient-1.1
+
         }
-        action = action.removeFeatures(featuresToRemove);
-        return action;
+
+    }
+
+    public static RepeatTests repeatMP20Up(String...servers) {
+
+        // To avoid bogus timeout build-breaks on slow Windows hardware only run a few versions on
+        // Windows.
+        if (!(isWindows) || FATRunner.FAT_TEST_LOCALRUN) {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP61, // 3.0+EE10
+                                              MicroProfileActions.MP20, //mpRestClient-1.1
+                                              MicroProfileActions.MP22, // 1.2
+                                              MicroProfileActions.MP30, // 1.3
+                                              MicroProfileActions.MP33, // 1.4
+                                              MicroProfileActions.MP40, // 2.0
+                                              MicroProfileActions.MP50);// 3.0
+
+        } else {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP20); //mpRestClient-1.1
+
+        }
+
+    }
+
+    public static RepeatTests repeatMP22Up(String...servers) {
+
+        // To avoid bogus timeout build-breaks on slow Windows hardware only run a few versions on
+        // Windows.
+        if (!(isWindows) || FATRunner.FAT_TEST_LOCALRUN) {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP61, // 3.0+EE10
+                                              MicroProfileActions.MP22, // 1.2
+                                              MicroProfileActions.MP30, // 1.3
+                                              MicroProfileActions.MP33, // 1.4
+                                              MicroProfileActions.MP40, // 2.0
+                                              MicroProfileActions.MP50);// 3.0
+
+        } else {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP22); //mpRestClient-1.2
+
+        }
+
+    }
+
+    public static RepeatTests repeatMP30Up(String...servers) {
+
+        // To avoid bogus timeout build-breaks on slow Windows hardware only run a few versions on
+        // Windows.
+        if (!(isWindows) || FATRunner.FAT_TEST_LOCALRUN) {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP61, // 3.0+EE10
+                                              MicroProfileActions.MP30, // 1.3
+                                              MicroProfileActions.MP33, // 1.4
+                                              MicroProfileActions.MP40, // 2.0
+                                              MicroProfileActions.MP50);// 3.0
+
+        } else {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP30);// mpRestClient-1.3
+
+        }
+
+    }
+    
+    public static RepeatTests repeatMP40Up(String...servers) {
+
+        // To avoid bogus timeout build-breaks on slow Windows hardware only run a few versions on
+        // Windows.
+        if (!(isWindows) || FATRunner.FAT_TEST_LOCALRUN) {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP61, // 3.0+EE10
+                                              MicroProfileActions.MP30, // 1.3
+                                              MicroProfileActions.MP33, // 1.4
+                                              MicroProfileActions.MP40, // 2.0
+                                              MicroProfileActions.MP50);// 3.0
+
+        } else {
+            return MicroProfileActions.repeat(servers,
+                                              MicroProfileActions.MP70_EE11, // 4.0_EE11
+                                              MicroProfileActions.MP70_EE10, // 4.0_EE10
+                                              MicroProfileActions.MP30);// mpRestClient-1.3
+
+        }
     }
 }
+

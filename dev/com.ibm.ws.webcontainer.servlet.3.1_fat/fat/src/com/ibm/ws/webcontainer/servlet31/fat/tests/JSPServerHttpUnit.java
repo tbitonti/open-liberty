@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2021 IBM Corporation and others.
+ * Copyright (c) 2013, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.servlet31.fat.tests;
 
@@ -25,6 +24,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.ws.webcontainer.servlet31.fat.FATSuite;
 import com.meterware.httpunit.PostMethodWebRequest;
 import com.meterware.httpunit.UploadFileSpec;
 import com.meterware.httpunit.WebConversation;
@@ -73,6 +73,10 @@ public class JSPServerHttpUnit {
 
         // Start the server and use the class name so we can find logs easily.
         jspServer.startServer(JSPServerHttpUnit.class.getSimpleName() + ".log");
+
+        if (FATSuite.isWindows) {
+            FATSuite.setDynamicTrace(jspServer, "*=info=enabled");
+        }
     }
 
     @AfterClass

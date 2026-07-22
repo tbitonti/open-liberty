@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,8 +27,8 @@ public interface TransactionSupport
 
 	/**
 	 * begin to commit a transaction (which has been started by beginTx())
-	 * @param the transaction to be commited. this should matc the return value of beginTx()
-	 * if null is provided the application should commit all uncommited work.
+	 * @param the transaction to be committed. This should match the return value of beginTx()
+	 * if null is provided, it should commit all of the uncommitted work.
 	 * @return optional the transaction ID which has been committed.
 	 */
 	public Object commitTx(Object txKey);

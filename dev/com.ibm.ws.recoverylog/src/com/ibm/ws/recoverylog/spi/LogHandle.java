@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2020 IBM Corporation and others.
+ * Copyright (c) 2003, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,11 +14,15 @@
 package com.ibm.ws.recoverylog.spi;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.ffdc.FFDCFilter;
+import com.ibm.ws.recoverylog.spi.RLSUtils.Operation;
 
 //------------------------------------------------------------------------------
 //Class: LogHandle
@@ -90,7 +96,7 @@ class LogHandle {
      * The directory path under which the files that make up this recovery log will
      * be stored.
      */
-    private final String _logDirectory;
+    private final Path _logDirectory;
 
     /**
      * The size of this recovery log in kilobytes.
@@ -153,6 +159,12 @@ class LogHandle {
      */
     FailureScope _failureScope;
 
+    /**
+     * A flag that allows the support of the "original" peer recovery behaviour, where recovery logs
+     * would not be deleted.
+     */
+    private boolean _retainLogsInPeerRecoveryEnv;
+
     //------------------------------------------------------------------------------
     // Method: LogHandle.LogHandle
     //------------------------------------------------------------------------------
@@ -177,8 +189,15 @@ class LogHandle {
      *
      * @param maxLogFileSize The maximum allowable log file size (in kbytes)
      */
-    LogHandle(MultiScopeRecoveryLog recoveryLog, String serviceName, int serviceVersion, String serverName, String logName, String logDirectory, int logFileSize,
-              int maxLogFileSize, FailureScope fs) {
+    LogHandle(MultiScopeRecoveryLog recoveryLog,
+              String serviceName,
+              int serviceVersion,
+              String serverName,
+              String logName,
+              Path logDirectory,
+              int logFileSize,
+              int maxLogFileSize,
+              FailureScope fs) {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "LogHandle", new java.lang.Object[] { recoveryLog,
                                                                serviceName,
@@ -599,7 +618,7 @@ class LogHandle {
         if (_activeFile == null) {
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "readRecords", "InternalLogException");
-            throw new InternalLogException(null);
+            throw new InternalLogException("Log was already closed: " + _logDirectory);
         }
 
         ArrayList<ReadableLogRecord> records = null;
@@ -669,7 +688,7 @@ class LogHandle {
         if (_activeFile == null) {
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "keypointStarting", "InternalLogException");
-            throw new InternalLogException(null);
+            throw new InternalLogException("Log was already closed: " + _logDirectory);
         }
 
         // Choose the 'other' file to be the target for the keypoint operation.
@@ -725,7 +744,7 @@ class LogHandle {
         if (_activeFile == null) {
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "closeLog", "InternalLogException");
-            throw new InternalLogException(null);
+            throw new InternalLogException("Log was already closed: " + _logDirectory);
         }
 
         try {
@@ -743,8 +762,14 @@ class LogHandle {
             throw new InternalLogException(exc);
         }
 
-        _file1 = null;
-        _file2 = null;
+        if (Configuration.HAEnabled() && !_retainLogsInPeerRecoveryEnv) {
+            if (tc.isDebugEnabled())
+                Tr.debug(tc, "Working in a peer recovery environment retain logFileHandles on close");
+        } else {
+            _file1 = null;
+            _file2 = null;
+        }
+
         _activeFile = null;
         _recoveredRecords = null;
         _physicalFreeBytes = 0;
@@ -771,7 +796,7 @@ class LogHandle {
         if (_activeFile == null) {
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "getServiceData", "InternalLogException");
-            throw new InternalLogException(null);
+            throw new InternalLogException("Log was already closed: " + _logDirectory);
         }
 
         final byte[] serviceData = _activeFile.getServiceData();
@@ -800,7 +825,7 @@ class LogHandle {
         if (_activeFile == null) {
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "force", "InternalLogException");
-            throw new InternalLogException(null);
+            throw new InternalLogException("Log was already closed: " + _logDirectory);
         }
 
         // Attempt to get exclusive lock on the lock object provided by RecoveryLogService
@@ -847,7 +872,7 @@ class LogHandle {
         if (_activeFile == null) {
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "logFileHeader", "InternalLogException");
-            throw new InternalLogException(null);
+            throw new InternalLogException("Log was already closed: " + _logDirectory);
         }
 
         final LogFileHeader logFileHeader = _activeFile.logFileHeader();
@@ -866,9 +891,10 @@ class LogHandle {
      *
      * @return ArrayList An array of ReadableLogRecords.
      */
+    @Trivial
     ArrayList<ReadableLogRecord> recoveredRecords() {
         if (tc.isDebugEnabled())
-            Tr.debug(tc, "recoveredRecords", _recoveredRecords);
+            Tr.debug(tc, "recoveredRecords {0}", _recoveredRecords);
         return _recoveredRecords;
     }
 
@@ -891,7 +917,7 @@ class LogHandle {
         if ((_file1 == null) || (_file2 == null)) {
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "setServiceData", "InternalLogException");
-            throw new InternalLogException(null);
+            throw new InternalLogException("A log file is unavailable");
         }
 
         // Cache the service data buffer reference. This class logically 'owns' the buffer.
@@ -1026,7 +1052,7 @@ class LogHandle {
         if (_activeFile == null || _inactiveFile == null) {
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "resizeLog", "InternalLogException");
-            throw new InternalLogException(null);
+            throw new InternalLogException("A log file is unavailable");
         }
 
         try {
@@ -1209,7 +1235,7 @@ class LogHandle {
 
         try {
             // The filename used here should be internationalized under 532697.1
-            final File file = new File(_logDirectory, "DO NOT DELETE LOG FILES");
+            final File file = Paths.get(_logDirectory.toString(), "DO NOT DELETE LOG FILES").toFile();
             if (!file.exists()) {
                 file.createNewFile();
             }
@@ -1220,5 +1246,55 @@ class LogHandle {
 
         if (tc.isEntryEnabled())
             Tr.exit(tc, "createWarningFile");
+    }
+
+    public boolean delete() throws Exception {
+        _file1 = null;
+        _file2 = null;
+
+        return delete(RLSUtils.STANDARD_RETRY_MAX_INTERVAL_NS);
+    }
+
+    private boolean delete(long retryNs) throws Exception {
+        if (tc.isEntryEnabled())
+            Tr.entry(tc, "delete", retryNs);
+
+        Operation deleteOp = new Operation() {
+            @Override
+            public boolean act() throws Exception {
+                return RLSUtils.deleteDirectory(_logDirectory.toFile());
+            }
+        };
+        boolean deleted = RLSUtils.retry(deleteOp, retryNs);
+        if (!deleted) {
+            if (tc.isDebugEnabled())
+                Tr.debug(tc, "Failed to delete '{0}'", _logDirectory);
+        }
+        if (tc.isEntryEnabled())
+            Tr.exit(tc, "delete", deleted);
+        return deleted;
+    }
+
+    public void retainLogsInPeerRecoveryEnv(boolean retainLogs) {
+        if (tc.isEntryEnabled())
+            Tr.entry(tc, "retainLogsInPeerRecoveryEnv", new Object[] { retainLogs, this });
+
+        _retainLogsInPeerRecoveryEnv = retainLogs;
+
+        if (tc.isEntryEnabled())
+            Tr.exit(tc, "retainLogsInPeerRecoveryEnv", this);
+    }
+
+    @Override
+    public String toString() {
+        return "recoveryLog: " + _recoveryLog + ", serviceName: " +
+               _serviceName + ", serviceVersion: " +
+               _serviceVersion + ", serverName: " +
+               _serverName + ", logName: " +
+               _logName + ", logDirectory: " +
+               _logDirectory + ", maxlogFileSize: " +
+               _maxLogFileSize + ", logFileSize: " +
+               _logFileSize + ", failureScope: " +
+               _failureScope;
     }
 }

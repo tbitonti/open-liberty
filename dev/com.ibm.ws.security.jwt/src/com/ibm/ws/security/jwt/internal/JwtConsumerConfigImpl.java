@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2020 IBM Corporation and others.
+ * Copyright (c) 2016, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -11,7 +13,10 @@
 package com.ibm.ws.security.jwt.internal;
 
 import java.security.AccessController;
+import java.security.GeneralSecurityException;
+import java.security.Key;
 import java.security.PrivilegedExceptionAction;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -36,6 +41,7 @@ import com.ibm.ws.security.common.jwk.impl.JWKSet;
 import com.ibm.ws.security.jwt.config.ConsumerUtils;
 import com.ibm.ws.security.jwt.config.JwtConfigUtil;
 import com.ibm.ws.security.jwt.config.JwtConsumerConfig;
+import com.ibm.ws.security.jwt.utils.Constants;
 import com.ibm.ws.security.jwt.utils.JwtUtils;
 import com.ibm.ws.ssl.KeyStoreService;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
@@ -52,6 +58,7 @@ public class JwtConsumerConfigImpl implements JwtConsumerConfig {
     private String sharedKey;
     private List<String> audiences;
     private String sigAlg;
+    private String[] allowedSignatureAlgorithms;
     private String trustStoreRef;
     private String trustedAlias;
     private long clockSkewMilliSeconds;
@@ -63,7 +70,8 @@ public class JwtConsumerConfigImpl implements JwtConsumerConfig {
     private String keyManagementKeyAlias;
     String sslRef;
 
-    private ConsumerUtils consumerUtil = null; // init during process(activate and modify)
+    private ConsumerUtils consumerUtil = null; // init during process(activate
+                                               // and modify)
     private JWKSet jwkSet = null; // lazy init
 
     /***********************************
@@ -112,7 +120,8 @@ public class JwtConsumerConfigImpl implements JwtConsumerConfig {
         issuer = JwtUtils.trimIt((String) props.get(JwtUtils.CFG_KEY_ISSUER));
         sharedKey = JwtConfigUtil.processProtectedString(props, JwtUtils.CFG_KEY_SHARED_KEY);
         audiences = JwtUtils.trimIt((String[]) props.get(JwtUtils.CFG_KEY_AUDIENCES));
-        sigAlg = JwtConfigUtil.getSignatureAlgorithm(getId(), props, JwtUtils.CFG_KEY_SIGNATURE_ALGORITHM);
+        sigAlg = JwtUtils.trimIt((String) props.get(JwtUtils.CFG_KEY_SIGNATURE_ALGORITHM));
+        allowedSignatureAlgorithms = JwtUtils.trimIt((String[]) props.get(JwtUtils.CFG_KEY_ALLOWED_SIGNATURE_ALGORITHMS)).toArray(new String[0]);
         trustStoreRef = JwtUtils.trimIt((String) props.get(JwtUtils.CFG_KEY_TRUSTSTORE_REF));
         trustedAlias = JwtUtils.trimIt((String) props.get(JwtUtils.CFG_KEY_TRUSTED_ALIAS));
         clockSkewMilliSeconds = (Long) props.get(JwtUtils.CFG_KEY_CLOCK_SKEW);
@@ -120,12 +129,15 @@ public class JwtConsumerConfigImpl implements JwtConsumerConfig {
         jwkEnabled = (Boolean) props.get(JwtUtils.CFG_KEY_JWK_ENABLED); // internal
         jwkEndpointUrl = JwtUtils.trimIt((String) props.get(JwtUtils.CFG_KEY_JWK_ENDPOINT_URL)); // internal
         sslRef = JwtUtils.trimIt((String) props.get(JwtUtils.CFG_KEY_SSL_REF));
-        useSystemPropertiesForHttpClientConnections = (Boolean) props.get(JwtUtils.CFG_KEY_USE_SYSPROPS_FOR_HTTPCLIENT_CONNECTONS);
+        useSystemPropertiesForHttpClientConnections = (Boolean) props
+                .get(JwtUtils.CFG_KEY_USE_SYSPROPS_FOR_HTTPCLIENT_CONNECTONS);
         amrClaim = JwtUtils.trimIt((String[]) props.get(JwtUtils.CFG_AMR_CLAIM));
         keyManagementKeyAlias = JwtUtils.trimIt((String) props.get(JwtUtils.CFG_KEY_KEY_MANAGEMENT_KEY_ALIAS));
 
         consumerUtil = new ConsumerUtils(keyStoreServiceRef);
-        jwkSet = null; // the jwkEndpoint may have been changed during dynamic update
+        jwkSet = null; // the jwkEndpoint may have been changed during dynamic
+                       // update
+
     }
 
     @Override
@@ -160,6 +172,11 @@ public class JwtConsumerConfigImpl implements JwtConsumerConfig {
     }
 
     @Override
+    public String[] getAllowedSignatureAlgorithms() {
+        return allowedSignatureAlgorithms;
+    }
+
+    @Override
     public String getTrustStoreRef() {
         return trustStoreRef;
     }
@@ -189,14 +206,13 @@ public class JwtConsumerConfigImpl implements JwtConsumerConfig {
         }
         Properties sslConfigProps;
         try {
-            sslConfigProps = (Properties) AccessController.doPrivileged(
-                    new PrivilegedExceptionAction<Object>() {
-                        @Override
-                        public Object run() throws Exception {
-                            return sslSupportService.getJSSEHelper().getProperties(sslRef);
+            sslConfigProps = (Properties) AccessController.doPrivileged(new PrivilegedExceptionAction<Object>() {
+                @Override
+                public Object run() throws Exception {
+                    return sslSupportService.getJSSEHelper().getProperties(sslRef);
 
-                        }
-                    });
+                }
+            });
         } catch (Exception e) {
             if (tc.isDebugEnabled()) {
                 Tr.debug(tc, "Caught exception getting SSL properties: " + e);
@@ -214,6 +230,11 @@ public class JwtConsumerConfigImpl implements JwtConsumerConfig {
     @Override
     public long getClockSkew() {
         return clockSkewMilliSeconds;
+    }
+
+    @Override
+    public long getTokenAge() {
+        return 0;
     }
 
     @Override
@@ -257,7 +278,8 @@ public class JwtConsumerConfigImpl implements JwtConsumerConfig {
 
     @Override
     public boolean getTokenReuse() {
-        // The common JWT code is not allowed to reuse JWTs. This could be revisited later as a potential config option.
+        // The common JWT code is not allowed to reuse JWTs. This could be
+        // revisited later as a potential config option.
         return false;
     }
 
@@ -274,6 +296,16 @@ public class JwtConsumerConfigImpl implements JwtConsumerConfig {
     @Override
     public String getKeyManagementKeyAlias() {
         return keyManagementKeyAlias;
+    }
+
+    @Override
+    public Key getJweDecryptionKey() throws GeneralSecurityException {
+        String keyAlias = getKeyManagementKeyAlias();
+        if (keyAlias != null) {
+            String keyStoreRef = getKeyStoreRef();
+            return JwtUtils.getPrivateKey(keyAlias, keyStoreRef);
+        }
+        return null;
     }
 
 }

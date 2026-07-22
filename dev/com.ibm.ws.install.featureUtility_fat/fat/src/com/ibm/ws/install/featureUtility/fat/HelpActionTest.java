@@ -1,23 +1,26 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.install.featureUtility.fat;
 
-import com.ibm.websphere.simplicity.ProgramOutput;
-import com.ibm.websphere.simplicity.log.Log;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import com.ibm.websphere.simplicity.ProgramOutput;
+import com.ibm.websphere.simplicity.log.Log;
 
 public class HelpActionTest extends  FeatureUtilityToolTest {
     private static final Class<?> c = HelpActionTest.class;
@@ -26,20 +29,13 @@ public class HelpActionTest extends  FeatureUtilityToolTest {
     @BeforeClass
     public static void beforeClassSetup() throws Exception {
         final String methodName = "beforeClassSetup";
-        Log.entering(c, methodName);
-        setupEnv();
-
-        // rollback wlp version 2 times (e.g 20.0.0.5 -> 20.0.0.3)
-        replaceWlpProperties(getPreviousWlpVersion());
-        replaceWlpProperties(getPreviousWlpVersion());
+	replaceWlpProperties(libertyVersion);
         Log.exiting(c, methodName);
     }
 
     @AfterClass
     public static void cleanUp() throws Exception {
-        // TODO
         resetOriginalWlpProps();
-        cleanUpTempFiles();
     }
 
     @Test
@@ -139,7 +135,21 @@ public class HelpActionTest extends  FeatureUtilityToolTest {
 
         Log.exiting(c, METHOD_NAME);
     }
+    
+	@Test
+	public void testUnknownAction() throws Exception {
+		final String METHOD_NAME = "testUnknownAction";
+		Log.entering(c, METHOD_NAME);
 
+		// Run the command.
+		String[] parms = { "invalidAction" }; // purposefully broken action
+		ProgramOutput po = runFeatureUtility(METHOD_NAME, parms);
+
+		// Validation.
+		String validationMessage = "Unknown action: " + parms[0];
+		assertEquals("Exit code should be 20", 20, po.getReturnCode());
+		assertTrue("Should contain '" + validationMessage + "'", po.getStdout().contains(validationMessage));
+	}
 
 
 }

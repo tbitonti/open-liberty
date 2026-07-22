@@ -1,15 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2017 IBM Corporation and others.
+ * Copyright (c) 2012, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.jmx.connector.client.rest.internal;
 
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.ConnectException;
@@ -741,7 +744,7 @@ class RESTMBeanServerConnection implements MBeanServerConnection {
                     return converter.readPOJO(connection.getInputStream());
                 } catch (ClassNotFoundException cnf) {
                     // Not a REST connector bug per se; not need to log this case
-                    throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION), cnf);
+                    throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION, cnf.getMessage()), cnf);
                 } catch (Exception e) {
                     throw getResponseErrorException(sourceMethod, e, attributeURL);
                 } finally {
@@ -827,7 +830,7 @@ class RESTMBeanServerConnection implements MBeanServerConnection {
                     return converter.readAttributeList(connection.getInputStream());
                 } catch (ClassNotFoundException cnf) {
                     // Not a REST connector bug per se; not need to log this case
-                    throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION), cnf);
+                    throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION, cnf.getMessage()), cnf);
                 } catch (Exception e) {
                     throw getResponseErrorException(sourceMethod, e, attributesURL);
                 } finally {
@@ -1038,7 +1041,7 @@ class RESTMBeanServerConnection implements MBeanServerConnection {
                     return converter.readAttributeList(connection.getInputStream());
                 } catch (ClassNotFoundException cnf) {
                     // Not a REST connector bug per se; not need to log this case
-                    throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION), cnf);
+                    throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION, cnf.getMessage()), cnf);
                 } catch (Exception e) {
                     throw getResponseErrorException(sourceMethod, e, attributesURL);
                 } finally {
@@ -1166,7 +1169,7 @@ class RESTMBeanServerConnection implements MBeanServerConnection {
                     return converter.readPOJO(connection.getInputStream());
                 } catch (ClassNotFoundException cnf) {
                     // Not a REST connector bug per se; not need to log this case
-                    throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION), cnf);
+                    throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION, cnf.getMessage()), cnf);
                 } catch (Exception e) {
                     throw getResponseErrorException(sourceMethod, e, invokeURL);
                 } finally {
@@ -1435,7 +1438,7 @@ class RESTMBeanServerConnection implements MBeanServerConnection {
 
                 } catch (ClassNotFoundException cnf) {
                     // Not a REST connector bug per se; not need to log this case
-                    throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION), cnf);
+                    throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION, cnf.getMessage()), cnf);
                 } catch (Exception e) {
                     throw getResponseErrorException(sourceMethod, e, mbeanURL);
                 } finally {
@@ -2328,6 +2331,16 @@ class RESTMBeanServerConnection implements MBeanServerConnection {
                         continue mainLoop;
                     } catch (IOException io) {
                         logger.logp(Level.FINE, logger.getName(), sourceMethod, io.getMessage(), io);
+                        connection.disconnect();
+                        try {
+                            synchronized (waitFlag) {
+                                waitFlag.wait(connector.getServerStatusPollingInterval());
+                            }
+                        } catch (InterruptedException e) {
+                            if (logger.isLoggable(Level.FINE)) {
+                                logger.logp(Level.FINE, logger.getName(), sourceMethod, "Interrupted sleep in thread: " + getCustomId());
+                            }
+                        }
                         continue mainLoop;
                     }
 
@@ -2375,11 +2388,18 @@ class RESTMBeanServerConnection implements MBeanServerConnection {
                                     }
                                 } else {
                                     //no-op for failover polling, just break into the sleep segment
+                                    // Server sends a string back that needs to be consumed to close the connection
+                                    try (InputStream is = connection.getInputStream()) {
+                                        int data = is.read();
+                                        while (data != -1) {
+                                            data = is.read();
+                                        }
+                                    }
                                 }
                                 break;
                             } catch (ClassNotFoundException cnf) {
                                 // Not a REST connector bug per se; not need to log this case
-                                throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION), cnf);
+                                throw new IOException(RESTClientMessagesUtil.getMessage(RESTClientMessagesUtil.SERVER_RESULT_EXCEPTION, cnf.getMessage()), cnf);
                             } catch (Exception e) {
                                 logger.logp(Level.FINE, logger.getName(), sourceMethod, e.getMessage(), e);
                                 throw getResponseErrorException(sourceMethod, e, targetURL);

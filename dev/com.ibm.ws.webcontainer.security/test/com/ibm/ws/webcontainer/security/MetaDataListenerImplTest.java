@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,16 +24,15 @@ import org.junit.rules.TestRule;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.component.ComponentContext;
 
-import test.common.SharedOutputManager;
-
 import com.ibm.ws.container.service.metadata.MetaDataEvent;
 import com.ibm.ws.container.service.metadata.MetaDataException;
 import com.ibm.ws.runtime.metadata.ModuleMetaData;
-import com.ibm.ws.security.authorization.jacc.JaccService;
 import com.ibm.ws.webcontainer.security.metadata.SecurityConstraintCollection;
 import com.ibm.ws.webcontainer.security.metadata.SecurityMetadata;
 import com.ibm.wsspi.webcontainer.metadata.WebModuleMetaData;
 import com.ibm.wsspi.webcontainer.webapp.WebAppConfig;
+
+import test.common.SharedOutputManager;
 
 public class MetaDataListenerImplTest {
     static final SharedOutputManager outputMgr = SharedOutputManager.getInstance();
@@ -43,15 +44,16 @@ public class MetaDataListenerImplTest {
     @Rule
     public TestRule managerRule = outputMgr;
 
-    static final String KEY_JACC_SERVICE = "jaccService";
+    static final String KEY_WEB_JACC_SERVICE = "webJaccService";
 
     private final Mockery context = new JUnit4Mockery();
     private final WebModuleMetaData wmmd = context.mock(WebModuleMetaData.class);
     private final ModuleMetaData mmd = context.mock(ModuleMetaData.class);
     private final WebAppConfig wac = context.mock(WebAppConfig.class);
     @SuppressWarnings("unchecked")
-    private final ServiceReference<JaccService> jsr = context.mock(ServiceReference.class, "jaccServiceRef");
-    private final JaccService js = context.mock(JaccService.class);
+    private final ServiceReference<WebJaccService> jsr = context.mock(ServiceReference.class, "jaccServiceRef");
+    private final WebJaccService js = context.mock(WebJaccService.class);
+    private final WebDeclaredRolesService rolesService = new WebDeclaredRolesService();
     private final ComponentContext cc = context.mock(ComponentContext.class);
     @SuppressWarnings("rawtypes")
     private final MetaDataEvent mde = context.mock(MetaDataEvent.class);
@@ -71,23 +73,33 @@ public class MetaDataListenerImplTest {
             {
                 one(mde).getMetaData();
                 will(returnValue(wmmd));
-                allowing(wmmd).getSecurityMetaData();
+                one(wmmd).getSecurityMetaData();
                 will(returnValue(smd));
-                one(smd).getSecurityConstraintCollection();
-                will(returnValue(scc));
                 one(wmmd).getConfiguration();
                 will(returnValue(wac));
                 one(wac).getApplicationName();
                 will(returnValue(APP_NAME));
                 one(wac).getModuleName();
                 will(returnValue(MODULE_NAME));
-                one(cc).locateService("jaccService", jsr);
+                one(cc).locateService("webJaccService", jsr);
                 will(returnValue(js));
+                one(smd).getSecurityConstraintCollection();
+                will(returnValue(scc));
                 one(js).propagateWebConstraints(APP_NAME, MODULE_NAME, wac);
+                one(smd).getRoles();
+                one(mde).getMetaData();
+                will(returnValue(wmmd));
+                one(wmmd).getConfiguration();
+                will(returnValue(wac));
+                one(wac).getApplicationName();
+                will(returnValue(APP_NAME));
+                one(wac).getModuleName();
+                will(returnValue(MODULE_NAME));
             }
         });
         MetaDataListenerImpl mdli = new MetaDataListenerImpl();
-        mdli.setJaccService(jsr);
+        mdli.setDeclaredRolesService(rolesService);
+        mdli.setWebJaccService(jsr);
         mdli.activate(cc);
 
         try {
@@ -99,7 +111,7 @@ public class MetaDataListenerImplTest {
         }
 
         mdli.deactivate(cc);
-        mdli.unsetJaccService(jsr);
+        mdli.unsetWebJaccService(jsr);
 
         context.assertIsSatisfied();
     }
@@ -113,13 +125,25 @@ public class MetaDataListenerImplTest {
 
         context.checking(new Expectations() {
             {
-                one(cc).locateService("jaccService", jsr);
+                one(mde).getMetaData();
+                will(returnValue(wmmd));
+                one(wmmd).getSecurityMetaData();
+                will(returnValue(smd));
+                one(wmmd).getConfiguration();
+                will(returnValue(wac));
+                one(wac).getApplicationName();
+                will(returnValue(APP_NAME));
+                one(wac).getModuleName();
+                will(returnValue(MODULE_NAME));
+                one(cc).locateService("webJaccService", jsr);
                 will(returnValue(null));
                 never(js).propagateWebConstraints(APP_NAME, MODULE_NAME, wac);
+                one(smd).getRoles();
             }
         });
         MetaDataListenerImpl mdli = new MetaDataListenerImpl();
-        mdli.setJaccService(jsr);
+        mdli.setDeclaredRolesService(rolesService);
+        mdli.setWebJaccService(jsr);
         mdli.activate(cc);
 
         try {
@@ -130,7 +154,7 @@ public class MetaDataListenerImplTest {
         }
 
         mdli.deactivate(cc);
-        mdli.unsetJaccService(jsr);
+        mdli.unsetWebJaccService(jsr);
 
         context.assertIsSatisfied();
     }
@@ -146,13 +170,12 @@ public class MetaDataListenerImplTest {
             {
                 one(mde).getMetaData();
                 will(returnValue(mmd));
-                one(cc).locateService("jaccService", jsr);
-                will(returnValue(js));
                 never(js).propagateWebConstraints(APP_NAME, MODULE_NAME, wac);
             }
         });
         MetaDataListenerImpl mdli = new MetaDataListenerImpl();
-        mdli.setJaccService(jsr);
+        mdli.setDeclaredRolesService(rolesService);
+        mdli.setWebJaccService(jsr);
         mdli.activate(cc);
 
         try {
@@ -163,7 +186,7 @@ public class MetaDataListenerImplTest {
         }
 
         mdli.deactivate(cc);
-        mdli.unsetJaccService(jsr);
+        mdli.unsetWebJaccService(jsr);
 
         context.assertIsSatisfied();
     }
@@ -179,15 +202,16 @@ public class MetaDataListenerImplTest {
             {
                 one(mde).getMetaData();
                 will(returnValue(wmmd));
-                allowing(wmmd).getSecurityMetaData();
+                one(wmmd).getSecurityMetaData();
                 will(returnValue(null));
-                one(cc).locateService("jaccService", jsr);
-                will(returnValue(js));
+                never(cc).locateService("webJaccService", jsr);
                 never(js).propagateWebConstraints(APP_NAME, MODULE_NAME, wac);
+                never(smd).getRoles();
             }
         });
         MetaDataListenerImpl mdli = new MetaDataListenerImpl();
-        mdli.setJaccService(jsr);
+        mdli.setDeclaredRolesService(rolesService);
+        mdli.setWebJaccService(jsr);
         mdli.activate(cc);
 
         try {
@@ -198,7 +222,7 @@ public class MetaDataListenerImplTest {
         }
 
         mdli.deactivate(cc);
-        mdli.unsetJaccService(jsr);
+        mdli.unsetWebJaccService(jsr);
 
         context.assertIsSatisfied();
     }
@@ -214,17 +238,25 @@ public class MetaDataListenerImplTest {
             {
                 one(mde).getMetaData();
                 will(returnValue(wmmd));
-                allowing(wmmd).getSecurityMetaData();
+                one(wmmd).getSecurityMetaData();
                 will(returnValue(smd));
+                one(wmmd).getConfiguration();
+                will(returnValue(wac));
+                one(wac).getApplicationName();
+                will(returnValue(APP_NAME));
+                one(wac).getModuleName();
+                will(returnValue(MODULE_NAME));
+                one(cc).locateService("webJaccService", jsr);
+                will(returnValue(js));
                 one(smd).getSecurityConstraintCollection();
                 will(returnValue(null));
-                one(cc).locateService("jaccService", jsr);
-                will(returnValue(js));
                 never(js).propagateWebConstraints(APP_NAME, MODULE_NAME, wac);
+                one(smd).getRoles();
             }
         });
         MetaDataListenerImpl mdli = new MetaDataListenerImpl();
-        mdli.setJaccService(jsr);
+        mdli.setDeclaredRolesService(rolesService);
+        mdli.setWebJaccService(jsr);
         mdli.activate(cc);
 
         try {
@@ -235,7 +267,7 @@ public class MetaDataListenerImplTest {
         }
 
         mdli.deactivate(cc);
-        mdli.unsetJaccService(jsr);
+        mdli.unsetWebJaccService(jsr);
 
         context.assertIsSatisfied();
     }

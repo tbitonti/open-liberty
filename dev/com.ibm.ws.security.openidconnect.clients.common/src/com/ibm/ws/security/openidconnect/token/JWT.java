@@ -1,16 +1,15 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2018 IBM Corporation and others.
+ * Copyright (c) 2013, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- * IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.openidconnect.token;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.SignatureException;
@@ -35,7 +34,8 @@ import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
-import com.ibm.ws.security.openidconnect.common.Constants;
+import com.ibm.ws.kernel.security.thread.ThreadIdentityManager;
+import com.ibm.ws.security.openidconnect.clients.common.Constants;
 
 public class JWT {
 
@@ -350,7 +350,7 @@ public class JWT {
 
     }
 
-    private String serializeAndSign(WSJsonToken token) throws InvalidKeyException, UnsupportedEncodingException, JoseException {
+    private String serializeAndSign(WSJsonToken token) throws InvalidKeyException, JoseException {
         JsonWebSignature jws = new JsonWebSignature();
         jws.setPayload(JsonTokenUtil.toJson(token.getPayload()));
         String alg = token.getHeader().get(ALGORITHM_HEADER).getAsString();
@@ -361,8 +361,13 @@ public class JWT {
         }
         // todo: did we miss any?
         jws.setKey(getKey(alg)); // private key
-        return jws.getCompactSerialization();
 
+        Object threadIdentityToken = ThreadIdentityManager.runAsServer();
+        try {
+            return jws.getCompactSerialization();
+        } finally {
+            ThreadIdentityManager.reset(threadIdentityToken);
+        }
     }
 
     public String getSignedJWTString() throws SignatureException, InvalidKeyException {
@@ -454,38 +459,23 @@ public class JWT {
         if (this.signingAlgorithm.equals(Constants.SIG_ALG_NONE)) {
             rpSpecifiedSignatureAlgorithm = false;
         }
-        String alg = null;
-        JsonObject header = null;
-        if (!rpSpecifiedSignatureAlgorithm) {
-            String jwtHeaderSegment = jwtParts[0];
-            JsonParser parser = new JsonParser();
-            header = parser.parse(JsonTokenUtil.fromBase64ToJsonString(jwtHeaderSegment))
-                    .getAsJsonObject();
-            alg = header.get("alg").getAsString();
-            if (tc.isDebugEnabled()) {
-                Tr.debug(tc, "Signing Algorithm from header: " + alg);
+        JsonObject header = JsonParser.parseString(JsonTokenUtil.fromBase64ToJsonString(jwtParts[0])).getAsJsonObject();
+        String alg = header.get("alg").getAsString();
+        if (tc.isDebugEnabled()) {
+            Tr.debug(tc, "Signing Algorithm from header: " + alg);
+        }
+        if (rpSpecifiedSignatureAlgorithm) {
+            if (!(this.signingAlgorithm.equals(alg))) {
+                Tr.error(tc, "OIDC_IDTOKEN_SIGNATURE_VERIFY_ERR_ALG_MISMATCH", new Object[] { this.clientId, this.signingAlgorithm, alg });
+                throw IDTokenValidationFailedException.format("OIDC_IDTOKEN_SIGNATURE_VERIFY_ERR_ALG_MISMATCH", this.clientId, this.signingAlgorithm, alg);
             }
-        } else {
-            String jwtHeaderSegment = jwtParts[0];
-            JsonParser parser = new JsonParser();
-            header = parser.parse(JsonTokenUtil.fromBase64ToJsonString(jwtHeaderSegment))
-                    .getAsJsonObject();
-            String algHeader = header.get("alg").getAsString();
-            if (!(this.signingAlgorithm.equals(algHeader))) {
-                Tr.error(tc, "OIDC_IDTOKEN_SIGNATURE_VERIFY_ERR_ALG_MISMATCH", new Object[] { this.clientId, this.signingAlgorithm, algHeader });
-                throw IDTokenValidationFailedException.format("OIDC_IDTOKEN_SIGNATURE_VERIFY_ERR_ALG_MISMATCH", this.clientId, this.signingAlgorithm, algHeader);
-            }
-            alg = this.signingAlgorithm;
             if (tc.isDebugEnabled()) {
                 Tr.debug(tc, "RP specified Signing Algorithm : " + alg);
             }
         }
 
         // the old net.oauth version populated the header and payload out of the token string here, do that for consistency.
-        String jwtPayloadSegment = jwtParts[1];
-        JsonParser parser = new JsonParser();
-        JsonObject payload = parser.parse(JsonTokenUtil.fromBase64ToJsonString(jwtPayloadSegment))
-                .getAsJsonObject();
+        JsonObject payload = JsonParser.parseString(JsonTokenUtil.fromBase64ToJsonString(jwtParts[1])).getAsJsonObject();
         WSJsonToken tempToken = new WSJsonToken(header, payload);
         fromJsonToken(tempToken);
 
@@ -515,7 +505,7 @@ public class JWT {
     }
 
     @FFDCIgnore({ InvalidKeyException.class, IllegalStateException.class })
-    public boolean verify(long clockSkewInSeconds, Object key)
+    public boolean verify(long clockSkewInSeconds, @Sensitive Object key)
             throws IDTokenValidationFailedException {
         boolean isValid = false;
         setKey(key);
@@ -727,18 +717,18 @@ public class JWT {
      *
      * @param alg
      * @return
-     * @throws UnsupportedEncodingException
      * @throws InvalidKeyException
      */
     //@FFDCIgnore({InvalidKeyException.class})
-    private Key getKey(String alg) throws UnsupportedEncodingException, InvalidKeyException {
+    @Sensitive
+    private Key getKey(String alg) throws InvalidKeyException {
         Key keyUsed = null;
         if ("RS256".equals(alg)) {
             keyUsed = (Key) getKey();
         } else if ("HS256".equals(alg)) {
             byte[] keyBytes = null;
             if (getKey() instanceof String) {
-                keyBytes = ((String) getKey()).getBytes("UTF-8"); //TODO
+                keyBytes = ((String) getKey()).getBytes(StandardCharsets.UTF_8); //TODO
             } else if (getKey() instanceof byte[]) {
                 keyBytes = (byte[]) getKey();
             } else {
@@ -761,6 +751,7 @@ public class JWT {
     /**
      * @return the key
      */
+    @Sensitive
     public Object getKey() {
         return key;
     }
@@ -769,7 +760,7 @@ public class JWT {
      * @param key
      *            the key to set
      */
-    public void setKey(Object key) {
+    public void setKey(@Sensitive Object key) {
         this.key = key;
     }
 }

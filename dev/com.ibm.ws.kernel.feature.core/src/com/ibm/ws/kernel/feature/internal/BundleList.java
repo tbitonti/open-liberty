@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -279,8 +281,8 @@ public class BundleList {
         }
 
         @Override
-        public Integer getRequireJava() {
-            return fr.getRequireJava();
+        public VersionRange getJavaRange() {
+            return fr.getJavaRange();
         }
 
         @Override
@@ -440,7 +442,7 @@ public class BundleList {
         }
 
         @Override
-        public Integer getRequireJava() {
+        public VersionRange getJavaRange() {
             return null;
         }
 
@@ -600,7 +602,8 @@ public class BundleList {
         for (FeatureResource fr : fdefinition.getConstituents(SubsystemContentType.BUNDLE_TYPE)) {
             RuntimeFeatureResource rfr = (RuntimeFeatureResource) ((fr instanceof RuntimeFeatureResource) ? fr : new RuntimeFeatureResource(fr));
             // only add bundles that match the current osgi.ee capability
-            if (!featureManager.missingRequiredJava(rfr)) {
+            // OLGH20563: Adds bundle only if the runtime is within the bundle's specified range
+            if (featureManager.withinJavaRange(rfr)) {
                 resources.add(rfr);
             }
         }

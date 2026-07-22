@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    Copyright (c) 2011, 2020 IBM Corporation and others.
+    Copyright (c) 2011, 2026 IBM Corporation and others.
     All rights reserved. This program and the accompanying materials
-    are made available under the terms of the Eclipse Public License v1.0
+    are made available under the terms of the Eclipse Public License 2.0
     which accompanies this distribution, and is available at
-    http://www.eclipse.org/legal/epl-v10.html
+    http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0
    
     Contributors:
         IBM Corporation - initial API and implementation
@@ -100,14 +102,6 @@
         <AD id="clientAuthenticationSupported" name="%repertoire.clientAuthenticationSupported" description="%repertoire.clientAuthenticationSupported.desc" 
             required="false" type="Boolean" default="false" />
             
-        <AD id="securityLevel" name="%repertoire.securityLevel" description="%repertoire.securityLevel.desc" 
-            required="false" type="String" default="HIGH" >
-            <Option label="%repertoire.HIGH" value="HIGH"/>
-            <Option label="%repertoire.MEDIUM" value="MEDIUM"/>
-            <Option label="%repertoire.LOW" value="LOW"/>
-            <Option label="%repertoire.CUSTOM" value="CUSTOM"/>
-        </AD> 
-            
         <AD id="clientKeyAlias" name="%repertoire.clientKeyAlias" description="%repertoire.clientKeyAlias.desc" 
             required="false" type="String" />
             
@@ -121,7 +115,11 @@
             required="false" type="String" cardinality="2147483647" />    
          
         <AD id="verifyHostname" name="%repertoire.verifyHostname" description="%repertoire.verifyHostname.desc" 
-            required="false" type="Boolean" default="false" />
+            required="false" type="Boolean" default="true" />
+       
+        <AD id="skipHostnameVerificationForHosts" name="%repertoire.skipHostnameVerificationForHosts" description="%repertoire.skipHostnameVerificationForHosts.desc" 
+            required="false" type="String" default="" />  
+       
             
         <AD id="trustDefaultCerts" name="%repertoire.trustDefaultCerts" description="%repertoire.trustDefaultCerts.desc" 
             required="false" type="Boolean" default="false" />

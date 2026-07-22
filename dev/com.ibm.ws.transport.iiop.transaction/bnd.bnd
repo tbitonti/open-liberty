@@ -1,25 +1,26 @@
 #*******************************************************************************
-# Copyright (c) 2017, 2020 IBM Corporation and others.
+# Copyright 2017,2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
+
+-sub: *.bnd
+
 bVersion=1.0
 
-Bundle-Name: Transport IIOP Transaction
-Bundle-SymbolicName: com.ibm.ws.transport.iiop.transaction
-Bundle-Description: CORBA interceptors and setup code for transaction support; version=${bVersion}
 
 WS-TraceGroup: IIOP
 
-jakartaeeMe: true
 
-Private-Package:   com.ibm.ws.config.xml.internal.nester, \
+Private-Package: \
   com.ibm.ws.transport.iiop.transaction.*
   
 Import-Package: *
@@ -35,8 +36,8 @@ Include-Resource: OSGI-INF=resources/OSGI-INF
 	com.ibm.websphere.appserver.spi.logging;version=latest,\
 	com.ibm.websphere.javaee.transaction.1.1;version=latest,\
 	com.ibm.websphere.org.osgi.core;version=latest,\
-	com.ibm.ws.org.apache.yoko.corba.spec.1.5;version=latest,\
-	com.ibm.ws.org.apache.yoko.osgi.1.5;version=latest,\
+	io.openliberty.yoko.spec.corba;version=latest,\
+	io.openliberty.yoko.osgi;version=latest,\
 	com.ibm.ws.transport.iiop;version=latest,\
 	com.ibm.ws.tx.embeddable;version=latest, \
 	com.ibm.wsspi.org.osgi.service.component.annotations;version=latest

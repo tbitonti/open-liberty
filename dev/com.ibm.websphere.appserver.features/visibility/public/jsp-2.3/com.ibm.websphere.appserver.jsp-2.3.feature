@@ -34,11 +34,14 @@ IBM-ShortName: jsp-2.3
 IBM-SPI-Package: com.ibm.wsspi.jsp.taglib.config
 Subsystem-Name: JavaServer Pages 2.3
 -features=com.ibm.websphere.appserver.javax.jsp-2.3, \
- com.ibm.websphere.appserver.javax.el-3.0, \
- com.ibm.websphere.appserver.servlet-3.1; ibm.tolerates:=4.0, \
- com.ibm.websphere.appserver.el-3.0, \
- com.ibm.websphere.appserver.eeCompatible-7.0; ibm.tolerates:="6.0,8.0"
--bundles=com.ibm.ws.org.eclipse.jdt.core.3.10.2.v20160712-0000, \
+  com.ibm.websphere.appserver.servlet-3.1; ibm.tolerates:="4.0", \
+  io.openliberty.servlet.internal-3.1; ibm.tolerates:="4.0", \
+  com.ibm.websphere.appserver.eeCompatible-7.0; ibm.tolerates:="6.0,8.0", \
+  com.ibm.websphere.appserver.el-3.0
+-bundles=\
+ com.ibm.ws.org.eclipse.jdt.core; require-java:="[8,11)", \
+ io.openliberty.org.eclipse.jdt.core.java11; require-java:="[11,17)", \
+ io.openliberty.org.eclipse.jdt.core.java17; require-java:=17, \
  com.ibm.websphere.javaee.jstl.1.2; location:="dev/api/spec/,lib/"; mavenCoordinates="javax.servlet:jstl:1.2", \
  com.ibm.ws.jsp.2.3, \
  com.ibm.ws.jsp, \
@@ -46,7 +49,9 @@ Subsystem-Name: JavaServer Pages 2.3
  com.ibm.ws.org.apache.taglibs.standard
 -jars=com.ibm.websphere.appserver.spi.jsp; location:=dev/spi/ibm/, \
  com.ibm.websphere.javaee.jsp.tld.2.2; location:=dev/api/spec/
--files=dev/spi/ibm/javadoc/com.ibm.websphere.appserver.spi.jsp_1.0-javadoc.zip
+-files=dev/spi/ibm/javadoc/com.ibm.websphere.appserver.spi.jsp_1.1-javadoc.zip
 kind=ga
 edition=core
 WLP-Activation-Type: parallel
+WLP-InstantOn-Enabled: true
+WLP-Platform: javaee-7.0,javaee-8.0,jakartaee-8.0

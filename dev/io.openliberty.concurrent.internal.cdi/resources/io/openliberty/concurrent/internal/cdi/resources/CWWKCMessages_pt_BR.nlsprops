@@ -1,0 +1,39 @@
+###############################################################################
+# Copyright (c) 2022,2026 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+###############################################################################
+#CMVCPATHNAME io.openliberty.concurrent.internal.cdi/resources/io/openliberty/concurrent/internal/cdi/resources/CWWKCMessages.nlsprops
+#ISMESSAGEFILE TRUE
+#NLS_ENCODING=UNICODE
+#
+#COMPONENTPREFIX CWWKC
+#COMPONENTNAMEFOR CWWKC Jakarta EE Concurrency
+#
+# NLS_MESSAGEFORMAT_VAR
+#
+#   Strings in this file which contain replacement variables are processed by the MessageFormat 
+#   class (single quote must be coded as 2 consecutive single quotes ''). Strings in this file 
+#   which do NOT contain replacement variables are NOT processed by the MessageFormat class 
+#   (single quote must be coded as one single quote '). 
+
+# All messages must use the range CWWKC1410 to CWWKC1499
+
+CWWKC1410.schedule.lacks.seconds=CWWKC1410E: A anota\u00e7\u00e3o Schedule, {0}, especifica uma lista vazia para os segundos em que a tarefa \u00e9 executada. Especifique uma lista n\u00e3o vazia para o campo segundos ou omita o campo segundos da anota\u00e7\u00e3o da programa\u00e7\u00e3o. Omitir o campo dos segundos programa a tarefa para ser executada no in\u00edcio do minuto.
+CWWKC1410.schedule.lacks.seconds.explanation=A lista vazia indica que o campo dos segundos deve ser desconsiderado quando os hor\u00e1rios programados forem calculados. Omitir o campo dos segundos programa a tarefa para ser executada no in\u00edcio do minuto.
+CWWKC1410.schedule.lacks.seconds.useraction=Modifique o campo segundos da anota\u00e7\u00e3o Schedule para especificar uma lista n\u00e3o vazia ou omita o campo segundos da anota\u00e7\u00e3o Schedule.
+
+CWWKC1411.qualified.res.err=CWWKC1411E: O servidor n\u00e3o criou um bean {0} para a anota\u00e7\u00e3o {1} ou o elemento descritor de implanta\u00e7\u00e3o {2}. O elemento de anota\u00e7\u00e3o ou descritor de implanta\u00e7\u00e3o tem o nome {3} e os qualificadores {4} e \u00e9 definido no artefato do aplicativo {5}. O erro \u00e9 {6}
+CWWKC1411.qualified.res.err.explanation=O c\u00f3digo n\u00e3o criou o recurso ou n\u00e3o registrou o recurso como um bean.
+CWWKC1411.qualified.res.err.useraction=Certifique-se de que o recurso esteja configurado corretamente.
+
+CWWKC1412.qualifier.conflict=CWWKC1412E: O artefato do aplicativo {0} inclui v\u00e1rias defini\u00e7\u00f5es de recursos {1} que t\u00eam os qualificadores {2}. Os nomes das defini\u00e7\u00f5es de recursos {1} conflitantes s\u00e3o {3}.
+CWWKC1412.qualifier.conflict.explanation=Cada defini\u00e7\u00e3o de recurso do mesmo tipo que tenha um qualificador deve ter um qualificador diferente.
+CWWKC1412.qualifier.conflict.useraction=Certifique-se de que cada defini\u00e7\u00e3o de recurso do mesmo tipo tenha um qualificador diferente ou n\u00e3o tenha nenhum qualificador.

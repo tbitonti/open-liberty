@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011,2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,23 +18,29 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag;
 
+import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleEvent;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.ServiceReference;
+import org.osgi.framework.SynchronousBundleListener;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.ConfigurationPolicy;
+import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.classloading.ClassProvider;
-import com.ibm.ws.config.xml.internal.nester.Nester;
+import com.ibm.ws.config.xml.nester.Nester;
 import com.ibm.ws.container.service.app.deploy.ApplicationClassesContainerInfo;
 import com.ibm.ws.container.service.app.deploy.ApplicationInfo;
 import com.ibm.ws.container.service.app.deploy.ContainerInfo;
@@ -43,7 +51,6 @@ import com.ibm.ws.container.service.app.deploy.NestedConfigHelper;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.kernel.boot.security.LoginModuleProxy;
 import com.ibm.ws.kernel.service.util.JavaInfo;
-import com.ibm.ws.kernel.service.util.JavaInfo.Vendor;
 import com.ibm.ws.security.jaas.common.JAASLoginModuleConfig;
 import com.ibm.ws.security.jaas.common.modules.WSLoginModuleProxy;
 import com.ibm.wsspi.adaptable.module.Container;
@@ -53,8 +60,8 @@ import com.ibm.wsspi.classloading.ClassLoadingService;
 import com.ibm.wsspi.kernel.service.utils.FilterUtils;
 import com.ibm.wsspi.library.Library;
 
-@Component(configurationPid = "com.ibm.ws.security.authentication.internal.jaas.jaasLoginModuleConfig", configurationPolicy = ConfigurationPolicy.REQUIRE, property = "service.vendor=IBM")
-public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig {
+@Component(service = JAASLoginModuleConfig.class, configurationPid = "com.ibm.ws.security.authentication.internal.jaas.jaasLoginModuleConfig", configurationPolicy = ConfigurationPolicy.REQUIRE, property = "service.vendor=IBM")
+public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig, SynchronousBundleListener {
     private static final TraceComponent tc = Tr.register(JAASLoginModuleConfigImpl.class);
 
     public static final String CERTIFICATE = "certificate";
@@ -64,6 +71,8 @@ public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig {
     public static final String USERNAME_AND_PASSWORD = "userNameAndPassword";
 
     public static final String DELEGATE = "delegate";
+
+    public static final String IBM_KRB5_LOGIN_MODULE = "com.ibm.security.auth.module.Krb5LoginModule";
 
     public static final Class<WSLoginModuleProxy> WSLOGIN_MODULE_PROXY_CLASS = com.ibm.ws.security.jaas.common.modules.WSLoginModuleProxy.class;
 
@@ -96,10 +105,19 @@ public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig {
 
     private ClassLoadingService classLoadingService;
 
+    private final AtomicBoolean reloadDelegateBundle = new AtomicBoolean();
+    private final AtomicReference<Bundle> trackBundle = new AtomicReference<>();
+
     @Activate
-    protected void activate(ModuleConfig moduleConfig, Map<String, Object> props) {
+    protected void activate(BundleContext context, ModuleConfig moduleConfig, Map<String, Object> props) {
+        context.addBundleListener(this);
         this.moduleConfig = moduleConfig;
         processConfigProps(props);
+    }
+
+    @Deactivate
+    protected void deactivate(BundleContext context) {
+        context.removeBundleListener(this);
     }
 
     /**
@@ -115,6 +133,7 @@ public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig {
         if (isDefaultLoginModule()) {
             String target = getTargetClassName(originalLoginModuleClassName, options);
             Class<?> cl = getTargetClassForName(target);
+            trackDelegateBundle(cl);
             options.put(LoginModuleProxy.KERNEL_DELEGATE, cl);
         } else {
             if (sharedLibrary == null && classProviderAppInfo == null) // nowhere to load the login module class from
@@ -129,6 +148,39 @@ public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig {
             options = processDelegateOptions(options, originalLoginModuleClassName, classProviderAppInfo, classLoadingService, sharedLibrary, false);
         }
         this.options = options;
+    }
+
+    /**
+     * Track the bundle for the LoginModule delegate class. If this bundle changes, we need to reload it
+     * from the new bundle.
+     * 
+     * @param cl The LoginModule class to track the bundle for.
+     */
+    private void trackDelegateBundle(Class<?> cl) {
+        if (cl != null) {
+            final Bundle loginModuleClassBundle = FrameworkUtil.getBundle(cl);
+            if (loginModuleClassBundle != null) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Tracking LoginModule bundle: " + loginModuleClassBundle);
+                }
+                trackBundle.set(loginModuleClassBundle);
+            }
+        }
+    }
+
+    @Override
+    public void bundleChanged(BundleEvent event) {
+        /*
+         * If the tracked delegate LoginModule bundle has been unresolved, then mark that we need to reload the bundle.
+         */
+        if ((event.getType() & BundleEvent.UNRESOLVED) != 0) {
+            if (trackBundle.compareAndSet(event.getBundle(), null)) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Tracked bundle for LoginModule class " + options.get(LoginModuleProxy.KERNEL_DELEGATE) + " was unresolved. It will need to be reloaded.");
+                }
+                reloadDelegateBundle.set(true);
+            }
+        }
     }
 
     @FFDCIgnore(ClassNotFoundException.class)
@@ -193,8 +245,9 @@ public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig {
 
             Class<?> cl = null;
             try {
-                if (isIBMJdk18() || !"com.ibm.security.auth.module.Krb5LoginModule".equalsIgnoreCase(target)) {
-                    //Do not initialize the IBM Krb5LoginModule if we are running with IBM JDK 18 or lower
+                //If the IBM Krb5LoginModule class is available then try to load the target class
+                //OR, if it isn't available, only try to load the target class if it isn't the IBM Krb5LoginModule
+                if (JavaInfo.isSystemClassAvailable(IBM_KRB5_LOGIN_MODULE) || !IBM_KRB5_LOGIN_MODULE.equalsIgnoreCase(target)) {
                     cl = Class.forName(target, false, loader);
                 }
             } catch (ClassNotFoundException e) {
@@ -260,7 +313,7 @@ public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig {
      * or is found to not be loadable from any.
      *
      * @param className class name, including package, of the JAAS custom login module to load.
-     * @param appInfo information about the enterprise application.
+     * @param appInfo   information about the enterprise application.
      * @return the loaded class. Null if unable to load from any web module.
      */
     @FFDCIgnore(ClassNotFoundException.class)
@@ -333,7 +386,8 @@ public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig {
                 if (key.startsWith(".")
                     || key.startsWith("config.")
                     || key.startsWith("service.")
-                    || key.equals("id")) {
+                    || key.equals("id")
+                    || key.startsWith("osgi.ds.")) {
                     continue;
                 }
                 options.put(key, option.getValue());
@@ -394,11 +448,11 @@ public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig {
 
     @Override
     public boolean isDefaultLoginModule() {
-        if (defaultLoginModuleIds.contains(moduleConfig.id()))
+        if (defaultLoginModuleIds.contains(moduleConfig.id())) {
             return true;
-        else
+        } else {
             return false;
-
+        }
     }
 
     @Reference
@@ -406,8 +460,29 @@ public class JAASLoginModuleConfigImpl implements JAASLoginModuleConfig {
         this.classLoadingService = classLoadingService;
     }
 
-    private static boolean isIBMJdk18() {
-        return (JavaInfo.vendor() == Vendor.IBM && JavaInfo.majorVersion() == 8);
+    @Override
+    public void reloadDelegateClass() {
+        /*
+         * We will only reload the LoginModule delegate class if we have been notified that the bundle
+         * has been UNRESOLVED prior to this call.
+         */
+        if (reloadDelegateBundle.compareAndSet(true, false)) {
+            Class<?> delegateClass = (Class<?>) options.get(LoginModuleProxy.KERNEL_DELEGATE);
+            String delegateClassName = (delegateClass == null) ? null : delegateClass.getName();
+            if (delegateClassName != null) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Reloading delegate class: " + delegateClassName);
+                }
+                if (delegateClassName.equals(WSLOGIN_MODULE_PROXY)) {
+                    /*
+                     * Don't need to look up the class if it is the WSLOGIN_MODULE_PROXY_CLASS, as
+                     * we have it already.
+                     */
+                    options.put(LoginModuleProxy.KERNEL_DELEGATE, WSLOGIN_MODULE_PROXY_CLASS);
+                } else {
+                    options.put(LoginModuleProxy.KERNEL_DELEGATE, getTargetClassForName(delegateClassName));
+                }
+            }
+        }
     }
-
 }

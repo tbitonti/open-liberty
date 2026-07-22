@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.http.dispatcher.internal.channel;
 
@@ -30,12 +29,14 @@ import com.ibm.wsspi.http.channel.values.HttpHeaderKeys;
 import com.ibm.wsspi.http.channel.values.VersionValues;
 import com.ibm.wsspi.http.ee7.HttpOutputStreamEE7;
 
+import io.openliberty.http.ext.HttpResponseExt;
+
 /**
  * Implementation of the public HTTP transport response message for the dispatcher
  * and container traffic.
  */
 @Trivial
-public class HttpResponseImpl implements HttpResponse {
+public class HttpResponseImpl implements HttpResponse, HttpResponseExt {
     private HttpInboundServiceContext isc = null;
     private HttpResponseMessage message = null;
     private HttpOutputStreamImpl body = null;
@@ -145,11 +146,36 @@ public class HttpResponseImpl implements HttpResponse {
     }
 
     /*
+     * @see com.ibm.websphere.http.HttpResponseExt#setHeader(com.ibm.wsspi.http.channel.values.HttpHeaderKeys, java.lang.String)
+     */
+    @Override
+    public void setHeader(HttpHeaderKeys key, String value) {
+        this.message.setHeader(key, value);
+    }
+
+    /*
+     * @see com.ibm.websphere.http.HttpResponseExt#setHeaderIfAbsent(com.ibm.wsspi.http.channel.values.HttpHeaderKeys, java.lang.String)
+     */
+    @Override
+    public String setHeaderIfAbsent(HttpHeaderKeys key, String value) {
+        HeaderField oldValue = this.message.setHeaderIfAbsent(key, value);
+        return oldValue == null ? null : oldValue.asString();
+    }
+
+    /*
      * @see com.ibm.websphere.http.HttpResponse#removeHeader(java.lang.String)
      */
     @Override
     public void removeHeader(String name) {
         this.message.removeHeader(name);
+    }
+
+    /*
+     * @see io.openliberty.http.ext.HttpHeaderResponseExt#removeHeader(com.ibm.wsspi.http.channel.values.HttpHeaderKeys)
+     */
+    @Override
+    public void removeHeader(HttpHeaderKeys key) {
+        this.message.removeHeader(key);
     }
 
     /*
@@ -196,6 +222,14 @@ public class HttpResponseImpl implements HttpResponse {
     @Override
     public String getHeader(String name) {
         return this.message.getHeader(name).asString();
+    }
+
+    /*
+     * @see io.openliberty.http.ext.HttpHeaderResponseExt#getHeader(com.ibm.wsspi.http.channel.values.HttpHeaderKeys)
+     */
+    @Override
+    public String getHeader(HttpHeaderKeys key) {
+        return this.message.getHeader(key).asString();
     }
 
     /*
@@ -302,7 +336,9 @@ public class HttpResponseImpl implements HttpResponse {
     public void setTrailer(String name, String value) {
 
         HttpTrailers trailers = message.createTrailers();
-        HeaderKeys key = HttpHeaderKeys.find(name);
+        if (trailers == null)// Netty implementation
+            trailers = message.getTrailers();
+        HeaderKeys key = HttpHeaderKeys.find(name, false);
 
         if (trailers.containsDeferredTrailer(key)) {
             trailers.removeDeferredTrailer(key);
@@ -322,6 +358,8 @@ public class HttpResponseImpl implements HttpResponse {
     @Override
     public void writeTrailers() {
         HttpTrailers trailers = message.createTrailers();
+        if (trailers == null)// Netty implementation
+            trailers = message.getTrailers();
         trailers.computeRemainingTrailers();
 
     }

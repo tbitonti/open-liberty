@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2021 IBM Corporation and others.
+ * Copyright (c) 2019, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.microprofile.health20.fat;
 
@@ -29,6 +28,7 @@ import javax.json.JsonObject;
 
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -40,6 +40,7 @@ import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.websphere.simplicity.log.Log;
 
 import componenttest.annotation.Server;
+import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
@@ -72,6 +73,11 @@ public class DelayAppStartupHealthCheckTest {
                                     .withID("mpHealth-3.0")
                                     .addFeature("mpHealth-3.0")
                                     .removeFeature("mpHealth-2.0")
+                                    .forServers(SERVER_NAME))
+                    .andWith(new FeatureReplacementAction()
+                                    .withID("mpHealth-3.1")
+                                    .addFeature("mpHealth-3.1")
+                                    .removeFeature("mpHealth-3.0")
                                     .forServers(SERVER_NAME));
 
     @Server(SERVER_NAME)
@@ -96,6 +102,13 @@ public class DelayAppStartupHealthCheckTest {
         if (server1.isStarted()) {
             server1.stopServer(EXPECTED_FAILURES);
         }
+    }
+
+    @AfterClass
+    public static void tearDown() throws Exception {
+        // Once the tests and repeated tests are completed, ensure the server
+        // is fully stopped, in order to avoid conflicts with succeeding tests.
+        server1.stopServer(EXPECTED_FAILURES);
     }
 
     @Test
@@ -194,15 +207,14 @@ public class DelayAppStartupHealthCheckTest {
                             repeat = false;
                             startServerThread.join();
                         } else if (System.currentTimeMillis() - start_time > time_out) {
-                            List<String> lines = server1.findStringsInFileInLibertyServerRoot("Exiting init function - Thread.sleep completed.", MESSAGE_LOG);
-
+                            List<String> lines = server1.findStringsInFileInLibertyServerRoot("(CWWKZ0001I: Application DelayedHealthCheckApp started)+", MESSAGE_LOG);
                             if (lines.size() == 0) {
-                                log("testReadinessEndpointOnServerStart", "waiting for DelayedServlet sleep to finish.");
-                                server1.waitForStringInLog("Exiting init function - Thread.sleep completed.");
-                                log("testReadinessEndpointOnServerStart", "DelayedServlet sleep finished.");
-                            }
-                            else {
-                                log("testReadinessEndpointOnServerStart", "DelayedServlet sleep finished but timeout still reached.");
+                                log("testReadinessEndpointOnServerStart", "Waiting for Application to start.");
+                                String line = server1.waitForStringInLog("(CWWKZ0001I: Application DelayedHealthCheckApp started)+");
+                                log("testReadinessEndpointOnServerStart", "Application started. Line Found : " + line);
+                                assertNotNull("The CWWKZ0001I Application started message did not appear in messages.log", line);
+                            } else {
+                                log("testReadinessEndpointOnServerStart", "Application started but timeout still reached.");
                                 throw new TimeoutException("Timed out waiting for server and app to be ready. Timeout set to " + time_out + "ms.");
                             }
                         }
@@ -289,6 +301,7 @@ public class DelayAppStartupHealthCheckTest {
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat("mpHealth-3.1") // Due to the addition of the new Startup endpoint, the /health endpoint will be DOWN as well, so this test will be skipped for mpHealth-3.1
     public void testDelayedAppStartUpHealthCheck() throws Exception {
         log("testDelayedAppStartUpHealthCheck", "Testing the /health endpoint, before application has started.");
         HttpURLConnection conHealth = HttpUtils.getHttpConnectionWithAnyResponseCode(server1, HEALTH_ENDPOINT);

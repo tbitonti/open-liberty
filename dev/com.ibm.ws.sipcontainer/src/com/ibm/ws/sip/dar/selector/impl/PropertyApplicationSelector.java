@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2008, 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -62,10 +64,10 @@ public class PropertyApplicationSelector implements ApplicationSelector{
             c_logger.traceEntry(this, "getNextApplication");
         }
 		
-		// NEW directive start the chain from the beggining
+		// NEW directive, start the chain from the beginning
 		if (directive.equals( SipApplicationRoutingDirective.NEW )){
 			
-			// No request recived 
+			// No request received 
 			if (initialRequest == null) return null;
 
 			StateInfo newStateInfo = new StateInfo();
@@ -108,7 +110,7 @@ public class PropertyApplicationSelector implements ApplicationSelector{
 		// CONTINUE directive, find the next application in the chain
 		if (directive.equals( SipApplicationRoutingDirective.CONTINUE)){
 
-			// No request or state recived 
+			// No request or state received 
 			if (initialRequest == null) 
 			{
 	    		if (c_logger.isTraceDebugEnabled()) {

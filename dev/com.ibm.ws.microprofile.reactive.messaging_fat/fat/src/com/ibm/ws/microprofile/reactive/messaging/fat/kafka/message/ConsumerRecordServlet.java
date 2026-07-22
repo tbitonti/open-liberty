@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,10 +17,13 @@ import static org.junit.Assert.assertEquals;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Optional;
 
+import javax.inject.Inject;
 import javax.servlet.annotation.WebServlet;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.Test;
 
 import com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.KafkaTestConstants;
@@ -31,9 +36,14 @@ public class ConsumerRecordServlet extends AbstractKafkaTestServlet {
 
     private static final long serialVersionUID = 1L;
 
+    @Inject
+    @ConfigProperty(name = "mp.messaging.incoming." + ConsumerRecordBean.CHANNEL_IN + ".topic")
+    private Optional<String> topic;
+
     @Test
     public void testConsumerRecord() throws UnsupportedEncodingException {
-        KafkaWriter<String, String> writer = kafkaTestClient.writerFor(ConsumerRecordBean.CHANNEL_IN);
+
+        KafkaWriter<String, String> writer = kafkaTestClient.writerFor(topic.orElse("non-existent-topic"));
 
         // Server uses the timestamp for things like message expiry, so make it approximately accurate
         // This test relies on the following server config:
@@ -41,7 +51,7 @@ public class ConsumerRecordServlet extends AbstractKafkaTestServlet {
         // * message.timestamp.difference.max.ms > 500 (default is MAX_LONG)
         long timestamp = System.currentTimeMillis() + 500L;
 
-        ProducerRecord<String, String> record = new ProducerRecord<String, String>(ConsumerRecordBean.CHANNEL_IN, ConsumerRecordBean.PARTITION, timestamp, ConsumerRecordBean.KEY, ConsumerRecordBean.VALUE);
+        ProducerRecord<String, String> record = new ProducerRecord<String, String>(topic.orElse("non-existent-topic"), ConsumerRecordBean.PARTITION, timestamp, ConsumerRecordBean.KEY, ConsumerRecordBean.VALUE);
 
         for (int i = 0; i < ConsumerRecordBean.NUM_TEST_HEADERS; i++) {
             record.headers().add(ConsumerRecordBean.HEADER_KEY_PREFIX + i, (ConsumerRecordBean.HEADER_VALUE_PREFIX + i).getBytes("UTF-8"));

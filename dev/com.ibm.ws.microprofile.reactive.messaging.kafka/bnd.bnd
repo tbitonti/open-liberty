@@ -1,25 +1,25 @@
 #*******************************************************************************
-# Copyright (c) 2019 IBM Corporation and others.
+# Copyright (c) 2019, 2023 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
 #*******************************************************************************
--include= ~../cnf/resources/bnd/bundle.props,\
-          ~../cnf/resources/bnd/app-resources.bnd
+-include= ~../cnf/resources/bnd/bundle.props
 
 bSymbolicName=com.ibm.ws.microprofile.reactive.messaging.kafka
 bVersion=1.0
 
 testsrc: test/src
 
-Bundle-Name: com.ibm.ws.microprofile.reactive.messaging.kafka
-Bundle-SymbolicName: com.ibm.ws.microprofile.reactive.messaging.kafka
+-sub: *.bnd
 
-Bundle-Description:MicroProfile Reactive Messaging Kafka Connector, version ${bVersion}
+
 
 WS-TraceGroup: REACTIVEMESSAGE
 
@@ -42,6 +42,7 @@ Include-Resource: \
 
 -buildpath: \
   com.ibm.ws.microprofile.reactive.messaging.kafka.adapter;version=latest, \
+  io.openliberty.microprofile.reactive.messaging.internal;version=latest, \
   com.ibm.ws.logging;version=latest, \
   com.ibm.ws.logging.core;version=latest, \
   org.eclipse.osgi;version=latest, \

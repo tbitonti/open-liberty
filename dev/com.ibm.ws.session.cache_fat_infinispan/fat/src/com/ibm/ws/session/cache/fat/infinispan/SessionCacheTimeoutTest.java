@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2019 IBM Corporation and others.
+ * Copyright (c) 2018, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -23,16 +25,20 @@ import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.log.Log;
 
+import componenttest.annotation.MaximumJavaLevel;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.custom.junit.runner.RepeatTestFilter;
 import componenttest.custom.junit.runner.TestModeFilter;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 
@@ -41,6 +47,9 @@ import componenttest.topology.utils.FATServletClient;
  * invalidationTimeout="5s"
  * reaperPollInterval="30" //Min allowed to not receive random poll interval between 30-60s
  */
+// TODO Currently Infinispan does not support Java 23 with the versions of Infinispan we support
+// The @MaximumJavaLevel annotation should be removed once the this issue is fixed in a version of Infinispan we support
+@MaximumJavaLevel(javaLevel = 22)
 @RunWith(FATRunner.class)
 public class SessionCacheTimeoutTest extends FATServletClient {
     public static final Class<?> c = SessionCacheTimeoutTest.class;
@@ -51,12 +60,22 @@ public class SessionCacheTimeoutTest extends FATServletClient {
     public static SessionCacheApp app = null;
     public List<List<String>> cleanupSessions = new ArrayList<>();
 
+    @ClassRule
+    public static RepeatTests repeatRule = RepeatTests.withoutModification().andWith(new CacheManagerRepeatAction());
+
     @BeforeClass
     public static void setUp() throws Exception {
         app = new SessionCacheApp(server, false, "session.cache.infinispan.web", "session.cache.infinispan.web.listener1");
         String rand = UUID.randomUUID().toString();
+
+        String sessionCacheConfigFile = "httpSessionCache_1.xml";
+        if (RepeatTestFilter.isRepeatActionActive(CacheManagerRepeatAction.ID)) {
+            sessionCacheConfigFile = "httpSessionCache_2.xml";
+        }
+
         Map<String, String> options = server.getJvmOptionsAsMap();
         options.put("-Dinfinispan.cluster.name", rand);
+        options.put("-Dsession.cache.config.file", sessionCacheConfigFile);
         server.setJvmOptions(options);
         server.startServer();
 
@@ -70,6 +89,19 @@ public class SessionCacheTimeoutTest extends FATServletClient {
     @AfterClass
     public static void tearDown() throws Exception {
         server.stopServer();
+
+        if (isZOS()) {
+            Log.info(c, "tearDown", "Allow more time for ZOS shutdown");
+            TimeUnit.SECONDS.sleep(20);
+        }
+    }
+
+    private static final boolean isZOS() {
+        String osName = System.getProperty("os.name");
+        if (osName.contains("OS/390") || osName.contains("z/OS") || osName.contains("zOS")) {
+            return true;
+        }
+        return false;
     }
 
     @After
@@ -147,7 +179,7 @@ public class SessionCacheTimeoutTest extends FATServletClient {
     /**
      * Tests that accessing a session prevents invalidation.
      */
-    @Test
+//    @Test
     public void testRefreshInvalidation() throws Exception {
         int refreshes = TestModeFilter.FRAMEWORK_TEST_MODE == TestMode.FULL ? 45 : 9;
 

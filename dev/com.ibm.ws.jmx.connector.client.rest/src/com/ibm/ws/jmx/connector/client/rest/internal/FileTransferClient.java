@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2015 IBM Corporation and others.
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -19,6 +21,7 @@ import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -495,7 +498,7 @@ class FileTransferClient {
             if (logger.isLoggable(Level.FINER)) {
                 logger.logp(Level.FINER, logger.getName(), methodName, "Generated JSON: " + contentObject.toString());
             }
-            outStream.write(contentObject.toString().getBytes("UTF-8"));
+            outStream.write(contentObject.toString().getBytes(StandardCharsets.UTF_8));
             outStream.flush();
         } finally {
             tryToClose(outStream);

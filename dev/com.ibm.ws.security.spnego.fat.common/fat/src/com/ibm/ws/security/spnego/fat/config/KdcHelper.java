@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -32,11 +34,11 @@ import java.util.stream.Collectors;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelExec;
 import org.apache.sshd.client.channel.ClientChannelEvent;
-import org.apache.sshd.client.scp.ScpClient;
-import org.apache.sshd.client.scp.ScpClientCreator;
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.common.channel.Channel;
 import org.apache.sshd.common.channel.ChannelListener;
+import org.apache.sshd.scp.client.ScpClient;
+import org.apache.sshd.scp.client.ScpClientCreator;
 import org.junit.Ignore;
 
 import com.ibm.websphere.simplicity.ConnectionInfo;
@@ -186,6 +188,8 @@ public abstract class KdcHelper {
      * @throws Exception
      */
     public abstract void addSpnToKeytab(String user, String spn) throws Exception;
+
+    public abstract void deleteVbsScriptsFromKDC();
 
     /**
      * Cleanup any test artifacts on the KDC.
@@ -849,7 +853,7 @@ public abstract class KdcHelper {
      */
     public void deleteRemoteFileFromRemoteMachine(Machine remoteMachine, String remoteFile) throws Exception {
 
-        RemoteFile rFile = new RemoteFile(remoteMachine, SPNEGOConstants.CYGWIN_HOME_REALM_1 + remoteFile);
+        RemoteFile rFile = remoteMachine.getFile(SPNEGOConstants.CYGWIN_HOME_REALM_1 + remoteFile);
         removeRemoteFileFromRemoteMachine(rFile);
     }
 

@@ -55,10 +55,30 @@ _MF_SINGLTN(_PFX_XHR+"_AjaxUtils", _MF_OBJECT,
      * @param item
      * @param targetBuf
      */
-    appendIssuingItem: function (item, targetBuf) {
+     appendIssuingItem: function (item, targetBuf) {
         // if triggered by a Button send it along
-        if (item && item.type && item.type.toLowerCase() == "submit") {
-            targetBuf.append(item.name, item.value);
+        var identifier = item.id || item.name;
+        var type = ((item && item.type) || "").toLowerCase();
+
+        if((targetBuf.hasKey && targetBuf.hasKey(identifier)) ||
+            //change of api since this code was written, the official FormData nowadays
+            //uses has instead of hasKey, back then it was not finalized
+            //we now program a fallback in, to cover FormData for this case
+           (targetBuf.has && targetBuf.has(identifier))) { //already processed within the values
+            return;
+        }
+
+        //MYFACES-4606 we cannot send a value on an unchecked box as issuing element
+        var isCheckboxRadio = "checkbox" == type || "radio" == type;
+        if(isCheckboxRadio && !item.checked) {
+            return;
+        } else if (isCheckboxRadio) {
+            var value = ("undefined" == typeof item.value || null == item.value) ? true : item.value;
+            targetBuf.append(identifier, value);
+        //item must have a valid value to be able to be appended, without it no dice!
+        } else if(!(("undefined" == typeof item.value) || (null == item.value))) {
+            var itemValue = item.value;
+            targetBuf.append(identifier, itemValue);
         }
     },
 

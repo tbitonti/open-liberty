@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2008, 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -176,7 +178,7 @@ public class OutboundProcessor
 		SipURI uri = sipFactory.createSipURI(flowToken, selfHost);
 		uri.setSecure(sips);
 		uri.setPort(selfPort);
-		if (sips && transport.equals("tls")) {
+		if (sips && transport.equals(SipStackUtil.TLS_TRANSPORT)) {
 			transport = "tcp";
 		}
 		uri.setTransportParam(transport);
@@ -313,7 +315,7 @@ public class OutboundProcessor
 		else if (transport.equalsIgnoreCase(ListeningPoint.TRANSPORT_TCP)) {
 			transportValue = 1;
 		}
-		else if (transport.equalsIgnoreCase(ListeningPointImpl.TRANSPORT_TLS)) {
+		else if (transport.equalsIgnoreCase(SipStackUtil.TLS_TRANSPORT)) {
 			transportValue = 2;
 		}
 		else {
@@ -459,7 +461,7 @@ public class OutboundProcessor
 			transport = ListeningPoint.TRANSPORT_TCP;
 			break;
 		case 2:
-			transport = ListeningPointImpl.TRANSPORT_TLS;
+			transport = SipStackUtil.TLS_TRANSPORT;
 			break;
 		default:
 			if (s_logger.isTraceFailureEnabled()) {

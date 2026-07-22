@@ -1,10 +1,12 @@
 /*******************************************************************************
-* Copyright (c) 2017 IBM Corporation and others.
+* Copyright (c) 2017, 2024 IBM Corporation and others.
 *
 * All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v1.0
+* are made available under the terms of the Eclipse Public License 2.0
 * which accompanies this distribution, and is available at
-* http://www.eclipse.org/legal/epl-v10.html
+* http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
 *
 *******************************************************************************
 * Copyright 2010-2013 Coda Hale and Yammer, Inc.
@@ -23,12 +25,23 @@
 *******************************************************************************/
 package io.openliberty.microprofile.metrics30.internal.impl;
 
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Stream;
+
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.metrics.Histogram;
+import org.eclipse.microprofile.metrics.Metadata;
 import org.eclipse.microprofile.metrics.Snapshot;
 
 import com.ibm.ws.microprofile.metrics.impl.LongAdderAdapter;
 import com.ibm.ws.microprofile.metrics.impl.LongAdderProxy;
 import com.ibm.ws.microprofile.metrics.impl.Reservoir;
+
+import io.openliberty.microprofile.metrics30.internal.helper.BucketManager;
+import io.openliberty.microprofile.metrics30.internal.helper.BucketManager.BucketValue;
+import io.openliberty.microprofile.metrics30.setup.config.MetricPercentileConfiguration;
+import io.openliberty.microprofile.metrics30.setup.config.MetricsConfigurationManager;
 
 /**
  * A metric which calculates the distribution of a value.
@@ -40,16 +53,22 @@ public class Histogram30Impl implements Histogram {
     private final Reservoir reservoir;
     private final LongAdderAdapter count;
     private final LongAdderAdapter sum;
+    private final BucketManager manager;
+    private final double[] percentiles;
 
     /**
      * Creates a new {@link Histogram30Impl} with the given reservoir.
      *
      * @param reservoir the reservoir to create a histogram from
+     * @param metadata
      */
-    public Histogram30Impl(Reservoir reservoir) {
+    public Histogram30Impl(Reservoir reservoir, Metadata metadata) {
+
         this.reservoir = reservoir;
         this.count = LongAdderProxy.create();
         this.sum = LongAdderProxy.create();
+        this.manager = new BucketManager(metadata);
+        this.percentiles = setConfiguredPercentiles(metadata);
     }
 
     /**
@@ -72,6 +91,7 @@ public class Histogram30Impl implements Histogram {
         count.increment();
         sum.add(value);
         reservoir.update(value);
+        manager.updateHistogram(value);
     }
 
     /**
@@ -86,12 +106,60 @@ public class Histogram30Impl implements Histogram {
 
     @Override
     public Snapshot getSnapshot() {
+
         return reservoir.getSnapshot();
+    }
+
+    /**
+     * Returns a map of histogram buckets
+     *
+     * @return a map of histogram buckets
+     */
+    public Map<String, Map<Double, BucketValue>> getBuckets() {
+        return manager.getBuckets();
     }
 
     /** {@inheritDoc} */
     @Override
     public long getSum() {
         return sum.sum();
+    }
+
+    /**
+     * Returns user configured list of percentiles
+     *
+     * @return user configured list of percentiles
+     */
+    public double[] getConfiguredPercentiles() {
+        return percentiles;
+    }
+
+    /**
+     * Sets and returns user configured list of percentiles
+     *
+     * @param metadata
+     * @return user configured list of percentiles
+     */
+    public double[] setConfiguredPercentiles(Metadata metadata) {
+        Optional<String> percentileConfiguration = ConfigProvider.getConfig().getOptionalValue("mp.metrics.distribution.percentiles", String.class);
+        String metricName = metadata.getName();
+        if (percentileConfiguration.isPresent()) {
+
+            MetricPercentileConfiguration percentileConfig = MetricsConfigurationManager.getInstance().getPercentilesConfiguration(metricName);
+
+            if (percentileConfig != null && percentileConfig.getValues() != null
+                && percentileConfig.getValues().length > 0 && !percentileConfig.isDisabled()) {
+                double[] vals = Stream.of(percentileConfig.getValues()).mapToDouble(Double::doubleValue).toArray();
+
+                return vals;
+            } else if (percentileConfig == null) {
+                return null;
+            } else {
+                return new double[0];
+            }
+        }
+
+        return null;
+
     }
 }

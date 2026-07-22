@@ -1,14 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2021 IBM Corporation and others.
+ * Copyright (c) 2009, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.kernel.feature.internal;
+
+import static com.ibm.wsspi.kernel.service.condition.StartPhaseCondition.StartPhase.ACTIVE;
+import static com.ibm.wsspi.kernel.service.condition.StartPhaseCondition.StartPhase.CONTAINER;
+import static com.ibm.wsspi.kernel.service.condition.StartPhaseCondition.StartPhase.PREPARE;
+import static com.ibm.wsspi.kernel.service.condition.StartPhaseCondition.StartPhase.SERVICE_EARLY;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -39,20 +43,28 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.eclipse.equinox.region.RegionDigraph;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleEvent;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.BundleListener;
 import org.osgi.framework.Constants;
 import org.osgi.framework.Filter;
+// import org.osgi.framework.Filter;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.InvalidSyntaxException;
+import org.osgi.framework.SynchronousBundleListener;
+import org.osgi.framework.Version;
+import org.osgi.framework.VersionRange;
 import org.osgi.framework.namespace.ExecutionEnvironmentNamespace;
 import org.osgi.framework.startlevel.FrameworkStartLevel;
 import org.osgi.framework.wiring.BundleCapability;
@@ -60,6 +72,7 @@ import org.osgi.framework.wiring.BundleRequirement;
 import org.osgi.framework.wiring.BundleRevision;
 import org.osgi.framework.wiring.FrameworkWiring;
 import org.osgi.resource.Requirement;
+//import org.osgi.service.cm.ConfigurationException;
 import org.osgi.service.cm.ConfigurationException;
 import org.osgi.service.cm.ManagedService;
 import org.osgi.service.component.ComponentContext;
@@ -76,11 +89,13 @@ import org.osgi.service.event.EventAdmin;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.kernel.feature.AppForceRestart;
 import com.ibm.ws.kernel.feature.FeatureDefinition;
 import com.ibm.ws.kernel.feature.FeatureProvisioner;
+import com.ibm.ws.kernel.feature.FixManager;
 import com.ibm.ws.kernel.feature.ProcessType;
 import com.ibm.ws.kernel.feature.ServerReadyStatus;
 import com.ibm.ws.kernel.feature.ServerStarted;
@@ -108,16 +123,20 @@ import com.ibm.ws.kernel.provisioning.LibertyBootRuntime;
 import com.ibm.ws.kernel.provisioning.ProductExtension;
 import com.ibm.ws.kernel.provisioning.ProductExtensionInfo;
 import com.ibm.ws.kernel.service.util.JavaInfo;
+import com.ibm.ws.kernel.service.util.ResolutionReportHelper;
 import com.ibm.ws.runtime.update.RuntimeUpdateManager;
 import com.ibm.ws.runtime.update.RuntimeUpdateNotification;
 import com.ibm.wsspi.kernel.service.location.VariableRegistry;
 import com.ibm.wsspi.kernel.service.location.WsLocationAdmin;
 import com.ibm.wsspi.kernel.service.location.WsLocationConstants;
 import com.ibm.wsspi.kernel.service.location.WsResource;
+import com.ibm.wsspi.kernel.service.utils.FrameworkState;
 import com.ibm.wsspi.kernel.service.utils.OnErrorUtil;
 import com.ibm.wsspi.kernel.service.utils.OnErrorUtil.OnError;
 import com.ibm.wsspi.kernel.service.utils.PathUtils;
 import com.ibm.wsspi.kernel.service.utils.TimestampUtils;
+
+import io.openliberty.checkpoint.spi.CheckpointPhase;
 
 /**
  * The feature manager finishes the initialization of the runtime by analyzing a list
@@ -139,19 +158,20 @@ import com.ibm.wsspi.kernel.service.utils.TimestampUtils;
  * from an explicit <code>Variable</code> definition in a server configuration file (such as server.xml)
  * </p>
  */
-@Component(service = { FeatureProvisioner.class, FrameworkReady.class, ManagedService.class },
+@Component(service = { FixManager.class, FeatureProvisioner.class, FrameworkReady.class, ManagedService.class },
            immediate = true,
            configurationPolicy = ConfigurationPolicy.IGNORE,
            property = {
                         Constants.SERVICE_VENDOR + "=" + "IBM",
                         Constants.SERVICE_PID + "=" + "com.ibm.ws.kernel.feature"
            })
-public class FeatureManager implements FeatureProvisioner, FrameworkReady, ManagedService {
+public class FeatureManager implements FixManager, FeatureProvisioner, FrameworkReady, ManagedService {
 
     private static final String ME = FeatureManager.class.getName();
     private static final TraceComponent tc = Tr.register(FeatureManager.class);
 
     private final static String CFG_KEY_ACTIVE_FEATURES = "feature";
+    private final static String CFG_KEY_PLATFORMS = "platform";
 
     public static final String EE_COMPATIBLE_NAME = "eeCompatible";
     final static String INSTALLED_BUNDLE_CACHE = "platform/feature.bundles.cache";
@@ -163,9 +183,16 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
     final static String FEATURE_PRODUCT_EXTENSIONS_INSTALL = "com.ibm.websphere.productInstall";
     final static String FEATURE_PRODUCT_EXTENSIONS_FILE_EXTENSION = ".properties";
     final static String PRODUCT_INFO_STRING_OPEN_LIBERTY = "Open Liberty";
+    private static String platformEnvironmentVariable = System.getenv("PREFERRED_PLATFORM_VERSIONS");
     final static FeatureResolver featureResolver = new FeatureResolverImpl();
 
-    final static Collection<String> ALLOWED_ON_ALL_FEATURES = Arrays.asList("com.ibm.websphere.appserver.timedexit-1.0", "com.ibm.websphere.appserver.osgiConsole-1.0");
+    private static Version JAVA_MAJOR_VERSION = new Version(JavaInfo.majorVersion(), 0, 0);
+
+    final static Collection<String> ALLOWED_ON_ALL_FEATURES = Arrays.asList(
+                                                                            "com.ibm.websphere.appserver.timedexit-1.0",
+                                                                            "com.ibm.websphere.appserver.osgiConsole-1.0",
+                                                                            "io.openliberty.xmlBinding-4.0" // Removed from platform in EE 11.  Can be specified on server or client now.
+    );
     final static Collection<String> ALL_ALLOWED_ON_CLIENT_FEATURES;
     static {
         Collection<String> temp = new ArrayList<String>();
@@ -186,14 +213,20 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         final RuntimeUpdateManager runtimeUpdateManager;
         final ProvisioningMode provisioningMode;
         String[] features;
+        String[] platforms;
         RuntimeUpdateNotification appForceRestart = null;
         RuntimeUpdateNotification featureBundlesResolved = null;
         RuntimeUpdateNotification featureUpdatesCompleted = null;
 
         FeatureChange(RuntimeUpdateManager runtimeUpdateManager, ProvisioningMode provisioningMode, String[] features) {
+            this(runtimeUpdateManager, provisioningMode, features, null);
+        }
+
+        FeatureChange(RuntimeUpdateManager runtimeUpdateManager, ProvisioningMode provisioningMode, String[] features, String[] platforms) {
             this.runtimeUpdateManager = runtimeUpdateManager;
             this.provisioningMode = provisioningMode;
             this.features = features;
+            this.platforms = platforms;
             if (provisioningMode == ProvisioningMode.UPDATE) {
                 featureUpdatesCompleted = runtimeUpdateManager.createNotification(RuntimeUpdateNotification.FEATURE_UPDATES_COMPLETED);
             }
@@ -216,6 +249,18 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
             }
 
             return lcnFeatures;
+        }
+
+        Set<String> getPlatformsWithLowerCaseName() {
+            Set<String> lcnPlatforms = new HashSet<String>();
+            if (platforms == null) {
+                return lcnPlatforms;
+            }
+            for (String platform : platforms) {
+                lcnPlatforms.add(platform.toLowerCase());
+            }
+
+            return lcnPlatforms;
         }
     }
 
@@ -263,6 +308,9 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
      */
     protected OnError onError;
 
+    private final String CONFIG_PACKAGE_SERVER_CONFLICT = "package.server.conflict";
+    private Set<String> packageServerConflict = null;
+
     /** Cache for currently installed features (and for all information we know about features) */
     protected FeatureRepository featureRepository;
 
@@ -294,6 +342,12 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
     private volatile LibertyBootRuntime libertyBoot;
 
     private FrameworkWiring frameworkWiring;
+
+    private final Set<String> iFixSet = new CopyOnWriteArraySet<String>();
+
+    private final Set<String> tFixSet = new CopyOnWriteArraySet<String>();
+
+    private final AtomicBoolean fixLock = new AtomicBoolean(false);
 
     @Reference
     private volatile List<ServerReadyStatus> serverReadyChecks;
@@ -631,17 +685,38 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         }
 
         onError = (OnError) configuration.get(OnErrorUtil.CFG_KEY_ON_ERROR);
+        String packageServerConflictString = (String) configuration.get(CONFIG_PACKAGE_SERVER_CONFLICT);
+        if (packageServerConflictString != null) {
+            if (!packageServerConflictString.equalsIgnoreCase("false") && packageServerConflictString.length() != 0) {
+                packageServerConflict = new HashSet<>();
+                if (!packageServerConflictString.equalsIgnoreCase("true")) {
+                    int startingIndex = 0;
+                    int index = packageServerConflictString.indexOf(",");
+                    while (index != -1) {
+                        packageServerConflict.add(packageServerConflictString.substring(startingIndex, index).trim());
+                        startingIndex = index + 1;
+                        index = packageServerConflictString.indexOf(",", startingIndex);
+                    }
+                    packageServerConflict.add(packageServerConflictString.substring(startingIndex).trim());
+                }
+            }
+        }
 
         String[] features = (String[]) configuration.get(CFG_KEY_ACTIVE_FEATURES);
         if (features == null) {
             features = new String[0];
         }
 
-        queueFeatureChange(mode, features);
+        String[] platforms = (String[]) configuration.get(CFG_KEY_PLATFORMS);
+        if (platforms == null) {
+            platforms = new String[0];
+        }
+
+        queueFeatureChange(mode, features, platforms);
     }
 
-    private void queueFeatureChange(final ProvisioningMode mode, String[] features) {
-        featureChanges.add(new FeatureChange(runtimeUpdateManager, mode, features));
+    private void queueFeatureChange(final ProvisioningMode mode, String[] features, String[] platforms) {
+        featureChanges.add(new FeatureChange(runtimeUpdateManager, mode, features, platforms));
         executorService.execute(new Runnable() {
             @Override
             public void run() {
@@ -682,19 +757,20 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
 
         HashSet<String> preInstalledAutoFeatures = new HashSet<String>();
         HashSet<String> preInstalledPublicAutoFeatures = new HashSet<String>();
+        Result result = null;
 
         try {
             switch (featureChange.provisioningMode) {
                 case INITIAL_PROVISIONING:
                     // Get through kernel/core startup
-                    if (getStartLevel() < ProvisionerConstants.LEVEL_FEATURE_PREPARE) {
-                        BundleLifecycleStatus startStatus = setStartLevel(ProvisionerConstants.LEVEL_FEATURE_PREPARE);
+                    if (getStartLevel() < PREPARE.level()) {
+                        BundleLifecycleStatus startStatus = setStartLevel(PREPARE.level());
                         checkBundleStatus(startStatus);
                     }
                     break;
                 case REFRESH:
                     // Get all the installed features.
-                    for (String featureName : featureRepository.getInstalledFeatures()) {
+                    for (String featureName : featureRepository.getResolvedFeatures()) {
                         ProvisioningFeatureDefinition feature = featureRepository.getFeature(featureName);
                         // If the feature is not null and is an AutoFeature store it away.
                         if (feature != null && feature.isAutoFeature()) {
@@ -723,7 +799,7 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
                 Tr.info(tc, "STARTING_AUDIT");
             }
 
-            preInstalledFeatures = new HashSet<>(featureRepository.getInstalledFeatures());
+            preInstalledFeatures = new HashSet<>(featureRepository.getResolvedFeatures());
 
             String pkgs = bundleContext.getProperty("com.ibm.ws.kernel.classloading.apiPackagesToHide");
             Set<String> apiPkgsToIgnore = pkgs == null ? null : new HashSet<String>(Arrays.asList(pkgs.split(",")));
@@ -746,7 +822,8 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
                 // been installed into the runtime, so that we can recalculate any new autofeatures to install.
                 featureChange.features = getPublicFeatures(preInstalledFeatures, false).toArray(new String[] {});
             }
-            updateFeatures(locationService, provisioner, preInstalledFeatures, featureChange, featureUpdateNumber.incrementAndGet());
+
+            result = updateFeatures(locationService, provisioner, preInstalledFeatures, featureChange, featureUpdateNumber.incrementAndGet());
             // All done with the updates we could find...
             switch (featureChange.provisioningMode) {
                 case CONTENT_REQUEST:
@@ -757,9 +834,8 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
                 case INITIAL_PROVISIONING:
                     // Increment the start level to ensure application bundles can start,
                     // even if no features are loaded
-                    BundleLifecycleStatus startStatus = setStartLevel(ProvisionerConstants.LEVEL_ACTIVE);
+                    BundleLifecycleStatus startStatus = setStartLevel(ACTIVE.level());
                     checkBundleStatus(startStatus); // FFDC, etc.
-
                     checkServerReady();
 
                     //register a service that can be looked up for server start.
@@ -792,7 +868,9 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
             featureRepository.dispose();
 
             // Update/progress messages -- AFTER we've written cache files
-            writeUpdateMessages(featureChange.provisioningMode, preInstalledFeatures, deletedAutoFeatures, deletedPublicAutoFeatures);
+
+            fixLock.set(false);
+            writeUpdateMessages(featureChange.provisioningMode, preInstalledFeatures, deletedAutoFeatures, deletedPublicAutoFeatures, result);
         }
     }
 
@@ -899,12 +977,39 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
      *                                      auto features have been deleted.
      */
     private void writeUpdateMessages(ProvisioningMode provisioningMode, Set<String> preInstalledFeatures, Set<String> deletedAutoFeatures,
-                                     Set<String> deletedPublicAutoFeatures) {
+                                     Set<String> deletedPublicAutoFeatures, Result result) {
         writeServiceMessages();
 
-        Set<String> postInstalledFeatures = new HashSet<>(featureRepository.getInstalledFeatures());
+        Set<String> postInstalledFeatures = new HashSet<>(featureRepository.getResolvedFeatures());
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
             Tr.debug(tc, "all installed features " + postInstalledFeatures);
+        }
+
+        if (result != null) {
+            if (!result.getResolvedPlatforms().isEmpty()) {
+                Tr.info(tc, "RESOLVED_PLATFORM", result.getResolvedPlatforms());
+            }
+
+            //checks if the resolved versionless features are in the postInstalledFeatures list
+            //if they are, they get displayed in the resolved versionless message
+            List<String> resolvedVersionless = new ArrayList<>();
+            List<String> resolvedVersioned = new ArrayList<>();
+            for (Map.Entry<String, String> versionlessResolved : result.getVersionlessFeatures().entrySet()) {
+                if (versionlessResolved.getValue() == null) {
+                    continue;
+                }
+                ProvisioningFeatureDefinition versionless = featureRepository.getFeature(versionlessResolved.getKey());
+                ProvisioningFeatureDefinition versioned = featureRepository.getFeature(versionlessResolved.getValue());
+                if ((postInstalledFeatures.contains(versionless.getFeatureName()) || postInstalledFeatures.contains(versionless.getSymbolicName()))
+                    && (postInstalledFeatures.contains(versioned.getFeatureName()) || postInstalledFeatures.contains(versioned.getSymbolicName()))) {
+
+                    resolvedVersionless.add(versionless.getFeatureName());
+                    resolvedVersioned.add(versioned.getFeatureName());
+                }
+            }
+            if (!resolvedVersionless.isEmpty()) {
+                Tr.info(tc, "VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE", resolvedVersionless, resolvedVersioned);
+            }
         }
 
         //remove the pre-installed features from all installed features to show just the added features
@@ -916,20 +1021,23 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
                 Tr.debug(tc, "added features", postInstalledFeatures);
             }
             installedPublicFeatures = getPublicFeatures(postInstalledFeatures, true);
-        } else if (provisioningMode == ProvisioningMode.INITIAL_PROVISIONING) {
-            // this is a case of warm start, just audit the installed features to be useful
-            installedPublicFeatures = getPublicFeatures(preInstalledFeatures, true);
         }
 
-        if (!!!installedPublicFeatures.isEmpty()) {
-            if (supportedProcessTypes.contains(ProcessType.CLIENT)) {
-                Tr.audit(tc, "FEATURES_ADDED_CLIENT", installedPublicFeatures);
-            } else {
-                Tr.audit(tc, "FEATURES_ADDED", installedPublicFeatures);
+        if (supportedProcessTypes.contains(ProcessType.CLIENT)) {
+
+            if (!installedPublicFeatures.isEmpty() && !preInstalledFeatures.isEmpty()) {
+                Tr.audit(tc, "FEATURES_ADDED_CLIENT_DELTA", installedPublicFeatures);
             }
+            Tr.audit(tc, "FEATURES_ADDED_CLIENT", getPublicFeatures(featureRepository.getResolvedFeatures(), true));
+        } else {
+
+            if (!!!installedPublicFeatures.isEmpty() && !preInstalledFeatures.isEmpty()) {
+                Tr.audit(tc, "FEATURES_ADDED_DELTA", installedPublicFeatures);
+            }
+            Tr.audit(tc, "FEATURES_ADDED", getPublicFeatures(featureRepository.getResolvedFeatures(), true));
         }
 
-        featureRepository.copyInstalledFeaturesTo(postInstalledFeatures);
+        featureRepository.copyResolvedFeaturesTo(postInstalledFeatures);
         preInstalledFeatures.removeAll(postInstalledFeatures);
 
         // Add in any deleted autofeatures to the trace.
@@ -956,6 +1064,13 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
     private void writeFeatureChangeMessages(long startTime, ProvisioningMode provisioningMode) {
         String time = TimestampUtils.getElapsedTimeNanos(startTime);
 
+        if (provisioningMode == ProvisioningMode.INITIAL_PROVISIONING && CheckpointPhase.getPhase() != CheckpointPhase.INACTIVE) {
+            time = TimestampUtils.getElapsedTime();
+        }
+
+        if (FrameworkState.isStopping()) {
+            return;
+        }
         if (provisioningMode == ProvisioningMode.UPDATE) {
             Tr.audit(tc, "COMPLETE_AUDIT", time);
         } else {
@@ -993,83 +1108,122 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         return out;
     }
 
-    /**
-     *
-     */
-    @FFDCIgnore(IllegalStateException.class)
-    private void writeServiceMessages() {
-        // This print stream is used to write a fix.data file containing detected fixes for service.
-        PrintStream out = null;
-        Map<Bundle, Map<String, String>> cachedFixes = new HashMap<>();
-        boolean dirtyFixCache = readCachedFixes(cachedFixes);
+    private final void populateFixSets() {
 
-        Bundle[] bundles = bundleContext.getBundles();
+        if (fixLock.compareAndSet(false, true)) {
 
-        Set<String> iFixSet = new HashSet<String>();
-        Set<String> tFixSet = new HashSet<String>();
+            HashSet<String> newTFixSet = new HashSet<String>();
+            HashSet<String> newIFixSet = new HashSet<String>();
 
-        for (Bundle b : bundles) {
-            String tFixes;
-            boolean hasTFixes = false;
-            String iFixes;
-            boolean hasIFixes = false;
-            Map<String, String> cachedHeaders = cachedFixes.get(b);
-            if (cachedHeaders == null) {
-                Dictionary<String, String> headers;
-                try {
-                    headers = b.getHeaders("");
-                } catch (IllegalStateException ise) {
-                    // This can happen if a bundle was uninstalled between the call to bundleContext.getBundles() and here.
-                    // Testing shows this typically happens to dynamically generated bundles, like
-                    // "WSClassLoadingService@Thread Context:WebModule:basicauth-basicauth-/basicauth"
-                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                        Tr.debug(tc, "writeServiceMessages - caught exception getting manifest headers for bundle " + b, ise);
+            // This print stream is used to write a fix.data file containing detected fixes for service.
+            PrintStream out = null;
+            Map<Bundle, Map<String, String>> cachedFixes = new HashMap<>();
+            boolean dirtyFixCache = readCachedFixes(cachedFixes);
+
+            Bundle[] bundles = bundleContext.getBundles();
+
+            for (Bundle b : bundles) {
+                String tFixes;
+                boolean hasTFixes = false;
+                String iFixes;
+                boolean hasIFixes = false;
+                Map<String, String> cachedHeaders = cachedFixes.get(b);
+                if (cachedHeaders == null) {
+                    Dictionary<String, String> headers;
+                    try {
+                        headers = b.getHeaders("");
+                    } catch (IllegalStateException ise) {
+                        // This can happen if a bundle was uninstalled between the call to bundleContext.getBundles() and here.
+                        // Testing shows this typically happens to dynamically generated bundles, like
+                        // "WSClassLoadingService@Thread Context:WebModule:basicauth-basicauth-/basicauth"
+                        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                            Tr.debug(tc, "writeServiceMessages - caught exception getting manifest headers for bundle " + b, ise);
+                        }
+                        continue;
                     }
-                    continue;
+
+                    cachedHeaders = new HashMap<>(2);
+                    tFixes = headers.get(FEATURE_TEST_FIXES);
+                    hasTFixes = tFixes != null;
+                    if (hasTFixes) {
+                        cachedHeaders.put(FEATURE_TEST_FIXES, tFixes);
+                    }
+                    iFixes = headers.get(FEATURE_INTERIM_FIXES);
+                    hasIFixes = iFixes != null;
+                    if (hasIFixes) {
+                        cachedHeaders.put(FEATURE_INTERIM_FIXES, iFixes);
+                    }
+
+                    cachedFixes.put(b, cachedHeaders);
+                    dirtyFixCache = true;
+                } else {
+                    tFixes = cachedHeaders.get(FEATURE_TEST_FIXES);
+                    hasTFixes = tFixes != null;
+                    iFixes = cachedHeaders.get(FEATURE_INTERIM_FIXES);
+                    hasIFixes = iFixes != null;
                 }
 
-                cachedHeaders = new HashMap<>(2);
-                tFixes = headers.get(FEATURE_TEST_FIXES);
-                hasTFixes = tFixes != null;
                 if (hasTFixes) {
-                    cachedHeaders.put(FEATURE_TEST_FIXES, tFixes);
+                    out = getFixWriter(out);
+                    out.print("tFix: ");
+                    out.print(b.getLocation());
+                    out.print(": ");
+                    out.println(tFixes);
+                    newTFixSet.addAll(Arrays.asList(tFixes.replaceAll(" ", "").split(",")));
                 }
-                iFixes = headers.get(FEATURE_INTERIM_FIXES);
-                hasIFixes = iFixes != null;
                 if (hasIFixes) {
-                    cachedHeaders.put(FEATURE_INTERIM_FIXES, iFixes);
+                    out = getFixWriter(out);
+                    out.print("iFix: ");
+                    out.print(b.getLocation());
+                    out.print(": ");
+                    out.println(iFixes);
+                    newIFixSet.addAll(Arrays.asList(iFixes.replaceAll(" ", "").split(",")));
                 }
-
-                cachedFixes.put(b, cachedHeaders);
-                dirtyFixCache = true;
-            } else {
-                tFixes = cachedHeaders.get(FEATURE_TEST_FIXES);
-                hasTFixes = tFixes != null;
-                iFixes = cachedHeaders.get(FEATURE_INTERIM_FIXES);
-                hasIFixes = iFixes != null;
             }
 
-            if (hasTFixes) {
-                out = getFixWriter(out);
-                out.print("tFix: ");
-                out.print(b.getLocation());
-                out.print(": ");
-                out.println(tFixes);
-                tFixSet.addAll(Arrays.asList(tFixes.split("[,\\s]")));
+            if (out != null) {
+                out.flush();
+                out.close();
             }
-            if (hasIFixes) {
-                out = getFixWriter(out);
-                out.print("iFix: ");
-                out.print(b.getLocation());
-                out.print(": ");
-                out.println(iFixes);
-                iFixSet.addAll(Arrays.asList(iFixes.split("[,\\s]")));
+            if (dirtyFixCache) {
+                writeCachedFixes(cachedFixes);
             }
+
+            tFixSet.clear();
+            iFixSet.clear();
+            tFixSet.addAll(newTFixSet);
+            iFixSet.addAll(newIFixSet);
         }
 
-        if (!!!iFixSet.isEmpty()) {
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getTFixes() {
+
+        populateFixSets();
+
+        return Collections.unmodifiableSet(tFixSet);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getIFixes() {
+
+        populateFixSets();
+
+        return Collections.unmodifiableSet(iFixSet);
+    }
+
+    private void writeServiceMessages() {
+
+        Set<String> tempTFixSet = getTFixes();
+
+        Set<String> tempIFixSet = getIFixes();
+
+        if (!!!tempIFixSet.isEmpty()) {
             StringBuilder builder = new StringBuilder();
-            for (String fix : iFixSet) {
+            for (String fix : tempIFixSet) {
                 if (!"".equals(fix)) {
                     builder.append(',');
                     builder.append(fix);
@@ -1079,9 +1233,9 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
             String fixes = builder.toString();
             Tr.audit(tc, "INTERIM_FIX_DETECTED", fixes);
         }
-        if (!!!tFixSet.isEmpty()) {
+        if (!!!tempTFixSet.isEmpty()) {
             StringBuilder builder = new StringBuilder();
-            for (String fix : tFixSet) {
+            for (String fix : tempTFixSet) {
                 if (!"".equals(fix)) {
                     builder.append(',');
                     builder.append(fix);
@@ -1092,13 +1246,6 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
             Tr.warning(tc, "TEST_FIX_DETECTED", fixes);
         }
 
-        if (out != null) {
-            out.flush();
-            out.close();
-        }
-        if (dirtyFixCache) {
-            writeCachedFixes(cachedFixes);
-        }
     }
 
     /**
@@ -1190,15 +1337,18 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         Iterator<String> it = postInstalledFeatures.iterator();
         while (it.hasNext()) {
             String feature = it.next();
-            FeatureDefinition fd = getFeatureDefinition(feature);
+            ProvisioningFeatureDefinition fd = getFeatureDefinition(feature);
 
             if (fd != null && fd.getVisibility() == Visibility.PUBLIC) {
+                if (fd.isVersionless()) {
+                    continue;
+                }
                 // get name from feature definition.
                 // input ones come from the cache which is lower case.
                 // If we don't want to include auto features, then check each feature before adding it.
                 if (!includeAutoFeatures) {
                     if (fd instanceof ProvisioningFeatureDefinition) {
-                        if (!((ProvisioningFeatureDefinition) fd).isAutoFeature())
+                        if (!fd.isAutoFeature())
                             publicFeatures.add(fd.getFeatureName());
                     } else {
                         // If we're not an instance of ProvisioningFeatureDefinition then add the feature to the list.
@@ -1216,11 +1366,15 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         // In 850 we were not case sensitive so we need to stay that way.
         // Use a set to eliminate duplicates.
         Set<String> newConfiguredFeatures = featureChange.getFeaturesWithLowerCaseName(featureRepository);
+        Set<String> newConfiguredPlatforms = featureChange.getPlatformsWithLowerCaseName();
 
-        return resolveFeatures(newConfiguredFeatures, new ArrayList<String>(), featureChange.provisioningMode);
+        return resolveFeatures(newConfiguredFeatures, new ArrayList<String>(), featureChange.provisioningMode, newConfiguredPlatforms);
     }
 
-    private Result resolveFeatures(Set<String> rootFeatures, Collection<String> restrictedAccessAttempts, ProvisioningMode mode) {
+    private Result resolveFeatures(Set<String> rootFeatures,
+                                   Collection<String> restrictedAccessAttempts,
+                                   ProvisioningMode mode,
+                                   Set<String> newConfiguredPlatforms) {
 
         if (rootFeatures.isEmpty() && featureRepository.emptyFeatures()) {
             Tr.warning(tc, "EMPTY_FEATURES_WARNING");
@@ -1229,6 +1383,7 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         Collection<String> restrictedRepoAccessAttempts = new ArrayList<String>();
         boolean allowMultipleVersions = false;
         boolean featureListIsComplete = false;
+        Set<String> currentPackageServerConflict = null;
         if (ProvisioningMode.CONTENT_REQUEST == mode || ProvisioningMode.FEATURES_REQUEST == mode) {
             // allow multiple versions if in minify (TODO strange since we are minifying!)
             // For feature request using the minified approach but that could cause additional singletons to be provisioned.
@@ -1241,6 +1396,7 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
             featureListIsComplete = Boolean.getBoolean("internal.minify.feature.list.complete");
             // do not restrict any features
             restrictedRespository = featureRepository;
+            currentPackageServerConflict = packageServerConflict;
         } else {
             if (supportedProcessTypes.contains(ProcessType.CLIENT)) {
                 // do not restrict any features while resolving, but ....
@@ -1266,22 +1422,31 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         if (featureListIsComplete) {
             result = createResultFromCompleteList(restrictedRespository, rootFeatures);
         } else {
-            result = callFeatureResolver(restrictedRespository, kernelFeaturesHolder.getKernelFeatures(), rootFeatures, allowMultipleVersions);
+            result = callFeatureResolver(restrictedRespository, kernelFeaturesHolder.getKernelFeatures(), rootFeatures, allowMultipleVersions, currentPackageServerConflict,
+                                         newConfiguredPlatforms);
         }
         restrictedAccessAttempts.addAll(restrictedRepoAccessAttempts);
         return result;
     }
 
     private Result callFeatureResolver(Repository restrictedRespository, Collection<ProvisioningFeatureDefinition> kernelFeatures, Set<String> rootFeatures,
-                                       boolean allowMultipleVersions) {
+                                       boolean allowMultipleVersions, Set<String> currentPackageServerConflict, Set<String> newConfiguredPlatforms) {
 
+        // short circuit if package server is expecting conflicts
+        if (currentPackageServerConflict != null) {
+            return featureResolver.resolve(restrictedRespository, kernelFeatures, rootFeatures, Collections.<String> emptySet(), currentPackageServerConflict,
+                                           EnumSet.allOf(ProcessType.class),
+                                           newConfiguredPlatforms);
+        }
         // resolve the features
         // TODO Note that we are just supporting all types at runtime right now.  In the future this may be restricted by the actual running process type
-        Result result = featureResolver.resolveFeatures(restrictedRespository, kernelFeaturesHolder.getKernelFeatures(), rootFeatures, Collections.<String> emptySet(),
-                                                        false);
+        Result result = featureResolver.resolve(restrictedRespository, kernelFeatures, rootFeatures, Collections.<String> emptySet(),
+                                                false,
+                                                newConfiguredPlatforms);
         if (allowMultipleVersions) {
             if (!result.getConflicts().isEmpty()) {
-                result = featureResolver.resolveFeatures(restrictedRespository, kernelFeaturesHolder.getKernelFeatures(), rootFeatures, Collections.<String> emptySet(), true);
+                result = featureResolver.resolve(restrictedRespository, kernelFeatures, rootFeatures, Collections.<String> emptySet(), true,
+                                                 newConfiguredPlatforms);
             }
         }
 
@@ -1332,6 +1497,31 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
             public Map<String, Collection<Chain>> getConflicts() {
                 return Collections.emptyMap();
             }
+
+            @Override
+            public Map<String, String> getVersionlessFeatures() {
+                return Collections.emptyMap();
+            }
+
+            @Override
+            public Set<String> getResolvedPlatforms() {
+                return Collections.emptySet();
+            }
+
+            @Override
+            public Set<String> getMissingPlatforms() {
+                return Collections.emptySet();
+            }
+
+            @Override
+            public Map<String, Set<String>> getDuplicatePlatforms() {
+                return Collections.emptyMap();
+            }
+
+            @Override
+            public Map<String, Set<String>> getNoPlatformVersionless() {
+                return Collections.emptyMap();
+            }
         };
     }
 
@@ -1345,18 +1535,21 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
      * @return true if no errors occurred during the update, false otherwise
      */
     @FFDCIgnore(Throwable.class)
-    protected boolean updateFeatures(WsLocationAdmin locService,
-                                     Provisioner provisioner,
-                                     Set<String> preInstalledFeatures,
-                                     FeatureChange featureChange,
-                                     long sequenceNumber) {
+    protected Result updateFeatures(WsLocationAdmin locService,
+                                    Provisioner provisioner,
+                                    Set<String> preInstalledFeatures,
+                                    FeatureChange featureChange,
+                                    long sequenceNumber) {
         // NOTE RE: FFDCIgnore above-- The catch block for Throwable below, stores
         // the exception in an InstallStatus object and calls FFDC at a more appropriate time.
         BundleList newBundleList = null;
 
+        Result result = null;
+
         // In 850 we were not case sensitive so we need to stay that way.
         // Use a set to eliminate duplicates.
         Set<String> newConfiguredFeatures = featureChange.getFeaturesWithLowerCaseName(featureRepository);
+        Set<String> newConfiguredPlatforms = featureChange.getPlatformsWithLowerCaseName();
 
         if (newConfiguredFeatures.isEmpty() && featureRepository.emptyFeatures()) {
 
@@ -1379,14 +1572,14 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         boolean appForceRestartSet = false;
         final boolean sameJavaSpecVersion = sameJavaSpecVersion();
         try {
-            if (areConfiguredFeaturesGood(newConfiguredFeatures) && sameJavaSpecVersion) {
+            if (areConfiguredFeaturesGood(newConfiguredFeatures, newConfiguredPlatforms) && sameJavaSpecVersion) {
                 featuresHaveChanges = false;
                 goodFeatures = preInstalledFeatures;
             } else {
                 // This will be populated by resolveFeatures if there are any restricted access attempts during resolution
                 Collection<String> restrictedAccessAttempts = new ArrayList<String>();
 
-                Result result = resolveFeatures(newConfiguredFeatures, restrictedAccessAttempts, featureChange.provisioningMode);
+                result = resolveFeatures(newConfiguredFeatures, restrictedAccessAttempts, featureChange.provisioningMode, newConfiguredPlatforms);
                 boolean reportedConfigurationErrors = reportErrors(result, restrictedAccessAttempts, newConfiguredFeatures, installStatus);
                 goodFeatures = result.getResolvedFeatures();
 
@@ -1411,12 +1604,13 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
                         bundleCache.addAllNoReplace(newBundleList);
 
                         // Update installedFeatures with the features that were successfully added
-                        featureRepository.setInstalledFeatures(goodFeatures, newConfiguredFeatures, reportedConfigurationErrors);
+                        featureRepository.setResolvedFeatures(goodFeatures, newConfiguredFeatures, reportedConfigurationErrors, newConfiguredPlatforms,
+                                                              platformEnvironmentVariable);
                     }
                 }
             }
             if (featureChange.appForceRestart != null) {
-                final Set<String> featureSet = featureRepository.getInstalledFeatures();
+                final Set<String> featureSet = featureRepository.getResolvedFeatures();
                 if (featureChangesRequireRestart(preInstalledFeatures, featureSet)) {
                     featureChange.appForceRestart.setResult(true);
                     appForceRestartSet = true;
@@ -1446,8 +1640,8 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
                     provisioner.installBundles(bundleContext,
                                                bundleCache,
                                                installStatus,
-                                               ProvisionerConstants.LEVEL_FEATURE_SERVICES - ProvisionerConstants.PHASE_INCREMENT,
-                                               ProvisionerConstants.LEVEL_FEATURE_CONTAINERS,
+                                               SERVICE_EARLY.level(),
+                                               CONTAINER.level(),
                                                fwStartLevel.getInitialBundleStartLevel(),
                                                locService);
                     // add all installed bundles to list of bundlesToStart.
@@ -1497,7 +1691,7 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         boolean status = checkInstallStatus(installStatus);
 
         // Make sure bundles are ready to start
-        provisioner.resolveBundles(bundleContext, installedBundles);
+        ResolutionReportHelper resolutionReport = provisioner.resolveBundles(bundleContext, installedBundles, shutdownHook);
 
         if (featureChange.featureBundlesResolved != null) {
             Map<String, Object> props = new HashMap<String, Object>(1);
@@ -1514,7 +1708,7 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         // Analyze unresolved bundles for missing java dependencies
         analyzeUnresolvedBundles(installedBundles, goodFeatures);
 
-        startStatus = provisioner.preStartBundles(installedBundles);
+        startStatus = provisioner.preStartBundles(installedBundles, resolutionReport);
         status &= checkBundleStatus(startStatus);
 
         if (featureChange.featureUpdatesCompleted != null) {
@@ -1524,14 +1718,39 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         //post the updated feature list to EventAdmin
         if (eventAdminService != null) {
             Map<String, Object> eventProps = new HashMap<String, Object>(2);
-            final Set<String> featureSet = featureRepository.getInstalledFeatures();
+            final Set<String> featureSet = featureRepository.getResolvedFeatures();
             eventProps.put("features", featureSet.toArray(new String[featureSet.size()]));
             eventProps.put("sequenceNumber", Long.valueOf(sequenceNumber));
             Event e = new Event("com/ibm/ws/kernel/feature/internal/FeatureManager/FEATURE_CHANGE", eventProps);
             eventAdminService.postEvent(e);
         }
 
-        return status;
+        return result;
+    }
+
+    /**
+     * Tell if a versioned feature is a version of a versionless feature.
+     * For example:
+     *
+     * <pre>
+     * "mpHealth" vs "mpHealth": false
+     * "mpHealth-3.0" vs "mpHealth": true
+     * "mpHealthx-3.0" vs "mpHealth": false
+     * </pre>
+     *
+     * @param versionedFeature   A versioned feature.
+     * @param versionlessFeature A versionless feature.
+     *
+     * @return True or false telling if the versioned feature is a version of
+     *         the versionless feature.
+     */
+    private static boolean isVersionOf(String versionedFeature, String versionlessFeature) {
+        int fullLen = versionedFeature.length();
+        int headLen = versionlessFeature.length();
+
+        return ((fullLen > headLen) &&
+                (versionedFeature.charAt(headLen) == '-') &&
+                versionedFeature.regionMatches(true, 0, versionlessFeature, 0, headLen));
     }
 
     private boolean sameJavaSpecVersion() {
@@ -1542,15 +1761,21 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
      * @param newConfiguredFeatures
      * @return
      */
-    private boolean areConfiguredFeaturesGood(Set<String> newConfiguredFeatures) {
-        if (!!!featureRepository.isDirty() && !!!featureRepository.hasConfigurationError() && featureRepository.getConfiguredFeatures().equals(newConfiguredFeatures)) {
-            // check that all installed features are still installed
-            for (String installedFeature : featureRepository.getInstalledFeatures()) {
-                if (featureRepository.getFeature(installedFeature) == null) {
-                    return false;
+    private boolean areConfiguredFeaturesGood(Set<String> newConfiguredFeatures, Set<String> newConfiguredPlatforms) {
+        if (!!!featureRepository.isDirty()
+            && !!!featureRepository.hasConfigurationError()
+            && featureRepository.getConfiguredFeatures().equals(newConfiguredFeatures)) {
+            if (featureRepository.getPlatforms().equals(newConfiguredPlatforms)
+                && equals(featureRepository.getPlatformEnvVar(), platformEnvironmentVariable)) {
+
+                // check that all installed features are still installed
+                for (String resolvedFeature : featureRepository.getResolvedFeatures()) {
+                    if (featureRepository.getFeature(resolvedFeature) == null) {
+                        return false;
+                    }
                 }
+                return true;
             }
-            return true;
         }
         return false;
     }
@@ -1609,7 +1834,7 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         for (Entry<String, Set<String>> javaSEEntry : javaVersiontoFeatureMap.entrySet()) {
             for (String feature : javaSEEntry.getValue()) {
                 Tr.error(tc, "FEATURE_JAVA_LEVEL_NOT_MET_ERROR", feature, javaSEEntry.getKey());
-                featureRepository.removeInstalledFeature(feature);
+                featureRepository.removeResolvedFeature(feature);
             }
         }
 
@@ -1792,6 +2017,80 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
             }
         }
 
+        if (!result.getDuplicatePlatforms().isEmpty()) {
+            for (Map.Entry<String, Set<String>> duplicatePlatforms : result.getDuplicatePlatforms().entrySet()) {
+                Tr.error(tc, "DUPLICATE_PLATFORMS", duplicatePlatforms.getValue());
+            }
+        }
+
+        if (!result.getMissingPlatforms().isEmpty()) {
+            reportedErrors = true;
+            Set<String> remainingMissingPlatforms = new HashSet<String>();
+            if (platformEnvironmentVariable != null) {
+                for (String plat : result.getMissingPlatforms()) {
+                    if (platformEnvironmentVariable.contains(plat)) {
+                        Tr.error(tc, "UNKNOWN_PLATFORM_VALUE_ENV_VAR", plat);
+                    } else {
+                        remainingMissingPlatforms.add(plat);
+                    }
+                }
+            } else {
+                remainingMissingPlatforms.addAll(result.getMissingPlatforms());
+            }
+            if (!remainingMissingPlatforms.isEmpty()) {
+                for (String missingPlat : remainingMissingPlatforms) {
+                    Tr.error(tc, "UNKNOWN_PLATFORM_ELEMENT", missingPlat);
+                }
+            }
+        }
+
+        if (!result.getNoPlatformVersionless().isEmpty()) {
+            for (Map.Entry<String, Set<String>> noPlatformVersionless : result.getNoPlatformVersionless().entrySet()) {
+                Tr.error(tc, "NO_RESOLVED_PLATFORM", noPlatformVersionless.getValue());
+            }
+        }
+
+        for (Map.Entry<String, String> versionlessResolvedEntry : result.getVersionlessFeatures().entrySet()) {
+            String versionlessResolved = versionlessResolvedEntry.getKey();
+            String versionedResolved = versionlessResolvedEntry.getValue();
+
+            if (versionedResolved != null) {
+                continue; // Sucessfully resolved.  Nothing to check.
+            }
+
+            Set<String> platforms = featureRepository.getPlatformsForVersionlessFeature(versionlessResolved);
+            if ((platforms == null) || platforms.isEmpty()) {
+                continue; // Compatibility or linking features are not installed.  The image is incomplete.
+            }
+
+            ProvisioningFeatureDefinition compatibility = null;
+            for (String platform : platforms) {
+                compatibility = featureRepository.getCompatibilityFeature(platform);
+                if (compatibility != null) {
+                    break;
+                }
+            }
+            if (compatibility == null) {
+                continue; // Compatibility features are not installed.  The image is incomplete.
+            }
+
+            String compatibilityBaseName = featureRepository.getFeatureBaseName(compatibility.getFeatureName());
+            for (String resolvedPlat : result.getResolvedPlatforms()) {
+                ProvisioningFeatureDefinition compatibilityFeature = featureRepository.getCompatibilityFeature(resolvedPlat);
+                if (compatibilityFeature == null) {
+                    continue;
+                }
+                String resolvedBaseName = featureRepository.getFeatureBaseName(compatibilityFeature.getFeatureName());
+
+                if (compatibilityBaseName.equals(resolvedBaseName)) {
+                    if (!platforms.contains(resolvedPlat)) {
+                        Tr.error(tc, "INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM", getFeatureName(versionlessResolved), resolvedPlat);
+                        break;
+                    }
+                }
+            }
+        }
+
         List<Entry<String, Collection<Chain>>> sortedConflicts = new ArrayList<Entry<String, Collection<Chain>>>(result.getConflicts().entrySet());
         sortedConflicts.sort(new ConflictComparator()); // order by importance
         List<Entry<String, String>> reportedConfigured = new ArrayList<Entry<String, String>>(); // pairs of configured features
@@ -1878,6 +2177,7 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
             resolved.clear();
             Tr.warning(tc, "UPDATE_DISABLED_FEATURES_ON_CONFLICT");
         }
+
         return reportedErrors;
 
     }
@@ -2055,28 +2355,36 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         return symbolicName != null && symbolicName.lastIndexOf(EE_COMPATIBLE_NAME) >= 0;
     }
 
-    private static char getEeCompatibleVersion(String symbolicName) {
-        return symbolicName.charAt(symbolicName.lastIndexOf("-") + 1);
+    private static int getEeCompatibleVersion(String symbolicName) {
+        String version = symbolicName.substring(symbolicName.lastIndexOf("-") + 1);
+        int dotIndex = version.indexOf('.');
+        if (dotIndex != -1) {
+            version = version.substring(0, dotIndex);
+        }
+        return Integer.parseInt(version);
     }
 
     private String getEeCompatiblePlatform(String symbolicName, boolean ignoreVersion) {
-        char charVersion = getEeCompatibleVersion(symbolicName);
-        switch (charVersion) {
-            case '9':
-                return "Jakarta EE" + ((ignoreVersion) ? "" : " " + charVersion);
-            case '8':
-            case '7':
-            case '6':
-                return "Java EE" + ((ignoreVersion) ? "" : " " + charVersion);
+        int intVersion = getEeCompatibleVersion(symbolicName);
+        switch (intVersion) {
+            case 12:
+            case 11:
+            case 10:
+            case 9:
+                return "Jakarta EE" + ((ignoreVersion) ? "" : " " + intVersion);
+            case 8:
+            case 7:
+            case 6:
+                return "Java EE" + ((ignoreVersion) ? "" : " " + intVersion);
             default:
                 // TODO this is really just a fall back and for testing
                 // this should come from additional meta-data of the feature
                 // instead of hard-coding in the above cases
-                ProvisioningFeatureDefinition fd = (ProvisioningFeatureDefinition) getFeatureDefinition(symbolicName);
+                ProvisioningFeatureDefinition fd = getFeatureDefinition(symbolicName);
                 if (fd != null) {
                     String subsystemName = fd.getHeader("Subsystem-Name");
                     if (subsystemName != null) {
-                        return subsystemName + ((ignoreVersion) ? "" : " " + charVersion);
+                        return subsystemName + ((ignoreVersion) ? "" : " " + intVersion);
                     }
                 }
                 return "Unknown";
@@ -2084,6 +2392,9 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
     }
 
     private String getPreferredEePlatform(String symbolicName, String compatibleFeatureBase) {
+        if (symbolicName.startsWith(compatibleFeatureBase)) {
+            return getEeCompatiblePlatform(symbolicName, false); // include ee version
+        }
         ProvisioningFeatureDefinition fdefinition = featureRepository.getFeature(symbolicName);
         for (FeatureResource fr : fdefinition.getConstituents(SubsystemContentType.FEATURE_TYPE)) {
             if (fr.getSymbolicName().startsWith(compatibleFeatureBase)) {
@@ -2381,9 +2692,21 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
     private final void shutdownFramework() {
         try {
             Bundle bundle = bundleContext.getBundle(Constants.SYSTEM_BUNDLE_LOCATION);
-
-            if (bundle != null)
+            if (bundle != null) {
+                CountDownLatch stopping = new CountDownLatch(1);
+                SynchronousBundleListener l = new SynchronousBundleListener() {
+                    @Override
+                    public void bundleChanged(BundleEvent e) {
+                        if (BundleEvent.STOPPING == e.getType() && e.getBundle().getBundleId() == 0) {
+                            stopping.countDown();
+                        }
+                    }
+                };
+                bundleContext.addBundleListener(l);
                 bundle.stop();
+                stopping.await(1000, TimeUnit.MILLISECONDS);
+                // no need to remove listener since we are stopping anyway
+            }
         } catch (Exception e) {
         }
 
@@ -2396,13 +2719,9 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
 
     @Override
     public Set<String> getInstalledFeatures() {
-        return featureRepository.getInstalledFeatures();
+        return featureRepository.getResolvedFeatures();
     }
 
-    /**
-     * @return List of installed features and implicitly-installed kernel features
-     * @throws IOException
-     */
     public Collection<ProvisioningFeatureDefinition> getInstalledFeatureDefinitions() {
         List<ProvisioningFeatureDefinition> result = new ArrayList<ProvisioningFeatureDefinition>();
         for (String s : getInstalledFeatures()) {
@@ -2411,45 +2730,41 @@ public class FeatureManager implements FeatureProvisioner, FrameworkReady, Manag
         return result;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public FeatureDefinition getFeatureDefinition(String featureName) {
+    public ProvisioningFeatureDefinition getFeatureDefinition(String featureName) {
         return featureRepository.getFeature(featureName);
     }
 
-    /**
-     * TODO: FIXME -- this is for performance
-     *
-     * @return
-     */
     @Override
     public String getKernelApiServices() {
         return KernelFeatureDefinitionImpl.getKernelApiServices();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.wsspi.kernel.feature.FeatureController#refreshFeatures()
-     */
     @Override
     public void refreshFeatures() {
-        queueFeatureChange(ProvisioningMode.REFRESH, null);
+        queueFeatureChange(ProvisioningMode.REFRESH, null, null);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.ibm.wsspi.kernel.feature.FeatureProvisioner#refreshFeatures(org.osgi.framework.Filter)
-     */
     @Override
     public void refreshFeatures(Filter filter) {
         refreshFeatures();
     }
 
-    boolean missingRequiredJava(FeatureResource fr) {
-        Integer requiredJava = fr.getRequireJava();
-        return requiredJava == null ? false : JavaInfo.majorVersion() < requiredJava;
+    boolean withinJavaRange(FeatureResource fr) {
+        VersionRange range = fr.getJavaRange();
+        return range == null ? true : range.includes(JAVA_MAJOR_VERSION);
     }
 
+    @Trivial
+    private static boolean equals(String s0, String s1) {
+        if (s0 == null) {
+            return (s1 == null);
+        } else {
+            if (s1 == null) {
+                return false;
+            } else {
+                return s0.equals(s1);
+            }
+        }
+    }
 }

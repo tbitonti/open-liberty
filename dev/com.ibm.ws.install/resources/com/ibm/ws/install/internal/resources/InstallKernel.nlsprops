@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2010, 2020 IBM Corporation and others.
+# Copyright (c) 2010, 2023 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -522,6 +524,10 @@ LOG_CANNOT_CLOSE_OBJECT=Temporary files cannot be deleted.
 LOG_CANNOT_CLOSE_OBJECT.explanation=The sample requires Java 7 or higher to delete the installTmp directory.
 LOG_CANNOT_CLOSE_OBJECT.action=Remove the installTmp directory manually, or use Java 7 or higher.
 
+LOG_VERIFIED_FEATURE=Successfully verified the {0} feature.
+LOG_VERIFIED_FEATURE.explanation=The specified feature was successfully verified.
+LOG_VERIFIED_FEATURE.useraction=No action is required.
+
 LOG_PASSWORD_NOT_ENCODED_PROXY=The password for the following proxy is not encoded: {0}. You can encode the password by running the securityUtility encode command with the --encoding option set to a supported encoding type, which are xor (default), aes, and hash. For example: securityUtility encode --encoding=aes proxyPassword
 LOG_PENDING_UNINSTALLING_FEATURE=Features to be uninstalled:
 # Following messages for debug logging purpose
@@ -564,6 +570,8 @@ STATE_DOWNLOAD_FILES_OK=\nAll assets were successfully downloaded.
 STATE_CONTACTING_MAVEN_REPO=Establishing a connection to the configured Maven repository ...\nThis process might take several minutes to complete.
 STATE_MAVEN_REPO_CONNECTION_SUCCESSFUL=Successfully connected to the configured repository.
 STATE_READING_ENV_PROPS_FILE=Reading {0}/etc/featureUtility.env...
+STATE_STARTING_VERIFY=Verifying signatures ...
+STATE_VERIFYING=Verifying {0} ...
 PROGRESS_STEP=Step {0} of {1}
 
 MSG_DOWNLOAD_SUCCESS=Successfully downloaded feature {0}.
@@ -600,6 +608,10 @@ MSG_VALIDATION_MISSING_HOST=The proxy server host name is not specified. Specify
 MSG_VALIDATION_INVALID_URL=The following URL is not valid: {0}. Only HTTP, HTTPS, and file URLs are supported. Ensure that the URL is specified correctly
 MSG_VALIDATION_UNSUPPORT_PROTOCOL=The URL protocol for the following repository is not supported: {0}. Supported protocols are HTTP, HTTPS, and file. Ensure that the URL is specified correctly.
 MSG_VALIDATION_INVALID_HOST=The following proxy server host is not valid: {0}. Specify a valid HTTP proxy server host name. The http:// prefix is not required.
+MSG_VALIDATION_EMPTY_PUBKEY_NAME=The public key name is not specified. Either specify a name for the public key, or remove the property if it is unused.
+MSG_VALIDATION_INVALID_VERIFY_OPTION=The feature.verify property does not support a value of {0}. Specify a valid value, which is either "enforce", "warn", "skip", or "all".
+MSG_VALIDATION_INVALID_KEYID={0} is not in 64-bit format. Run the GnuPG command to find the long key ID format. 
+MSG_VALIDATION_MISSING_KEYID=The key ID is not specified. Specify the key ID for the key URL, or comment out the key URL properties.
 
 # Message for find action
 MSG_NO_FEATURES_FOUND=No features were found.
@@ -616,6 +628,10 @@ VALIDATION_INVALID_HOST=Invalid host name
 VALIDATION_INVALID_URL=Unsupported URL format
 VALIDATION_DUPLICATE_KEY=Duplicate property name
 VALIDATION_UNSUPPORTED_PROTOCOL=Unsupported protocol
+VALIDATION_MISSING_PUBKEY_NAME=Missing public key name
+VALIDATION_INVALID_key URL=Unsupported key URL
+VALIDATION_INVALID_KEYID=Invalid key ID format
+VALIDATION_MISSING_KEYID=Missing key ID
 
 # Following for tool
 TOOL_UNINSTALL_FEATURE_OK=CWWKF1350I: One or more features uninstalled successfully: {0}.
@@ -629,6 +645,7 @@ TOOL_PASSWORD_DOES_NOT_MATCH=Entries did not match.
 
 TOOL_FEATURES_INSTALLATION_COMPLETED=All features were successfully installed.
 TOOL_INSTALLATION_COMPLETED=All assets were successfully installed.
+TOOL_FEATURES_VERIFICATION_COMPLETED=All features were successfully verified.
 
 ERROR_TOOL_MISSING_PASSWORD_OPTION=CWWKF1351E: The password for the user id specified in --user option was not provided.
 ERROR_TOOL_MISSING_PASSWORD_OPTION.explanation=A password is required when the user id is specified.
@@ -788,7 +805,7 @@ ERROR_SINGLE_REPO_CONNECTION_FAILED=CWWKF1389E: Unable to create a JSON file at 
 ERROR_SINGLE_REPO_CONNECTION_FAILED.explanation=The feature in the ESA file will not be installed.
 ERROR_SINGLE_REPO_CONNECTION_FAILED.useraction=Ensure that write access is available for the directory where the JSON file will be created.
 
-ERROR_FAILED_TO_CONNECT_MAVEN=CWWKF1390E: The configured Maven Repository cannot be reached. Verify that your computer has network access and firewalls are configured correctly, then try the action again. If the connection still fails, the repository server might be temporarily unavailable.
+ERROR_FAILED_TO_CONNECT_MAVEN=CWWKF1390E: The "{0}" configured Maven Repository cannot be reached. Verify that your computer has network access and firewalls are configured correctly, then try the action again. If the connection still fails, the repository server might be temporarily unavailable.
 ERROR_FAILED_TO_CONNECT_MAVEN.explanation=An error occurred when connecting to the configured Maven Repository.
 ERROR_FAILED_TO_CONNECT_MAVEN.useraction=Ensure that the system can access the internet and the appropriate repository.
 
@@ -886,4 +903,65 @@ MAPBASED_ERROR_UNSUPPORTED_FILE=CWWKF1502E: The {0} file cannot be installed bec
 MAPBASED_ERROR_UNSUPPORTED_FILE.explanation=The file was not installed because an unsupported type of file was provided.
 MAPBASED_ERROR_UNSUPPORTED_FILE.useraction=See the problem determination information on the WebSphere Application Server Support web page: http://www.ibm.com/software/webservers/appserv/was/support.
 
+ERROR_INVALID_FEATURE_BOM_COORDINATE=CWWKF1503E: The format of the {0} features BOM Maven coordinate isn't valid. Ensure that the coordinate is in the groupId:artifactId:version format.
+ERROR_INVALID_FEATURE_BOM_COORDINATE.explanation=The features BOM Maven coordinate format isn't valid.
+ERROR_INVALID_FEATURE_BOM_COORDINATE.useraction=Reformat the features BOM Maven coordinate to fit the groupId:artifactId:version format.
+
 MSG_STABILIZING_FEATUREMANAGER=This featureManager action is stabilized. Use installUtility {0} instead. The installUtility command is recommended for installation and repository-related actions.
+
+ERROR_VERIFY_OPTION_DOES_NOT_MATCH=CWWKF1504E: The feature verify option "{0}" does not match "{1}" in the command line.
+ERROR_VERIFY_OPTION_DOES_NOT_MATCH.explanation=The feature verify option on properties file or environment variable must match the one in the command line. 
+ERROR_VERIFY_OPTION_DOES_NOT_MATCH.useraction=Ensure specified feature verify options match each other.
+
+ERROR_VERIFY_OPTION_NOT_VALID=CWWKF1505E: The {0} verify option isn't valid. Ensure that the option is valid.
+ERROR_VERIFY_OPTION_NOT_VALID.explanation=The specified option is not valid. 
+ERROR_VERIFY_OPTION_NOT_VALID.useraction=Specify one of the following valid options: enforce, warn, skip, all.
+
+ERROR_FAILED_TO_DOWNLOAD_KEY_FROM_KEY_URL=CWWKF1506E: The public key could not be downloaded: {0}
+ERROR_FAILED_TO_DOWNLOAD_KEY_FROM_KEY_URL.explanation=The specified public key was not downloaded from the specified key URL. 
+ERROR_FAILED_TO_DOWNLOAD_KEY_FROM_KEY_URL.useraction=Verify your key ID, key URL, and network access, then try the action again. If the connection still fails, the key URL might be temporarily unavailable.
+
+ERROR_KEYID_NOT_PROVIDED=CWWKF1508E: The public key ID for the {0} key URL was not provided. 
+ERROR_KEYID_NOT_PROVIDED.explanation=The public key ID for the specified key URL was not provided. The 64-bit key ID is required to download and verify the authenticity of the key. 
+ERROR_KEYID_NOT_PROVIDED.useraction=Provide the key ID in 64-bit format. To find out the key ID, run the GnuPG command. 
+
+ERROR_KEYURL_UNSUPPORTED_PROTOCOL=CWWKF1509E: The URL protocol for the following key URL is not supported: {0}. Supported protocols are HTTP, HTTPS, and file. Ensure that the URL is specified correctly.
+ERROR_KEYURL_UNSUPPORTED_PROTOCOL.explanation=The URL protocol for the specified key URL is not supported.
+ERROR_KEYURL_UNSUPPORTED_PROTOCOL.useraction=Ensure that the URL is specified correctly. Supported protocols are HTTP, HTTPS, and file. 
+
+ERROR_REVOKED_PUBLIC_KEY=CWWKF1510E: The {0} public key ID is revoked. 
+ERROR_REVOKED_PUBLIC_KEY.explanation=The public key is revoked. 
+ERROR_REVOKED_PUBLIC_KEY.useraction=Provide the new public key ID and signatures. If the revoked key is a Liberty public key, apply the interim fix or provide the new public key ID, which is available on the OpenLiberty.io website.
+
+ERROR_EXPIRED_PUBLIC_KEY=CWWKF1511E: The {0} public key ID is expired on {1}.
+ERROR_EXPIRED_PUBLIC_KEY.explanation=The public key is expired.
+ERROR_EXPIRED_PUBLIC_KEY.useraction=Run the GnuPG command to extend the expiration date of the public key and try again. 
+
+ERROR_FAILED_TO_VERIFY_FEATURE_SIGNATURE=CWWKF1512E: Unable to verify the following feature signatures: {0}.  
+ERROR_FAILED_TO_VERIFY_FEATURE_SIGNATURE.explanation=Feature signature were not verified.
+ERROR_FAILED_TO_VERIFY_FEATURE_SIGNATURE.useraction=Use the --verbose option to see the debug traces.
+
+ERROR_KEYURL_NOT_PROVIDED=CWWKF1513E: The public key URL for the {0} key ID was not provided. 
+ERROR_KEYURL_NOT_PROVIDED.explanation= The public key URL for the {0} key ID was not provided. The public key URL is a mandatory field to download the public key. 
+ERROR_KEYURL_NOT_PROVIDED.useraction=Provide the public key URL. Supported protocols are HTTP, HTTPS, and file. 
+
+ERROR_INAUTHENTIC_PUBLIC_KEY=CWWKF1514E: The {0} public key ID does not match the {1} provided key ID. 
+ERROR_INAUTHENTIC_PUBLIC_KEY.explanation=The public key might have changed. 
+ERROR_INAUTHENTIC_PUBLIC_KEY.useraction=If the public key is a local file, make sure to provide the correct file.
+
+ERROR_MISSING_PLATFORM_NAME=CWWKF1515E: The {0} platform could not be found.
+ERROR_MISSING_PLATFORM_NAME.explanation=The platform name that is specified by the configuration or environment variable was not found.
+ERROR_MISSING_PLATFORM_NAME.useraction=Check the spelling of the platform name and version, for example, microProfile-6.1.
+
+ERROR_NO_DERIVED_PLATFORM=CWWKF1516E: The platform could not be determined. The following versionless features cannot be installed: {0}.
+ERROR_NO_DERIVED_PLATFORM.explanation= The platform was not set or could not be derived from existing versioned features. 
+ERROR_NO_DERIVED_PLATFORM.useraction=Add a platform for versionless features.
+
+ERROR_VERSIONLESS_INSTALL=CWWKF1517E: The installFeature command does not support versionless features.
+ERROR_VERSIONLESS_INSTALL.explanation=  The feature that you tried to install using the installFeature command does not have a version specified in the feature name.
+ERROR_VERSIONLESS_INSTALL.useraction=Use the installServerFeatures command, which supports versionless features, or install a different feature that is not versionless.
+
+LOG_INSTALL_WITH_PLATFORM=CWWKF1314I: Installing using the following platforms: {0}.
+LOG_INSTALL_WITH_PLATFORM.explanation=The specified platform versions was used to resolve versionless features.
+LOG_INSTALL_WITH_PLATFORM.useraction=No action is required.
+

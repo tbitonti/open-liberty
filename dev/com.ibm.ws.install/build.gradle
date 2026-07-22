@@ -1,20 +1,22 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018,2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 
 task copyPublishMassiveRepo(type: Copy) {
-    from 'publish'
-    into 'build'
-    include 'massiveRepo/features/usertest.with.ibm.license.esa'
-    include 'massiveRepo/fixes/8550-wlp-archive-ifpm89011.jar'
-    include 'massiveRepo/samples/SampleX.jar'
+    from 'publish/massiveRepo'
+    into 'build/massiveRepo'
+    include 'features/usertest.with.ibm.license.esa'
+    include 'fixes/8550-wlp-archive-ifpm89011.jar'
+    include 'samples/SampleX.jar'
 }
 
 task copyPublishZips(type: Copy) {
@@ -29,29 +31,19 @@ task copyPublishZipsWlpDirs(type: Copy) {
     into 'build/unittest/wlpDirs'
 }
 
-task copyPublishZipsWlpDirsUninstallProduct(type: Copy) {
-    from zipTree('publish/zips/wlpDirs.zip')
-    into 'build/unittest/wlpDirs/testUninstallProduct'
-}
-
-task copyPublishZipsWlpDirsUninstallProductFeatures(type: Copy) {
-    from zipTree('publish/zips/wlpDirs.zip')
-    into 'build/unittest/wlpDirs/testUninstallProductFeatures'
-}
-
 task massiveCopyTask {
     dependsOn copyPublishMassiveRepo
     dependsOn copyPublishZips
     dependsOn copyPublishZipsWlpDirs
-    dependsOn copyPublishZipsWlpDirsUninstallProduct
-    dependsOn copyPublishZipsWlpDirsUninstallProductFeatures
     outputs.dirs('build/unittest/tmp')
     doFirst {
-        project.mkdir('build/unittest/tmp')
+        mkdir('build/unittest/tmp')
     }
 }
 
+jar.dependsOn(massiveCopyTask)
+
 test {
-    dependsOn massiveCopyTask
     dependsOn jar
+    jvmArgs = ["--add-opens", "java.base/java.lang=ALL-UNNAMED"]
 }

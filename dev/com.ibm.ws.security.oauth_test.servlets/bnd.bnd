@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2020 IBM Corporation and others.
+# Copyright (c) 2020, 2023 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+#
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -18,6 +20,7 @@ test.project: true
 
 -buildpath: \
     com.ibm.json4j;version=latest,\
+    com.ibm.websphere.javaee.annotation.1.1;version=latest,\
     com.ibm.websphere.javaee.servlet.3.0;version=latest,\
     com.ibm.websphere.org.osgi.core;version=latest,\
     com.ibm.websphere.org.osgi.service.component;version=latest,\
@@ -26,9 +29,10 @@ test.project: true
     com.ibm.ws.security.registry;version=latest,\
     org.jmock:jmock-junit4;strategy=exact;version=2.5.1,\
     org.jmock:jmock;strategy=exact;version=2.5.1,\
-    cglib:cglib-nodep;version=3.3.0,\
+    cglib:cglib;version=3.3.0,\
+    com.ibm.ws.org.objectweb.asm;version=latest,\
     org.jmock:jmock-legacy;version=2.5.0,\
     com.ibm.ws.org.objenesis:objenesis;version=1.0,\
     com.ibm.websphere.javaee.transaction.1.1;version=latest,\
-    com.ibm.ws.com.google.gson.2.2.4;version=latest,\
+    io.openliberty.com.google.gson;version=latest,\
     com.ibm.ws.com.google.guava;version=latest

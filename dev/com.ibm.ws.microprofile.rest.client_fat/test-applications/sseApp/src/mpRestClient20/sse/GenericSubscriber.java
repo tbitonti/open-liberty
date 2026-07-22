@@ -1,20 +1,21 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package mpRestClient20.sse;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 
-import javax.ws.rs.core.Response;
 import javax.ws.rs.sse.InboundSseEvent;
 
 import org.reactivestreams.Subscriber;
@@ -23,9 +24,9 @@ import org.reactivestreams.Subscription;
 public class GenericSubscriber<T> implements Subscriber<T> {
 
     public boolean onCompleteCalled;
-    public List<Throwable> onErrors = new ArrayList<>();
-    public List<T> onNexts = new ArrayList<>();
-    public List<Subscription> onSubscribes = new ArrayList<>();
+    public List<Throwable> onErrors = new CopyOnWriteArrayList<>();
+    public List<T> onNexts = new CopyOnWriteArrayList<>();
+    public List<Subscription> onSubscribes = new CopyOnWriteArrayList<>();
     public CountDownLatch latch;
     
     public GenericSubscriber(int expectedElements) {
@@ -43,6 +44,7 @@ public class GenericSubscriber<T> implements Subscriber<T> {
     public void onError(Throwable t) {
         onErrors.add(t);
         System.out.println("GenericSubscriber onError " + t);
+        t.printStackTrace();
         latch.countDown();
     }
 

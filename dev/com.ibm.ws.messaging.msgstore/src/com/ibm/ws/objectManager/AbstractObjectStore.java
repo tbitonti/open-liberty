@@ -3,9 +3,11 @@ package com.ibm.ws.objectManager;
 /*******************************************************************************
  * Copyright (c) 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -53,7 +55,7 @@ public abstract class AbstractObjectStore
     // Set to false if the store is too full to allow allocation of new ManagedObjects.
     protected transient boolean allocationAllowed = true;
 
-    // A table of the master copies of the Queue Manager objects currently known
+    // A table of the primary copies of the Queue Manager objects currently known
     // to be in virtual machine memory, indexed by storedObjectIdentifier.
     // We can only drop them from this table if no other reference to them is made bacuse we might be asked for the
     // definitive copy of the token. If they are dropped from this table they are lost.

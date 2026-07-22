@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -49,6 +51,24 @@ public class DelayedVariableTests extends ServletRunner {
 
     @Test
     public void testConfigVariables() throws Exception {
+        test(server);
+    }
+
+    @Test
+    public void testUpdateConfigVariables() throws Exception {
+        server.setMarkToEndOfLog();
+        server.setServerConfigurationFile("delayedVar/noVariables.xml");
+        server.waitForConfigUpdateInLogUsingMark(null);
+        try {
+            test(server);
+        } finally {
+            server.setMarkToEndOfLog();
+            server.setServerConfigurationFile("delayedVar/original.xml");
+            server.waitForConfigUpdateInLogUsingMark(null);
+        }
+
+        testName = "testUpdateConfigVariablesTwo";
+
         test(server);
     }
 

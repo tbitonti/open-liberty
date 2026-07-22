@@ -1,0 +1,107 @@
+#CMVCPATHNAME N/A
+#COMPONENTPREFIX CWMMH
+#COMPONENTNAMEFOR CWMMH MicroProfile Health API 
+#NLS_ENCODING=UNICODE
+#NLS_MESSAGEFORMAT_VAR
+#ISMESSAGEFILE true
+# #########################################################################
+###############################################################################
+# Copyright (c) 2021, 2026 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+###############################################################################
+# This file follows the WebSphere Message Guidelines.
+# For more information, visit: 
+# http://washome.austin.ibm.com/xwiki/bin/view/MessagesTeam/
+#
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Messages used by Health Impl -  range is 0000-0999
+# The range 0000-0049 has been reserved for messages issued above the HealthCheckExecutor within the call stack
+# The range 0050-0099 has been reserved for messages issued at or below the HealthCheckExecutor within the call stack
+# The 0100-0149 range is reserved for messages that are issued by the file-based health check mechanism
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Emergency Health error message
+#-----------------------------------------------------------------------------------------------------------------------------
+OSGI_SERVICE_ERROR=CWMMH0000E: The {0} OSGi service is not available.
+OSGI_SERVICE_ERROR.explanation=This internal server error is thrown because the specified service is not available.
+OSGI_SERVICE_ERROR.useraction=Restart the server with the clean option.
+
+# The HealthCheck bean call method had an exception
+healthcheck.bean.call.exception.CWMMH0050E=CWMMH0050E: The {0} HealthCheck method in the {1} application from the {2} module threw exception {3} with the following message: {4}
+healthcheck.bean.call.exception.CWMMH0050E.explanation=The specified call method has produced an exception.
+healthcheck.bean.call.exception.CWMMH0050E.useraction=Review your call method within the HealthCheck bean to identify the exception that occurred.
+
+# The HealthCheck bean call method had a DOWN outcome
+healthcheck.application.down.CWMMH0052W=CWMMH0052W: The {0} implementing HealthCheckResponse in the {1} application in the module, {2}, reported a {3} status for the health check, {4}, and with the data {5}.
+healthcheck.application.down.CWMMH0052W.explanation=The DOWN status might cause a monitoring service to act on this server.
+healthcheck.application.down.CWMMH0052W.useraction=No user action is required.  This warning is a record of the DOWN status.
+
+# The Readiness HealthCheck had a DOWN outcome, when applications are not started yet
+readiness.healthcheck.applications.not.started.down.CWMMH0053W=CWMMH0053W: The readiness health check reported a DOWN overall status because the following applications are not started yet: {0}
+readiness.healthcheck.applications.not.started.down.CWMMH0053W.explanation=The readiness health check reported a DOWN overall status because the specified applications are not started yet and are not ready to process requests.
+readiness.healthcheck.applications.not.started.down.CWMMH0053W.useraction=This warning is a record of the DOWN status and no user action is needed. Wait until all the applications are started. After all the applications are started, the user-defined health checks are processed.
+
+# The Startup HealthCheck had a DOWN outcome, when applications are not started yet
+startup.healthcheck.applications.not.started.down.CWMMH0054W=CWMMH0054W: The startup health check reported a DOWN overall status because the following applications are not started yet: {0}
+startup.healthcheck.applications.not.started.down.CWMMH0054W.explanation=The startup health check reported a DOWN overall status because the specified applications are not started yet and are not ready to process requests.
+startup.healthcheck.applications.not.started.down.CWMMH0054W.useraction=This warning is a record of the DOWN status and no user action is needed. Wait until all the applications are started. After all the applications are started, the user-defined health checks are processed.
+
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# File-based health check messages
+#-----------------------------------------------------------------------------------------------------------------------------
+file.healthcheck.health.directory.create.fail.CWMMH0100W=CWMMH0100W: Unable to create the /health directory at the following path [{0}]. The file-based health check function will be disabled.
+file.healthcheck.health.directory.create.fail.CWMMH0100W.explanation=The runtime was unable to create the required /health directory for the file-based health checks to function properly.
+file.healthcheck.health.directory.create.fail.CWMMH0100W.useraction=The user must identify the root cause preventing the runtime from creating the /health directory.
+
+
+file.healthcheck.health.directory.write.fail.CWMMH0101W=CWMMH0101W: Unable to write to the {0} directory. The file-based health check function will be disabled.
+file.healthcheck.health.directory.write.fail.CWMMH0101W.explanation=The runtime requires write permissions to the /health directory to create the "live", "ready" and "started" files for the file-based health checks to function properly.
+file.healthcheck.health.directory.write.fail.CWMMH0101W.useraction=The user must identify the root cause of the permission issue.
+
+file.healthcheck.health.directory.resolution.fail.CWMMH0102W=CWMMH0102W: The runtime cannot resolve the path for the /health directory. The file-based health check function will be disabled.
+file.healthcheck.health.directory.resolution.fail.CWMMH0102W.explanation=The runtime requires the internal server.output.dir property or WLP_OUTPUT_DIR environment variable to be set to determine the location of the /health directory.
+file.healthcheck.health.directory.resolution.fail.CWMMH0102W.useraction=Ensure that the WLP_OUTPUT_DIR environment variable is properly set.
+
+file.healthcheck.file.name.conflict.CWMMH0105W=CWMMH0106W: The runtime has detected the presence of the following directory [{0}]. A file with the same name is required for the file-based health check function at this path. The file-based health check function will be disabled.
+file.healthcheck.file.name.conflict.CWMMH0105W.explanation=The file-based health checks require the creation and use of the files "live", "ready" and "started" in the /health directory. An existing directory with one of those names is already present in the /health directory which prevents the required files from being created.
+file.healthcheck.file.name.conflict.CWMMH0105W.useraction=The directory is not created by this runtime and may contain contents that are important to the user. Please either remove or relocate the directory.
+
+file.healthcheck.file.delete.fail.CWMMH0106W=CWMMH0106W: Unable to delete existing file at [{0}]. The file-based health check function will be disabled.
+file.healthcheck.file.delete.fail.CWMMH0106W.explanation=The file-based health checks require the creation and use of the files "live", "ready" and "started" in the /health directory. For the file-based health checks to function correctly, these files must not exist when the runtime starts. The runtime has attempted to delete the existing file was unable to.
+file.healthcheck.file.delete.fail.CWMMH0106W.useraction=The user must identify the root cause preventing the runtime from deleting the files.
+
+file.healthcheck.system.inconsistency.CWMMH0107W=CWMMH0107W: The runtime detected inconsistencies with the local file-based health check mechanism. The file-based health check mechanism is disabled.
+file.healthcheck.system.inconsistency.CWMMH0107W.explanation=Inconsistencies were detected with the file system. For example, the "started" file is present before the runtime creates the "started" file.
+file.healthcheck.system.inconsistency.CWMMH0107W.useraction=Delete the <server.output.dir>/health directory and restart the server.
+
+check.interval.config.invalid.CWMMH01010W=CWMMH01010W: An invalid value [{0}] was provided for the check interval. The value provided must consist of a number followed by an optional time unit of "ms" for milliseconds or "s" for seconds. If no time unit is specified, the value is in seconds by default. The runtime will default to 10 seconds.
+check.interval.config.invalid.CWMMH01010W.explanation=The check interval configuration only accepts a number followed by an optional time unit of "ms" for milliseconds or "s" for seconds. If no time unit is specified, the value is in seconds by default.
+check.interval.config.invalid.CWMMH01010W.useraction=Input a correct value for the check interval configuration.
+
+startup.check.interval.config.invalid.CWMMH01011W=CWMMH01011W: An invalid value [{0}] was provided for the startup check interval. The value provided must consist of a number followed by an optional time unit of "ms" for milliseconds or "s" for seconds. If no time unit is specified, the value is in milliseconds by default. The runtime defaults to 100 milliseconds.
+startup.check.interval.config.invalid.CWMMH01011W.explanation=The startup check interval configuration accepts only values with a number followed by an optional time unit of "ms" for milliseconds or "s" for seconds. If no time unit is specified, the value is in milliseconds by default.
+startup.check.interval.config.invalid.CWMMH01011W.useraction=Specify a correct value for the startup check interval configuration.
+
+startup.check.interval.config.only.set.CWMMH01012W=CWMMH01012W: The startup check interval configuration was set before the check interval was configured. The file-based health check is disabled when the check interval is not configured.
+startup.check.interval.config.only.set.CWMMH01012W.explanation=Configuring only the startup check interval does not enable the file-based health check mechanism.
+startup.check.interval.config.only.set.CWMMH01012W.useraction=Configure the check interval to enable the file-based health check mechanism.
+
+enable.endpoints.config.without.file.health.check.CWMMH01013W=CWMMH01013W: The enableEndpoints configuration is set to false but the file-based health check function is not enabled. This configuration has no effect and the health check endpoints are enabled.
+enable.endpoints.config.without.file.health.check.CWMMH01013W.explanation=The enableEndpoints configuration takes effect only when file-based health checks are enabled.
+enable.endpoints.config.without.file.health.check.CWMMH01013W.useraction=Enable file-based health check functions, or remove the enableEndpoints configuration.
+
+enable.endpoints.env.var.invalid.value.CWMMH01014W=CWMMH01014W: An invalid value [{0}] was provided for the MP_HEALTH_ENABLE_ENDPOINTS environment variable. The value that is provided must be either "true" or "false". The runtime uses the server configuration or defaults to true.
+enable.endpoints.env.var.invalid.value.CWMMH01014W.explanation=The MP_HEALTH_ENABLE_ENDPOINTS environment variable accepts only "true" or "false" values (case-insensitive).
+enable.endpoints.env.var.invalid.value.CWMMH01014W.useraction=Set the MP_HEALTH_ENABLE_ENDPOINTS environment variable to either "true" or "false", or remove the environment variable to use the server configuration.

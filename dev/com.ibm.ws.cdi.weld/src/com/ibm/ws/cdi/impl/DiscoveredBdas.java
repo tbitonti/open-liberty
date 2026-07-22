@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2015 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -127,7 +129,8 @@ class DiscoveredBdas {
         wireBdas(ejbModules, allAccessibleBdas);
         wireBdas(warModules, allAccessibleBdas);
         wireBdas(clientModules, allAccessibleBdas);
-        wireBdasBasedOnClassLoader(earLibs, warModules);
+        wireBdasBasedOnClassLoader(earLibs, warModules); // This line was originally added for twas when running in single classloader mode.
+        wireBdasBasedOnClassLoader(sharedLibs, allAccessibleBdas); //This line is to cover situations where you have a <library> tag in server.xml containing multiple archives.
     }
 
     /**

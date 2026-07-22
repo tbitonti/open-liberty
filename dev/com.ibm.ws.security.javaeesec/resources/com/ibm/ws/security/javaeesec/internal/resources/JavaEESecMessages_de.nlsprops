@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2017, 2018 IBM Corporation and others.
+# Copyright (c) 2017, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -27,6 +29,10 @@ JAVAEESEC_ERROR_NO_HAM=CWWKS1912E: Das HttpAuthenticationMechanism-Objekt f\u00f
 JAVAEESEC_ERROR_NO_HAM.explanation=Es kann verschiedene Gr\u00fcnde daf\u00fcr geben, warum das HttpAuthenticationMechanism-Objekt nicht erstellt werden kann. Die Fehlernachrichten f\u00fcr das HttpAuthenticationMechanism-Objekt enthalten Informationen dazu, warum das HttpAuthenticationMechanism-Objekt nicht erstellt werden kann.
 JAVAEESEC_ERROR_NO_HAM.useraction=Sehen Sie sich alle Fehlernachrichten des HttpAuthenticationMechanism-Objekts an und nehmen Sie anhand der Fehlernachrichten die entsprechenden Korrekturen vor.
 
+JAVAEESEC_ERROR_NO_HAM_SERVICE_IMPL=CWWKS1913E: Das Implementierungsobjekt \u201e HttpAuthenticationMechanismService \u201d f\u00fcr das Modul \u201e {0} \u201d in der Anwendung \u201e {1} \u201d wurde nicht als OSGi-Bundle gefunden.
+JAVAEESEC_ERROR_NO_HAM_SERVICE_IMPL.explanation=Das Implementierungsobjekt \u201e HttpAuthenticationMechanismService \u201c wurde nicht gefunden, da eines der abh\u00e4ngigen Bundles, das diese Implementierung enth\u00e4lt, in der Manifestdatei der Funktionen fehlt.
+JAVAEESEC_ERROR_NO_HAM_SERVICE_IMPL.useraction=Stellen Sie sicher, dass das Feature-Manifest auf ein Bundle verweist, das eine Implementierung von \u201e HttpAuthenticationMechanismService \u201c enth\u00e4lt.
+
 #Note to translator, do not translate EL.
 JAVAEESEC_WARNING_IDSTORE_CONFIG=CWWKS1916W: Der EL-Ausdruck (Expression Language) f\u00fcr das Attribut ''{0}'' der Identit\u00e4tsspeicherannotation kann nicht in einen g\u00fcltigen Wert aufgel\u00f6st werden. Stellen Sie sicher, dass der EL-Ausdruck und das Ergebnis g\u00fcltig sind, und dass alle referenzierten Beans, die in dem Ausdruck verwendet werden, aufgel\u00f6st werden k\u00f6nnen. Stattdessen wird der Standardattributwert ''{1}'' verwendet.
 JAVAEESEC_WARNING_IDSTORE_CONFIG.explanation=Dieser Fehler ist auf eine Typendiskrepanz zwischen dem EL-Ergebnis und dem erwarteten Attributwert zur\u00fcckzuf\u00fchren. Wenn der erwartete Attributtyp beispielsweise String ist, muss auch das EL-Ergebnis den Typ String haben.
@@ -35,6 +41,7 @@ JAVAEESEC_WARNING_IDSTORE_CONFIG.useraction=Stellen Sie sicher, dass die Annotat
 JAVAEESEC_ERROR_BAD_HASH_PARAM=CWWKS1917E: Ein hashAlgorithm-Parameter, der f\u00fcr den Hashalgorithmus {0} angegeben wurde, hat das falsche Format. Der empfangene Parameter ist {1}. Das erforderliche Format ist Name=Wert.
 JAVAEESEC_ERROR_BAD_HASH_PARAM.explanation=Eine Liste mit hashAlgorithm-Parametern hat das falsche Format und kann daher nicht syntaktisch analysiert werden.
 JAVAEESEC_ERROR_BAD_HASH_PARAM.useraction=Korrigieren Sie das hashAlgorithmParameters-Element in der DatabaseIdentityStore-Annotation. 
+
 JAVAEESEC_ERROR_GEN_DB=CWWKS1918E: Die Berechtigungsnachweise f\u00fcr den Caller {0} k\u00f6nnen nicht validiert werden. Das DatabaseIdentityStore-Objekt kann die Abfrage ''{1}'' nicht ausf\u00fchren. Fehler: {2}
 JAVAEESEC_ERROR_GEN_DB.explanation=Die Suche nach dem Caller ist mit einem Fehler fehlgeschlagen.
 JAVAEESEC_ERROR_GEN_DB.useraction=Sehen Sie sich die Fehlernachricht an und nehmen Sie anhand der Fehlernachricht die entsprechenden Korrekturen an der Suche vor.
@@ -43,13 +50,14 @@ JAVAEESEC_WARNING_EXCEPTION_ON_GROUPS=CWWKS1919W: Das DatabaseIdentityStore-Obje
 JAVAEESEC_WARNING_EXCEPTION_ON_GROUPS.explanation=Aufgrund eines Fehlers in der Abfrage wird anstelle einer vollst\u00e4ndigen Liste eine Teilliste von Gruppen f\u00fcr den Caller zur\u00fcckgegeben.
 JAVAEESEC_WARNING_EXCEPTION_ON_GROUPS.useraction=Sehen Sie sich die Fehlernachricht an und nehmen Sie die entsprechenden \u00c4nderungen an der Abfrage vor, damit eine vollst\u00e4ndige Liste von Gruppen f\u00fcr den Caller zur\u00fcckgegeben wird. 
 
-JAVAEESEC_ERROR_WRONG_CRED=CWWKS1920E: Der Berechtigungsnachweis, der dem IdentityStore-Objekt bereitgestellt wird, ist kein UsernamePasswordCredential und kann nicht validiert werden.
-JAVAEESEC_ERROR_WRONG_CRED.explanation=Der Berechtigungsnachweis, der dem IdentityStore-Objekt bereitgestellt wird, geh\u00f6rt nicht zur Klasse UsernamePasswordCredential und kann nicht validiert werden.
-JAVAEESEC_ERROR_WRONG_CRED.useraction=\u00dcberpr\u00fcfen Sie den Typ des Berechtigungsnachweises, der von der HttpAuthMechanism-Implementierung an das IdentityStore-Objekt \u00fcbergeben wird.
+JAVAEESEC_ERROR_WRONG_CRED=CWWKS1920E: Die dem Objekt \u201e IdentityStore \u201c bereitgestellte Anmeldeinformation ist weder \u201e UsernamePasswordCredential \u201c noch \u201e CallerOnlyCredential \u201c und kann nicht validiert werden.
+JAVAEESEC_ERROR_WRONG_CRED.explanation=Die dem Objekt \u201e IdentityStore \u201c bereitgestellte Anmeldeinformation ist weder eine Klasse \u201e UsernamePasswordCredential \u201c noch eine \u201e CallerOnlyCredential \u201c und kann nicht validiert werden.
+JAVAEESEC_ERROR_WRONG_CRED.useraction=\u00dcberpr\u00fcfen Sie den Typ der Anmeldeinformationen, die von der Implementierung \u201e HttpAuthenticationMechanism \u201c an das Objekt \u201e IdentityStore \u201c \u00fcbergeben wurden.
 
 JAVAEESEC_ERROR_HASH_NOTFOUND=CWWKS1922E: Die Hashalgorithmusbean wurde f\u00fcr die Klasse {0} nicht gefunden.
 JAVAEESEC_ERROR_HASH_NOTFOUND.explanation=Der \u00fcber das hashAlgorithm-Element in der DatabaseIdentityStoreDefinition-Annotation aufgelistete Hashalgorithmus wurde nicht gefunden.
 JAVAEESEC_ERROR_HASH_NOTFOUND.useraction=F\u00fcgen Sie den angepassten Hashalgorithmus als Bean hinzu, die f\u00fcr die Anwendung verf\u00fcgbar ist.
+
 JAVAEESEC_WARNING_NO_PWD=CWWKS1923W: Die Abfrage ''{1}'' hat kein Kennwort f\u00fcr den {0}-Caller f\u00fcr den DatabaseIdentityStore zur\u00fcckgegeben.
 JAVAEESEC_WARNING_NO_PWD.explanation=Die Abfrage hat kein Kennwort f\u00fcr die angegebene Caller-Abfrage zur\u00fcckgegeben.
 JAVAEESEC_WARNING_NO_PWD.useraction=Wenn ein Kennwort erwartet wurde, \u00fcberpr\u00fcfen Sie die Caller-Abfrage und die Datenbankinhalte.

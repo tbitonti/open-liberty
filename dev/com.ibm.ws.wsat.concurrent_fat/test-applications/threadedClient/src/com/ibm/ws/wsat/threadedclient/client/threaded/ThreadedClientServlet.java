@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -31,6 +33,7 @@ import javax.xml.ws.BindingProvider;
 
 import com.ibm.tx.jta.ExtendedTransactionManager;
 import com.ibm.tx.jta.TransactionManagerFactory;
+import com.ibm.tx.jta.ut.util.TxTestUtils;
 import com.ibm.tx.jta.ut.util.XAResourceFactoryImpl;
 import com.ibm.tx.jta.ut.util.XAResourceImpl;
 import com.ibm.tx.jta.ut.util.XAResourceInfoFactory;
@@ -42,7 +45,6 @@ public class ThreadedClientServlet extends HttpServlet {
 	private static Object o = new Object();
 	private int count;
 
-	private static final String filter = "(testfilter=jon)";
 	private static AtomicInteger xaresourceindex = new AtomicInteger(0);
 	private static AtomicInteger completedCount = new AtomicInteger(0);
 	private static AtomicInteger failedCount = new AtomicInteger(0);
@@ -101,10 +103,12 @@ public class ThreadedClientServlet extends HttpServlet {
 							BASE_URL + "/threadedServer/MultiThreadedService");
 					requestContext.put("thread.local.request.context",
 							"true");
-					requestContext.put("javax.xml.ws.client.connectionTimeout", timeout * 1000);
-					requestContext.put("javax.xml.ws.client.receiveTimeout", timeout * 1000);
+					TxTestUtils.setTimeouts(requestContext, timeout * 1000);
 					System.out.println("Thread " + count + ": " + "Get service from: " + location);
 					response = proxy.invoke();
+					if (response.contains("Exception happens")) {
+						throw new Exception(response);
+					}
 				} catch (Exception e) {
 					System.out.println("Thread " + count + ": " + "Failed to get service from: " + location + " after " + ((System.nanoTime() - time) / 1000000000l) + " seconds");
 					e.printStackTrace(System.out);
@@ -242,7 +246,7 @@ public class ThreadedClientServlet extends HttpServlet {
 					.getXAResourceInfo(count);
 			XAResourceImpl xaRes = XAResourceFactoryImpl.instance().getXAResourceImpl(
 					xaResInfo).setExpectedDirection(XAResourceImpl.DIRECTION_EITHER);
-			final int recoveryId = TM.registerResourceInfo(filter,
+			final int recoveryId = TM.registerResourceInfo(XAResourceInfoFactory.filter,
 					xaResInfo);
 			boolean result = TM.enlist(xaRes, recoveryId);
 			if (result == false) {

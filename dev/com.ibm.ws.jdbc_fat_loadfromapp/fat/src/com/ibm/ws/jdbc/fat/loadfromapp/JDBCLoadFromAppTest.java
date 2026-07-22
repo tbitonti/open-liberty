@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jdbc.fat.loadfromapp;
 
@@ -30,7 +29,7 @@ import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.annotation.TestServlets;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.FeatureReplacementAction;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
@@ -46,7 +45,9 @@ public class JDBCLoadFromAppTest extends FATServletClient {
     @ClassRule
     public static RepeatTests r = RepeatTests
                     .withoutModification()
-                    .andWith(new JakartaEE9Action());
+                    .andWith(FeatureReplacementAction.EE9_FEATURES())
+                    .andWith(FeatureReplacementAction.EE10_FEATURES())
+                    .andWith(FeatureReplacementAction.EE11_FEATURES());
 
     @Server("com.ibm.ws.jdbc.fat.loadfromapp")
     @TestServlets(value = {

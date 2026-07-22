@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2001, 2021 IBM Corporation and others.
+ * Copyright (c) 2001, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -749,7 +751,10 @@ public class WSJdbcConnection extends WSJdbcObject implements Connection {
             activate(); 
             blob = connImpl.createBlob();
             if (freeResourcesOnClose)
-                blobs.add(blob); 
+                blobs.add(blob);
+        } catch (SQLFeatureNotSupportedException noSupportX) {
+            // No FFDC code needed; assume caller needs this exception to determine feature support
+            throw noSupportX;
         } catch (SQLException sqlX) {
             FFDCFilter.processException(
                                         sqlX, getClass().getName() + ".createBlob", "1040", this);
@@ -795,6 +800,9 @@ public class WSJdbcConnection extends WSJdbcObject implements Connection {
             clob = connImpl.createClob();
             if (freeResourcesOnClose)
                 clobs.add(clob); 
+        } catch (SQLFeatureNotSupportedException noSupportX) {
+            // No FFDC code needed; assume caller needs this exception to determine feature support
+            throw noSupportX;
         } catch (SQLException sqlX) {
             FFDCFilter.processException(
                                         sqlX, getClass().getName() + ".createClob", "1066", this);
@@ -892,6 +900,9 @@ public class WSJdbcConnection extends WSJdbcObject implements Connection {
             clob = connImpl.createNClob();
             if (freeResourcesOnClose)
                 clobs.add(clob); 
+        } catch (SQLFeatureNotSupportedException noSupportX) {
+            // No FFDC code needed; assume caller needs this exception to determine feature support
+            throw noSupportX;
         } catch (SQLException sqlX) {
             FFDCFilter.processException(
                                         sqlX, getClass().getName() + ".createNClob", "1262", this);

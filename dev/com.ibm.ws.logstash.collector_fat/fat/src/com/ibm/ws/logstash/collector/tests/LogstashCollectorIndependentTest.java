@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,13 +15,16 @@ package com.ibm.ws.logstash.collector.tests;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.testcontainers.containers.GenericContainer;
 
 import com.ibm.websphere.simplicity.RemoteFile;
 import com.ibm.websphere.simplicity.log.Log;
@@ -34,14 +39,29 @@ public class LogstashCollectorIndependentTest extends LogstashCollectorTest {
 
     private static Class<?> c = LogstashCollectorIndependentTest.class;
 
+    /*
+     * Current model must acquire server this way, we need server "early" so that the static initialization of the generic container can resolve
+     */
     private static LibertyServer server = LibertyServerFactory.getLibertyServer("LogstashCollectorServer");
 
     protected static boolean runTest;
 
+    @ClassRule
+    public static GenericContainer<?> logstashContainer = createExpLogstashContainer();
+
+    private static GenericContainer<?> createExpLogstashContainer() {
+        try {
+            return prepareServerSSLAndConstructContainer(server);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to setup server and/or container", e);
+        }
+    }
+
     @BeforeClass
     public static void setUp() throws Exception {
+        server.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         clearContainerOutput();
-        String host = logstashContainer.getContainerIpAddress();
+        String host = logstashContainer.getHost();
         String port = String.valueOf(logstashContainer.getMappedPort(5043));
         Log.info(c, "setUp", "Logstash container: host=" + host + "  port=" + port);
         server.addEnvVar("LOGSTASH_HOST", host);

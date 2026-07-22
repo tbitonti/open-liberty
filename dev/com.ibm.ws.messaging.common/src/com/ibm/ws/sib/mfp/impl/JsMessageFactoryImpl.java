@@ -1,16 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.sib.mfp.impl;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import com.ibm.ws.sib.comms.CommsConnection;
@@ -533,15 +535,7 @@ public final class JsMessageFactoryImpl extends JsMessageFactory {
       throw new IllegalArgumentException("Invalid buffer: classname length = 0");
     }
 
-    // The classname should be in UTF8, if that fails FFDC and default in the hope of carrying on.
-    String className;
-    try {
-      className = new String(buffer, offset, length, "UTF8"); // the class name itself
-    }
-    catch (UnsupportedEncodingException e) {
-      FFDCFilter.processException(e, "com.ibm.ws.sib.mfp.impl.JsMessageFactoryImpl.getClassName", "644");
-      className = new String(buffer, offset, length);
-    }
+    String className = new String(buffer, offset, length, StandardCharsets.UTF_8); // the class name itself
 
     if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) SibTr.exit(tc, "getClassName", className);
     return className;

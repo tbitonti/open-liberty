@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,14 +16,17 @@
  */
 def appBuildDir = "${buildDir}/test-application"
 
+configurations {
+  requiredLibs {
+    transitive = false
+  }
+}
+
 dependencies { 
-  requiredLibs 'com.ibm.ws.componenttest:public.api:1.0.0',
-    project(':io.openliberty.org.apache.commons.logging'),
-    project(':io.openliberty.org.apache.commons.codec'),
+  requiredLibs project(':io.openliberty.org.apache.commons.codec'),
     'org.apache.httpcomponents:httpclient:4.1.2',
     'org.apache.httpcomponents:httpcore:4.1.2',
     'org.apache.directory.server:apacheds-service:2.0.0-M15',
-    project(':fattest.simplicity'),
     project(':com.ibm.ws.org.apache.directory.server'),
     project(':com.ibm.ws.com.unboundid'),
     project(':com.ibm.websphere.security.wim.base'),
@@ -32,6 +37,9 @@ dependencies {
     project(':com.ibm.ws.security.wim_test.servlet'),
     project(':com.ibm.ws.webcontainer.security_test.servlets')
 }
+
+jar.dependsOn ':com.ibm.ws.security.registry_test.servlet:assemble'
+jar.dependsOn ':com.ibm.ws.security.wim_test.servlet:assemble'
 
 autoFVT.dependsOn ':com.ibm.ws.security.registry_test.custom:assemble'
 autoFVT.dependsOn ':com.ibm.ws.security.registry_test.servlet:assemble'
@@ -137,7 +145,8 @@ autoFVT.doLast {
     'com.ibm.ws.security.wim.adapter.ldap.fat.return.to.primary',
     'com.ibm.ws.security.wim.adapter.ldap.fat.racf.sdbm.basic',
     'com.ibm.ws.security.wim.adapter.ldap.fat.jndi.output',
-    'com.ibm.ws.security.wim.adapter.ldap.fat.rdn'
+    'com.ibm.ws.security.wim.adapter.ldap.fat.rdn',
+    'com.ibm.ws.security.wim.adapter.ldap.fat.encodespecialcharacters'
   ]
   servers.each { server ->
     copy { 
@@ -222,6 +231,30 @@ autoFVT.doLast {
      from new File(appBuildDir, 'com.ibm.ws.security.wim.adapter.ldap.certificate.mapper.sample_1.0.jar')
      into new File(autoFvtDir, 'publish/bundles')
    }
+   
+  /*
+   * Copy clientcert keystores and truststores.
+   */
+  servers = [
+    'com.ibm.ws.security.wim.adapter.ldap.fat.custom.certmapper.bell',
+    'com.ibm.ws.security.wim.adapter.ldap.fat.custom.certmapper.feature',
+    'com.ibm.ws.security.wim.adapter.ldap.fat.tds.certlogin',
+    'com.ibm.ws.security.wim.adapter.ldap.fat.tds.certlogin_SBInFilter',
+    'com.ibm.ws.security.wim.adapter.ldap.fat.tds.fedcertlogin'
+  ]
+  servers.each { server ->
+    copy {
+      from new File(projectDir, 'publish/files/clientcert/DummyServerKeyFile.jks')
+      into new File(autoFvtDir, 'publish/servers/' + server + '/resources/security')
+    }
+    copy {
+      from new File(projectDir, 'publish/files/clientcert/DummyServerTrustFile.jks')
+      into new File(autoFvtDir, 'publish/servers/' + server + '/resources/security')
+    }
+  }
+  
+  def publishBaseDir = new File(autoFvtDir, 'publish') 
+  defaultCopyLTPAFIPSKeys(publishBaseDir)
 }
 
 /*
@@ -229,8 +262,8 @@ autoFVT.doLast {
  * for use both as a BELL and as a user feature.
  */
 task certificateMapper_JAR(type: Jar, dependsOn: classes) { 
-  destinationDir file("${appBuildDir}")
-  archiveName "com.ibm.ws.security.wim.adapter.ldap.certificate.mapper.sample_1.0.jar"
+  destinationDirectory = file("${appBuildDir}")
+  archiveFileName = "com.ibm.ws.security.wim.adapter.ldap.certificate.mapper.sample_1.0.jar"
   manifest { 
   	from 'test-applications/certificateMappers/META-INF/MANIFEST.MF'
   }

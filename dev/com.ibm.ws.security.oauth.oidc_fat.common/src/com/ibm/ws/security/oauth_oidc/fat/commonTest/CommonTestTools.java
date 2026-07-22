@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -104,6 +106,12 @@ public class CommonTestTools {
         String thisMethod = "buildBearerTokenCred";
 
         try {
+            // On a Netty endpoint, the trailing whitespace in a header is trimmed given the RFC specification referring
+            // to the surrounding whitespace as optional https://datatracker.ietf.org/doc/html/rfc9112#name-field-syntax
+            // Therefore to test an empty access token here, we send a stripped Bearer header for both endpoints
+            // and so giving the same behavior
+            if ("".equals(accessToken))
+                return "Bearer";
             return "Bearer " + accessToken;
         } catch (Exception e) {
             e.printStackTrace();

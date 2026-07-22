@@ -1,0 +1,93 @@
+/*******************************************************************************
+ * Copyright (c) 2022,2026 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
+package test.jakarta.data.jpa.web;
+
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.Vector;
+
+import jakarta.data.Sort;
+import jakarta.data.repository.CrudRepository;
+import jakarta.data.repository.Delete;
+import jakarta.data.repository.Insert;
+import jakarta.data.repository.OrderBy;
+import jakarta.data.repository.Param;
+import jakarta.data.repository.Query;
+import jakarta.data.repository.Repository;
+import jakarta.data.repository.Update;
+import jakarta.persistence.EntityManager;
+
+/**
+ * Experiments with auto-generated keys.
+ */
+@Repository(dataStore = "java:app/env/data/DataStoreRef")
+public interface Orders extends CrudRepository<PurchaseOrder, UUID> {
+
+    @Query("UPDATE Orders o SET o.total = o.total * :rate + :shipping WHERE o.id = :id")
+    boolean addTaxAndShipping(@Param("id") UUID orderId,
+                              @Param("rate") float taxRate,
+                              @Param("shipping") float shippingCost);
+
+    @Delete
+    void cancel(PurchaseOrder... orders);
+
+    @Insert
+    LinkedList<PurchaseOrder> create(Iterable<PurchaseOrder> order);
+
+    @Insert
+    PurchaseOrder create(PurchaseOrder order);
+
+    @Insert
+    PurchaseOrder[] create(PurchaseOrder... orders);
+
+    @Delete
+    void deleteAll();
+
+    EntityManager entityMgr();
+
+    @OrderBy("id")
+    Optional<PurchaseOrder> findFirstByPurchasedBy(String purchaser);
+
+    List<PurchaseOrder> findOrdersByPurchasedByIn(Iterable<String> purchasers,
+                                                  Sort<?>... sorts);
+
+    @Update
+    void modify(PurchaseOrder order);
+
+    @Update
+    PurchaseOrder[] modifyAll(PurchaseOrder... orders);
+
+    @Update
+    Optional<PurchaseOrder> modifyIfMatching(PurchaseOrder orders);
+
+    @Update
+    Vector<PurchaseOrder> modifyMultiple(Collection<PurchaseOrder> orders);
+
+    @Update
+    PurchaseOrder modifyOne(PurchaseOrder orders);
+
+    @Query("SELECT total WHERE purchasedBy LIKE ?1")
+    @OrderBy("total")
+    List<Float> purchaseTotalsFor(String purchaser);
+
+    @Query("SELECT VERSION(this)")
+    @OrderBy("version(this)")
+    List<Integer> versionsAsc();
+
+    @Query("SELECT VERSION(this)")
+    @OrderBy(value = "versionNum", descending = true)
+    List<Integer> versionsDesc();
+}

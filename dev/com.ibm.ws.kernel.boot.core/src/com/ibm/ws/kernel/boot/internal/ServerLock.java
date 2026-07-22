@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2013 IBM Corporation and others.
+ * Copyright (c) 2011, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -245,9 +247,21 @@ public class ServerLock {
     /**
      * Try to obtain server lock
      *
+     * Uses default timeout which was originally based on polling interval and max polling attempts in milliseconds.
+     *
      * @return true if server lock was obtained (!null & valid)
      */
     private synchronized boolean getServerLock() {
+        return getServerLock((System.currentTimeMillis() + (Integer.valueOf(BootstrapConstants.SERVER_STOP_WAIT_TIME_DEFAULT) * 1000)));
+    }
+
+    /**
+     * Try to obtain server lock
+     *
+     * @param endTime value in milliseconds. This is the start time; e.g. System.currentTimeMillis() plus the timeout value
+     * @return true if server lock was obtained (!null & valid)
+     */
+    private synchronized boolean getServerLock(long endTime) {
 
         Boolean fileExists = Boolean.FALSE;
         final File sDir = lockFile;
@@ -266,20 +280,34 @@ public class ServerLock {
             fos = new FileOutputStream(lockFile);
             fc = fos.getChannel();
 
+            // If we immediately try to get the lock, it seems to always be unavailable.  After
+            // a failed attempt at getting the lock, we sleep for 500ms.  That's pretty much
+            // the same thing as sleeping for 500ms and then trying to get the lock.  So this
+            // smaller delay is added, which will normally allow us to get the lock on the 1st try.
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                //
+            }
             // Try for a short period of time to obtain the lock
             // (if status mechanisms temporarily grab the file, we want to wait
             // to try to grab it.. )
-            for (int i = 0; i < BootstrapConstants.MAX_POLL_ATTEMPTS; i++) {
+            do {
                 serverLock = fc.tryLock();
                 if (serverLock != null) {
                     break;
                 } else {
                     try {
+                        long timeNow = System.currentTimeMillis();
+                        if ((timeNow) > endTime) {
+                            break;
+                        }
                         Thread.sleep(BootstrapConstants.POLL_INTERVAL_MS);
                     } catch (InterruptedException e) {
                     }
                 }
-            }
+            } while (true);
+
         } catch (OverlappingFileLockException e) {
             // If we encounter an exception obtaining the lock, we can try
             // try closing the the relevant streams (channel first)
@@ -371,14 +399,32 @@ public class ServerLock {
      * <p>
      * This is a separate process using the attach API to stop the server.
      *
-     * @return {@link ReturnCode#OK} if server lock file can be obtained within
-     *         3 seconds (see {@link #getServerLock()}, will otherwise
+     * @return {@link ReturnCode#OK} if server lock file can be obtained within the
+     *         DEFAULT timeout period (see {@link #getServerLock()}, will otherwise
      *         return {@link ReturnCode#ERROR_SERVER_STOP}
      */
     public synchronized ReturnCode waitForStop() {
+        // Calculate the endTime as the current time + the timeout value
+        return waitForStop(System.currentTimeMillis() + (Integer.valueOf(BootstrapConstants.SERVER_STOP_WAIT_TIME_DEFAULT) * 1000));
 
-        // if the lock is null or is invalid, the lock could not be obtained within the timeout
-        if (!getServerLock()) {
+    }
+
+    /**
+     * Wait until the server lock file can be obtained: Used when stopping
+     * the server to wait until the server has terminated.
+     * <p>
+     * This is a separate process using the attach API to stop the server.
+     *
+     * @param endTime value in milliseconds. This is the start time; e.g. System.currentTimeMillis() plus the timeout value.
+     * @return {@link ReturnCode#OK} if server lock file can be obtained within
+     *         timeout period (see {@link #getServerLock()}, will otherwise
+     *         return {@link ReturnCode#ERROR_SERVER_STOP}
+     * @return
+     */
+    public synchronized ReturnCode waitForStop(long endTime) {
+
+        // if the lock is null or is invalid, the lock could not be obtained within the time out
+        if (!getServerLock(endTime)) {
             serverLock = null;
             lockFileChannel = null;
             System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("error.stopServerError"),
@@ -511,7 +557,9 @@ public class ServerLock {
             FileOutputStream fos = new FileOutputStream(lockFile);
             lockFileChannel = fos.getChannel();
 
-            if (tryServerLock() && !FileUtils.isWSL()) {
+            // Removed check ( && !FileUtils.isWSL()).  It's not clear why it was added,
+            // but it was causing this method to always return true on WSL.
+            if (tryServerLock()) {
                 // we could obtain the server lock, server is not running
                 return false;
             }

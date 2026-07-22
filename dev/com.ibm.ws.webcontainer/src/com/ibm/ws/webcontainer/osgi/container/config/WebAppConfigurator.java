@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2019 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -252,8 +254,15 @@ public class WebAppConfigurator implements ServletConfigurator {
         if ( !(webExt instanceof WebExtComponentImpl) ) {
             return null;
         }
-       
-        return webExt.getContextRoot();
+        
+        String contextRoot = webExt.getContextRoot();
+
+        // ensure context root is prefixed with "/"
+        if ((contextRoot != null) && (contextRoot.length() > 0) && (contextRoot.charAt(0) != '/')) {
+            contextRoot = "/" + contextRoot;
+        }
+
+        return contextRoot;
     }
     
     /**
@@ -347,9 +356,17 @@ public class WebAppConfigurator implements ServletConfigurator {
         return this.currentSource;
     }
 
+    public void setConfigSource(ConfigSource source) {
+        this.currentSource = source;
+    }
+
     @Override
     public String getLibraryURI() {
         return this.currentLibraryURI;
+    }
+
+    public void setLibraryURI(String libraryURI) {
+        this.currentLibraryURI = libraryURI;
     }
 
     @Override

@@ -1,14 +1,15 @@
 -include= ~${workspace}/cnf/resources/bnd/feature.props
 symbolicName=io.openliberty.messagingServer-3.0
 visibility=public
-IBM-API-Package: com.ibm.websphere.messaging.mbean; type="ibm-api"
+IBM-API-Package: com.ibm.websphere.messaging.mbean; type="ibm-api", \
+  com.ibm.websphere.endpoint; type="ibm-api"
 IBM-ShortName: messagingServer-3.0
 WLP-AlsoKnownAs: wasJmsServer-3.0
 Subsystem-Name: Messaging Server 3.0
--features=com.ibm.websphere.appserver.transaction-2.0, \
- com.ibm.websphere.appserver.appLifecycle-1.0, \
- com.ibm.websphere.appserver.channelfw-1.0, \
- com.ibm.websphere.appserver.eeCompatible-9.0
+-features=com.ibm.websphere.appserver.appLifecycle-1.0, \
+  com.ibm.websphere.appserver.channelfw-1.0, \
+  com.ibm.websphere.appserver.eeCompatible-9.0; ibm.tolerates:="10.0, 11.0, 12.0", \
+  io.openliberty.messagingServer3.0.ee-9.0; ibm.tolerates:="12.0"
 -bundles=com.ibm.ws.messaging.comms.server, \
  com.ibm.ws.messaging.msgstore.jakarta, \
  com.ibm.ws.messaging.common, \
@@ -16,9 +17,17 @@ Subsystem-Name: Messaging Server 3.0
  com.ibm.ws.messaging.security.common, \
  com.ibm.ws.messaging.runtime, \
  com.ibm.ws.messaging.comms.client, \
- com.ibm.websphere.security
+ com.ibm.websphere.security, \
+ io.openliberty.transport.config.internal, \
+ io.openliberty.io.netty, \
+ io.openliberty.io.netty.ssl, \
+ io.openliberty.netty.internal, \
+ io.openliberty.netty.internal.impl, \
+ io.openliberty.endpoint
 -jars=com.ibm.websphere.appserver.api.messaging; location:=dev/api/ibm/
 -files=dev/api/ibm/javadoc/com.ibm.websphere.appserver.api.messaging_1.0-javadoc.zip
-kind=beta
+kind=ga
 edition=base
 WLP-Activation-Type: parallel
+WLP-InstantOn-Enabled: true
+WLP-Platform: jakartaee-9.1,jakartaee-10.0,jakartaee-11.0,jakartaee-12.0

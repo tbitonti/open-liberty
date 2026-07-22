@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2002, 2020 IBM Corporation and others.
+ * Copyright (c) 2002, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
 package com.ibm.ws.ejbcontainer.legacy.fat.tests;
@@ -30,13 +29,13 @@ import com.ibm.ejb2x.base.spec.sfl.web.SFLocalInterfaceContextServlet;
 import com.ibm.ejb2x.base.spec.sfl.web.SFLocalInterfaceMethodServlet;
 import com.ibm.ejb2x.base.spec.sfl.web.SFLocalInterfaceRemoveServlet;
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 
 import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.annotation.TestServlets;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.rules.repeater.FeatureReplacementAction;
-import componenttest.rules.repeater.JakartaEE9Action;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
@@ -56,8 +55,22 @@ public class SFLocalTest extends FATServletClient {
                     @TestServlet(servlet = SFLocalInterfaceRemoveServlet.class, contextRoot = "EJB2XLocalSpecWeb") })
     public static LibertyServer server;
 
+    /*@formatter:off*/
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().fullFATOnly().forServers("com.ibm.ws.ejbcontainer.legacy.server")).andWith(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.ejbcontainer.legacy.server")).andWith(new JakartaEE9Action().forServers("com.ibm.ws.ejbcontainer.legacy.server"));
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server"))
+                                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11)
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server"))
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17)
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server"))
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server"));
+    /*@formatter:on*/
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -77,7 +90,7 @@ public class SFLocalTest extends FATServletClient {
         EJB2XLocalSpecApp.addAsModules(EJB2XSFLocalSpecEJB, EJB2XSLLocalSpecEJB, EJB2XLocalSpecWeb);
         //ShrinkHelper.addDirectory(EJB2XLocalSpecApp, "test-applications/EJB2XLocalSpecApp.ear/resources");
 
-        ShrinkHelper.exportDropinAppToServer(server, EJB2XLocalSpecApp);
+        ShrinkHelper.exportDropinAppToServer(server, EJB2XLocalSpecApp, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }

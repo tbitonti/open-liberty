@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- * IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.jwt.fat.consumer;
 
@@ -18,6 +17,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -29,9 +29,11 @@ import com.ibm.ws.security.fat.common.expectations.Expectations;
 import com.ibm.ws.security.fat.common.expectations.ResponseMessageExpectation;
 import com.ibm.ws.security.fat.common.expectations.ResponseStatusExpectation;
 import com.ibm.ws.security.fat.common.jwt.JWTTokenBuilder;
+import com.ibm.ws.security.fat.common.jwt.JwtConstants;
 import com.ibm.ws.security.fat.common.jwt.PayloadConstants;
 import com.ibm.ws.security.fat.common.jwt.expectations.JwtApiExpectation;
 import com.ibm.ws.security.fat.common.jwt.utils.JwtKeyTools;
+import com.ibm.ws.security.fat.common.servers.ServerInstanceUtils;
 import com.ibm.ws.security.fat.common.utils.SecurityFatHttpUtils;
 import com.ibm.ws.security.fat.common.validation.TestValidationUtils;
 import com.ibm.ws.security.jwt.fat.consumer.actions.JwtConsumerActions;
@@ -43,6 +45,8 @@ import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.SkipJavaSemeruWithFipsEnabled;
+import componenttest.rules.SkipJavaSemeruWithFipsEnabled.SkipJavaSemeruWithFipsEnabledRule;
 import componenttest.topology.impl.JavaInfo;
 import componenttest.topology.impl.LibertyServer;
 
@@ -70,13 +74,17 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
 
     protected JWTTokenBuilder builder = null;
 
+    @Rule
+    public static final SkipJavaSemeruWithFipsEnabled skipJavaSemeruWithFipsEnabled = new SkipJavaSemeruWithFipsEnabled("com.ibm.ws.security.jwt_fat.consumer");
+
     @BeforeClass
     public static void setUp() throws Exception {
-    	FATSuite.transformApps(consumerServer, "test-apps/jwtbuilder.war", "test-apps/jwtconsumerclient.war", "dropins/testmarker.war");
+        transformApps(consumerServer);
 
         serverTracker.addServer(consumerServer);
         skipRestoreServerTracker.addServer(consumerServer);
         consumerServer.addInstalledAppForValidation(JwtConsumerConstants.JWT_CONSUMER_SERVLET);
+        consumerServer.addInstalledAppForValidation(JwtConstants.JWT_SIMPLE_BUILDER_SERVLET);
         consumerServer.startServerUsingExpandedConfiguration("server_configTests.xml");
         SecurityFatHttpUtils.saveServerPorts(consumerServer, JwtConsumerConstants.BVT_SERVER_1_PORT_NAME_ROOT);
         // one of the JWT Consumer configs has an empty SignatureAlg value which results in a CWWKG0032W warning - mark this as "OK"
@@ -84,6 +92,10 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
 
         // set the default signing key for this test class (individual test cases can override if needed)
         consumerHelpers.setDefaultKeyFile(consumerServer, "rsa_privateKey.pem");
+
+        // for some reason some of the keystore configs were taking too long to be loaded
+        ServerInstanceUtils.waitForKeyStores(consumerServer);
+
     }
 
     @Override
@@ -1794,14 +1806,15 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
     // JwtConsumerApiConfigTests_goodKeyManagementKeyAlias_goodSslRef same as JwtConsumerApiConfigTests_encryptRS256_decryptRS256
     // JwtConsumerApiConfigTests_nullKeyManagementKeyAlias_goodSslRef same as JwtConsumerApiConfigTests_tokenNotEncrypted_consumerDecrypts
     /**
-     * server.xml has a config that specifies an invalid key management key algorithm - this test ensures that
-     * after building a jwt that is encrypted with the matching public key, we can not decrypt the token because
-     * it can't find the certificate to decrypt the token
+     * server.xml has a consumer config that specifies an invalid key management key algorithm - this test ensures that
+     * after building a jwt that is encrypted with the matching public key and a valid key management key algorithm (RSA-OAEP)
+     * we can not decrypt the token because it can't find the certificate to decrypt the token
      *
      * @throws Exception
      */
     @Test
-    public void JwtConsumerApiConfigTests_badKeyManagementKeyAlias_goodSslRef() throws Exception {
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtConsumerApiConfigTests_RSA_OAEP_KeyMgmtKeyAlg_badKeyManagementKeyAlias_goodSslRef() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS256", null);
 
@@ -1813,7 +1826,26 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
     }
 
     /**
-     * server.xml has a config that specifies a key management key algorithm, but omits the sslRef - the server wide
+     * server.xml has a consumer config that specifies an invalid key management key algorithm - this test ensures that
+     * after building a jwt that is encrypted with the matching public key and a valid key management key algorithm (ECDH-ES)
+     * we can not decrypt the token because it can't find the certificate to decrypt the token
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_ECDH_ES_KeyMgmtKeyAlg_badKeyManagementKeyAlias_goodSslRef() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_ES256", null);
+
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+CertificateException", currentAction, consumerServer, "bad_decrypt_ES256");
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "bad_decrypt_ES256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * server.xml has a config that specifies a key management key algorithm (RSA-OAEP), but omits the sslRef - the server wide
      * SSL config does not use a keystore that contains the alias specifies - this test ensures that
      * after building a jwt that is encrypted with the matching public key, we can not decrypt the token because
      * it can't find the certificate to decrypt the token
@@ -1821,11 +1853,12 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
-    public void JwtConsumerApiConfigTests_goodKeyManagementKeyAlias_missingSslRef_refMissingFromServerwideSSL() throws Exception {
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtConsumerApiConfigTests_RSA_OAEP_KeyMgmtKeyAlg_goodKeyManagementKeyAlias_missingSslRef_refMissingFromServerwideSSL() throws Exception {      
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS256", null);
 
-        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+InvalidKeyException", currentAction, consumerServer, "missing_sslRef_decrypt_RS256");
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+" + JwtConsumerMessageConstants.CWWKS6066E_JWE_DECRYPTION_KEY_MISSING, currentAction, consumerServer, "missing_sslRef_decrypt_RS256");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "missing_sslRef_decrypt_RS256", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
@@ -1833,7 +1866,7 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
     }
 
     /**
-     * server.xml has a config that specifies a key management key algorithm, but specifies and inavalid sslRef - the server wide
+     * server.xml has a config that specifies a key management key algorithm (ECDH-ES), but omits the sslRef - the server wide
      * SSL config does not use a keystore that contains the alias specifies - this test ensures that
      * after building a jwt that is encrypted with the matching public key, we can not decrypt the token because
      * it can't find the certificate to decrypt the token
@@ -1841,11 +1874,32 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
-    public void JwtConsumerApiConfigTests_goodKeyManagementKeyAlias_baddSslRef() throws Exception {
+    public void JwtConsumerApiConfigTests_ECDH_ES_KeyMgmtKeyAlg_goodKeyManagementKeyAlias_missingSslRef_refMissingFromServerwideSSL() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_ES256", null);
+
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+" + JwtConsumerMessageConstants.CWWKS6066E_JWE_DECRYPTION_KEY_MISSING, currentAction, consumerServer, "missing_sslRef_decrypt_ES256");
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "missing_sslRef_decrypt_ES256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * server.xml has a config that specifies a key management key algorithm (RSA-OAEP), but specifies and inavalid sslRef - the server wide
+     * SSL config does not use a keystore that contains the alias specifies - this test ensures that
+     * after building a jwt that is encrypted with the matching public key, we can not decrypt the token because
+     * it can't find the certificate to decrypt the token
+     *
+     * @throws Exception
+     */
+    @Test
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtConsumerApiConfigTests_RSA_OAEP_KeyMgmtKeyAlg_goodKeyManagementKeyAlias_baddSslRef() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS256", null);
 
-        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+InvalidKeyException", currentAction, consumerServer, "bad_sslRef_decrypt_RS256");
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+" + JwtConsumerMessageConstants.CWWKS6066E_JWE_DECRYPTION_KEY_MISSING, currentAction, consumerServer, "bad_sslRef_decrypt_RS256");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "bad_sslRef_decrypt_RS256", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
@@ -1853,20 +1907,61 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
     }
 
     /**
-     * server.xml has a config that specifies a key management key algorithm that is not supported -this test ensures that
+     * server.xml has a config that specifies a key management key algorithm (ECDH-ES), but specifies and inavalid sslRef - the server wide
+     * SSL config does not use a keystore that contains the alias specifies - this test ensures that
      * after building a jwt that is encrypted with the matching public key, we can not decrypt the token because
+     * it can't find the certificate to decrypt the token
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_ECDH_ES_KeyMgmtKeyAlg_goodKeyManagementKeyAlias_baddSslRef() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_ES256", null);
+
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+" + JwtConsumerMessageConstants.CWWKS6066E_JWE_DECRYPTION_KEY_MISSING, currentAction, consumerServer, "bad_sslRef_decrypt_ES256");
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "bad_sslRef_decrypt_ES256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * server.xml has a config that specifies a key management key algorithm that is mismatched - this test ensures that
+     * after building a jwt that is encrypted with the matching public key, and we can not decrypt the token because
      * it can't use an EC alg
      *
      * @throws Exception
      */
     @Test
-    public void JwtConsumerApiConfigTests_decryptWithUnsupportedAlg() throws Exception {
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtConsumerApiConfigTests_encryptWith_RSA_OAEP_decryptWithMismatchAlg() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS256", null);
 
-        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+InvalidKeyException", currentAction, consumerServer, "decrypt_ES384");
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+" + "InvalidKeyException", currentAction, consumerServer, "decrypt_ES384");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "decrypt_ES384", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * server.xml has a config that specifies a key management key algorithm that is mismatched - this test ensures that
+     * after building a jwt that is encrypted with the matching public key, we can not decrypt the token because
+     * it can't use an RSA alg
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_encryptWith_ECDH_ES_decryptWithMismatchAlg() throws Exception {
+
+        String builderId = "key_encrypt_good_ES256";
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_ES256", null);
+
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+" + "InvalidKeyException", currentAction, consumerServer, "good_decrypt_RS384");
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_RS384", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
 
     }
@@ -1881,12 +1976,15 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
     @Test
     public void JwtConsumerApiConfigTests_encryptedToken_consumerDoesNotDecrypt() throws Exception {
 
-        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS256", null);
+        String builderId = consumerServer.isFIPS140_3EnabledAndSupported() ? "key_encrypt_good_ES256" : "key_encrypt_good_RS256";
+        String sigAlg = consumerServer.isFIPS140_3EnabledAndSupported() ? JwtConsumerConstants.SIGALG_ES256 : JwtConsumerConstants.SIGALG_RS256;
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
 
         String serverLogMsg = JwtConsumerMessageConstants.CWWKS6063E_JWS_REQUIRED_BUT_TOKEN_NOT_JWS;
-        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(serverLogMsg, currentAction, consumerServer, JwtConsumerConstants.SIGALG_RS256);
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(serverLogMsg, currentAction, consumerServer, sigAlg);
 
-        Page response = actions.invokeJwtConsumer(_testName, consumerServer, JwtConsumerConstants.SIGALG_RS256, jwtToken);
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, sigAlg, jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
 
     }
@@ -1919,6 +2017,7 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtConsumerApiConfigTests_encryptRS256_decryptRS256() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS256", null);
@@ -1937,11 +2036,12 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtConsumerApiConfigTests_encryptRS256_decryptRS384() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS256", null);
 
-        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+JoseException", currentAction, consumerServer, "good_decrypt_RS384");
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+IntegrityException", currentAction, consumerServer, "good_decrypt_RS384");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_RS384", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
@@ -1955,11 +2055,12 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtConsumerApiConfigTests_encryptRS256_decryptRS512() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS256", null);
 
-        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+JoseException", currentAction, consumerServer, "good_decrypt_RS512");
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+IntegrityException", currentAction, consumerServer, "good_decrypt_RS512");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_RS512", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
@@ -1974,6 +2075,7 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtConsumerApiConfigTests_encryptRS384_decryptRS384() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS384", null);
@@ -1992,11 +2094,12 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtConsumerApiConfigTests_encryptRS384_decryptRS256() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS384", null);
 
-        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+JoseException", currentAction, consumerServer, "good_decrypt_RS256");
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+IntegrityException", currentAction, consumerServer, "good_decrypt_RS256");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_RS256", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
@@ -2010,11 +2113,12 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtConsumerApiConfigTests_encryptRS384_decryptRS512() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS384", null);
 
-        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+JoseException", currentAction, consumerServer, "good_decrypt_RS512");
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+IntegrityException", currentAction, consumerServer, "good_decrypt_RS512");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_RS512", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
@@ -2029,6 +2133,7 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtConsumerApiConfigTests_encryptRS512_decryptRS512() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS512", null);
@@ -2047,11 +2152,12 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtConsumerApiConfigTests_encryptRS512_decryptRS256() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS512", null);
 
-        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+JoseException", currentAction, consumerServer, "good_decrypt_RS256");
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+IntegrityException", currentAction, consumerServer, "good_decrypt_RS256");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_RS256", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
@@ -2065,13 +2171,71 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtConsumerApiConfigTests_encryptRS512_decryptRS384() throws Exception {
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS512", null);
 
-        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+JoseException", currentAction, consumerServer, "good_decrypt_RS384");
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6056E_CAN_NOT_EXTRACT_JWS_FROM_JWE + ".+IntegrityException", currentAction, consumerServer, "good_decrypt_RS384");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_RS384", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+        /**
+     * server.xml has a config that specifies a key management key alias using an ES256 Cert - this test ensures that
+     * after building a jwt that is encrypted with the matching public key, we can use the consumer with the matching
+     * private key to "consume" it.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_encryptES256_decryptES256() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_ES256", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_ES256);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_ES256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * server.xml has a config that specifies a key management key alias using an ES384 Cert - this test ensures that
+     * after building a jwt that is encrypted with the matching public key, we can use the consumer with the matching
+     * private key to "consume" it.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_encryptES384_decryptES384() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_ES384", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_ES384);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_ES384", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * server.xml has a config that specifies a key management key alias using an ES512 Cert - this test ensures that
+     * after building a jwt that is encrypted with the matching public key, we can use the consumer with the matching
+     * private key to "consume" it.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_encryptES512_decryptES512() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_ES512", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_ES512);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_ES512", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
 
     }
@@ -2084,6 +2248,7 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtConsumerApiConfigTests_encryptOtherKeyManagementKeyAlg() throws Exception {
 
         List<NameValuePair> otherBuilderParms = new ArrayList<NameValuePair>();
@@ -2107,17 +2272,43 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
-    public void JwtConsumerApiConfigTests_encryptOtherContentEncryptionAlg() throws Exception {
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtConsumerApiConfigTests_RSA_OAEP_KeyMgmtKeyAlg_encryptOtherContentEncryptionAlg() throws Exception {
 
         List<NameValuePair> otherBuilderParms = new ArrayList<NameValuePair>();
         otherBuilderParms.add(new NameValuePair(JwtConsumerConstants.PARAM_CONTENT_ENCRYPT_ALG, JwtConsumerConstants.CONTENT_ENCRYPT_ALG_192));
         otherBuilderParms.add(new NameValuePair(JwtConsumerConstants.PARAM_ENCRYPT_KEY, JwtKeyTools.getComplexPublicKeyForSigAlg(consumerServer, JwtConsumerConstants.SIGALG_RS256)));
+        otherBuilderParms.add(new NameValuePair(JwtConsumerConstants.PARAM_KEY_MGMT_ALG, JwtConsumerConstants.DEFAULT_KEY_MGMT_KEY_ALG));
 
         String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_RS256", otherBuilderParms);
 
         Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_RS256);
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_RS256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * server.xml has a config that specifies a key management key alias using an ES256 Cert - this test ensures that
+     * after building a jwt that is encrypted with the matching public key, but using "A192GCM" as the contentEncryptionAlg,
+     * we can use the consumer with the matching private key to "consume" it.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_ECDH_ES_KeyMgmtKeyAlg_encryptOtherContentEncryptionAlg() throws Exception {
+
+        List<NameValuePair> otherBuilderParms = new ArrayList<NameValuePair>();
+        otherBuilderParms.add(new NameValuePair(JwtConsumerConstants.PARAM_CONTENT_ENCRYPT_ALG, JwtConsumerConstants.CONTENT_ENCRYPT_ALG_192));
+        otherBuilderParms.add(new NameValuePair(JwtConsumerConstants.PARAM_ENCRYPT_KEY, JwtKeyTools.getComplexPublicKeyForSigAlg(consumerServer, JwtConsumerConstants.SIGALG_ES256)));
+        otherBuilderParms.add(new NameValuePair(JwtConsumerConstants.PARAM_KEY_MGMT_ALG, JwtConsumerConstants.KEY_MGMT_KEY_ALG_ES));
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "key_encrypt_good_ES256", otherBuilderParms);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_ES256);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_ES256", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
 
     }
@@ -2132,14 +2323,37 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
-    public void JwtConsumerApiConfigTests_encryptOtherJWEHeader_typ() throws Exception {
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtConsumerApiConfigTests_RSA_OAEP_KeyMgmtKeyAlg_encryptOtherJWEHeader_typ() throws Exception {
 
         String jwtToken = consumerHelpers.buildJWETokenWithAltHeader(JwtKeyTools.getPublicKeyFromPem(JwtKeyTools.getComplexPublicKeyForSigAlg(consumerServer, JwtConsumerConstants.SIGALG_RS256)),
-                "notJOSE", "jwt");
+                "notJOSE", "jwt", JwtConsumerConstants.DEFAULT_KEY_MGMT_KEY_ALG);
 
         Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6022E_ISSUER_NOT_TRUSTED, currentAction, consumerServer, "good_decrypt_RS256");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_RS256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * server.xml has a config that specifies a key management key alias using an ES256 Cert - this test ensures that
+     * after building a jwt that is encrypted with the matching public key, but setting a "typ" other than JOSE in the JWE header,
+     * we can use the consumer with the matching private key to "consume" it.
+     * We will in the end fail processing the JWS payload as the "test" builder sets a different issuer
+     * This test shows that we don't check the 'typ' in the JWE header
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_ECDH_ES_KeyMgmtKeyAlg_encryptOtherJWEHeader_typ() throws Exception {
+
+        String jwtToken = consumerHelpers.buildJWETokenWithAltHeader(JwtKeyTools.getPublicKeyFromPem(JwtKeyTools.getComplexPublicKeyForSigAlg(consumerServer, JwtConsumerConstants.SIGALG_ES256)),
+                "notJOSE", "jwt", JwtConsumerConstants.KEY_MGMT_KEY_ALG_ES);
+
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6022E_ISSUER_NOT_TRUSTED, currentAction, consumerServer, "good_decrypt_ES256");
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_ES256", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
 
     }
@@ -2153,14 +2367,36 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
-    public void JwtConsumerApiConfigTests_encryptOtherJWEHeader_cty() throws Exception {
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtConsumerApiConfigTests_RSA_OAEP_KeyMgmtKeyAlg_encryptOtherJWEHeader_cty() throws Exception {
 
         String jwtToken = consumerHelpers.buildJWETokenWithAltHeader(JwtKeyTools.getPublicKeyFromPem(JwtKeyTools.getComplexPublicKeyForSigAlg(consumerServer, JwtConsumerConstants.SIGALG_RS256)),
-                "JOSE", "not_jwt");
+                "JOSE", "not_jwt", JwtConsumerConstants.DEFAULT_KEY_MGMT_KEY_ALG);
 
         Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6057E_BAD_CTY_VALUE, currentAction, consumerServer, "good_decrypt_RS256");
 
         Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_RS256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * server.xml has a config that specifies a key management key alias using an ES256 Cert - this test ensures that
+     * after building a jwt that is encrypted with the matching public key, but setting a "cty" other than jwt in the JWE header,
+     * we can NOT use the consumer with the matching private key to "consume" it.
+     * This test shows that we don't allow any value other than 'jwt' in the 'cty' in the JWE header
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_ECDH_ES_KeyMgmtKeyAlg_encryptOtherJWEHeader_cty() throws Exception {
+
+        String jwtToken = consumerHelpers.buildJWETokenWithAltHeader(JwtKeyTools.getPublicKeyFromPem(JwtKeyTools.getComplexPublicKeyForSigAlg(consumerServer, JwtConsumerConstants.SIGALG_ES256)),
+                "JOSE", "not_jwt", JwtConsumerConstants.KEY_MGMT_KEY_ALG_ES);
+
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6057E_BAD_CTY_VALUE, currentAction, consumerServer, "good_decrypt_ES256");
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_ES256", jwtToken);
         validationUtils.validateResult(response, currentAction, expectations);
 
     }
@@ -2174,9 +2410,10 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
      * @throws Exception
      */
     @Test
-    public void JwtConsumerApiConfigTests_encryptSimpleJsonPayload() throws Exception {
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtConsumerApiConfigTests_RSA_OAEP_KeyMgmtKeyAlg_encryptSimpleJsonPayload() throws Exception {
 
-        String jwtToken = consumerHelpers.buildAlternatePayloadJWEToken(JwtKeyTools.getPublicKeyFromPem(JwtKeyTools.getComplexPublicKeyForSigAlg(consumerServer, JwtConsumerConstants.SIGALG_RS256)));
+        String jwtToken = consumerHelpers.buildAlternatePayloadJWEToken(JwtKeyTools.getPublicKeyFromPem(JwtKeyTools.getComplexPublicKeyForSigAlg(consumerServer, JwtConsumerConstants.SIGALG_RS256)), JwtConsumerConstants.DEFAULT_KEY_MGMT_KEY_ALG);
 
         Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6065E_JWE_DOES_NOT_CONTAIN_JWS, currentAction, consumerServer, "good_decrypt_RS256");
 
@@ -2184,4 +2421,636 @@ public class JwtConsumerApiConfigTests extends CommonSecurityFat {
         validationUtils.validateResult(response, currentAction, expectations);
     }
 
+    /**
+     * server.xml has a config that specifies a key management key alias using an ES256 Cert - this test ensures that
+     * after building a jwt that is encrypted with the matching public key, but containing a simple Json payload,
+     * we can NOT use the consumer with the matching private key to "consume" it.
+     * This test shows that we won't allow a non-JWS payload
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_ECDH_ES_KeyMgmtKeyAlg_encryptSimpleJsonPayload() throws Exception {
+
+        String jwtToken = consumerHelpers.buildAlternatePayloadJWEToken(JwtKeyTools.getPublicKeyFromPem(JwtKeyTools.getComplexPublicKeyForSigAlg(consumerServer, JwtConsumerConstants.SIGALG_ES256)), JwtConsumerConstants.KEY_MGMT_KEY_ALG_ES);
+
+        Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6065E_JWE_DOES_NOT_CONTAIN_JWS, currentAction, consumerServer, "good_decrypt_ES256");
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "good_decrypt_ES256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with HS256 when configured with FROM_HEADER and allowing HS256
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenHS256_FromHeader_AllowSignHS256() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "sigAlg_HS256", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_HS256);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderHS256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with HS384 when configured with FROM_HEADER and allowing HS384
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenHS384_FromHeader_AllowSignHS384() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "sigAlg_HS384", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_HS384);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderHS384", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with HS512 when configured with FROM_HEADER and allowing HS512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenHS512_FromHeader_AllowSignHS512() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "sigAlg_HS512", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_HS512);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderHS512", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with RS256 when configured with FROM_HEADER and allowing RS256
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenRS256_FromHeader_AllowSignRS256() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "sigAlg_RS256", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_RS256);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderRS256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with RS384 when configured with FROM_HEADER and allowing RS384
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenRS384_FromHeader_AllowSignRS384() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "sigAlg_RS384", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_RS384);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderRS384", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with RS512 when configured with FROM_HEADER and allowing RS512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenRS512_FromHeader_AllowSignRS512() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "sigAlg_RS512", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_RS512);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderRS512", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with ES256 when configured with FROM_HEADER and allowing ES256
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenES256_FromHeader_AllowSignES256() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "sigAlg_ES256", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_ES256);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderES256", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with ES384 when configured with FROM_HEADER and allowing ES384
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenES384_FromHeader_AllowSignES384() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "sigAlg_ES384", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_ES384);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderES384", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with ES512 when configured with FROM_HEADER and allowing ES512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenES512_FromHeader_AllowSignES512() throws Exception {
+
+        String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, "sigAlg_ES512", null);
+
+        Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, JwtConsumerConstants.SIGALG_ES512);
+
+        Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderES512", jwtToken);
+        validationUtils.validateResult(response, currentAction, expectations);
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume a JWT that is NOT signed with HS256 when configured with FROM_HEADER and allowing HS256
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithHS256_FromHeader_AllowSignHS256() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if (sigAlg != JwtConsumerConstants.SIGALG_HS256) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderHS256");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderHS256", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume a JWT that is NOT signed with HS384 when configured with FROM_HEADER and allowing HS384
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithHS384_FromHeader_AllowSignHS384() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if (sigAlg != JwtConsumerConstants.SIGALG_HS384) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderHS384");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderHS384", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume a JWT that is NOT signed with HS512 when configured with FROM_HEADER and allowing HS512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithHS512_FromHeader_AllowSignHS512() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if (sigAlg != JwtConsumerConstants.SIGALG_HS512) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderHS512");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderHS512", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume a JWT that is NOT signed with RS256 when configured with FROM_HEADER and allowing RS256
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithRS256_FromHeader_AllowSignRS256() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if (sigAlg != JwtConsumerConstants.SIGALG_RS256) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderRS256");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderRS256", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume a JWT that is NOT signed with RS384 when configured with FROM_HEADER and allowing RS384
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithRS384_FromHeader_AllowSignRS384() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if (sigAlg != JwtConsumerConstants.SIGALG_RS384) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderRS384");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderRS384", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume a JWT that is NOT signed with RS512 when configured with FROM_HEADER and allowing RS512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithRS512_FromHeader_AllowSignRS512() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if (sigAlg != JwtConsumerConstants.SIGALG_RS512) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderRS512");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderRS512", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume a JWT that is NOT signed with ES256 when configured with FROM_HEADER and allowing ES256
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithES256_FromHeader_AllowSignES256() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if (sigAlg != JwtConsumerConstants.SIGALG_ES256) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderES256");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderES256", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume a JWT that is NOT signed with ES384 when configured with FROM_HEADER and allowing ES384
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithES384_FromHeader_AllowSignES384() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if (sigAlg != JwtConsumerConstants.SIGALG_ES384) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderES384");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderES384", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume a JWT that is NOT signed with ES512 when configured with FROM_HEADER and allowing ES512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithES512_FromHeader_AllowSignES512() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if (sigAlg != JwtConsumerConstants.SIGALG_ES512) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderES512");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderES512", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume JWTs signed with HS256, HS384 and HS512 when configured with FROM_HEADER and allowing HS256, HS384, HS512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenHSAlgs_FromHeader_AllowSignHSAlgs() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_HSSIGALGS) {
+            String builderId = "sigAlg_" + sigAlg;
+            String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+            Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, sigAlg);
+
+            Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderHSAlgs", jwtToken);
+            validationUtils.validateResult(response, currentAction, expectations);
+        }
+
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume JWTs signed with RS256, RS384 and RS512 when configured with FROM_HEADER and allowing RS256, RS384, RS512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenRSAlgs_FromHeader_AllowSignRSAlgs() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_RSSIGALGS) {
+            String builderId = "sigAlg_" + sigAlg;
+            String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+            Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, sigAlg);
+
+            Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderRSAlgs", jwtToken);
+            validationUtils.validateResult(response, currentAction, expectations);
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume JWTs signed with ES256, ES384 and ES512 when configured with FROM_HEADER and allowing ES256, ES384, ES512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenESAlgs_FromHeader_AllowSignESAlgs() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_ESSIGALGS) {
+            String builderId = "sigAlg_" + sigAlg;
+            String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+            Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, sigAlg);
+
+            Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderESAlgs", jwtToken);
+            validationUtils.validateResult(response, currentAction, expectations);
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume JWTs that are NOT signed with HS algorithms when configured with FROM_HEADER and allowing HS256, HS384, HS512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithHSAlgs_FromHeader_AllowSignHSAlgs() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if(!Arrays.asList(JwtConsumerConstants.ALL_TEST_HSSIGALGS).contains(sigAlg)) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderHSAlgs");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderHSAlgs", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume JWTs that are NOT signed with RS algorithms when configured with FROM_HEADER and allowing RS256, RS384, RS512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithRSAlgs_FromHeader_AllowSignRSAlgs() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if(!Arrays.asList(JwtConsumerConstants.ALL_TEST_RSSIGALGS).contains(sigAlg)) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderRSAlgs");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderRSAlgs", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume JWTs that are NOT signed with ES algorithms when configured with FROM_HEADER and allowing ES256, ES384, ES512
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenNotWithESAlgs_FromHeader_AllowSignESAlgs() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if(!Arrays.asList(JwtConsumerConstants.ALL_TEST_ESSIGALGS).contains(sigAlg)) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderESAlgs");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderESAlgs", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume JWTs signed with HS256, RS384 and ES512 when configured with FROM_HEADER and allowing HS256, RS384, ES512
+     * 
+     * @throws Exception
+     */
+    @Mode(TestMode.LITE)
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenWithAllowedAlgs_FromHeader_AllowSignHS256RS384ES512() throws Exception {
+
+        List<String> allowedAlgs = new ArrayList<>();
+        allowedAlgs.add(JwtConsumerConstants.SIGALG_HS256);
+        allowedAlgs.add(JwtConsumerConstants.SIGALG_RS384);
+        allowedAlgs.add(JwtConsumerConstants.SIGALG_ES512);
+
+        for (String sigAlg : allowedAlgs) {
+            String builderId = "sigAlg_" + sigAlg;
+            String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+            Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, sigAlg);
+
+            Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderHS256RS384ES512", jwtToken);
+            validationUtils.validateResult(response, currentAction, expectations);
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can NOT consume JWTs that are NOT signed with HS256, RS384 and ES512 when configured with FROM_HEADER and allowing HS256, RS384, ES512
+     * 
+     * @throws Exception
+     */
+    @Mode(TestMode.LITE)
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenWithDisallowedAlgs_FromHeader_AllowSignHS256RS384ES512() throws Exception {
+
+        List<String> allowedAlgs = new ArrayList<>();
+        allowedAlgs.add(JwtConsumerConstants.SIGALG_HS256);
+        allowedAlgs.add(JwtConsumerConstants.SIGALG_RS384);
+        allowedAlgs.add(JwtConsumerConstants.SIGALG_ES512);
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            if (!allowedAlgs.contains(sigAlg)) {
+                String builderId = "sigAlg_" + sigAlg;
+                String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+                Expectations expectations = consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6028E_BAD_ALGORITHM, currentAction, consumerServer, "FromHeaderHS256RS384ES512");
+
+                Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeaderHS256RS384ES512", jwtToken);
+                validationUtils.validateResult(response, currentAction, expectations);
+            }
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume JWTs signed with all supported algorithms when configured with FROM_HEADER and no algorithm restrictions
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenAllAlgs_FromHeader() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_SIGALGS) {
+            String builderId = "sigAlg_" + sigAlg;
+            String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+            Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, sigAlg);
+
+            Page response = actions.invokeJwtConsumer(_testName, consumerServer, "FromHeader", jwtToken);
+            validationUtils.validateResult(response, currentAction, expectations);
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume JWTs signed with RS256, RS384 and RS512 when configured with FROM_HEADER and allowing RS256, RS384, RS512
+     * The configured trust store does not contain algorithm prefixed keys, so the configured alias (altrs256) is used for signature verification of each token
+     * The builders all sign with the same altrs256 private key, so all three tokens can be verified by the consumer.
+     * 
+     * Note: For RS-based algorithms (RS256, RS384, RS512), the same RSA key can be used for signing with each algorithm.
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenRSAlgs_FromHeader_AllowSignRSAlgs_useTrustAlias() throws Exception {
+
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_RSSIGALGS) {
+            String builderId = "diff_sigAlg_" + sigAlg;
+            String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+            Expectations expectations = consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, sigAlg);
+
+            Page response = actions.invokeJwtConsumer(_testName, consumerServer, "diff_FromHeaderRSAlgs", jwtToken);
+            validationUtils.validateResult(response, currentAction, expectations);
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with RS256, but not RS384 and RS512 using the trustedAlias when configured with FROM_HEADER and allowing RS256, RS384 and RS512
+     * The configured trust store does not contain algorithm prefixed keys, so the configured fallback alias (altrs256) is used for signature verification of each token
+     * The RS256 builder signs using the altrs256 private key, which the consumer can successfully verify
+     * The RS384 and RS512 builder sign with their standard keys and signature verification fails on the consumer due to a key mismatch
+     *
+     * @throws Exception
+     */
+    @Test
+    @ExpectedFFDC({ "org.jose4j.jwt.consumer.InvalidJwtSignatureException" })
+    public void JwtConsumerApiConfigTests_SignTokenRSAlgs_FromHeader_AllowSignRSAlgs_useTrustAlias_keyMismatch() throws Exception {
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_RSSIGALGS) {
+            
+            String builderId = (sigAlg.equals(JwtConsumerConstants.SIGALG_RS256) ? "diff_sigAlg_" : "sigAlg_") + sigAlg;
+            String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+            Expectations expectations = sigAlg.equals(JwtConsumerConstants.SIGALG_RS256) 
+                ? consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, sigAlg)
+                : consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6041E_JWT_SIGNATURE_INVALID, currentAction, consumerServer, "diff_FromHeaderRSAlgs");
+
+            Page response = actions.invokeJwtConsumer(_testName, consumerServer, "diff_FromHeaderRSAlgs", jwtToken);
+            validationUtils.validateResult(response, currentAction, expectations);
+        }
+    }
+
+    /**
+     * Test shows that the JWT Consumer can consume a JWT signed with ES256, but not ES384 and ES512 using the trustedAlias when configured with FROM_HEADER and allowing ES256, ES384 and ES512
+     * The configured trust store does not contain algorithm prefixed keys, so the configured fallback alias (altes256) is used for signature verification of each token
+     * The ES256 builder signs using the altes256 (secp256r1) private key, which the consumer can successfully verify
+     * The ES384 and ES512 builder sign with their standard keys (secp384r1 and secp521r1) and signature verification fails on the consumer due to a key mismatch
+     * 
+     * Note: ES-based algorithms (ES256, ES384, ES512) each require algorithm-specific elliptic curve keys and cannot share the same key:
+     * - ES256 requires P-256 (secp256r1) curve
+     * - ES384 requires P-384 (secp384r1) curve
+     * - ES512 requires P-521 (secp521r1) curve
+     *
+     * @throws Exception
+     */
+    @Test
+    public void JwtConsumerApiConfigTests_SignTokenESAlgs_FromHeader_AllowSignESAlgs_useTrustAlias_keyMismatch() throws Exception {
+        for (String sigAlg : JwtConsumerConstants.ALL_TEST_ESSIGALGS) {
+            
+            String builderId = (sigAlg.equals(JwtConsumerConstants.SIGALG_ES256) ? "diff_sigAlg_" : "sigAlg_") + sigAlg;
+            String jwtToken = actions.getJwtTokenUsingBuilder(_testName, consumerServer, builderId, null);
+
+            Expectations expectations = sigAlg.equals(JwtConsumerConstants.SIGALG_ES256) 
+                ? consumerHelpers.addGoodConsumerAlgExpectations(currentAction, consumerServer, sigAlg)
+                : consumerHelpers.buildNegativeAttributeExpectations(JwtConsumerMessageConstants.CWWKS6029E_NO_SIGNING_KEY, currentAction, consumerServer, "diff_FromHeaderESAlgs");
+
+            Page response = actions.invokeJwtConsumer(_testName, consumerServer, "diff_FromHeaderESAlgs", jwtToken);
+            validationUtils.validateResult(response, currentAction, expectations);
+        }
+    }
 }

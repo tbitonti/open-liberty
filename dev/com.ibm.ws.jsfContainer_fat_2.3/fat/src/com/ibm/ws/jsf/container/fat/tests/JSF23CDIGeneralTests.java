@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jsf.container.fat.tests;
 
@@ -14,63 +13,122 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
 
+import org.jboss.shrinkwrap.api.ShrinkWrap;
+import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.AfterClass;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebElement;
+import org.testcontainers.Testcontainers;
 
-import com.gargoylesoftware.htmlunit.CollectingAlertHandler;
-import com.gargoylesoftware.htmlunit.NicelyResynchronizingAjaxController;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.HtmlElement;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import com.gargoylesoftware.htmlunit.html.HtmlInput;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlSubmitInput;
-import com.gargoylesoftware.htmlunit.html.HtmlTextInput;
+import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.log.Log;
-import com.ibm.ws.jsf.container.fat.utils.JSFApplication;
-import com.ibm.ws.jsf.container.fat.utils.JSFImplementation;
+import com.ibm.ws.jsf.container.fat.FATSuite;
 import com.ibm.ws.jsf.container.fat.utils.JSFUtils;
-import com.ibm.ws.jsf.container.fat.utils.UseImplementation;
-import com.ibm.ws.jsf.container.fat.utils.WebArchiveInfo;
+import io.openliberty.faces.fat.selenium.util.internal.ExtendedWebDriver;
+import io.openliberty.faces.fat.selenium.util.internal.WebPage;
 
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
-import componenttest.rules.repeater.JakartaEE9Action;
 
 /**
  * General JSF 2.3 test cases the also require CDI.
  */
 @RunWith(FATRunner.class)
-@UseImplementation(JSFImplementation.MYFACES)
 public class JSF23CDIGeneralTests extends FATServletClient {
 
-    protected static final Class<?> c = JSF23CDIGeneralTests.class;
+    private static final Class<?> c = JSF23CDIGeneralTests.class;
+    private static final String POST_RENDER_VIEW_EVENT_APP_NAME = "PostRenderViewEvent";
+    private static final String CDI_MANAGED_PROPERTY_APP_NAME = "CDIManagedProperty";
+    private static final String EL_IMPLICIT_OBJECTS_CDI_APP_NAME = "ELImplicitObjectsViaCDI";
+    private static final String CONVERTER_VALIDATOR_BEHAVIOR_INJECTION_TARGET_APP_NAME = "ConverterValidatorBehaviorInjectionTarget";
+    private static final String VIEW_HANDLER_APP_NAME = "ViewHandlerTest";
+    private static final String CONVERSATION_SCOPED_APP_NAME = "ConversationScopedTest";
 
     @Rule
     public TestName name = new TestName();
 
-    @Rule
-    public JSFApplication jsfApplication = new JSFApplication(jsf23CDIServer);
-
     @Server("jsf.container.2.3_fat.cdi")
     public static LibertyServer jsf23CDIServer;
 
+    private static ExtendedWebDriver driver;
+
+    private static boolean isEE10OrLater;
+
     @BeforeClass
     public static void setup() throws Exception {
+        isEE10OrLater = JakartaEEAction.isEE10OrLaterActive();
+
+        WebArchive postRenderViewEventApp = ShrinkWrap.create(WebArchive.class, POST_RENDER_VIEW_EVENT_APP_NAME + ".war").addPackages(false, "com.ibm.ws.jsf23.fat.prve.events");
+        postRenderViewEventApp = FATSuite.addMyFaces(postRenderViewEventApp);
+        postRenderViewEventApp = (WebArchive) ShrinkHelper.addDirectory(postRenderViewEventApp, "publish/files/permissions");
+        postRenderViewEventApp = (WebArchive) ShrinkHelper.addDirectory(postRenderViewEventApp, "test-applications/" + POST_RENDER_VIEW_EVENT_APP_NAME + "/resources");
+        ShrinkHelper.exportDropinAppToServer(jsf23CDIServer, postRenderViewEventApp);
+
+        WebArchive cdiManagedPropertyApp = ShrinkWrap.create(WebArchive.class, CDI_MANAGED_PROPERTY_APP_NAME + ".war")
+                        .addPackages(false, "com.ibm.ws.jsf23.fat.cdi.managedproperty");
+        cdiManagedPropertyApp = FATSuite.addMyFaces(cdiManagedPropertyApp);
+        cdiManagedPropertyApp = (WebArchive) ShrinkHelper.addDirectory(cdiManagedPropertyApp, "publish/files/permissions");
+        cdiManagedPropertyApp = (WebArchive) ShrinkHelper.addDirectory(cdiManagedPropertyApp, "test-applications/" + CDI_MANAGED_PROPERTY_APP_NAME + "/resources");
+        ShrinkHelper.exportDropinAppToServer(jsf23CDIServer, cdiManagedPropertyApp);
+
+        WebArchive elImplicitObjectsCDIAPP = ShrinkWrap.create(WebArchive.class, EL_IMPLICIT_OBJECTS_CDI_APP_NAME + ".war")
+                        .addPackages(false, "com.ibm.ws.jsf23.fat.elcdi.beans");
+        elImplicitObjectsCDIAPP = FATSuite.addMyFaces(elImplicitObjectsCDIAPP);
+        elImplicitObjectsCDIAPP = (WebArchive) ShrinkHelper.addDirectory(elImplicitObjectsCDIAPP, "publish/files/permissions");
+        elImplicitObjectsCDIAPP = (WebArchive) ShrinkHelper.addDirectory(elImplicitObjectsCDIAPP, "test-applications/" + EL_IMPLICIT_OBJECTS_CDI_APP_NAME + "/resources");
+        elImplicitObjectsCDIAPP = (WebArchive) ShrinkHelper.addDirectory(elImplicitObjectsCDIAPP,
+                                                            "test-applications/" + EL_IMPLICIT_OBJECTS_CDI_APP_NAME + (isEE10OrLater ? "/resourcesFaces40" : "/resourcesJSF23"));
+        ShrinkHelper.exportDropinAppToServer(jsf23CDIServer, elImplicitObjectsCDIAPP);
+
+        WebArchive converterValidatorBehaviorInjectionTargetApp = ShrinkWrap.create(WebArchive.class, CONVERTER_VALIDATOR_BEHAVIOR_INJECTION_TARGET_APP_NAME + ".war")
+                        .addPackages(false, "com.ibm.ws.jsf23.fat.converter_validator.beans");
+        converterValidatorBehaviorInjectionTargetApp = FATSuite.addMyFaces(converterValidatorBehaviorInjectionTargetApp);
+        converterValidatorBehaviorInjectionTargetApp = (WebArchive) ShrinkHelper.addDirectory(converterValidatorBehaviorInjectionTargetApp, "publish/files/permissions");
+        converterValidatorBehaviorInjectionTargetApp = (WebArchive) ShrinkHelper
+                        .addDirectory(converterValidatorBehaviorInjectionTargetApp, "test-applications/" + CONVERTER_VALIDATOR_BEHAVIOR_INJECTION_TARGET_APP_NAME + "/resources");
+        ShrinkHelper.exportDropinAppToServer(jsf23CDIServer, converterValidatorBehaviorInjectionTargetApp);
+
+        WebArchive viewHandlerApp = ShrinkWrap.create(WebArchive.class, VIEW_HANDLER_APP_NAME + ".war")
+                        .addPackages(false, "jsf.container.viewhandlertest");
+        viewHandlerApp = FATSuite.addMyFaces(viewHandlerApp);
+        viewHandlerApp = (WebArchive) ShrinkHelper.addDirectory(viewHandlerApp, "publish/files/permissions");
+        viewHandlerApp = (WebArchive) ShrinkHelper
+                        .addDirectory(viewHandlerApp, "test-applications/" + VIEW_HANDLER_APP_NAME + "/resources");
+        ShrinkHelper.exportDropinAppToServer(jsf23CDIServer, viewHandlerApp);
+
+        WebArchive conversationScopedApp = ShrinkWrap.create(WebArchive.class, CONVERSATION_SCOPED_APP_NAME + ".war")
+                        .addPackages(false, "com.ibm.ws.jsf.conversationscoped.bean");
+        conversationScopedApp = FATSuite.addMyFaces(conversationScopedApp);
+        conversationScopedApp = (WebArchive) ShrinkHelper.addDirectory(conversationScopedApp, "publish/files/permissions");
+        conversationScopedApp = (WebArchive) ShrinkHelper
+                        .addDirectory(conversationScopedApp, "test-applications/" + CONVERSATION_SCOPED_APP_NAME + "/resources");
+        ShrinkHelper.exportDropinAppToServer(jsf23CDIServer, conversationScopedApp);
+
         // Start the server and use the class name so we can find logs easily.
         jsf23CDIServer.startServer(JSF23CDIGeneralTests.class.getSimpleName() + ".log");
+
+        Testcontainers.exposeHostPorts(jsf23CDIServer.getHttpDefaultPort(), jsf23CDIServer.getHttpDefaultSecurePort());
+        
+        driver = FATSuite.getWebDriver();
     }
 
     @Before
@@ -88,6 +146,15 @@ public class JSF23CDIGeneralTests extends FATServletClient {
         }
     }
 
+    /*
+     * Clear cookies for the selenium webdriver, so that session don't carry over between tests
+     */
+    @After
+    public void clearCookies()
+    {
+        driver.getRemoteWebDriver().manage().deleteAllCookies();
+    }
+
     /**
      * This test case drives a request to an application that has a PhaseListener that will
      * log a message before and after the RENDER_RESPONSE phase of the JSF lifecycle.
@@ -100,13 +167,11 @@ public class JSF23CDIGeneralTests extends FATServletClient {
      */
     @Test
     @Mode(TestMode.FULL)
-    @WebArchiveInfo(name = "PostRenderViewEvent", pkgs = { "com.ibm.ws.jsf23.fat.prve.events" })
     public void testPostRenderViewEvent() throws Exception {
-        String contextRoot = "PostRenderViewEvent";
         try (WebClient webClient = new WebClient()) {
 
             // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "");
+            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, POST_RENDER_VIEW_EVENT_APP_NAME, "");
 
             HtmlPage page = (HtmlPage) webClient.getPage(url);
 
@@ -153,7 +218,6 @@ public class JSF23CDIGeneralTests extends FATServletClient {
      */
     @Test
     @Mode(TestMode.FULL)
-    @WebArchiveInfo(name = "PostRenderViewEvent", pkgs = { "com.ibm.ws.jsf23.fat.prve.events" })
     public void testFacesConfigVersion23() throws Exception {
         String appStarted = jsf23CDIServer.waitForStringInLog("CWWKZ0001I.*" + "Application PostRenderViewEvent", jsf23CDIServer.getConsoleLogFile());
 
@@ -177,11 +241,8 @@ public class JSF23CDIGeneralTests extends FATServletClient {
      * @throws Exception
      */
     @Test
-    @WebArchiveInfo(name = "CDIManagedProperty", pkgs = { "com.ibm.ws.jsf23.fat.cdi.managedproperty" })
     public void testCDIManagedProperty() throws Exception {
-        String contextRoot = "CDIManagedProperty";
         try (WebClient webClient = new WebClient()) {
-            webClient.setAjaxController(new NicelyResynchronizingAjaxController());
 
             String initalValue = "numberManagedProperty = 0 textManagedProperty = zero "
                                  + "listManagedProperty = zero stringArrayManagedProperty = "
@@ -192,7 +253,7 @@ public class JSF23CDIGeneralTests extends FATServletClient {
                                 + "com.ibm.ws.jsf23.fat.cdi.managedproperty.TestBean";
 
             // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "");
+            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, CDI_MANAGED_PROPERTY_APP_NAME, "");
 
             HtmlPage page = (HtmlPage) webClient.getPage(url);
 
@@ -236,57 +297,65 @@ public class JSF23CDIGeneralTests extends FATServletClient {
      * @throws Exception
      */
     @Test
-    @WebArchiveInfo(name = "ELImplicitObjectsViaCDI", pkgs = { "com.ibm.ws.jsf23.fat.elcdi.beans" })
     public void testInjectableELImplicitObjects() throws Exception {
-        try (WebClient webClient = new WebClient()) {
+        checkInjectableELImplicitObjects(driver);
+        // restart the app and test again
+        assertTrue("The ELImplicitObjectsViaCDI.war application was not restarted.", jsf23CDIServer.restartDropinsApplication("ELImplicitObjectsViaCDI.war"));
+        checkInjectableELImplicitObjects(driver);
+    }
+     
+    private void checkInjectableELImplicitObjects(ExtendedWebDriver driver) throws Exception {
 
-            // Add a message to the header map
-            webClient.addRequestHeader("headerMessage", "This is a test");
+        // Selenium cannot modify headers, so the test was updated to look at the User-Agent instead
+        // webClient.addRequestHeader("headerMessage", "This is a test");
 
-            // Construct the URL for the test
-            String contextRoot = "ELImplicitObjectsViaCDI";
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "index.xhtml");
+        // Construct the URL for the test
+        String url = JSFUtils.createSeleniumURLString(jsf23CDIServer, EL_IMPLICIT_OBJECTS_CDI_APP_NAME, "index.xhtml");
 
-            HtmlPage testInjectableImplicitObjectsPage = (HtmlPage) webClient.getPage(url);
+        // Get Page
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            // Verify that the page contains the expected messages.
-            assertTrue(testInjectableImplicitObjectsPage.asText().contains("JSF 2.3 EL implicit objects using CDI"));
+        // Verify that the page contains the expected messages.
+        assertTrue(page.isInPage("JSF 2.3 EL implicit objects using CDI"));
 
-            // Get the form that we are dealing with
-            HtmlForm form = testInjectableImplicitObjectsPage.getFormByName("form1");
+        // Submit Form
+        page.findElement(By.id("form1:submitButton")).click();
+        page.waitForCondition(webDriver -> page.isInPage("FacesContext"));
 
-            // Get the button to click
-            HtmlSubmitInput submitButton = form.getInputByName("form1:submitButton");
+        // Log the page for debugging if necessary in the future.
+        Log.info(c, name.getMethodName(), driver.getPageTextReduced());
 
-            // Now click the button and get the resulting page.
-            HtmlPage resultPage = submitButton.click();
+        // Verify that the page contains the expected messages.
+        assertTrue(page.isInPage("FacesContext project stage: Production"));
+        assertTrue(page.isInPage("ServletContext context path: /ELImplicitObjectsViaCDI"));
+        assertTrue(page.isInPage("ExternalContext app context path: /ELImplicitObjectsViaCDI"));
+        assertTrue(page.isInPage("UIViewRoot viewId: /index.xhtml"));
+        assertTrue(page.isInPage("Flash isRedirect: false"));
+        assertTrue(page.isInPage("HttpSession isNew: false"));
+        assertTrue(page.isInPage("Application name from ApplicationMap: ELImplicitObjectsViaCDI"));
+        assertTrue(page.isInPage("Char set from SessionMap: UTF-8"));
+        assertTrue(page.isInPage("ViewMap isEmpty: true"));
+        assertTrue(page.isInPage("URI from RequestMap: /ELImplicitObjectsViaCDI/index.xhtml"));
+        assertTrue(page.isInPage("Message from HeaderMap: Mozilla"));
+        assertTrue(page.isInPage("WELD_CONTEXT_ID_KEY from InitParameterMap: ELImplicitObjectsViaCDI"));
+        assertTrue(page.isInPage("Message from RequestParameterMap: Hello World"));
+        assertTrue(page.isInPage("Message from RequestParameterValuesMap: [Hello World]"));
+        assertTrue(page.isInPage("Message from HeaderValuesMap: [Mozilla"));
 
-            // Log the page for debugging if necessary in the future.
-            Log.info(c, name.getMethodName(), resultPage.asText());
-            Log.info(c, name.getMethodName(), resultPage.asXml());
-
-            // Verify that the page contains the expected messages.
-            assertTrue(resultPage.asText().contains("FacesContext project stage: Production"));
-            assertTrue(resultPage.asText().contains("ServletContext context path: /ELImplicitObjectsViaCDI"));
-            assertTrue(resultPage.asText().contains("ExternalContext app context path: /ELImplicitObjectsViaCDI"));
-            assertTrue(resultPage.asText().contains("UIViewRoot viewId: /index.xhtml"));
-            assertTrue(resultPage.asText().contains("Flash isRedirect: false"));
-            assertTrue(resultPage.asText().contains("HttpSession isNew: false"));
-            assertTrue(resultPage.asText().contains("Application name from ApplicationMap: ELImplicitObjectsViaCDI"));
-            assertTrue(resultPage.asText().contains("Char set from SessionMap: UTF-8"));
-            assertTrue(resultPage.asText().contains("ViewMap isEmpty: true"));
-            assertTrue(resultPage.asText().contains("URI from RequestMap: /ELImplicitObjectsViaCDI/index.xhtml"));
-            assertTrue(resultPage.asText()
-                            .contains("Flow map object is null: Exception: WELD-001303: No active contexts "
-                                      + "for scope type "+(JakartaEE9Action.isActive() ? "jakarta." : "javax.")+"faces.flow.FlowScoped")); // Expected exception
-            assertTrue(resultPage.asText().contains("Message from HeaderMap: This is a test"));
-            assertTrue(resultPage.asText().contains("Cookie object from CookieMap: "+(JakartaEE9Action.isActive() ? "jakarta." : "javax.")+"servlet.http.Cookie"));
-            assertTrue(resultPage.asText().contains("WELD_CONTEXT_ID_KEY from InitParameterMap: ELImplicitObjectsViaCDI"));
-            assertTrue(resultPage.asText().contains("Message from RequestParameterMap: Hello World"));
-            assertTrue(resultPage.asText().contains("Message from RequestParameterValuesMap: [Hello World]"));
-            assertTrue(resultPage.asText().contains("Message from HeaderValuesMap: [This is a test]"));
-            assertTrue(resultPage.asText().contains("Resource handler JSF_SCRIPT_LIBRARY_NAME constant: "+(JakartaEE9Action.isActive() ? "jakarta." : "javax.")+"faces"));
+        if (JakartaEEAction.isEE9OrLaterActive()){
+            assertTrue(page.isInPage("Flow map object is null: Exception: WELD-001303: No active contexts "
+                                    + "for scope type jakarta.faces.flow.FlowScoped")); // Expected exception
+            assertTrue(page.isInPage("Cookie object from CookieMap: jakarta.servlet.http.Cookie"));
+            assertTrue(page.isInPage("Resource handler JSF_SCRIPT_LIBRARY_NAME constant: jakarta.faces"));
+        } else {
+            assertTrue(page.isInPage("Flow map object is null: Exception: WELD-001303: No active contexts "
+                                    + "for scope type javax.faces.flow.FlowScoped")); // Expected exception
+            assertTrue(page.isInPage("Cookie object from CookieMap: javax.servlet.http.Cookie"));
+            assertTrue(page.isInPage("Resource handler JSF_SCRIPT_LIBRARY_NAME constant: javax.faces"));
         }
+    
     }
 
     /**
@@ -296,18 +365,24 @@ public class JSF23CDIGeneralTests extends FATServletClient {
      * @throws Exception
      */
     @Test
-    @WebArchiveInfo(name = "ELImplicitObjectsViaCDI", pkgs = { "com.ibm.ws.jsf23.fat.elcdi.beans" })
     public void testELResolutionImplicitObjects() throws Exception {
         try (WebClient webClient = new WebClient()) {
 
             // Add a message to the header map
-            webClient.addRequestHeader("headerMessage", "This is a test");
+            // Tested was changed to check for User-Agent in order to be consistent with Selenium Test above
+            // webClient.addRequestHeader("headerMessage", "This is a test");
 
             // Construct the URL for the test
-            String contextRoot = "ELImplicitObjectsViaCDI";
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "implicit_objects.xhtml?message=Hello World");
+            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, EL_IMPLICIT_OBJECTS_CDI_APP_NAME, "implicit_objects.xhtml?message=Hello World");
 
             HtmlPage testELResolutionImplicitObjectsPage = (HtmlPage) webClient.getPage(url);
+            
+            // One line difference in resourcesFaces40 vs resourcesJSF23 implicit_objects.xhtml
+            if (isEE10OrLater) {
+                assertTrue(testELResolutionImplicitObjectsPage.asText().contains("Application name: JSF23ELImplicitObjectsViaCDI"));
+            } else {
+                assertTrue(testELResolutionImplicitObjectsPage.asText().contains("Application project stage: Production"));
+            }
 
             // Log the page for debugging if necessary in the future.
             Log.info(c, name.getMethodName(), testELResolutionImplicitObjectsPage.asText());
@@ -316,14 +391,15 @@ public class JSF23CDIGeneralTests extends FATServletClient {
             // Verify that the page contains the expected messages.
             assertTrue(testELResolutionImplicitObjectsPage.asText().contains("JSF 2.3 EL resolution of implicit objects using CDI"));
             assertTrue(testELResolutionImplicitObjectsPage.asText().contains("Bean: com.ibm.ws.jsf23.fat.elcdi.beans.ELImplicitObjectBean"));
-            assertTrue(testELResolutionImplicitObjectsPage.asText().contains("Application project stage: Production"));
             assertTrue(testELResolutionImplicitObjectsPage.asText().contains("ApplicationScope application name: ELImplicitObjectsViaCDI "));
             assertTrue(testELResolutionImplicitObjectsPage.asText().contains("Component getStyle: font-weight:bold"));
             assertTrue(testELResolutionImplicitObjectsPage.asText().contains("CompositeComponent label: Hello World"));
             assertTrue(testELResolutionImplicitObjectsPage.asText().contains("FacesContext project stage: Production"));
             assertTrue(testELResolutionImplicitObjectsPage.asText().contains("Flash isRedirect: false"));
-            assertTrue(testELResolutionImplicitObjectsPage.asText().contains("Header: This is a test"));
-            assertTrue(testELResolutionImplicitObjectsPage.asText().contains("HeaderValues: This is a test"));
+            //Updated to check for User Agent
+            assertTrue(testELResolutionImplicitObjectsPage.asText().contains("Header: Mozilla"));
+            assertTrue(testELResolutionImplicitObjectsPage.asText().contains("HeaderValues: Mozilla"));
+
             assertTrue(testELResolutionImplicitObjectsPage.asText().contains("InitParam: ELImplicitObjectsViaCDI"));
             assertTrue(testELResolutionImplicitObjectsPage.asText().contains("Param: Hello World"));
             assertTrue(testELResolutionImplicitObjectsPage.asText().contains("ParamValues: Hello World"));
@@ -339,13 +415,11 @@ public class JSF23CDIGeneralTests extends FATServletClient {
      * @throws Exception
      */
     @Test
-    @WebArchiveInfo(name = "ELImplicitObjectsViaCDI", pkgs = { "com.ibm.ws.jsf23.fat.elcdi.beans" })
     public void testELResolutionOfFlowScope() throws Exception {
         try (WebClient webClient = new WebClient()) {
 
             // Construct the URL for the test
-            String contextRoot = "ELImplicitObjectsViaCDI";
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "flow_index.xhtml");
+            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, EL_IMPLICIT_OBJECTS_CDI_APP_NAME, "flow_index.xhtml");
 
             HtmlPage testELResolutionOfFlowScopePage = (HtmlPage) webClient.getPage(url);
 
@@ -378,39 +452,36 @@ public class JSF23CDIGeneralTests extends FATServletClient {
      */
     @Test
     @Mode(TestMode.FULL)
-    @WebArchiveInfo(name = "ConverterValidatorBehaviorInjectionTarget", pkgs = { "com.ibm.ws.jsf23.fat.converter_validator.beans" })
     public void testFacesConverterBeanInjection() throws Exception {
-        try (WebClient webClient = new WebClient()) {
+        // Construct the URL for the test
+        String url = JSFUtils.createSeleniumURLString(jsf23CDIServer, CONVERTER_VALIDATOR_BEHAVIOR_INJECTION_TARGET_APP_NAME, "index.xhtml");
 
-            // Construct the URL for the test
-            String contextRoot = "ConverterValidatorBehaviorInjectionTarget";
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "index.xhtml");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        // Verify that the page contains the expected messages.
+        assertTrue(page.isInPage("JSF 2.3 support for injection into JSF Managed Objects"));
 
-            // Verify that the page contains the expected messages.
-            assertTrue(page.asText().contains("JSF 2.3 support for injection into JSF Managed Objects"));
+        // Get the form input that we are dealing with
+        WebElement input = page.findElement(By.id("form1:textId"));
 
-            // Get the form that we are dealing with
-            HtmlForm form = page.getFormByName("form1");
+        // Fill the input text
+        input.sendKeys("Hello World");
 
-            // Get the input text and submit button
-            HtmlTextInput inputText = (HtmlTextInput) form.getInputByName("form1:textId");
-            HtmlSubmitInput submitButton = form.getInputByName("form1:submitButton");
+        // Now click the button and get the resulting page.
+        page.findElement(By.id("form1:submitButton")).click();
 
-            // Fill the input text
-            inputText.setValueAttribute("Hello World");
+        // Dismiss alert that is used in testFacesBehaviorBeanInjection as it prevents Selenium from reading page
+        driver.switchTo().alert().dismiss();
 
-            // Now click the button and get the resulting page.
-            HtmlPage resultPage = submitButton.click();
+        page.waitForCondition(webDriver -> page.isInPage("Hello Earth"));
 
-            // Log the page for debugging if necessary in the future.
-            Log.info(c, name.getMethodName(), resultPage.asText());
-            Log.info(c, name.getMethodName(), resultPage.asXml());
+        // Log the page for debugging if necessary in the future.
+        Log.info(c, name.getMethodName(), driver.getPageTextReduced());
 
-            // Verify that the page contains the expected messages.
-            assertTrue(resultPage.asText().contains("Hello Earth"));
-        }
+        // Verify that the page contains the expected messages.
+        assertTrue(page.isInPage("Hello Earth"));
     }
 
     /**
@@ -420,39 +491,38 @@ public class JSF23CDIGeneralTests extends FATServletClient {
      */
     @Test
     @Mode(TestMode.FULL)
-    @WebArchiveInfo(name = "ConverterValidatorBehaviorInjectionTarget", pkgs = { "com.ibm.ws.jsf23.fat.converter_validator.beans" })
     public void testFacesValidatorBeanInjection() throws Exception {
-        try (WebClient webClient = new WebClient()) {
 
-            // Construct the URL for the test
-            String contextRoot = "ConverterValidatorBehaviorInjectionTarget";
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "index.xhtml");
+        // Construct the URL for the test
+        String url = JSFUtils.createSeleniumURLString(jsf23CDIServer, CONVERTER_VALIDATOR_BEHAVIOR_INJECTION_TARGET_APP_NAME, "index.xhtml");
 
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            // Verify that the page contains the expected messages.
-            assertTrue(page.asText().contains("JSF 2.3 support for injection into JSF Managed Objects"));
+        // Verify that the page contains the expected messages.
+        assertTrue(page.isInPage("JSF 2.3 support for injection into JSF Managed Objects"));
 
-            // Get the form that we are dealing with
-            HtmlForm form = page.getFormByName("form1");
+        // Get the form input that we are dealing with
+        WebElement input = page.findElement(By.id("form1:textId"));
 
-            // Get the input text and submit button
-            HtmlTextInput inputText = (HtmlTextInput) form.getInputByName("form1:textId");
-            HtmlSubmitInput submitButton = form.getInputByName("form1:submitButton");
+        // Fill the input text
+        input.clear();
+        input.sendKeys("1234");
 
-            // Fill the input text
-            inputText.setValueAttribute("1234");
+        // Now click the button and get the resulting page.
+        page.findElement(By.id("form1:submitButton")).click();
 
-            // Now click the button and get the resulting page.
-            HtmlPage resultPage = submitButton.click();
+        // Dismiss alert that is used in testFacesBehaviorBeanInjection as it prevents Selenium from reading page
+        driver.switchTo().alert().dismiss();
 
-            // Log the page for debugging if necessary in the future.
-            Log.info(c, name.getMethodName(), resultPage.asText());
-            Log.info(c, name.getMethodName(), resultPage.asXml());
+        page.waitForCondition(webDriver -> page.isInPage("Text validation failed."));
 
-            // Verify that the page contains the expected messages.
-            assertTrue(resultPage.asText().contains("Text validation failed. Text does not contain 'World' or 'Earth'."));
-        }
+        // Log the page for debugging if necessary in the future.
+        Log.info(c, name.getMethodName(), page.getPageSource());
+
+        // Verify that the page contains the expected messages.
+        assertTrue(page.isInPage("Text validation failed. Text does not contain 'World' or 'Earth'."));
     }
 
     /**
@@ -462,41 +532,29 @@ public class JSF23CDIGeneralTests extends FATServletClient {
      */
     @Test
     @Mode(TestMode.FULL)
-    @WebArchiveInfo(name = "ConverterValidatorBehaviorInjectionTarget", pkgs = { "com.ibm.ws.jsf23.fat.converter_validator.beans" })
     public void testFacesBehaviorBeanInjection() throws Exception {
-        try (WebClient webClient = new WebClient()) {
-            CollectingAlertHandler alertHandler = new CollectingAlertHandler();
-            webClient.setAlertHandler(alertHandler);
 
-            // Construct the URL for the test
-            String contextRoot = "ConverterValidatorBehaviorInjectionTarget";
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "index.xhtml");
+        // Construct the URL for the test
+        String url = JSFUtils.createSeleniumURLString(jsf23CDIServer, CONVERTER_VALIDATOR_BEHAVIOR_INJECTION_TARGET_APP_NAME, "index.xhtml");
 
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            // Verify that the page contains the expected messages.
-            assertTrue(page.asText().contains("JSF 2.3 support for injection into JSF Managed Objects"));
+        // Verify that the page contains the expected messages.
+        assertTrue(page.isInPage("JSF 2.3 support for injection into JSF Managed Objects"));
 
-            // Get the form that we are dealing with
-            HtmlForm form = page.getFormByName("form1");
+        // Now click the button and get the resulting page.
+        page.findElement(By.id("form1:submitButton")).click();
+        page.waitReqJs();
 
-            // Get the submit button
-            HtmlSubmitInput submitButton = form.getInputByName("form1:submitButton");
+        // Verify that the alert contains the expected message
+        assertTrue(driver.switchTo().alert().getText().contains("Hello World"));
 
-            // Now click the button and get the resulting page.
-            HtmlPage resultPage = submitButton.click();
+        // Log the alert for debugging if necessary in the future.
+        Log.info(c, name.getMethodName(), driver.switchTo().alert().getText());
 
-            // Get the alert message
-            List<String> alertmsgs = new ArrayList<String>();
-            alertmsgs = alertHandler.getCollectedAlerts();
-
-            // Log the page for debugging if necessary in the future.
-            Log.info(c, name.getMethodName(), resultPage.asText());
-            Log.info(c, name.getMethodName(), resultPage.asXml());
-
-            // Verify that the alert contains the expected message
-            assertTrue(alertmsgs.contains("Hello World"));
-        }
+        driver.switchTo().alert().dismiss(); // close alert
     }
 
     /**
@@ -506,13 +564,11 @@ public class JSF23CDIGeneralTests extends FATServletClient {
      */
     @Test
     @Mode(TestMode.FULL)
-    @WebArchiveInfo(name = "ConverterValidatorBehaviorInjectionTarget", pkgs = { "com.ibm.ws.jsf23.fat.converter_validator.beans" })
     public void testConverterValidatorBehaviorObjectInjection() throws Exception {
         try (WebClient webClient = new WebClient()) {
 
             // Construct the URL for the test
-            String contextRoot = "ConverterValidatorBehaviorInjectionTarget";
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "JSFArtifactsInjection.xhtml");
+            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, CONVERTER_VALIDATOR_BEHAVIOR_INJECTION_TARGET_APP_NAME, "JSFArtifactsInjection.xhtml");
 
             HtmlPage page = (HtmlPage) webClient.getPage(url);
 
@@ -532,15 +588,10 @@ public class JSF23CDIGeneralTests extends FATServletClient {
 
     @Test
     @Mode(TestMode.FULL)
-    @WebArchiveInfo(name = "ViewHandlerTest", pkgs = { "jsf.container.viewhandlertest" })
     public void testViewHandler() throws Exception {
-        String contextRoot = "ViewHandlerTest";
-
-        // Wait for the application to be started.
-        jsf23CDIServer.waitForStringInLog("CWWKZ0001I: Application " + contextRoot + " started");
 
         // Construct the URL for the test
-        URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "index.xhtml");
+        URL url = JSFUtils.createHttpUrl(jsf23CDIServer, VIEW_HANDLER_APP_NAME, "index.xhtml");
 
         try (WebClient webClient = new WebClient()) {
             HtmlPage page = (HtmlPage) webClient.getPage(url);
@@ -569,44 +620,39 @@ public class JSF23CDIGeneralTests extends FATServletClient {
 
     @Test
     @Mode(TestMode.FULL)
-    @WebArchiveInfo(name = "ConversationScopedTest", pkgs = { "com.ibm.ws.jsf.conversationscoped.bean" })
     public void testConversationScoped() throws Exception {
-      String contextRoot = "ConversationScopedTest";
 
-      // Wait for the application to be started.
-      jsf23CDIServer.waitForStringInLog("CWWKZ0001I: Application " + contextRoot + " started", 2000);
+        // Construct the URL for the test
+        URL url = JSFUtils.createHttpUrl(jsf23CDIServer, CONVERSATION_SCOPED_APP_NAME, "index.xhtml");
 
-      // Construct the URL for the test
-      URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "index.xhtml");
+        try (WebClient webClient = new WebClient()) {
+            HtmlPage indexPage = (HtmlPage) webClient.getPage(url);
 
-      try (WebClient webClient = new WebClient()) {
-          HtmlPage indexPage = (HtmlPage) webClient.getPage(url);
+            //Get index page & click increment button
+            HtmlForm form = indexPage.getFormByName("form1");
+            HtmlSubmitInput submitButton = form.getInputByName("form1:incrementButton");
+            indexPage = submitButton.click();
 
-          //Get index page & click increment button
-          HtmlForm form = indexPage.getFormByName("form1");
-          HtmlSubmitInput submitButton = form.getInputByName("form1:incrementButton");
-          indexPage = submitButton.click();
+            String responseText = indexPage.asText();
+            assertTrue("Page does not contain expected response.", responseText.contains("Value is 1"));
 
-          String responseText = indexPage.asText();
-          assertTrue("Page does not contain expected response.", responseText.contains("Value is 1"));
+            //Click Continue to go to page2.xhtml
+            form = indexPage.getFormByName("form1");
+            submitButton = form.getInputByName("form1:continueButton");
+            HtmlPage page2 = submitButton.click();
 
-          //Click Continue to go to page2.xhtml 
-          form = indexPage.getFormByName("form1");
-          submitButton = form.getInputByName("form1:continueButton");
-          HtmlPage page2 = submitButton.click();
+            //Ensure value is still 1 for conversation scoped bean
+            responseText = page2.asText();
+            assertTrue("Page does not contain expected response.", responseText.contains("Value is 1"));
 
-          //Ensure value is still 1 for conversation scoped bean
-          responseText = page2.asText();
-          assertTrue("Page does not contain expected response.", responseText.contains("Value is 1"));
+            //End conversation and redirect to index.xhtml
+            form = page2.getFormByName("form2");
+            submitButton = form.getInputByName("form2:endButton");
+            indexPage = submitButton.click();
 
-          //End conversation and redirect to index.xhtml
-          form = page2.getFormByName("form2");
-          submitButton = form.getInputByName("form2:endButton");
-          indexPage = submitButton.click();
-
-          //Ensure bean counter resets to 0 when conversation scope ends.
-          responseText = indexPage.asText();
-          assertTrue("Page does not contain expected response.", responseText.contains("Value is 0"));
+            //Ensure bean counter resets to 0 when conversation scope ends.
+            responseText = indexPage.asText();
+            assertTrue("Page does not contain expected response.", responseText.contains("Value is 0"));
+        }
     }
-  }
 }

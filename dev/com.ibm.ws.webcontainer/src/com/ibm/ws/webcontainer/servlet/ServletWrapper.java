@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.servlet;
 
@@ -135,6 +134,8 @@ public abstract class ServletWrapper extends GenericServlet implements RequestPr
     // 
     protected Servlet target;
 
+    private String metricsKey;
+    
     private List cacheWrappers = null;
 
     protected ClassLoader targetLoader;
@@ -239,6 +240,10 @@ public abstract class ServletWrapper extends GenericServlet implements RequestPr
             // in handleRequest so preInvoke can reference the component
             // meta data
             secObject = collabHelper.getSecurityCollaborator().preInvoke(servletConfig.getServletName());
+
+            String servletName = conf.getServletName();
+            String appName = context.getApplicationName();
+            metricsKey = appName + "." + servletName; 
 
           collabHelper.doInvocationCollaboratorsPreInvoke(webAppInvocationCollaborators, (WebComponentMetaData)(getWebApp().getWebAppCmd()));
 
@@ -1203,11 +1208,10 @@ public abstract class ServletWrapper extends GenericServlet implements RequestPr
      * @see javax.servlet.Servlet#service(ServletRequest, ServletResponse)
      */
     public void service(ServletRequest req, ServletResponse res, WebAppServletInvocationEvent evt) throws ServletException, IOException {
-        if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE))
-            logger.entering(CLASS_NAME, "service " + this.toString()+ " ,req-->"+ req + " ,res-->"+ res); //PM50111 // 569469
-        // logger.logp(Level.FINE, CLASS_NAME,"service", "service " +
-        // this.toString()); // PK26183
         boolean notify = notifyInvocationListeners && (evt != null);
+        if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE))
+            logger.entering(CLASS_NAME, "service " + this.toString()+ " , req--> "+ req + " , res--> "+ res + " , notifyListeners -> " + notify); //PM50111 // 569469
+        
         if (unavailableUntil != -1) {
             lastAccessTime = System.currentTimeMillis();
             long timeDiff = unavailableUntil - lastAccessTime;
@@ -1905,6 +1909,10 @@ public abstract class ServletWrapper extends GenericServlet implements RequestPr
         return servletConfig.getServletName();
     }
 
+    public String getMetricsKey() {
+        return metricsKey;
+    }
+
     private IServletWrapper getMimeFilterWrapper(String mimeType) {
         try {
             if (mimeType.indexOf(";") != -1)
@@ -2023,8 +2031,9 @@ public abstract class ServletWrapper extends GenericServlet implements RequestPr
     // end 268176 Welcome file wrappers are not checked for resource existence
     // WAS.webcontainer
 
-    protected synchronized void createTarget(Servlet s) throws InjectionException{ //596191
-        if (s instanceof SingleThreadModel) {
+    protected synchronized void createTarget(Servlet s) throws InjectionException{
+        if((com.ibm.ws.webcontainer.osgi.WebContainer.getServletContainerSpecLevel() < com.ibm.ws.webcontainer.osgi.WebContainer.SPEC_LEVEL_60)
+                        && (s instanceof SingleThreadModel)) {
             isSTM = true;
             servletConfig.setSingleThreadModelServlet(isSTM);
             target = new SingleThreadModelServlet(s.getClass());

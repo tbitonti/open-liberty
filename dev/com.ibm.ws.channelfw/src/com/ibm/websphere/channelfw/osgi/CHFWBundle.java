@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2020 IBM Corporation and others.
+ * Copyright (c) 2009, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,7 +14,6 @@ package com.ibm.websphere.channelfw.osgi;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -27,7 +28,6 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
-import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
@@ -55,8 +55,8 @@ import com.ibm.wsspi.channelfw.ChannelFramework;
 import com.ibm.wsspi.channelfw.ChannelFrameworkFactory;
 import com.ibm.wsspi.channelfw.HttpProtocolBehavior;
 import com.ibm.wsspi.kernel.service.utils.ServerQuiesceListener;
-import com.ibm.wsspi.timer.ApproximateTime;
-import com.ibm.wsspi.timer.QuickApproxTime;
+
+import io.openliberty.channel.config.ChannelFrameworkConfig;
 
 /**
  * OSGi public bundle API for the channel framework. This allows cross bundle
@@ -64,9 +64,7 @@ import com.ibm.wsspi.timer.QuickApproxTime;
  * the framework itself.
  */
 @Component(service = { CHFWBundle.class, ServerQuiesceListener.class },
-           name = "com.ibm.ws.channelfw",
-           configurationPid = "com.ibm.ws.channelfw",
-           configurationPolicy = ConfigurationPolicy.OPTIONAL,
+           configurationPolicy = ConfigurationPolicy.IGNORE,
            immediate = true,
            property = { "service.vendor=IBM" })
 public class CHFWBundle implements ServerQuiesceListener {
@@ -95,8 +93,9 @@ public class CHFWBundle implements ServerQuiesceListener {
     /** Reference to the executor service -- required */
     private ExecutorService executorService = null;
 
-    private static AtomicBoolean serverCompletelyStarted = new AtomicBoolean(false);
-    private static Queue<Callable<?>> serverStartedTasks = new LinkedBlockingQueue<>();
+    private static final AtomicBoolean serverCompletelyStarted = new AtomicBoolean(false);
+    private static final AtomicBoolean useServerStartingTaskQueue = new AtomicBoolean(true);
+    private static final Queue<Callable<?>> serverStartedTasks = new LinkedBlockingQueue<>();
     private static Object syncStarted = new Object() {
     }; // use brackets/inner class to make lock appear in dumps using class name
 
@@ -124,15 +123,10 @@ public class CHFWBundle implements ServerQuiesceListener {
      * @param context
      */
     @Activate
-    protected void activate(ComponentContext context, Map<String, Object> config) {
+    protected void activate(ComponentContext context) {
         if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
-            Tr.event(this, tc, "Activating ", config);
+            Tr.event(this, tc, "Activating ", context.getProperties());
         }
-
-        // handle config (such as TCP factory info) before registering
-        // factories, as the register will trigger an automatic load of any
-        // delayed configuration, and we need the config before that happens
-        modified(config);
 
         this.chfw.registerFactory("TCPChannel", TCPChannelFactory.class);
         this.chfw.registerFactory("UDPChannel", UDPChannelFactory.class);
@@ -169,35 +163,22 @@ public class CHFWBundle implements ServerQuiesceListener {
         this.chfw.deregisterFactory("UDPChannel");
     }
 
-    /**
-     * Modified method. This method is called when the
-     * service properties associated with the service are updated through a
-     * configuration change.
-     *
-     * @param cfwConfiguration
-     *                             the configuration data
-     */
-    @Modified
-    protected synchronized void modified(Map<String, Object> cfwConfiguration) {
-
-        if (null == cfwConfiguration) {
-            return;
-        }
-
-        if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
-            Tr.event(this, tc, "Processing config", cfwConfiguration);
-        }
-
-        this.chfw.updateConfig(cfwConfiguration);
-    }
-
     @Reference(service = AsyncIOHelper.class, cardinality = ReferenceCardinality.OPTIONAL)
     protected void setAsyncIOHelper(AsyncIOHelper asyncIOHelper) {
         chfw.setAsyncIOHelper(asyncIOHelper);
     }
 
-    protected void unsetAsyncIOHelper(AsyncIOHelper asyncIOHelper) {
-        chfw.setAsyncIOHelper(null);
+    protected void updatedAsyncIOHelper(AsyncIOHelper asyncIOHelper) {
+        chfw.setAsyncIOHelper(asyncIOHelper);
+    }
+
+    @Reference(service = ChannelFrameworkConfig.class, cardinality = ReferenceCardinality.MANDATORY)
+    protected void setChannelFWConfig(ChannelFrameworkConfig config) {
+        chfw.setChannelFrameworkConfig(config);
+    }
+
+    protected void updatedChannelFWConfig(ChannelFrameworkConfig config) {
+        chfw.setChannelFrameworkConfig(config);
     }
 
     /**
@@ -242,11 +223,11 @@ public class CHFWBundle implements ServerQuiesceListener {
         // set will be called when the ServerStarted service has been registered (by the FeatureManager as of 9/2015).  This is a signal that
         // the server is fully started, but before the "smarter planet" message has been output. Use this signal to run tasks, mostly likely tasks that will
         // finish the port listening logic, that need to run at the end of server startup
-
         Callable<?> task;
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
             Tr.debug(this, tc, "CHFW signaled- Server Completely Started signal received");
         }
+        useServerStartingTaskQueue.set(false);
         while ((task = serverStartedTasks.poll()) != null) {
             try {
                 task.call();
@@ -256,7 +237,6 @@ public class CHFWBundle implements ServerQuiesceListener {
                 }
             }
         }
-
         synchronized (syncStarted) {
             serverCompletelyStarted.set(true);
             syncStarted.notifyAll();
@@ -273,7 +253,7 @@ public class CHFWBundle implements ServerQuiesceListener {
      */
     public static <T> T runWhenServerStarted(Callable<T> callable) throws Exception {
         synchronized (syncStarted) {
-            if (!serverCompletelyStarted.get()) {
+            if (useServerStartingTaskQueue.get()) {
                 serverStartedTasks.add(callable);
                 return null;
             }
@@ -507,19 +487,7 @@ public class CHFWBundle implements ServerQuiesceListener {
      * @return the approximate time service instance to use within the channel framework
      */
     public static long getApproxTime() {
-        return QuickApproxTime.getApproxTime();
-    }
-
-    /**
-     * Set the approximate time service reference.
-     * This is a required reference: will be called before activation.
-     *
-     * @param ref new ApproximateTime service instance/provider
-     */
-    @Reference(service = ApproximateTime.class,
-               cardinality = ReferenceCardinality.MANDATORY)
-    protected void setApproxTimeService(ApproximateTime ref) {
-        // do nothing: need the ref for activation of service
+        return System.currentTimeMillis();
     }
 
     @Reference(service = HttpProtocolBehavior.class, cardinality = ReferenceCardinality.OPTIONAL,
@@ -551,22 +519,11 @@ public class CHFWBundle implements ServerQuiesceListener {
         return httpVersionSetting;
     }
 
-    public static boolean isHttp2DisabledByDefault() {
-        return versionSet && default20Off;
-    }
-
-    public static boolean isHttp2EnabledByDefault() {
-        return versionSet && default20On;
-    }
-
     /**
-     * Remove the reference to the approximate time service.
-     * This is a required reference, will be called after deactivate.
-     *
-     * @param ref ApproximateTime service instance/provider to remove
+     * @return null means unknown, Boolean.TRUE means default on and Boolean.FALSE means default off
      */
-    protected void unsetApproxTimeService(ApproximateTime ref) {
-        // do nothing: need the ref for activation of service
+    public static Boolean getHttp2DefaultSetting() {
+        return !versionSet ? null : default20On ? Boolean.TRUE : Boolean.FALSE;
     }
 
     /**

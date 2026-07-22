@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -42,6 +44,7 @@ import componenttest.annotation.Server;
 import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
+import componenttest.annotation.AllowedFFDC;
 
 @RunWith(FATRunner.class)
 public class TestEnableDisableFeaturesTest {
@@ -84,7 +87,9 @@ public class TestEnableDisableFeaturesTest {
     private static LibertyServer currentServ;
     
     private static boolean serverEDF6FirstUse = true;
-    
+
+    private static final int timeout = 60000;
+
     @BeforeClass
     public static void setUp() throws Exception {
     	trustAll();
@@ -174,7 +179,7 @@ public class TestEnableDisableFeaturesTest {
         Log.info(c, testName, "------- No monitor-1.0: no vendor metrics should be available ------");
         serverEDF1.setServerConfigurationFile("server_mpMetric20.xml");
         serverEDF1.startServer();
-        waitForSecurityPrerequisites(serverEDF1, 60000);
+        waitForSecurityPrerequisites(serverEDF1, timeout);
         Assert.assertNotNull("Web application /metrics not loaded", serverEDF1.waitForStringInLog("CWWKT0016I.*http:\\/\\/.*:.*\\/metrics\\/"));
         Assert.assertNotNull("SRVE9103I NOT FOUND",serverEDF1.waitForStringInLogUsingMark("SRVE9103I"));
         Log.info(c, testName, "------- server started -----");
@@ -190,12 +195,50 @@ public class TestEnableDisableFeaturesTest {
     	String testName = "testEDF2";
     	Log.info(c, testName, "------- Enable " + metricFeature + " and monitor-1.0: threadpool metrics should be available ------");
     	serverEDF2.startServer();
-    	waitForSecurityPrerequisites(serverEDF2, 60000);
+    	waitForSecurityPrerequisites(serverEDF2, timeout);
+    	
+    	String logMsg;
+    	/*
+    	 * monitor-1.0 is a dependency of mpMetrics-2.3, need to check
+    	 * for CWPMI2003I as part of startup.
+    	 */
+    	if (metricFeature.equalsIgnoreCase("mpMetrics-2.3")) {
+    		/*
+    		 * Local executions may take longer than the default 12 seconds set for local executions.
+    		 * Will use the default 120 seconds (for build machines) explicitly.
+    		 */
+    		logMsg = serverEDF2.waitForStringInLogUsingMark("CWPMI2003I",120000);
+            Log.info(c, testName, logMsg);
+        	Assert.assertNotNull("No CWPMI2003I was found.", logMsg);
+    	}
+    	
+    	serverEDF2.setMarkToEndOfLog();
+    	
     	serverEDF2.setServerConfigurationFile("server_monitor2.xml");
-    	// CWMPI2003I is for mpMetrics-2.0 and monitor-1.0; CWMPI2001I is for mpMetrics-1.x and monitor-1.0
-        String logMsg = serverEDF2.waitForStringInLogUsingMark("CWPMI2003I");
+    	
+    	/*
+    	 * monitor-1.0 needs to be explicitly enabled with mpMetrics-2.0
+    	 * for monitor metrics. Need to check CWPMI2003I.
+    	 */
+    	if (metricFeature.equalsIgnoreCase("mpMetrics-2.0")) {
+    		/*
+    		 * Local executions may take longer than the default 12 seconds set for local executions.
+    		 * Will use the default 120 seconds (for build machines) explicitly.
+    		 */
+    		logMsg = serverEDF2.waitForStringInLogUsingMark("CWPMI2003I",120000);
+            Log.info(c, testName, logMsg);
+        	Assert.assertNotNull("No CWPMI2003I was found.", logMsg);
+    	}
+    	
+    	/*
+    	 * Wait for feature update complete.
+    	 * It can be (due to timing) that the feature is still "updating"
+    	 * and the server is shutdown leading to a CWWKE1102W and CWWKE1105W
+    	 */
+    	logMsg = serverEDF2.waitForStringInLogUsingMark("CWWKF0008I");
         Log.info(c, testName, logMsg);
-    	Assert.assertNotNull("No CWPMI2003I was found.", logMsg);
+    	Assert.assertNotNull("No CWWKF0008I was found.", logMsg);
+    	
     	serverEDF2.setMarkToEndOfLog(serverEDF2.getMostRecentTraceFile());
        	Log.info(c, testName, "------- threadpool metrics should be available ------");
     	getHttpsServlet("/metrics/vendor", serverEDF2);
@@ -214,7 +257,7 @@ public class TestEnableDisableFeaturesTest {
     	currentServ = serverEDF3;
     	String testName = "testEDF3";
     	serverEDF3.startServer();
-    	waitForSecurityPrerequisites(serverEDF3, 60000);
+    	waitForSecurityPrerequisites(serverEDF3, timeout);
     	Log.info(c, testName, "------- Add session application and run session servlet ------");
        	ShrinkHelper.defaultDropinApp(serverEDF3, "testSessionApp", "com.ibm.ws.microprofile.metrics.monitor_fat.session.servlet");
        	Log.info(c, testName, "------- added testSessionApp to dropins -----");
@@ -235,7 +278,7 @@ public class TestEnableDisableFeaturesTest {
     	currentServ = serverEDF4;
     	String testName = "testEDF4";
     	serverEDF4.startServer();
-    	waitForSecurityPrerequisites(serverEDF4, 60000);
+    	waitForSecurityPrerequisites(serverEDF4, timeout);
     	Log.info(c, testName, "------- Add session application ------");
        	ShrinkHelper.defaultDropinApp(serverEDF4, "testSessionApp", "com.ibm.ws.microprofile.metrics.monitor_fat.session.servlet");
        	Log.info(c, testName, "------- added testSessionApp to dropins -----");
@@ -246,26 +289,55 @@ public class TestEnableDisableFeaturesTest {
       	checkStrings(getHttpServlet("/testJDBCApp/testJDBCServlet?operation=create", serverEDF4), 
       		new String[] { "sql: create table cities" }, new String[] {});
        	Log.info(c, testName, "------- connectionpool metrics should be available ------");
-       	checkStrings(getHttpsServlet("/metrics/vendor", serverEDF4), new String[] {
-       		"vendor_connectionpool_connectionHandles{datasource=\"jdbc_exampleDS1\"}",
-       		"vendor_connectionpool_freeConnections{datasource=\"jdbc_exampleDS1\"}",
-       		"vendor_connectionpool_destroy_total{datasource=\"jdbc_exampleDS1\"}",
-       		"vendor_connectionpool_create_total{datasource=\"jdbc_exampleDS1\"}",
-       		"vendor_connectionpool_managedConnections{datasource=\"jdbc_exampleDS1\"}",
-       		"vendor_connectionpool_waitTime_total_seconds{datasource=\"jdbc_exampleDS1\"}",
-       		"vendor_connectionpool_inUseTime_total_seconds{datasource=\"jdbc_exampleDS1\"}",
-       		"vendor_connectionpool_queuedRequests_total{datasource=\"jdbc_exampleDS1\"}",
-       		"vendor_connectionpool_usedConnections_total{datasource=\"jdbc_exampleDS1\"}",
-       		"vendor_connectionpool_connectionHandles{datasource=\"jdbc_exampleDS2\"}",
-       		"vendor_connectionpool_freeConnections{datasource=\"jdbc_exampleDS2\"}",
-       		"vendor_connectionpool_destroy_total{datasource=\"jdbc_exampleDS2\"}",
-       		"vendor_connectionpool_create_total{datasource=\"jdbc_exampleDS2\"}",
-       		"vendor_connectionpool_managedConnections{datasource=\"jdbc_exampleDS2\"}",
-       		"vendor_connectionpool_waitTime_total_seconds{datasource=\"jdbc_exampleDS2\"}",
-       		"vendor_connectionpool_inUseTime_total_seconds{datasource=\"jdbc_exampleDS2\"}",
-       		"vendor_connectionpool_queuedRequests_total{datasource=\"jdbc_exampleDS2\"}",
-       		"vendor_connectionpool_usedConnections_total{datasource=\"jdbc_exampleDS2\"}",
-       	}, new String[] {});
+        checkStrings(getHttpsServlet("/metrics/vendor", serverEDF4),
+                new String[] { "vendor_connectionpool_connectionHandles{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_freeConnections{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_destroy_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_create_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_managedConnections{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_waitTime_total_seconds{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_inUseTime_total_seconds{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_queuedRequests_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_usedConnections_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_connectionHandles{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_freeConnections{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_destroy_total{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_create_total{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_managedConnections{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_waitTime_total_seconds{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_inUseTime_total_seconds{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_queuedRequests_total{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_usedConnections_total{datasource=\"jdbc_exampleDS2\"}", },
+                new String[] {});
+
+        currentServ.setMarkToEndOfLog();
+        // FAT updated to check that connectionpool metric remains after unloading
+        // application.
+        boolean res = currentServ.removeDropinsApplications("testJDBCApp.war");
+        Assert.assertTrue("TestJDBCApp.war was not removed", res);
+
+        currentServ.waitForStringInLog(".*CWWKZ0009I: The application testJDBCApp has stopped successfully.*");
+        Log.info(c, testName, "------- Removed JDBC application ------");
+        checkStrings(getHttpsServlet("/metrics/vendor", serverEDF4),
+                new String[] { "vendor_connectionpool_connectionHandles{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_freeConnections{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_destroy_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_create_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_managedConnections{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_waitTime_total_seconds{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_inUseTime_total_seconds{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_queuedRequests_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_usedConnections_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_connectionHandles{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_freeConnections{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_destroy_total{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_create_total{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_managedConnections{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_waitTime_total_seconds{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_inUseTime_total_seconds{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_queuedRequests_total{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_usedConnections_total{datasource=\"jdbc_exampleDS2\"}", },
+                new String[] {});
     }
     
     @Test 
@@ -273,7 +345,7 @@ public class TestEnableDisableFeaturesTest {
     	currentServ = serverEDF5;
     	String testName = "testEDF5";
     	serverEDF5.startServer();
-    	waitForSecurityPrerequisites(serverEDF5, 60000);
+    	waitForSecurityPrerequisites(serverEDF5, timeout);
     	Log.info(c, testName, "------- Add jax-ws endpoint application and run jax-ws client servlet ------");
        	ShrinkHelper.defaultDropinApp(serverEDF5, "testJaxWsApp", "com.ibm.ws.microprofile.metrics.monitor_fat.jaxws","com.ibm.ws.microprofile.metrics.monitor_fat.jaxws.client");
        	Log.info(c, testName, "------- added testJaxWsApp to dropins -----");
@@ -305,9 +377,9 @@ public class TestEnableDisableFeaturesTest {
     	
     	if (serverEDF6FirstUse) {
     		// We only need to wait for LTPA keys if this is the first time using this server
-    		waitForSecurityPrerequisites(serverEDF6, 60000);
+    		waitForSecurityPrerequisites(serverEDF6, timeout);
     	} else {
-    		Assert.assertNotNull("TCP Channel defaultHttpEndpoint-ssl has not started (CWWKO0219I not found)",serverEDF6.waitForStringInLog("CWWKO0219I.*defaultHttpEndpoint-ssl",60000));
+    		serverEDF6.waitForDefaultHTTPEndpointSSLStart(timeout);
     	}
     	serverEDF6FirstUse = false;
     	
@@ -330,9 +402,9 @@ public class TestEnableDisableFeaturesTest {
     	
     	if (serverEDF6FirstUse) {
     		// We only need to wait for LTPA keys if this is the first time using this server
-    		waitForSecurityPrerequisites(serverEDF6, 60000);
+    		waitForSecurityPrerequisites(serverEDF6, timeout);
     	} else {
-    		Assert.assertNotNull("TCP Channel defaultHttpEndpoint-ssl has not started (CWWKO0219I not found)",serverEDF6.waitForStringInLog("CWWKO0219I.*defaultHttpEndpoint-ssl",60000));
+    		serverEDF6.waitForDefaultHTTPEndpointSSLStart(timeout);
     	}
     	serverEDF6FirstUse = false;
     	
@@ -353,7 +425,7 @@ public class TestEnableDisableFeaturesTest {
     	currentServ = serverEDF8;
     	String testName = "testEDF8";
     	serverEDF8.startServer();
-    	waitForSecurityPrerequisites(serverEDF8, 60000);
+    	waitForSecurityPrerequisites(serverEDF8, timeout);
     	checkStrings(getHttpServlet("/testJDBCApp/testJDBCServlet?operation=create", serverEDF8), 
           		new String[] { "sql: create table cities" }, new String[] {});
     	Log.info(c, testName, "------- Monitor filter Session and ConnectionPool ------");
@@ -367,34 +439,56 @@ public class TestEnableDisableFeaturesTest {
        		new String[] { "vendor_servlet", "vendor_threadpool" });
     }
     
-    @Test 
+    @Test
+    @AllowedFFDC(value = { "javax.management.InstanceNotFoundException" })
     public void testEDF9() throws Exception {
-    	currentServ = serverEDF9;
-    	String testName = "testEDF9";
-    	serverEDF9.startServer();
-    	waitForSecurityPrerequisites(serverEDF9, 60000);
-    	checkStrings(getHttpServlet("/testJDBCApp/testJDBCServlet?operation=create", serverEDF9), 
-          		new String[] { "sql: create table cities" }, new String[] {});
-    	Log.info(c, testName, "------- Monitor filter ThreadPool, WebContainer, Session and ConnectionPool ------");
-    	serverEDF9.setMarkToEndOfLog();
-    	serverEDF9.setServerConfigurationFile("server_monitorFilter4.xml");
- 	    Assert.assertNotNull("CWWKG0017I NOT FOUND",serverEDF9.waitForStringInLogUsingMark("CWWKG0017I"));
- 	    checkStrings(getHttpServlet("/testSessionApp/testSessionServlet",serverEDF9),
- 	    		new String[] { "Session id:" }, new String[] {});
- 	    checkStrings(getHttpServlet("/testJDBCApp/testJDBCServlet?operation=select&city=city1&id=id1",serverEDF9), 
- 			    new String[] { "sql: select" }, new String[] {});
- 	    Log.info(c, testName, "------- all four vendor metrics should be available ------");
- 	    checkStrings(getHttpsServlet("/metrics/vendor",serverEDF9), 
- 		        new String[] {"vendor_threadpool", "vendor_servlet", "vendor_session", "vendor_connectionpool" }, 
- 		        new String[] {});
+        currentServ = serverEDF9;
+        String testName = "testEDF9";
+
+        serverEDF9.startServer();
+        waitForSecurityPrerequisites(serverEDF9, timeout);
+
+        // Prime the DB app so the table exists
+        checkStrings(getHttpServlet("/testJDBCApp/testJDBCServlet?operation=create", serverEDF9),
+                new String[] { "sql: create table cities" }, new String[] {});
+
+        Log.info(c, testName, "------- Monitor filter ThreadPool, WebContainer, Session and ConnectionPool ------");
+
+        // Mark, update config, and wait for the config-change marker
+        serverEDF9.setMarkToEndOfLog();
+        serverEDF9.setServerConfigurationFile("server_monitorFilter4.xml");
+        Assert.assertNotNull("CWWKG0017I NOT FOUND",
+                serverEDF9.waitForStringInLogUsingMark("CWWKG0017I"));
+
+        // After config update, apps are redeployed; wait until they're actually available again
+        // Wait for /testSessionApp availability
+        Assert.assertNotNull("CWWKT0016I for testSessionApp NOT FOUND after config update",
+                serverEDF9.waitForStringInLogUsingMark("CWWKT0016I.*\\/testSessionApp\\/"));
+
+        // Wait for /testJDBCApp availability
+        Assert.assertNotNull("CWWKT0016I for testJDBCApp NOT FOUND after config update",
+                serverEDF9.waitForStringInLogUsingMark("CWWKT0016I.*\\/testJDBCApp\\/"));
+
+        // Safe to hit the servlets
+        checkStrings(getHttpServlet("/testSessionApp/testSessionServlet", serverEDF9),
+                new String[] { "Session id:" }, new String[] {});
+
+        checkStrings(getHttpServlet("/testJDBCApp/testJDBCServlet?operation=select&city=city1&id=id1", serverEDF9),
+                new String[] { "sql: select" }, new String[] {});
+
+        Log.info(c, testName, "------- all four vendor metrics should be available ------");
+        checkStrings(getHttpsServlet("/metrics/vendor", serverEDF9),
+                new String[] { "vendor_threadpool", "vendor_servlet", "vendor_session", "vendor_connectionpool" },
+                new String[] {});
     }
+
     
     @Test
     public void testEDF10() throws Exception {
     	currentServ = serverEDF10;
     	String testName = "testEDF10";
     	serverEDF10.startServer();
-    	waitForSecurityPrerequisites(serverEDF10, 60000);
+    	waitForSecurityPrerequisites(serverEDF10, timeout);
     	Log.info(c, testName, "------- Remove JAX-WS application ------");
     	boolean rc1 = serverEDF10.removeAndStopDropinsApplications("testJaxWsApp.war");
     	Log.info(c, testName, "------- " + (rc1 ? "successfully removed" : "failed to remove") + " JAX-WS application ------");
@@ -415,7 +509,7 @@ public class TestEnableDisableFeaturesTest {
     	currentServ = serverEDF11;
     	String testName = "testEDF11";
     	serverEDF11.startServer();
-    	waitForSecurityPrerequisites(serverEDF11, 60000);
+    	waitForSecurityPrerequisites(serverEDF11, timeout);
     	Log.info(c, testName, "------- Remove JDBC application ------");
     	boolean rc2 = serverEDF11.removeAndStopDropinsApplications("testJDBCApp.war");
     	Log.info(c, testName, "------- " + (rc2 ? "successfully removed" : "failed to remove") + " JDBC application ------");
@@ -436,7 +530,7 @@ public class TestEnableDisableFeaturesTest {
     	currentServ = serverEDF12;
     	String testName = "testEDF12";
     	serverEDF12.startServer();
-    	waitForSecurityPrerequisites(serverEDF12, 60000);
+    	waitForSecurityPrerequisites(serverEDF12, timeout);
     	Assert.assertNotNull("CWWKF0011I NOT FOUND",serverEDF12.waitForStringInLogUsingMark("CWWKF0011I"));
     	Log.info(c, testName, "------- Remove monitor-1.0 ------");
     	serverEDF12.setMarkToEndOfLog();
@@ -448,13 +542,11 @@ public class TestEnableDisableFeaturesTest {
     		new String[] { "vendor_" });
     }
     
-    private void waitForSecurityPrerequisites(LibertyServer server, int timeout) {
-    	// Need to ensure LTPA keys and configuration are created before hitting a secure endpoint
-        Assert.assertNotNull("LTPA keys are not created within timeout period of " + timeout + "ms.", server.waitForStringInLog("CWWKS4104A",timeout));
-        Assert.assertNotNull("LTPA configuration is not ready within timeout period of " + timeout + "ms.", server.waitForStringInLog("CWWKS4105I",timeout));
-
-        // Ensure defaultHttpEndpoint-ssl TCP Channel is started
-        Assert.assertNotNull("TCP Channel defaultHttpEndpoint-ssl has not started (CWWKO0219I not found)",server.waitForStringInLog("CWWKO0219I.*defaultHttpEndpoint-ssl",timeout));
+    private void waitForSecurityPrerequisites(LibertyServer server, int timeout) throws Exception {
+    	// Need to ensure LTPA configuration is ready before hitting a secure endpoint
+            server.waitForLTPAConfigReady(timeout);
+            // Ensure defaultHttpEndpoint-ssl TCP Channel is started
+            server.waitForDefaultHTTPEndpointSSLStart(timeout);
     }
     
     private String getHttpServlet(String servletPath, LibertyServer server) throws Exception {

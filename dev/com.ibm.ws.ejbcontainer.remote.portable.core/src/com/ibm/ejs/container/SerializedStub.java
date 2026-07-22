@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,22 +24,26 @@ import javax.rmi.PortableRemoteObject;
  * of this object. The ORB will reconnect stubs stored in instance fields of
  * this serialized object.
  */
-public class SerializedStub
-                implements Serializable
-{
+public class SerializedStub implements Serializable {
     private static final long serialVersionUID = 3019532699780090519L;
 
     private final Object ivStub;
-    private final Class ivClass;
+    private final Class<?> ivClass;
 
-    SerializedStub(Object stub, Class klass)
-    {
+    SerializedStub(Object stub, Class<?> klass) {
         ivStub = stub;
         ivClass = klass;
     }
 
-    private Object readResolve()
-    {
+    private Object readResolve() {
         return PortableRemoteObject.narrow(ivStub, ivClass);
+    }
+
+    public Object getStub() {
+        return ivStub;
+    }
+
+    public Class<?> getInterfaceClass() {
+        return ivClass;
     }
 }

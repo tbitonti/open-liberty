@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,9 +13,9 @@
 package com.ibm.ws.security.saml20.fat.commonTest;
 
 import java.io.File;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
+//issue 17687
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -42,15 +44,14 @@ import com.ibm.ws.security.fat.common.apps.AppConstants;
 import com.ibm.ws.security.fat.common.config.settings.BaseConfigSettings;
 import com.ibm.ws.security.fat.common.utils.ConditionalIgnoreRule;
 import com.ibm.ws.security.fat.common.utils.MySkipRule;
+import com.ibm.ws.security.fat.common.utils.ldaputils.CommonLocalLDAPServerSuite;
 import com.ibm.ws.security.saml20.fat.commonTest.config.settings.SAMLConfigSettings;
 import com.meterware.httpunit.GetMethodWebRequest;
 import com.meterware.httpunit.WebConversation;
 import com.meterware.httpunit.WebRequest;
 
 import componenttest.common.apiservices.Bootstrap;
-import componenttest.rules.repeater.JakartaEE9Action;
 import componenttest.topology.impl.LibertyFileManager;
-import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.LDAPUtils;
 
 public class SAMLCommonTest extends CommonTest {
@@ -71,6 +72,17 @@ public class SAMLCommonTest extends CommonTest {
             return usingExternalLDAPServer;
         }
 
+    }
+
+    public static class skipIfFips140_3Enabled extends MySkipRule {
+        @Override
+        public Boolean callSpecificCheck() {
+            Log.info(thisClass, "skipIfFips140_3Enabled", "Should we skip the test: " + fips140_3Enabled);
+            if (fips140_3Enabled) {
+                testSkipped();
+            }
+            return fips140_3Enabled;
+        }
     }
 
     final static Class<?> thisClass = SAMLCommonTest.class;
@@ -112,6 +124,10 @@ public class SAMLCommonTest extends CommonTest {
     protected static List<CommonLocalLDAPServerSuite> ldapRefList = new ArrayList<CommonLocalLDAPServerSuite>();
     protected static boolean cipherMayExceed128 = false;
     public static boolean usingExternalLDAPServer = false;
+    public static boolean fips140_3Enabled = false;
+    //issue 17687
+    public static String callbackHandlerWss4j = SAMLConstants.EXAMPLE_CALLBACK_WSS4J;
+    public static String featureWss4j = SAMLConstants.EXAMPLE_CALLBACK_FEATURE_WSS4J;
 
     @Rule
     public final TestName testName = new TestName();
@@ -152,7 +168,6 @@ public class SAMLCommonTest extends CommonTest {
         testSettings = null;
         samlConfigSettings = new SAMLConfigSettings();
         helpers = null;
-        timeoutCounter = 0;
         //allowableTimeoutCount = 0;
         flowType = null;
         copyMetaData = true;
@@ -200,10 +215,28 @@ public class SAMLCommonTest extends CommonTest {
 
     }
 
+    //issue 17687
     public static SAMLTestServer commonSetUp(String requestedServer,
                                              String serverXML, String testType, String serverType,
                                              List<String> addtlApps, List<String> addtlMessages, Boolean checkForSecuityStart, String callbackHandler,
                                              String feature) throws Exception {
+
+        Map<String, String> cbHandlers = null;
+        if (callbackHandler != null && feature != null) {
+            cbHandlers = new HashMap<String, String>();
+            cbHandlers.put(callbackHandler, feature);
+            cbHandlers.put(callbackHandlerWss4j, featureWss4j);
+        }
+
+        return commonSetUp(requestedServer, serverXML, testType, serverType, addtlApps, addtlMessages, checkForSecuityStart, cbHandlers);
+
+    } //End issue 17687
+
+    //issue 17687
+    public static SAMLTestServer commonSetUp(String requestedServer,
+                                             String serverXML, String testType, String serverType,
+                                             List<String> addtlApps, List<String> addtlMessages, Boolean checkForSecuityStart, Map<String, String> cbHandlers) throws Exception {
+        //End issue 17687
 
         String thisMethod = "commonSetUp";
         msgUtils.printMethodName(thisMethod);
@@ -222,7 +255,6 @@ public class SAMLCommonTest extends CommonTest {
             }
         }
 
-        timeoutCounter = 0;
         //        allowableTimeoutCount = 0;
         //		Integer defaultPort = null;
         String httpString = null;
@@ -239,12 +271,12 @@ public class SAMLCommonTest extends CommonTest {
             // The usable server xml should NOT be the one ending in ".base"
             String usableServerXml = (outputServerXml != null) ? outputServerXml : serverXML;
 
-            if (callbackHandler == null) {
+            //issue 17687
+            if (cbHandlers == null) {
                 aTestServer = new SAMLTestServer(requestedServer, usableServerXml, serverType);
             } else {
-                Log.info(thisClass, "commonSetup", "callbackHandler: " + callbackHandler + " feature: " + feature);
-                aTestServer = new SAMLTestServer(requestedServer, usableServerXml, serverType, callbackHandler, feature);
-            }
+                aTestServer = new SAMLTestServer(requestedServer, usableServerXml, serverType, cbHandlers);
+            } //End issue 17687
 
             aTestServer.removeServerConfigFiles();
             aTestServer.setServerNameAndHostIp();
@@ -285,54 +317,37 @@ public class SAMLCommonTest extends CommonTest {
             Log.info(thisClass, thisMethod, "Server install root is: " + aTestServer.getServer().getInstallRoot());
 
             if (serverType.equals(SAMLConstants.IDP_SERVER_TYPE)) {
-                CommonLocalLDAPServerSuite one = new CommonLocalLDAPServerSuite();
-                CommonLocalLDAPServerSuite two = new CommonLocalLDAPServerSuite();
-                one.ldapSetUp();
-                ldapRefList.add(one);
-                two.ldapSetUp();
-                ldapRefList.add(two);
-                // we're having an issue with the in memory LDAP server on z/OS, added a method to see if it can accept requests,
-                // if NOT, we'll use a "external" LDAP server (Shibboleth allows for failover to additional LDAP servers, but,
-                // it doesn't allow different bindDN, bindPassword, ...)
-                // this method will add properties to bootstrap.properties that will point to a hopefully working LDAP server
-                //                int ldapPort = one.getLdapPort();
-                //                int ldapSSLPort = one.getLdapSSLPort();
-                //                Log.info(thisClass, "setupBeforeTest", "ldap Port in Common setup is: " + ldapPort);
-                usingExternalLDAPServer = shibbolethHelpers.updateToUseExternalLDaPIfInMemoryIsBad(aTestServer, Integer.toString(one.getLdapPort()),
-                                                                                                   Integer.toString(one.getLdapSSLPort()), Integer.toString(two.getLdapPort()),
-                                                                                                   Integer.toString(two.getLdapSSLPort()));
+
+                usingExternalLDAPServer = shibbolethHelpers.updateToUseExternalLDaPIfInMemoryIsBad(aTestServer);
                 shibbolethHelpers.setShibbolethPropertiesForTestMachine(aTestServer);
+                aTestServer.getServer().setServerLevelFips(false);
+                fips140_3Enabled = aTestServer.getServer().isFIPS140_3EnabledAndSupported();
+
+
+//                CommonLocalLDAPServerSuite one = new CommonLocalLDAPServerSuite();
+//                CommonLocalLDAPServerSuite two = new CommonLocalLDAPServerSuite();
+//                one.ldapSetUp();
+//                ldapRefList.add(one);
+//                two.ldapSetUp(1);
+//                ldapRefList.add(two);
+//                // we're having an issue with the in memory LDAP server on z/OS, added a method to see if it can accept requests,
+//                // if NOT, we'll use a "external" LDAP server (Shibboleth allows for failover to additional LDAP servers, but,
+//                // it doesn't allow different bindDN, bindPassword, ...)
+//                // this method will add properties to bootstrap.properties that will point to a hopefully working LDAP server
+//                //                int ldapPort = one.getLdapPort();
+//                //                int ldapSSLPort = one.getLdapSSLPort();
+//                //                Log.info(thisClass, "setupBeforeTest", "ldap Port in Common setup is: " + ldapPort);
+//                usingExternalLDAPServer = shibbolethHelpers.updateToUseExternalLDaPIfInMemoryIsBad(aTestServer, Integer.toString(one.getLdapPort()),
+//                                                                                                   Integer.toString(one.getLdapSSLPort()), Integer.toString(two.getLdapPort()),
+//                                                                                                   Integer.toString(two.getLdapSSLPort()));
+//                shibbolethHelpers.setShibbolethPropertiesForTestMachine(aTestServer);
+            } else {
+                //SAML SP Server
+                aTestServer.getServer().setServerLevelFips(true);
+                fips140_3Enabled = aTestServer.getServer().isFIPS140_3EnabledAndSupported();
             }
 
-            switch (requestedServer) {
-                case ("com.ibm.ws.security.saml.sso-2.0_fat.jaxrs.sp"):
-                case ("com.ibm.ws.security.saml.sso-2.0_fat.jaxrs.config.sp"):
-                    Log.info(thisClass, thisMethod, "in sp case");
-                    transformApps(aTestServer.getServer(), "dropins/SAML_Demo.ear", "dropins/testmarker.war", "test-apps/samlclient.war", "test-apps/jaxrsclient.war");
-                    break;
-                case ("com.ibm.ws.security.saml.sso-2.0_fat.jaxrs.rs"):
-                case ("com.ibm.ws.security.saml.sso-2.0_fat.jaxrs.config.rs"):
-                    Log.info(thisClass, thisMethod, "in rs case");
-                    transformApps(aTestServer.getServer(), "dropins/SAML_Demo.ear", "dropins/testmarker.war", "test-apps/samlclient.war", "test-apps/helloworld.war");
-                    break;
-                case ("com.ibm.ws.security.saml.sso-2.0_fat.jaxrs.merged_sp_rs"):
-                    Log.info(thisClass, thisMethod, "in merged case");
-                    transformApps(aTestServer.getServer(), "dropins/SAML_Demo.ear", "dropins/testmarker.war", "test-apps/samlclient.war", "test-apps/jaxrsclient.war",
-                                  "test-apps/helloworld.war");
-                    break;
-                case ("com.ibm.ws.security.saml.sso_fat.logout"):
-                case ("com.ibm.ws.security.saml.sso_fat.logout.server2"):
-                    Log.info(thisClass, thisMethod, "in logout case");
-                    transformApps(aTestServer.getServer(), "dropins/SAML_Demo.ear", "dropins/testmarker.war", "test-apps/samlclient.war", "test-apps/httpServletRequestApp.war");
-                    break;
-                case ("com.ibm.ws.security.saml.sso-2.0_fat.shibboleth"):
-                    transformApps(aTestServer.getServer(), "dropins/testmarker.war", "test-apps/idp.war");
-                    break;
-                default:
-                    Log.info(thisClass, thisMethod, "in default case");
-                    transformApps(aTestServer.getServer(), "dropins/SAML_Demo.ear", "dropins/testmarker.war", "test-apps/samlclient.war");
-                    break;
-            }
+            transformApps(aTestServer);
 
             Log.info(thisClass, thisMethod, "files: " + aTestServer.getServer().pathToAutoFVTTestFiles + "/buildWorkAround");
             if (LibertyFileManager.libertyFileExists(machine, aTestServer.getServer().pathToAutoFVTTestFiles + "/buildWorkAround")) {
@@ -350,22 +365,24 @@ public class SAMLCommonTest extends CommonTest {
                 }
             }
 
-            Log.info(thisClass, thisMethod, "calling LDAPUtil.addLDAPVariables", null);
-            LDAPUtils.addLDAPVariables(aTestServer.getServer());
-            Log.info(thisClass, thisMethod, "called LDAPUtil.addLDAPVariables", null);
+            if ("true" != System.getProperty("saml.fat.test.not.using.ldap")) {
 
-            aTestServer.addIDPServerProp(testSettings.getIdpRoot());
+                Log.info(thisClass, thisMethod, "calling LDAPUtil.addLDAPVariables", null);
+                LDAPUtils.addLDAPVariables(aTestServer.getServer());
+                Log.info(thisClass, thisMethod, "called LDAPUtil.addLDAPVariables", null);
 
-            //TODO - chc - consolidate the next 2 chunks after OIDC is updated for shibboleth
-            Log.info(thisClass, thisMethod, "Server type is: " + serverType);
-            Log.info(thisClass, thisMethod, "Is testIDPServer already set: " + (testIDPServer != null));
-            if (serverType.equals(SAMLConstants.SAML_SERVER_TYPE) && testIDPServer != null) {
-                shibbolethHelpers.fixShibbolethInfoinSPServer(aTestServer, testIDPServer);
+                aTestServer.addIDPServerProp(testSettings.getIdpRoot());
+
+                //TODO - chc - consolidate the next 2 chunks after OIDC is updated for shibboleth
+                Log.info(thisClass, thisMethod, "Server type is: " + serverType);
+                Log.info(thisClass, thisMethod, "Is testIDPServer already set: " + (testIDPServer != null));
+                if (serverType.equals(SAMLConstants.SAML_SERVER_TYPE) && testIDPServer != null) {
+                    shibbolethHelpers.fixShibbolethInfoinSPServer(aTestServer, testIDPServer);
+                }
+                if (serverType.equals(SAMLConstants.SAML_APP_SERVER_TYPE) && testIDPServer != null) {
+                    shibbolethHelpers.fixShibbolethInfoinSPServer(aTestServer, testIDPServer);
+                }
             }
-            if (serverType.equals(SAMLConstants.SAML_APP_SERVER_TYPE) && testIDPServer != null) {
-                shibbolethHelpers.fixShibbolethInfoinSPServer(aTestServer, testIDPServer);
-            }
-
             // need idp ports for all servers
             if (testIDPServer != null) {
                 aTestServer.addShibbolethProp("idpPort", testIDPServer.getHttpDefaultPort().toString());
@@ -393,6 +410,8 @@ public class SAMLCommonTest extends CommonTest {
             //			Log.info(thisClass, thisMethod, "Feature group chosen: " + featureConfigFile);
             //			String importsDir = aTestServer.getServer().getServerRoot() + File.separator + "imports";
             //			LibertyFileManager.copyFileIntoLiberty(aTestServer.getServer().getMachine(), importsDir, "saml_only_features.xml", importsDir + File.separator + featureConfigFile);
+
+            aTestServer.addIgnoredServerException(SAMLMessageConstants.CWPKI0063W_HOSTNAME_VERIFICATION_DISABLED);
 
             // start the server - if it fails to start the Junit flag is what causes the class to error immediately
             // SAML requires port 8020, so tell startServer to wait for it
@@ -928,6 +947,7 @@ public class SAMLCommonTest extends CommonTest {
         try {
             for (SAMLTestServer server : serverRefList) {
                 addToAllowableTimeoutCount(server.getRetryTimeoutCount());
+                addToAllowableTimeoutCount(server.getSslWaitTimeoutCount());
             }
             timeoutChecker();
         } catch (Exception e) {
@@ -1105,6 +1125,7 @@ public class SAMLCommonTest extends CommonTest {
         if (cipherMayExceed128) {
             addToAllowableTimeoutCount(1);
         }
+        helpers.pingExternalServer(_testName, idpServer.getHttpString() + "/idp/status", null, 30);
     }
 
     public static void startSPWithIDPServer(String spServer, String spServerCfg, List<String> spExtraMsgs, List<String> spExtraApps, Boolean spCopyDataFlag) throws Exception {
@@ -1209,21 +1230,7 @@ public class SAMLCommonTest extends CommonTest {
         return extraMsgs;
     }
 
-    /**
-     * JakartaEE9 transform a list of applications.
-     *
-     * @param myServer The server to transform the applications on.
-     * @param apps The names of the applications to transform. Should include the path from the server root directory.
-     */
-    private static void transformApps(LibertyServer myServer, String... apps) {
-        if (JakartaEE9Action.isActive()) {
-            for (String app : apps) {
-                Path someArchive = Paths.get(myServer.getServerRoot() + File.separatorChar + app);
-                JakartaEE9Action.transformApp(someArchive);
-            }
-        }
-    }
-
+    @Override
     public WebClient getAndSaveWebClient() throws Exception {
 
         WebClient webClient = SAMLCommonTestHelpers.getWebClient();
@@ -1231,6 +1238,7 @@ public class SAMLCommonTest extends CommonTest {
         return webClient;
     }
 
+    @Override
     public WebClient getAndSaveWebClient(boolean override) throws Exception {
 
         WebClient webClient = SAMLCommonTestHelpers.getWebClient(override);

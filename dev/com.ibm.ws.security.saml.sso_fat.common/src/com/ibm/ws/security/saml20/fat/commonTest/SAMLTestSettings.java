@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,6 +24,24 @@ public class SAMLTestSettings extends TestSettings {
 
     public static SAMLCommonTestTools cttools = new SAMLCommonTestTools();
     public static SAMLMessageTools msgUtils = new SAMLMessageTools();
+    // webClient timeout value
+    // -1 means no timeout value assigned
+    // webClient's default value will be used (it is 90000 at the moment)
+    private int webClientTimeOut = -1;
+
+    /**
+     * @return the waitTime
+     */
+    public int getWebClientTimeOut() {
+        return webClientTimeOut;
+    }
+
+    /**
+     * @param waitTime the waitTime to set
+     */
+    public void setWebClientTimeOut(int timeOut) {
+        this.webClientTimeOut = timeOut;
+    }
 
     public class ReplaceVars {
         private String oldValue;
@@ -438,8 +458,9 @@ public class SAMLTestSettings extends TestSettings {
         public RSSettings() {
             headerName = "saml_token";
             headerFormat = cttools
-                            .chooseRandomEntry(new String[] { SAMLConstants.SAML_HEADER_1, SAMLConstants.SAML_HEADER_2, SAMLConstants.SAML_HEADER_3, SAMLConstants.SAML_HEADER_4 });
-            //			this.headerFormat = cttools.chooseRandomEntry(new String[] {SAMLConstants.SAML_HEADER_2}) ;
+                            .chooseRandomEntry(new String[] { SAMLConstants.HEADER_FORMAT_AUTHZ_NAME_EQUALS_VALUE, SAMLConstants.HEADER_FORMAT_AUTHZ_NAME_SPACE_VALUE,
+                                                              SAMLConstants.HEADER_FORMAT_AUTHZ_NAME_SPACE_VALUE, SAMLConstants.HEADER_FORMAT_NAME_EQUALS_VALUE });
+            //			this.headerFormat = cttools.chooseRandomEntry(new String[] {SAMLConstants.HEADER_FORMAT_AUTHZ_NAME_SPACE_VALUE}) ;
             // randomly choose if SAML should be  encoded, compressed and encoded, or left as a string (when it is passed on the invoke of the app)
             // duplicate 3 items in the list so we get a better "random" sampling...
             //			this.samlTokenFormat = cttools.chooseRandomEntry(new String[] {SAMLConstants.ASSERTION_TEXT_ONLY, SAMLConstants.ASSERTION_ENCODED, SAMLConstants.ASSERTION_COMPRESSED_ENCODED, SAMLConstants.TOKEN_TEXT_ONLY, SAMLConstants.ASSERTION_TEXT_ONLY, SAMLConstants.ASSERTION_ENCODED, SAMLConstants.ASSERTION_COMPRESSED_ENCODED, SAMLConstants.TOKEN_TEXT_ONLY});
@@ -1217,7 +1238,7 @@ public class SAMLTestSettings extends TestSettings {
     public RSSettings overWriteRSSettings(RSSettings orig, String inHeaderName, String inHeaderFormat, String inSamlTokenFormat) {
 
         String headerName = "saml_token";
-        String headerFormat = SAMLConstants.SAML_HEADER_4;
+        String headerFormat = SAMLConstants.HEADER_FORMAT_NAME_EQUALS_VALUE;
         String samlTokenFormat = SAMLConstants.ASSERTION_ENCODED;
         if (orig != null) {
             if (orig.getHeaderName() != null) {

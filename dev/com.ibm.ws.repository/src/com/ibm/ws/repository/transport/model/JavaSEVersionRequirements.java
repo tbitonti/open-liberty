@@ -1,15 +1,19 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 
 package com.ibm.ws.repository.transport.model;
+
+import static com.ibm.ws.repository.transport.model.CopyUtils.copyCollection;
 
 import java.util.Collection;
 
@@ -19,6 +23,22 @@ public class JavaSEVersionRequirements extends AbstractJSON {
     String maxVersion;
     String versionDisplayString;
     Collection<String> rawRequirements;
+
+    public JavaSEVersionRequirements() {
+    }
+
+    /**
+     * Copy constructor
+     *
+     * @param other the object to copy
+     */
+    public JavaSEVersionRequirements(JavaSEVersionRequirements other) {
+        super();
+        this.minVersion = other.minVersion;
+        this.maxVersion = other.maxVersion;
+        this.versionDisplayString = other.versionDisplayString;
+        this.rawRequirements = copyCollection(other.rawRequirements);
+    }
 
     public String getMinVersion() {
         return minVersion;

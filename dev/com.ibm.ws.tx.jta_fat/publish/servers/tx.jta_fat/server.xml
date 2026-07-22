@@ -1,9 +1,11 @@
 <!--
     Copyright (c) 2020 IBM Corporation and others.
     All rights reserved. This program and the accompanying materials
-    are made available under the terms of the Eclipse Public License v1.0
+    are made available under the terms of the Eclipse Public License 2.0
     which accompanies this distribution, and is available at
-    http://www.eclipse.org/legal/epl-v10.html
+    http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0
 
     Contributors:
         IBM Corporation - initial API and implementation
@@ -23,8 +25,8 @@
 
     <!-- Server SSL configuration -->
     <ssl id="defaultSSLConfig" keyStoreRef="defaultKeyStore" trustStoreRef="defaultTrustStore" /> 
-    <keyStore id="defaultKeyStore" location="defaultKey.jks" type="JKS" password="passw0rd" /> 
-    <keyStore id="defaultTrustStore" location="defaultTrust.jks" type="JKS" password="passw0rd" /> 
+    <keyStore id="defaultKeyStore" location="defaultKey.p12" type="PKCS12" password="passw0rd" /> 
+    <keyStore id="defaultTrustStore" location="defaultTrust.p12" type="PKCS12" password="passw0rd" /> 
 
     <application location="txjta.war"/>
 

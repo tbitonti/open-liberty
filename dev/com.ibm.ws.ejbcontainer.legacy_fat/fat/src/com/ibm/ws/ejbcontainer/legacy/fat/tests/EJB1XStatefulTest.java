@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2002, 2020 IBM Corporation and others.
+ * Copyright (c) 2002, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.ejbcontainer.legacy.fat.tests;
 
@@ -40,6 +39,7 @@ import com.ibm.ejb1x.base.spec.slr.web.SLRemoteInterfaceContextServlet;
 import com.ibm.ejb1x.base.spec.slr.web.SLRemoteInterfaceMethodServlet;
 import com.ibm.ejb1x.base.spec.slr.web.SLRemoteInterfaceRemoveServlet;
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 
 import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
@@ -76,8 +76,23 @@ public class EJB1XStatefulTest extends FATServletClient {
                     @TestServlet(servlet = SLRemoteInterfaceRemoveServlet.class, contextRoot = "EJB1XRemoteSpecWeb") })
     public static LibertyServer server;
 
+    /*@formatter:off*/
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().fullFATOnly().forServers("com.ibm.ws.ejbcontainer.legacy.server.remote")).andWith(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.ejbcontainer.legacy.server.remote"));
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server.remote"))
+                                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server.remote"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server.remote"))
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server.remote"))
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server.remote"));
+    /*@formatter:on*/
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -98,7 +113,7 @@ public class EJB1XStatefulTest extends FATServletClient {
         EJB1XRemoteSpecApp.addAsModules(EJB1XSFRemoteSpecEJB, EJB1XSLRemoteSpecEJB, EJB1XRemoteSpecWeb);
         ShrinkHelper.addDirectory(EJB1XRemoteSpecApp, "test-applications/EJB1XRemoteSpecApp.ear/resources");
 
-        ShrinkHelper.exportDropinAppToServer(server, EJB1XRemoteSpecApp);
+        ShrinkHelper.exportDropinAppToServer(server, EJB1XRemoteSpecApp, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -46,6 +48,11 @@ import jakarta.servlet.http.HttpServletResponse;
 public abstract class FATServlet extends HttpServlet {
     public static final String SUCCESS = "SUCCESS";
     public static final String TEST_METHOD = "testMethod";
+    private final ThreadLocal<String> testMethod = new ThreadLocal<>();
+
+    protected String getTestMethod() {
+        return testMethod.get();
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -55,8 +62,10 @@ public abstract class FATServlet extends HttpServlet {
         System.out.println("Request URL: " + request.getRequestURL() + '?' + request.getQueryString());
         PrintWriter writer = response.getWriter();
         if (method != null && method.length() > 0) {
+            testMethod.set(method);
             try {
                 before();
+                before(request, response);
 
                 // Use reflection to try invoking various test method signatures:
                 // 1)  method(HttpServletRequest request, HttpServletResponse response)
@@ -82,13 +91,23 @@ public abstract class FATServlet extends HttpServlet {
                     t = t.getCause();
                 }
 
-                System.out.println("ERROR: " + t);
                 StringWriter sw = new StringWriter();
                 t.printStackTrace(new PrintWriter(sw));
                 System.err.print(sw);
-
-                writer.println("ERROR: Caught exception attempting to call test method " + method + " on servlet " + getClass().getName());
-                t.printStackTrace(writer);
+                if (t instanceof AssertionError && t.getCause() == null) {
+                    AssertionError e = (AssertionError) t;
+                    System.out.println("ASSERTION ERROR: " + e);
+                    writer.write(AssertionErrorSerializer.START_TAG);
+                    AssertionError simple = AssertionErrorSerializer.simplify(getClass(), method, e);
+                    AssertionErrorSerializer.serialize(simple, writer);
+                    writer.write(AssertionErrorSerializer.END_TAG);
+                } else {
+                    System.out.println("ERROR: " + t);
+                    writer.println("ERROR: Caught exception attempting to call test method " + method + " on servlet " + getClass().getName());
+                    t.printStackTrace(writer);
+                }
+            } finally {
+                testMethod.set(null);
             }
         } else {
             System.out.println("ERROR: expected testMethod parameter");
@@ -105,6 +124,9 @@ public abstract class FATServlet extends HttpServlet {
      * Override to mimic JUnit's {@code @Before} annotation.
      */
     protected void before() throws Exception {
+    }
+
+    protected void before(HttpServletRequest request, HttpServletResponse response) {
     }
 
     /**

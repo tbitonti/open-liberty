@@ -1,12 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2018 IBM Corporation and others.
+# Copyright (c) 2018, 2023 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
 bVersion=1.0
@@ -17,36 +16,42 @@ bVersion=1.0
 
 src: \
 	fat/src,\
-	test-applications/applicationExtension.jar/src,\
-	test-applications/applicationExtension.war/src,\
-	test-applications/dynamicallyAddedBeans.jar/src,\
-	test-applications/dynamicallyAddedBeans.war/src,\
-	test-applications/helloWorldExtensionTest.war/src,\
-	test-applications/multipleWar1.war/src,\
-	test-applications/multipleWarEmbeddedJar.jar/src,\
-	test-applications/multipleWarNoBeans.war/src,\
 	test-bundles/cdi.helloworld.extension/src, \
+	test-bundles/cdi.spi.misplaced/src, \
 	test-bundles/cdi.spi.extension/src, \
-	test-bundles/cdi.spi.constructor.fail.extension/src, \
-	test-applications/observeProcessProducerMethod.war/src, \
-	test-applications/SPIExtension.war/src, \
-	test-applications/SPIConstructorException.war/src
+	test-bundles/cdi.spi.with.no.extension/src, \
+	test-bundles/cdi.spi.extension.with.internals/src, \
+	test-bundles/cdi.spi.constructor.fail.extension/src
 	
 tested.features:\
 	cdi-2.0,\
 	servlet-4.0,\
 	beanValidation-2.0,\
 	jsf-2.3,\
-        cdi-3.0,\
-        servlet-5.0,\
-        expressionLanguage-4.0,\
-        pages-3.0,\
-        enterprisebeanslite-4.0,\
-        cdi.internals-3.0,\
-        beanvalidation-3.0,\
-        faces-3.0
+	cdi-3.0,\
+	connectors-2.0,\
+	servlet-5.0,\
+	expressionLanguage-4.0,\
+	pages-3.0,\
+	enterprisebeanslite-4.0,\
+	cdi.internals-3.0,\
+	beanvalidation-3.0,\
+	faces-3.0,\
+	expressionlanguage-5.0,\
+	pages-3.1,\
+	cdi-4.0,\
+	servlet-6.0,\
+	faces-4.0,\
+        cdi.internals-4.0,\
+        expressionlanguage-6.0,\
+        noship-1.0,\
+        cdi-4.1,\
+        pages-4.0,\
+        servlet-6.1,\
+        faces-4.1,\
+        validation-3.1
 	
-test.project: true
+fat.project: true
 
 -buildpath: \
 	com.ibm.websphere.javaee.ejb.3.2;version=latest,\
@@ -68,4 +73,8 @@ test.project: true
 	com.ibm.websphere.javaee.el.3.0;version=latest,\
 	com.ibm.websphere.javaee.jsp.2.3;version=latest,\
 	com.ibm.websphere.javaee.websocket.1.1;version=latest,\
-	com.ibm.ws.cdi.interfaces;version=latest
+	com.ibm.ws.cdi.interfaces;version=latest,\
+        io.openliberty.cdi.4.0.internal.interfaces;version=latest,\
+	com.ibm.ws.cdi.internal;version=latest,\
+	io.openliberty.jakarta.cdi.4.0,\
+        com.ibm.ws.org.jboss.weld;version=latest

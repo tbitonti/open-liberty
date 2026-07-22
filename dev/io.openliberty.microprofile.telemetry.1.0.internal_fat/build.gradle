@@ -1,0 +1,76 @@
+/*******************************************************************************
+ * Copyright (c) 2022, 2025 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
+apply from: '../wlp-gradle/subprojects/maven-central-mirror.gradle'
+	
+configurations {
+  shimLibs119
+  shimLibs129
+  shimLibs139
+  shimLibs148
+}
+
+//This task has a different output directory to the generic one in fat.gradle
+task copyTestFeatureBundles {
+  dependsOn jar
+  enabled = project.file('test-bundles').exists()
+  def projectName = project.name
+
+  doLast {
+    new File(buildDir, 'buildfiles').eachLine { String line ->
+      if (!line.contains(projectName + '.jar')) {
+        copy {
+          from line
+          into new File(autoFvtDir, 'publish/bundles')
+        }
+      }
+    }
+  }
+}
+
+dependencies {
+  requiredLibs project(':io.openliberty.mpTelemetry.1.0.thirdparty')
+  requiredLibs project(':io.openliberty.microprofile.telemetry.internal_fat.common')
+  shimLibs119 'io.opentelemetry:opentelemetry-opentracing-shim:1.19.0-alpha'
+  shimLibs129 'io.opentelemetry:opentelemetry-opentracing-shim:1.29.0'
+  shimLibs139 'io.opentelemetry:opentelemetry-opentracing-shim:1.39.0'
+  shimLibs148 'io.opentelemetry:opentelemetry-opentracing-shim:1.48.0'
+}
+
+task addShimLibs119(type: Copy) {
+  from configurations.shimLibs119
+  into new File(autoFvtDir, 'lib/shim119')
+}
+
+task addShimLibs129(type: Copy) {
+  from configurations.shimLibs129
+  into new File(autoFvtDir, 'lib/shim129')
+}
+
+task addShimLibs139(type: Copy) {
+  from configurations.shimLibs139
+  into new File(autoFvtDir, 'lib/shim139')
+}
+
+task addShimLibs148(type: Copy) {
+  from configurations.shimLibs148
+  into new File(autoFvtDir, 'lib/shim148')
+}
+
+addRequiredLibraries {
+  dependsOn copyTestFeatureBundles
+  dependsOn addShimLibs119
+  dependsOn addShimLibs129
+  dependsOn addShimLibs139
+  dependsOn addShimLibs148
+  dependsOn addJakartaTransformer
+}

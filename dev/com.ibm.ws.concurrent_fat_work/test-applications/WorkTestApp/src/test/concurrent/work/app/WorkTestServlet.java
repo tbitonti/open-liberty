@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -401,6 +403,55 @@ public class WorkTestServlet extends FATServlet {
         if (result instanceof Throwable)
             throw new Exception((Throwable) result);
         assertTrue(result.toString(), result instanceof WorkManager);
+    }
+
+    // For blocking work from running on the max1 concurrency policy,
+    private static CountDownLatch blockingWorkStarted;
+    private static CountDownLatch blockingWorkCanEnd;
+    private static LinkedBlockingQueue<Object> blockingWorkResult;
+
+    /**
+     * Signal the blocking work to end and verify that it completes successfully.
+     */
+    public void testStopBlockingWork() throws Exception {
+        blockingWorkCanEnd.countDown();
+        Object result = blockingWorkResult.poll(TIMEOUT_NS, TimeUnit.NANOSECONDS);
+
+        blockingWorkStarted = null;
+        blockingWorkCanEnd = null;
+        blockingWorkResult = null;
+
+        if (result instanceof Throwable)
+            throw new Exception((Throwable) result);
+
+        assertEquals(Boolean.TRUE, result);
+    }
+
+    /**
+     * Submit work that blocks all other work from starting on the "max1" concurrency policy.
+     */
+    public void testSubmitBlockingWork() throws Exception {
+        blockingWorkStarted = new CountDownLatch(1);
+        blockingWorkCanEnd = new CountDownLatch(1);
+        blockingWorkResult = new LinkedBlockingQueue<Object>();
+
+        WorkItem item = wmExecutor.schedule(() -> {
+            System.out.println("blocking");
+
+            blockingWorkStarted.countDown();
+
+            try {
+                blockingWorkResult.add(blockingWorkCanEnd.await(TIMEOUT_NS * 3, TimeUnit.NANOSECONDS));
+            } catch (InterruptedException x) {
+                blockingWorkResult.add(x);
+            } finally {
+                System.out.println("done blocking");
+            }
+        });
+
+        assertTrue(blockingWorkStarted.await(TIMEOUT_NS, TimeUnit.NANOSECONDS));
+
+        System.out.println(item + " blocks all usage of the max1 concurrency policy");
     }
 
     /**

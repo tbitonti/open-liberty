@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,49 +16,37 @@ import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
-import componenttest.containers.ExternalTestServiceDockerClientStrategy;
+import componenttest.containers.TestContainerSuite;
 import componenttest.rules.repeater.FeatureReplacementAction;
 import componenttest.rules.repeater.RepeatTests;
 
 @RunWith(Suite.class)
 @SuiteClasses({
-                ContainersTest.class,
-                DatabaseRotationTest.class,
-                DockerfileTest.class
+                BasicTest.class, //LITE
+                ContainersTest.class, //LITE
+                DatabaseRotationTest.class, //LITE
+                DatabaseRotationH2Test.class, //LITE
+                DatabaseRotationJava17PlusTest.class, //LITE
+                DockerfileTest.class, //FULL
+                SyntheticImageTest.class //FULL
 })
 /**
- * Example FATSuite class to show how to setup suite level testcontainers and properties
+ * Example FATSuite class to show how to setup suite level testcontainers and properties.
+ *
+ * The suite class MUST extend the TestContainerSuite class.
+ * The TestContainerSuite will do important initialization and verification steps
  */
-public class FATSuite {
+public class FATSuite extends TestContainerSuite {
 
-    /*
-     * TestContainers uses a properties file located at ~/.testcontainers.properties
-     * This method call clears and set's the values in this property file.
-     *
-     * Unless otherwise specified TestContainers will attempt to run against a local
-     * docker instance, and pull from DockerHub. If you set the property:
-     * -Dfat.test.use.remote.docker=true
-     * We will change the properties below. This only works if you are on the IBM network.
-     *
-     * We use two properties in this file:
-     * 1. docker.client.strategy:
-     * Default: org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
-     * Custom: componenttest.containers.ExternalTestServiceDockerClientStrategy
-     * Purpose: This is the strategy TestContainers uses to locate and
-     * run against a docker instance.
-     * 2. image.substitutor:
-     * Default: [none]
-     * Custom: componenttest.containers.ArtifactoryImageNameSubstitutor
-     * Purpose: This defines a strategy for substituting image names.
-     * This is so that we can use a private docker repository to cache docker images
-     * to avoid the docker pull limits.
-     * If a TestContainer uses foo/bar:1.0 it will get changed to
-     * wasliberty-docker-remote.artifactory.swg-devops.com/foo/bar:1.0
-     */
-    static {
-        ExternalTestServiceDockerClientStrategy.setupTestcontainers();
-    }
+    @ClassRule
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.NO_REPLACEMENT().fullFATOnly())
+                    .andWith(FeatureReplacementAction.EE9_FEATURES());
+
+    private static final DockerImageName PostgreSQLImage = DockerImageName.parse("public.ecr.aws/docker/library/postgres:17-alpine")
+                    .asCompatibleSubstituteFor("postgres");
 
     /*
      * If you want to use the same container for the entire test suite you can
@@ -65,11 +55,7 @@ public class FATSuite {
      *
      * In this example suite I am going to use a different container for each example.
      */
-//    @ClassRule
-//    public static PostgreSQLContainer container = new PostgreSQLContainer("postgres:9.6.12");
-
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.NO_REPLACEMENT().fullFATOnly())
-                    .andWith(FeatureReplacementAction.EE9_FEATURES());
+    public static PostgreSQLContainer<?> container = new PostgreSQLContainer<>(PostgreSQLImage);
 
 }

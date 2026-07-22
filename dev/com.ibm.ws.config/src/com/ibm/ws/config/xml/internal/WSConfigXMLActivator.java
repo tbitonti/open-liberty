@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,12 +15,16 @@ package com.ibm.ws.config.xml.internal;
 
 import java.util.Dictionary;
 import java.util.Hashtable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleEvent;
 import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceReference;
+import org.osgi.framework.SynchronousBundleListener;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -165,8 +171,21 @@ public class WSConfigXMLActivator implements BundleActivator {
 
         try {
             Bundle bundle = bundleContext.getBundle(Constants.SYSTEM_BUNDLE_LOCATION);
-            if (bundle != null)
+            if (bundle != null) {
+                CountDownLatch stopping = new CountDownLatch(1);
+                SynchronousBundleListener l = new SynchronousBundleListener() {
+                    @Override
+                    public void bundleChanged(BundleEvent e) {
+                        if (BundleEvent.STOPPING == e.getType() && e.getBundle().getBundleId() == 0) {
+                            stopping.countDown();
+                        }
+                    }
+                };
+                bundleContext.addBundleListener(l);
                 bundle.stop();
+                stopping.await(1000, TimeUnit.MILLISECONDS);
+                // no need to remove listener since we are stopping anyway
+            }
         } catch (Exception e) {
             // Exception could happen here if bundle context is bad, or system bundle
             // is already stopping: not an exceptional condition, as we

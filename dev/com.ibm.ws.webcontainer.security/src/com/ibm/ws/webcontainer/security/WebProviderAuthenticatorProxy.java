@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2020 IBM Corporation and others.
+ * Copyright (c) 2013, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -31,7 +33,7 @@ import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
 import com.ibm.websphere.security.audit.AuditEvent;
 import com.ibm.websphere.security.cred.WSCredential;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.security.SecurityService;
 import com.ibm.ws.security.authentication.AuthenticationConstants;
@@ -45,6 +47,8 @@ import com.ibm.ws.webcontainer.security.openid20.OpenidClientService;
 import com.ibm.ws.webcontainer.security.openidconnect.OidcClient;
 import com.ibm.ws.webcontainer.security.openidconnect.OidcServer;
 import com.ibm.ws.webcontainer.security.util.SSOAuthFilter;
+import com.ibm.ws.webcontainer.srt.ISRTServletRequest;
+import com.ibm.wsspi.http.channel.values.HttpHeaderKeys;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 import com.ibm.wsspi.kernel.service.utils.ConcurrentServiceReferenceMap;
 import com.ibm.wsspi.security.tai.TrustAssociationInterceptor;
@@ -79,6 +83,7 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
     private WebProviderAuthenticatorHelper authHelper;
     private ReferrerURLCookieHandler referrerURLCookieHandler = null;
     private WebAppSecurityConfig webAppSecurityConfig = null;
+    public static ThreadLocal<String> threadOidcClientId = new ThreadLocal<String>();
 
     protected final ConcurrentServiceReferenceMap<String, WebAuthenticator> webAuthenticatorRef;
 
@@ -183,7 +188,7 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
             if (!isNewAuth) {
                 if ("BASIC".equals(authResult.getAuditAuthConfigProviderAuthType())) {
                     // check BA header, and if it exists, use denied and set username, otherwise, challenge
-                    String authHeader = webRequest.getHttpServletRequest().getHeader("Authorization");
+                    String authHeader = ISRTServletRequest.getHeader(webRequest.getHttpServletRequest(), HttpHeaderKeys.HDR_AUTHORIZATION);
                     if (authHeader != null && authHeader.startsWith("Basic ")) {
                         String basicAuthHeader = decodeCookieString(authHeader.substring(6));
                         int index = basicAuthHeader.indexOf(':');
@@ -213,7 +218,7 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
                                                    webRequest.getHttpServletResponse(),
                                                    props);
             if (authResult.getStatus() != AuthResult.CONTINUE) {
-                String authHeader = webRequest.getHttpServletRequest().getHeader("Authorization");
+                String authHeader = ISRTServletRequest.getHeader(webRequest.getHttpServletRequest(), HttpHeaderKeys.HDR_AUTHORIZATION);
                 if (authHeader != null && authHeader.startsWith("Basic ")) {
                     String basicAuthHeader = decodeCookieString(authHeader.substring(6));
                     int index = basicAuthHeader.indexOf(':');
@@ -273,12 +278,12 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
 
     private void registerSession(final WebRequest webRequest, final Subject subject, final SSOCookieHelper ssoCh) {
         if (System.getSecurityManager() == null) {
-            ssoCh.addSSOCookiesToResponse(subject, webRequest.getHttpServletRequest(), webRequest.getHttpServletResponse());
+            ssoCh.addSSOCookiesToResponse(subject, webRequest.getHttpServletRequest(), webRequest.getHttpServletResponse(), null);
         } else {
             AccessController.doPrivileged(new PrivilegedAction<Object>() {
                 @Override
                 public Object run() {
-                    ssoCh.addSSOCookiesToResponse(subject, webRequest.getHttpServletRequest(), webRequest.getHttpServletResponse());
+                    ssoCh.addSSOCookiesToResponse(subject, webRequest.getHttpServletRequest(), webRequest.getHttpServletResponse(), null);
                     return null;
                 }
             });
@@ -506,10 +511,7 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
      * @return
      */
     private AuthenticationResult handleAccessToken(WebRequest webRequest) {
-        HttpServletRequest req = webRequest.getHttpServletRequest();
-        HttpServletResponse res = webRequest.getHttpServletResponse();
-
-        AuthenticationResult authResult = handleOAuth(req, res);
+        AuthenticationResult authResult = handleOAuth(webRequest);
         if (authResult.getStatus() != AuthResult.CONTINUE) {
             authResult.setAuditCredType(AuditEvent.CRED_TYPE_OAUTH_TOKEN);
         }
@@ -528,7 +530,7 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
                     authResult = authHelper.loginWithHashtable(request, response, authResult.getSubject());
                     if (AuthResult.SUCCESS == authResult.getStatus()) {
                         SSOCookieHelper ssoCh = webAppSecurityConfig.createSSOCookieHelper();
-                        ssoCh.addSSOCookiesToResponse(authResult.getSubject(), request, response);
+                        ssoCh.addSSOCookiesToResponse(authResult.getSubject(), request, response, null);
                     }
                 }
             }
@@ -589,21 +591,26 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
         }
 
         if (firstCall) {
+            oidcClient.logoutIfSessionInvalidated(req);
+
             // let's check if any oidcClient need to be called beforeSso. If not, return
             if (!oidcClient.anyClientIsBeforeSso()) {
                 return authResult;
             }
         }
 
-        String provider = oidcClient.getOidcProvider(req);
-        if (provider == null) {
+        String oidcClientId = oidcClient.getOidcProvider(req);
+        if (oidcClientId == null) {
             return new AuthenticationResult(AuthResult.CONTINUE, "not an OpenID Connect client request, skipping OpenID Connect client...");
         }
-        ProviderAuthenticationResult oidcResult = oidcClient.authenticate(req, res, provider, referrerURLCookieHandler, firstCall);
+
+        ProviderAuthenticationResult oidcResult = oidcClient.authenticate(req, res, oidcClientId, referrerURLCookieHandler, firstCall);
 
         if (oidcResult.getStatus() == AuthResult.CONTINUE) {
             return OIDC_CLIENT_CONT;
         }
+
+        setThreadOidcClientId(oidcClientId);
 
         if (oidcResult.getStatus() == AuthResult.REDIRECT_TO_PROVIDER) {
             return new AuthenticationResult(AuthResult.REDIRECT, oidcResult.getRedirectUrl());
@@ -629,7 +636,7 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
 
         if (oidcResult.getStatus() == AuthResult.SUCCESS && oidcResult.getUserName() != null) {
             authResult = authHelper.loginWithUserName(req, res, oidcResult.getUserName(), oidcResult.getSubject(),
-                                                      oidcResult.getCustomProperties(), oidcClient.isMapIdentityToRegistryUser(provider));
+                                                      oidcResult.getCustomProperties(), oidcClient.isMapIdentityToRegistryUser(oidcClientId));
             if (AuthResult.SUCCESS == authResult.getStatus()) {
                 // If firstCall is true then disableLtpaCookie is true
                 boolean bDisableLtpaCookie = firstCall; // let's make it clear
@@ -654,7 +661,7 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
                     if (includeAccessTokenInLtpa) {
                         addAccessTokenToTheCookie(authResult, ssoCh);
                     }
-                    ssoCh.addSSOCookiesToResponse(authResult.getSubject(), req, res);
+                    ssoCh.addSSOCookiesToResponse(authResult.getSubject(), req, res, null);
                 }
             }
         }
@@ -750,12 +757,18 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
      * @param webRequest
      * @return
      */
-    private AuthenticationResult handleOAuth(HttpServletRequest req, HttpServletResponse res) {
+    private AuthenticationResult handleOAuth(WebRequest webRequest) {
+        HttpServletRequest req = webRequest.getHttpServletRequest();
+        HttpServletResponse res = webRequest.getHttpServletResponse();
+
         AuthenticationResult authResult = OAUTH_CONT;
         if (oauthServiceRef != null) {
             OAuth20Service oauthService = oauthServiceRef.getService();
             if (oauthService == null) {
                 return new AuthenticationResult(AuthResult.CONTINUE, "OAuth service is not available, skipping OAuth...");
+            }
+            else if (webRequest.isUnprotectedURI() && !webRequest.hasAuthenticationData()){
+                return new AuthenticationResult(AuthResult.CONTINUE, "OAuth service is  available, but resource is unprotected, skipping OAuth...");
             }
 
             ProviderAuthenticationResult oauthResult = oauthService.authenticate(req, res);
@@ -814,5 +827,17 @@ public class WebProviderAuthenticatorProxy implements WebAuthenticator {
             cookieHelper = new SSOCookieHelperImpl(webAppSecurityConfig);
         }
         return new SSOAuthenticator(securityService.getAuthenticationService(), securityMetadata, webAppSecurityConfig, cookieHelper, ssoAuthFilterRef);
+    }
+
+    private void setThreadOidcClientId(String oidcClientId) {
+        threadOidcClientId.set(oidcClientId);
+    }
+
+    public static String getThreadOidcClientId() {
+        return threadOidcClientId.get();
+    }
+
+    public static void clearThreadOidcClientId() {
+        threadOidcClientId.remove();
     }
 }

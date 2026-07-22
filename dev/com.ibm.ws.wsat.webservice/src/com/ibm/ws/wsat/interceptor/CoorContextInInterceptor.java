@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019,2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -24,11 +26,11 @@ import org.apache.cxf.binding.soap.SoapMessage;
 import org.apache.cxf.binding.soap.interceptor.SoapInterceptor;
 import org.apache.cxf.endpoint.Endpoint;
 import org.apache.cxf.headers.Header;
-import org.apache.cxf.helpers.XMLUtils;
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.message.Exchange;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
+import org.apache.cxf.staxutils.StaxUtils;
 import org.apache.cxf.ws.addressing.EndpointReferenceType;
 import org.apache.cxf.ws.policy.PolicyVerificationInInterceptor;
 import org.w3c.dom.Element;
@@ -40,7 +42,6 @@ import com.ibm.ws.jaxws.bus.LibertyApplicationBus;
 import com.ibm.ws.jaxws.globalhandler.GlobalHandlerInterceptor;
 import com.ibm.ws.jaxws.wsat.Constants.AssertionStatus;
 import com.ibm.ws.wsat.service.WSATException;
-import com.ibm.ws.wsat.utils.WSATOSGIService;
 import com.ibm.ws.wsat.utils.WSCoorConstants;
 import com.ibm.ws.wsat.utils.WSCoorUtil;
 import com.ibm.ws.wsat.webservice.client.wscoor.CoordinationContext;
@@ -74,7 +75,7 @@ public class CoorContextInInterceptor extends AbstractPhaseInterceptor<SoapMessa
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see org.apache.cxf.interceptor.Interceptor#handleMessage(org.apache.cxf.message.Message)
      */
     @Override
@@ -96,11 +97,17 @@ public class CoorContextInInterceptor extends AbstractPhaseInterceptor<SoapMessa
                         Element element = (Element) soapHeader.getObject();
                         // XMLUtils.printDOM(element);
                         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                            String elementString;
+                            try {
+                                elementString = StaxUtils.toString(element);
+                            } catch (Exception e) {
+                                elementString = "Exception " + e + " while getting string version of " + element;
+                            }
                             Tr.debug(
                                      tc,
                                      "handleMessage",
                                      "Extract the CoordinationContext from soap header",
-                                     XMLUtils.toString(element));
+                                     elementString);
                         }
 
                         cc = (CoordinationContext) unmarshaller.unmarshal(element);
@@ -142,7 +149,7 @@ public class CoorContextInInterceptor extends AbstractPhaseInterceptor<SoapMessa
 
             try {
                 //handleServerRequest will take care of calling reg service
-                WSATOSGIService.getInstance().getHandlerService().handleServerRequest(ctxId, epr, cc.getExpires().getValue());
+                WSCoorUtil.getHandlerService().handleServerRequest(ctxId, epr, cc.getExpires().getValue());
             } catch (WSATException e) {
                 FFDCFilter.processException(e, "com.ibm.ws.wsat.interceptor.CoorContextInInterceptor", "146");
                 throw new Fault(e);
@@ -171,7 +178,7 @@ public class CoorContextInInterceptor extends AbstractPhaseInterceptor<SoapMessa
                              "Execute handleServerFault for transaction",
                              ctxId);
                 }
-                WSATOSGIService.getInstance().getHandlerService().handleServerFault();
+                WSCoorUtil.getHandlerService().handleServerFault();
             } catch (WSATException e) {
                 FFDCFilter.processException(e, "com.ibm.ws.wsat.interceptor.CoorContextInInterceptor", "185");
             }
@@ -187,7 +194,7 @@ public class CoorContextInInterceptor extends AbstractPhaseInterceptor<SoapMessa
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see org.apache.cxf.binding.soap.interceptor.SoapInterceptor#getRoles()
      */
     @Override
@@ -198,7 +205,7 @@ public class CoorContextInInterceptor extends AbstractPhaseInterceptor<SoapMessa
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see org.apache.cxf.binding.soap.interceptor.SoapInterceptor#getUnderstoodHeaders()
      */
     @Override

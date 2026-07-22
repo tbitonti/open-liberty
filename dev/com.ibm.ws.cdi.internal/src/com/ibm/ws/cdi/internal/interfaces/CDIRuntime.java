@@ -1,15 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2016 IBM Corporation and others.
+ * Copyright (c) 2015, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.cdi.internal.interfaces;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -101,15 +104,16 @@ public interface CDIRuntime extends CDIService {
     public boolean skipCreatingBda(CDIArchive archive);
 
     /**
-     * @param archive
-     * @throws CDIException
+     * Create an empty ContextBeginnerEnder.
      */
-    void beginContext(CDIArchive archive) throws CDIException;
+    ContextBeginnerEnder createContextBeginnerEnder();
 
     /**
+     * Returns true if a Context started by a ContextBeginnerEnder is currently active on the current thread.
      *
+     * Trying to start a context while one is already active is both unnecessary and will throw an exception
      */
-    void endContext();
+    boolean isContextBeginnerEnderActive();
 
     /**
      * @param bundle
@@ -188,4 +192,42 @@ public interface CDIRuntime extends CDIService {
      * @return
      */
     public WebSphereCDIDeployment getCurrentDeployment();
+
+    /**
+     * @return a BeansXmlParser instance
+     */
+    public BeansXmlParser getBeansXmlParser();
+
+    /**
+     * @return all registered ExtensionArchiveProviders
+     */
+    public Collection<ExtensionArchiveProvider> getExtensionArchiveProviders();
+
+    /**
+     * @return all registered ExtensionArchiveFactories
+     */
+    public Collection<ExtensionArchiveFactory> getExtensionArchiveFactories();
+
+    /**
+     * @return the BuildCompatibleExtensionFinder, or {@code null} if there is not one
+     */
+    public BuildCompatibleExtensionFinder getBuildCompatibleExtensionFinder();
+
+    /**
+     * @return the CDIContainerEventManager, or {@code null} if there is not one
+     */
+    public CDIContainerEventManager getCDIContainerEventManager();
+
+    /**
+     * creates a ContextBeginnerEnder that will do the same thing as the currently
+     * active ContextBeginnerEnder, or returns null if none are active.
+     *
+     * This is useful if you need to record which thread context classloader and
+     * component metadata are currently active so you can re-establish that state
+     * after a checkpoint restore.
+     *
+     * Remember to always close a ContextBeginnerEnder before starting a new one.
+     */
+    public ContextBeginnerEnder cloneActiveContextBeginnerEnder();
+
 }

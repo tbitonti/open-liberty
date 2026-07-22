@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2008 IBM Corporation and others.
+ * Copyright (c) 2003, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -85,6 +87,12 @@ public class SSLHandshakeIOCallback implements TCPReadCompletedCallback, TCPWrit
             SSLUtils.handleHandshake(connLink, netBuffer, decryptedNetBuffer,
                                      encryptedAppBuffer, result, callback, true);
         } catch (IOException ioe) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "Caught IOException while performing callback read, " + ioe);
+            }
+
+            connLink.getChannel().getHandshakeErrorTracker().noteHandshakeError(ioe, connLink.getRemoteAddress(),
+                    connLink.getRemotePort(), connLink.getLocalAddress(), connLink.getLocalPort());
             error(vc, rsc, ioe);
         }
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
@@ -117,6 +125,12 @@ public class SSLHandshakeIOCallback implements TCPReadCompletedCallback, TCPWrit
             SSLUtils.handleHandshake(connLink, netBuffer, decryptedNetBuffer,
                                      encryptedAppBuffer, result, callback, true);
         } catch (IOException ioe) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "Caught IOException while performing callback write, " + ioe);
+            }
+
+            connLink.getChannel().getHandshakeErrorTracker().noteHandshakeError(ioe, connLink.getRemoteAddress(),
+                    connLink.getRemotePort(), connLink.getLocalAddress(), connLink.getLocalPort());
             error(vc, wsc, ioe);
         }
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {

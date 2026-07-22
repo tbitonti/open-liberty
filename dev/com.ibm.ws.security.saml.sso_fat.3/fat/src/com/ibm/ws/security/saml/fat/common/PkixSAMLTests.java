@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2021 IBM Corporation and others.
+ * Copyright (c) 2015, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -22,7 +24,7 @@ import com.ibm.ws.security.saml20.fat.commonTest.SAMLConstants;
 import com.ibm.ws.security.saml20.fat.commonTest.SAMLMessageConstants;
 import com.ibm.ws.security.saml20.fat.commonTest.SAMLTestSettings;
 
-import componenttest.annotation.ExpectedFFDC;
+import componenttest.annotation.AllowedFFDC;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.topology.impl.LibertyServerWrapper;
@@ -80,7 +82,8 @@ public class PkixSAMLTests extends SAMLCommonTest {
      * The jks file does not have the self-signed certificates from the tfim IdP.
      * So, the test fails
      */
-    @ExpectedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.security.SecurityPolicyException" })
+    // a version of Java 8 thows an NPE - test should allow for that
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.handler.MessageHandlerException", "java.lang.NullPointerException" })
     @Mode(TestMode.LITE)
     @Test
     public void pkixSAMLTests_badTrustAnchorTest() throws Exception {
@@ -103,7 +106,7 @@ public class PkixSAMLTests extends SAMLCommonTest {
      * The jks file does not exit. The runtime should NOT use the IDPMetaData.
      * So, the test fails
      */
-    @ExpectedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.security.SecurityPolicyException", "java.security.KeyStoreException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.handler.MessageHandlerException", "java.security.KeyStoreException" })
     @Mode(TestMode.LITE)
     @Test
     public void pkixSAMLTests_badTrustAnchorReference() throws Exception {

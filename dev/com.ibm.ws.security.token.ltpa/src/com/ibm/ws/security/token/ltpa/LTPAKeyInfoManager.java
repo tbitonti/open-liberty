@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,18 +14,27 @@ package com.ibm.ws.security.token.ltpa;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.CopyOnWriteArrayList;
 
+import javax.crypto.BadPaddingException;
+
+import com.ibm.websphere.crypto.PasswordUtil;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.crypto.CryptoUtils;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.crypto.ltpakeyutil.KeyEncryptor;
 import com.ibm.ws.crypto.ltpakeyutil.LTPAKeyFileUtility;
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.security.token.ltpa.internal.LTPAKeyFileCreator;
 import com.ibm.ws.security.token.ltpa.internal.LTPAKeyFileCreatorImpl;
 import com.ibm.wsspi.kernel.service.location.WsLocationAdmin;
@@ -38,15 +49,32 @@ import com.ibm.wsspi.kernel.service.utils.TimestampUtils;
  * #Tue Sep 11 16:15:40 EDT 2007
  * com.ibm.websphere.CreationDate=Tue Sep 11 16\:15\:40 EDT 2007
  * com.ibm.websphere.ltpa.version=1.0
- * com.ibm.websphere.ltpa.3DESKey=YJ8ARFn0k2S5S5LONNdZG/mLvfYxa4gH3/cGjIn+mR4\=
  * com.ibm.websphere.CreationHost=localhost
+ * com.ibm.websphere.ltpa.Realm=SecureRealm
+ *
+ *
+ * com.ibm.websphere.ltpa.3DESKey=YJ8ARFn0k2S5S5LONNdZG/mLvfYxa4gH3/cGjIn+mR4\=
  * com.ibm.websphere.ltpa.PrivateKey=vzJcMLGvZqZqbrCGF7zTHAmXAhaZpuZ1XGT0iRq+9Y7VY29/UoIeJkunVyWUSmGrlfqD8kLc5jWUKBMynpg3tQqYKEls5iaO8DtI5FiGWE79gDUYzIkMjGei6S23KqE62Rq+
  * BcrjJv9XYcoGJhLvnE9wftBRrNeI6WPO44KywBSH0sgilyqOvxF87YumiCazbFsbCuBBlDh0daVvosM6zCfQGEsP
  * /e2AQRg4N6kkLbswaeE+i8AoNs2eIGpuicAx5avCgeBT8WwYUhkl3qDaYlR8/kHXOIOPt7/6oW//8yPpvWcHaxEdW4rZrdjH3TEh7CyVN6u6fS7CiOwgodJXrXPpLajqr6nFZxMSwMSyEcQ\=
- * com.ibm.websphere.ltpa.Realm=SecureRealm
  * com.ibm.websphere.ltpa.PublicKey=ANKHjHZGY0Ry2jG6kWAOOdGFr8IDhP3igXAAtKNRjhz1SuHcgLq0ZF+mA50pfRBFuFWGxa8WEPthfMyx/xEncHMcoakGXJH1woLL3Bp+LYd/
  * HlYYOHnLtmcWYQOPseqn638nkRWVpVsayIWx9jonjFJx+vbsi5ah3volxurVWZe/AQAB
+ * <p>
+ * com.ibm.websphere.ltpa.3DESKey_1=YJ8ARFn0k2S5S5LONNdZG/mLvfYxa4gH3/cGjIn+mR4\=
+ * com.ibm.websphere.ltpa.PrivateKey_1=vzJcMLGvZqZqbrCGF7zTHAmXAhaZpuZ1XGT0iRq+9Y7VY29/UoIeJkunVyWUSmGrlfqD8kLc5jWUKBMynpg3tQqYKEls5iaO8DtI5FiGWE79gDUYzIkMjGei6S23KqE62Rq+
+ * BcrjJv9XYcoGJhLvnE9wftBRrNeI6WPO44KywBSH0sgilyqOvxF87YumiCazbFsbCuBBlDh0daVvosM6zCfQGEsP
+ * /e2AQRg4N6kkLbswaeE+i8AoNs2eIGpuicAx5avCgeBT8WwYUhkl3qDaYlR8/kHXOIOPt7/6oW//8yPpvWcHaxEdW4rZrdjH3TEh7CyVN6u6fS7CiOwgodJXrXPpLajqr6nFZxMSwMSyEcQ\=
+ * com.ibm.websphere.ltpa.PublicKey_1=ANKHjHZGY0Ry2jG6kWAOOdGFr8IDhP3igXAAtKNRjhz1SuHcgLq0ZF+mA50pfRBFuFWGxa8WEPthfMyx/xEncHMcoakGXJH1woLL3Bp+LYd/
+ * HlYYOHnLtmcWYQOPseqn638nkRWVpVsayIWx9jonjFJx+vbsi5ah3volxurVWZe/AQAB
+ * </p>
  * </pre>
+ *
+ * Note:
+ * key version start with 0 or no index. For example 3DESKey or 3DESKey_0
+ * (key verion 0 is blank or 0)
+ *
+ * com.ibm.websphere.ltpa.version=1.0 - No FIPS
+ * com.ibm.websphere.ltpa.version=2.0 - FIPS
  */
 public class LTPAKeyInfoManager {
 
@@ -56,9 +84,15 @@ public class LTPAKeyInfoManager {
     private static final String PRIVATEKEY = "privatekey";
     private static final String PUBLICKEY = "publickey";
 
+    private static final String LTPA_KEYS_BACKUP_EXTENSION = ".defaultpassword.backup";
+
     private final List<String> importFileCache = new ArrayList<String>();
     private final Map<String, byte[]> keyCache = new Hashtable<String, byte[]>();
     private final Map<String, String> realmCache = new Hashtable<String, String>();
+    private final String suffixNoFips = ".nofips";
+    private final String suffixFips = ".fips";
+
+    private static CopyOnWriteArrayList<LTPAValidationKeysInfo> ltpaValidationKeysInfos = new CopyOnWriteArrayList<LTPAValidationKeysInfo>();
 
     /**
      * Load the contents of the properties file.
@@ -90,92 +124,362 @@ public class LTPAKeyInfoManager {
     }
 
     /**
-     * Loads the contents of the key import file if necessary.
+     * Loads the contents of the primary/validation LTPA key import file if necessary.
      *
-     * @param keyImportFile The URL of the key import file. If it's not the URL, it is assumed as a relative path from
-     *            ${App.root}/config
-     * @param keyPassword The password of the LTPA keys
+     * @param primaryKeyImportFile The URL of the key import file. If it's not the URL, it is assumed as a relative path from
+     *                                 ${app.root}/config
+     * @param primaryKeyPassword   The password of the LTPA keys
+     * @param validationKeys       The validationKeys
      * @throws IOException
      */
     @SuppressWarnings("deprecation")
-    public synchronized final void prepareLTPAKeyInfo(WsLocationAdmin locService, String keyImportFile, @Sensitive byte[] keyPassword) throws Exception {
-        if (!this.importFileCache.contains(keyImportFile)) {
-            // Need to load the key import file
-            if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
-                Tr.event(this, tc, "Loading keyfile [" + keyImportFile + "]");
+    public synchronized final void prepareLTPAKeyInfo(WsLocationAdmin locService, String primaryKeyImportFile, @Sensitive byte[] primaryKeyPassword,
+                                                      @Sensitive List<Properties> validationKeys, boolean tryToReEncryptLtpaKeys) throws Exception {
+        if (!this.importFileCache.contains(primaryKeyImportFile)) {
+            loadLtpaKeysFile(locService, primaryKeyImportFile, primaryKeyPassword, false, false, null, tryToReEncryptLtpaKeys);
+        }
+        if (validationKeys != null && !validationKeys.isEmpty()) {
+            ltpaValidationKeysInfos.clear();
+            //load validationKeys
+            Iterator<Properties> validationKeysIterator = validationKeys.iterator();
+            while (validationKeysIterator.hasNext()) {
+                OffsetDateTime validUntilDateOdt = null;
+                Properties vKeys = validationKeysIterator.next();
+                String filename = (String) vKeys.get(LTPAConfiguration.CFG_KEY_VALIDATION_FILE_NAME);
+                if (!this.importFileCache.contains(vKeys.get(LTPAConfiguration.CFG_KEY_VALIDATION_FILE_NAME))) {
+                    String validUntilDate = ((String) vKeys.get(LTPAConfiguration.CFG_KEY_VALIDATION_VALID_UNTIL_DATE));
+                    if (validUntilDate != null) {
+                        try {
+                            validUntilDateOdt = OffsetDateTime.parse(validUntilDate);
+                            if (validUntilDateOdt != null && isValidUntilDateExpired(filename, validUntilDateOdt)) {
+                                continue; //Skip this LTPA validationKeys
+                            }
+                        } catch (Exception e) {
+                            Tr.error(tc, "LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT", validUntilDate, filename);
+                            continue; //Skip this LTPA validationKeys
+                        }
+                    }
+
+                    byte[] password = getKeyPasswordBytes(vKeys);
+                    boolean isConfiguredValidationKey = Boolean.valueOf(vKeys.getProperty(LTPAConfiguration.INTERNAL_KEY_IS_CONFIGURED_VALIDATION_KEY));
+                    loadLtpaKeysFile(locService, filename, password, true, isConfiguredValidationKey, validUntilDateOdt, tryToReEncryptLtpaKeys);
+                }
             }
-            Properties props = null;
+        }
 
-            //Check to see if the LTPA key import file exists create the keys and file if not
-            WsResource ltpaKeyFileResource = getLTPAKeyFileResource(locService, keyImportFile);
-            if (ltpaKeyFileResource != null) {
-                props = loadPropertiesFile(ltpaKeyFileResource);
-            } else {
-                long start = System.currentTimeMillis();
-                Tr.info(tc, "LTPA_CREATE_KEYS_START");
+        if (tc.isDebugEnabled()) {
+            Tr.debug(this, tc, "importFileCache: " + importFileCache.toString());
+            Tr.debug(this, tc, "keyCache: " + keyCache.toString());
+            Tr.debug(this, tc, "realmCache: " + realmCache.toString());
+            Tr.debug(this, tc, "number of ltpaValidationKeysInfos: " + ltpaValidationKeysInfos.size());
+        }
+    }
 
-                LTPAKeyFileCreator creator = new LTPAKeyFileCreatorImpl();
-                props = creator.createLTPAKeysFile(locService, keyImportFile, keyPassword);
+    /**
+     * This function checks if the validUntilDate0dt has already passed the current time.
+     * If so, then they key is expired, and will return true with a warning message.
+     * Otherwise, the key is valid and will return false.
+     * If the validUntilDateOdt is null, then the key is forever valid and will return false.
+     *
+     * @param filename
+     * @param validUntilDateOdt
+     *
+     * @return
+     */
+    public boolean isValidUntilDateExpired(String filename, OffsetDateTime validUntilDateOdt) {
+        OffsetDateTime currentTime = OffsetDateTime.now(validUntilDateOdt.getOffset());
 
-                Tr.audit(tc, "LTPA_CREATE_KEYS_COMPLETE", TimestampUtils.getElapsedTime(start), keyImportFile);
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "current date: " + currentTime);
+        }
+
+        if (validUntilDateOdt.isBefore(currentTime)) {
+            Tr.warning(tc, "LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST", validUntilDateOdt, filename);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    @Sensitive
+    byte[] getKeyPasswordBytes(@Sensitive Properties vKeys) {
+        String password = (String) vKeys.get(LTPAConfiguration.CFG_KEY_VALIDATION_PASSWORD);
+        return PasswordUtil.passwordDecode(password).getBytes();
+    }
+
+    /**
+     * @param locService
+     * @param keyImportFile
+     * @param keyPassword
+     * @param validationKey
+     * @param validUntilDateOdt
+     * @throws IOException
+     * @throws Exception
+     */
+    private void loadLtpaKeysFile(WsLocationAdmin locService, String keyImportFile, @Sensitive byte[] keyPassword, boolean validationKey, boolean isConfiguredValidationKey,
+                                  OffsetDateTime validUntilDateOdt, boolean tryToReEncryptLtpaKeys) throws IOException, Exception {
+        // Need to load the key import file
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
+            Tr.event(this, tc, "Loading LTPA " + (validationKey == true ? "validation" : "primary") + "Keys file: " + keyImportFile);
+        }
+        Properties props = null;
+        //Check to see if the LTPA key import file exists, create the keys and file if not
+        WsResource ltpaKeyFileResource = getLTPAKeyFileResource(locService, keyImportFile);
+
+        if (ltpaKeyFileResource != null) {
+            props = loadPropertiesFile(ltpaKeyFileResource);
+            String version = props.getProperty(LTPAKeyFileUtility.LTPA_VERSION_PROPERTY);
+            if (tc.isDebugEnabled()) {
+                Tr.debug(this, tc, "LTPA key version: " + version);
+            }
+            if ((CryptoUtils.isFips140_3Enabled() && "1.0".equals(version)) ||
+                (!CryptoUtils.isFips140_3Enabled() && "2.0".equals(version))) {
+                if (validationKey) {
+                    if ("1.0".equals(version))
+                        Tr.warning(tc, "LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE", keyImportFile);
+                    else
+                        Tr.warning(tc, "LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE", keyImportFile);
+                    return;
+                } else {
+                    backupLtpaKeyFile(locService, keyImportFile, ltpaKeyFileResource, version);
+                    if (restoreLtpaKeyFile(locService, keyImportFile, ltpaKeyFileResource)) {
+                        props = loadPropertiesFile(ltpaKeyFileResource);
+                    } else {
+                        //regenerate the primary key
+                        props = createPrimaryKeyFile(locService, keyImportFile, keyPassword);
+                    }
+                }
             }
 
-            String realm = props.getProperty(LTPAKeyFileUtility.KEYIMPORT_REALM);
-            String secretKeyStr = props.getProperty(LTPAKeyFileUtility.KEYIMPORT_SECRETKEY);
-            String privateKeyStr = props.getProperty(LTPAKeyFileUtility.KEYIMPORT_PRIVATEKEY);
-            String publicKeyStr = props.getProperty(LTPAKeyFileUtility.KEYIMPORT_PUBLICKEY);
+        } else if (validationKey) { //validationKeys file does not exist so error
+            Tr.error(tc, "LTPA_KEYS_FILE_DOES_NOT_EXIST", keyImportFile);
+            return;
+        } else { //Primary keys file does not exist so create the primary key
+            props = createPrimaryKeyFile(locService, keyImportFile, keyPassword);
+        }
 
-            byte[] secretKey, privateKey, publicKey;
-            try {
-                KeyEncryptor encryptor = new KeyEncryptor(keyPassword);
-                // Secret key
-                if ((secretKeyStr == null) || (secretKeyStr.length() == 0)) {
-                    Tr.error(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_SECRETKEY);
-                    String formattedMessage = Tr.formatMessage(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_SECRETKEY);
-                    throw new IllegalArgumentException(formattedMessage);
-                } else {
-                    byte[] keyEncoded = Base64Coder.base64DecodeString(secretKeyStr);
-                    secretKey = encryptor.decrypt(keyEncoded);
-                }
-                // Private key
-                if ((privateKeyStr == null) || (privateKeyStr.length() == 0)) {
-                    Tr.error(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_PRIVATEKEY);
-                    String formattedMessage = Tr.formatMessage(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_PRIVATEKEY);
-                    throw new IllegalArgumentException(formattedMessage);
-                } else {
-                    byte[] keyEncoded = Base64Coder.base64DecodeString(privateKeyStr);
-                    privateKey = encryptor.decrypt(keyEncoded);
-                }
-                // Public key
-                if ((publicKeyStr == null) || (publicKeyStr.length() == 0)) {
-                    Tr.error(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_PUBLICKEY);
-                    String formattedMessage = Tr.formatMessage(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_PUBLICKEY);
-                    throw new IllegalArgumentException(formattedMessage);
-                } else {
-                    byte[] keyEncoded = Base64Coder.base64DecodeString(publicKeyStr);
-                    publicKey = keyEncoded;
-                }
-            } catch (Exception e) {
+        if (props == null || props.isEmpty()) {
+            return;
+        }
+        String realm = props.getProperty(LTPAKeyFileUtility.KEYIMPORT_REALM);
+        String secretKeyStr = props.getProperty(LTPAKeyFileUtility.KEYIMPORT_SECRETKEY);
+        String privateKeyStr = props.getProperty(LTPAKeyFileUtility.KEYIMPORT_PRIVATEKEY);
+        String publicKeyStr = props.getProperty(LTPAKeyFileUtility.KEYIMPORT_PUBLICKEY);
+
+        byte[] secretKey, privateKey, publicKey;
+        byte[][] keys;
+
+        try {
+            keys = decryptKeys(keyPassword, secretKeyStr, privateKeyStr, publicKeyStr);
+        } catch (BadPaddingException e) {
+            // only try to re-encrypt if it failed with keystore_password and it's not a configured validationKeys
+            if (!tryToReEncryptLtpaKeys || (validationKey && isConfiguredValidationKey)) {
                 if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
                     Tr.event(this, tc, "Error loading key; " + e);
                 }
                 throw e;
             }
 
-            if (secretKey != null) {
-                this.keyCache.put(keyImportFile + SECRETKEY, secretKey);
+            keys = reEncryptLtpaKey(locService, "WebAS".getBytes(), keyPassword,
+                                    secretKeyStr, privateKeyStr, publicKeyStr,
+                                    keyImportFile, ltpaKeyFileResource, e);
+        } catch (Exception e) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
+                Tr.event(this, tc, "Error loading key; " + e);
             }
-            if (privateKey != null) {
-                this.keyCache.put(keyImportFile + PRIVATEKEY, privateKey);
-            }
-            if (publicKey != null) {
-                this.keyCache.put(keyImportFile + PUBLICKEY, publicKey);
-            }
-            if (realm != null) {
-                this.realmCache.put(keyImportFile, realm);
-            }
-            this.importFileCache.add(keyImportFile);
+            throw e;
         }
+
+        secretKey = keys[0];
+        if (secretKey != null) {
+            this.keyCache.put(keyImportFile + SECRETKEY, secretKey);
+        }
+        privateKey = keys[1];
+        if (privateKey != null) {
+            this.keyCache.put(keyImportFile + PRIVATEKEY, privateKey);
+        }
+        publicKey = keys[2];
+        if (publicKey != null) {
+            this.keyCache.put(keyImportFile + PUBLICKEY, publicKey);
+        }
+        if (realm != null) {
+            this.realmCache.put(keyImportFile, realm); //TODO: REALM? to support different realm name
+        }
+
+        this.importFileCache.add(keyImportFile);
+
+        if (validationKey) {
+            ltpaValidationKeysInfos.add(new LTPAValidationKeysInfo(keyImportFile, secretKey, privateKey, publicKey, validUntilDateOdt));
+            if (tc.isDebugEnabled()) {
+                Tr.debug(this, tc, "ValidationKeys: " + keyImportFile + " validUntilDate: " + validUntilDateOdt);
+                Tr.debug(this, tc, "LTPAValidationKeysInfo size: " + ltpaValidationKeysInfos.size());
+            }
+        }
+    }
+
+    @Sensitive
+    private byte[][] decryptKeys(@Sensitive byte[] keyPassword, @Sensitive String secretKeyStr, @Sensitive String privateKeyStr,
+                                 @Sensitive String publicKeyStr) throws Exception {
+        KeyEncryptor encryptor = new KeyEncryptor(keyPassword);
+        byte[] secretKey, privateKey, publicKey;
+        // Secret key
+        if ((secretKeyStr == null) || (secretKeyStr.length() == 0)) {
+            Tr.error(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_SECRETKEY);
+            String formattedMessage = Tr.formatMessage(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_SECRETKEY);
+            throw new IllegalArgumentException(formattedMessage);
+        } else {
+            byte[] keyEncoded = Base64Coder.base64DecodeString(secretKeyStr);
+            secretKey = encryptor.decrypt(keyEncoded);
+        }
+        // Private key
+        if ((privateKeyStr == null) || (privateKeyStr.length() == 0)) {
+            Tr.error(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_PRIVATEKEY);
+            String formattedMessage = Tr.formatMessage(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_PRIVATEKEY);
+            throw new IllegalArgumentException(formattedMessage);
+        } else {
+            byte[] keyEncoded = Base64Coder.base64DecodeString(privateKeyStr);
+            privateKey = encryptor.decrypt(keyEncoded);
+        }
+        // Public key
+        if ((publicKeyStr == null) || (publicKeyStr.length() == 0)) {
+            Tr.error(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_PUBLICKEY);
+            String formattedMessage = Tr.formatMessage(tc, "LTPA_TOKEN_SERVICE_MISSING_KEY", LTPAKeyFileUtility.KEYIMPORT_PUBLICKEY);
+            throw new IllegalArgumentException(formattedMessage);
+        } else {
+            byte[] keyEncoded = Base64Coder.base64DecodeString(publicKeyStr);
+            publicKey = keyEncoded;
+        }
+        return new byte[][] { secretKey, privateKey, publicKey };
+    }
+
+    @Sensitive
+    private byte[][] reEncryptLtpaKey(WsLocationAdmin locService, @Sensitive byte[] keyPasswordToTry, @Sensitive byte[] keyPasswordToReEncryptWith,
+                                      @Sensitive String secretKeyStr, @Sensitive String privateKeyStr, @Sensitive String publicKeyStr,
+                                      String keyImportFile, WsResource ltpaKeyFileResource, Exception originalException) throws Exception {
+        try {
+            // failed with keystore_password... let's try again with the legacy default password
+            byte[][] keys = decryptKeys(keyPasswordToTry, secretKeyStr, privateKeyStr, publicKeyStr);
+
+            // successfully decrypted keys; backup and re-encrypt the keys using keystore_password
+            Tr.info(tc, "LTPA_KEYS_REENCRYPT", keyImportFile);
+            backupLtpaKeys(locService, ltpaKeyFileResource, keyImportFile);
+            LTPAKeyFileCreator creator = new LTPAKeyFileCreatorImpl();
+            creator.createLTPAKeysFile(locService, keyImportFile, keyPasswordToReEncryptWith, keys[0], keys[1], keys[2]);
+            Tr.info(tc, "LTPA_KEYS_REENCRYPT_SUCCESS", keyImportFile);
+            return keys;
+        } catch (IOException e) {
+            Tr.error(tc, "LTPA_KEYS_REENCRYPT_ERROR", keyImportFile, e.getMessage());
+            String message = Tr.formatMessage(tc, "LTPA_KEYS_REENCRYPT_ERROR", keyImportFile, e.getMessage());
+            throw new IOException(message);
+        } catch (Exception e) {
+            // didn't work with legacy default password; throw the original exception
+            if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
+                Tr.event(this, tc, "Error loading key (retry): " + e + " Throwing original exception: " + originalException);
+            }
+            throw originalException;
+        }
+    }
+
+    /**
+     * Try to backup the ltpa.keys to ltpa.keys.defaultpassword.backup
+     * If it's not available, then try ltpa.keys.defaultpassword.backup-1 til ltpa.keys.defaultpassword.backup-99
+     * If none of those are available (extremely unlikely) then don't back up
+     *
+     * @param locService
+     * @param ltpaKeyFileResource
+     * @param keyImportFile
+     * @throws IOException
+     */
+    @FFDCIgnore(Throwable.class)
+    private void backupLtpaKeys(WsLocationAdmin locService, WsResource ltpaKeyFileResource, String keyImportFile) throws IOException {
+        for (int i = 0; i < 100; i++) {
+            String ltpaFileBackupLocation = keyImportFile + LTPA_KEYS_BACKUP_EXTENSION;
+            if (i > 0) {
+                ltpaFileBackupLocation += ("-" + i);
+            }
+            WsResource ltpaFileBackup = locService.resolveResource(ltpaFileBackupLocation);
+            if (ltpaFileBackup.exists()) {
+                continue;
+            }
+            if (tc.isDebugEnabled()) {
+                Tr.debug(this, tc, "Backup the LTPA key file: " + keyImportFile + " to: " + ltpaFileBackupLocation);
+            }
+            try (InputStream in = ltpaKeyFileResource.get()) {
+                ltpaFileBackup.put(in);
+            }
+            return;
+        }
+        if (tc.isDebugEnabled()) {
+            Tr.debug(this, tc, "Could not find available location to backup the LTPA key file: " + keyImportFile);
+        }
+    }
+
+    /**
+     * @param locService
+     * @param keyImportFile
+     * @param ltpaKeyFileResource
+     * @param version
+     * @return
+     * @throws IOException
+     */
+    private void backupLtpaKeyFile(WsLocationAdmin locService, String keyImportFile, WsResource ltpaKeyFileResource, String version) throws IOException {
+        String suffix = suffixNoFips;
+        if ("2.0".equals(version)) {
+            suffix = suffixFips;
+        }
+        WsResource ltpaFileBackup = locService.resolveResource(keyImportFile + suffix);
+
+        if (ltpaFileBackup.exists()) {
+            ltpaFileBackup.delete();
+        }
+
+        if (tc.isDebugEnabled()) {
+            Tr.debug(this, tc, "Backup the LTPA key file: " + keyImportFile + suffix);
+        }
+        ltpaKeyFileResource.moveTo(ltpaFileBackup);
+    }
+
+    /**
+     * @param locService
+     * @param keyImportFile
+     * @WsResource ltpaKeyFileResource
+     * @return
+     * @throws IOException
+     */
+    private boolean restoreLtpaKeyFile(WsLocationAdmin locService, String keyImportFile, WsResource ltpaKeyFileResource) throws IOException {
+        String suffix = suffixNoFips;
+        if (CryptoUtils.isFips140_3Enabled()) {
+            suffix = suffixFips;
+        }
+
+        WsResource ltpaFileBackup = locService.resolveResource(keyImportFile + suffix);
+        if (ltpaFileBackup.exists()) {
+            if (tc.isDebugEnabled()) {
+                Tr.debug(this, tc, "Restoring the LTPA key file backup: " + keyImportFile + suffix);
+            }
+            ltpaFileBackup.moveTo(ltpaKeyFileResource);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param locService
+     * @param keyImportFile
+     * @param keyPassword
+     * @return
+     * @throws Exception
+     */
+    private Properties createPrimaryKeyFile(WsLocationAdmin locService, String keyImportFile, @Sensitive byte[] keyPassword) throws Exception {
+        long start = System.currentTimeMillis();
+        Tr.info(tc, "LTPA_CREATE_KEYS_START");
+
+        LTPAKeyFileCreator creator = new LTPAKeyFileCreatorImpl();
+        Properties props = creator.createLTPAKeysFile(locService, keyImportFile, keyPassword);
+
+        Tr.audit(tc, "LTPA_CREATE_KEYS_COMPLETE", TimestampUtils.getElapsedTime(start), keyImportFile);
+        return props;
     }
 
     /**
@@ -191,7 +495,6 @@ public class LTPAKeyInfoManager {
         if (ltpaFile != null && ltpaFile.exists()) {
             return ltpaFile;
         } else {
-            // The file does not exist so return null
             return null;
         }
     }
@@ -200,7 +503,7 @@ public class LTPAKeyInfoManager {
      * Get the LTPA secret key.
      *
      * @param keyImportFile The URL of the key import file. If it's not the URL, it is assumed as a relative path from
-     *            ${App.root}/config
+     *                          ${App.root}/config
      * @return The LTPA secret key
      */
     @Sensitive
@@ -212,7 +515,7 @@ public class LTPAKeyInfoManager {
      * Get the LTPA private key.
      *
      * @param keyImportFile The URL of the key import file. If it's not the URL, it is assumed as a relative path from
-     *            ${App.root}/config
+     *                          ${App.root}/config
      * @return The LTPA private key
      */
     @Sensitive
@@ -224,7 +527,7 @@ public class LTPAKeyInfoManager {
      * Get the LTPA public key.
      *
      * @param keyImportFile The URL of the key import file. If it's not the URL, it is assumed as a relative path from
-     *            ${App.root}/config
+     *                          ${App.root}/config
      * @return The LTPA public key
      */
     public final byte[] getPublicKey(String keyImportFile) {
@@ -235,11 +538,15 @@ public class LTPAKeyInfoManager {
      * Get the LTPA realm.
      *
      * @param keyImportFile The URL of the key import file. If it's not the URL, it is assumed as a relative path from
-     *            ${App.root}/config
+     *                          ${App.root}/config
      * @return The LTPA realm
      */
     final String getRealm(String keyImportFile) {
         return this.realmCache.get(keyImportFile);
+    }
+
+    public final List<LTPAValidationKeysInfo> getValidationLTPAKeys() {
+        return ltpaValidationKeysInfos;
     }
 
 }

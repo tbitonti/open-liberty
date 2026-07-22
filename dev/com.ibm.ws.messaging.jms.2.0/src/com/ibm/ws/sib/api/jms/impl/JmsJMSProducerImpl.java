@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2015 IBM Corporation and others.
+ * Copyright (c) 2014, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,6 +13,7 @@
 package com.ibm.ws.sib.api.jms.impl;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -447,13 +450,7 @@ public class JmsJMSProducerImpl implements JmsJMSProducer {
             }
             /* Otherwise get the UTF8 byte encoding */
             else {
-                try {
-                    value = strValue.getBytes("UTF8");
-                } catch (java.io.UnsupportedEncodingException e) {
-                    /* No FFDC code needed */
-                    /* Falling back to the default encoding seems to be acceptable to JMS */
-                    value = strValue.getBytes();
-                }
+                value = strValue.getBytes(StandardCharsets.UTF_8);
             }
 
         }

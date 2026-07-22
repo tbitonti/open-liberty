@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.javaeesec.fat;
 
@@ -83,13 +82,13 @@ public class MultipleIdentityStoreCustomFormTest extends JavaEESecTestBase {
         ldapServer.start();
 
         WCApplicationHelper.addWarToServerApps(myServer, WAR_REDIRECT_NAME, true, WAR_RESOURCE_LOCATION, JAR_NAME, false, "web.jar.base", "web.war.servlets.customform",
-                                               "web.war.servlets.customform.get.redirect",
-                                               "web.war.identitystores.ldap.ldap1", "web.war.identitystores.ldap.ldap2", "web.war.identitystores.custom.grouponly",
-                                               "web.war.identitystores.ldap");
+                "web.war.servlets.customform.get.redirect",
+                "web.war.identitystores.ldap.ldap1", "web.war.identitystores.ldap.ldap2", "web.war.identitystores.custom.grouponly",
+                "web.war.identitystores.ldap");
         WCApplicationHelper.addWarToServerApps(myServer, WAR_FORWARD_NAME, true, WAR_RESOURCE_LOCATION, JAR_NAME, false, "web.jar.base", "web.war.servlets.customform",
-                                               "web.war.servlets.customform.get.forward",
-                                               "web.war.identitystores.ldap.ldap1", "web.war.identitystores.ldap.ldap2", "web.war.identitystores.custom.grouponly",
-                                               "web.war.identitystores.ldap");
+                "web.war.servlets.customform.get.forward",
+                "web.war.identitystores.ldap.ldap1", "web.war.identitystores.ldap.ldap2", "web.war.identitystores.custom.grouponly",
+                "web.war.identitystores.ldap");
         myServer.setServerConfigurationFile(XML_NAME);
         myServer.startServer(true);
         myServer.addInstalledAppForValidation(APP_REDIRECT_NAME);
@@ -195,7 +194,7 @@ public class MultipleIdentityStoreCustomFormTest extends JavaEESecTestBase {
         verifyRealm(response, "localhost:" + portNumber);
         verifyNotInGroups(response, "group:127.0.0.1:" + portNumber + "/"); // make sure that there is no realm name from the second IdentityStore.
         verifyGroups(response,
-                     "group:localhost:" + portNumber + "/grantedgroup2, group:localhost:" + portNumber + "/anothergroup1, group:localhost:" + portNumber + "/grantedgroup");
+                "group:localhost:" + portNumber + "/grantedgroup2, group:localhost:" + portNumber + "/anothergroup1, group:localhost:" + portNumber + "/grantedgroup");
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 
@@ -231,7 +230,7 @@ public class MultipleIdentityStoreCustomFormTest extends JavaEESecTestBase {
         verifyRealm(response, "localhost:" + portNumber);
         verifyNotInGroups(response, "group:127.0.0.1:" + portNumber + "/"); // make sure that there is no realm name from the second IdentityStore.
         verifyGroups(response,
-                     "group:localhost:" + portNumber + "/grantedgroup2, group:localhost:" + portNumber + "/anothergroup1, group:localhost:" + portNumber + "/grantedgroup");
+                "group:localhost:" + portNumber + "/grantedgroup2, group:localhost:" + portNumber + "/anothergroup1, group:localhost:" + portNumber + "/grantedgroup");
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 
@@ -356,7 +355,7 @@ public class MultipleIdentityStoreCustomFormTest extends JavaEESecTestBase {
         verifyRealm(response, "localhost:" + portNumber);
         verifyNotInGroups(response, "group:127.0.0.1:" + portNumber + "/"); // make sure that there is no realm name from the second IdentityStore.
         verifyGroups(response,
-                     "group:localhost:" + portNumber + "/grantedgroup2, group:localhost:" + portNumber + "/anothergroup1, group:localhost:" + portNumber + "/grantedgroup");
+                "group:localhost:" + portNumber + "/grantedgroup2, group:localhost:" + portNumber + "/anothergroup1, group:localhost:" + portNumber + "/grantedgroup");
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 
@@ -392,7 +391,7 @@ public class MultipleIdentityStoreCustomFormTest extends JavaEESecTestBase {
         verifyRealm(response, "localhost:" + portNumber);
         verifyNotInGroups(response, "group:127.0.0.1:" + portNumber + "/"); // make sure that there is no realm name from the second IdentityStore.
         verifyGroups(response,
-                     "group:localhost:" + portNumber + "/grantedgroup2, group:localhost:" + portNumber + "/anothergroup1, group:localhost:" + portNumber + "/grantedgroup");
+                "group:localhost:" + portNumber + "/grantedgroup2, group:localhost:" + portNumber + "/anothergroup1, group:localhost:" + portNumber + "/grantedgroup");
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 
@@ -454,13 +453,14 @@ public class MultipleIdentityStoreCustomFormTest extends JavaEESecTestBase {
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 
-/* ------------------------ support methods ---------------------- */
+    /* ------------------------ support methods ---------------------- */
     protected String getViewState(String form) {
-        Pattern p = Pattern.compile("[\\s\\S]*value=\"(.+)\".*autocomplete[\\s\\S]*");
+        Pattern p = Pattern.compile("[\\s\\S]*id=.*(javax.faces.ViewState|jakarta.faces.ViewState).*value=\"(.*?)\"[\\s\\S]*");
         Matcher m = p.matcher(form);
+        m.matches();
         String viewState = null;
         if (m.matches()) {
-            viewState = m.group(1);
+            viewState = m.group(2);
         }
         return viewState;
     }

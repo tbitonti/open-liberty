@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -113,7 +115,11 @@ public class JAXRS21ClientTestServlet extends HttpServlet {
 
                 WebTarget t1 = c.target("http://" + serverIP + ":" + serverPort + "/" + moduleName + "/JAXRS21ComplexClientTest/JAXRS21ComplexResource").register(JAXRS21ClientRequestFilter1.class);
                 t1.path("echo1").path("test1").request().get(String.class);
-                String result1 = c.getConfiguration().getProperties().toString();
+                Map<String, Object> props = c.getConfiguration().getProperties();
+                if (!(props instanceof HashMap)) {
+                    props = new HashMap<>(props);
+                }
+                String result1 = props.toString();
                 System.out.println("callable1: result1: " + result1);
 
                 return result1;
@@ -136,7 +142,11 @@ public class JAXRS21ClientTestServlet extends HttpServlet {
 
                 WebTarget t2 = c.target("http://" + serverIP + ":" + serverPort + "/" + moduleName + "/JAXRS21ComplexClientTest/JAXRS21ComplexResource").register(JAXRS21ClientRequestFilter2.class);
                 t2.path("echo2").path("test2").request().get(String.class);
-                String result2 = c.getConfiguration().getProperties().toString();
+                Map<String, Object> props = c.getConfiguration().getProperties();
+                if (!(props instanceof HashMap)) {
+                    props = new HashMap<>(props);
+                }
+                String result2 = props.toString();
                 System.out.println("callable2: result2: " + result2);
 
                 return result2;

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,10 +16,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 import javax.enterprise.inject.Instance;
@@ -148,6 +148,11 @@ public class AuthModuleTest {
                 will(returnValue(true));
                 allowing(httpMessageContext).getMessageInfo();
                 will(returnValue(messageInfo));
+                allowing(httpMessageContext).getRequest();
+                will(returnValue(request));
+                allowing(httpMessageContext).getResponse();
+                will(returnValue(response));
+
             }
         });
 
@@ -254,7 +259,9 @@ public class AuthModuleTest {
         setNormalPathExpectations();
         mockery.checking(new Expectations() {
             {
-                one(ham).cleanSubject(with(request), with(response), with(aNonNull(HttpMessageContext.class)));
+                one(ham).cleanSubject(with(aNonNull(HttpServletRequest.class)), 
+                                     with(aNonNull(HttpServletResponse.class)), 
+                                     with(aNonNull(HttpMessageContext.class)));
             }
         });
 
@@ -301,7 +308,9 @@ public class AuthModuleTest {
     private AuthModuleTest authMechValidatesRequest(final AuthenticationStatus status) throws Exception {
         mockery.checking(new Expectations() {
             {
-                one(ham).validateRequest(with(request), with(response), with(aNonNull(HttpMessageContext.class)));
+                one(ham).validateRequest(with(aNonNull(HttpServletRequest.class)), 
+                                        with(aNonNull(HttpServletResponse.class)), 
+                                        with(aNonNull(HttpMessageContext.class)));
                 will(returnValue(status));
             }
         });
@@ -311,7 +320,9 @@ public class AuthModuleTest {
     private AuthModuleTest authMechValidateRequestThrowsException() throws Exception {
         mockery.checking(new Expectations() {
             {
-                one(ham).validateRequest(with(request), with(response), with(aNonNull(HttpMessageContext.class)));
+                one(ham).validateRequest(with(aNonNull(HttpServletRequest.class)), 
+                                        with(aNonNull(HttpServletResponse.class)), 
+                                        with(aNonNull(HttpMessageContext.class)));
                 will(throwException(new AuthenticationException()));
             }
         });
@@ -321,7 +332,9 @@ public class AuthModuleTest {
     private AuthModuleTest authMechSecuresResponse(final AuthenticationStatus status) throws Exception {
         mockery.checking(new Expectations() {
             {
-                one(ham).secureResponse(with(request), with(response), with(aNonNull(HttpMessageContext.class)));
+                one(ham).secureResponse(with(aNonNull(HttpServletRequest.class)), 
+                                       with(aNonNull(HttpServletResponse.class)), 
+                                       with(aNonNull(HttpMessageContext.class)));
                 will(returnValue(status));
             }
         });
@@ -331,7 +344,9 @@ public class AuthModuleTest {
     private AuthModuleTest authMechSecuresResponseThrowsException() throws Exception {
         mockery.checking(new Expectations() {
             {
-                one(ham).secureResponse(with(request), with(response), with(aNonNull(HttpMessageContext.class)));
+                one(ham).secureResponse(with(aNonNull(HttpServletRequest.class)), 
+                                       with(aNonNull(HttpServletResponse.class)), 
+                                       with(aNonNull(HttpMessageContext.class)));
                 will(throwException(new AuthenticationException()));
             }
         });
@@ -373,8 +388,7 @@ public class AuthModuleTest {
         public HttpAuthenticationMechanism getHttpAuthenticationMechanism() {
             return ham;
         }
-        
-    
+
     }
 
 }

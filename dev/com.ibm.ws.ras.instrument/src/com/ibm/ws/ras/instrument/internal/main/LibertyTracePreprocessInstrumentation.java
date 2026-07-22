@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2013 IBM Corporation and others.
+ * Copyright (c) 2010, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -75,6 +77,7 @@ public class LibertyTracePreprocessInstrumentation extends AbstractInstrumentati
     public final static Type INJECTED_TRACE_TYPE = Type.getType(com.ibm.websphere.ras.annotation.InjectedTrace.class);
     public final static Type MANUAL_TRACE_TYPE = Type.getType(com.ibm.websphere.ras.annotation.ManualTrace.class);
     public final static Type TRACE_OBJECT_FIELD_TYPE = Type.getType(com.ibm.websphere.ras.annotation.TraceObjectField.class);
+    public final static Type IGNORE_NON_STATIC_TRACE_COMPONENT_TYPE = Type.getType(com.ibm.websphere.ras.annotation.IgnoreNonStaticTraceComponent.class);
 
     private boolean addFfdc = false;
     private boolean injectStatic = false;
@@ -90,6 +93,7 @@ public class LibertyTracePreprocessInstrumentation extends AbstractInstrumentati
     public class ClassTraceInfo {
         ClassNode classNode;
         public PackageInfo packageInfo;
+        private TraceOptionsData classTraceOptions;
 
         // Explicitly declared Liberty TraceComponent
         FieldNode libertyTraceComponentFieldNode;
@@ -110,9 +114,15 @@ public class LibertyTracePreprocessInstrumentation extends AbstractInstrumentati
         List<String> warnings = new ArrayList<String>();
         boolean failInstrumentation;
 		public TraceOptionsData getTraceOptionsData() {
+		    if (classTraceOptions != null) {
+		        return classTraceOptions;
+		    }
 			if (packageInfo != null)
 				return packageInfo.getTraceOptionsData();
 			return null;
+		}
+		public void setClassTraceOptionsData(TraceOptionsData traceOptions) {
+		    classTraceOptions = traceOptions;
 		}
     }
 
@@ -227,12 +237,11 @@ public class LibertyTracePreprocessInstrumentation extends AbstractInstrumentati
     }
 
     /**
-     * Locate and merge the metadata from the {@code TraceOptions} annotations
-     * specified on the class and the package. This is used to determine the
+     * Locate the metadata from the {@code TraceOptions} annotations
+     * specified on the class. This is used to determine the
      * resource bundle name, trace group names, and other miscellaneous info.
      * <p>
-     * The class annotation is intended to override package information when
-     * appropriate.
+     * The class annotation is intended to override package information.
      * 
      * @param info the collected class information
      */
@@ -242,49 +251,14 @@ public class LibertyTracePreprocessInstrumentation extends AbstractInstrumentati
         if (traceOptionsAnnotation != null) {
             TraceOptionsAnnotationVisitor optionsVisitor = new TraceOptionsAnnotationVisitor();
             traceOptionsAnnotation.accept(optionsVisitor);
-            TraceOptionsData traceOptions = optionsVisitor.getTraceOptionsData();
-
-            // Merge with package annotation's defaults
-            TraceOptionsData packageData = info.packageInfo != null ? info.packageInfo.getTraceOptionsData() : null;
-            if (packageData != null) {
-                // Remove the current annotation if present
-                if (traceOptionsAnnotation != null) {
-                    info.classNode.visibleAnnotations.remove(traceOptionsAnnotation);
-                }
-
-                // If the class trace options differ from the package trace
-                // options, merge them and add a class annotation.
-                if (!traceOptions.equals(packageData)) {
-                    if (traceOptions.getMessageBundle() == null && packageData.getMessageBundle() != null) {
-                        traceOptions.setMessageBundle(packageData.getMessageBundle());
-                    }
-                    if (traceOptions.getTraceGroups().isEmpty() && !packageData.getTraceGroups().isEmpty()) {
-                        for (String group : packageData.getTraceGroups()) {
-                            traceOptions.addTraceGroup(group);
-                        }
-                    }
-
-                    traceOptionsAnnotation = (AnnotationNode) info.classNode.visitAnnotation(TRACE_OPTIONS_TYPE.getDescriptor(), true);
-                    AnnotationVisitor groupsVisitor = traceOptionsAnnotation.visitArray("traceGroups");
-                    for (String group : traceOptions.getTraceGroups()) {
-                        groupsVisitor.visit(null, group);
-                    }
-                    groupsVisitor.visitEnd();
-
-                    traceOptionsAnnotation.visit("traceGroup", "");
-                    traceOptionsAnnotation.visit("messageBundle", traceOptions.getMessageBundle() == null ? "" : traceOptions.getMessageBundle());
-                    traceOptionsAnnotation.visit("traceExceptionThrow", Boolean.valueOf(traceOptions.isTraceExceptionThrow()));
-                    traceOptionsAnnotation.visit("traceExceptionHandling", Boolean.valueOf(traceOptions.isTraceExceptionHandling()));
-                    traceOptionsAnnotation.visitEnd();
-                }
-            }
+            info.setClassTraceOptionsData(optionsVisitor.getTraceOptionsData());
         }
     }
 
     /**
      * Introspect the class to obtain the list of fields declared as {@code com.ibm.websphere.ras.TraceComponent}s. Only static
      * declarations are considered.
-     * 
+     *
      * @param info the collected class information
      */
     private void processLibertyTraceComponentDiscovery(ClassTraceInfo info) {
@@ -294,13 +268,27 @@ public class LibertyTracePreprocessInstrumentation extends AbstractInstrumentati
             for (int i = traceComponentFields.size() - 1; i >= 0; i--) {
                 FieldNode fn = traceComponentFields.get(i);
                 if ((fn.access & Opcodes.ACC_STATIC) != Opcodes.ACC_STATIC) {
-                	// Trace Component fields found, but not static
+                	// Check if the field has the @IgnoreNonStaticTraceComponent annotation
+                    boolean hasIgnoreAnnotation = false;
+                    if (fn.visibleAnnotations != null) {
+                        for (AnnotationNode an : fn.visibleAnnotations) {
+                            if (IGNORE_NON_STATIC_TRACE_COMPONENT_TYPE.getDescriptor().equals(an.desc)) {
+                                hasIgnoreAnnotation = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Trace Component fields found, but not static
                     traceComponentFields.remove(i);
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("WARNING: TraceComponent field declared but must be static in class: ");
-                    sb.append(info.classNode.name.replaceAll("/", "\\."));
-                    info.warnings.add(sb.toString());
-                    info.failInstrumentation = true;
+                    
+                    if (!hasIgnoreAnnotation) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("WARNING: TraceComponent field declared but must be static in class: ");
+                        sb.append(info.classNode.name.replaceAll("/", "\\."));
+                        info.warnings.add(sb.toString());
+                        info.failInstrumentation = true;
+                    }
                 }
             }
             if (traceComponentFields.size() > 1) {
@@ -685,7 +673,7 @@ public class LibertyTracePreprocessInstrumentation extends AbstractInstrumentati
      * {@inheritDoc}
      */
     @Override
-    protected byte[] transform(InputStream classfileStream) throws IOException {
+    protected byte[] transform(String path, InputStream classfileStream) throws IOException {
 
         // Read in the class bytes and chain to the serialization version adpater.
         // If we fail to calculate the serialVersionUID before mucking around with

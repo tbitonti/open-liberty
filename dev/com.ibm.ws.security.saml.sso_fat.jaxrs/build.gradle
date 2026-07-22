@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,7 +15,7 @@ apply from: '../com.ibm.ws.security.saml.sso_fat.common/SAMLCommon.gradle'
 apply plugin: 'war'
 
 // We aren't making a war for the entire project
-war { enabled false }
+war { enabled = false }
 
 /*
  * This is where all application ZIP and WARs will be built.
@@ -34,8 +36,8 @@ def downloadDir= "${projectDir}/build/downloads"
  ******************************************************************
  ******************************************************************/
 task jaxrsclient_WAR(type: War, dependsOn: classes) {
-  destinationDir file(appBuildDir)
-  archiveName "jaxrsclient.war"
+  destinationDirectory = file(appBuildDir)
+  archiveFileName = "jaxrsclient.war"
   classpath = classpath.filter{ false }
   
   manifest {
@@ -71,8 +73,8 @@ task jaxrsclient_WAR(type: War, dependsOn: classes) {
  ******************************************************************
  ******************************************************************/
 task helloworld_WAR(type: War, dependsOn: classes) {
-  destinationDir file(appBuildDir)
-  archiveName "helloworld.war"
+  destinationDirectory = file(appBuildDir)
+  archiveFileName = "helloworld.war"
   classpath = classpath.filter{ false }
   
   manifest {

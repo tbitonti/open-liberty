@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2021 IBM Corporation and others.
+ * Copyright (c) 2011, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -110,7 +112,7 @@ import com.ibm.wsspi.resource.ResourceBindingListener;
                        ModuleMetaDataListener.class,
                        ComponentMetaDataListener.class,
                        ApplicationStateListener.class },
-           property = { "service.vendor=IBM" })
+           property = { "service.vendor=IBM", "service.ranking:Integer=200" }) //CDI can trigger application code during startup. This application code may do JNDI lookups, thus injection engine must start before CDI so it can provide JNDI results.
 public class OSGiInjectionEngineImpl extends AbstractInjectionEngine implements InjectionEngine, ApplicationMetaDataListener, ModuleMetaDataListener, ComponentMetaDataListener, ApplicationStateListener {
 
     private static final TraceComponent tc = Tr.register(OSGiInjectionEngineImpl.class);
@@ -577,7 +579,7 @@ public class OSGiInjectionEngineImpl extends AbstractInjectionEngine implements 
     @Override
     public ResourceFactoryBuilder getResourceFactoryBuilder(String type) throws InjectionException {
         Iterator<ResourceFactoryBuilder> builderIter = resourceFactoryBuilders.getServices(type);
-        ResourceFactoryBuilder builder = builderIter.hasNext() ? builderIter.next() : null;
+        ResourceFactoryBuilder builder = builderIter != null && builderIter.hasNext() ? builderIter.next() : null;
         if (builder == null) {
             throw new InjectionException(type + " definitions are not supported in this server configuration");
         }
@@ -650,6 +652,19 @@ public class OSGiInjectionEngineImpl extends AbstractInjectionEngine implements 
 
         properties.put("declaringApplication", j2eeName.getApplication());
         properties.put("jndiName", InjectionScope.denormalize(refName));
+
+        // Provide the declaring metadata and class loader only to the
+        // Jakarta EE Concurrency resource factory builders
+        if (type.startsWith("jakarta.enterprise.concurrent.")) {
+            MetaData declaringMetadata = compNSConfig.getComponentMetaData();
+            if (declaringMetadata == null) {
+                declaringMetadata = compNSConfig.getModuleMetaData();
+                if (declaringMetadata == null)
+                    declaringMetadata = compNSConfig.getApplicationMetaData();
+            }
+            properties.put("declaringMetadata", declaringMetadata);
+            properties.put("declaringClassLoader", compNSConfig.getClassLoader());
+        }
 
         ResourceFactory resourceFactory = builder.createResourceFactory(properties);
         Reference ref = new ResourceFactoryReference(type, resourceFactory, properties);

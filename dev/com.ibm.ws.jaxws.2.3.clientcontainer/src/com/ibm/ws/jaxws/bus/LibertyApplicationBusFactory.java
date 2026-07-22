@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019,2020 IBM Corporation and others.
+ * Copyright (c) 2019,2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package com.ibm.ws.jaxws.bus;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -27,13 +30,13 @@ import org.apache.cxf.bus.extension.ExtensionManager;
 import org.apache.cxf.bus.extension.ExtensionManagerImpl;
 import org.apache.cxf.buslifecycle.BusLifeCycleListener;
 import org.apache.cxf.buslifecycle.BusLifeCycleManager;
+import org.apache.cxf.ext.logging.LoggingFeature;
+import org.apache.cxf.feature.Feature;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.app.deploy.ModuleInfo;
 import com.ibm.ws.jaxws.metadata.JaxWsModuleMetaData;
-import com.ibm.ws.jaxws.support.LibertyLoggingInInterceptor;
-import com.ibm.ws.jaxws.support.LibertyLoggingOutInterceptor;
 import com.ibm.ws.util.ThreadContextAccessor;
 
 /**
@@ -102,7 +105,7 @@ public class LibertyApplicationBusFactory extends CXFBusFactory {
         return createBus(e, properties, THREAD_CONTEXT_ACCESSOR.getContextClassLoader(Thread.currentThread()));
     }
 
-    public LibertyApplicationBus createBus(final Map<Class<?>, Object> e,final Map<String, Object> properties,final ClassLoader classLoader) {
+    public LibertyApplicationBus createBus(final Map<Class<?>, Object> e, final Map<String, Object> properties, final ClassLoader classLoader) {
 
         Bus originalBus = getThreadDefaultBus(false);
 
@@ -116,7 +119,6 @@ public class LibertyApplicationBusFactory extends CXFBusFactory {
             //Considering that we have set the default bus in JaxWsService, no need to set default bus
             //Also, it avoids polluting the thread bus.
             //possiblySetDefaultBus(bus);
-
             /* initialize the bus */
             initializeBus(bus);
             BusLifeCycleManager lifeCycleManager = bus.getExtension(BusLifeCycleManager.class);
@@ -131,15 +133,16 @@ public class LibertyApplicationBusFactory extends CXFBusFactory {
 
             bus.initialize();
 
-            // TODO: Switch to using CXF's Logging Feature
-            // Always register LibertyLoggingIn(Out)Interceptor Pretty print the SOAP Messages
-            final LibertyLoggingInInterceptor in = new LibertyLoggingInInterceptor();
-            in.setPrettyLogging(true);
-            bus.getInInterceptors().add(in);
+            // Add Logging Feature here if logging is enabled
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                LoggingFeature loggingFeature = new LoggingFeature();
 
-            final LibertyLoggingOutInterceptor out = new LibertyLoggingOutInterceptor();
-            out.setPrettyLogging(true);
-            bus.getOutInterceptors().add(out);
+                Collection<Feature> featureList = bus.getFeatures();
+                if (!featureList.contains(loggingFeature)) {
+                    featureList.add(loggingFeature);
+                    bus.setFeatures(featureList);
+                }
+            }
 
             return bus;
 

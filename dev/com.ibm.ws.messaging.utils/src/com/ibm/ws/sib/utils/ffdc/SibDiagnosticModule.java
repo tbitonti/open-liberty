@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -88,8 +90,8 @@ public class SibDiagnosticModule extends DiagnosticModule
       return ClassUtil.getSccsId(_className);
     }
   }*/
-  /** Have we registered the master diagnostic module? */
-  private static boolean _registeredMasterDiagnosticModule = false;
+  /** Have we registered the main diagnostic module? */
+  private static boolean _registeredMainDiagnosticModule = false;
 
   /** The list of packages we register as the global SIB packages */
   private static final String[] SIB_PACKAGE_LIST = { "com.ibm.ws.sib", "com.ibm.wsspi.sib", "com.ibm.websphere.sib" };
@@ -129,11 +131,11 @@ public class SibDiagnosticModule extends DiagnosticModule
 
     synchronized(SibDiagnosticModule.class)
     {
-      if (!_registeredMasterDiagnosticModule)
+      if (!_registeredMainDiagnosticModule)
       {
-        SibDiagnosticModule masterModule = new SibDiagnosticModule();
-        masterModule.registerModule(SIB_PACKAGE_LIST);
-        _registeredMasterDiagnosticModule = true;
+        SibDiagnosticModule mainModule = new SibDiagnosticModule();
+        mainModule.registerModule(SIB_PACKAGE_LIST);
+        _registeredMainDiagnosticModule = true;
       }
     }
 

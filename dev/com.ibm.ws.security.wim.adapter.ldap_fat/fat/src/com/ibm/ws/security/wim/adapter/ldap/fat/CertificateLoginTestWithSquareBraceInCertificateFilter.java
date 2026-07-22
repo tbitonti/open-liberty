@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2012, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -70,7 +72,7 @@ public class CertificateLoginTestWithSquareBraceInCertificateFilter {
         assertNotNull("The application did not report is was started",
                       myServer.waitForStringInLog("CWWKZ0001I"));
         assertNotNull("We need to wait for the SSL port to be open",
-                      myServer.waitForStringInLog("CWWKO0219I:.*defaultHttpEndpoint-ssl"));
+                      myServer.waitForDefaultHTTPEndpointSSLStart(true));
         assertNotNull("Server did not came up",
                       myServer.waitForStringInLog("CWWKF0011I"));
 
@@ -140,8 +142,6 @@ public class CertificateLoginTestWithSquareBraceInCertificateFilter {
 
         // Use server.xml configuration with certificateMapMode="cn=${SubjectCN}"
         setServerConfiguration(DEFAULT_CONFIG_FILE);
-        // assertNotNull("We need to wait for the SSL port to be open",
-        //              myServer.waitForStringInLog("CWWKO0219I:.*defaultHttpEndpoint-ssl"));
 
         client = setupClient(user1CertFile, true);
         String response = client.access("/SimpleServlet", 200);

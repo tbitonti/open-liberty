@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2013, 2020 IBM Corporation and others.
+ * Copyright (c) 2005, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -31,8 +33,10 @@ import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -52,7 +56,7 @@ import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.websphere.ssl.Constants;
 import com.ibm.websphere.ssl.JSSEProvider;
 import com.ibm.websphere.ssl.SSLException;
-import com.ibm.ws.config.xml.internal.nester.Nester;
+import com.ibm.ws.config.xml.nester.Nester;
 import com.ibm.ws.crypto.certificateutil.DefaultSSLCertificateCreator;
 import com.ibm.ws.crypto.certificateutil.DefaultSSLCertificateFactory;
 import com.ibm.ws.crypto.certificateutil.DefaultSubjectDN;
@@ -121,7 +125,26 @@ public class WSKeyStore extends Properties {
     private static final String IBMPKCS11Impl_PROVIDER_NAME = "IBMPKCS11Impl";
     private static final String SUNPKCS11_PROVIDER_NAME = "SunPKCS11";
 
+    private final String contextProvider = JSSEProviderFactory.getInstance().getContextProvider();
+
+    /** SafKeyring prefixes **/
+    private static final String PREFIX_SAFKEYRING = "safkeyring:";
+    private static final String PREFIX_SAFKEYRINGHYBRID = "safkeyringhybrid:";
+    private static final String PREFIX_SAFKEYRINGHW = "safkeyringhw:";
+    private static final String PREFIX_SAFKEYRINGJCE = "safkeyringjce:";
+    private static final String PREFIX_SAFKEYRINGJCEHYBRID = "safkeyringjcehybrid:";
+    private static final String PREFIX_SAFKEYRINGJCECCA = "safkeyringjcecca:";
+
+    /** Constant: controller root alias */
+    static final String CONTROLLER_ROOT_KEY_ALIAS = "controllerRoot";
+    /** Constant: member root alias */
+    static final String MEMBER_ROOT_KEY_ALIAS = "memberRoot";
+    /** Constant: server identity alias */
+    static final String SERVER_IDENTITY_KEY_ALIAS = "serverIdentity";
+
     private final Map<String, SerializableProtectedString> certAliasInfo = new HashMap<String, SerializableProtectedString>();
+
+    private static final SerializableProtectedString racfPass = new SerializableProtectedString(("password").toCharArray());
 
     /** Read/Write lock to prevent multiple processes writing the keystore file at the same time, or reading while we are writing. Added for acmeCA feature. **/
     private final ReadWriteLock rwKeyStoreLock = new ReentrantReadWriteLock();
@@ -245,8 +268,9 @@ public class WSKeyStore extends Properties {
         }
 
         if ((type.equals(Constants.KEYSTORE_TYPE_JCERACFKS) || type.equals(Constants.KEYSTORE_TYPE_JCECCARACFKS)
-             || type.equals(Constants.KEYSTORE_TYPE_JCEHYBRIDRACFKS) || type.equals(Constants.KEYSTORE_TYPE_JAVACRYPTO)))
+             || type.equals(Constants.KEYSTORE_TYPE_JCEHYBRIDRACFKS) || type.equals(Constants.KEYSTORE_TYPE_JAVACRYPTO))) {
             setFileBased(false);
+        }
 
         this.isDefault = LibertyConstants.DEFAULT_KEYSTORE_REF_ID.equals(name);
 
@@ -315,6 +339,16 @@ public class WSKeyStore extends Properties {
                 // resolve paths now
                 setLocation(this.location);
             }
+        } else {
+            if ((type.equals(Constants.KEYSTORE_TYPE_JCERACFKS) || type.equals(Constants.KEYSTORE_TYPE_JCECCARACFKS)
+                 || type.equals(Constants.KEYSTORE_TYPE_JCEHYBRIDRACFKS))) {
+                if (password == null || password.isEmpty())
+                    password = racfPass;
+
+                // adjust the location if needed
+                location = processKeyringURL(location);
+            }
+
         }
 
         setUpInternalProperties();
@@ -542,10 +576,12 @@ public class WSKeyStore extends Properties {
                     setProperty(Constants.SSLPROP_TOKEN_ENABLED, Constants.TRUE);
 
                     // set appropriate provider for jvm vendor
-                    if (JavaInfo.vendor().equals(JavaInfo.Vendor.IBM))
-                        setProperty(Constants.SSLPROP_KEY_STORE_PROVIDER, IBMPKCS11Impl_PROVIDER_NAME);
-                    else
-                        setProperty(Constants.SSLPROP_KEY_STORE_PROVIDER, SUNPKCS11_PROVIDER_NAME);
+                    if (keyStoreProvider == null) {
+                        if (contextProvider.equals(Constants.IBMJSSE2_NAME))
+                            setProperty(Constants.SSLPROP_KEY_STORE_PROVIDER, IBMPKCS11Impl_PROVIDER_NAME);
+                        else
+                            setProperty(Constants.SSLPROP_KEY_STORE_PROVIDER, SUNPKCS11_PROVIDER_NAME);
+                    }
                 }
             }
 
@@ -881,10 +917,11 @@ public class WSKeyStore extends Properties {
                                 DefaultSSLCertificateCreator certCreator = null;
                                 try {
                                     String serverName = cfgSvc.getServerName();
-                                    List<String> san = null;
-                                    if (genKeyHostName != null) {
-                                        san = createCertSANInfo(genKeyHostName);
-                                    }
+                                    List<String> san = new ArrayList<String>();
+                                    String sanString = createCertSANInfo(genKeyHostName);
+                                    if (sanString != null)
+                                        san.add(sanString);
+
                                     // Call Certificate factory to go create the certificate
                                     certCreator = DefaultSSLCertificateFactory.getDefaultSSLCertificateCreator();
                                     certCreator.createDefaultSSLCertificate(keyStoreLocation, password, type, provider, DefaultSSLCertificateCreator.DEFAULT_VALIDITY,
@@ -962,16 +999,14 @@ public class WSKeyStore extends Properties {
                         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                             Tr.debug(tc, "KeyStore does not exist");
                         FFDCFilter.processException(e, getClass().getName(), "do_getKeyStore", this);
+                        throw e;
                     }
 
                     ks1 = JSSEProviderFactory.getInstance().getKeyStoreInstance(type, provider);
 
                     // if keyStore does not exists, if it is a default, or if create is
                     // true then load a new one.
-                    if (null == is
-                        && (create || (name != null && (name.endsWith(Constants.DEFAULT_KEY_STORE) || name.endsWith(Constants.DEFAULT_TRUST_STORE)
-                                                        || name.endsWith(Constants.DEFAULT_ROOT_STORE) || name.endsWith(Constants.DEFAULT_DELETED_STORE)
-                                                        || name.endsWith(Constants.DEFAULT_SIGNERS_STORE) || name.endsWith("LTPAKeys"))))) {
+                    if (null == is && (create)) {
                         ks1.load(null, password.toCharArray());
                         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                             Tr.debug(tc, "do_getKeyStore (loaded)");
@@ -1207,6 +1242,88 @@ public class WSKeyStore extends Properties {
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
             Tr.exit(tc, "provideExpirationWarnings");
+    }
+
+    public boolean isCollectiveCertSubjectAltNamesExist(WSKeyStore wsKeystore, String ksName) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.entry(tc, "isCollectiveCertSubjectAltNamesExist " + ksName);
+        KeyStore keystore = null;
+        try {
+            keystore = wsKeystore.getKeyStore(false, false, false);
+        } catch (Exception e) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "Exception getting the keystore, " + e);
+        }
+        if (keystore != null) {
+            try {
+                Enumeration<String> e = keystore.aliases();
+                if (e != null) {
+                    for (; e.hasMoreElements();) {
+                        String alias = e.nextElement();
+                        if (null == alias)
+                            continue;
+                        Certificate[] cert_chain = keystore.getCertificateChain(alias);
+                        if (null == cert_chain)
+                            continue;
+                        for (int i = 0; i < cert_chain.length; i++) {
+                            if (isDefaultServerIdentityCert((X509Certificate) cert_chain[i], alias)) {
+                                if (!isSanExist((X509Certificate) cert_chain[i])) {
+                                    Tr.warning(tc, "ssl.san.warning.CWPKI0050W", new Object[] { alias, ksName });
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(tc, "Exception checking certificate subject alternative names: " + e);
+                FFDCFilter.processException(e, getClass().getName(), "isSubjectAltNamesExist", this);
+                return false;
+            }
+        }
+
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.exit(tc, "isCollectiveCertSubjectAltNamesExist ", true);
+        return true;
+    }
+
+    private boolean isDefaultServerIdentityCert(X509Certificate x509Certificate, String alias) {
+        boolean result = false;
+        String issuerDN = x509Certificate.getIssuerX500Principal().getName();
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.debug(tc, "alias: " + alias + " issuer DN: " + issuerDN);
+        if (issuerDN != null && (issuerDN.contains(MEMBER_ROOT_KEY_ALIAS) || issuerDN.contains(CONTROLLER_ROOT_KEY_ALIAS))) {
+            String subjectDN = x509Certificate.getSubjectX500Principal().getName();
+            if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+                Tr.debug(tc, "subject DN: " + subjectDN);
+            if (!subjectDN.contains(MEMBER_ROOT_KEY_ALIAS) && !subjectDN.contains(CONTROLLER_ROOT_KEY_ALIAS)) {
+                result = true;
+            }
+        }
+
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.exit(tc, "isDefaultServerIdentityCert ", result);
+        return result;
+    }
+
+    private boolean isSanExist(X509Certificate x509Certificate) {
+        boolean result = false;
+        try {
+            Collection<List<?>> san = x509Certificate.getSubjectAlternativeNames();
+            if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+                Tr.debug(tc, "Certificate's Subject DN: " + x509Certificate.getSubjectX500Principal().getName() + " Subject Alternative Name: "
+                             + (san != null ? "<NOT NULL>" : "<NULL>"));
+            if (san != null)
+                result = true;
+
+        } catch (CertificateParsingException e) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "Exception getting Certifificate subject alternative name, " + e);
+        }
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.exit(tc, "isSanExist ", result);
+        return result;
     }
 
     /**
@@ -1603,11 +1720,11 @@ public class WSKeyStore extends Properties {
 
         try {
             for (int i = 0; i < certs.size(); i++) {
-                X509Certificate cert = (X509Certificate)certs.get(i);
+                X509Certificate cert = (X509Certificate) certs.get(i);
                 String subject = cert.getSubjectX500Principal().getName();
                 String envKey = "cert_" + name;
-                Tr.info(tc, "ssl.certificate.add.CWPKI0830I",new Object[] {subject, envKey, name});
-                
+                Tr.info(tc, "ssl.certificate.add.CWPKI0830I", new Object[] { subject, envKey, name });
+
                 // add the certificate to the keystore with an alias format: envcert-[index]-cert_[keystorename]
                 String alias = "envcert-" + String.valueOf(i) + "-" + key;
                 setCertificateEntryNoStore(alias.toLowerCase(), cert);
@@ -1684,31 +1801,148 @@ public class WSKeyStore extends Properties {
         return cannonicalLocation;
     }
 
-    private List<String> createCertSANInfo(String hostname) {
+    private String createCertSANInfo(String hostname) {
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
             Tr.entry(tc, "createCertSANInfo: " + hostname);
-        ArrayList<String> ext = new ArrayList<String>();
+        ArrayList<String> san = new ArrayList<String>();
+        String buildSanString = null;
+        String sanTag = "SAN=";
 
-        InetAddress addr;
         try {
-            addr = InetAddress.getByName(hostname);
-            if (addr != null && addr.toString().startsWith("/"))
-                ext.add("SAN=ip:" + hostname);
-            else {
-                // If the hostname start with a digit keytool will not create a SAN with the value
-                if (!Character.isDigit(hostname.charAt(0)))
-                    ext.add("SAN=dns:" + hostname);
+            if (hostname != null && !hostname.isEmpty()) {
+                if (hostname.equalsIgnoreCase("localhost")) {
+                    String host = InetAddress.getLocalHost().getCanonicalHostName();
+                    san.add("dns:" + removeDots(host));
+                }
+                InetAddress addr;
+                // get the InetAddress if there is one
+                addr = getInetAddress(hostname);
+                if (addr != null && addr.toString().startsWith("/"))
+                    san.add("ip:" + hostname);
+                else {
+                    san.add("dns:" + removeDots(hostname));
+                }
+            } else {
+                String host = InetAddress.getLocalHost().getCanonicalHostName();
+                san.add("dns:" + removeDots(host));
             }
+            String ipAddresses = DefaultSubjectDN.buildSanIpStringFromNetworkInterface();
+            if (ipAddresses != null)
+                san.add(ipAddresses);
         } catch (UnknownHostException e) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                 Tr.debug(tc, "createCertSANInfo exception -> " + e.getMessage());
             }
             // return null, do not set a SAN if there is a failure here
         }
+
+        if (!san.isEmpty()) {
+            for (String sanEntry : san) {
+                if (buildSanString != null)
+                    buildSanString = buildSanString + "," + sanEntry;
+                else
+                    buildSanString = sanTag + sanEntry;
+            }
+        }
+
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
-            Tr.exit(tc, "createCertSANInfo: " + ext);
-        return (ext);
+            Tr.exit(tc, "createCertSANInfo: " + buildSanString);
+        return (buildSanString);
+
     }
+
+    /**
+    * Removes leading and trailing dots from a DNS string.
+    * @param dnsString the DNS string to be processed
+    * @return the DNS string with leading and trailing dots removed
+    */
+    String removeDots(String dnsString) {
+        return dnsString.replaceAll("^\\.", "").replaceAll("\\.$", "");
+    }
+    
+    /**
+     * @param hostname
+     * @return
+     */
+    private InetAddress getInetAddress(String hostname) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.entry(tc, "getInetAddress: " + hostname);
+        InetAddress addr = null;
+        try {
+            addr = InetAddress.getByName(hostname);
+        } catch (Exception e) {
+            //hostname likely does not resolve to an address
+        }
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.exit(tc, "getInetAddress: " + addr);
+        return addr;
+    }
+
+    /*
+     * checking for a valid dnsName value, the SAN entry is pretty specific.
+     * Only alphas, digits, and hyphin are allowed. A period is allowed when domain are added.
+     * No part of the domain name can start with a digit
+     * The dnsName can not start or end with a period, and there can not be any empty component of the domain name
+     */
+
+    /*
+     * Removing isGoodDNSName as we do not believe we need this any longer.
+     * The check for the first character being numeric is invalid because this is allowed since RFC1123.
+     * We will no longer validate hostnames before adding them into the SAN and will delegate that to the certificate creation tool
+     *
+     * public static boolean isGoodDNSName(String dnsName) {
+     * if (tc.isEntryEnabled())
+     * Tr.entry(tc, "isGoodDNSName", dnsName);
+     * String alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+     * String validCharsString = alpha + "0123456789-.";
+     * // Make sure the first character is not a digit.
+     * if (Character.isDigit(dnsName.charAt(0))) {
+     * if (tc.isEntryEnabled())
+     * Tr.exit(tc, "isGoodDNSName - dnsName starts with digit", false);
+     * return false;
+     * }
+     * // make sure the dnsName does not start or end with a period
+     * if (dnsName.charAt(0) == '.' || dnsName.charAt(dnsName.length() - 1) == '.') {
+     * if (tc.isEntryEnabled())
+     * Tr.exit(tc, "isGoodDNSName - dnsName starts or ends with a '.' ", false);
+     * return false;
+     * }
+     * // Make sure there are no unacceptable characters in the dnsName
+     * for (int i = 0; i < dnsName.length(); i++) {
+     * char x = dnsName.charAt(i);
+     * if (validCharsString.indexOf(x) < 0) {
+     * if (tc.isEntryEnabled())
+     * Tr.exit(tc, "isGoodDNSName - dnsName contains invalid character", false);
+     * return false;
+     * }
+     * }
+     * // look at the domain parts
+     * for (int endIndex, startIndex = 0; startIndex < dnsName.length(); startIndex = endIndex + 1) {
+     * endIndex = dnsName.indexOf('.', startIndex);
+     * // getting part of the domain name
+     * if (endIndex < 0) {
+     * endIndex = dnsName.length();
+     * }
+     * // DNSName SubjectAltNames with empty components are not permitted
+     * if ((endIndex - startIndex) < 1) {
+     * if (tc.isEntryEnabled())
+     * Tr.exit(tc, "isGoodDNSName - dnsName domain section is empty", false);
+     * return false;
+     * }
+     * //DNSName components must begin with a letter A-Z or a-z
+     * if (alpha.indexOf(dnsName.charAt(startIndex)) < 0) {
+     * if (tc.isEntryEnabled())
+     * Tr.exit(tc, "isGoodDNSName - dnsName domain part starts with a digit", false);
+     * return false; //DNSName components must begin with a letter
+     * }
+     * }
+     * if (tc.isEntryEnabled())
+     * Tr.exit(tc, "isGoodDNSName", true);
+     * return true;
+     * }
+     *
+     *
+     */
 
     /**
      * Acquire the writer lock. To be used to prevent concurrent keystore
@@ -1768,4 +2002,40 @@ public class WSKeyStore extends Properties {
         }
         return original;
     }
+
+    public static String processKeyringURL(String safKeyringURL) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.entry(tc, "processKeyringURL: " + safKeyringURL);
+        String processedUrl = safKeyringURL;
+
+        //Check the prefix first,  it may need to be converted first
+        String replacePrefix = null;
+        if (JavaInfo.majorVersion() >= 11) {
+            if (processedUrl.startsWith(PREFIX_SAFKEYRING))
+                replacePrefix = PREFIX_SAFKEYRINGJCE;
+            else if (processedUrl.startsWith(PREFIX_SAFKEYRINGHYBRID))
+                replacePrefix = PREFIX_SAFKEYRINGJCEHYBRID;
+            else if (processedUrl.startsWith(PREFIX_SAFKEYRINGHW))
+                replacePrefix = PREFIX_SAFKEYRINGJCECCA;
+        } else {
+            if (processedUrl.startsWith(PREFIX_SAFKEYRINGJCE))
+                replacePrefix = PREFIX_SAFKEYRING;
+            else if (processedUrl.startsWith(PREFIX_SAFKEYRINGJCEHYBRID))
+                replacePrefix = PREFIX_SAFKEYRINGHYBRID;
+            else if (processedUrl.startsWith(PREFIX_SAFKEYRINGJCECCA))
+                replacePrefix = PREFIX_SAFKEYRINGHW;
+        }
+
+        if (replacePrefix != null) {
+            int index = processedUrl.indexOf(":");
+            String removedPrefix = processedUrl.substring(index + 1);
+            processedUrl = replacePrefix + removedPrefix;
+        }
+
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.exit(tc, "processKeyringURL: " + processedUrl);
+
+        return processedUrl;
+    }
+
 }

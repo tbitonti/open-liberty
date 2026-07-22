@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2017 IBM Corporation and others.
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,6 +19,8 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.regex.Pattern;
@@ -70,6 +75,8 @@ public class PackageProcessor implements ArchiveProcessor {
 
     private final Set<String> processContent;
 
+    private final boolean containsManualVersionlessEnvVariable;
+
     final File installRoot;
     final String wlpProperty = "/lib/versions/WebSphereApplicationServer.properties";
     final String wlpPropertyBackup = "WebSphereApplicationServer.properties.bak";
@@ -78,6 +85,8 @@ public class PackageProcessor implements ArchiveProcessor {
     public String packageArchiveEntryPrefix = PACKAGE_ARCHIVE_PREFIX;
 
     public boolean isServerRootOptionSet = false;
+
+    private static final String PPV_KEY = "PREFERRED_PLATFORM_VERSIONS";
 
     public PackageProcessor(String processName, File packageFile, BootstrapConfig bootProps, List<Pair<PackageOption, String>> options, Set<String> processContent) {
         this.processName = processName;
@@ -99,6 +108,8 @@ public class PackageProcessor implements ArchiveProcessor {
 
         this.workAreaTmpDir = new File(bootProps.get(BootstrapConstants.LOC_PROPERTY_SRVTMP_DIR));
         this.workAreaTmpDir.mkdirs();
+
+        this.containsManualVersionlessEnvVariable = checkManualPPVEnvVariable();
     }
 
     /**
@@ -188,6 +199,12 @@ public class PackageProcessor implements ArchiveProcessor {
     }
 
     public ReturnCode execute(boolean runtimeOnly) {
+
+        // WARN if manual PPV env variable is included.
+        if (containsManualVersionlessEnvVariable == true) {
+            System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("warning.manual.PPV.env.var"), processName));
+        }
+
         Archive archive = null;
         ReturnCode rc = backupWebSphereApplicationServerProperty(installRoot);
         if (!rc.equals(ReturnCode.OK)) {
@@ -369,6 +386,16 @@ public class PackageProcessor implements ArchiveProcessor {
         File templatesDir = new File(bootProps.getInstallRoot(), "templates");
         DirEntryConfig templatesDirConfig = new DirEntryConfig(packageArchiveEntryPrefix + "templates", templatesDir, true, PatternStrategy.IncludePreference);
         entryConfigs.add(templatesDirConfig);
+
+        /*
+         * Add back the lib/security directory
+         * Contains Liberty's Semeru FIPS 140-3 custom profile file
+         */
+        File securityDir = new File(bootProps.getInstallRoot(), "lib/security");
+        if (securityDir.exists()) {
+            DirEntryConfig securityDirConfig = new DirEntryConfig(packageArchiveEntryPrefix + "lib/security", securityDir, true, PatternStrategy.IncludePreference);
+            entryConfigs.add(securityDirConfig);
+        }
 
         /*
          * Add back the templates directory (if building a jar, it's already added)
@@ -814,5 +841,88 @@ public class PackageProcessor implements ArchiveProcessor {
     private String getValue(String line) {
         int loc = line.indexOf("=");
         return line.substring(0, loc);
+    }
+
+    /**
+     * Checks if the PREFERRED_PLATFORM_VERSIONS environment variable is manual or in server.env
+     *
+     * @return
+     */
+    private boolean checkManualPPVEnvVariable() {
+
+        boolean serverEnvContainsVariable = false;
+        boolean envContainsVariable = false;
+        BufferedReader reader = null;
+        File serverEnv = null;
+
+        // Get ALL of the environment variables after the server script has read them.
+        // We don't know if the PPV variable was in server.env or manually set yet...
+        Map<String, String> env = new TreeMap<String, String>(getEnvironment());
+        if (env.containsKey(PPV_KEY)) {
+            envContainsVariable = true;
+        }
+
+        // Valid locations of the server.env file
+        String SERVER_ENV_LOC1 = File.separator + "etc" + File.separator + "server.env";
+        String SERVER_ENV_LOC2 = File.separator + "usr" + File.separator + "shared" + File.separator + "server.env";
+        String SERVER_ENV_LOC3 = File.separator + "usr" + File.separator + "servers" + File.separator + processName + File.separator + "server.env";
+        String[] fileLocations = new String[] { SERVER_ENV_LOC1, SERVER_ENV_LOC2, SERVER_ENV_LOC3 };
+
+        // Read the server.env files to see if the PPV exists
+        for (int i = 0; i < fileLocations.length; i++) {
+            try {
+                serverEnv = new File(installRoot.getAbsolutePath() + fileLocations[i]);
+
+                if (serverEnv.exists()) {
+                    reader = new BufferedReader(new FileReader(serverEnv));
+                    String line = reader.readLine();
+                    while (line != null) {
+                        if (!line.startsWith("#")) {
+                            if (line.contains(PPV_KEY)) {
+                                serverEnvContainsVariable = true;
+                                break;
+                            }
+                        }
+                        line = reader.readLine();
+                    }
+
+                    reader.close();
+                }
+            } catch (IOException ioe) {
+                System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("error.read.server.env"), installRoot.getAbsolutePath() + fileLocations[i]));
+                Debug.printStackTrace(ioe);
+            } finally {
+                if (reader != null) {
+                    try {
+                        reader.close();
+                    } catch (IOException e) {
+                        Debug.printStackTrace(e);
+                    }
+                }
+            }
+        }
+
+        // If the PPV is in the larger list of environment variables, but not in server.env
+        // then we know it was set manually and return true.
+        if (envContainsVariable == true && serverEnvContainsVariable == false) {
+            return true;
+        } else {
+            return false;
+        }
+
+    }
+
+    /**
+     * Gets all of the environment variables in a doPriviledged block
+     *
+     * @return
+     */
+    private Map<String, String> getEnvironment() {
+        return AccessController.doPrivileged(new PrivilegedAction<Map<String, String>>() {
+            @Override
+            public Map<String, String> run() {
+                return System.getenv();
+            }
+        });
     }
 }

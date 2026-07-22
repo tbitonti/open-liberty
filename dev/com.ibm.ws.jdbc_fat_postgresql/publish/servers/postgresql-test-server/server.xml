@@ -1,3 +1,15 @@
+<!--
+    Copyright (c) 2019, 2025 IBM Corporation and others.
+    All rights reserved. This program and the accompanying materials
+    are made available under the terms of the Eclipse Public License 2.0
+    which accompanies this distribution, and is available at
+    http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0
+   
+    Contributors:
+        IBM Corporation - initial API and implementation
+-->
 <server>
 
     <featureManager>
@@ -12,13 +24,17 @@
     </application>
     
     <dataSource jndiName="jdbc/postgres/genericprops">
-      <jdbcDriver libraryRef="PostgresLib" />
+      <jdbcDriver libraryRef="PostgresLibJar" />
       <properties serverName="${env.POSTGRES_HOST}" portNumber="${env.POSTGRES_PORT}" databaseName="${env.POSTGRES_DB}" user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}"/>
     </dataSource>
 
     <!-- Uses an anonymously named postgres JDBC driver, so that the file name heuristic doesn't discover the driver type -->    
     <library id="PostgresLib">
         <fileset dir="${server.config.dir}/jdbc"/>
+    </library>
+    
+    <library id="PostgresLibJar">
+        <path name="${shared.resource.dir}/postgres/postgresql.jar"/>
     </library>
     
     <!-- datasource type auto-detection should locate the java.sql.Driver in the driver.jar -->
@@ -33,9 +49,15 @@
                   defaultRowFetchSize="5" applicationName="postgresqlApp"/>
     </dataSource>
     
+    <dataSource jndiName="jdbc/postgres/XADataSource" type="javax.sql.XADataSource">
+      <jdbcDriver libraryRef="PostgresLibJar" />
+      <properties serverName="${env.POSTGRES_HOST}" portNumber="${env.POSTGRES_PORT}" databaseName="${env.POSTGRES_DB}" user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}"
+                  defaultRowFetchSize="5" applicationName="postgresqlApp"/>
+    </dataSource>
+    
     <dataSource jndiName="jdbc/postgres/minimal">
-      <jdbcDriver libraryRef="PostgresLib" />
-      <properties.postgresql serverName="${env.POSTGRES_HOST}" portNumber="${env.POSTGRES_PORT}" databaseName="${env.POSTGRES_DB}" user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}"/>
+      <jdbcDriver libraryRef="PostgresLibJar" />
+      <properties.postgresql serverName="${env.POSTGRES_HOST}" portNumber="${env.POSTGRES_PORT}" databaseName="${env.POSTGRES_DB}" user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}" autosave="never"/>
     </dataSource>
     
     <dataSource jndiName="jdbc/postgres/xa" type="javax.sql.XADataSource">
@@ -52,37 +74,57 @@
     </dataSource>
     
     <dataSource jndiName="jdbc/postgres/ConnectionPoolDataSource" type="javax.sql.ConnectionPoolDataSource">
-      <jdbcDriver libraryRef="PostgresLib" />
+      <jdbcDriver libraryRef="PostgresLibJar" />
       <properties.postgresql serverName="${env.POSTGRES_HOST}" portNumber="${env.POSTGRES_PORT}" databaseName="${env.POSTGRES_DB}" user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}"/>
     </dataSource>
     
     <dataSource jndiName="jdbc/postgres/DataSource" type="javax.sql.DataSource">
-      <jdbcDriver libraryRef="PostgresLib" />
+      <jdbcDriver libraryRef="PostgresLibJar" />
       <properties.postgresql serverName="${env.POSTGRES_HOST}" portNumber="${env.POSTGRES_PORT}" databaseName="${env.POSTGRES_DB}" user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}"/>
     </dataSource>
     
     <dataSource jndiName="jdbc/postgres/readOnly">
-      <jdbcDriver libraryRef="PostgresLib" />
+      <jdbcDriver libraryRef="PostgresLibJar" />
       <properties.postgresql serverName="${env.POSTGRES_HOST}" portNumber="${env.POSTGRES_PORT}" databaseName="${env.POSTGRES_DB}" user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}"
-                             readOnly="true"/>
+                             readOnly="true" readOnlyMode="always"/>
     </dataSource>
     
     <dataSource jndiName="jdbc/postgres/defaultAutoCommit" type="javax.sql.ConnectionPoolDataSource">
-      <jdbcDriver libraryRef="PostgresLib" />
+      <jdbcDriver libraryRef="PostgresLibJar" />
       <properties.postgresql serverName="${env.POSTGRES_HOST}" portNumber="${env.POSTGRES_PORT}" databaseName="${env.POSTGRES_DB}" user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}"
                              defaultAutoCommit="true" connectTimeout="10s"/>
     </dataSource>
     
     <dataSource jndiName="jdbc/postgres/defaultAutoCommitOff" type="javax.sql.ConnectionPoolDataSource">
-      <jdbcDriver libraryRef="PostgresLib" />
+      <jdbcDriver libraryRef="PostgresLibJar" />
       <connectionManager enableSharingForDirectLookups="false"/>
       <properties.postgresql serverName="${env.POSTGRES_HOST}" portNumber="${env.POSTGRES_PORT}" databaseName="${env.POSTGRES_DB}" user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}"
                              defaultAutoCommit="false"/>
     </dataSource>
     
     <dataSource jndiName="jdbc/postgres/urlOnly">
-      <jdbcDriver libraryRef="PostgresLib" />
+      <jdbcDriver libraryRef="PostgresLibJar" />
       <properties.postgresql URL="${env.POSTGRES_URL}"/>
+    </dataSource>
+    
+    <!-- 
+    	 Verify precedence of connection properties on Driver
+    -->
+    <dataSource id="driver-url-preferred" jndiName="jdbc/driver-url-preferred" type="java.sql.Driver">
+      <jdbcDriver libraryRef="PostgresLibJar"/>
+      <containerAuthData user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}"/>
+      <properties.postgresql url="jdbc:postgresql://${env.POSTGRES_HOST}:${env.POSTGRES_PORT}/${env.POSTGRES_DB}"
+      serverName="$INVALID" portNumber="000" databaseName="$INVALID"/> <!-- Should be ignored -->
+    </dataSource>
+    
+    <!-- 
+    	 Verify precedence of connection properties on DataSource
+    -->
+    <dataSource id="ds-property-preferred" jndiName="jdbc/ds-property-preferred" type="javax.sql.DataSource">
+      <jdbcDriver libraryRef="PostgresLibJar"/>
+      <containerAuthData user="${env.POSTGRES_USER}" password="${env.POSTGRES_PASS}"/>
+      <properties.postgresql URL="jdbc:postgresql://$INVALID:100/$INVALID"
+      serverName="${env.POSTGRES_HOST}" portNumber="${env.POSTGRES_PORT}" databaseName="${env.POSTGRES_DB}"/>
     </dataSource>
     
     <include location="../fatTestPorts.xml"/>

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020, 2021 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -36,6 +38,7 @@ import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.topology.impl.LibertyServer;
 import io.openliberty.microprofile.internal.test.helloworld.HelloWorldApplication;
+import io.openliberty.microprofile.internal.test.helloworld.basic.BasicHelloWorldBean;
 import io.openliberty.microprofile.internal.test.helloworld.config.ConfiguredHelloWorldBean;
 
 @RunWith(FATRunner.class)
@@ -48,7 +51,7 @@ public class MPCompatibleTest {
 
     private static final String APP_NAME = "helloworld";
 
-    private static final String MESSAGE = "Hello World!";
+    private static final String MESSAGE = BasicHelloWorldBean.MESSAGE;
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -64,7 +67,7 @@ public class MPCompatibleTest {
     }
 
     /**
-     * Just microProfile-4.0 ... Should always pass, a sanity check
+     * Just microProfile-4.0 ... Should always pass, a test
      *
      * @throws Exception
      */
@@ -118,7 +121,7 @@ public class MPCompatibleTest {
                                           false, //expectStartFailure
                                           false); //validateTimedExit
         } finally {
-            server.stopServer("CWWKF0044E: The concurrent-2.0 and .* features cannot be loaded at the same time",
+            server.stopServer("(CWWKF0044E|CWWKF0047E): The concurrent-2.0 and .* features cannot be loaded at the same time",
                               "CWWKF0046W: The configuration includes an incompatible combination of features");
         }
     }
@@ -142,8 +145,8 @@ public class MPCompatibleTest {
     }
 
     /**
-     * microProfile-4.0 plus jakartaee-9.0
-     * Should fail because microProfile-4.0 is not compatible with jakartaee-9.0
+     * microProfile-4.0 plus jakartaee-9.1
+     * Should fail because microProfile-4.0 is not compatible with jakartaee-9.1
      *
      * @throws Exception
      */
@@ -269,10 +272,7 @@ public class MPCompatibleTest {
             server.startServer();
             runGetMethod(200, "/helloworld/helloworld", MESSAGE);
         } finally {
-            //I think CWWWC0002W is a configuration error and should not appear
-            //Should be removed by issue 15496
-            server.stopServer("CWMOT0010W", //CWMOT0010W: OpenTracing cannot track JAX-RS requests because an OpentracingTracerFactory class was not provided or client libraries for tracing backend are not in the class path.
-                              "CWWWC0002W");//CWWWC0002W: No servlet definition is found for the ExecutionServlet servlet name in the AuthorizationFilter filter mapping.
+            server.stopServer("CWMOT0010W"); //CWMOT0010W: OpenTracing cannot track JAX-RS requests because an OpentracingTracerFactory class was not provided or client libraries for tracing backend are not in the class path.
         }
     }
 
@@ -296,10 +296,7 @@ public class MPCompatibleTest {
             server.startServer();
             runGetMethod(200, "/helloworld/helloworld", MESSAGE);
         } finally {
-            //I think CWWWC0002W is a configuration error and should not appear
-            //Should be removed by issue 15496
-            server.stopServer("CWMOT0010W", //CWMOT0010W: OpenTracing cannot track JAX-RS requests because an OpentracingTracerFactory class was not provided or client libraries for tracing backend are not in the class path.
-                              "CWWWC0002W");//CWWWC0002W: No servlet definition is found for the ExecutionServlet servlet name in the AuthorizationFilter filter mapping.
+            server.stopServer("CWMOT0010W"); //CWMOT0010W: OpenTracing cannot track JAX-RS requests because an OpentracingTracerFactory class was not provided or client libraries for tracing backend are not in the class path.
         }
     }
 

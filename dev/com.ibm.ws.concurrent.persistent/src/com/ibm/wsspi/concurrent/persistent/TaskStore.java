@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -217,7 +219,7 @@ public interface TaskStore {
      *
      * @param maxNextExecTime maximum next execution time (in milliseconds)
      * @param maxResults      maximum number of results to return. Null means unlimited.
-     * @return List of (Id, MiscBinaryFlags, NextExecutionTime, TransactionTimeout, Version) pairs.
+     * @return List of (Id, IdentityOfOwner, MiscBinaryFlags, NextExecutionTime, TransactionTimeout, Version) pairs.
      * @throws Exception if an error occurs when attempting to access the persistent task store.
      */
     List<Object[]> findUnclaimedTasks(long maxNextExecTime, Integer maxResults) throws Exception;

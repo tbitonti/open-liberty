@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.rsadapter.jdbc.v43;
 
@@ -53,7 +52,7 @@ public class WSJdbc43Connection extends WSJdbc41Connection implements Connection
             // Update the connection request information with the new value, so that
             // requests for shared connections will match based on the updated criteria.
             if (updated && managedConn.connectionSharing == ConnectionSharing.MatchCurrentState) {
-                WSConnectionRequestInfoImpl cri = (WSConnectionRequestInfoImpl) managedConn.getConnectionRequestInfo();
+                WSConnectionRequestInfoImpl cri = managedConn.getConnectionRequestInfo();
                 if (!cri.isCRIChangable())
                     managedConn.setCRI(cri = WSConnectionRequestInfoImpl.createChangableCRIFromNon(cri));
 
@@ -87,7 +86,7 @@ public class WSJdbc43Connection extends WSJdbc41Connection implements Connection
             // Update the connection request information with the new value, so that
             // requests for shared connections will match based on the updated criteria.
             if (updated && managedConn.connectionSharing == ConnectionSharing.MatchCurrentState) {
-                WSConnectionRequestInfoImpl cri = (WSConnectionRequestInfoImpl) managedConn.getConnectionRequestInfo();
+                WSConnectionRequestInfoImpl cri = managedConn.getConnectionRequestInfo();
                 if (!cri.isCRIChangable())
                     managedConn.setCRI(cri = WSConnectionRequestInfoImpl.createChangableCRIFromNon(cri));
 
@@ -120,7 +119,7 @@ public class WSJdbc43Connection extends WSJdbc41Connection implements Connection
             // Update the connection request information with the new value, so that
             // requests for shared connections will match based on the updated criteria.
             if (managedConn.connectionSharing == ConnectionSharing.MatchCurrentState) {
-                WSConnectionRequestInfoImpl cri = (WSConnectionRequestInfoImpl) managedConn.getConnectionRequestInfo();
+                WSConnectionRequestInfoImpl cri = managedConn.getConnectionRequestInfo();
                 if (!cri.isCRIChangable())
                     managedConn.setCRI(cri = WSConnectionRequestInfoImpl.createChangableCRIFromNon(cri));
 
@@ -152,7 +151,7 @@ public class WSJdbc43Connection extends WSJdbc41Connection implements Connection
             // Update the connection request information with the new value, so that
             // requests for shared connections will match based on the updated criteria.
             if (managedConn.connectionSharing == ConnectionSharing.MatchCurrentState) {
-                WSConnectionRequestInfoImpl cri = (WSConnectionRequestInfoImpl) managedConn.getConnectionRequestInfo();
+                WSConnectionRequestInfoImpl cri = managedConn.getConnectionRequestInfo();
                 if (!cri.isCRIChangable())
                     managedConn.setCRI(cri = WSConnectionRequestInfoImpl.createChangableCRIFromNon(cri));
 

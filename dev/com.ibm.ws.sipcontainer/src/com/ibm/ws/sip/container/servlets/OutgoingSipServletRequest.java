@@ -1,12 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.sip.container.servlets;
 
@@ -685,12 +684,13 @@ public class OutgoingSipServletRequest extends SipServletRequestImpl
         boolean wasSent = transaction.sendRequest();
         
         //In some case the request might have not been actually sent, e.g. 
-        //CANCEL when a provisional response has been not received yet. Verify that
-        //it was sent before changing the state. 
+        //CANCEL when a provisional response has been not received yet. 
+        //Verify that it was sent before changing the state. 
         if(wasSent)
         {
-            //Changes the state of the Message to commited so it no longer can 
-            //be modified after it is sent.
+            //It was sent. 
+            //Change the state of the message to Committed 
+            //so it no longer can be modified.
             setIsCommited(true);
             
             //clean up the client transaction listener - no longer needed
@@ -1696,14 +1696,14 @@ public class OutgoingSipServletRequest extends SipServletRequestImpl
     	if (!isLiveMessage("createCancel"))
     		return null;
     	
-    	//Invite message that was not sent yet, therefore is not in commit state, cannot get canceled 
+    	//Invite message was not sent yet, therefore it is not in Committed state. It cannot be canceled 
     	if (!isCommitted())
     	{
     		if (c_logger.isTraceDebugEnabled()) {
-    			c_logger.traceDebug(this, "createCancel", "Can not cancel an outgoing request that is not commited");
+    			c_logger.traceDebug(this, "createCancel", "Cannot cancel an outgoing request that is not committed");
     		}
 
-    		throw new IllegalStateException("Can not cancel an outgoing request that is not commited");
+    		throw new IllegalStateException("Cannot cancel an outgoing request that is not committed");
     	}
 
     	//if the outgoing request is committed, the transaction must be set on it.
@@ -2197,8 +2197,8 @@ public class OutgoingSipServletRequest extends SipServletRequestImpl
 			}
 		}
 		
-		// If the directive is NEW the composition selection 
-		// process will start then the old state info recived from 
+		// If the directive is NEW, the composition selection 
+		// process will start, then the old state info received from 
 		// application router is irrelevant
 		if (directive.equals(SipApplicationRoutingDirective.NEW)){
 			this.setStateInfo(null);
@@ -2334,37 +2334,31 @@ public class OutgoingSipServletRequest extends SipServletRequestImpl
 
 	@Override
 	public AsyncContext getAsyncContext() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public DispatcherType getDispatcherType() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public ServletContext getServletContext() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public boolean isAsyncStarted() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public AsyncContext startAsync() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public AsyncContext startAsync(ServletRequest arg0, ServletResponse arg1) {
-		// TODO Auto-generated method stub
 		return null;
 	}
 

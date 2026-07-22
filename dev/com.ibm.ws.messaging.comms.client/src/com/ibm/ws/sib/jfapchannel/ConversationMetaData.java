@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2006 IBM Corporation and others.
+ * Copyright (c) 2004, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -26,30 +28,12 @@ public interface ConversationMetaData
    String getChainName();
    
    /**
-    * True if the conversation passed through a SSL channel.  False otherwise.
-    * @return True iff the conversation passed through an SSL channel.
-    */
-   boolean containsSSLChannel();
-   
-   /**
-    * True if the conversation passed through a HTTP tunnel channel.  False otherwise.
-    * @return True iff the conversation passed through a HTTP tunnel channel.
-    */
-   boolean containsHTTPTunnelChannel();
-   
-   /**
     * True if the conversation is inbound.  I.e. the conversation was established by our peer.
     * False if the conversation is outbound (ie. we established the conversation with our peer).
     * @return True iff the conversation is inbound
     */
    boolean isInbound();
 
-   /**
-    * @return True if the conversation is over a "trusted" connection.  An example of such
-    * a connection would be the z/OS cross memory channel.
-    */
-   boolean isTrusted();                                                 // F224759.1
-   
    /**
     * @return Network address of the peer to which this connection is connected.
     * The value returned might be:<ul>

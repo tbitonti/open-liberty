@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2016 IBM Corporation and others.
+ * Copyright (c) 1997, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,13 +14,16 @@
 package com.ibm.websphere.crypto;
 
 import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.crypto.util.InvalidPasswordCipherException;
+import com.ibm.ws.crypto.util.MessageUtils;
 import com.ibm.ws.crypto.util.PasswordCipherUtil;
 import com.ibm.ws.crypto.util.PasswordHashGenerator;
 import com.ibm.wsspi.security.crypto.EncryptedInfo;
@@ -27,9 +32,17 @@ import com.ibm.wsspi.security.crypto.EncryptedInfo;
  * Password related utilities.
  */
 public class PasswordUtil {
+
+    /**
+     * <p>
+     * Constant that holds a raw base64 AES-256 key for encode and encode_password methods.
+     * If both PROPERTY_CRYPTO_KEY and PROPERTY_AES_KEY are set during encode, PROPERTY_AES_KEY will be used.
+     */
+    public final static String PROPERTY_AES_KEY = "aes.key";
     /**
      * <p>
      * Constant that holds the name of the property for specifying the encryption algorithm for the encode and encode_password method.
+     * If both PROPERTY_CRYPTO_KEY and PROPERTY_AES_KEY are set during encode, PROPERTY_AES_KEY will be used.
      * </p>
      **/
     public final static String PROPERTY_CRYPTO_KEY = "crypto.key";
@@ -72,6 +85,24 @@ public class PasswordUtil {
      * </p>
      **/
     public final static String PROPERTY_HASH_LENGTH = "hash.length";
+    /**
+     * <p>
+     * Constant that holds the name of the property for specifying keyring where the encryption key is stored.
+     * </p>
+     **/
+    public final static String PROPERTY_KEYRING = "keyring";
+    /**
+     * <p>
+     * Constant that holds the name of the property for secifying the type of the keyring where the encryption key is stored.
+     * </p>
+     **/
+    public final static String PROPERTY_KEYRING_TYPE = "keyring.type";
+    /**
+     * <p>
+     * Constant that holds the name of the property for specifying the label for the encryption key stored in the keyring.
+     * </p>
+     **/
+    public final static String PROPERTY_KEY_LABEL = "key.label";
 
     private static final Class<?> CLASS_NAME = PasswordUtil.class;
     private static final String RB = "com.ibm.ws.crypto.util.internal.resources.Messages";
@@ -102,7 +133,7 @@ public class PasswordUtil {
      *
      * @param encoded_string the string to be decoded.
      * @return The decoded string
-     * @throws InvalidPasswordDecodingException If the encoded_string is null or invalid. Or the decoded_string is null.
+     * @throws InvalidPasswordDecodingException    If the encoded_string is null or invalid. Or the decoded_string is null.
      * @throws UnsupportedCryptoAlgorithmException If the specified algorithm is not supported for decoding.
      */
     public static String decode(String encoded_string) throws InvalidPasswordDecodingException, UnsupportedCryptoAlgorithmException {
@@ -137,7 +168,7 @@ public class PasswordUtil {
                 // don't accept unsupported crypto algorithm
                 throw new UnsupportedCryptoAlgorithmException();
             } else {
-                throw new InvalidPasswordDecodingException();
+                throw new InvalidPasswordDecodingException(crypto_algorithm);
             }
         }
 
@@ -149,10 +180,10 @@ public class PasswordUtil {
      * For example, {xor}CDo9Hgw=.
      * If the decoded_string is already encoded, the string will be decoded and then encoded by using the default encoding algorithm.
      * Use this method for encoding the string by using the default encoding algorithm.
-     * 
+     *
      * @param decoded_string the string to be encoded.
      * @return The encoded string.
-     * @throws InvalidPasswordEncodingException If the decoded_string is null or invalid. Or the encoded_string is null.
+     * @throws InvalidPasswordEncodingException    If the decoded_string is null or invalid. Or the encoded_string is null.
      * @throws UnsupportedCryptoAlgorithmException If the algorithm is not supported.
      */
     public static String encode(String decoded_string) throws InvalidPasswordEncodingException, UnsupportedCryptoAlgorithmException {
@@ -166,10 +197,10 @@ public class PasswordUtil {
      * Use this method for encoding the string by using specific encoding algorithm.
      * Use securityUtility encode --listCustom command line utility to see if any additional custom encryptions are supported.
      *
-     * @param decoded_string the string to be encoded.
-     * @param crypto_algorithm the algorithm to be used for encoding. The supported values are xor, aes, or hash.
+     * @param decoded_string   the string to be encoded.
+     * @param crypto_algorithm the algorithm to be used for encoding. The supported values are xor, aes, aes-128, aes-256, or hash.
      * @return The encoded string.
-     * @throws InvalidPasswordEncodingException If the decoded_string is null or invalid. Or the encoded_string is null.
+     * @throws InvalidPasswordEncodingException    If the decoded_string is null or invalid. Or the encoded_string is null.
      * @throws UnsupportedCryptoAlgorithmException If the algorithm is not supported.
      */
     public static String encode(String decoded_string, String crypto_algorithm) throws InvalidPasswordEncodingException, UnsupportedCryptoAlgorithmException {
@@ -181,12 +212,12 @@ public class PasswordUtil {
      * If the decoded_string is already encoded, the string will be decoded and then encoded by using the specified crypto algorithm.
      * Use this method for encoding the string by using the AES encryption with the specific crypto key.
      * Note that this method is only avaiable for the Liberty profile.
-     * 
-     * @param decoded_string the string to be encoded.
+     *
+     * @param decoded_string   the string to be encoded.
      * @param crypto_algorithm the algorithm to be used for encoding.
-     * @param crypto_key the key for the encryption. This value is only valid for aes algorithm.
+     * @param crypto_key       the key for the encryption. This value is only valid for aes algorithm.
      * @return The encoded string.
-     * @throws InvalidPasswordEncodingException If the decoded_string is null or invalid. Or the encoded_string is null.
+     * @throws InvalidPasswordEncodingException    If the decoded_string is null or invalid. Or the encoded_string is null.
      * @throws UnsupportedCryptoAlgorithmException If the algorithm is not supported.
      */
     public static String encode(String decoded_string, String crypto_algorithm, String crypto_key) throws InvalidPasswordEncodingException, UnsupportedCryptoAlgorithmException {
@@ -202,11 +233,11 @@ public class PasswordUtil {
      * If the decoded_string is already encoded, the string will be decoded and then encoded by using the specified crypto algorithm.
      * Note that this method is only avaiable for the Liberty profile.
      *
-     * @param decoded_string the string to be encoded.
-     * @param crypto_algorithm the algorithm to be used for encoding. The supported values are xor, aes, or hash.
-     * @param properties the properties for the encryption.
+     * @param decoded_string   the string to be encoded.
+     * @param crypto_algorithm the algorithm to be used for encoding. The supported values are xor, aes, aes-128, aes-256, or hash.
+     * @param properties       the properties for the encryption.
      * @return The encoded string.
-     * @throws InvalidPasswordEncodingException If the decoded_string is null or invalid. Or the encoded_string is null.
+     * @throws InvalidPasswordEncodingException    If the decoded_string is null or invalid. Or the encoded_string is null.
      * @throws UnsupportedCryptoAlgorithmException If the algorithm is not supported.
      */
     public static String encode(String decoded_string, String crypto_algorithm,
@@ -232,13 +263,33 @@ public class PasswordUtil {
         }
 
         String current_crypto_algorithm = getCryptoAlgorithm(decoded_string);
+        // Exclude empty algorithm ("{}prefix") from isValidCurrentAlgorithm — an empty tag is not
+        // a real encoding, so a password like "{}testtest" must be treated as literal plaintext
+        // and encoded in full, preserving the {} characters in the round-trip.
+        boolean isValidCurrentAlgorithm = current_crypto_algorithm != null
+                                          && !current_crypto_algorithm.isEmpty()
+                                          && isValidCryptoAlgorithm(current_crypto_algorithm);
 
-        if ((current_crypto_algorithm != null && current_crypto_algorithm.startsWith(crypto_algorithm)) || isHashed(decoded_string)) {
-            // don't accept encoded password
+        if (isHashed(decoded_string)) {
+            // Reject already-hashed passwords
             throw new InvalidPasswordEncodingException();
-        } else if (current_crypto_algorithm != null) {
+        }
+
+        if (isValidCurrentAlgorithm && current_crypto_algorithm.startsWith(crypto_algorithm)) {
+            // Reject passwords already encoded with the target algorithm
+            throw new InvalidPasswordEncodingException();
+        }
+
+        if (isValidCurrentAlgorithm) {
+            // password is encoded with a different valid algorithm — decode it first, then re-encode
             decoded_string = passwordDecode(decoded_string);
         }
+        // If current_crypto_algorithm is non-null but isValidCurrentAlgorithm is false, the input
+        // string merely starts with a {something} pattern (e.g. a vault-generated password like
+        // "{abc}def"). In that case we treat the entire string as literal plaintext and fall through
+        // to encode it. Note: {custom} and {custom:alias} are recognised by isValidCryptoAlgorithm()
+        // when the CustomPasswordEncryption OSGi service is active, so they correctly take the
+        // decode-then-re-encode path above.
         if (properties == null || !properties.containsKey(PROPERTY_NO_TRIM) || !"true".equalsIgnoreCase(properties.get(PROPERTY_NO_TRIM))) {
             decoded_string = decoded_string.trim();
         }
@@ -322,7 +373,7 @@ public class PasswordUtil {
 
     /**
      * Determine if the provided algorithm string is valid.
-     * The valid values are xor, aes, or hash.
+     * The valid values are xor, aes, aes-128, aes-256, or hash.
      * Use securityUtility encode --listCustom command line utility to see if any additional custom encryptions are supported.
      *
      * @param crypto_algorithm the string of algorithm.
@@ -348,7 +399,7 @@ public class PasswordUtil {
 
     /**
      * Determine if the provided algorithm tag is valid. the algorithm tag consists of "{<algorithm>}" such as "{xor}".
-     * The valid values are {xor}, {aes}, or {hash}.
+     * The valid values are {xor}, {aes}, {aes-128}, {aes-256}, or {hash}.
      * Use securityUtility encode --listCustom command line utility to see if any additional custom encryptions are supported.
      *
      * @param tag the string of algorithm tag to be examined.
@@ -432,8 +483,8 @@ public class PasswordUtil {
      * Encode the provided password with the algorithm. If another algorithm
      * is already applied, it will be removed and replaced with the new algorithm.
      *
-     * @param decoded_string the string to be encoded, or the encoded string.
-     * @param crypto_algorithm the algorithm to be used for encoding. The supported values are xor, aes, or hash.
+     * @param decoded_string   the string to be encoded, or the encoded string. If the string contains an "{}", it is treated as a crypto algorithm tag and not as a decoded string.
+     * @param crypto_algorithm the algorithm to be used for encoding. The supported values are xor, aes, aes-128, aes-256, or hash.
      * @return The encoded string. Null if there is any failure during encoding, or invalid or null decoded_string
      */
     public static String passwordEncode(String decoded_string, String crypto_algorithm) {
@@ -441,10 +492,10 @@ public class PasswordUtil {
          * check input:
          *
          * -- decoded_string: any string, any length, cannot be null,
-         * may start with valid (supported) crypto algorithm tag
+         * may start with a valid (supported) crypto algorithm tag
          *
          * -- crypto_algorithm: any string, any length, cannot be null,
-         * must be valid (supported) crypto algorithm
+         * must be a valid (supported) crypto algorithm
          */
 
         if (decoded_string == null) {
@@ -460,11 +511,18 @@ public class PasswordUtil {
                 return decoded_string.trim();
             return null;
         } else if (current_crypto_algorithm != null) {
+            // Return Null if the decoded_string is not tagged with a valid crypto algorithm to avoid NPE.
+            if (!isValidCryptoAlgorithm(current_crypto_algorithm)) {
+                // Since it contains an "{invalid_crypto_algorithm}", return a debug message.
+                logger.logp(Level.FINEST, PasswordUtil.class.getName(), "passwordEncode", "PASSWORDUTIL_INVALID_CRYPTO_ALGORITHM", current_crypto_algorithm);
+                return null;
+            }
+
             decoded_string = passwordDecode(decoded_string);
         }
 
         // valid input ... encode password
-        return encode_password(decoded_string.trim(), crypto_algorithm.trim(), null); // TODO check this
+        return encode_password(decoded_string.trim(), crypto_algorithm.trim(), null);
     }
 
     /**
@@ -610,13 +668,22 @@ public class PasswordUtil {
                     try {
                         decrypted_bytes = PasswordCipherUtil.decipher(encrypted_bytes, crypto_algorithm);
                     } catch (InvalidPasswordCipherException e) {
-                        logger.logp(Level.SEVERE, PasswordUtil.class.getName(), "decode_password", "PASSWORDUTIL_CYPHER_EXCEPTION", e);
+                        String message = e.getMessage();
+                        if (message != null && message.contains("FIPS 140-3")) {
+                            logger.logp(Level.SEVERE, PasswordUtil.class.getName(), "decode_password",
+                                        MessageUtils.getMessage("PASSWORDUTIL_EXCEPTION_FIPS140_3_AES128_UNAVAILABLE_ALGORITHM"), e);
+                        } else {
+                            logger.logp(Level.SEVERE, PasswordUtil.class.getName(), "decode_password", "PASSWORDUTIL_CYPHER_EXCEPTION", e);
+                        }
                         return null;
                     } catch (UnsupportedCryptoAlgorithmException e) {
                         logger.logp(Level.SEVERE, PasswordUtil.class.getName(), "decode_password", "PASSWORDUTIL_UNKNOWN_ALGORITHM_EXCEPTION", e);
                         return null;
+                    } catch (InvalidKeySpecException | NoSuchAlgorithmException e) {
+                        logger.logp(Level.SEVERE, PasswordUtil.class.getName(), "decode_password",
+                                    MessageUtils.getMessage("PASSWORDUTIL_UNAVAILABLE_DECRYPTION_ALGORITHM_EXCEPTION"), e);
+                        return null;
                     }
-
                     if ((decrypted_bytes != null) && (decrypted_bytes.length > 0)) {
                         // convert decrypted password byte[] to string
                         decoded_string = convert_to_string(decrypted_bytes);
@@ -636,9 +703,9 @@ public class PasswordUtil {
     /**
      * Encode the provided string by using the specified encoding algorithm and properties
      *
-     * @param decoded_string the string to be encoded.
-     * @param crypto_algorithm the algorithm to be used for encoding. The supported values are xor, aes, or hash.
-     * @param properties the properties for the encryption.
+     * @param decoded_string   the string to be encoded.
+     * @param crypto_algorithm the algorithm to be used for encoding. The supported values are xor, aes, aes-128, aes-256, or hash.
+     * @param properties       the properties for the encryption.
      * @return The encoded string. null if there is any failure during encoding, or invalid or null decoded_string
      */
     public static String encode_password(String decoded_string, String crypto_algorithm, Map<String, String> properties) {
@@ -687,6 +754,10 @@ public class PasswordUtil {
                         } catch (UnsupportedCryptoAlgorithmException e) {
                             logger.logp(Level.SEVERE, PasswordUtil.class.getName(), "encode_password", "PASSWORDUTIL_UNKNOWN_ALGORITHM_EXCEPTION", e);
                             return null;
+                        } catch (InvalidKeySpecException | NoSuchAlgorithmException e) {
+                            logger.logp(Level.SEVERE, PasswordUtil.class.getName(), "encode_password",
+                                        MessageUtils.getMessage("PASSWORDUTIL_UNAVAILABLE_ENCRYPTION_ALGORITHM_EXCEPTION"), e);
+                            return null;
                         }
                     }
                     if ((encrypted_bytes != null) && (encrypted_bytes.length > 0)) {
@@ -701,8 +772,9 @@ public class PasswordUtil {
                     }
                 }
             }
-
-            buffer.append(crypto_algorithm);
+            // if "aes-128" or "aes-256" is used we want to make the tag "aes" instead so it will be usable on Liberty servers older than 25.0.0.4
+            String normalizedCryptoAlgorithm = crypto_algorithm.contains("aes") ? "aes" : crypto_algorithm;
+            buffer.append(normalizedCryptoAlgorithm);
             String alias = (null == info) ? null : info.getKeyAlias();
             if (alias != null && 0 < alias.length()) {
                 buffer.append(':').append(alias);

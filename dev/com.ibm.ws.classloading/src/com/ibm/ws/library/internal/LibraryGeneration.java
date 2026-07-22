@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2015 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,6 +14,7 @@ package com.ibm.ws.library.internal;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.library.internal.SharedLibraryImpl.ClasspathType;
 import com.ibm.wsspi.artifact.ArtifactContainer;
 import com.ibm.wsspi.classloading.ApiType;
 import com.ibm.wsspi.config.Fileset;
@@ -58,6 +61,7 @@ final class LibraryGeneration {
         EnumSet<ApiType> apiTypeVisibility = EnumSet.noneOf(ApiType.class);
         String[] fileRef = null;
         String[] folderRef = null;
+        String[] pathRef = null;
         for (SharedLibraryConstants.SharedLibraryAttribute attr : SharedLibraryConstants.SharedLibraryAttribute.values()) {
             Object o = props.get(attr.toString());
             switch (attr) {
@@ -73,12 +77,23 @@ final class LibraryGeneration {
                 case folderRef:
                     folderRef = (String[]) o;
                     continue;
+                case pathRef:
+                    pathRef = (String[]) o;
+                    continue;
                 default:
                     continue;
             }
         }
-        Collection<File> files = library.retrieveFiles(fileRef, displayId);
-        Collection<File> folders = library.retrieveFolders(libraryId, folderRef, displayId);
+        Collection<File> files = library.retrieveClasspaths(ClasspathType.FILE, libraryId, fileRef, displayId);
+        Collection<File> folders = library.retrieveClasspaths(ClasspathType.FOLDER, libraryId, folderRef, displayId);
+        Collection<File> paths = library.retrieveClasspaths(ClasspathType.PATH, libraryId, pathRef, displayId);
+        for (File p : paths) {
+            if (p.isDirectory()) {
+                folders.add(p);
+            } else {
+                files.add(p);
+            }
+        }
         if (fsRefs == null) {
             this.filesetRefs = Collections.emptyList();
         } else {
@@ -111,7 +126,7 @@ final class LibraryGeneration {
     }
 
     void addContainerFromFile(File f, Collection<ArtifactContainer> containers) {
-        String filename = String.format("%s/%s_%s@%s", SharedLibraryFactory.CONT_CACHE, libraryId, genId, f.getName());
+        String filename = String.format("%s/%s_%s_%s", SharedLibraryFactory.CONT_CACHE, libraryId, genId, f.getName());
         File wc = library.ctx.getBundle().getDataFile(filename);
         boolean ok = wc.mkdir();
         if (!ok) {
@@ -145,6 +160,7 @@ final class LibraryGeneration {
         }
     }
 
+    @SuppressWarnings("unchecked")
     EnumSet<ApiType> getApiTypeVisibility() {
         return EnumSet.copyOf((EnumSet<ApiType>) apiTypeVisibility);
     }

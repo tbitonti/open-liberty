@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -47,6 +49,12 @@ public class NoRegistryConfiguredTest {
 
     @BeforeClass
     public static void setUp() throws Exception {
+
+        /*
+         * Transform any applications into EE9 when necessary.
+         */
+        FATSuite.transformApps(server, "dropins/userRegistry.war");
+
         // Add LDAP variables to bootstrap properties file
         LDAPUtils.addLDAPVariables(server);
         Log.info(c, "setUp", "Starting the server... (will wait for userRegistry servlet to start)");
@@ -79,7 +87,8 @@ public class NoRegistryConfiguredTest {
         Log.info(c, "tearDown", "Stopping the server...");
 
         try {
-            server.stopServer("CWWKG0032W", "CWWKG0058E", "CWIMK0011E");
+            server.stopServer("CWWKG0032W", "CWWKG0058E", "CWIMK0011E", "CWWKE1102W");
+            //added "CWWKE1102W" to ignore server quiesce timeouts due to slow test machines
         } finally {
             server.removeInstalledAppForValidation("userRegistry");
             server.deleteFileFromLibertyInstallRoot("lib/features/internalfeatures/securitylibertyinternals-1.0.mf");

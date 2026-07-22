@@ -1,17 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2019 IBM Corporation and others.
+ * Copyright (c) 2004, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.http.channel.internal.inbound;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -83,6 +83,7 @@ public class HttpInboundLink extends InboundProtocolLink implements InterChannel
     private boolean alreadyH2Upgraded = false;
     /** Flag on whether grpc is being used for this link */
     private boolean isGrpc = false;
+    private boolean isDestroyed = false;
 
     /**
      * Constructor for an HTTP inbound link object.
@@ -138,12 +139,16 @@ public class HttpInboundLink extends InboundProtocolLink implements InterChannel
 
     /*
      * @see com.ibm.wsspi.channelfw.base.InboundProtocolLink#destroy(java.lang.Exception)
+     * This method is synchronized mostly for HTTP 2.0 since the H2StreamProcessor on a
+     * received GO_AWAY frame calls destroy for the link while a stream in process could
+     * call close and so create a race condition.
      */
     @Override
-    public void destroy(Exception e) {
+    public synchronized void destroy(Exception e) {
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
             Tr.debug(tc, "Destroying inbound link: " + this + " " + getVirtualConnection());
         }
+        isDestroyed = true;
         // if this object is not active, then just return out
         synchronized (this) {
             if (!this.bIsActive) {
@@ -510,6 +515,9 @@ public class HttpInboundLink extends InboundProtocolLink implements InterChannel
             Tr.debug(tc, "Discrimination will be called");
         }
 
+        int webSocketBufferSize = getChannel().getHttpConfig().getWebSocketBufferSize();
+        getVirtualConnection().getStateMap().put("com.ibm.ws.http.channel.internal.inbound.HttpInboundLink.websocketBufferSize", webSocketBufferSize);
+
         // 363633 - on z/OS we need store store some information for Proxy use
         if (getChannel().getHttpConfig().runningOnZOS()) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
@@ -649,12 +657,23 @@ public class HttpInboundLink extends InboundProtocolLink implements InterChannel
 
     /*
      * @see com.ibm.wsspi.channelfw.base.InboundProtocolLink#close(com.ibm.wsspi.channelfw.VirtualConnection, java.lang.Exception)
+     * This method is synchronized mostly for HTTP 2.0 since the H2StreamProcessor on a
+     * received GO_AWAY frame calls destroy for the link while a stream in process could
+     * call close and so create a race condition.
      */
     @Override
-    public void close(VirtualConnection inVC, Exception e) {
+    public synchronized void close(VirtualConnection inVC, Exception e) {
         final boolean bTrace = TraceComponent.isAnyTracingEnabled();
         if (bTrace && tc.isDebugEnabled()) {
             Tr.debug(tc, "close() called: " + this + " " + inVC);
+        }
+
+        // We assume that if the link is destroyed, no further operations on close should be called for the link
+        if (isDestroyed) {
+            if (bTrace && tc.isDebugEnabled()) {
+                Tr.debug(tc, "close() called but link was already destroyed! Returning without doing anything... " + this + " " + inVC);
+            }
+            return;
         }
 
         boolean errorState = (null != e);
@@ -668,6 +687,16 @@ public class HttpInboundLink extends InboundProtocolLink implements InterChannel
         // this is where we tell the factory that any large response is complete
         if (sc.containsLargeMessage()) {
             getChannel().getFactory().releaseLargeMessage();
+        }
+
+        // We are in an H2 connection so we need to do that close instead
+        if (this.myInterface.getLink() instanceof H2HttpInboundLinkWrap) {
+            if (bTrace && tc.isDebugEnabled()) {
+                Tr.debug(tc, "we're H2, calling that close");
+            }
+            this.myInterface.getLink().close(inVC, e);
+
+            return;
         }
 
         // check to see if the message has been fully sent (unless we
@@ -734,15 +763,6 @@ public class HttpInboundLink extends InboundProtocolLink implements InterChannel
                 }
                 errorState = true;
             }
-        }
-
-        if (this.myInterface.getLink() instanceof H2HttpInboundLinkWrap) {
-            if (bTrace && tc.isDebugEnabled()) {
-                Tr.debug(tc, "we're H2, calling that close");
-            }
-            this.myInterface.getLink().close(inVC, e);
-
-            return;
         }
 
         // If servlet upgrade processing is being used, then don't close the socket here
@@ -966,6 +986,11 @@ public class HttpInboundLink extends InboundProtocolLink implements InterChannel
         // looking for two headers.
         // connection header with a value of "upgrade"
         // upgrade header with a value of "h2c"
+
+        if (headers == Collections.EMPTY_MAP) {
+            return false; // no headers passed in
+        }
+
         boolean connection_upgrade = false;
         boolean upgrade_h2c = false;
         String headerValue = null;

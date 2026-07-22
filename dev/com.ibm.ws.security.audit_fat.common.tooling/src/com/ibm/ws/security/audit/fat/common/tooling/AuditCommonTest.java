@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -29,6 +31,10 @@ import java.net.URL;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
@@ -49,6 +55,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
+
 
 import com.ibm.websphere.simplicity.log.Log;
 
@@ -156,6 +163,29 @@ public class AuditCommonTest {
     
     protected static boolean FULL_RESPONSE_OUTPUT = true;
     protected static boolean MINIMAL_RESPONSE_OUTPUT = false;
+
+    public static final Set<String> AUDIT_1_0_FEATURES;
+    public static final String[] AUDIT1_0_ARRAY = {
+        "audit-1.0",
+    };
+
+    public static final Set<String> AUDIT_2_0_FEATURES;
+    public static final String[] AUDIT2_0_ARRAY = {
+        "audit-2.0",
+    };
+
+    public static final Set<String> AUDIT_2_0_REST_FEATURES;
+    public static final String[] AUDIT2_0_REST_ARRAY = {
+        "audit-2.0",
+        "restconnector-2.0",
+    };
+
+    static {
+        //Audit
+        AUDIT_1_0_FEATURES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AUDIT1_0_ARRAY)));
+        AUDIT_2_0_FEATURES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AUDIT2_0_ARRAY)));
+        AUDIT_2_0_REST_FEATURES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AUDIT2_0_REST_ARRAY)));
+    }
     
     public static void verifyAuditAndAuditFileHandlerReady(LibertyServer server) {
         assertNotNull("Audit service did not report it was ready",

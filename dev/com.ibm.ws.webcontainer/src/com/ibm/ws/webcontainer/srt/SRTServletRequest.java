@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2021 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.srt;
 
@@ -19,6 +18,7 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
 import java.security.Principal;
 import java.security.PrivilegedActionException;
@@ -57,6 +57,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import javax.servlet.http.Part;
 
+import org.apache.commons.fileupload.FileCountLimitExceededException;
 import org.apache.commons.fileupload.FileUploadBase.FileSizeLimitExceededException;
 import org.apache.commons.fileupload.FileUploadBase.SizeLimitExceededException;
 import org.apache.commons.fileupload.FileUploadException;
@@ -76,6 +77,7 @@ import com.ibm.ws.webcontainer.async.AsyncIllegalStateException;
 import com.ibm.ws.webcontainer.async.AsyncListenerEntry;
 import com.ibm.ws.webcontainer.internalRuntimeExport.srt.IPrivateRequestAttributes;
 import com.ibm.ws.webcontainer.osgi.collaborator.CollaboratorHelperImpl;
+import com.ibm.ws.webcontainer.osgi.request.IRequestImpl;
 import com.ibm.ws.webcontainer.servlet.RequestUtils;
 import com.ibm.ws.webcontainer.session.SessionManagerConfigBase;
 import com.ibm.ws.webcontainer.util.EmptyEnumeration;
@@ -84,6 +86,7 @@ import com.ibm.ws.webcontainer.webapp.WebApp;
 import com.ibm.ws.webcontainer.webapp.WebAppConfiguration;
 import com.ibm.ws.webcontainer.webapp.WebAppDispatcherContext;
 import com.ibm.ws.webcontainer.webapp.WebGroup;
+import com.ibm.wsspi.http.channel.values.HttpHeaderKeys;
 import com.ibm.wsspi.webcontainer.IPoolable;
 import com.ibm.wsspi.webcontainer.WCCustomProperties;
 import com.ibm.wsspi.webcontainer.WebContainer;
@@ -184,6 +187,16 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     protected boolean _setInputDataStreamCalled; // 5166233
     // =========================
 
+    /**
+     * A local reference to the SRTServletRequestThreadData object reduces ThreadLocal.getInstance() calls,
+     * as a performance optimization. However, the thread the request is running on may change, e.g. if async
+     * servlet functionality is in use. So before using the local threadData to interact with the ThreadLocal
+     * fields, we check (with verifyThreadData()) to make sure the request is still running on the same thread
+     * from which threadData was previously set, and update threadData if necessary.
+    */
+    
+    private SRTServletRequestThreadData threadData = null;
+    
     // WARNING! This custom property has not been officially exposed in an APAR
     // This was added as a way to revert back to pre-Servlet 2.5 changes.
     // If level 2 wishes to devulge this info, level 3 should be informed. Thanks!
@@ -203,17 +216,30 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     //PI43752 end
     
     protected static final boolean SERVLET_PATH_FOR_DEFAULT_MAPPING = Boolean.valueOf(WCCustomProperties.SERVLET_PATH_FOR_DEFAULT_MAPPING).booleanValue();
+    
+    //PH67132
+    private static int MAX_PART_HEADER_SIZE = WCCustomProperties.MAX_PART_HEADER_SIZE; 
 
     public SRTServletRequest(SRTConnectionContext context)
     {
         this._connContext = context;
-        this._requestContext = new SRTRequestContext(this);
+        this._requestContext = createRequestContext();
         this._in = createInputStream();
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"SRTServletRequest", "this->"+this+": " + "inputStream is of type --> " + this._in);
         }
+        initRequestThreadData();
     }
 
+    protected SRTRequestContext createRequestContext() {
+        return new SRTRequestContext(this);
+    }
+
+    protected void initRequestThreadData() {
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        localThreadData.init(null);
+    }
+    
     protected SRTServletRequest() {
         // used only for cloning
     }
@@ -326,7 +352,12 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
             this._request = req;
             _srtRequestHelper = getRequestHelper();
-            SRTServletRequestThreadData.getInstance().init(null);
+
+            if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {
+                logger.logp(Level.FINE, CLASS_NAME,"initForNextRequest", "this->"+this+" , _srtRequestHelper [" + _srtRequestHelper +"]");
+            }
+            
+            initRequestThreadData();
             _in.init(_request.getInputStream());
             
             // begin 280584.1    SVT: StackOverflowError when installing app larger than 2GB    WAS.webcontainer    
@@ -357,7 +388,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
     // Helper method used by SRServletRequest31
     protected void setHelperParameters(Map newParams) {
-        SRTServletRequestThreadData.getInstance().setParameters(newParams);
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        localThreadData.setParameters(newParams);
     }
 
     /* (non-Javadoc)
@@ -437,7 +469,14 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     /* (non-Javadoc)
      * @see javax.servlet.ServletRequest#setCharacterEncoding(java.lang.String)
      */
-    public void setCharacterEncoding(String arg0)
+    public void setCharacterEncoding(String arg0) throws UnsupportedEncodingException {
+        setCharacterEncoding(arg0, false);
+    }
+
+    /*
+     * Overloaded to have an option to skip the check isCharsetSupported
+     */
+    protected void setCharacterEncoding(String arg0, boolean skipCheckCharsetSupported) 
                     throws UnsupportedEncodingException {
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
@@ -462,7 +501,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         }
         //PM03928
 
-        boolean isSupported = EncodingUtils.isCharsetSupported(arg0);
+        boolean isSupported = skipCheckCharsetSupported ? skipCheckCharsetSupported: EncodingUtils.isCharsetSupported(arg0);
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"setCharacterEncoding", "this->"+this+": "+" name --> " + arg0 + " isSupported --> " + String.valueOf(isSupported));
         }
@@ -545,6 +584,29 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         }// PK80362 End
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"getHeader", "this->"+this+": "+" name --> " + name + " header --> " + PasswordNullifier.nullifyParams(header));
+        }
+        return header;
+    }
+
+    /**
+     * Returns the value of a header field, or null if not known.
+     * @param headerKey the HttpHeaderKeys for the header name
+     */
+    @Override
+    public String getHeader(HttpHeaderKeys headerKey) {
+
+        if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
+            checkRequestObjectInUse();
+        }
+       
+        String header = null;
+        String name = headerKey.getName();
+        if ( (suppressHeadersInRequest == null) ||  !(isHeaderinSuppressedHeadersList(name))){  
+            if (_request != null)
+                header = _request instanceof IRequestImpl ? ((IRequestImpl)_request).getHeader(headerKey) : _request.getHeader(name);
+        }// PK80362 End
+        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
+            logger.logp(Level.FINE, CLASS_NAME,"getHeader", "this->"+this+": "+" headerKey --> " + name + " header --> " + PasswordNullifier.nullifyParams(header));
         }
         return header;
     }
@@ -1300,7 +1362,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
             checkRequestObjectInUse();
         }
         IWebAppDispatcherContext dc=null;
-        dc = SRTServletRequestThreadData.getInstance().getDispatchContext();
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        dc = localThreadData.getDispatchContext();
         if (dc==null){
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
                 logger.logp(Level.FINE, CLASS_NAME,"getWebAppDispatcherContext", " return _dispatchContext "+ _dispatchContext );
@@ -1323,7 +1386,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
-        SRTServletRequestThreadData.getInstance().setDispatchContext(ctx);
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        localThreadData.setDispatchContext(ctx);
         this._dispatchContext = (WebAppDispatcherContext) ctx;
         resetPathElements();
     }
@@ -1336,8 +1400,9 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
-        SRTServletRequestThreadData.getInstance().setRequestURI(null);
-        SRTServletRequestThreadData.getInstance().setPathInfo(null);
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        localThreadData.setRequestURI(null);
+        localThreadData.setPathInfo(null);
     }
 
     /* (non-Javadoc)
@@ -1622,7 +1687,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         // from the accepted languages
         if (encoding == null && webAppCfg.isAutoRequestEncoding())
         {
-            String acceptLanguage = getHeader("Accept-Language");
+            String acceptLanguage = getHeader(HttpHeaderKeys.HDR_ACCEPT_LANGUAGE);
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  //306998.15
                 logger.logp(Level.FINE, CLASS_NAME,"getReaderEncoding", "accept-language --> " + acceptLanguage);
 
@@ -1692,6 +1757,10 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
             _srtRequestHelper._cookiesParsed = true;
         }
 
+        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) { 
+             displayCookies(_srtRequestHelper._cookies);
+        }
+        
         return _srtRequestHelper._cookies;
     }
 
@@ -1770,7 +1839,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                             {
                                 _in.setContentLength(inStreamContentData.length);
                             }
-                            SRTServletRequestThreadData.getInstance().setParameters(null);  //reset output of parseParameter method.
+                            SRTServletRequestThreadData localThreadData = verifyThreadData();
+                            localThreadData.setParameters(null);  //reset output of parseParameter method.
                         }
                         catch (IOException exc)
                         {
@@ -1790,6 +1860,11 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     }
 
     public HashMap getInputStreamData() throws IOException
+    {
+        return getInputStreamData(-1);
+    }
+
+    public HashMap getInputStreamData(long maxAllowedLength) throws IOException
     {
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)){
             logger.entering(CLASS_NAME, "getInputStreamData");
@@ -1816,7 +1891,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         inStreamInfo.put(INPUT_STREAM_CONTENT_DATA_LENGTH, new Integer(len));
 
         // 516133 allow for no post data
-        if (len > 0)
+        if (len > 0 && (maxAllowedLength > 0 && len <= maxAllowedLength))
         {
             byte[] postedBytes = new byte[len];
 
@@ -1861,7 +1936,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"setRawParameters", "");
         }
-        SRTServletRequestThreadData.getInstance().setParameters(params);
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        localThreadData.setParameters(params);
     }
 
     public Hashtable getRawParameters()
@@ -1874,7 +1950,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
             logger.logp(Level.FINE, CLASS_NAME,"getRawParameters", "");
         }
         parseParameters();
-        return (Hashtable) SRTServletRequestThreadData.getInstance().getParameters();
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        return (Hashtable) localThreadData.getParameters();
     }
 
     /**
@@ -1899,7 +1976,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
             checkRequestObjectInUse();
         }
         parseParameters();
-        String[] values = (String[]) SRTServletRequestThreadData.getInstance().getParameters().get(name);
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        String[] values = (String[]) localThreadData.getParameters().get(name);
         String value=null;
         if (values != null && values.length > 0)
         {
@@ -1925,7 +2003,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
             checkRequestObjectInUse();
         }
         parseParameters();
-        return ((Hashtable) SRTServletRequestThreadData.getInstance().getParameters()).keys();
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        return ((Hashtable) localThreadData.getParameters()).keys();
     }
 
     /**
@@ -1943,7 +2022,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         }
         parseParameters();
         // 321485
-        String[] values = (String[]) SRTServletRequestThreadData.getInstance().getParameters().get(name);
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        String[] values = (String[]) localThreadData.getParameters().get(name);
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"getParameterValues", " name --> " + name);
         }
@@ -1966,22 +2046,26 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
      */
     public String getPathInfo()
     {
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
         
-        SRTServletRequestThreadData reqData=SRTServletRequestThreadData.getInstance();
         // Begin PK06988, strip session id of when url rewriting is enabled
-        if (reqData.getPathInfo()==null){
-            String aPathInfo = ((WebAppDispatcherContext) this.getDispatchContext()).getPathInfo();
+        if (localThreadData.getPathInfo()==null){
+            WebAppDispatcherContext dispatchContext = (WebAppDispatcherContext) localThreadData.getDispatchContext();
+            if (dispatchContext == null) {
+                dispatchContext = _dispatchContext;
+            }
+            String aPathInfo = dispatchContext.getPathInfo();
             if (aPathInfo == null)
                 return null;
             else { // Do not strip based on ? again, it was already done and we don't want to strip '%3f's that have since been decoded to ?'s
-                reqData.setPathInfo(WebGroup.stripURL(aPathInfo,false)); //293696    ServletRequest.getPathInfo() fails    WASCC.web.webcontainer
+                localThreadData.setPathInfo(WebGroup.stripURL(aPathInfo,false)); //293696    ServletRequest.getPathInfo() fails    WASCC.web.webcontainer
             }
         }    
         // 321485
-        String path = reqData.getPathInfo();
+        String path = localThreadData.getPathInfo();
         // PK28078
         if(path.equals("")) {
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) 
@@ -2045,18 +2129,18 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
      */
     public String getQueryString()
     {
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
-        SRTServletRequestThreadData reqData = SRTServletRequestThreadData.getInstance();
-        if (reqData.getQueryString()==null && !reqData.isQSSetExplicit())
-            if (_request != null && reqData != null) {
-                reqData.setQueryString(_request.getQueryString());             
+        if (localThreadData.getQueryString()==null && !localThreadData.isQSSetExplicit())
+            if (_request != null) {
+                localThreadData.setQueryString(_request.getQueryString());             
             }
         // 321485
         String queryString = null;
-        if (reqData != null)
-            queryString = reqData.getQueryString();
+        if (localThreadData != null)
+            queryString = localThreadData.getQueryString();
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"getQueryString", " queryString --> " + PasswordNullifier.nullifyParams(queryString));
         }
@@ -2072,7 +2156,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
-        SRTServletRequestThreadData.getInstance().setQueryString(qs);
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        localThreadData.setQueryString(qs);
     }
 
     /**
@@ -2142,23 +2227,23 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
      */
     public String getRequestURI()
     {
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
         // Begin PK06988, strip session id of when url rewriting is enabled
-        SRTServletRequestThreadData reqData = SRTServletRequestThreadData.getInstance();
-        if (reqData != null && reqData.getRequestURI() == null)
+        if (localThreadData != null && localThreadData.getRequestURI() == null)
         {
             String aURI = getEncodedRequestURI();
             if (aURI == null)
                 return null;
             else
-                reqData.setRequestURI(WebGroup.stripURL(aURI));
+                localThreadData.setRequestURI(WebGroup.stripURL(aURI));
         }
         // 321485
         String uri = null;
-        if (reqData != null)
-            uri = reqData.getRequestURI();
+        if (localThreadData != null)
+            uri = localThreadData.getRequestURI();
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"getRequestURI", " uri --> " + uri);
         }
@@ -2294,6 +2379,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
     synchronized public void parseParameters()
     {
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"parseParameters", "");
         }
@@ -2301,9 +2387,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
             checkRequestObjectInUse();
         }
         
-        SRTServletRequestThreadData reqData = SRTServletRequestThreadData.getInstance();
-
-        if (reqData.getParameters() != null)
+        if (localThreadData.getParameters() != null)
             return;
 
         //PM03928 - start
@@ -2316,7 +2400,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
         try
         {
-            reqData.setParameters(new Hashtable());
+            localThreadData.setParameters(new Hashtable());
             String ct = getContentType();
 
             if (ct != null)
@@ -2328,7 +2412,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                 if (ct.startsWith("java-internal"))
                 {
                     String[] values = { ct };
-                    reqData.getParameters().put(new String("Application specific data. Content-type "), values);
+                    localThreadData.getParameters().put(new String("Application specific data. Content-type "), values);
                     return;
                 }
             }
@@ -2364,7 +2448,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                 if (!_srtRequestHelper._gotInputStream && !_srtRequestHelper._gotReader) {
                     try
                     {
-                        reqData.setParameters(parsePostData());
+                        localThreadData.setParameters(parsePostData());
                     }
                     catch (IOException io)
                     {
@@ -2378,14 +2462,14 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                 } else if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
                     logger.logp(Level.FINE, CLASS_NAME,"parseParameters", "ignoring post data gotReader="+_srtRequestHelper._gotReader + ", gotInputStream = " + _srtRequestHelper._gotInputStream);
                 }  
-                if (reqData.getParameters() != null)
+                if (localThreadData.getParameters() != null)
                 {
                     parseQueryStringList(); // 256836
                 }
             }
             if (contentType != null && contentType.startsWith("multipart/form-data"))
             {
-                if (reqData.getParameters() != null)
+                if (localThreadData.getParameters() != null)
                 {
                     parseQueryStringList();	//256836
                     try {
@@ -2444,20 +2528,20 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                                         }
 
 
-                                        if(reqData.getParameters().containsKey(partName)){
+                                        if(localThreadData.getParameters().containsKey(partName)){
 
-                                            String[] oldValues = (String[]) reqData.getParameters().get(partName);
+                                            String[] oldValues = (String[]) localThreadData.getParameters().get(partName);
                                             String[] valArray  = new String[oldValues.length+1];
 
                                             System.arraycopy(oldValues, 0, valArray, 0, oldValues.length);
                                             valArray[oldValues.length] = value.toString();
-                                            reqData.getParameters().put(partName,valArray);
+                                            localThreadData.getParameters().put(partName,valArray);
 
                                         }
                                         else{
 
                                             String[] values = { value.toString() };
-                                            reqData.getParameters().put(partName, values);
+                                            localThreadData.getParameters().put(partName, values);
                                         }
                                     }
 
@@ -2491,8 +2575,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
                 }
             }
-            // begin pq70031: need to check if param list is empty in addition to null		
-            if (( reqData.getParameters() == null || reqData.getParameters().isEmpty()))
+            // begin pq70031: need to check if param list is empty in addition to null          
+            if (( localThreadData.getParameters() == null || localThreadData.getParameters().isEmpty()))
                 // end pq70031
             {
                 parseQueryStringList(); // 256836
@@ -2504,15 +2588,15 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
             parseQueryStringList(); // 256836
         }
         // end pq70055: part 2
-        if (reqData.getParameters() == null)
+        if (localThreadData.getParameters() == null)
         {
-            reqData.setParameters(new Hashtable());
+            localThreadData.setParameters(new Hashtable());
         }
     }
 
     // Added for servlet 3.1 support - method is overidden by SRTServletRequest31 
     protected Hashtable parsePostData() throws IOException {
-        if( getContentLength() > 0){
+        if( getContentLength() > 0 && !isCompressedData()){
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  //306998.15
                 logger.logp(Level.FINE, CLASS_NAME,"parsePostData", "parsing post data based upon content length");
             return RequestUtils.parsePostData(getContentLength(), getInputStream(), getReaderEncoding(), this.multiReadPropertyEnabled);  // MultiRead
@@ -2524,6 +2608,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
     // Begin 256836
     private void parseQueryStringList(){
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
         //321485
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"parseQueryStringList", "");
@@ -2531,15 +2616,14 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
-        SRTServletRequestThreadData reqData = SRTServletRequestThreadData.getInstance();
         Hashtable tmpQueryParams = null;
-        LinkedList queryStringList = SRTServletRequestThreadData.getInstance().getQueryStringList();
+        LinkedList queryStringList = localThreadData.getQueryStringList();
         if (queryStringList ==null || queryStringList.isEmpty()){ //258025
             String queryString = getQueryString();
             if (queryString != null && ((queryString.indexOf('=') != -1) || WCCustomProperties.ALLOW_QUERY_PARAM_WITH_NO_EQUAL))//PM35450
             {
-                if (reqData.getParameters() == null || reqData.getParameters().isEmpty())// 258025
-                    reqData.setParameters(RequestUtils.parseQueryString(getQueryString(), getReaderEncoding(true)));
+                if (localThreadData.getParameters() == null || localThreadData.getParameters().isEmpty())// 258025
+                    localThreadData.setParameters(RequestUtils.parseQueryString(getQueryString(), getReaderEncoding(true)));
                 else{
                     tmpQueryParams = RequestUtils.parseQueryString(getQueryString(), getReaderEncoding(true));
                     mergeQueryParams(tmpQueryParams);
@@ -2561,10 +2645,10 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                     mergeQueryParams(qsListItem._qsHashtable);
                 else if (queryString != null && ((queryString.indexOf('=') != -1) || WCCustomProperties.ALLOW_QUERY_PARAM_WITH_NO_EQUAL))//PM35450
                 {
-                    if (reqData.getParameters() == null || reqData.getParameters().isEmpty())// 258025
+                    if (localThreadData.getParameters() == null || localThreadData.getParameters().isEmpty())// 258025
                     {
                         qsListItem._qsHashtable = RequestUtils.parseQueryString(queryString, getReaderEncoding());
-                        reqData.setParameters(qsListItem._qsHashtable);
+                        localThreadData.setParameters(qsListItem._qsHashtable);
                         qsListItem._qs = null;
                     }
                     else{
@@ -2581,13 +2665,13 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     // End 256836
     private void mergeQueryParams(Hashtable tmpQueryParams)
     {
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"mergeQueryParams", "");
         }
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
-        SRTServletRequestThreadData reqData = SRTServletRequestThreadData.getInstance();
         if (tmpQueryParams != null)
         {
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  //306998.15
@@ -2601,13 +2685,13 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                 Object key = enumeration.nextElement();
                 // Check for QueryString parms with the same name
                 // pre-append to postdata values if necessary
-                if (reqData.getParameters() != null && reqData.getParameters().containsKey(key))
+                if (localThreadData.getParameters() != null && localThreadData.getParameters().containsKey(key))
                 {
                     if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  //306998.15
                     {
                         logger.logp(Level.FINE, CLASS_NAME,"mergeQueryParams", "_paramaters contains key " + key);
                     }
-                    String postVals[] = (String[]) reqData.getParameters().get(key);
+                    String postVals[] = (String[]) localThreadData.getParameters().get(key);
                     String queryVals[] = (String[]) tmpQueryParams.get(key);
                     String newVals[] = new String[postVals.length + queryVals.length];
                     int newValsIndex = 0;
@@ -2619,7 +2703,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                     {
                         newVals[newValsIndex++] = postVals[i];
                     }
-                    reqData.getParameters().put(key, newVals);
+                    localThreadData.getParameters().put(key, newVals);
                     if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  //306998.15
                     {
                         logger.logp(Level.FINE, CLASS_NAME,"mergeQueryParams", "put key " + key + " into _parameters.");
@@ -2627,9 +2711,9 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                 }
                 else
                 {
-                    if (reqData.getParameters() == null) // PK14900
-                        reqData.setParameters(new Hashtable());// PK14900
-                    reqData.getParameters().put(key, tmpQueryParams.get(key));
+                    if (localThreadData.getParameters() == null) // PK14900
+                        localThreadData.setParameters(new Hashtable());// PK14900
+                    localThreadData.getParameters().put(key, tmpQueryParams.get(key));
                     if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  //306998.15
                     {
                         logger.logp(Level.FINE, CLASS_NAME,"mergeQueryParams", "put key " + key + " into _parameters. ");
@@ -2642,13 +2726,13 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     // Begin 256836
     private void removeQueryParams(Hashtable tmpQueryParams)
     {
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"removeQueryParams", "");
         }
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
-        SRTServletRequestThreadData reqData = SRTServletRequestThreadData.getInstance();
         if (tmpQueryParams != null)
         {
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  //306998.15
@@ -2662,13 +2746,13 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                 Object key = enumeration.nextElement();
                 // Check for QueryString parms with the same name
                 // pre-append to postdata values if necessary
-                if (reqData.getParameters().containsKey(key))
+                if (localThreadData.getParameters().containsKey(key))
                 {
                     if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  //306998.15
                     {
                         logger.logp(Level.FINE, CLASS_NAME,"removeQueryParams", "_paramaters contains key " + key);
                     }
-                    String postVals[] = (String[]) reqData.getParameters().get(key);
+                    String postVals[] = (String[]) localThreadData.getParameters().get(key);
                     String queryVals[] = (String[]) tmpQueryParams.get(key);
                     if (postVals.length-queryVals.length>0){
                         String newVals[] = new String[postVals.length - queryVals.length];
@@ -2677,14 +2761,14 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                         {
                             newVals[newValsIndex++] = postVals[i];
                         }
-                        reqData.getParameters().put(key, newVals);
+                        localThreadData.getParameters().put(key, newVals);
                         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  //306998.15
                         {
                             logger.logp(Level.FINE, CLASS_NAME,"removeQueryParams", "put key " + key + " into _parameters.");
                         }
                     }
                     else
-                        reqData.getParameters().remove(key);
+                        localThreadData.getParameters().remove(key);
                 }
             }
         }
@@ -2700,7 +2784,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     public void finish()	//280584.3    6021: Cleanup of  defect 280584.2    WAS.webcontainer removed throws clause.
     {
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
-            logger.logp(Level.FINE, CLASS_NAME,"finish", "entry");
+            logger.entering(CLASS_NAME,"finish");
         }
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
@@ -2734,15 +2818,28 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         finally
         {
             cleanupFromFinish();
+            
+            if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {
+                logger.exiting(CLASS_NAME,"finish");
+            }
         }
     }
 
     protected void cleanupFromFinish() {
+        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {
+            logger.entering(CLASS_NAME,"cleanupFromFinish" + " this [" +this+ "] , nulling out _srtRequestHelper [" + _srtRequestHelper + "]");
+        }
+
         this._srtRequestHelper = null;
         this._request.clearHeaders();
         this._request = null; // as SRTServletResponse.finish() does for _response
         this._requestContext.finish();
-        SRTServletRequestThreadData.getInstance().init(null);
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        localThreadData.init(null);
+        
+        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {
+            logger.exiting(CLASS_NAME,"cleanupFromFinish");
+        }
     }
 
 
@@ -2824,8 +2921,10 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
             checkRequestObjectInUse();
         }
         IWebAppSecurityCollaborator webAppSec=null;
-        if (getDispatchContext()!=null && getDispatchContext().getWebApp() != null) {
-            webAppSec = CollaboratorHelperImpl.getCurrentSecurityCollaborator(getDispatchContext().getWebApp());
+        WebAppDispatcherContext dispatchContext = getDispatchContext();
+        WebApp webApp = null;
+        if (dispatchContext != null && (webApp = dispatchContext.getWebApp()) != null) {
+            webAppSec = CollaboratorHelperImpl.getCurrentSecurityCollaborator(webApp);
         } else {
             webAppSec = CollaboratorHelperImpl.getCurrentSecurityCollaborator();           
         } 
@@ -2850,23 +2949,19 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
      */
     public void pushParameterStack()
     {
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)){  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"pushParameterStack", "entry");
         }
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
-        SRTServletRequestThreadData reqData = SRTServletRequestThreadData.getInstance();
-        if (reqData.getParameters() == null)
-        {
-            reqData.pushParameterStack(null);
-        } else
-        {
-            _paramStack.push(((Hashtable) reqData.getParameters()).clone());
+        if (localThreadData.getParameters() != null) {
+            _paramStack.push(((Hashtable) localThreadData.getParameters()).clone());
         }
-        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE) && reqData.getParameters() !=null)  //306998.15
+        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE) && localThreadData.getParameters() !=null)  //306998.15
         {
-            debugParams(reqData.getParameters());
+            debugParams(localThreadData.getParameters());
         }
     }
 
@@ -2876,6 +2971,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
      */
     public void popParameterStack()
     {
+       SRTServletRequestThreadData localThreadData = verifyThreadData();
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"popParameterStack", "entry");
         } 
@@ -2885,16 +2981,16 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
         try
         {
-            SRTServletRequestThreadData.getInstance().setParameters((Hashtable) _paramStack.pop());
+            localThreadData.setParameters((Hashtable) _paramStack.pop());
         } catch (java.util.EmptyStackException empty)
         {
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
                 logger.logp(Level.FINE, CLASS_NAME,"popParameterStack", "Unable to remove item from stack", empty);
             }
         }
-        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE) &&  SRTServletRequestThreadData.getInstance().getParameters() !=null)  //306998.15
+        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE) &&  localThreadData.getParameters() !=null)  //306998.15
         {
-            debugParams(SRTServletRequestThreadData.getInstance().getParameters());
+            debugParams(localThreadData.getParameters());
         }
     }
 
@@ -2934,6 +3030,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
     // Begin 256836
     public void removeQSFromList(){
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
         //321485
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"removeQSFromList", "entry");
@@ -2942,14 +3039,13 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
             checkRequestObjectInUse();
         }
         
-        SRTServletRequestThreadData reqData = SRTServletRequestThreadData.getInstance();        
-        LinkedList queryStringList = reqData.getQueryStringList();
+        LinkedList queryStringList = localThreadData.getQueryStringList();
         if (queryStringList!=null&&!queryStringList.isEmpty()){
-            Map _tmpParameters = reqData.getParameters();	// Save off reference to current parameters
+            Map _tmpParameters = localThreadData.getParameters();       // Save off reference to current parameters
             popParameterStack();
-            if (reqData.getParameters()==null&&_tmpParameters!=null) // Parameters above current inluce/forward were never parsed
+            if (localThreadData.getParameters()==null&&_tmpParameters!=null) // Parameters above current inluce/forward were never parsed
             {
-                reqData.setParameters(_tmpParameters);
+                localThreadData.setParameters(_tmpParameters);
                 Hashtable tmpQueryParams = ((QSListItem) queryStringList.getLast())._qsHashtable;
                 if (tmpQueryParams == null)
                 {
@@ -2970,6 +3066,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     // Begin 249841, 256836
     public void aggregateQueryStringParams(String additionalQueryString, boolean setQS)
     {
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
         // 321485
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"aggregateQueryStringParams", "entry qs --> " + additionalQueryString + " set --> " + String.valueOf(setQS));
@@ -2978,13 +3075,12 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
             checkRequestObjectInUse();
         }
         QSListItem tmpQS = null;
-        SRTServletRequestThreadData reqData = SRTServletRequestThreadData.getInstance();        
-        if (reqData.getParameters() == null)
+        if (localThreadData.getParameters() == null)
         {
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))   //306998.15
                 logger.logp(Level.FINE, CLASS_NAME,"aggregateQueryStringParams", "The paramater stack is currently null");
             // Begin 258025, Part 2
-            LinkedList queryStringList = SRTServletRequestThreadData.getInstance().getQueryStringList();
+            LinkedList queryStringList = localThreadData.getQueryStringList();
             if (queryStringList == null || queryStringList.isEmpty())
             {
                 if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  //306998.15
@@ -2998,7 +3094,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                     tmpQS = new QSListItem(getQueryString(), null);
                     queryStringList.add(tmpQS);
                 }
-                SRTServletRequestThreadData.getInstance().setQueryStringList(queryStringList);
+                localThreadData.setQueryStringList(queryStringList);
 
             }
             // End 258025, Part 2
@@ -3014,7 +3110,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
         // if _parameters is not null, then this is part of a forward or include...add the additional query parms
         // if _parameters is null, then the string will be parsed if needed
-        if (reqData.getParameters() != null && additionalQueryString != null)
+        if (localThreadData.getParameters() != null && additionalQueryString != null)
         {
             Hashtable parameters = RequestUtils.parseQueryString(additionalQueryString, getReaderEncoding(true));
             // end 249841, 256836
@@ -3027,9 +3123,9 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                 // Check to see if a parameter with the key already exists
                 // and prepend the values since QueryString takes precedence
                 //
-                if (reqData.getParameters().containsKey(key))
+                if (localThreadData.getParameters().containsKey(key))
                 {
-                    String[] oldVals = (String[]) reqData.getParameters().get(key);
+                    String[] oldVals = (String[]) localThreadData.getParameters().get(key);
                     Vector v = new Vector();
 
                     for (int i = 0; i < newVals.length; i++)
@@ -3046,11 +3142,11 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                     valArray = new String[v.size()];
                     v.toArray(valArray);
 
-                    reqData.getParameters().put(key, valArray);
+                    localThreadData.getParameters().put(key, valArray);
                 }
                 else
                 {
-                    reqData.getParameters().put(key, newVals);
+                    localThreadData.getParameters().put(key, newVals);
                 }
             }
         }
@@ -3081,7 +3177,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         parseParameters();
 
         // return the map
-        return (Map) SRTServletRequestThreadData.getInstance().getParameters();
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        return (Map) localThreadData.getParameters();
     }
 
     // LIDB1234.4 - added method below
@@ -3137,16 +3234,6 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     }
 
     // LIDB1234.6 - added method below
-    /**
-     * Overrides the name of the character encoding used in the body of this request.  This
-     * method must be called prior to reading request parameters or reading input using
-     * getReader().
-     * 
-     * @param encoding a String containing the name of the character encoding
-     * 
-     * @throws java.io.UnsupportedEncodingException if this is not a valid encoding
-     */
-
     public byte[] getSSLId()
     {
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
@@ -3267,15 +3354,10 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
         }
+        WebAppDispatcherContext dispatchContext = getDispatchContext();
+        String uri = dispatchContext == null ? _request.getRequestURI() : dispatchContext.getRequestURI();
+
         // 321485
-        String uri = null;
-        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
-            logger.logp(Level.FINE, CLASS_NAME,"getEncodedRequestURI", "");
-        }
-        if (getDispatchContext() == null)
-            uri = _request.getRequestURI();
-        else
-            uri = getDispatchContext().getRequestURI();
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
             logger.logp(Level.FINE, CLASS_NAME,"getEncodedRequestURI", " uri --> " + uri);
         }
@@ -3374,44 +3456,46 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     private class SRTServletRequestHelper implements Cloneable{
         // objects requiring cloning
         // ==========================
-        private Hashtable _privateAttributes = null; //268366, PERF: 3% regression in PingServlet
-        private Map _attributes = new HashMap();
+        Hashtable _privateAttributes = null; //268366, PERF: 3% regression in PingServlet
+        Map _attributes = new HashMap();
         // ==========================
 
         // instance variables not needing cloning
         // ==========================
-        private boolean _cookiesParsed = false;
-        private String _updatedSessionId;
-        private Object _sessionAffinityContext; // cmd LIDB4395
-        private Cookie[] _cookies;
-        private boolean _localesProcessed = false;
-        private String _readerEncoding = null;
-        private String _readerEncodingInvalidIgnored = null;
-        private String _characterEncoding = null;
-        private boolean _gotReader = false;
-        private boolean _gotInputStream = false;
-        private boolean _InputStreamClosed = false; // MultiRead
-        private String _method = null;
-        private boolean _parametersRead = false;                            //PM03928
-        private DispatcherType dispatcherType = DispatcherType.REQUEST;
+        boolean _cookiesParsed = false;
+        String _updatedSessionId;
+        Object _sessionAffinityContext; // cmd LIDB4395
+        Cookie[] _cookies;
+        boolean _localesProcessed = false;
+        String _readerEncoding = null;
+        String _readerEncodingInvalidIgnored = null;
+        String _characterEncoding = null;
+        boolean _gotReader = false;
+        boolean _gotInputStream = false;
+        boolean _InputStreamClosed = false; // MultiRead
+        String _method = null;
+        boolean _parametersRead = false;                            //PM03928
+        DispatcherType dispatcherType = DispatcherType.REQUEST;
+        
+        //Add for servlet 6.0
+        String _requestID = null; 
+        Object _servletConnection = null;       //instanceof ServletConnection
 
         // ==========================
 
         // other objects not needing cloning
         // =================================
-        private BufferedReader _reader = null;
-        private LinkedList _locales = null;
+        BufferedReader _reader = null;
+        LinkedList _locales = null;
 
-        private boolean asyncSupported=true;
-        private com.ibm.wsspi.webcontainer.servlet.AsyncContext asyncContext;
-        private List<AsyncListenerEntry> asyncListenerEntryList;
-        public long _asyncTimeout=0;
-        public boolean multipartRequestInputStreamRead = false;
-        public Exception multipartException=null;
-        public boolean multipartISEException=false;
-        public LinkedHashMap<String, ArrayList<Part>> multipartPartsHashMap = null; //91002
-        private boolean asyncStarted=false;
-        private List<String> resourcesNotSupportAsync = null;    //141092
+        boolean asyncSupported=true;
+        com.ibm.wsspi.webcontainer.servlet.AsyncContext asyncContext;
+        boolean multipartRequestInputStreamRead = false;
+        Exception multipartException=null;
+        boolean multipartISEException=false;
+        LinkedHashMap<String, ArrayList<Part>> multipartPartsHashMap = null; //91002
+        boolean asyncStarted=false;
+        List<String> resourcesNotSupportAsync = null;    //141092
         // =================================
 
         protected Object clone() throws CloneNotSupportedException {
@@ -3766,7 +3850,9 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     }
 
     private void parseMultipart(IServletConfig multiPartServletConfig, int fileThreshold, String location, long maxFileSize, long maxRequestSize) throws IOException {
-        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  
+        final boolean isTraceOn = TraceComponent.isAnyTracingEnabled() && logger.isLoggable (Level.FINE);
+        
+        if (isTraceOn) {  
             logger.logp(Level.FINE, CLASS_NAME,"parseMultipart"," "+ multiPartServletConfig.getServletName()+" ["+ fileThreshold +", "+location+ ", " + maxFileSize+" , " + maxRequestSize+"]"); //PI75528
         }
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
@@ -3809,7 +3895,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                     }
                 }       
             }
-            if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  
+            if (isTraceOn) {  
                 logger.logp(Level.FINE, CLASS_NAME,"parseMultipart", "uploadFile location --> " + uploadFile.getAbsolutePath());
             }
             multiPartServletConfig.setMultipartBaseLocation(uploadFile);
@@ -3818,11 +3904,24 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         ServletFileUpload sfu = new ServletFileUpload(fact);
         sfu.setFileSizeMax(maxFileSize);
         if(WCCustomProperties.USE_MAXREQUESTSIZE_FOR_MULTIPART){//PI75528
-            if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  
+            if (isTraceOn) { 
                 logger.logp(Level.FINE, CLASS_NAME,"parseMultipart", "usemaxrequestsizeformultipart property set");
             }
             sfu.setSizeMax(maxRequestSize); 
         }
+       
+        int maxFileCount = ((maxFileCount = WCCustomProperties.MAX_FILE_COUNT) < 0) ? -1 : maxFileCount;
+        if (isTraceOn) 
+            logger.logp(Level.FINE, CLASS_NAME,"parseMultipart", "maxFileCount set to ["+maxFileCount+"]");
+
+        sfu.setFileCountMax(maxFileCount);
+        
+        //PH67132
+        int maxPartHeaderSize = ((maxPartHeaderSize = MAX_PART_HEADER_SIZE) < 0) ? -1 : maxPartHeaderSize;
+        sfu.setPartHeaderSizeMax(maxPartHeaderSize);
+        if (isTraceOn) 
+            logger.logp(Level.FINE, CLASS_NAME,"parseMultipart", "maxPartHeaderSize set to [" + sfu.getPartHeaderSizeMax()+ "]");
+
         List list=null;
         try {
             if (_srtRequestHelper.multipartException!=null) {
@@ -3853,9 +3952,20 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
             if (list!= null) {
                 //724365.2 Start
-                if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  
-                    logger.logp(Level.FINE, CLASS_NAME,"parseMultipart", "size after parsing request --> " + list.size());
+                if (isTraceOn) { 
+                    logger.logp(Level.FINE, CLASS_NAME,"parseMultipart", "part size after parsing request body --> " + list.size());
                 }
+                
+                int maxParamPerRequest = WCCustomProperties.MAX_PARAM_PER_REQUEST;
+                if ((maxParamPerRequest != -1) &&  maxParamPerRequest < list.size()) {
+                    if (isTraceOn) { 
+                        logger.logp(Level.FINE, CLASS_NAME,"parseMultipart", "part size is greater than max param per request ["+maxParamPerRequest+"] ; throw ISE Exceeding.maximum.parameters");
+                    }
+                    
+                    //the second maxParamPerRequest is a stand-in to satisfy the message parameters
+                    throw new IllegalArgumentException(MessageFormat.format(nls.getString("Exceeding.maximum.parameters"), new Object[]{maxParamPerRequest, maxParamPerRequest})); 
+                }
+                
                 int totalPartSize = 0;
                 int dupSize = 0; // 728397
                 HashSet<Integer> key_hset = new HashSet<Integer>(); // 728397
@@ -3867,7 +3977,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                     if( !multipartPartsMapcontainsKey){ 
                         if(!(key_hset.add(p.getName().hashCode()))){ 
                             dupSize++;// if false then count as duplicate hashcodes for unique keys
-                            if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  
+                            if (isTraceOn) {
                                 logger.logp(Level.FINE, CLASS_NAME,"parseMultipart", "duplicate hashCode generated by part --> " + p.getName());
                             }
                             if( dupSize > WCCustomProperties.MAX_DUPLICATE_HASHKEY_PARAMS){                                                                                               
@@ -3876,7 +3986,6 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                         } 
                     }
                     // 728397 End
-                    int maxParamPerRequest = WCCustomProperties.MAX_PARAM_PER_REQUEST;
                     if((maxParamPerRequest == -1) || (totalPartSize < maxParamPerRequest)){
                         //91002 Liberty Start
                         if(multipartPartsMapcontainsKey){
@@ -3898,12 +4007,23 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                 }                
             }
         }
+        catch(FileCountLimitExceededException maxFileCountException) {
+            _srtRequestHelper.multipartException = new IllegalStateException(MessageFormat.format(nls.getString("multipart.file.count.max.exceeded"), new Object[]{maxFileCount}));
+            _srtRequestHelper.multipartISEException = true;
+            throw (IllegalStateException)_srtRequestHelper.multipartException;
+        }
         catch(FileSizeLimitExceededException fileSizeException) {
+            if (isTraceOn) {
+                logger.logp(Level.FINE, CLASS_NAME,"parseMultipart", "FileSizeLimitExceededException [" + fileSizeException + "]");
+            }
             _srtRequestHelper.multipartException = new IllegalStateException(nls.getString("multipart.file.size.too.big"));
             _srtRequestHelper.multipartISEException = true;
             throw (IllegalStateException)_srtRequestHelper.multipartException;
         }
         catch (SizeLimitExceededException sizeException) {
+            if (isTraceOn) {
+                logger.logp(Level.FINE, CLASS_NAME,"parseMultipart", "SizeLimitExceededException [" + sizeException + "]"); 
+            }
             _srtRequestHelper.multipartException = new IllegalStateException(nls.getString("multipart.request.size.too.big"));
             _srtRequestHelper.multipartISEException = true;
             throw (IllegalStateException)_srtRequestHelper.multipartException;                
@@ -3995,7 +4115,9 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
                 // has cipher to bit size map                                           
 
                 keySize = com.ibm.ws.webcontainer.WebContainer.getWebContainer().getKeySizefromCipherMap(cipherSuite);
-
+                
+                // FIPS 140-3: Algorithm assessment complete; no impact; future investigation needed.
+                // because we are unsure if clients are still using the older algorithms.
                 if (keySize == null) {
                     if (cipherSuite.contains("_AES_256_")) {
                         keySize = 256;
@@ -4038,7 +4160,8 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     // PM92496(PM83905) End
 
     protected WebAppDispatcherContext getDispatchContext() {
-        WebAppDispatcherContext dc=(WebAppDispatcherContext)SRTServletRequestThreadData.getInstance().getDispatchContext();
+        SRTServletRequestThreadData localThreadData = verifyThreadData();
+        WebAppDispatcherContext dc=(WebAppDispatcherContext)localThreadData.getDispatchContext();
         if (dc==null)
             dc = _dispatchContext;
         
@@ -4070,7 +4193,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
      */
     @SuppressWarnings("rawtypes")
     @Override
-    public byte[][] serializeInputStreamData(Map isd) throws IOException, UnsupportedEncodingException, IllegalStateException {
+    public byte[][] serializeInputStreamData(Map isd) throws IOException, IllegalStateException {
         validateInputStreamData(isd);
 
         String type = (String)isd.get(INPUT_STREAM_CONTENT_TYPE);
@@ -4085,7 +4208,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         output[OFFSET_CONTENT_DATA_LENGTH] = longToBytes((long)length.intValue());
         if (type != null) {
             output[OFFSET_CONTENT_TYPE_LEN] = intToBytes(type.length());
-            output[OFFSET_CONTENT_TYPE_DATA] = type.getBytes("UTF-8"); 
+            output[OFFSET_CONTENT_TYPE_DATA] = type.getBytes(StandardCharsets.UTF_8);
         } else {
             output[OFFSET_CONTENT_TYPE_LEN] = intToBytes(0);
             output[OFFSET_CONTENT_TYPE_DATA] = new byte[1];
@@ -4103,7 +4226,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
 
     @SuppressWarnings("rawtypes")
     @Override
-    public HashMap deserializeInputStreamData(byte[][] input) throws UnsupportedEncodingException, IllegalStateException {
+    public HashMap deserializeInputStreamData(byte[][] input) throws IllegalStateException {
         if (input == null || input.length < 2) {
             if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))
                 logger.logp(Level.FINE, CLASS_NAME,"deseriallizeInputStreamData", "The input data is null or fewer items than the expected. ");
@@ -4114,7 +4237,7 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
         output.put(INPUT_STREAM_CONTENT_DATA_LENGTH, Integer.valueOf((int)(length & 0xFFFF)));
         int typeLen = bytesToInt(input[OFFSET_CONTENT_TYPE_LEN]);
         if (typeLen > 0) {
-            output.put(INPUT_STREAM_CONTENT_TYPE, new String(input[OFFSET_CONTENT_TYPE_DATA], "UTF-8"));
+            output.put(INPUT_STREAM_CONTENT_TYPE, new String(input[OFFSET_CONTENT_TYPE_DATA], StandardCharsets.UTF_8));
         } else {
             output.put(INPUT_STREAM_CONTENT_TYPE, null);
         }
@@ -4133,13 +4256,13 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
      */
     @SuppressWarnings("rawtypes")
     @Override
-    public long sizeInputStreamData(Map isd) throws UnsupportedEncodingException, IllegalStateException {
+    public long sizeInputStreamData(Map isd) throws IllegalStateException {
         validateInputStreamData(isd);
         // The length of IMPUT_STREAM_CONTENT_TYPE won't exceed Integer.MAX_VALUE
         long size = LENGTH_INT + LENGTH_LONG;
         String type = (String)isd.get(INPUT_STREAM_CONTENT_TYPE);
         if (type != null) {
-            size += type.getBytes("UTF-8").length;
+            size += type.getBytes(StandardCharsets.UTF_8).length;
         } else {
             size +=1; // if the size is zero, one byte data will be used for placeholder.
         }
@@ -4286,5 +4409,69 @@ public class SRTServletRequest implements HttpServletRequest, IExtendedRequest, 
     protected String getSrtHelperCharEncoding() {
         return _srtRequestHelper._characterEncoding;
     }
+    
+    /*
+     * since Servlet 6.0
+     * support jakarta.servlet.ServletRequest#getRequestId()
+     * support jakarta.servlet.ServletConnection
+     */
+    protected String getSrtRequestId() {
+        return _srtRequestHelper._requestID;
+    }
 
+    protected void setSrtRequestId(String id) {
+        if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
+            checkRequestObjectInUse();
+        }
+        
+        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) { 
+            logger.logp(Level.FINE, CLASS_NAME,"setSrtRequestId", "this ["+this+"] , requestID ["+ id + "]");
+        }
+        _srtRequestHelper._requestID = id;
+    }
+    
+    /**
+     * return an instance of jakarta.servlet.ServletConnection
+     */
+    protected Object getSrtServletConnection() {
+        return _srtRequestHelper._servletConnection;
+    }
+    
+    protected void setSrtServletConnection(Object conn) {
+        if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
+            checkRequestObjectInUse();
+        }
+        
+        if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) { 
+            logger.logp(Level.FINE, CLASS_NAME,"setSrtServletConnection", "this ["+this+"] , servlet connection ["+ conn  + "]");
+        }
+        _srtRequestHelper._servletConnection = conn;
+    }
+    
+    /**
+     * Check to make sure the request is still running on the same thread from which
+     * threadData was previously set. If not, update threadData to point to the current
+     * thread's SRTServletRequestThreadData instance.
+     */
+    private SRTServletRequestThreadData verifyThreadData() {
+        SRTServletRequestThreadData localThreadData = threadData;
+        if(localThreadData == null || localThreadData.thread != Thread.currentThread()) {
+            localThreadData = SRTServletRequestThreadData.getInstance();
+            threadData = localThreadData;
+        }
+        return localThreadData;
+    }
+    
+    protected void displayCookies(Cookie[] cookie) {
+        if (cookie == null)
+            return;
+
+        for (int i = 0; i < cookie.length; i++)
+            logger.logp(Level.FINE, CLASS_NAME,"displayCookies", " " + cookie[i]);
+    }
+    
+    protected boolean isCompressedData() {
+        String contentEncoding = _request.getHeader("Content-Encoding");
+        return (contentEncoding != null && ("gzip".equalsIgnoreCase(contentEncoding) || "x-gzip".equalsIgnoreCase(contentEncoding) || "deflate".equalsIgnoreCase(contentEncoding)));
+    }
 }

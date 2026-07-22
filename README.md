@@ -2,23 +2,18 @@
 
 <p align="center">
   <a href="https://openliberty.io/">
-    <img src="https://openliberty.io/img/spaceship.svg" alt="Logo">
-  </a>
-</p>
-<p align="center">
-  <a href="https://openliberty.io/">
-    <img src="https://github.com/OpenLiberty/open-liberty/blob/release/logos/logo_horizontal_light_navy.png" alt="title" width="400">
+    <img src="https://github.com/OpenLiberty/logos/blob/main/combomark/png/OL_logo_green_on_white.png" alt="title" >
   </a>
 </p>
 <br />
 
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.openliberty/openliberty-runtime.svg?label=Maven%20Central)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22io.openliberty%22%20a%3A%22openliberty-runtime%22)
-[![Docker Pulls](https://img.shields.io/docker/pulls/_/open-liberty.svg?color=yellow)](https://hub.docker.com/_/open-liberty)
+[![Maven Central](https://img.shields.io/maven-central/v/io.openliberty/openliberty-runtime.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.openliberty/openliberty-runtime)
+[![Container Images](https://img.shields.io/badge/container-images-yellow)](https://openliberty.io/docs/latest/container-images.html)
 [![Website](https://img.shields.io/badge/website-live-purple.svg)](https://openliberty.io/)
 [![Stack Overflow](https://img.shields.io/badge/find-answers-blue.svg)](https://stackoverflow.com/questions/tagged/open-liberty)
 [![Groups.io](https://img.shields.io/badge/ask-groups.io-orange.svg)](https://groups.io/g/openliberty)
-[![License](https://img.shields.io/badge/License-EPL%201.0-green.svg)](https://opensource.org/licenses/EPL-1.0)
+[![License](https://img.shields.io/badge/License-EPL%202.0-green.svg)](https://opensource.org/licenses/EPL-2.0)
 [![Twitter](https://img.shields.io/twitter/follow/openlibertyio.svg?style=social&label=Follow)](https://twitter.com/OpenLibertyIO)
 
 # Summary
@@ -79,15 +74,19 @@ Our [CONTRIBUTING](https://github.com/OpenLiberty/open-liberty/blob/release/CONT
 
 2. Run a gradle build.
 
+   Prerequisite - Environment variable `JAVA_HOME` must point to a Java 17 or Java 21 SDK.  If setting `JAVA_HOME` to  Java 17, you will also need to set `JAVA_21_HOME` to a Java 21 SDK.
+
         cd open-liberty/dev
         ./gradlew cnf:initialize
         ./gradlew assemble
+
+    Troubleshooting - If `./gradlew assemble` shows out of memory error, you can increase the memory in `dev/gradle.properties` file. Stop the gradle daemon after you change the memory setting by using `./gradlew --stop`. If it does not help the problem, try cleaning up your maven repository cache (using `rm -rf ~/.m2`) and gradle cache (using `rm -rf ~/.gradle/caches`).
     
-3. Run the unit or FAT tests.
+3. Run the unit or FAT tests. [Description here](https://github.com/OpenLiberty/open-liberty/wiki/open%E2%80%90liberty-tests)
 
     `./gradlew test` for unit tests
-    
-    `./gradlew build.example_fat:buildandrun` to run a [FAT project](https://github.com/OpenLiberty/open-liberty/wiki/FAT-tests)
+
+    `./gradlew build.example_fat:buildandrun` to run a FAT project
    
    **NOTE:** ```./gradlew build``` runs the `assemble` and `test` tasks
    
@@ -102,5 +101,5 @@ Our [CONTRIBUTING](https://github.com/OpenLiberty/open-liberty/blob/release/CONT
 
 ## License
 
-Usage is provided under the [EPL 1.0 license](https://opensource.org/licenses/EPL-1.0) See LICENSE for the full details.
+Usage is provided under the [EPL 2.0 license](https://opensource.org/licenses/EPL-2.0) See LICENSE for the full details.
 

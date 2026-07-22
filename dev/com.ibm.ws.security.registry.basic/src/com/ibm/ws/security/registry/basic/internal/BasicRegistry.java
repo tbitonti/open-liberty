@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011,2020 IBM Corporation and others.
+ * Copyright (c) 2011,2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -466,6 +468,7 @@ public class BasicRegistry implements UserRegistry {
      * <li>) -> \)</li>
      * <li>{ -> \{</li>
      * <li>} -> \}</li>
+     * <li>\ -> \\</li>
      * </ul>
      *
      * @param pattern
@@ -486,6 +489,7 @@ public class BasicRegistry implements UserRegistry {
          * in a regular expression.
          */
         pattern = pattern.replace("*", ".*");
+        pattern = pattern.replace("\\", "\\\\");
         pattern = pattern.replace("(", "\\(").replace(")", "\\)");
         pattern = pattern.replace("{", "\\{").replace("}", "\\}");
 
@@ -505,7 +509,7 @@ public class BasicRegistry implements UserRegistry {
      * @see #getUsers(String, int)
      * @see #getGroups(String, int)
      * @param pattern pattern to match
-     * @param limit limit of entries to return
+     * @param limit   limit of entries to return
      * @return a SearchResult object
      */
     private SearchResult searchMap(Map<String, ?> map, String pattern, int limit) {

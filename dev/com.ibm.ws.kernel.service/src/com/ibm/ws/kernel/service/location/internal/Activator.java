@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2020 IBM Corporation and others.
+ * Copyright (c) 2010, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,6 +13,10 @@
 package com.ibm.ws.kernel.service.location.internal;
 
 import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.Hashtable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import javax.naming.spi.InitialContextFactoryBuilder;
 import javax.naming.spi.NamingManager;
@@ -18,16 +24,24 @@ import javax.naming.spi.NamingManager;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleEvent;
 import org.osgi.framework.Constants;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.ServiceRegistration;
+import org.osgi.framework.SynchronousBundleListener;
+import org.osgi.service.condition.Condition;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.common.crypto.CryptoUtils;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
-import com.ibm.ws.kernel.productinfo.ProductInfo;
 import com.ibm.ws.kernel.pseudo.internal.PseudoContextFactory;
+import com.ibm.ws.kernel.service.util.JavaInfo;
 import com.ibm.wsspi.kernel.service.location.VariableRegistry;
 import com.ibm.wsspi.kernel.service.location.WsLocationAdmin;
 import com.ibm.wsspi.kernel.service.utils.FrameworkState;
+
+import io.openliberty.checkpoint.spi.CheckpointHook;
 
 public class Activator implements BundleActivator {
     private static final TraceComponent tc = Tr.register(Activator.class);
@@ -45,6 +59,12 @@ public class Activator implements BundleActivator {
      */
     private PseudoContextFactory contextFactory;
 
+    private ServiceRegistration<WsLocationAdmin> wsLocationAdminRegistration;
+
+    private ServiceRegistration<VariableRegistry> variableRegistryRegistration;
+
+    private ServiceRegistration<CheckpointHook> checkpointHookRegistration;
+
     @Override
     @FFDCIgnore(IllegalStateException.class)
     public void start(BundleContext context) throws Exception {
@@ -52,10 +72,18 @@ public class Activator implements BundleActivator {
         FrameworkState.isValid();
         try {
             WsLocationAdminImpl locServiceImpl = WsLocationAdminImpl.createLocations(context.getBundle(0).getBundleContext());
-            context.registerService(WsLocationAdmin.class.getName(), locServiceImpl, locServiceImpl.getServiceProps());
+            wsLocationAdminRegistration = context.registerService(WsLocationAdmin.class, locServiceImpl, locServiceImpl.getServiceProps());
             VariableRegistryHelper variableRegistry = new VariableRegistryHelper();
-            context.registerService(VariableRegistry.class.getName(), variableRegistry, null);
-            ProductInfo.setBetaEditionJVMProperty();
+            variableRegistryRegistration = context.registerService(VariableRegistry.class, variableRegistry, null);
+            // Service ranking of checkpointHookRegistration needs to be less than com.ibm.ws.config.xml.internal.SystemConfiguration.checkpointHookRegistration.
+            // This is important in order to maintain the order of running the hooks.
+            checkpointHookRegistration = context.registerService(CheckpointHook.class, locServiceImpl,
+                                                                 FrameworkUtil.asDictionary(Collections.singletonMap(Constants.SERVICE_RANKING, 100)));
+
+            Hashtable<String, Object> javaConditionProps = new Hashtable<>();
+            javaConditionProps.put(JavaInfo.CONDITION_ID, JavaInfo.majorVersion());
+            javaConditionProps.put(Condition.CONDITION_ID, JavaInfo.CONDITION_ID);
+            context.registerService(Condition.class, Condition.INSTANCE, javaConditionProps);
 
             // Assume this is the first place that tries to set this
             try {
@@ -66,6 +94,9 @@ public class Activator implements BundleActivator {
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                     Tr.debug(tc, "Failed to install initialContextFactoryBuilder because it was already installed", ex);
             }
+
+            // If FIPS 140-3 is enabled, log the enabled message
+            CryptoUtils.isFips140_3Enabled();
         } catch (Exception t) {
             Tr.audit(tc, "frameworkShutdown");
 
@@ -79,6 +110,17 @@ public class Activator implements BundleActivator {
     @Override
     public void stop(BundleContext context) throws Exception {
         this.context = null;
+
+        // unregister service registrations
+        if (wsLocationAdminRegistration != null) {
+            wsLocationAdminRegistration.unregister();
+        }
+        if (variableRegistryRegistration != null) {
+            variableRegistryRegistration.unregister();
+        }
+        if (checkpointHookRegistration != null) {
+            checkpointHookRegistration.unregister();
+        }
 
         // If we set the InitialContextFactoryBuilder (and it is still set to ours),
         // then we must clear it out.
@@ -110,8 +152,21 @@ public class Activator implements BundleActivator {
     protected final void shutdownFramework() {
         try {
             Bundle bundle = context.getBundle(Constants.SYSTEM_BUNDLE_LOCATION);
-            if (bundle != null)
+            if (bundle != null) {
+                CountDownLatch stopping = new CountDownLatch(1);
+                    SynchronousBundleListener l = new SynchronousBundleListener() {
+                    @Override
+                    public void bundleChanged(BundleEvent e) {
+                        if (BundleEvent.STOPPING == e.getType() && e.getBundle().getBundleId() == 0) {
+                            stopping.countDown();
+                        }
+                    }
+                };
+                context.addBundleListener(l);
                 bundle.stop();
+                stopping.await(1000, TimeUnit.MILLISECONDS);
+                // no need to remove listener since we are stopping anyway
+            }
         } catch (Exception e) {
             // Exception could happen here if bundle context is bad, or system bundle
             // is already stopping: not an exceptional condition, as we

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -95,15 +97,15 @@ task comparenlsprops(dependsOn:'classes') {
       include '**/*.MD5'
     }
     
-    javaexec {
+    providers.javaexec {
       // Find the location of the eclipselink core jar containing the new translation messages
       def coreJar = configurations.binaries.resolvedConfiguration.files.find{ it.name.startsWith("org.eclipse.persistence.core-${newversion}.WAS-${newhash}")}.each{ }
 
       // Run the ConvertRBtoNLSProps class which converts the translation class files to nlsprops files
-      main = "com.ibm.ws.i18n.conversion.tools.ConvertRBtoNLSProps"
+      mainClass = "com.ibm.ws.i18n.conversion.tools.ConvertRBtoNLSProps"
       classpath += sourceSets.main.runtimeClasspath
       args = [coreJar, newResourcesDir, "org/eclipse/persistence/internal/localization/i18n/.*class", "org/eclipse/persistence/exceptions/i18n/.*class"]
-    }
+    }.result.get()
     
     // Explicitly get rid of the Trace nlsprops file as we don't want to translate trace message.
     delete fileTree(newResourcesDir){ 
@@ -200,11 +202,11 @@ task updateELProject{
     
     // Run the Eclipselink Version class to get the binaries version information 
     def tmpBuildProps = "${buildDir}/tmp/build.properties.tmp"
-    javaexec {
+    providers.javaexec {
       standardOutput = new FileOutputStream(tmpBuildProps)
       classpath configurations.binaries
-      main = "org.eclipse.persistence.Version"
-    }
+      mainClass = "org.eclipse.persistence.Version"
+    }.result.get()
     
     // Extract the EclipseLink build version from the temporary file created when running the EclipseLink Version class
     def buildversion

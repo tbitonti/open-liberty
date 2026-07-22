@@ -1,10 +1,11 @@
-
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,6 +15,8 @@ package com.ibm.ws.fat.grpc;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
+import java.util.Arrays;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -55,6 +58,8 @@ public class StoreProducerServletClientTests extends FATServletClient {
     @BeforeClass
     public static void setUp() throws Exception {
 
+        storeServer.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
+        producerServer.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         boolean isArchive = false;
         // To export the assembled services application archive files, set isArchive to true
         // run it locally , keep this false when merging
@@ -64,11 +69,11 @@ public class StoreProducerServletClientTests extends FATServletClient {
 
         storeServer.startServer(c.getSimpleName() + ".log");
         Log.info(c, "setUp", "Check if in store server ssl started");
-        assertNotNull("CWWKO0219I.*ssl not received", storeServer.waitForStringInLog("CWWKO0219I.*ssl"));
+        storeServer.waitForDefaultHTTPEndpointSSLStart();
 
         producerServer.useSecondaryHTTPPort(); // sets httpSecondaryPort and httpSecondarySecurePort
         producerServer.startServer(c.getSimpleName() + ".log");
-        assertNotNull("CWWKO0219I.*ssl not received", producerServer.waitForStringInLog("CWWKO0219I.*ssl"));
+        producerServer.waitForDefaultHTTPEndpointSSLStart();
 
         Log.info(c, "setUp", "Check if Store.war started");
         assertNotNull(storeServer.waitForStringInLog("CWWKZ0001I: Application StoreApp started"));
@@ -91,8 +96,10 @@ public class StoreProducerServletClientTests extends FATServletClient {
             //SRVE9967W: The manifest class path xml-apis.jar can not be found in jar file
             //wsjar:file:/.../open-liberty/dev/build.image/wlp/usr/servers/StoreServer/
             //apps/StoreApp.war!/WEB-INF/lib/serializer-2.7.2.jar or its parent.
+            //SRVE8055E and SRVE8056E: Error when a reset stream comes in from the client to
+            //cancel a stream while data is being written from the HTTP2 connection on that stream
             if (storeServer != null)
-                storeServer.stopServer("SRVE9967W");
+                storeServer.stopServer("SRVE9967W", "SRVE8055E", "SRVE8056E");
         } catch (Exception e) {
             excep = e;
             Log.error(c, "store tearDown", e);
@@ -427,7 +434,7 @@ public class StoreProducerServletClientTests extends FATServletClient {
                 // Log the page for debugging if necessary in the future.
                 Log.info(c, name.getMethodName(), ": client stream entity/result: " + metricValue);
 
-                if (metricValue == null || Integer.parseInt(metricValue) < 200) {
+                if (metricValue == null || new Float(metricValue).intValue() < 200) {
                     fail(String.format("Incorrect metric value [%s]. Expected [%s], got [%s]", "grpc.client.receivedMessages.total", ">=200", metricValue));
                 }
             } else {

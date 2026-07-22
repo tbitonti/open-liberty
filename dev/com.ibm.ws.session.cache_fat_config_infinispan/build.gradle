@@ -1,32 +1,56 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 
 configurations {
-  caffeine
-  gson
-  infinispanCommons
-  infinispanCore
-  infinispanJCache
-  infinispanJCacheCommons
-  jbossLogging
-  jGroups
-  protostream
-  rxjava
-  smallryeMetrics
+  caffeine {
+    transitive = false
+  }
+  gson {
+    transitive = false
+  }
+  infinispanCommons {
+    transitive = false
+  }
+  infinispanCore {
+    transitive = false
+  }
+  infinispanJCache {
+    transitive = false
+  }
+  infinispanJCacheCommons {
+    transitive = false
+  }
+  jbossLogging {
+    transitive = false
+  }
+  jGroups {
+    transitive = false
+  }
+  protostream {
+    transitive = false
+  }
+  rxjava {
+    transitive = false
+  }
+  smallryeMetrics {
+    transitive = false
+  }
 }
 
 // Define G:A:V coordinates of each dependency
 dependencies {
   caffeine 'com.github.ben-manes.caffeine:caffeine:2.8.0'
-  gson 'com.google.code.gson:gson:2.8.2'
+  gson project(':io.openliberty.com.google.gson')
   infinispanCommons 'org.infinispan:infinispan-commons:10.0.0.Final'
   infinispanCore 'org.infinispan:infinispan-core:10.0.0.Final'
   infinispanJCache 'org.infinispan:infinispan-jcache:10.0.0.Final'
@@ -77,19 +101,19 @@ task addInfinispanJCacheCommonsToSharedDir(type: Copy) {
 task addJbossLoggingToSharedDir(type: Copy) {
   from configurations.jbossLogging
   into new File(autoFvtDir, 'publish/shared/resources/infinispan10')
-  rename 'jboss-logging-*.jar', 'jboss-logging.jar'
+  rename 'jboss-logging-3.4.1.*.jar', 'jboss-logging.jar'
 }
 
 task addJGroupsToSharedDir(type: Copy) {
   from configurations.jGroups
   into new File(autoFvtDir, 'publish/shared/resources/infinispan10')
-  rename 'jgroups-*.jar', 'jgroups.jar'
+  rename 'jgroups-4.2.12*.jar', 'jgroups.jar'
 }
 
 task addProtoStreamToSharedDir(type: Copy) {
   from configurations.protostream
   into new File(autoFvtDir, 'publish/shared/resources/infinispan10')
-  rename 'protostream-*.jar', 'protostream.jar'
+  rename 'protostream-4.4.1.*.jar', 'protostream.jar'
 }
 
 task addRxJavaToSharedDir(type: Copy) {

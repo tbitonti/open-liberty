@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 1997, 2004 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -31,6 +33,7 @@ import com.ibm.wsspi.jsp.taglib.config.TldPathConfig;
 
 public class TagLibCacheConfigParser extends DefaultHandler {
     public static final String DTD_PUBLIC_ID = "http://www.ibm.com/xml/ns/TagLibCacheConfig.xsd";
+
     public static final String DTD_RESOURCE_PATH = "/com/ibm/ws/jsp/tablib/config/TagLibCacheConfig.xsd";
     
     protected SAXParser saxParser = null;
@@ -171,7 +174,7 @@ public class TagLibCacheConfigParser extends DefaultHandler {
         InputSource isrc = null;
         String resourcePath = null;            
         if (publicId.equals(DTD_PUBLIC_ID)) {
-            resourcePath = DTD_RESOURCE_PATH;
+            resourcePath = DTD_RESOURCE_PATH;     
         }
         if (resourcePath != null) {
             InputStream input = this.getClass().getResourceAsStream(resourcePath);

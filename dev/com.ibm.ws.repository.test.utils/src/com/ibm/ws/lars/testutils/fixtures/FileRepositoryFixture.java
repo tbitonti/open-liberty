@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package com.ibm.ws.lars.testutils.fixtures;
 import java.io.File;
 
 import com.ibm.ws.lars.testutils.clients.DirectoryWriteableClient;
+import com.ibm.ws.repository.common.enums.ReadMode;
 import com.ibm.ws.repository.connections.DirectoryRepositoryConnection;
 import com.ibm.ws.repository.connections.RepositoryConnection;
 import com.ibm.ws.repository.transport.client.RepositoryReadableClient;
@@ -26,7 +29,7 @@ public class FileRepositoryFixture extends RepositoryFixture {
     private final File root;
 
     public static FileRepositoryFixture createFixture(File root) {
-        DirectoryRepositoryConnection connection = new DirectoryRepositoryConnection(root);
+        DirectoryRepositoryConnection connection = new DirectoryRepositoryConnection(root, ReadMode.DETECT_CHANGES);
         RepositoryConnection adminConnection = connection;
         RepositoryConnection userConnection = connection;
         RepositoryReadableClient adminClient = connection.createClient();
@@ -73,7 +76,7 @@ public class FileRepositoryFixture extends RepositoryFixture {
     }
 
     public DirectoryRepositoryConnection getWritableConnection() {
-        return new DirectoryRepositoryConnection(root) {
+        return new DirectoryRepositoryConnection(root, ReadMode.DETECT_CHANGES) {
             @Override
             public RepositoryReadableClient createClient() {
                 return new DirectoryWriteableClient(root);

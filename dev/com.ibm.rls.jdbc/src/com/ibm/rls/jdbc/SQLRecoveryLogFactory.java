@@ -1,19 +1,19 @@
 /*******************************************************************************
- * Copyright (c) 2013 IBM Corporation and others.
+ * Copyright (c) 2013, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.rls.jdbc;
 
-import org.osgi.service.component.ComponentContext;
-
-import com.ibm.tx.util.logging.Tr;
-import com.ibm.tx.util.logging.TraceComponent;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.recoverylog.custom.jdbc.impl.SQLMultiScopeRecoveryLog;
 import com.ibm.ws.recoverylog.custom.jdbc.impl.SQLSharedServerLeaseLog;
 import com.ibm.ws.recoverylog.spi.CustomLogProperties;
@@ -39,29 +39,38 @@ public class SQLRecoveryLogFactory implements RecoveryLogFactory {
     private static final TraceComponent tc = Tr.register(SQLRecoveryLogFactory.class,
                                                          TraceConstants.TRACE_GROUP, TraceConstants.NLS_FILE);
 
-    public SQLRecoveryLogFactory() {}
+    private SharedServerLeaseLog _leaseLog;
+
+    public SQLRecoveryLogFactory() {
+    }
 
     /*
      * Called by DS to activate service
      */
-    public void activate(ComponentContext cc) {
+    public void activate() {
         if (tc.isDebugEnabled())
-            Tr.debug(tc, "activate  ComponentContext " + cc);
+            Tr.debug(tc, "activate");
+    }
+
+    public void deactivate() {
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "deactivate");
+        _leaseLog = null;
     }
 
     /*
      * createRecoveryLog
-     * 
+     *
      * @param props properties to be associated with the new recovery log (eg DBase config)
-     * 
+     *
      * @param agent RecoveryAgent which provides client service data eg clientId
-     * 
+     *
      * @param logcomp RecoveryLogComponent which can be used by the recovery log to notify failures
-     * 
+     *
      * @param failureScope the failurescope (server) for which this log is to be created
-     * 
+     *
      * @return RecoveryLog or MultiScopeLog to be used for logging
-     * 
+     *
      * @exception InvalidLogPropertiesException thrown if the properties are not consistent with the logFactory
      */
     @Override
@@ -76,14 +85,17 @@ public class SQLRecoveryLogFactory implements RecoveryLogFactory {
         return theLog;
     }
 
+    @Override
     public SharedServerLeaseLog createLeaseLog(CustomLogProperties props) throws InvalidLogPropertiesException {
         if (tc.isEntryEnabled())
-            Tr.entry(tc, "createLeaseLog", new Object[] { props });
+            Tr.entry(tc, "createLeaseLog", props);
 
-        SharedServerLeaseLog leaseLog = new SQLSharedServerLeaseLog(props);
+        if (_leaseLog == null) {
+            _leaseLog = new SQLSharedServerLeaseLog(props);
+        }
 
         if (tc.isEntryEnabled())
-            Tr.exit(tc, "createLeaseLog", leaseLog);
-        return leaseLog;
+            Tr.exit(tc, "createLeaseLog", _leaseLog);
+        return _leaseLog;
     }
 }

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -67,7 +69,7 @@ public class OIDCWebClientAuthCertRequiredTest extends genericWebClientAuthCertT
 
         testSettings = new TestSettings();
         testSettings.setProviderType(Constants.OIDC_OP);
-        setupSSLClientKeyStore("./securitykeys/commonLDAPUser1.jks", "security", "jks");
+        setupSSLClientKeyStore("./securitykeys/commonLDAPUser1.p12", "Liberty", "pkcs12");
         testOPServer = commonSetUp("com.ibm.ws.security.openidconnect.server-1.0_fat.cert_required", "server_no_cert_required.xml", Constants.OIDC_OP, extraApps, Constants.DO_NOT_USE_DERBY, extraMsgs, null, Constants.OIDC_OP, true, true, tokenType, certType);
         testSettings.setAdminUser("LDAPUser1");
         testSettings.setAdminPswd("LDAPUser1pwd");

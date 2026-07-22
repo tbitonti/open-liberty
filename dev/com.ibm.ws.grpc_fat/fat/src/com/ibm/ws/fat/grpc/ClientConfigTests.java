@@ -1,19 +1,20 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.fat.grpc;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -71,6 +72,7 @@ public class ClientConfigTests extends FATServletClient {
     private static final String GRPC_CLIENT_USEPLAINTEXTINV = "grpc.client.invaliduseplaintext.server.xml";
     private static final String GRPC_CLIENT_USEPLAINTEXTTRUE = "grpc.client.useplaintext.true.server.xml";
     private static final String GRPC_CLIENT_USEPLAINTEXTFALSE = "grpc.client.useplaintext.false.server.xml";
+    private static final String GRPC_CLIENT_DISABLED = "grpc.client.disabled.server.xml";
     private static String serverConfigurationFile = DEFAULT_CONFIG_FILE;
 
     @Server("GrpcClientOnly")
@@ -81,6 +83,10 @@ public class ClientConfigTests extends FATServletClient {
 
     @BeforeClass
     public static void setUp() throws Exception {
+
+        GrpcClientOnly.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
+        GrpcServerOnly.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
+
         LOG.info("ClientConfigTests : setUp() : add helloWorldClient app to the grpc client");
         // add all classes from com.ibm.ws.grpc.fat.helloworld.client, io.grpc.examples.helloworld,
         // and com.ibm.ws.fat.grpc.tls to a new app HelloWorldClient.war in the server that holds
@@ -108,15 +114,13 @@ public class ClientConfigTests extends FATServletClient {
     public static void tearDown() throws Exception {
         Exception excep = null;
 
+        LOG.info("ClientConfigTests : tearDown() : serverConfigurationFile set to null");
+        // Setting serverConfigurationFile to null forces a server.xml update (when GrpcTestUtils.setServerConfiguration() is first called) on the repeat run
+        // If not set to null, test failures may occur (since the incorrect server.xml could be used)
+        serverConfigurationFile = null;
+
         try {
-            if (GrpcClientOnly != null && GrpcClientOnly.isStarted()) {
-                /*
-                 * CWWKG0083W: expected by testInvalidMaxInboundMessageSize due to invalid message size config
-                 * CWWKG0076W: expected when a previous config is still in use because an invalid config was rejected
-                 * SRVE0777E: "Exception thrown by application class..." expected with invalid config settings
-                 */
-                GrpcClientOnly.stopServer("CWWKG0083W", "CWWKG0076W", "SRVE0777E");
-            }
+            stopClientServer();
         } catch (Exception e) {
             excep = e;
             Log.error(c, "GrpcClientOnly tearDown", e);
@@ -125,9 +129,10 @@ public class ClientConfigTests extends FATServletClient {
         try {
             /*
              * SRVE8055E: An unexpected exception occurred flushing out the rest of the response data (for testMaxInboundMetadataSize)
+             * SRVE8056E: An unexpected exception occurred closing the output stream this is generated now occasionally instead of 8055E
              */
             if (GrpcServerOnly != null && GrpcServerOnly.isStarted())
-                GrpcServerOnly.stopServer("SRVE8055E");
+                GrpcServerOnly.stopServer("SRVE8055E", "SRVE8056E");
         } catch (Exception e) {
             if (excep == null)
                 excep = e;
@@ -136,6 +141,22 @@ public class ClientConfigTests extends FATServletClient {
 
         if (excep != null)
             throw excep;
+    }
+
+    private static void stopClientServer() throws Exception {
+        if (GrpcClientOnly != null && GrpcClientOnly.isStarted()) {
+
+            /*
+             * CWWKG0083W: expected by testInvalidMaxInboundMessageSize due to invalid message size config
+             * CWWKG0076W: expected when a previous config is still in use because an invalid config was rejected
+             * SRVE0777E: "Exception thrown by application class..." expected with invalid config settings
+             * CWNEN0047W: "Resource annotations on the fields..." expected due to testEnableGrpcClientAfterServerStart
+             * CWNEN0048W: "Resource annotations on the fields..." expected due to testEnableGrpcClientAfterServerStart
+             * CWNEN0049W: "Resource annotations on the fields..." expected due to testEnableGrpcClientAfterServerStart
+             * SRVE0315E: "An exception occurred: java.lang.Throwable: java.lang.NullPointerException " expected due to testEnableGrpcClientAfterServerStart
+             */
+            GrpcClientOnly.stopServer("CWWKG0083W", "CWWKG0076W", "SRVE0777E", "CWNEN0047W", "CWNEN0048W", "CWNEN0049W", "SRVE0315E");
+        }
     }
 
     /**
@@ -695,4 +716,66 @@ public class ClientConfigTests extends FATServletClient {
         assertNotNull(GrpcClientOnly.waitForStringInLog("CWWKG0017I.*.success"));
     }
 
+    /**
+     * Start a server grpcClient-1.0 disabled, enable that feature, then verify the client is working as expected
+     *
+     * @throws Exception
+     *
+     **/
+    @Test
+    @AllowedFFDC({ "java.lang.NoClassDefFoundError", "java.lang.NullPointerException" })
+    public void testEnableGrpcClientAfterServerStart() throws Exception {
+        LOG.info("ClientConfigTests : testEnableGrpcClientAfterServerStart() : add a new server .");
+
+        // disable grpcClient-1.0
+        serverConfigurationFile = GrpcTestUtils.setServerConfiguration(GrpcClientOnly, serverConfigurationFile, GRPC_CLIENT_DISABLED, appName, LOG);
+
+        // restart the server
+        stopClientServer();
+        GrpcClientOnly.startServer();
+
+        String contextRoot = "HelloWorldClient";
+        try (WebClient webClient = new WebClient()) {
+            // tolerate server error later on
+            webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+
+            // Construct the URL for the test
+            URL url = GrpcTestUtils.createHttpUrl(GrpcClientOnly, contextRoot, "grpcClient");
+            HtmlPage page = (HtmlPage) webClient.getPage(url);
+
+            // Log the page for debugging if necessary in the future.
+            Log.info(c, name.getMethodName(), page.asText());
+            Log.info(c, name.getMethodName(), page.asXml());
+
+            assertTrue("the servlet was not loaded correctly",
+                       page.asText().contains("gRPC helloworld client example"));
+
+            HtmlForm form = page.getFormByName("form1");
+
+            // set a name in the form, which we'll expect the RPC to return
+            HtmlTextInput inputText = (HtmlTextInput) form.getInputByName("user");
+            inputText.setValueAttribute("us3r1");
+
+            // set the port of the grpcserver in the form
+            HtmlTextInput inputPort = (HtmlTextInput) form.getInputByName("port");
+            inputPort.setValueAttribute(String.valueOf(GrpcServerOnly.getHttpDefaultPort()));
+
+            // set the hostname of the gprcserver in the form
+            HtmlTextInput inputHost = (HtmlTextInput) form.getInputByName("address");
+            inputHost.setValueAttribute(GrpcServerOnly.getHostname());
+
+            // submit to the grpcClient, and execute the RPC
+            HtmlSubmitInput submitButton = form.getInputByName("submit");
+            page = submitButton.click();
+
+            // Expect a 500 status code since grpcClient-1.0 is not enabled
+            Log.info(c, name.getMethodName(), page.asText());
+            assertEquals("A failure was expected", 500, page.getWebResponse().getStatusCode());
+
+            // re-enable grpcClient-1.0 and check for a good response
+            serverConfigurationFile = GrpcTestUtils.setServerConfiguration(GrpcClientOnly, serverConfigurationFile, GRPC_CLIENT_ELEMENT, appName, LOG);
+            page = submitButton.click();
+            assertTrue("the gRPC request did not complete correctly", page.asText().contains("us3r1"));
+        }
+    }
 }

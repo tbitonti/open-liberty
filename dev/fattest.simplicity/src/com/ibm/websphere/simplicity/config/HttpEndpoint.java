@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -21,6 +23,8 @@ import javax.xml.bind.annotation.XmlElement;
  */
 public class HttpEndpoint extends ConfigElement {
 
+    @XmlElement(name = "httpOptions")
+    private HttpOptions httpOptions;
     @XmlElement(name = "tcpOptions")
     private TcpOptions tcpOptions;
     @XmlElement(name = "sslOptions")
@@ -28,10 +32,23 @@ public class HttpEndpoint extends ConfigElement {
     @XmlElement(name = "samesite")
     private SameSite sameSite;
     private String samesiteRef;
+    @XmlElement(name = "headers")
+    private Headers headers;
+    private String headersRef;
     private String host;
     private String httpPort;
     private String httpsPort;
     private String protocolVersion;
+
+    /**
+     * @return HTTP options for this configuration
+     */
+    public HttpOptions getHttpOptions() {
+        if (this.httpOptions == null) {
+            this.httpOptions = new HttpOptions();
+        }
+        return this.httpOptions;
+    }
 
     /**
      * @return TCP options for this configuration
@@ -77,6 +94,35 @@ public class HttpEndpoint extends ConfigElement {
     @XmlAttribute
     public void setSameSiteRef(String samesiteRef) {
         this.samesiteRef = samesiteRef;
+    }
+
+    /**
+     *
+     * @return Headers for this entry
+     */
+    public Headers getHeaders() {
+        if (this.headers == null) {
+            this.headers = new Headers();
+        }
+
+        return this.headers;
+    }
+
+    /**
+     *
+     * @return The headersRef for this entry
+     */
+    public String getHeadersRef() {
+        return this.headersRef;
+    }
+
+    /**
+     *
+     * @param headersRef The headersRef for this entry
+     */
+    @XmlAttribute
+    public void setHeadersRef(String headersRef) {
+        this.headersRef = headersRef;
     }
 
     /**
@@ -155,6 +201,8 @@ public class HttpEndpoint extends ConfigElement {
             buf.append(tcpOptions.toString());
         if (this.sslOptions != null)
             buf.append(sslOptions.toString());
+        if (this.httpOptions != null)
+            buf.append(httpOptions.toString());
         if (this.sameSite != null)
             buf.append(sameSite.toString());
         if (samesiteRef != null)

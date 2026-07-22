@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2019 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,7 +14,7 @@ package com.ibm.ws.annocache.targets.cache.internal;
 
 import java.io.IOException;
 import java.io.OutputStream;
-
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -53,10 +55,10 @@ public class TargetCacheImpl_WriterBinary implements TargetCache_BinaryConstants
     public TargetCacheImpl_WriterBinary(
         TargetCacheImpl_Factory factory,
         String path, OutputStream output,
-        String encoding) throws IOException {
+        Charset charset) throws IOException {
 
         this.factory = factory;
-        this.bufOutput = new UtilImpl_WriteBuffer(path, output, WRITE_BUFFER_SIZE, encoding);
+        this.bufOutput = new UtilImpl_WriteBuffer(path, output, WRITE_BUFFER_SIZE, charset);
         this.strings = new LinkedHashMap<String, Integer>();
     }
 
@@ -406,16 +408,17 @@ public class TargetCacheImpl_WriterBinary implements TargetCache_BinaryConstants
         bufOutput.writeLargeInt( containerNames.size() );
 
         for ( String name : containerNames ) {
-            ScanPolicy policy = containerTable.getPolicy(name);
-
-            String writeName;
+            String useName;
             if ( name.equals(TargetCache_ExternalConstants.CANONICAL_ROOT_CONTAINER_NAME) ) {
-                writeName = TargetCache_ExternalConstants.ROOT_CONTAINER_NAME;
+                useName = TargetCache_ExternalConstants.ROOT_CONTAINER_NAME;
             } else {
-                writeName = name;
+                useName = name;
             }
-
-            writeCompact(NAME_BYTE, writeName);
+            String signature = containerTable.getSignature(name);
+            ScanPolicy policy = containerTable.getPolicy(name);
+            
+            writeCompact(NAME_BYTE, useName);
+            writeCompact(SIGNATURE_BYTE, signature);
             writeCompact(POLICY_BYTE, policy.toString());
         }
     }

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -428,6 +430,30 @@ public class PauseableComponentControllerImpl implements PauseableComponentContr
 
     }
 
+    @Override
+    public boolean isActive(String endpoints) {
+
+        Set<String> targetList = createTargetList(endpoints);
+
+        // Sync with other methods changing/querying states for PauseableComponents
+        synchronized (this) {
+            for (PauseableComponent pauseableComponent : tracker.getTracked().values()) {
+                if (targetList.contains(pauseableComponent.getName())) {
+
+                    if (pauseableComponent.isPaused()) {
+                        return false;
+                    }
+                    targetList.remove(pauseableComponent.getName());
+                }
+            }
+        }
+
+        if (targetList.isEmpty())
+            return true;
+
+        return false;
+    }
+
     /*
      * (non-Javadoc)
      *
@@ -447,7 +473,7 @@ public class PauseableComponentControllerImpl implements PauseableComponentContr
      * @param args
      * @return
      */
-    private Set<String> createTargetList(String targets) throws PauseableComponentControllerRequestFailedException {
+    private Set<String> createTargetList(String targets) {
 
         Set<String> targetSet = new HashSet<String>();
 

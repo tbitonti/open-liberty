@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 1997, 2008 IBM Corporation and others.
+# Copyright (c) 1997, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -225,8 +227,9 @@ ssl.config.not.using.fips.CWPKI0049W=CWPKI0049W: UseFIPS is enabled but the SSL 
 ssl.config.not.using.fips.CWPKI0049W.explanation=Although UseFIPS has been enabled, the FIPS-approved cryptographic algorithms cannot be used because the SSL configuration is not using a FIPS-approved JSSE Provider.
 ssl.config.not.using.fips.CWPKI0049W.useraction=To ensure the use of FIPS-approved cryptographic algorithms, modify the SSL configuration to use a FIPS-approved JSSE Provider.
 # -------------------------------------------------------------------------------------------------
-
-
+ssl.san.warning.CWPKI0050W=CWPKI0050W: The certificate with the {0} alias from the {1} keyStore has no subject alternative name. HostName verification is not enforced for serverIdentity collective controller, replica and member SSL communication.
+ssl.san.warning.CWPKI0050W.explanation=The default serverIdentity certificate does not have subject alternative name in the keyStore. The hostName verification check is skipped for serverIdentity certificates
+ssl.san.warning.CWPKI0050W.useraction=Open the keyStore and check the subject alternative name on all certificates in the keyStore. Use the genKey and genKeyController commands to generate new certificates to enable the hostname verification.
 ################################################################################
 # Range 100-110 reserved for TrustManager Prompt
 ################################################################################
@@ -309,7 +312,7 @@ ssl.signer.local.truststore.list.CWPKI0307I=CWPKI0307I: The following local keys
 ssl.signer.local.truststore.list.CWPKI0307I.explanation=This message is for informational purposes only.
 ssl.signer.local.truststore.list.CWPKI0307I.useraction=No action is required.
 # -------------------------------------------------------------------------------------------------
-ssl.signer.add.to.local.truststore.CWPKI0308I=CWPKI0308I: The system is adding signer alias {0} to local keystore {1} with the following SHA digest: {2}
+ssl.signer.add.to.local.truststore.CWPKI0308I=CWPKI0308I: The system is adding signer alias {0} to local keystore {1} with the following {3} digest: {2}
 ssl.signer.add.to.local.truststore.CWPKI0308I.explanation=This message is for informational purposes only.
 ssl.signer.add.to.local.truststore.CWPKI0308I.useraction=No action is required.
 # -------------------------------------------------------------------------------------------------
@@ -633,9 +636,13 @@ ssl.client.handshake.error.CWPKI0823E=CWPKI0823E: SSL HANDSHAKE FAILURE:  A sign
 ssl.client.handshake.error.CWPKI0823E.explanation=An error occurred during the SSL handshake.  It might require a signer export/import from the target host to the client TrustStore.
 ssl.client.handshake.error.CWPKI0823E.useraction=Review the extended error message from the TrustManager to determine what needs to change between the target SSL configuration and the client SSL configuration.
 # -------------------------------------------------------------------------------------------------
-ssl.client.handshake.error.CWPKI0824E=CWPKI0824E: SSL HANDSHAKE FAILURE:  Host name verification error while connecting to host [{0}].  The host name used to access the server does not match the server certificate''s SubjectDN or Subject Alternative Name information.  The extended error message from the SSL handshake exception is: [{1}].
-ssl.client.handshake.error.CWPKI0824E.explanation=An error occurred during the SSL handshake.  Host name verification is enabled and server's identity can not be verified.  The host name used to access the server does not match the server certificate's SubjectDN or Subject Alternative Name information.
+ssl.client.handshake.error.CWPKI0824E=CWPKI0824E: SSL HANDSHAKE FAILURE:  Host name verification error while connecting to host [{0}].  The host name used to access the server does not match the server certificate''s [{1}].  The extended error message from the SSL handshake exception is: [{2}].
+ssl.client.handshake.error.CWPKI0824E.explanation=An error occurred during the SSL handshake.  Host name verification is enabled and server's identity can not be verified.  The host name used to access the server does not match the server certificate's Subject Alternative Name information or SubjectDN .
 ssl.client.handshake.error.CWPKI0824E.useraction=When host name verification is enable the server's being accessed needs to be setup with a certificate contain the proper information needed to verify the server's identity.
+# -------------------------------------------------------------------------------------------------
+ssl.hnv.disabled.warning.CWPKI0063W=CWPKI0063W: Hostname verification is disabled for {0}. TLS/SSL connections do not check server identities to verify that the client is communicating with the correct server.
+ssl.hnv.disabled.warning.CWPKI0063W.explanation=Hostname verification must be enabled to ensure that the hostname in the URL that the client is connecting to matches the hostname in the certificate that the server sends back during the TLS/SSL communication.
+ssl.hnv.disabled.warning.CWPKI0063W.useraction=Enable hostname verification by setting the com.ibm.ssl.verifyHostname security custom property to true.
 # -------------------------------------------------------------------------------------------------
 ssl.cacerts.error.CWPKI0825W=CWPKI0825W: The trustDefaultCerts attribute is enabled but the default truststore failed to initialize. Because the default truststore did not initialize, only the truststore that is configured by the {0} SSL configuration is used. The exception that is returned is: {1}. 
 ssl.cacerts.error.CWPKI0825W.explanation=The default truststore did not initialize because it could not be retrieved from the trust manager. The default truststore is not used for trust. Only the configured SSL configuration is used.
@@ -660,4 +667,49 @@ ssl.update.certificate.error.useraction=Ensure the location is accessible by the
 ssl.certificate.add.CWPKI0830I=CWPKI0830I: Certificate with the {0} SubjectDN from the {1} environment variable is being added to the {2} keystore.
 ssl.certificate.add.CWPKI0830I.explanation=A certificate was retrieved from an environment variable in the configuration and is being added to the keystore file.
 ssl.certificate.add.CWPKI0830I.useraction=No action is required.
+# -------------------------------------------------------------------------------------------------
+ssl.protocol.error.CWPKI0831E=CWPKI0831E: The {0} SSL/TLS protocol cannot be used. Extended error is: {1} 
+ssl.protocol.error.CWPKI0831E.explanation=The protocol that is provided cannot be used. An error occurs on trying to get an SSLContext instance with the protocol value. 
+ssl.protocol.error.CWPKI0831E.useraction=Ensure that the configuration uses valid SSL/TLS protocol values for this JVM.
+# -------------------------------------------------------------------------------------------------
+ssl.protocol.error.CWPKI0832E=CWPKI0832E: The {0} SSL/TLS protocol value that is provided cannot be used for configuring a list of SSL protocols values.
+ssl.protocol.error.CWPKI0832E.explanation=The protocol value is not valid in a protocol list grouping.
+ssl.protocol.error.CWPKI0832E.useraction=Ensure that the list of SSL/TLS protocols includes only values that are appropriate for a protocol list.
+# ------------------------------------------------------------------------------------------------- 
+ssl.protocol.error.CWPKI0833E=CWPKI0833E: The {0} SSL/TLS configuration has an error that prevents creation of the SSL/TLS configuration. 
+ssl.protocol.error.CWPKI0833E.explanation=The SSL configuration attributes has an error that prevents SSLContext creation. 
+ssl.protocol.error.CWPKI0833E.useraction=Ensure that the SSL configuration attributes are correct. Review the logs for additional errors associated with SSL configuration attributes.
+# -------------------------------------------------------------------------------------------------
+ssl.config.error.CWPKI0834E=CWPKI0834E: The {0} SSL/TLS configuration cannot be set as the process default SSL configuration due to an error.
+ssl.config.error.CWPKI0834E.explanation=The specified SSL/TLS configuration contains an error that prevented it from being set as the process default SSL configuration. 
+ssl.config.error.CWPKI0834E.useraction=Ensure that the SSL configuration attributes are correct. Review the logs for errors that are associated with SSL configuration attributes.
+# -------------------------------------------------------------------------------------------------
+ssl.config.error.CWPKI0835E=CWPKI0835E:  An SSL/TLS configuration cannot be created for the inbound connection because a key manager was not created.
+ssl.config.error.CWPKI0835E.explanation=An error in the configuration prevented the key manager from being created.
+ssl.config.error.CWPKI0835E.useraction=Ensure that the SSL configuration attributes are correct. Review the logs for errors that are associated with SSL configuration attributes.
+# -------------------------------------------------------------------------------------------------
+ssl.config.error.CWPKI0836E=CWPKI0836E: An SSL/TLS configuration cannot created because key and trust managers were not created.
+ssl.config.error.CWPKI0836E.explanation=An error in the configuration prevented the key and trust managers from being created.
+ssl.config.error.CWPKI0836E.useraction=Ensure that the SSL configuration attributes are correct. Review the logs for errors that are associated with SSL configuration attributes.
+# -------------------------------------------------------------------------------------------------
+ssl.enabledCiphers.mixed.mode.error=CWPKI0837E: The enabledCiphers attribute in SSL configuration [{1}] contains both static cipher entries and filter entries ("+" or "-") in [{0}]. Use either static cipher names (for example, "TLS_AES_128_GCM_SHA256 TLS_AES_256_GCM_SHA384") or filter modifiers (for example, "+TLS_AES_128_GCM_SHA256 -SSL_RSA*"), but not both. The configuration is invalid and the JDK effective list is used.
+ssl.enabledCiphers.mixed.mode.error.explanation=The enabledCiphers attribute cannot mix static cipher entries with filter entries that start with "+" or "-". Static entries replace the effective JDK list entirely, while filter entries modify the JDK effective list. Mixing both modes is not supported.
+ssl.enabledCiphers.mixed.mode.error.useraction=Update the enabledCiphers attribute to use either static cipher names only or filter modifiers only. For static mode, list cipher names separated by spaces. For filter mode, use "+" to add ciphers and "-" to remove cipher patterns from the JDK effective list.
+# -------------------------------------------------------------------------------------------------
+ssl.enabledCiphers.wildcard.in.plus.error=CWPKI0840E: The enabledCiphers attribute in SSL configuration [{1}] contains a wildcard (*) in a "+" (add) entry in [{0}]. Wildcards are allowed only in "-" (remove) entries. The configuration is invalid and the JDK effective list is used.
+ssl.enabledCiphers.wildcard.in.plus.error.explanation=The enabledCiphers attribute contains a "+" entry with a wildcard pattern (for example, "+TLS_ECDHE*"). Wildcards are supported only in "-" (remove) entries to match and remove multiple ciphers. In "+" entries, you must specify exact cipher names.
+ssl.enabledCiphers.wildcard.in.plus.error.useraction=Update the enabledCiphers attribute to remove wildcards from "+" entries. Use exact cipher names in "+" entries (for example, "+TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"). Wildcards can only be used in "-" entries (for example, "-TLS_ECDHE*").
+# -------------------------------------------------------------------------------------------------
+ssl.enabledCiphers.wildcard.in.static.error=CWPKI0841E: The enabledCiphers attribute in SSL configuration [{1}] contains a wildcard (*) in a static entry in [{0}]. Wildcards are allowed only in "-" (remove) entries when using filter mode. The configuration is invalid and the JDK effective list is used.
+ssl.enabledCiphers.wildcard.in.static.error.explanation=The enabledCiphers attribute contains a static entry (without "+" or "-" prefix) with a wildcard pattern (for example, "*TLS_RSA*"). Wildcards are supported only in "-" (remove) entries when using filter mode with "+" or "-". In static mode, you must specify exact cipher names without wildcards.
+ssl.enabledCiphers.wildcard.in.static.error.useraction=Update the enabledCiphers attribute to either use exact cipher names without wildcards in static mode, or switch to filter mode using "+" and "-" prefixes. For filter mode, use "-" entries with wildcards (for example, "-TLS_RSA*") to remove cipher patterns from the JDK effective list.
+# -------------------------------------------------------------------------------------------------
+ssl.securitylevel.ignored.CWPKI0838I=CWPKI0838I: The securityLevel attribute is set in SSL configuration alias [{0}] but is not used. Instead, the effective JDK list is used.
+ssl.securitylevel.ignored.CWPKI0838I.explanation=The specified value for the securityLevel attribute is ignored because this attribute is no longer used. The effective JDK cipher suites are used and can be overridden by the enabledCiphers attribute.
+ssl.securitylevel.ignored.CWPKI0838I.useraction=Remove the securityLevel attribute from the server configuration.
+# -------------------------------------------------------------------------------------------------
+# The securityLevel attribute is set to LOW or MEDIUM
+ssl.weak.cipher.spec.CWPKI0839W=CWPKI0839W: The weak cipher spec for the securityLevel attribute is ignored and the effective JDK list is used instead. Users can enable whichever ciphers they need by using the java.security package.
+ssl.weak.cipher.spec.CWPKI0839W.explanation=Setting the securityLevel attribute to "LOW" or "MEDIUM" can reduce the security of SSL/TLS connections, because cipher suites with weaker encryption algorithms or shorter key lengths might be negotiated.
+ssl.weak.cipher.spec.CWPKI0839W.useraction=Review the enabledCiphers configuration. Use stronger cipher specifications or explicitly list strong cipher suites. Avoid setting the securityLevel attribute to "LOW" or "MEDIUM" unless compatibility is a consideration.
 # -------------------------------------------------------------------------------------------------

@@ -1,0 +1,39 @@
+###############################################################################
+# Copyright (c) 2022,2026 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+###############################################################################
+#CMVCPATHNAME io.openliberty.concurrent.internal.cdi/resources/io/openliberty/concurrent/internal/cdi/resources/CWWKCMessages.nlsprops
+#ISMESSAGEFILE TRUE
+#NLS_ENCODING=UNICODE
+#
+#COMPONENTPREFIX CWWKC
+#COMPONENTNAMEFOR CWWKC Jakarta EE Concurrency
+#
+# NLS_MESSAGEFORMAT_VAR
+#
+#   Strings in this file which contain replacement variables are processed by the MessageFormat 
+#   class (single quote must be coded as 2 consecutive single quotes ''). Strings in this file 
+#   which do NOT contain replacement variables are NOT processed by the MessageFormat class 
+#   (single quote must be coded as one single quote '). 
+
+# All messages must use the range CWWKC1410 to CWWKC1499
+
+CWWKC1410.schedule.lacks.seconds=CWWKC1410E: Anotace Schedule, {0}, ur\u010duje pr\u00e1zdn\u00fd seznam sekund, ve kter\u00fdch se \u00faloha spou\u0161t\u00ed. Zadejte nepr\u00e1zdn\u00fd seznam pro pole sekund nebo pole sekund vynechte z anotace Pl\u00e1n. Vynech\u00e1n\u00ed pole sekund napl\u00e1nuje spu\u0161t\u011bn\u00ed \u00fakolu na za\u010d\u00e1tek minuty.
+CWWKC1410.schedule.lacks.seconds.explanation=Pr\u00e1zdn\u00fd seznam znamen\u00e1, \u017ee p\u0159i v\u00fdpo\u010dtu napl\u00e1novan\u00fdch \u010das\u016f se pole sekund mus\u00ed ignorovat. Vynech\u00e1n\u00ed pole sekund napl\u00e1nuje spu\u0161t\u011bn\u00ed \u00fakolu na za\u010d\u00e1tek minuty.
+CWWKC1410.schedule.lacks.seconds.useraction=Upravte pole sekund v pozn\u00e1mce Schedule tak, aby obsahovalo nepr\u00e1zdn\u00fd seznam, nebo pole sekund z pozn\u00e1mky Schedule vynechte.
+
+CWWKC1411.qualified.res.err=CWWKC1411E: Server nevytvo\u0159il objekt typu bean {0} pro anotaci {1} nebo prvek deskriptoru nasazen\u00ed {2} . Prvek anotace nebo deskriptoru nasazen\u00ed m\u00e1 {3} n\u00e1zev a kvalifik\u00e1tory {4} a je definov\u00e1n v artefaktu aplikace {5} . Chyba je {6}
+CWWKC1411.qualified.res.err.explanation=K\u00f3d nevytvo\u0159il zdroj nebo nezaregistroval zdroj jako bean.
+CWWKC1411.qualified.res.err.useraction=Ujist\u011bte se, \u017ee je prost\u0159edek spr\u00e1vn\u011b nakonfigurov\u00e1n.
+
+CWWKC1412.qualifier.conflict=CWWKC1412E: Aplika\u010dn\u00ed artefakt {0} obsahuje n\u011bkolik definic prost\u0159edk\u016f {1} , kter\u00e9 maj\u00ed kvalifik\u00e1tory {2} . N\u00e1zvy konfliktn\u00edch definic zdroj\u016f {1} jsou {3} .
+CWWKC1412.qualifier.conflict.explanation=Ka\u017ed\u00e1 definice zdroje stejn\u00e9ho typu, kter\u00e1 m\u00e1 kvalifik\u00e1tor, mus\u00ed m\u00edt jin\u00fd kvalifik\u00e1tor.
+CWWKC1412.qualifier.conflict.useraction=Ujist\u011bte se, \u017ee ka\u017ed\u00e1 definice prost\u0159edku stejn\u00e9ho typu m\u00e1 jin\u00fd kvalifik\u00e1tor nebo nem\u00e1 \u017e\u00e1dn\u00e9 kvalifik\u00e1tory.

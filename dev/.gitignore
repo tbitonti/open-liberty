@@ -1,5 +1,6 @@
 /.gradle/
 /.gradle-wrapper/
+/.m2/
 /gradlew
 /gradlew.bat
 /*/bin/
@@ -10,3 +11,4 @@
 generated.properties
 /build.pii.package/
 /published_outputs/
+/build/

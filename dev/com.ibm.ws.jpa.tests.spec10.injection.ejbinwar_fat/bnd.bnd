@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2020 IBM Corporation and others.
+# Copyright (c) 2020, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -11,14 +13,18 @@
 -include= ~../cnf/resources/bnd/bundle.props
 bVersion=1.0
 
-
 src: \
     fat/src,\
     test-applications/helpers/DatabaseManagement/src,\
-    test-applications/injection_ejbinwar/src
+    test-applications/injection_ejbinwar/src,\
+    test-applications/injection_ejbinwar_javacomp/src
 
 fat.project: true
-tested.features: jdbc-4.0, beanvalidation-1.1, jpa-2.0, el-3.0, persistence-3.0
+tested.features: databaseRotation, jdbc-4.0, beanvalidation-1.1, jpa-2.0, el-3.0, persistence-3.0, persistence-3.1, xmlbinding-4.0, servlet-6.0
+
+# Uncomment to test against alternative databases
+# Options: Derby, Postgres, DB2, Oracle, SQLServer
+fat.bucket.db.type: Derby
 
 # Dependencies may be local bundles (e.g. com.ibm.websphere.javaee.servlet.3.1)
 #      or binaries from Artifactory (e.g. commons-logging:commons-logging)
@@ -32,4 +38,5 @@ tested.features: jdbc-4.0, beanvalidation-1.1, jpa-2.0, el-3.0, persistence-3.0
     com.ibm.websphere.javaee.persistence.2.1;version=latest,\
     com.ibm.websphere.javaee.transaction.1.2;version=latest,\
     com.ibm.websphere.javaee.validation.2.0;version=latest,\
-    io.openliberty.jakarta.persistence.3.0;version=latest
+    io.openliberty.jakarta.persistence.3.0;version=latest,\
+    io.openliberty.org.testcontainers;version=latest

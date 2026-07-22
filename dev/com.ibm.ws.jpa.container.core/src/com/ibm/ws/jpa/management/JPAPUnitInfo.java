@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2019 IBM Corporation and others.
+ * Copyright (c) 2005, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -45,6 +47,7 @@ import javax.persistence.spi.PersistenceUnitTransactionType;
 import javax.sql.DataSource;
 
 import com.ibm.websphere.csi.J2EEName;
+import com.ibm.websphere.ras.ProtectedString;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.ffdc.FFDCFilter;
@@ -81,6 +84,12 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
     // Fully package qualified class name of the persistence provider used for this persistence
     // unit.
     private String ivProviderClassName = null;
+
+    // Persistence unit Qualifier
+    private List<String> ivQualifierClassNames = null;
+
+    // Persistence unit Scope
+    private String ivScopeClassName = null;
 
     // JTA DataSource object used, if specified.
     private DataSource ivJtaDataSource = null;
@@ -187,6 +196,7 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
         ivApplInfo = applInfo;
         ivArchivePuId = puId;
         ivTxType = PersistenceUnitTransactionType.JTA;
+        ivQualifierClassNames = new ArrayList<String>();
         ivJarFileURLs = new ArrayList<URL>();
         ivManagedClassNames = new ArrayList<String>();
         ivMappingFileNames = new ArrayList<String>();
@@ -202,7 +212,14 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
     {
         return ivApplInfo.getJPAComponent();
     }
-
+    
+    /**
+     * @return the ivArchivePuId
+     */
+    public JPAPuId getIvArchivePuId() {
+        return ivArchivePuId;
+    }
+    
     /**
      * Remove all leading and trailing white spaces comes from parsing <persistence-unit> in
      * persistence.xml.
@@ -276,6 +293,46 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
         ivProviderClassName = trim(newValue == null ? getJPAComponent().getDefaultJPAProviderClassName() : newValue);
     }
 
+    /**
+     * Returns the fully-qualified class names of annotations annotated
+     * {@code Qualifier}. Corresponds to the {@code qualifier} element in
+     * {@code persistence.xml}.
+     *
+     * @return the fully-qualified class names of the qualifier annotations,
+     *         or an empty list if no qualifier annotations were explicitly
+     *         specified
+     */
+    public final List<String> getQualifierAnnotationNames() {
+        return ivQualifierClassNames;
+    }
+
+    final void setQualifierAnnotationNames(List<String> list) {
+        ivQualifierClassNames.clear();
+        addQualifierClassName(list);
+    }
+
+    private void addQualifierClassName(List<String> list) {
+        for (String ormFName : list) {
+            ivQualifierClassNames.add(trim(ormFName));
+        }
+    }
+
+    /**
+     * Returns the fully-qualified class name of an annotation annotated
+     * {@code Scope} or {@code NormalScope}. Corresponds to the {@code scope}
+     * element in {@code persistence.xml}.
+     *
+     * @return the fully-qualified class name of the scope annotation,
+     *         or null if no scope was explicitly specified
+     */
+    public final String getScopeAnnotationName() {
+        return ivScopeClassName;
+    }
+
+    final void setScopeAnnotationName(String newValue) {
+        ivScopeClassName = (newValue == null) ? "" : trim(newValue);
+    }
+
     // d473432.1 Ends
 
     /*
@@ -326,8 +383,11 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
                 // be resolved. So, just return a 'generic' datasource, that should
                 // satisfy the provider, though will never actually be used. d510184
                 if (ivEMFactory == null &&
-                    (dsName.startsWith(JNDI_NAMESPACE_JAVA_COMP_ENV) ||
-                     dsName.startsWith(JNDI_NAMESPACE_JAVA_APP_ENV))) {
+                    (dsName.startsWith(JNDI_NAMESPACE_JAVA_COMP_ENV)
+                     || dsName.startsWith(JNDI_NAMESPACE_JAVA_APP_ENV)
+                     || getJPAComponent().shouldDelayEntityManagerFactoryCreate())) {
+                    if (isTraceOn && tc.isDebugEnabled())
+                        Tr.debug(tc, "returning GenericDataSource : " + ivArchivePuId + ", " + dsName);
                     ds = new GenericDataSource(ivArchivePuId, dsName);
                 }
 
@@ -819,7 +879,7 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
         // Assume the EMF to be returned is the one created during app start.
         EntityManagerFactory emf = ivEMFactory;
 
-        // An EntityManagerFactory Map is only created if one of the datasrouces
+        // An EntityManagerFactory Map is only created if one of the datasource
         // has been defined in java:comp/env.  When this is true, a component
         // specific EMF needs to be obtained from the map, or created and added
         // to the map.
@@ -898,21 +958,33 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
         getJPAComponent().addIntegrationProperties(xmlSchemaVersion,
                                                    integrationProperties, ivClassLoader);
 
+        // Add default persistence properties supplied from JPAComponent configuration
+        getJPAComponent().addDefaultProperties(integrationProperties);
+
         if (isTraceOn && tc.isDebugEnabled()) {
             Tr.debug(tc, "createContainerEMF properties:" + this.toString());
-            Tr.debug(tc, "createContainerEMF integration-properties:" +
-                         integrationProperties);
+
+            Map<String, Object> props = new HashMap<String, Object>();
+            for (Map.Entry<String, Object> entry : integrationProperties.entrySet()) {
+                if (AbstractJPAComponent.isPassword(entry.getKey())) {
+                    props.put(entry.getKey(), new ProtectedString(entry.getValue().toString().toCharArray()).toString());
+                } else {
+                    props.put(entry.getKey(), entry.getValue());
+                }
+            }
+            Tr.debug(tc, "createContainerEMF integration-properties: {0}", props);
         }
 
-        EntityManagerFactory emfactory;
 
         // Push the ThreadContextClassLoader, not the app classloader
         ClassLoader tcclassloader = getJPAComponent().createThreadContextClassLoader(ivClassLoader);
 
         Object oldClassLoader = svThreadContextAccessor.pushContextClassLoaderForUnprivileged(tcclassloader);
+        EntityManagerFactory emfactory = null;
+        PersistenceProvider provider = null;
         try {
             Class<?> providerClass = ivClassLoader.loadClass(ivProviderClassName);
-            PersistenceProvider provider = (PersistenceProvider) providerClass.newInstance();
+            provider = (PersistenceProvider) providerClass.newInstance();
 
             // Use properties defined in default persistence providers in factory creation.
             // Properties defined in PU are used in createEntityManager to override factory settings.
@@ -924,9 +996,28 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
             Tr.error(tc,
                      "CREATE_CONTAINER_ENTITYMANAGER_FACTORY_ERROR_CWWJP0015E",
                      ivProviderClassName, ivArchivePuId.getPuName(), e.getLocalizedMessage());
-            if (isTraceOn && tc.isEntryEnabled())
-                Tr.exit(tc, "createEMFactory : null", e);
-            throw e; // d743091
+            if (e.getMessage().contains("Syntax error parsing")) {
+                // In the event of a syntax error, the call is being re-attempted.
+                if (isTraceOn && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Encountered a syntax error, initiating retry process");
+                }
+                try {
+                    if(provider!=null) {
+                        emfactory = provider.createContainerEntityManagerFactory(puInfo, integrationProperties); 
+                    }
+                } catch (Exception e2) {
+                    FFDCFilter.processException(e2, CLASS_NAME + ".createEMFactory",
+                                                "997", this);
+                    Tr.error(tc,
+                             "CREATE_CONTAINER_ENTITYMANAGER_FACTORY_ERROR_CWWJP0015E",
+                             ivProviderClassName, ivArchivePuId.getPuName(), e2.getLocalizedMessage());
+                }
+            } 
+            if (emfactory == null) {
+                if (isTraceOn && tc.isEntryEnabled())
+                    Tr.exit(tc, "createEMFactory : null", e);
+                throw e;
+            }
         } catch (ClassNotFoundException cnfe) {
             // ClassNotFoundException is expected during module start for WABs since they don't actually use JPAPUnitInfo.
             // Perhaps the module start code flow should be completely disabled for them instead?
@@ -1129,6 +1220,7 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
         sbuf.append("\n Transaction Type     : ").append(ivTxType);
         sbuf.append("\n Description          : ").append(ivDesc);
         sbuf.append("\n Provider class name  : ").append(ivProviderClassName);
+        sbuf.append("\n Scope                : ").append(ivScopeClassName);
         sbuf.append("\n JTA Data Source      : ").append(ivJtaDataSourceJNDIName).append(" | ").append(ivJtaDataSource);
         sbuf.append("\n Non JTA Data Source  : ").append(ivNonJtaDataSourceJNDIName).append(" | ").append(ivNonJtaDataSource);
         sbuf.append("\n ExcludeUnlistedClass : ").append(ivExcludeUnlistedClasses);
@@ -1162,6 +1254,16 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
             first = true;
             for (String className : ivManagedClassNames) {
                 sbuf.append(first ? "" : ",").append(className);
+                first = false;
+            }
+        }
+        sbuf.append(']');
+
+        sbuf.append("\n Qualifier            : [");
+        if (ivQualifierClassNames != null) {
+            first = true;
+            for (String strQualifier : ivQualifierClassNames) {
+                sbuf.append(first ? "" : ",").append(strQualifier);
                 first = false;
             }
         }
@@ -1274,10 +1376,12 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
                         Tr.error(tc,
                                  "ILLEGAL_CLASS_FORMAT_IN_CLASS_TRANSFORMATION_CWWJP0014E",
                                  className);
-                    } catch (RuntimeException t) {
-                        // The transform() method should only throw IllegalClassFormatException but some
+                    } catch (Throwable t) {
+                        // The transform() method should only throw IllegalClassFormatException (in JPA < 3.1) but some
                         // providers may allow a RuntimeException to bubble through, so we have to deal with that
                         // possibility.
+                        // JPA 3.1: The transform method signature has been changed to throw jakarta.persistence.spi.TransformerException.  Since this
+                        // exception doesn't exist in earlier versions of JPA, this catch block has been updated to catch Throwable instead of RuntimeException.
                         final StringBuilder sb = new StringBuilder();
                         try {
                             sb.append("\n----------\n");
@@ -1285,7 +1389,7 @@ public abstract class JPAPUnitInfo implements PersistenceUnitInfo {
                             sb.append(") for class ").append(className).append(" :\n");
                             sb.append(dumpByteCode(classBytes));
 
-                            sb.append("\nRuntime Exception thrown by transformer:\n");
+                            sb.append("\nException thrown by transformer:\n");
                             final ByteArrayOutputStream baos = new ByteArrayOutputStream();
                             t.printStackTrace(new PrintStream(baos));
                             sb.append(baos.toString());

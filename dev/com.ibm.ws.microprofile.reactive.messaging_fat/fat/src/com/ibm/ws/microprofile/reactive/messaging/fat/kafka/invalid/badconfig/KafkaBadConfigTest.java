@@ -1,25 +1,24 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.microprofile.reactive.messaging.fat.kafka.invalid.badconfig;
 
 import static com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions.SERVER_ONLY;
-import static com.ibm.ws.microprofile.reactive.messaging.fat.suite.ConnectorProperties.simpleIncomingChannel;
-import static com.ibm.ws.microprofile.reactive.messaging.fat.suite.KafkaUtils.kafkaPermissions;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.ConnectorProperties.simpleIncomingChannel;
+import static com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.KafkaUtils.kafkaPermissions;
+import static com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.KafkaUtils.kafkaStopServer;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 
 import java.util.List;
 
@@ -27,19 +26,22 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.PropertiesAsset;
 import com.ibm.websphere.simplicity.ShrinkHelper;
-import com.ibm.ws.microprofile.reactive.messaging.fat.suite.ConnectorProperties;
-import com.ibm.ws.microprofile.reactive.messaging.fat.suite.KafkaUtils;
+import com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.ConnectorProperties;
+import com.ibm.ws.microprofile.reactive.messaging.fat.kafka.common.KafkaUtils;
+import com.ibm.ws.microprofile.reactive.messaging.fat.repeats.ReactiveMessagingActions;
 import com.ibm.ws.microprofile.reactive.messaging.kafka.KafkaConnectorConstants;
 
 import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.ExpectedFFDC;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 
 /**
@@ -54,9 +56,13 @@ public class KafkaBadConfigTest {
 
     private static final String APP_NAME = "KafkaBadConfig";
     private static final String APP_GROUP_ID = "bad-config-test-group";
+    private static final String SERVER_NAME = "SimpleRxMessagingServer";
 
-    @Server("SimpleRxMessagingServer")
+    @Server(SERVER_NAME)
     public static LibertyServer server;
+
+    @ClassRule
+    public static RepeatTests r = ReactiveMessagingActions.repeatDefault(SERVER_NAME);
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -65,11 +71,11 @@ public class KafkaBadConfigTest {
 
     @AfterClass
     public static void teardownTest() throws Exception {
-        server.stopServer("CWMRX1007E", // Expected error message
-                          "CWWKZ000[1-4]", // Generic "Exception starting app" messages
-                          "CWMRX1009W", // Connector initialization failed but will be retried message
-                          "CWMRX1008E", // Expected outgoing error message
-                          "CWMRX1010W" // Outgoing connector initialization failed by will be retried message
+        kafkaStopServer(server, "CWMRX1007E", // Expected error message
+                        "CWWKZ000[1-4]", // Generic "Exception starting app" messages
+                        "CWMRX1009W", // Connector initialization failed but will be retried message
+                        "CWMRX1008E", // Expected outgoing error message
+                        "CWMRX1010W" // Outgoing connector initialization failed by will be retried message
         );
     }
 
@@ -78,7 +84,7 @@ public class KafkaBadConfigTest {
     public void testBadConfig() throws Exception {
 
         // Invalid config because bootstrap.servers not set
-        ConnectorProperties incomingProperties = simpleIncomingChannel("", KafkaBadConfigIncomingBean.CHANNEL_NAME, APP_GROUP_ID);
+        ConnectorProperties incomingProperties = simpleIncomingChannel(null, KafkaBadConfigIncomingBean.CHANNEL_NAME, APP_GROUP_ID);
 
         PropertiesAsset appConfig = new PropertiesAsset()
                         .include(incomingProperties);
@@ -99,7 +105,8 @@ public class KafkaBadConfigTest {
 
         // Check that the bad config error was emitted
         List<String> configErrorLines = server.findStringsInLogsUsingMark("CWMRX1007E:", server.getDefaultLogFile());
-        assertThat(configErrorLines, hasSize(1));
+        // (exact number of error lines can vary due to CDI changes and FFDC log messages)
+        assertThat(configErrorLines, not(empty()));
         String configErrorLine = configErrorLines.get(0);
         // ...and that it contained the channel name
         assertThat(configErrorLine, containsString(KafkaBadConfigIncomingBean.CHANNEL_NAME));
@@ -113,7 +120,7 @@ public class KafkaBadConfigTest {
     @ExpectedFFDC("com.ibm.ws.microprofile.reactive.messaging.kafka.adapter.KafkaAdapterException")
     public void testBadConfigRetry() throws Exception {
         // Invalid config because bootstrap.servers not set, but creation retry enabled
-        ConnectorProperties incomingProperties = simpleIncomingChannel("", KafkaBadConfigIncomingBean.CHANNEL_NAME, APP_GROUP_ID)
+        ConnectorProperties incomingProperties = simpleIncomingChannel(null, KafkaBadConfigIncomingBean.CHANNEL_NAME, APP_GROUP_ID)
                         .addProperty(KafkaConnectorConstants.CREATION_RETRY_SECONDS, "5");
 
         PropertiesAsset appConfig = new PropertiesAsset()
@@ -135,7 +142,8 @@ public class KafkaBadConfigTest {
 
         // Check that the bad config error was emitted
         List<String> configErrorLines = server.findStringsInLogsUsingMark("CWMRX1007E:", server.getDefaultLogFile());
-        assertThat(configErrorLines, hasSize(1));
+        // (exact number of error lines can vary due to CDI changes and FFDC log messages)
+        assertThat(configErrorLines, not(empty()));
         String configErrorLine = configErrorLines.get(0);
         // ...and that it contained the channel name
         assertThat(configErrorLine, containsString(KafkaBadConfigIncomingBean.CHANNEL_NAME));
@@ -154,7 +162,7 @@ public class KafkaBadConfigTest {
     public void testBadConfigOutgoing() throws Exception {
 
         // Invalid config because bootstrap.servers not set
-        ConnectorProperties outgoingProperties = ConnectorProperties.simpleOutgoingChannel("", KafkaBadConfigOutgoingBean.CHANNEL_NAME);
+        ConnectorProperties outgoingProperties = ConnectorProperties.simpleOutgoingChannel(null, KafkaBadConfigOutgoingBean.CHANNEL_NAME);
 
         PropertiesAsset appConfig = new PropertiesAsset()
                         .include(outgoingProperties);
@@ -175,7 +183,8 @@ public class KafkaBadConfigTest {
 
         // Check that the bad config error was emitted
         List<String> configErrorLines = server.findStringsInLogsUsingMark("CWMRX1008E:", server.getDefaultLogFile());
-        assertThat(configErrorLines, hasSize(1));
+        // (exact number of error lines can vary due to CDI changes and FFDC log messages)
+        assertThat(configErrorLines, not(empty()));
         String configErrorLine = configErrorLines.get(0);
         // ...and that it contained the channel name
         assertThat(configErrorLine, containsString(KafkaBadConfigOutgoingBean.CHANNEL_NAME));
@@ -190,7 +199,7 @@ public class KafkaBadConfigTest {
     public void testBadConfigOutgoingRetry() throws Exception {
 
         // Invalid config because bootstrap.servers not set
-        ConnectorProperties outgoingProperties = ConnectorProperties.simpleOutgoingChannel("", KafkaBadConfigOutgoingBean.CHANNEL_NAME)
+        ConnectorProperties outgoingProperties = ConnectorProperties.simpleOutgoingChannel(null, KafkaBadConfigOutgoingBean.CHANNEL_NAME)
                         .addProperty(KafkaConnectorConstants.CREATION_RETRY_SECONDS, "5");
 
         PropertiesAsset appConfig = new PropertiesAsset()
@@ -212,7 +221,8 @@ public class KafkaBadConfigTest {
 
         // Check that the bad config error was emitted
         List<String> configErrorLines = server.findStringsInLogsUsingMark("CWMRX1008E:", server.getDefaultLogFile());
-        assertThat(configErrorLines, hasSize(1));
+        // (exact number of error lines can vary due to CDI changes and FFDC log messages)
+        assertThat(configErrorLines, not(empty()));
         String configErrorLine = configErrorLines.get(0);
         // ...and that it contained the channel name
         assertThat(configErrorLine, containsString(KafkaBadConfigOutgoingBean.CHANNEL_NAME));

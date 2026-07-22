@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -150,7 +152,7 @@ public class LibertyFeaturesToMavenRepo extends Task {
 				LibertyFeature firstFeature = allFeatures.values().iterator().next();
 				version = firstFeature.getProductVersion();
 
-				// Sanity check: ensure all of the feature versions are the same
+				// Ensure all of the feature versions are the same
 				for (LibertyFeature feature : allFeatures.values()) {
 					if (!version.equals(feature.getProductVersion())) {
 						log("Product versions do not match for features " + firstFeature.getSymbolicName() + ":" + version + " and " + feature.getSymbolicName() + ":" + feature.getProductVersion(), LogLevel.WARN.getLevel());
@@ -159,7 +161,7 @@ public class LibertyFeaturesToMavenRepo extends Task {
 			} else {
 				version = releaseVersion;
 
-				// Sanity check: ensure all of the feature versions are the same
+				// Ensure all of the feature versions are the same
 				for (LibertyFeature feature : allFeatures.values()) {
 					if (!version.equals(feature.getProductVersion())) {
 						log("Product versions do not match. Expected release version " + version + ", actual feature and version " + feature.getSymbolicName() + ":" + feature.getProductVersion(), LogLevel.WARN.getLevel());
@@ -260,9 +262,7 @@ public class LibertyFeaturesToMavenRepo extends Task {
 		model.setPackaging(type.getType());
 		setLicense(model, coordinates.getVersion(), true, feature.isRestrictedLicense(), Constants.WEBSPHERE_LIBERTY_FEATURES_GROUP_ID.equals(coordinates.getGroupId()));
 		boolean isWebsphereLiberty = Constants.WEBSPHERE_LIBERTY_FEATURES_GROUP_ID.equals(coordinates.getGroupId());
-		if (!isWebsphereLiberty){
-			setScmDevUrl(model);
-		}
+		setScmDevUrl(model, isWebsphereLiberty);
 
 		List<Dependency> dependencies = new ArrayList<Dependency>();
 		model.setDependencies(dependencies);
@@ -327,10 +327,11 @@ public class LibertyFeaturesToMavenRepo extends Task {
 			addDependency(dependencies,openLibertyCoordinates, Constants.ArtifactType.POM,"import");
 			model.setName(Constants.WEBSPHERE_LIBERTY_BOM);
 			model.setDescription(Constants.WEBSPHERE_LIBERTY_BOM);
+			setScmDevUrl(model, isWebsphereLiberty);
 		} else{
 			model.setName(Constants.OPEN_LIBERTY_BOM);
 			model.setDescription(Constants.OPEN_LIBERTY_BOM);
-			setScmDevUrl(model);
+			setScmDevUrl(model, isWebsphereLiberty);
 		}
 
 		File artifactDir = new File(outputDir, Utils.getRepositorySubpath(coordinates));
@@ -349,8 +350,6 @@ public class LibertyFeaturesToMavenRepo extends Task {
 		} catch (IOException e) {
 			throw new MavenRepoGeneratorException("Could not write POM file " + targetFile, e);
 		}
-
-
 	}
 
 	private void generateJsonPom(File outputDir, String version, boolean isWebsphereLiberty) throws MavenRepoGeneratorException {
@@ -363,7 +362,7 @@ public class LibertyFeaturesToMavenRepo extends Task {
 		model.setVersion(coordinates.getVersion());
 		model.setPackaging(Constants.ArtifactType.JSON.getType());
 		setLicense(model, version, false, false, isWebsphereLiberty);
-
+		setScmDevUrl(model, isWebsphereLiberty);
 
 		List<Dependency> dependencies = new ArrayList<Dependency>();
 		model.setDependencies(dependencies);
@@ -377,7 +376,6 @@ public class LibertyFeaturesToMavenRepo extends Task {
 		} else {
 			model.setName(Constants.OPEN_LIBERTY_JSON);
 			model.setDescription(Constants.OPEN_LIBERTY_JSON);
-			setScmDevUrl(model);
 		}
 
 		File artifactDir = new File(outputDir, Utils.getRepositorySubpath(coordinates));
@@ -390,7 +388,6 @@ public class LibertyFeaturesToMavenRepo extends Task {
 		} catch (IOException e) {
 			throw new MavenRepoGeneratorException("Could not write POM file " + targetFile, e);
 		}
-
 	}
 
 	/**
@@ -410,10 +407,10 @@ public class LibertyFeaturesToMavenRepo extends Task {
 		model.setVersion(coordinates.getVersion());
 		model.setPackaging(Constants.ArtifactType.ZIP.getType());
 		setLicense(model, version, false, false, isWebsphereLiberty);
+		setScmDevUrl(model, isWebsphereLiberty);
 
 		model.setName(name);
 		model.setDescription(name);
-
 
 		File artifactDir = new File(outputDir, Utils.getRepositorySubpath(coordinates));
 		File targetFile = new File(artifactDir, Utils.getFileName(coordinates, Constants.ArtifactType.POM));
@@ -428,10 +425,7 @@ public class LibertyFeaturesToMavenRepo extends Task {
 		} catch (IOException e) {
 			throw new MavenRepoGeneratorException("Could not write POM file " + targetFile, e);
 		}
-
 	}
-
-
 
 	private static void setLicense(Model model, String version, boolean feature, boolean restrictedLicense, boolean isWebsphereLiberty) {
 		License license = new License();
@@ -921,13 +915,18 @@ public class LibertyFeaturesToMavenRepo extends Task {
 	 *
 	 * @param model
 	 */
-	private static void setScmDevUrl(Model model){
+	private static void setScmDevUrl(Model model, boolean isWebsphereLiberty){
+		String connection = isWebsphereLiberty ? Constants.WEBSPHERE_LIBERTY_SCM_CONNECTION : Constants.OPEN_LIBERTY_SCM_CONNECTION;
+		String scmUrl = isWebsphereLiberty ? Constants.WEBSPHERE_LIBRETY_SCM_URL : Constants.OPEN_LIBRETY_SCM_URL;
+		String scmTag = isWebsphereLiberty ? Constants.WEBSPHERE_LIBERTY_SCM_TAG : Constants.OPEN_LIBERTY_SCM_TAG;
+		String projectUrl = isWebsphereLiberty ? Constants.WEBSPHERE_LIBERTY_URL : Constants.OPEN_LIBERTY_URL;
+
 		model.setScm(new Scm());
-		model.getScm().setConnection(Constants.OPEN_LIBERTY_SCM_CONNECTION);
-		model.getScm().setDeveloperConnection(Constants.OPEN_LIBERTY_SCM_CONNECTION);
-		model.getScm().setUrl(Constants.OPEN_LIBRETY_SCM_URL);
-		model.getScm().setTag(Constants.OPEN_LIBERTY_SCM_TAG);
-		model.setUrl(Constants.OPEN_LIBERTY_URL);
+		model.getScm().setConnection(connection);
+		model.getScm().setDeveloperConnection(connection);
+		model.getScm().setUrl(scmUrl);
+		model.getScm().setTag(scmTag);
+		model.setUrl(projectUrl);
 
 		Developer dev = new Developer();
 		dev.setId(Constants.DEV_ID);

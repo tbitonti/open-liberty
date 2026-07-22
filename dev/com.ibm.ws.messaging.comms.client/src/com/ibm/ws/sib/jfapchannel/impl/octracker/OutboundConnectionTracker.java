@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2013 IBM Corporation and others.
+ * Copyright (c) 2011, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -467,10 +469,6 @@ public class OutboundConnectionTracker
             // in, if not create one and add it to the map.
             connGroup = endPointToGroupMap.get(testEndPoint);
 
-            // Contemplate issuing a warning if the endpoint is SSL enabled, we are running in
-            // the client container, and the SSL properties file is not available.
-            framework.warnIfSSLAndPropertiesFileMissing(endPoint);
-
             // Determine the heartbeat interval and timeout from our configuration.
             Map properties = framework.getOutboundConnectionProperties(endPoint);
             int heartbeatInterval = determineHeartbeatInterval(properties);
@@ -547,10 +545,6 @@ public class OutboundConnectionTracker
             // See if there is already a connection group for the end point we are interested
             // in, if not create one and add it to the map.
             connGroup = endPointToGroupMap.get(testEndPoint);
-
-            // Contemplate issuing a warning if the chain is SSL enabled, we are running in
-            // the client container, and the SSL properties file is not available.
-            framework.warnIfSSLAndPropertiesFileMissing(chainName);
 
             if (connGroup == null)
             {
@@ -856,7 +850,7 @@ public class OutboundConnectionTracker
 
                         try {
                             // destroy the OutboundVirtualConnection associated with the chainName
-                            cdGroup.getNetworkConnectionFactory().getOutboundVirtualConFactory().destroy();
+                            cdGroup.getNetworkConnectionFactory().destroy();
                         } catch (Exception e) {//Don't let the exception mess up closing other remaining connection
                             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                                 SibTr.debug(tc, "Error while destroying the outbound virtual connection", e);

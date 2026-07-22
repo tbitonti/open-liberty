@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014 IBM Corporation and others.
+ * Copyright (c) 2014, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,6 +22,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -129,7 +132,8 @@ public abstract class ParserBase {
     /**
      * The constructor used for any Parser ... a RepositoryConnection is not needed
      */
-    public ParserBase() {}
+    public ParserBase() {
+    }
 
     /**
      * Enum declaring the productEdition component of appliesTo
@@ -146,7 +150,7 @@ public abstract class ParserBase {
         Open("Open"),
         Open_Web("Open_Web");
 
-        private String _productEdition;
+        private final String _productEdition;
 
         private Edition(String productEdition) {
             _productEdition = productEdition;
@@ -159,18 +163,13 @@ public abstract class ParserBase {
 
     /**
      * Reads from the input stream and copies to the output stream
-     *
-     * @param is
-     * @param os
-     * @throws IOException
      */
     protected void copyStreams(InputStream is, OutputStream os) throws IOException {
-        byte[] buffer = new byte[1024];
+        byte[] buffer = new byte[32 * 1024];
         try {
             int read;
             while ((read = is.read(buffer)) != -1) {
                 os.write(buffer, 0, read);
-                buffer = new byte[1024];
             }
         } finally {
             if (null != os)
@@ -212,21 +211,21 @@ public abstract class ParserBase {
      * deleted when the jvm exits.
      *
      * @param fileName
-     *            The name of the archive file to extract the file from
+     *                     The name of the archive file to extract the file from
      * @param regex
-     *            A regular expression, that is used to match the file to be
-     *            extracted from the archive. If more than one file matches the
-     *            regular expression only the first file is extracted
+     *                     A regular expression, that is used to match the file to be
+     *                     extracted from the archive. If more than one file matches the
+     *                     regular expression only the first file is extracted
      * @return A file object representing the temporary file where the file in
      *         the jar was extracted to.
      * @throws MassiveArchiveException
-     *             if the archive could not be read or the file could not be
-     *             extracted to disk
+     *                                                     if the archive could not be read or the file could not be
+     *                                                     extracted to disk
      * @throws RepositoryArchiveException
      * @throws RepositoryArchiveIOException
      * @throws RepositoryArchiveEntryNotFoundException
-     *             If no file matching the supplied regular expression could be
-     *             found
+     *                                                     If no file matching the supplied regular expression could be
+     *                                                     found
      */
     protected ExtractedFileInformation extractFileFromArchive(String fileName,
                                                               String regex) throws RepositoryArchiveException, RepositoryArchiveEntryNotFoundException, RepositoryArchiveIOException {
@@ -342,7 +341,7 @@ public abstract class ParserBase {
         ZipInputStream zis = new ZipInputStream(fis);
         try {
             ZipEntry ze = zis.getNextEntry();
-            byte[] buf = new byte[2048];
+            byte[] buf = new byte[32 * 1024];
             while (ze != null) {
                 if (ze.isDirectory()) {
                     // Do nothing with pure directory entries
@@ -423,9 +422,9 @@ public abstract class ParserBase {
      * and the metadata file may not be co-located e.g. when pulling them out
      * of different parts of the build.
      *
-     * @param archiveFile - the .jar or .esa file to look for a sibling zip for
+     * @param archiveFile  - the .jar or .esa file to look for a sibling zip for
      * @param metadataFile - the *.metadata.zip file or null to use one
-     *            co-located with the archiveFile
+     *                         co-located with the archiveFile
      * @return The artifact metadata from the sibling zip or <code>null</code>
      *         if none was found
      * @throws IOException
@@ -584,7 +583,7 @@ public abstract class ParserBase {
             }
         }
 
-        try (FileSystem archiveFS = FileSystems.newFileSystem(archive.toPath(), null)) {
+        try (FileSystem archiveFS = FileSystems.newFileSystem(archive.toPath(), (ClassLoader) null)) {
             // Somewhere to put the unpacked license files.
             Path tempDir = Files.createTempDirectory("unpackedEsa");
             tempDir.toFile().deleteOnExit();
@@ -793,9 +792,9 @@ public abstract class ParserBase {
      * Process icons from the properties file
      *
      * @param amd
-     *            Metadata
+     *                Metadata
      * @param res
-     *            Resource to add icons to
+     *                Resource to add icons to
      * @throws RepositoryException
      */
     protected void processIcons(ArtifactMetadata amd, RepositoryResourceWritable res) throws RepositoryException {
@@ -875,7 +874,7 @@ public abstract class ParserBase {
     /**
      * Returns <code>true</code> if the supplied <code>file</code> is a valid zip and contains at least one entry of each of the supplied <code>fileTypes</code>.
      *
-     * @param file The zip file to check
+     * @param file      The zip file to check
      * @param fileTypes The types of files to look for
      * @return <code>true</code> if file types found
      */
@@ -994,7 +993,7 @@ public abstract class ParserBase {
 
                 // Now read in the long description
                 if (descriptionFile != null) {
-                    descriptionReader = new InputStreamReader(new FileInputStream(descriptionFile), "UTF-8");
+                    descriptionReader = new InputStreamReader(new FileInputStream(descriptionFile), StandardCharsets.UTF_8);
                     char[] buf = new char[1024];
                     StringBuilder builder = new StringBuilder();
                     int chars;

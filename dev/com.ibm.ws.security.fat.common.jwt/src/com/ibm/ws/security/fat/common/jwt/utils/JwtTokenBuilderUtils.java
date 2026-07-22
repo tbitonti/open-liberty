@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -11,10 +13,13 @@
 package com.ibm.ws.security.fat.common.jwt.utils;
 
 import java.security.Key;
+import java.util.List;
+import java.util.Random;
 
 import org.jose4j.jws.AlgorithmIdentifiers;
 import org.jose4j.jwt.NumericDate;
 
+import com.gargoylesoftware.htmlunit.util.NameValuePair;
 import com.ibm.json.java.JSONObject;
 import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.security.fat.common.jwt.JWTTokenBuilder;
@@ -49,6 +54,16 @@ public class JwtTokenBuilderUtils {
      * @throws Exception
      */
     public JWTTokenBuilder createBuilderWithDefaultClaims() throws Exception {
+        return createBuilderWithDefaultClaims(JwtConstants.DEFAULT_KEY_MGMT_KEY_ALG);
+    }
+
+    /**
+     * Create a new JWTTokenBuilder and initialize it with default test values
+     *
+     * @return - an initialized JWTTokenBuilder
+     * @throws Exception
+     */
+    public JWTTokenBuilder createBuilderWithDefaultClaims(String keyMgmtKeyAlg) throws Exception {
 
         JWTTokenBuilder builder = new JWTTokenBuilder();
         builder.setIssuer("client01");
@@ -58,10 +73,10 @@ public class JwtTokenBuilderUtils {
         builder.setSubject("testuser");
         builder.setRealmName("BasicRealm");
         builder.setTokenType("Bearer");
+        builder.setClaim(PayloadConstants.SESSION_ID, randomSessionId());
         builder = builder.setAlorithmHeaderValue(AlgorithmIdentifiers.HMAC_SHA256);
         builder = builder.setHSAKey("mySharedKeyNowHasToBeLongerStrongerAndMoreSecure");
-        //  setup for encryption - tests can override the following values
-        builder = builder.setKeyManagementKeyAlg(JwtConstants.DEFAULT_KEY_MGMT_KEY_ALG);
+        builder = builder.setKeyManagementKeyAlg(keyMgmtKeyAlg);
         builder = builder.setContentEncryptionAlg(JwtConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
         return builder;
     }
@@ -108,9 +123,22 @@ public class JwtTokenBuilderUtils {
      * @throws Exception
      */
     public String buildAlternatePayloadJWEToken(Key key) throws Exception {
-        JWTTokenBuilder builder = createAlternateJWEPayload(populateAlternateJWEToken(key));
-        String jwtToken = builder.buildAlternateJWE();
-        return jwtToken;
+        return buildAlternatePayloadJWEToken(key, (String) null, (List<NameValuePair>) null);
+    }
+
+    public String buildAlternatePayloadJWEToken(Key key, List<NameValuePair> extraPayload) throws Exception {
+        return buildAlternatePayloadJWEToken(key, (String) null, extraPayload);
+    }
+
+    public String buildAlternatePayloadJWEToken(Key key, String keyMgmtKeyAlg) throws Exception {
+        return buildAlternatePayloadJWEToken(key, keyMgmtKeyAlg, (List<NameValuePair>) null);
+    }
+
+    public String buildAlternatePayloadJWEToken(Key key, String keyMgmtKeyAlg, List<NameValuePair> extraPayload) throws Exception {
+        JWTTokenBuilder builder;
+        builder = keyMgmtKeyAlg != null ? createAlternateJWEPayload(populateAlternateJWEToken(key, keyMgmtKeyAlg), extraPayload) : createAlternateJWEPayload(populateAlternateJWEToken(key), extraPayload);
+
+        return builder.buildAlternateJWE();
     }
 
     /**
@@ -141,7 +169,11 @@ public class JwtTokenBuilderUtils {
      * @throws Exception
      */
     public String buildJWETokenWithAltHeader(Key key, String type, String contentType) throws Exception {
-        JWTTokenBuilder builder = populateAlternateJWEToken(key);
+        return buildJWETokenWithAltHeader(key, type, contentType, JwtConstants.DEFAULT_KEY_MGMT_KEY_ALG);
+    }
+
+    public String buildJWETokenWithAltHeader(Key key, String type, String contentType, String keyMgmtKeyAlg) throws Exception {
+        JWTTokenBuilder builder = populateAlternateJWEToken(key, keyMgmtKeyAlg);
 
         // calling buildJWE will override the payload contents with JWS
         String jwtToken = builder.buildJWE(type, contentType);
@@ -158,7 +190,18 @@ public class JwtTokenBuilderUtils {
      * @throws Exception
      */
     public JWTTokenBuilder populateAlternateJWEToken(Key key) throws Exception {
-        JWTTokenBuilder builder = createBuilderWithDefaultClaims();
+        return populateAlternateJWEToken(key, JwtConstants.DEFAULT_KEY_MGMT_KEY_ALG);
+    }
+
+    /**
+     * Create a "test" token builder and popluate with some default values
+     *
+     * @param key - set the key to be used for encryption
+     * @return - a built JWE token
+     * @throws Exception
+     */
+    public JWTTokenBuilder populateAlternateJWEToken(Key key, String keyMgmtKeyAlg) throws Exception {
+        JWTTokenBuilder builder = createBuilderWithDefaultClaims(keyMgmtKeyAlg);
         builder.setAudience("client01", "client02");
         builder.setIssuer("testIssuer");
         builder.setKeyManagementKey(key);
@@ -167,13 +210,17 @@ public class JwtTokenBuilderUtils {
 
     /**
      * Create and add a simple Json payload to the passed in builder
-     * 
+     *
      * @param builder - the builder to upate
      * @return - returns the builder with a simple Json payload (method just creates some random values - currently, no one is looking at them
      * @throws Exception
      */
     public JWTTokenBuilder createAlternateJWEPayload(JWTTokenBuilder builder) throws Exception {
-        // Json Content (buildJWE method will override payload, buildAlternateJWE* methods will use what's set below)
+        return createAlternateJWEPayload(builder, null);
+    }
+
+    public JWTTokenBuilder createAlternateJWEPayload(JWTTokenBuilder builder, List<NameValuePair> extraPayload) throws Exception {
+// Json Content (buildJWE method will override payload, buildAlternateJWE* methods will use what's set below)
         JSONObject payload = new JSONObject();
         payload.put(PayloadConstants.ISSUER, "client01");
         NumericDate now = NumericDate.now();
@@ -187,11 +234,34 @@ public class JwtTokenBuilderUtils {
         payload.put("key2", "my.dog.has.fleas");
         payload.put("key3", "testing.to.bump.up.part.count");
         payload.put("key4", "hereWe.goAgain");
-
+        payload.put(PayloadConstants.SESSION_ID, randomSessionId());
+        if (extraPayload != null && !extraPayload.isEmpty()) {
+            for (NameValuePair claim : extraPayload) {
+                payload.put(claim.getName(), claim.getValue());
+            }
+        }
         String payloadString = payload.toString();
         builder.setPayload(payloadString);
         return builder;
 
     }
 
+    /**
+     * generate a random 20 digit sid to be used for the sid. It just has to be random enough to be unique for our testing.
+     *
+     * @return - random string
+     */
+    public static String randomSessionId() {
+
+        int length = 20;
+        StringBuffer sid = new StringBuffer(length);
+        Random rand = new Random();
+
+        for (int n = 0; n < length; n++) {
+            int randomNumber = rand.nextInt(9);
+            sid.append(randomNumber);
+        }
+
+        return sid.toString();
+    }
 }

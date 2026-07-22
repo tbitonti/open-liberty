@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2018 IBM Corporation and others.
+ * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,6 +24,7 @@ import org.junit.Test;
 import org.omg.CORBA.ORB;
 
 import com.ibm.ws.ejbcontainer.injection.misc.ejb.ClientRemote;
+import com.ibm.ws.ejbcontainer.injection.misc.ejb.EJBContextExtensionBean;
 import com.ibm.ws.ejbcontainer.injection.misc.ejb.ImplicitTypeBean;
 import com.ibm.ws.ejbcontainer.injection.misc.ejb.JavaAppBean;
 import com.ibm.ws.ejbcontainer.injection.misc.ejb.SuperClassLevelBean;
@@ -131,6 +134,26 @@ public class InjectionMiscServlet extends FATServlet {
     public void testORB() throws Exception {
         org.omg.CORBA.Object remote = (org.omg.CORBA.Object) new InitialContext().lookup("java:comp/env/ejbref");
         ((ORB) new InitialContext().lookup("java:comp/env/orb/omg")).object_to_string(remote);
+    }
+
+    /**
+     * This test ensures an EJBContextExtension and SessionContextExtension may be
+     * injected into a bean class and the isTransactionGlobal API method works properly
+     * with the REQUIRED transaction attribute.
+     */
+    @Test
+    public void testEJBContextExtensionWithRequired() throws Exception {
+        ((EJBContextExtensionBean) new InitialContext().lookup("java:app/InjectionMiscBean/EJBContextExtensionBean")).verifyEJBContextExtensionWithRequired();
+    }
+
+    /**
+     * This test ensures an EJBContextExtension and SessionContextExtension may be
+     * injected into a bean class and the isTransactionGlobal API method works properly
+     * with the NOT_SUPPORTED transaction attribute.
+     */
+    @Test
+    public void testEJBContextExtensionWithNotSupported() throws Exception {
+        ((EJBContextExtensionBean) new InitialContext().lookup("java:app/InjectionMiscBean/EJBContextExtensionBean")).verifyEJBContextExtensionWithNotSupported();
     }
 
 }

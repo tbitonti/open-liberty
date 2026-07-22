@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -24,9 +26,10 @@ import com.ibm.ws.security.saml20.fat.commonTest.utils.RSCommonUtils;
 
 import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.ExpectedFFDC;
-import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.repeater.EmptyAction;
+import componenttest.rules.repeater.JakartaEE9Action;
 import componenttest.topology.impl.LibertyServerWrapper;
 
 @LibertyServerWrapper
@@ -55,7 +58,7 @@ public class RSSamlAPITests extends SAMLCommonTest {
      * @throws Exception
      */
     //	@Mode(TestMode.LITE)
-    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.message.decoder.MessageDecodingException", "org.opensaml.xml.parse.XMLParserException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.decoder.MessageDecodingException", "net.shibboleth.utilities.java.support.xml.XMLParserException" })
     @Test
     public void RSSamlAPITests_useJaxRSCLientServlet_encodedAssertion() throws Exception {
 
@@ -90,7 +93,7 @@ public class RSSamlAPITests extends SAMLCommonTest {
      *
      * @throws Exception
      */
-    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.message.decoder.MessageDecodingException", "org.opensaml.xml.parse.XMLParserException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.decoder.MessageDecodingException", "net.shibboleth.utilities.java.support.xml.XMLParserException" })
     //	@Mode(TestMode.LITE)
     @Test
     public void RSSamlAPITests_useJaxRSCLientServlet_compressedEncodedAssertion() throws Exception {
@@ -127,7 +130,7 @@ public class RSSamlAPITests extends SAMLCommonTest {
      *
      * @throws Exception
      */
-    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.message.decoder.MessageDecodingException", "org.opensaml.xml.parse.XMLParserException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.decoder.MessageDecodingException", "net.shibboleth.utilities.java.support.xml.XMLParserException" })
     //	@Mode(TestMode.LITE)
     @Test
     public void RSSamlAPITests_useJaxRSCLientServlet_textAssertion() throws Exception {
@@ -164,7 +167,7 @@ public class RSSamlAPITests extends SAMLCommonTest {
      *
      * @throws Exception
      */
-    @ExpectedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.message.decoder.MessageDecodingException", "org.opensaml.xml.parse.XMLParserException" })
+    @ExpectedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.decoder.MessageDecodingException", "net.shibboleth.utilities.java.support.xml.XMLParserException" })
     //	@Mode(TestMode.LITE)
     @Test
     public void RSSamlAPITests_useJaxRSCLientServlet_junkInAssertion() throws Exception {
@@ -220,15 +223,14 @@ public class RSSamlAPITests extends SAMLCommonTest {
      * @throws Exception
      */
     @Mode(TestMode.LITE)
-    @SkipForRepeat(SkipForRepeat.EE9_FEATURES) // TODO - figure out if we can re-enable
-    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.message.decoder.MessageDecodingException", "org.opensaml.xml.parse.XMLParserException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.decoder.MessageDecodingException", "net.shibboleth.utilities.java.support.xml.XMLParserException"})
     @Test
     public void RSSamlAPITests_useJaxRSCLientServlet_runtimePropagateToken_setStringTrue() throws Exception {
 
         WebClient webClient = getAndSaveWebClient();
 
         SAMLTestSettings updatedTestSettings = testSettings.copyTestSettings();
-        updatedTestSettings.setRSSettings("Authorization", SAMLConstants.SAML_HEADER_5t, SAMLConstants.ASSERTION_ENCODED);
+        updatedTestSettings.setRSSettings("Authorization", SAMLConstants.HEADER_FORMAT_PROPAGATE_TOKEN_STRING_TRUE, SAMLConstants.ASSERTION_ENCODED);
 
         List<validationData> expectations = null;
         if (flowType.equals(SAMLConstants.IDP_INITIATED)) {
@@ -257,15 +259,14 @@ public class RSSamlAPITests extends SAMLCommonTest {
      * @throws Exception
      */
     @Mode(TestMode.LITE)
-    @SkipForRepeat(SkipForRepeat.EE9_FEATURES) // TODO - figure out if we can re-enable
-    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.message.decoder.MessageDecodingException", "org.opensaml.xml.parse.XMLParserException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.decoder.MessageDecodingException", "net.shibboleth.utilities.java.support.xml.XMLParserException"})
     @Test
     public void RSSamlAPITests_useJaxRSCLientServlet_runtimePropagateToken_setBooleanTrue() throws Exception {
 
         WebClient webClient = getAndSaveWebClient();
 
         SAMLTestSettings updatedTestSettings = testSettings.copyTestSettings();
-        updatedTestSettings.setRSSettings("Authorization", SAMLConstants.SAML_HEADER_6t, SAMLConstants.ASSERTION_ENCODED);
+        updatedTestSettings.setRSSettings("Authorization", SAMLConstants.HEADER_FORMAT_PROPAGATE_TOKEN_BOOLEAN_TRUE, SAMLConstants.ASSERTION_ENCODED);
 
         List<validationData> expectations = null;
         if (flowType.equals(SAMLConstants.IDP_INITIATED)) {
@@ -292,14 +293,14 @@ public class RSSamlAPITests extends SAMLCommonTest {
      * @throws Exception
      */
     @Mode(TestMode.LITE)
-    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.message.decoder.MessageDecodingException", "org.opensaml.xml.parse.XMLParserException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.decoder.MessageDecodingException", "net.shibboleth.utilities.java.support.xml.XMLParserException"})
     @Test
     public void RSSamlAPITests_useJaxRSCLientServlet_runtimePropagateToken_setStringFalse() throws Exception {
 
         WebClient webClient = getAndSaveWebClient();
 
         SAMLTestSettings updatedTestSettings = testSettings.copyTestSettings();
-        updatedTestSettings.setRSSettings("Authorization", SAMLConstants.SAML_HEADER_5f, SAMLConstants.ASSERTION_ENCODED);
+        updatedTestSettings.setRSSettings("Authorization", SAMLConstants.HEADER_FORMAT_PROPAGATE_TOKEN_STRING_FALSE, SAMLConstants.ASSERTION_ENCODED);
 
         List<validationData> expectations = null;
         expectations = vData.addSuccessStatusCodes(null, endAction);
@@ -324,14 +325,14 @@ public class RSSamlAPITests extends SAMLCommonTest {
      * @throws Exception
      */
     @Mode(TestMode.LITE)
-    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.message.decoder.MessageDecodingException", "org.opensaml.xml.parse.XMLParserException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.decoder.MessageDecodingException", "net.shibboleth.utilities.java.support.xml.XMLParserException"})
     @Test
     public void RSSamlAPITests_useJaxRSCLientServlet_runtimePropagateToken_setBooleanFalse() throws Exception {
 
         WebClient webClient = getAndSaveWebClient();
 
         SAMLTestSettings updatedTestSettings = testSettings.copyTestSettings();
-        updatedTestSettings.setRSSettings("Authorization", SAMLConstants.SAML_HEADER_6f, SAMLConstants.ASSERTION_ENCODED);
+        updatedTestSettings.setRSSettings("Authorization", SAMLConstants.HEADER_FORMAT_PROPAGATE_TOKEN_BOOLEAN_FALSE, SAMLConstants.ASSERTION_ENCODED);
 
         List<validationData> expectations = null;
         expectations = vData.addSuccessStatusCodes(null, endAction);

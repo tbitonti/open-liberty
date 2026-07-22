@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2020 IBM Corporation and others.
+ * Copyright (c) 2016, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *   IBM Corporation - initial API and implementation
@@ -26,15 +28,17 @@ import javax.json.JsonObjectBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.log.Log;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.jbatch.test.BatchAppUtils;
 import com.ibm.ws.jbatch.test.BatchRestUtils;
 import com.ibm.ws.jbatch.test.FatUtils;
 
 import batch.fat.util.BatchFATHelper;
 import componenttest.annotation.ExpectedFFDC;
+import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.topology.impl.LibertyServer;
@@ -42,6 +46,7 @@ import componenttest.topology.impl.LibertyServerFactory;
 import componenttest.topology.utils.HttpUtils;
 import componenttest.topology.utils.HttpUtils.HTTPRequestMethod;
 
+@RunWith(FATRunner.class)
 @Mode(TestMode.FULL)
 public class JPAPersistenceManagerImplTest extends BatchFATHelper {
 
@@ -57,8 +62,8 @@ public class JPAPersistenceManagerImplTest extends BatchFATHelper {
 
     public static String BATCH_V4_URL = "/ibm/api/batch/v4/";
 
-    private static final LibertyServer server = LibertyServerFactory.getLibertyServer("com.ibm.ws.jbatch.fat.jpa.ddl.test");
-    private static final BatchRestUtils batchRestUtils = new BatchRestUtils(server);
+    private static LibertyServer server;
+    private static BatchRestUtils batchRestUtils;
 
     protected final static String ADMIN_NAME = "bob";
     protected final static String ADMIN_PASSWORD = "bobpwd";
@@ -74,6 +79,9 @@ public class JPAPersistenceManagerImplTest extends BatchFATHelper {
 
     @BeforeClass
     public static void setup() throws Exception {
+
+        server = LibertyServerFactory.getLibertyServer("com.ibm.ws.jbatch.fat.jpa.ddl.test");
+        batchRestUtils = new BatchRestUtils(server);
 
         //server = LibertyServerFactory.getLibertyServer("com.ibm.ws.jbatch.fat.jpa.persistence");
 

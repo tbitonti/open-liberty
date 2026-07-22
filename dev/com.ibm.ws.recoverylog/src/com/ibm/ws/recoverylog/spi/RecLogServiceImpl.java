@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,8 +16,10 @@ package com.ibm.ws.recoverylog.spi;
 import java.security.AccessController;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
+import java.util.HashSet;
+import java.util.Set;
 
-import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Component;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
@@ -32,13 +36,16 @@ import com.ibm.ws.ffdc.annotation.FFDCIgnore;
  * uses this xml file to determine the name of this class and drives it
  * during the server startup cycle.
  */
-public class RecLogServiceImpl {
+@Component(service = { RecLogService.class }, immediate = true)
+public class RecLogServiceImpl implements RecLogService {
     private static TraceComponent tc = Tr.register(RecLogServiceImpl.class,
                                                    TraceConstants.TRACE_GROUP, TraceConstants.NLS_FILE);
 
+    private final Set<String> _recoveryIds = new HashSet<String>();
+
     public RecLogServiceImpl() {
         if (tc.isDebugEnabled())
-            Tr.debug(tc, "RecLogServiceImpl", this);
+            Tr.debug(tc, "RecLogServiceImpl {0}", this);
     }
 
     //------------------------------------------------------------------------------
@@ -51,6 +58,7 @@ public class RecLogServiceImpl {
      * drive local recovery from within the start method below (called after this
      * method)
      */
+    @Override
     public void initialize(String serverName) {
 
         if (tc.isEntryEnabled())
@@ -61,7 +69,7 @@ public class RecLogServiceImpl {
         String installDirectory = "dir";
         Configuration.serverName(serverName);
 
-        Configuration.WASInstallDirectory(installDirectory);
+        Configuration.setWASInstallDirectory(installDirectory);
         Configuration.localFailureScope(new FileFailureScope());
 
         // Componentization config required to remove WAS dependencies
@@ -74,17 +82,10 @@ public class RecLogServiceImpl {
             Tr.exit(tc, "initialize");
     }
 
-    /**
-     * Called by DS to activate service
-     */
-    protected void activate(ComponentContext cc) {
-        if (tc.isDebugEnabled())
-            Tr.debug(tc, "activate", this);
-    }
-
+    @Override
     public void unsetRecoveryLogFactory(RecoveryLogFactory fac) {
         if (tc.isDebugEnabled())
-            Tr.debug(tc, "unsetRecoveryLogFactory, factory: " + fac, this);
+            Tr.debug(tc, "unsetRecoveryLogFactory, factory: {0} {1}", fac, this);
     }
 
     //------------------------------------------------------------------------------
@@ -93,8 +94,13 @@ public class RecLogServiceImpl {
     /**
      * Driven by the runtime during server startup. This 'hook' is used to perform
      * recovery log service initialization.
+     *
+     * @throws RecoveryFailedException
+     * @throws InternalLogException
      */
-    public void startRecovery(RecoveryLogFactory fac) {
+    @Override
+    @FFDCIgnore({ RecoveryFailedException.class })
+    public void startRecovery(RecoveryLogFactory fac) throws RecoveryFailedException, InternalLogException {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "startRecovery", fac);
 
@@ -109,14 +115,14 @@ public class RecLogServiceImpl {
                 Tr.debug(tc, "Local recovery failed.");
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "start", "RuntimeError");
-            throw new RuntimeException("Unable to complete local recovery processing", exc);
+            throw exc;
         } catch (InternalLogException ile) {
             FFDCFilter.processException(ile, "com.ibm.ws.recoverylog.spi.RecLogServiceImpl.startRecovery", "478", this);
             if (tc.isDebugEnabled())
                 Tr.debug(tc, "Local recovery not attempted.", ile);
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "start", "RuntimeError");
-            throw new RuntimeException("Unable to complete local recovery processing", ile);
+            throw ile;
         }
 
         startPeerRecovery(director);
@@ -125,6 +131,7 @@ public class RecLogServiceImpl {
             Tr.exit(tc, "startRecovery");
     }
 
+    @Override
     @FFDCIgnore({ RecoveryFailedException.class })
     public void startPeerRecovery(RecoveryDirector director) {
         if (tc.isEntryEnabled())
@@ -147,29 +154,13 @@ public class RecLogServiceImpl {
             Tr.exit(tc, "startPeerRecovery");
     }
 
-    //------------------------------------------------------------------------------
-    // Method: RecLogServiceImpl.stop
-    //------------------------------------------------------------------------------
-    /**
-     * Driven by the runtime during server shutdown. This 'hook' is not used.
-     */
-    public void stop() {
-    }
-
-    //------------------------------------------------------------------------------
-    // Method: RecLogServiceImpl.destroy
-    //------------------------------------------------------------------------------
-    /**
-     * Driven by the runtime during server shutdown. This 'hook' is not used.
-     */
-    public void destroy() {
-    }
-
     /**
      * @param isPeerRecoverySupported the _isPeerRecoverySupported to set
      */
-    public void setPeerRecoverySupported(boolean isPeerRecoverySupported) {
-        Configuration.HAEnabled(isPeerRecoverySupported);
+    @Override
+    public void setPeerRecoverySupported(String recoveryIdentity) {
+        addRecoveryId(recoveryIdentity);
+        Configuration.HAEnabled(true);
     }
 
     /**
@@ -202,5 +193,20 @@ public class RecLogServiceImpl {
         if (tc.isEntryEnabled())
             Tr.exit(tc, "checkPeersAtStartup", checkAtStartup);
         return checkAtStartup;
+    }
+
+    @Override
+    public Set<String> getRecoveryIds() {
+        return _recoveryIds;
+    }
+
+    @Override
+    public void addRecoveryId(String peerRecoveryIdentity) {
+        _recoveryIds.add(peerRecoveryIdentity);
+    }
+
+    @Override
+    public void removeRecoveryId(String peerRecoveryIdentity) {
+        _recoveryIds.remove(peerRecoveryIdentity);
     }
 }

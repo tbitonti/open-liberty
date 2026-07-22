@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -32,6 +34,8 @@ import com.ibm.ws.kernel.feature.FeatureProvisioner;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 
 import io.grpc.ClientInterceptor;
+import io.grpc.ManagedChannelProvider;
+import io.grpc.ManagedChannelRegistry;
 import io.openliberty.grpc.client.monitor.GrpcMonitoringClientInterceptorService;
 
 @Component(service = {
@@ -49,14 +53,19 @@ public class GrpcClientComponent implements ApplicationStateListener {
 			FEATUREPROVISIONER_REFERENCE_NAME);
 	private static GrpcSSLService sslService = null;
 	private static GrpcMonitoringClientInterceptorService monitorService = null;
+	private ManagedChannelProvider provider = null;
 
 	@Activate
 	protected void activate(ComponentContext cc) {
+	    provider = new LibertyManagedChannelProvider();
+	    ManagedChannelRegistry.getDefaultRegistry().register(provider);
 		featureProvisioner.activate(cc);
 	}
 
 	@Deactivate
 	protected void deactivate(ComponentContext cc) {
+	    ManagedChannelRegistry.getDefaultRegistry().deregister(provider);
+	    provider = null;
 		featureProvisioner.deactivate(cc);
 	}
 

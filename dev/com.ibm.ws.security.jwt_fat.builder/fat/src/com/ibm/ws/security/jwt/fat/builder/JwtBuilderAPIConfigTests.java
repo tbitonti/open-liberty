@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -15,13 +17,16 @@ import java.util.Arrays;
 import javax.json.JsonObject;
 
 import org.junit.BeforeClass;
-import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 
 import com.gargoylesoftware.htmlunit.Page;
 import com.ibm.json.java.JSONArray;
 import com.ibm.json.java.JSONObject;
+import com.ibm.websphere.simplicity.config.ServerConfiguration;
+import com.ibm.websphere.simplicity.config.SSLDefault;
 import com.ibm.ws.security.fat.common.CommonSecurityFat;
 import com.ibm.ws.security.fat.common.expectations.Expectations;
 import com.ibm.ws.security.fat.common.expectations.ServerMessageExpectation;
@@ -31,6 +36,8 @@ import com.ibm.ws.security.fat.common.jwt.PayloadConstants;
 import com.ibm.ws.security.fat.common.jwt.expectations.JwtApiExpectation;
 import com.ibm.ws.security.fat.common.jwt.utils.JwtKeyTools;
 import com.ibm.ws.security.fat.common.utils.CommonWaitForAppChecks;
+import com.ibm.ws.security.fat.common.utils.ConditionalIgnoreRule;
+import com.ibm.ws.security.fat.common.utils.OSSkipRules.SkipIfISeries;
 import com.ibm.ws.security.fat.common.utils.SecurityFatHttpUtils;
 import com.ibm.ws.security.jwt.fat.builder.actions.JwtBuilderActions;
 import com.ibm.ws.security.jwt.fat.builder.utils.BuilderHelpers;
@@ -42,7 +49,8 @@ import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.rules.repeater.RepeatTests;
+import componenttest.rules.SkipJavaSemeruWithFipsEnabled;
+import componenttest.rules.SkipJavaSemeruWithFipsEnabled.SkipJavaSemeruWithFipsEnabledRule;
 import componenttest.topology.impl.JavaInfo;
 import componenttest.topology.impl.LibertyServer;
 
@@ -58,16 +66,23 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     @Server("com.ibm.ws.security.jwt_fat.builder")
     public static LibertyServer builderServer;
 
+    @Rule
+    public static final TestRule conditIgnoreRule = new ConditionalIgnoreRule();
+
+    @Rule
+    public static final SkipJavaSemeruWithFipsEnabled skipJavaSemeruWithFipsEnabled = new SkipJavaSemeruWithFipsEnabled("com.ibm.ws.security.jwt_fat.builder");
+
     private static final JwtBuilderActions actions = new JwtBuilderActions();
     public static final BuilderTestValidationUtils validationUtils = new BuilderTestValidationUtils();
 
     @BeforeClass
     public static void setUp() throws Exception {
-    	FATSuite.transformApps(builderServer, "test-apps/jwtbuilder.war", "test-apps/jwtbuilderclient.war", "dropins/testmarker.war");
+        transformApps(builderServer);
 
         serverTracker.addServer(builderServer);
         skipRestoreServerTracker.addServer(builderServer);
         builderServer.addInstalledAppForValidation(JWTBuilderConstants.JWT_BUILDER_SERVLET);
+        builderServer.addInstalledAppForValidation(JWTBuilderConstants.JWT_BUILDER_PROTECTED_SERVLET);
         builderServer.startServerUsingExpandedConfiguration("server_configTests.xml", CommonWaitForAppChecks.getSecurityReadyMsgs());
         SecurityFatHttpUtils.saveServerPorts(builderServer, JWTBuilderConstants.BVT_SERVER_1_PORT_NAME_ROOT);
 
@@ -93,10 +108,12 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * <LI>Should get a token built using the default values for the JWT Token
      * </OL>
      */
+    @ConditionalIgnoreRule.ConditionalIgnore(condition = SkipIfISeries.class)
     @Test
     public void JwtBuilderAPIConfigTests_defaultConfig() throws Exception {
 
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderServer);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
+        expectationSettings.put(PayloadConstants.ISSUER, SecurityFatHttpUtils.getServerIpSecureUrlBase(builderServer) + "jwt/defaultJWT");
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
         Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, null);
@@ -123,7 +140,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_emptyConfig() throws Exception {
 
         String builderId = "emptyConfig";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
         Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
@@ -151,7 +168,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_specificExpiry() throws Exception {
 
         String builderId = "specificExpiry";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // override the default expiration time
         expectationSettings.put(PayloadConstants.EXPIRATION_TIME, BuilderHelpers.setNowLong() + (1 * 60 * 60));
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -183,7 +200,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_specificExpiresInSeconds() throws Exception {
 
         String builderId = "specificExpirySeconds";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // override the default expiration time
         expectationSettings.put(PayloadConstants.EXPIRATION_TIME, BuilderHelpers.setNowLong() + (1800));
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -196,7 +213,8 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     /**
      * Test Purpose:
      * <LI>Invoke the JWT Builder using a config that does define nbfOffset.
-     * <LI>What this means is that the token we create will use the "nbfOffset" to calculate the time passed since token issued and set that as the NBF claim.
+     * <LI>What this means is that the token we create will use the "nbfOffset" to calculate the time passed since token issued
+     * and set that as the NBF claim.
      *
      * </UL>
      * <P>
@@ -210,7 +228,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_specificNotBeforeOffset() throws Exception {
 
         String builderId = "specificNbfOffset";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // override the default expiration time
         expectationSettings.put(PayloadConstants.NOT_BEFORE, BuilderHelpers.setNowLong() + (1800));
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -240,7 +258,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_specificAudiences() throws Exception {
 
         String builderId = "specificAudiences";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set an audience value
         JSONArray parmarray = new JSONArray();
         parmarray.add("Client02");
@@ -273,7 +291,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_specificScopes() throws Exception {
 
         String builderId = "specificScopes";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set scope value
         JSONArray parmarray = new JSONArray();
         parmarray.add("myScope");
@@ -305,7 +323,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_specificJti() throws Exception {
 
         String builderId = "specificJti";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         expectationSettings.put(PayloadConstants.JWT_ID, true);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
         expectations.addExpectation(new JwtApiExpectation(JWTBuilderConstants.STRING_DOES_NOT_MATCH, JWTBuilderConstants.JWT_CLAIM + PayloadConstants.JWT_ID + ".*null.*", "jti was found and should NOT have been"));
@@ -335,7 +353,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_specificIssuer() throws Exception {
 
         String builderId = "specificIssuer";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set issuer value
         expectationSettings.put(PayloadConstants.ISSUER, "someSpecificIssuer");
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -365,7 +383,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_amrValue_valid() throws Exception {
 
         String builderId = "AMRTestValid";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         expectationSettings.put(PayloadConstants.METHODS_REFERENCE, "amrValue");
 
         // have to set amr
@@ -399,7 +417,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_amrValue_invalid() throws Exception {
 
         String builderId = "AMRTestInvalid";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         JSONObject testSettings = new JSONObject();
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_PROTECTED_SETAPIS_ENDPOINT, expectationSettings, builderServer);
         expectations = BuilderHelpers.buildBuilderClaimsNotFound(expectations, JWTBuilderConstants.JWT_CLAIM, PayloadConstants.METHODS_REFERENCE);
@@ -428,7 +446,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_amrValue_empty() throws Exception {
 
         String builderId = "AMRTestEmpty";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         JSONObject testSettings = new JSONObject();
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_PROTECTED_SETAPIS_ENDPOINT, expectationSettings, builderServer);
         expectations = BuilderHelpers.buildBuilderClaimsNotFound(expectations, JWTBuilderConstants.JWT_CLAIM, PayloadConstants.METHODS_REFERENCE);
@@ -461,7 +479,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_RS256_goodGlobalKeyStore() throws Exception {
 
         String builderId = "key_sigAlg_RS256_noKeyRef";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_RS256);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -490,7 +508,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_RS256_goodGlobalKeyStore_goodKeyStoreRef_noKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_RS256";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_RS256);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -520,7 +538,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_RS256_goodGlobalKeyStore_goodKeyStoreRef_goodKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_RS256_goodKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_RS256);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -577,7 +595,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_RS256_goodGlobalKeyStore_noKeyStoreRef_goodKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_RS256_goodKeyAlias_global";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_RS256);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -613,7 +631,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_RS256_goodGlobalKeyStore_goodKeyStoreRef_keyAliasMisMatchRS() throws Exception {
 
         String builderId = "key_sigAlg_RS256_badRSKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_RS256);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -692,7 +710,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_RS384_goodGlobalKeyStore_goodKeyStoreRef_goodKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_RS384_goodKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_RS384);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -718,7 +736,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_RS384_goodGlobalKeyStore_goodKeyStoreRef_keyAliasMisMatchRS() throws Exception {
 
         String builderId = "key_sigAlg_RS384_badRSKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_RS384);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -797,7 +815,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_RS512_goodGlobalKeyStore_goodKeyStoreRef_goodKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_RS512_goodKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_RS512);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -823,7 +841,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_RS512_goodGlobalKeyStore_goodKeyStoreRef_keyAliasMisMatchRS() throws Exception {
 
         String builderId = "key_sigAlg_RS512_badRSKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_RS512);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -903,7 +921,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_ES256_goodGlobalKeyStore_goodKeyStoreRef_goodKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_ES256_goodKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_ES256);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -1008,7 +1026,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_ES384_goodGlobalKeyStore_goodKeyStoreRef_goodKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_ES384_goodKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_ES384);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -1114,7 +1132,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_ES512_goodGlobalKeyStore_goodKeyStoreRef_goodKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_ES512_goodKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_ES512);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -1219,7 +1237,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_PS256_goodGlobalKeyStore_goodKeyStoreRef_goodKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_PS256_goodKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_PS256);
         Expectations expectations = null;
@@ -1331,7 +1349,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_PS384_goodGlobalKeyStore_goodKeyStoreRef_goodKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_PS384_goodKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_PS384);
         Expectations expectations = null;
@@ -1443,7 +1461,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_PS512_goodGlobalKeyStore_goodKeyStoreRef_goodKeyAlias() throws Exception {
 
         String builderId = "key_sigAlg_PS512_goodKeyAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_PS512);
         Expectations expectations = null;
@@ -1556,7 +1574,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_HS384_with_sharedKey() throws Exception {
 
         String builderId = "key_sigAlg_HS384_with_sharedKey";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_HS384);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -1584,7 +1602,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_HS512_with_sharedKey() throws Exception {
 
         String builderId = "key_sigAlg_HS512_with_sharedKey";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_HS512);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -1671,7 +1689,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_HS256_with_sharedKey() throws Exception {
 
         String builderId = "key_sigAlg_HS256_with_sharedKey";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_HS256);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -1700,7 +1718,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_sigAlg_HS256_with_xor_sharedKey() throws Exception {
 
         String builderId = "key_sigAlg_HS256_with_xor_sharedKey";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_HS256);
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
@@ -1754,7 +1772,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_jwkEnabled_defaultValues() throws Exception {
 
         String builderId = "jwkEnabled";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // add a check just to make sure that the kid is in the header (can't do
         // anything about checking the value)
         expectationSettings.put(HeaderConstants.KEY_ID, "");
@@ -1784,7 +1802,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_jwkEnabled_sigAlg_RS256() throws Exception {
 
         String builderId = "jwkEnabled_RS256";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // add a check just to make sure that the kid is in the header (can't do
         // anything about checking the value)
         expectationSettings.put(HeaderConstants.KEY_ID, "");
@@ -1816,7 +1834,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_jwkEnabled_sigAlg_HS256() throws Exception {
 
         String builderId = "jwkEnabled_HS256";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // The signature alg of HS256 will override jwkEnabled
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_HS256);
@@ -1831,7 +1849,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_jwkEnabled_sigAlg_HS256_xor() throws Exception {
 
         String builderId = "jwkEnabled_HS256_xor";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // The signature alg of HS256 will override jwkEnabled
         // set alg value
         expectationSettings.put(HeaderConstants.ALGORITHM, JWTBuilderConstants.SIGALG_HS256);
@@ -1857,10 +1875,11 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * </OL>
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtBuilderAPIConfigTests_jwkEnabled_jwkSigningKeySize_1024() throws Exception {
 
         String builderId = "jwkEnabled_size_1024";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // add a check just to make sure that the kid is in the header (can't do
         // anything about checking the value)
         expectationSettings.put(HeaderConstants.KEY_ID, "");
@@ -1890,7 +1909,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_jwkEnabled_jwkSigningKeySize_2048() throws Exception {
 
         String builderId = "jwkEnabled_size_2048";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // add a check just to make sure that the kid is in the header (can't do
         // anything about checking the value)
         expectationSettings.put(HeaderConstants.KEY_ID, "");
@@ -1920,7 +1939,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_jwkEnabled_jwkSigningKeySize_4096() throws Exception {
 
         String builderId = "jwkEnabled_size_4096";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
         // add a check just to make sure that the kid is in the header (can't do
         // anything about checking the value)
         expectationSettings.put(HeaderConstants.KEY_ID, "");
@@ -1950,10 +1969,11 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * </OL>
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodRS256Alias_goodContentEncryptAlg() throws Exception {
 
         String builderId = "key_encrypt_good_RS256";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(builderId, JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
@@ -1980,10 +2000,11 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * </OL>
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodRS384Alias_goodContentEncryptAlg() throws Exception {
 
         String builderId = "key_encrypt_good_RS384";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(builderId, JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
@@ -2009,10 +2030,11 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * </OL>
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodRS512Alias_goodContentEncryptAlg() throws Exception {
 
         String builderId = "key_encrypt_good_RS512";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(builderId, JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
@@ -2022,12 +2044,99 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
 
     }
 
+        /**
+     * Test Purpose:
+     * <OL>
+     * <LI>Invoke the JWT Builder using a config that specifies encryption.
+     * <LI>A valid Key Management Key Algorithm is specified
+     * <LI>The the es256 public key alias is specified for encryption
+     * <LI>A valid Content Encryption Algorithm is specified
+     * <LI>Finally the trustStoreRef is specified to point to the trust store containing the public key used to encrypt
+     * </OL>
+     * <P>
+     * Expected Results:
+     * <OL>
+     * <LI>We will create a JWE instead of just a JWS (the content of the token will be validated)
+     * </OL>
+     */
+    @Test
+    public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodES256Alias_goodContentEncryptAlg() throws Exception {
+
+        String builderId = "key_encrypt_good_ES256";
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.KEY_MGMT_KEY_ALG_ES, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
+
+        Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
+        validationUtils.validateResult(response, expectations);
+
+        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, JWTBuilderConstants.SIGALG_ES256), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
+
+    }
+
+    /**
+     * Test Purpose:
+     * <OL>
+     * <LI>Invoke the JWT Builder using a config that specifies encryption.
+     * <LI>A valid Key Management Key Algorithm is specified
+     * <LI>The the es384 public key alias is specified for encryption
+     * <LI>A valid Content Encryption Algorithm is specified
+     * <LI>Finally the trustStoreRef is specified to point to the trust store containing the public key used to encrypt
+     * </OL>
+     * <P>
+     * Expected Results:
+     * <OL>
+     * <LI>We will create a JWE instead of just a JWS (the content of the token will be validated)
+     * </OL>
+     */
+    @Test
+    public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodES384Alias_goodContentEncryptAlg() throws Exception {
+
+        String builderId = "key_encrypt_good_ES384";
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.KEY_MGMT_KEY_ALG_ES, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+
+        Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
+
+        Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
+        validationUtils.validateResult(response, expectations);
+        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, JWTBuilderConstants.SIGALG_ES384), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
+
+    }
+
+    /**
+     * Test Purpose:
+     * <OL>
+     * <LI>Invoke the JWT Builder using a config that specifies encryption.
+     * <LI>A valid Key Management Key Algorithm is specified
+     * <LI>The the es512 public key alias is specified for encryption
+     * <LI>A valid Content Encryption Algorithm is specified
+     * <LI>Finally the trustStoreRef is specified to point to the trust store containing the public key used to encrypt
+     * </OL>
+     * <P>
+     * Expected Results:
+     * <OL>
+     * <LI>We will create a JWE instead of just a JWS (the content of the token will be validated)
+     * </OL>
+     */
+    @Test
+    public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodES512Alias_goodContentEncryptAlg() throws Exception {
+
+        String builderId = "key_encrypt_good_ES512";
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.KEY_MGMT_KEY_ALG_ES, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+
+        Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
+
+        Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
+        validationUtils.validateResult(response, expectations);
+        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, JWTBuilderConstants.SIGALG_ES512), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
+
+    }
+
     /**
      * Test Purpose:
      * <OL>
      * <LI>Invoke the JWT Builder using a config that specifies encryption.
      * <LI>An invalid Key Management Key Algorithm is specified
-     * <LI>The the rs256 public key alias is specified for encryption
+     * <LI>The rs256/es256 public key alias is specified for encryption
      * <LI>A valid Content Encryption Algorithm is specified
      * <LI>Finally the trustStoreRef is specified to point to the trust store containing the public key used to encrypt
      * </OL>
@@ -2040,18 +2149,20 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * </OL>
      */
     @Test
-    public void JwtBuilderAPIConfigTests_encryption_invalidKeyMgmtKeyAlg_goodRS256Alias_goodContentEncryptAlg() throws Exception {
+    public void JwtBuilderAPIConfigTests_encryption_invalidKeyMgmtKeyAlg_goodAlias_goodContentEncryptAlg() throws Exception {
 
-        String builderId = "key_encrypt_bad_keyMgmtKey";
+        String builderId = builderServer.isFIPS140_3EnabledAndSupported() ? "key_encrypt_good_ES256_bad_keyMgmtKey" : "key_encrypt_good_RS256_bad_keyMgmtKey";
+        String keyMgmtKeyAlg = builderServer.isFIPS140_3EnabledAndSupported() ? JWTBuilderConstants.KEY_MGMT_KEY_ALG_ES : JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG;
+        String sigAlg = builderServer.isFIPS140_3EnabledAndSupported() ? JWTBuilderConstants.SIGALG_ES256 : JWTBuilderConstants.SIGALG_RS256;
 
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(builderId, JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(keyMgmtKeyAlg, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
         Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
         validationUtils.validateResult(response, expectations);
 
-        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, JWTBuilderConstants.SIGALG_RS256), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
+        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, sigAlg), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
 
     }
 
@@ -2060,7 +2171,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * <OL>
      * <LI>Invoke the JWT Builder using a config that specifies encryption.
      * <LI>The Key Management Key Algorithm is missing
-     * <LI>The the rs256 public key alias is specified for encryption
+     * <LI>The the rs256/es256 public key alias is specified for encryption
      * <LI>A valid Content Encryption Algorithm is specified
      * <LI>Finally the trustStoreRef is specified to point to the trust store containing the public key used to encrypt
      * </OL>
@@ -2073,17 +2184,20 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * </OL>
      */
     @Test
-    public void JwtBuilderAPIConfigTests_encryption_missingKeyMgmtKeyAlg_goodRS256Alias_goodContentEncryptAlg() throws Exception {
+    public void JwtBuilderAPIConfigTests_encryption_missingKeyMgmtKeyAlg_goodAlias_goodContentEncryptAlg() throws Exception {
 
-        String builderId = "key_encrypt_missing_keyMgmtKey";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(builderId, JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        String builderId = builderServer.isFIPS140_3EnabledAndSupported() ? "key_encrypt_good_ES256_missing_keyMgmtKey" : "key_encrypt_good_RS256_missing_keyMgmtKey";
+        String keyMgmtKeyAlg = builderServer.isFIPS140_3EnabledAndSupported() ? JWTBuilderConstants.KEY_MGMT_KEY_ALG_ES : JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG;
+        String sigAlg = builderServer.isFIPS140_3EnabledAndSupported() ? JWTBuilderConstants.SIGALG_ES256 : JWTBuilderConstants.SIGALG_RS256;
+
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(keyMgmtKeyAlg, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
         Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
         validationUtils.validateResult(response, expectations);
 
-        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, JWTBuilderConstants.SIGALG_RS256), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
+        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, sigAlg), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
 
     }
 
@@ -2105,10 +2219,14 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * </OL>
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtBuilderAPIConfigTests_encryption_RSAOAEP256KeyMgmtKeyAlg_goodRS256Alias_goodContentEncryptAlg() throws Exception {
 
-        String builderId = "key_encrypt_rsaOaep256_RS256";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(builderId, JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        String builderId = builderServer.isFIPS140_3EnabledAndSupported() ? "key_encrypt_rsaOaep256_ES256" : "key_encrypt_rsaOaep256_RS256";
+        String keyMgmtKeyAlg = builderServer.isFIPS140_3EnabledAndSupported() ? JWTBuilderConstants.KEY_MGMT_KEY_ALG_ES : JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG;
+        String sigAlg = builderServer.isFIPS140_3EnabledAndSupported() ? JWTBuilderConstants.SIGALG_ES256 : JWTBuilderConstants.SIGALG_RS256;
+
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(keyMgmtKeyAlg, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
@@ -2117,7 +2235,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
 
         // NOTE:  even though the config specifies RSA-OAEP-256 for the KeyMgmtKeyAlg, we'll only allow the default RSA-OAEP to be used in the config
         // server startup will log a warning about the unsupported value and the config will use the default value (which is what we'll check for now)
-        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, JWTBuilderConstants.SIGALG_RS256), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
+        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, sigAlg), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
 
     }
 
@@ -2125,7 +2243,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * Test Purpose:
      * <OL>
      * <LI>Invoke the JWT Builder using a config that specifies encryption.
-     * <LI>A valid Key Management Key Algorithm is specified
+     * <LI>The RSA-OAEP Key Management Key Algorithm is specified
      * <LI>The the rs256 public key alias is specified for encryption
      * <LI>A valid Content Encryption Algorithm is specified
      * <LI>Finally the trustStoreRef is specified to point to the trust store containing the public key used to encrypt
@@ -2139,10 +2257,11 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * </OL>
      */
     @Test
-    public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodRS256Alias_invalidContentEncryptAlg() throws Exception {
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtBuilderAPIConfigTests_encryption_RSA_OAEP_KeyMgmtKeyAlg_goodRS256Alias_invalidContentEncryptAlg() throws Exception {
 
-        String builderId = "key_encrypt_bad_contentEncryptAlg";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(builderId, JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        String builderId = "key_encrypt_good_RS256_bad_contentEncryptAlg";
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
@@ -2150,6 +2269,38 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
         validationUtils.validateResult(response, expectations);
 
         validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, JWTBuilderConstants.SIGALG_RS256), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
+
+    }
+
+    /**
+     * Test Purpose:
+     * <OL>
+     * <LI>Invoke the JWT Builder using a config that specifies encryption.
+     * <LI>The ECDH-ES Key Management Key Algorithm is specified
+     * <LI>The the es256 public key alias is specified for encryption
+     * <LI>A valid Content Encryption Algorithm is specified
+     * <LI>Finally the trustStoreRef is specified to point to the trust store containing the public key used to encrypt
+     * </OL>
+     * <P>
+     * Expected Results:
+     * <OL>
+     * <LI>An error about the invalid value is logged during startup.
+     * <LI>e will create a JWE instead of just a JWS using the default value of the content encryption algorithm (the content of
+     * the token will be validated)
+     * </OL>
+     */
+    @Test
+    public void JwtBuilderAPIConfigTests_encryption_ECDH_ES_KeyMgmtKeyAlg_goodES256Alias_invalidContentEncryptAlg() throws Exception {
+
+        String builderId = "key_encrypt_good_ES256_bad_contentEncryptAlg";
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.KEY_MGMT_KEY_ALG_ES, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+
+        Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
+
+        Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
+        validationUtils.validateResult(response, expectations);
+
+        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, JWTBuilderConstants.SIGALG_ES256), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
 
     }
 
@@ -2171,10 +2322,11 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * </OL>
      */
     @Test
-    public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodRS256Alias_missingContentEncryptAlg() throws Exception {
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtBuilderAPIConfigTests_encryption_RSA_OAEP_KeyMgmtKeyAlg_goodRS256Alias_missingContentEncryptAlg() throws Exception {
 
-        String builderId = "key_encrypt_missing_contentEncryptAlg";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(builderId, JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        String builderId = "key_encrypt_good_RS256_missing_contentEncryptAlg";
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
@@ -2182,6 +2334,38 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
         validationUtils.validateResult(response, expectations);
 
         validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, JWTBuilderConstants.SIGALG_RS256), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
+
+    }
+
+    /**
+     * Test Purpose:
+     * <OL>
+     * <LI>Invoke the JWT Builder using a config that specifies encryption.
+     * <LI>The ECDH-ES Key Management Key Algorithm is specified
+     * <LI>The the es256 public key alias is specified for encryption
+     * <LI>TheContent Encryption Algorithm is missing
+     * <LI>Finally the trustStoreRef is specified to point to the trust store containing the public key used to encrypt
+     * </OL>
+     * <P>
+     * Expected Results:
+     * <OL>
+     * <LI>An error about the invalid value is logged during startup.
+     * <LI>We will create a JWE instead of just a JWS using the default value of the content encryption algorithm (the content of
+     * the token will be validated)
+     * </OL>
+     */
+    @Test
+    public void JwtBuilderAPIConfigTests_encryption_ECDH_ES_KeyMgmtKeyAlg_goodES256Alias_missingContentEncryptAlg() throws Exception {
+
+        String builderId = "key_encrypt_good_ES256_missing_contentEncryptAlg";
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.KEY_MGMT_KEY_ALG_ES, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+
+        Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
+
+        Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
+        validationUtils.validateResult(response, expectations);
+
+        validationUtils.validateJWEToken(response, (String) expectationSettings.get(HeaderConstants.ALGORITHM), JwtKeyTools.getComplexPrivateKeyForSigAlg(builderServer, JWTBuilderConstants.SIGALG_ES256), (String) expectationSettings.get(HeaderConstants.ENCRYPTION));
 
     }
 
@@ -2201,10 +2385,11 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * </OL>
      */
     @Test
+    @SkipJavaSemeruWithFipsEnabledRule
     public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodRS256Alias_goodContentEncryptAlg_SigAlgES384() throws Exception {
 
         String builderId = "key_encrypt_good_RS256_sigAlgES384";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(builderId, JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
@@ -2230,36 +2415,6 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
      * <P>
      * Expected Results:
      * <OL>
-     * <LI>We will create a JWE instead of just a JWS (the content of the token will be validated)
-     * </OL>
-     */
-    @ExpectedFFDC({ "org.jose4j.lang.InvalidKeyException", "com.ibm.ws.security.jwt.internal.JwtTokenException" })
-    @Test
-    public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodES256Alias_goodContentEncryptAlg() throws Exception {
-
-        String builderId = "key_encrypt_good_ES256";
-        Expectations expectations = BuilderHelpers.createBadBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, JwtBuilderMessageConstants.CWWKS6060E_CAN_NOT_CREATE_JWE, builderServer);
-        expectations.addExpectation(new ServerMessageExpectation(builderServer, JwtBuilderMessageConstants.CWWKS6020E_CAN_NOT_CAST, "Message log did not contain an error indicating a problem trying to encrypt the token."));
-        expectations.addExpectation(new ServerMessageExpectation(builderServer, JwtBuilderMessageConstants.CWWKS6060E_CAN_NOT_CREATE_JWE, "Message log did not contain an error indicating that the key was not large enough."));
-        expectations.addExpectation(new ServerMessageExpectation(builderServer, "InvalidKeyException", "Message log did not contain an error indicating that an EC public key can not be encrypted."));
-
-        Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
-        validationUtils.validateResult(response, expectations);
-
-    }
-
-    /**
-     * Test Purpose:
-     * <OL>
-     * <LI>Invoke the JWT Builder using a config that specifies encryption.
-     * <LI>A valid Key Management Key Algorithm is specified
-     * <LI>The the rs256 public key alias is specified for encryption
-     * <LI>A valid Content Encryption Algorithm is specified
-     * <LI>Finally the trustStoreRef is specified to point to the trust store containing the public key used to encrypt
-     * </OL>
-     * <P>
-     * Expected Results:
-     * <OL>
      * <LI>We will create a JWS instead of a JWE (the content of the token will be validated)
      * </OL>
      */
@@ -2267,7 +2422,7 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_missingKeyManagementKeyAlias_goodContentEncryptAlg() throws Exception {
 
         String builderId = "key_encrypt_missing_keyMgmtAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
@@ -2309,16 +2464,35 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
     }
 
     @Test
-    public void JwtBuilderAPIConfigTests_encryption_goodKeyMgmtKeyAlg_goodServerWideKeyManagementKeyAlias_goodContentEncryptAlg_trustStoreRefMissing() throws Exception {
+    @SkipJavaSemeruWithFipsEnabledRule
+    public void JwtBuilderAPIConfigTests_encryption_RSA_OAEP_KeyMgmtKeyAlg_goodServerWideKeyManagementKeyAlias_goodContentEncryptAlg_trustStoreRefMissing() throws Exception {
 
-        String builderId = "key_encrypt_missing_trustStoreRef_userServerWideAlias";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(builderId, JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+        String builderId = "key_encrypt_good_RS256_missing_trustStoreRef_userServerWideAlias";
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.DEFAULT_KEY_MGMT_KEY_ALG, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
 
         Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
 
         Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
         validationUtils.validateResult(response, expectations);
 
+    }
+
+    @Test
+    public void JwtBuilderAPIConfigTests_encryption_ECDH_ES_KeyMgmtKeyAlg_goodServerWideKeyManagementKeyAlias_goodContentEncryptAlg_trustStoreRefMissing() throws Exception {
+
+        // Update the SSL default to the EC configuration for this test case
+        updateDefaultSslSettings(builderServer, "DefaultSSLSettings_EC");
+
+        String builderId = "key_encrypt_good_ES256_missing_trustStoreRef_userServerWideAlias";
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaimsWithEncryption(JWTBuilderConstants.KEY_MGMT_KEY_ALG_ES, JWTBuilderConstants.DEFAULT_CONTENT_ENCRYPT_ALG);
+
+        Expectations expectations = BuilderHelpers.createGoodBuilderExpectations(JWTBuilderConstants.JWT_BUILDER_SETAPIS_ENDPOINT, expectationSettings, builderServer);
+
+        Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
+        validationUtils.validateResult(response, expectations);
+
+        // Restore default configuration
+        updateDefaultSslSettings(builderServer, "DefaultSSLSettings_RSA");
     }
 
     @ExpectedFFDC({ "com.ibm.ws.security.jwt.internal.JwtTokenException" })
@@ -2334,6 +2508,22 @@ public class JwtBuilderAPIConfigTests extends CommonSecurityFat {
         Page response = actions.invokeJwtBuilder_setApis(_testName, builderServer, builderId);
         validationUtils.validateResult(response, expectations);
 
+    }
+
+    // Function to update the server sslDefault configuration
+    public static void updateDefaultSslSettings(LibertyServer server, String sslRef) throws Exception {
+        // Get server configuration and change SSL default
+        ServerConfiguration serverConfiguration = server.getServerConfiguration();
+        SSLDefault sslDefault = serverConfiguration.getSSLDefault();
+        sslDefault.setSslRef(sslRef);
+
+        server.setMarkToEndOfLog(server.getDefaultLogFile());
+        server.setMarkToEndOfLog(server.getMostRecentTraceFile());
+        server.updateServerConfiguration(serverConfiguration);
+        //CWWKG0017I: The server configuration was successfully updated in {0} seconds.
+        //CWWKG0018I: The server configuration was not updated. No functional changes were detected.
+        server.waitForStringInLogUsingMark("CWWKG001[7-8]I");
+        Thread.sleep(2000);
     }
 
 }

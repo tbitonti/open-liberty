@@ -1,12 +1,11 @@
 ###############################################################################
-# Copyright (c) 1997, 2020 IBM Corporation and others.
+# Copyright (c) 1997, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 
 # This file has been modified to follow the WebSphere Message Guidelines.
@@ -21,8 +20,6 @@
 #ISMESSAGEFILE TRUE
 #NLS_MESSAGEFORMAT_VAR
 #NLS_ENCODING=UNICODE
-
-
 
 # --------------------------------
 Illegal.Argument.Trying.to.write.chars=SRVE0011E: Exce\u00e7\u00e3o de Argumento Ilegal: Tentando gravar < 0 caracteres
@@ -215,7 +212,7 @@ failed.to.load.converter.properties.explanation=N\u00e3o foi poss\u00edvel carre
 failed.to.load.converter.properties.useraction=Certifique-se de que o arquivo especificado exista e esteja no formato correto, de acordo com java.utils.Properties.
 
 # --------------------------------
-setbuffer.size.called.after.write=SRVE0157E: setBufferSize() chamado ap\u00f3s a primeira grava\u00e7\u00e3o no Fluxo de Sa\u00edda/Grava\u00e7\u00e3o
+setbuffer.size.called.after.write=SRVE0157E:setBufferSize( ) \u00e9 chamado ap\u00f3s a primeira grava\u00e7\u00e3o ou resposta ser confirmada
 setbuffer.size.called.after.write.explanation=Foi feita uma tentativa para definir o tamanho do buffer de resposta depois que a resposta j\u00e1 estava confirmada. Este \u00e9 um erro de aplica\u00e7\u00e3o.
 setbuffer.size.called.after.write.useraction=Remover a chamada setBufferSize() ou mov\u00ea-la para uma posi\u00e7\u00e3o antes que a resposta seja consolidada.
 
@@ -1560,8 +1557,8 @@ servlet.with.same.name.already.exists.explanation=J\u00e1 existe um servlet com 
 servlet.with.same.name.already.exists.useraction=Nenhuma a\u00e7\u00e3o \u00e9 necess\u00e1ria.  Verifique conflitos no descritor de implementa\u00e7\u00e3o, anota\u00e7\u00f5es e c\u00f3digo fonte que podem incluir dinamicamente esta configura\u00e7\u00e3o de servlet. 
 
 servlet.feature.not.loaded.correctly=SRVE8501E: O cont\u00eainer do servlet n\u00e3o foi carregado com uma vers\u00e3o aceit\u00e1vel.
-servlet.feature.not.loaded.correctly.explanation=O cont\u00eainer do servlet est\u00e1 carregado com uma vers\u00e3o que corresponde \u00e0 especifica\u00e7\u00e3o Java EE do recurso de servlet. O cont\u00eainer foi carregado sem vers\u00e3o definida.
-servlet.feature.not.loaded.correctly.useraction=Verifique a exist\u00eancia de um recurso servlet-3.0 ou servlet-3.1 no arquivo server.xml. Um desses recursos deve ser definido, mas n\u00e3o ambos.
+servlet.feature.not.loaded.correctly.explanation=O cont\u00eainer do servlet foi carregado sem uma vers\u00e3o aceit\u00e1vel. O aplicativo pode se comportar de forma diferente do esperado.
+servlet.feature.not.loaded.correctly.useraction=Verifica a server.xml arquivo para exist\u00eancia de v\u00e1rios recursos de servlet.  O arquivo n\u00e3o deve especificar mais de um recurso de servlet.
 
 filter.failed.app.destroyed=SRVE8502W: A solicita\u00e7\u00e3o de {0} n\u00e3o pode ser conclu\u00edda porque o aplicativo parou.
 filter.failed.app.destroyed.explanation=O aplicativo da web est\u00e1 sendo interrompido e a solicita\u00e7\u00e3o n\u00e3o pode ser conclu\u00edda. Essa a\u00e7\u00e3o poder\u00e1 ser causada pelo encerramento do servidor enquanto a solicita\u00e7\u00e3o estiver sendo manipulada.
@@ -1581,10 +1578,7 @@ uncaught.exception.during.AsyncListener.onComplete.explanation=O AsyncListener r
 uncaught.exception.during.AsyncListener.onComplete.useraction=Verifique o c\u00f3digo-fonte e os logs do servidor do AsyncListener para saber a causa raiz do erro do aplicativo.
 
 # Since servlet 4.0.  Use the registered and reserved prefix CWWWC from now on.  
-# 0001 - 0199 for Base
-# 0200 - 0299 for Servlet 3.0
-# 0300 - 0399 for Servlet 3.1
-# 0400 - 0499 for Servlet 4
+# Sequential increment the message number for all new releases and services
 
 #name.is.null=CWWWC0400E: An attribute name, or initial parameter name, is null.
 #name.is.null.explanation=This is an application error.  The name is null in either context getAttribute(), setAttribute(), getInitParameter(), or setInitParameter().
@@ -1614,3 +1608,46 @@ duplicate.samesite.attribute.for.cookie.name.useraction=Verifique a configura\u0
 duplicate.reported.for.samesite.attribute.cookie.name=CWWWC0004W: Um nome de cookie {0} que est\u00e1 configurado para o valor de atributo do SameSite {1} foi identificado anteriormente como uma duplicata. Nenhum atributo do SameSite \u00e9 inclu\u00eddo para este cookie.
 duplicate.reported.for.samesite.attribute.cookie.name.explanation=Um nome de cookie n\u00e3o pode ser configurado para v\u00e1rios valores de atributo do SameSite. Esse nome de cookie j\u00e1 foi identificado como uma duplicata.
 duplicate.reported.for.samesite.attribute.cookie.name.useraction=Verifique a configura\u00e7\u00e3o do descritor de implementa\u00e7\u00e3o para certificar-se de que o nome do cookie esteja configurado para apenas um dos valores de atributo do SameSite a seguir: 'SameSiteCookies_Lax', 'SameSiteCookies_None' ou 'SameSiteCookies_Strict'. 
+
+bad.request.uri\:.{0}=CWWWC0005I: O URI de solicita\u00e7\u00e3o tem caracteres inv\u00e1lidos ou codificados incorretamente: [{0}]
+bad.request.uri\:.{0}.explanation=O URI de solicita\u00e7\u00e3o tem par\u00e2metros de caminho inv\u00e1lidos, segmentos de ponto inv\u00e1lidos ou caracteres codificados incorretamente.
+bad.request.uri\:.{0}.useraction=Verifique se o URI de solicita\u00e7\u00e3o n\u00e3o cont\u00e9m uma combina\u00e7\u00e3o inv\u00e1lida de ponto ou par\u00e2metro de caminho ou caracteres codificados incorretamente.
+
+uri.has.fragment.character=O URI tem um caractere de fragmento [#]; codificado [%23] ou n\u00e3o.
+uri.has.dot.character=O URI tem um caractere de ponto codificado [%2E].
+uri.has.forwarslash.character=O URI codificou um caractere de barra codificado [%2F].
+uri.has.backslash.character=O URI tem um caractere de barra invertida; codificado [%5C] ou n\u00e3o.
+
+multipart.file.count.max.exceeded=CWWWC0006E: A solicita\u00e7\u00e3o continha mais arquivos para upload do que \u00e9 permitido. O n\u00famero m\u00e1ximo de arquivos \u00e9 [{0}].
+multipart.file.count.max.exceeded.explanation=O n\u00famero de arquivos transferidos por upload pela solicita\u00e7\u00e3o de dados de v\u00e1rias partes/de formul\u00e1rio excedeu o limite configurado.
+multipart.file.count.max.exceeded.useraction=Aumente o n\u00famero m\u00e1ximo de arquivos que podem ser transferidos por upload por solicita\u00e7\u00e3o configurando a propriedade customizada maxFileCount webContainer no arquivo server.xml. O valor-padr\u00e3o \u00e9 5000. Para o upload de arquivo ilimitado, configure o valor como -1.
+
+cannot.sendRedirect.response.already.committed=CWWWC0007E: A resposta sendRedirect n\u00e3o \u00e9 permitida depois que a resposta \u00e9 confirmada
+cannot.sendRedirect.response.already.committed.explanation=Quando uma resposta \u00e9 confirmada n\u00e3o \u00e9 poss\u00edvel enviar um redirecionamento.
+cannot.sendRedirect.response.already.committed.useraction=Verifique a l\u00f3gica sendRedirect para assegurar que a resposta n\u00e3o seja confirmada, manual ou automaticamente, antes que o sendRedirect seja chamado.
+
+redirect.location.cannot.be.null=CWWWC0008E: O local de redirecionamento n\u00e3o pode ser nulo.
+redirect.location.cannot.be.null.explanation=A URL do local de redirecionamento precisa ser uma URL relativa ou absoluta 
+redirect.location.cannot.be.null.useraction=Atualize o local de redirecionamento especificando um valor de URL que n\u00e3o esteja vazio. A URL pode ser relativa ou absoluta..
+
+sendRedirect.hyper.text.url=<html><body><p>Redirecionando para <a href="{0}"></a></p></body></html>
+
+query.or.post.is.null=CWWWC0009E: A sequ\u00eancia de consultas de solicita\u00e7\u00e3o de HTTP ou os dados de solicita\u00e7\u00e3o de POST HTTP s\u00e3o nulos.
+query.or.post.is.null.explanation=O aplicativo tentou analisar uma sequ\u00eancia de consultas de solicita\u00e7\u00e3o HTTP nula ou um corpo de solicita\u00e7\u00e3o POST HTTP nulo.
+query.or.post.is.null.useraction=O cliente deve enviar uma sequ\u00eancia de consultas de solicita\u00e7\u00e3o HTTP n\u00e3o nula ou um corpo de solicita\u00e7\u00e3o POST HTTP n\u00e3o nulo.
+
+read.write.bytebuffer.null=CWWWC0010E: Uma tentativa de ler a partir de uma opera\u00e7\u00e3o InputStream ou gravar em uma opera\u00e7\u00e3o OutputStream falhou porque uma inst\u00e2ncia ByteBuffer de argumento vari\u00e1vel era nula.
+read.write.bytebuffer.null.explanation=A inst\u00e2ncia ByteBuffer do argumento vari\u00e1vel que \u00e9 transmitida para a API de leitura ou grava\u00e7\u00e3o n\u00e3o deve ser nula.
+read.write.bytebuffer.null.useraction=Modifique o c\u00f3digo do aplicativo para criar uma inst\u00e2ncia ByteBuffer n\u00e3o nula a ser transmitida para a opera\u00e7\u00e3o InputStream ou OutputStream .
+
+read.write.failed.isReady.false=CWWWC0011E: Uma tentativa de ler uma opera\u00e7\u00e3o InputStream ou gravar em uma opera\u00e7\u00e3o OutputStream falhou porque a API isReady retorna false.
+read.write.failed.isReady.false.explanation=Se a API isReady retornar false, n\u00e3o ser\u00e1 poss\u00edvel chamar um m\u00e9todo de leitura ou grava\u00e7\u00e3o..
+read.write.failed.isReady.false.useraction=Modifique a l\u00f3gica de aplicativo para assegurar que o fluxo esteja pronto para uma opera\u00e7\u00e3o InputStream ou OutputStream .
+
+sendRedirect.cannot.convert.relative.url=CWWWC0012E: O sendRedirect relativo URL no aplicativo n\u00e3o pode ser convertido em um URL v\u00e1lido.
+sendRedirect.cannot.convert.relative.url.explanation=O URL relativo fornecido pode conter caracteres ou \u00edndices de passagem de caminho inv\u00e1lidos.
+sendRedirect.cannot.convert.relative.url.useraction=Verifique o local sendRedirect URL no aplicativo antes de chamar o m\u00e9todo response.sendRedirect( )
+
+invalid.accept.language.length=CWWWC0013E: O valor do cabe\u00e7alho Accept-Language da solicita\u00e7\u00e3o HTTP \u00e9 muito longo.
+invalid.accept.language.length.explanation=O cliente envia um cabe\u00e7alho Accept-Language muito longo.
+invalid.accept.language.length.useraction=O cliente deve enviar um cabe\u00e7alho Accept-Language com um valor de comprimento igual ou inferior a 4.096 bytes.

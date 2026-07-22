@@ -1,12 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2008, 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.sip.container.annotation;
 
@@ -32,7 +31,8 @@ import org.xml.sax.SAXException;
 
 import com.ibm.ws.sip.container.properties.SarToWarProperties;
 import com.ibm.ws.sip.properties.CoreProperties;
-//TODO Liberty find the class in Liberty that provide the LoggerHelper functionality.ther's a LoggerHelper but with different methods.
+//TODO Liberty find the class in Liberty that provide the LoggerHelper functionality. 
+// There is a LoggerHelper, but with different methods.
 //import com.ibm.ws.logging.LoggerHelper;
 //import com.ibm.ws.logging.WsLogger;
 //TODO Liberty replace ECS annotation reading process to Liberty
@@ -89,7 +89,6 @@ public class SipAnnotationUtil {
 					"/:sip-app/:app-name", 
 					sipXml, XPathConstants.NODE);
 		} catch (XPathExpressionException exception) {
-			// TODO Auto-generated catch block
 			System.out.println(exception.getMessage());
 		}
 
@@ -112,7 +111,6 @@ public class SipAnnotationUtil {
 					"/:sip-app/:app-name", 
 					sipXml, XPathConstants.NODESET);
 		} catch (XPathExpressionException exception) {
-			// TODO Auto-generated catch block
 			System.out.println(exception.getMessage());
 		}
 
@@ -159,7 +157,6 @@ public class SipAnnotationUtil {
 					"/:sip-app/javaee:description", 
 					sipXml, XPathConstants.NODESET);
 		} catch (XPathExpressionException exception) {
-			// TODO Auto-generated catch block
 			System.out.println(exception.getMessage());
 		}
 
@@ -182,7 +179,6 @@ public class SipAnnotationUtil {
 					"/:sip-app/javaee:display-name", 
 					sipXml, XPathConstants.NODESET);
 		} catch (XPathExpressionException exception) {
-			// TODO Auto-generated catch block
 			System.out.println(exception.getMessage());
 		}
 
@@ -206,7 +202,6 @@ public class SipAnnotationUtil {
 					"/:sip-app/javaee:icon", 
 					sipXml, XPathConstants.NODESET);
 		} catch (XPathExpressionException exception) {
-			// TODO Auto-generated catch block
 			System.out.println(exception.getMessage());
 		}
 
@@ -253,7 +248,6 @@ public class SipAnnotationUtil {
 					"/:sip-app/:distributable", 
 					sipXml, XPathConstants.NODESET);
 		} catch (XPathExpressionException exception) {
-			// TODO Auto-generated catch block
 			System.out.println(exception.getMessage());
 		}
 
@@ -300,7 +294,6 @@ public class SipAnnotationUtil {
 					"/:sip-app/:proxy-config", 
 					sipXml, XPathConstants.NODESET);
 		} catch (XPathExpressionException exception) {
-			// TODO Auto-generated catch block
 			System.out.println(exception.getMessage());
 		}
 
@@ -309,7 +302,7 @@ public class SipAnnotationUtil {
 
 	/**
 	 * @param sipXml - sip.xml to check 
-	 * @return true if servlet selection wich contains main servlet node exist in sip.xml
+	 * @return true if a servlet-selection element exists in the sip.xml, false otherwise
 	 */
 	public static boolean checkIfMainServletExist(Document sipXml) {
 
@@ -323,7 +316,6 @@ public class SipAnnotationUtil {
 					"/:sip-app/:servlet-selection", 
 					sipXml, XPathConstants.NODESET);
 		} catch (XPathExpressionException exception) {
-			// TODO Auto-generated catch block
 			System.out.println(exception.getMessage());
 		}
 
@@ -372,7 +364,6 @@ public class SipAnnotationUtil {
 					"/:sip-app/:session-config", 
 					sipXml, XPathConstants.NODESET);
 		} catch (XPathExpressionException exception) {
-			// TODO Auto-generated catch block
 			System.out.println(exception.getMessage());
 		}
 
@@ -649,7 +640,7 @@ public class SipAnnotationUtil {
 
 			if (c_logger.isLoggable(Level.FINEST)){
 				c_logger.logp(Level.FINEST, className, "processServletAnnotations", 
-						"Adding new siplet, name=" + servletName);
+						"Adding new servlet, name = " + servletName);
 			}
 
 			// Validate that servlet class extends SipServlet 

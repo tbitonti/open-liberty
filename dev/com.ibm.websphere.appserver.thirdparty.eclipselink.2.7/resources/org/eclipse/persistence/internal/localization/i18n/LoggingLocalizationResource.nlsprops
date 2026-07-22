@@ -1,9 +1,11 @@
 ###############################################################################
 # Copyright (c) 2014 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -85,6 +87,10 @@ broadcast_remote_command_is_null=Warning: {0}: received message {1} containing n
 
 broadcast_remote_command_wrong_type=Warning: {0}: received message {1} containing an object of type {2} instead of expected type RemoteCommand.
 
+cache_key_null_identity_map=CacheKey instance: {0} , stored into identity map, has a null primary key.
+
+cache_key_null_read_lock_manager=CacheKey instance: {0} , locked by cache read lock manager, has a null primary key.
+
 call_timeout_not_migrated=The call-timeout value={1} is defined in entity {0} in orion-ejb-jar.xml but no persistent mappings defined in the descriptor file, therefore no migration will occur.  If you use EclipseLink default mapping later to generate the EclipseLink mapping descriptor, be aware that the call-timeout  setting will be lost as EclipseLink default mapping has no access to native descriptor file.  You then need to reset the call timeout mamually or through EclipseLink Mapping Workbench after default mapping generation.
 
 cannot_get_nested_collection_type=The nested collection type cannot be obtained.
@@ -116,6 +122,10 @@ connected_sdk=Connected: SDK
 connected_user_database=Connected: {3}{4}User: {0}{3}{4}Database: {1}  Version: {2}
 
 connected_user_database_driver=Connected: {0}{6}User: {1}{6}Database: {2}  Version: {3}{6}Driver: {4}  Version: {5}
+
+corrupt_object=corrupt object: {0}
+
+corrupt_object_referenced_through_mapping=corrupt object referenced through mapping: {0}
 
 corrupted_session_announcement=SessionID: {0}  Discovery manager received corrupted session announcement - ignoring.
 
@@ -168,6 +178,18 @@ ejb_jar_xml_not_found_in_input=The ejb-jar.xml is not present under input direct
 elements={0}{1} elements
 
 enable_batch_operations_as_true_not_supported=WLS native CMP setting "enable-batch-operations-as-true" is not directly supported in EclipseLink CMP. See migration doc for details.
+
+encryptor_decrypt_old_algorithm=The Database password used in {0} was encrypted by a deprecated algorithm.
+Reencrypt it by `passwordUpdate.sh` from eclipselink.zip bundle.
+
+encryptor_decrypt_old_algorithm_without_session_name=The Database password was encrypted by a deprecated algorithm.
+Reencrypt it by `passwordUpdate.sh` from eclipselink.zip bundle.
+
+encryptor_script_description=This application internally decrypts an old encrypted password that was used by a previous EclipseLink version and encrypts it by the latest algorithm.
+
+encryptor_script_output=The reencrypted password is: {0}
+
+encryptor_script_usage=Usage is `passwordUpdate.sh|.cmd -ip <old encrypted password>`
 
 entity_manager_ignores_jta_data_source=Persistence unit does not use JTA, therefore the EntityManager ignores jta data source. 
 
@@ -699,6 +721,8 @@ sop_object_wrong_version=Removing serialized sopObject from the row because it h
 
 src_pm_name_first_argument=You must specify the source PM name at the first input argument as either: -sOc4j-native or -sWeblogic.
 
+stack_of_visited_objects_that_refer_to_the_corrupt_object=stack of visited objects that refer to the corrupt object: {0}
+
 table_existed_during_creation=Table creation failed. If it already exists, it must be dropped first. This can be done manually or by setting the db-table-gen attribute in orion-ejb-jar.xml.
 
 template_orion_ejb_jar_created=A templated orion-ejb-jar.xml file has been created
@@ -727,6 +751,14 @@ toplink_severe=[EL Severe]:
 
 toplink_warning=[EL Warning]: 
 
+unit_of_work_thread_info=Current unit of work in session ({0}) was created by another thread (id: {1} name: {2}), than current thread (id: {3} name: {4})
+
+unit_of_work_thread_info_thread_dump=Creation thread (id: {0} name: {1}) stack trace:
+{2}
+
+Current thread (id: {3} name: {4}) stack trace:
+{5}
+
 unitofwork_identity_hashcode={0}UnitOfWork identity hashcode: {1}
 
 update_all_fields_not_supported=Oc4j native CMP feature "update-all-fields" on entity({0}) is not directly supported in EclipseLink CMP. See migration doc for details.
@@ -736,6 +768,8 @@ update_all_query_cannot_use_binding_on_this_platform=UpdateAllQuery cannot use b
 validate_db_schema_with_not_supported=WLS native CMP setting "validate-db-schema-with" is not directly supported in EclipseLink CMP. See migration doc for details.
 
 validate_ejb_jar=Validating ejb-jar.xml starts, it may take some times...
+
+validate_object_space=validate object space.
 
 validity_timeout_not_supported=Oc4j native CMP setting "validity-timeout" on entity({0}) is not directly supported in EclipseLink CMP. See migration doc for details.
 

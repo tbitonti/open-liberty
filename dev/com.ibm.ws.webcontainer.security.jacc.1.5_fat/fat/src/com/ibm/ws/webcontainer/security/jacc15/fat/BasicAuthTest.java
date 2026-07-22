@@ -1,21 +1,20 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
 package com.ibm.ws.webcontainer.security.jacc15.fat;
 
+import static componenttest.annotation.SkipForRepeat.CHECKPOINT_RULE;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -26,19 +25,21 @@ import com.ibm.ws.webcontainer.security.test.servlets.BasicAuthClient;
 import com.ibm.ws.webcontainer.security.test.servlets.SSLBasicAuthClient;
 import com.ibm.ws.webcontainer.security.test.servlets.SSLServletClient;
 import com.ibm.ws.webcontainer.security.test.servlets.ServletClient;
-import com.ibm.ws.webcontainer.security.test.servlets.TestConfiguration;
 
+import componenttest.annotation.CheckpointTest;
+import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.custom.junit.runner.Mode;
-import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.custom.junit.runner.RepeatTestFilter;
+import componenttest.rules.repeater.CheckpointRule;
+import componenttest.rules.repeater.CheckpointRule.ServerMode;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
 
 @RunWith(FATRunner.class)
-@Mode(TestMode.FULL)
+@CheckpointTest(alwaysRun = true)
 public class BasicAuthTest extends CommonServletTestScenarios {
     private static String DEFAULT_CONFIG_FILE = "basicauth.server.orig.xml";
-    private static LibertyServer myServer = LibertyServerFactory.getLibertyServer("com.ibm.ws.webcontainer.security.fat.basicauth");
+    private static LibertyServer myServer;
     private static Class<?> myLogClass = BasicAuthTest.class;
     private static BasicAuthClient myClient;
     private static SSLBasicAuthClient mySSLClient;
@@ -51,32 +52,48 @@ public class BasicAuthTest extends CommonServletTestScenarios {
     // (hopefully) be reflected in the static references as well.
     private static TestName _name = new TestName();
 
-    @Rule
-    public TestName name = _name;
+    @ClassRule
+    public static CheckpointRule checkpointRule = new CheckpointRule().setConsoleLogName(BasicAuthTest.class.getSimpleName()
+                                                                                         + ".log").setServerSetup(BasicAuthTest::serverSetUp).setServerStart(BasicAuthTest::serverStart).setServerTearDown(BasicAuthTest::serverTearDown);
 
-    private static final TestConfiguration testConfig = new TestConfiguration(myServer, myLogClass, _name, appName);
-
-    @BeforeClass
-    public static void setUp() throws Exception {
-        myServer.addInstalledAppForValidation(appName);
-        //LDAPUtils.addLDAPVariables(myServer);
-
+    public static LibertyServer serverSetUp(ServerMode mode) throws Exception {
+        myServer = LibertyServerFactory.getLibertyServer("com.ibm.ws.webcontainer.security.fat.basicauth");
         JACCFatUtils.installJaccUserFeature(myServer);
-        JACCFatUtils.transformApps(myServer, "basicauth.war", "basicauthXMI.ear", "basicauthXMInoAuthz.ear", "basicauthXML.ear", "basicauthXMLnoAuthz.ear");
-
-        testConfig.startServerClean(DEFAULT_CONFIG_FILE);
-
-        if (myServer.getValidateApps()) { // If this build is Java 7 or above
-            verifyServerStartedWithJaccFeature(myServer);
-        }
-
+        myServer.setServerConfigurationFile(DEFAULT_CONFIG_FILE);
+        JACCFatUtils.transformApps(myServer, "basicauth.war", "basicauthXMInoAuthz.ear", "basicauthXMLnoAuthz.ear");
         myClient = new BasicAuthClient(myServer);
         mySSLClient = new SSLBasicAuthClient(myServer);
+        myClient.setJaccValidation(true);
+        mySSLClient.setJaccValidation(true);
+        return myServer;
     }
+
+    public static void serverStart(ServerMode mode, LibertyServer server) throws Exception {
+        server.startServer();
+        if (server.getValidateApps() && !CheckpointRule.isActive()) { // If this build is Java 7 or above
+            verifyServerStartedWithJaccFeature(server);
+        }
+    }
+
+    public static void serverTearDown(ServerMode mode, LibertyServer server) throws Exception {
+        try {
+            server.stopServer("CWWKZ0013E");
+        } finally {
+            JACCFatUtils.uninstallJaccUserFeature(server);
+        }
+    }
+
+    @Rule
+    public TestName name = _name;
 
     protected static void verifyServerStartedWithJaccFeature(LibertyServer server) {
         assertNotNull("JACC feature did not report it was starting", server.waitForStringInLog("CWWKS2850I")); //Hiroko-Kristen
         assertNotNull("JACC feature did not report it was ready", server.waitForStringInLog("CWWKS2851I")); //Hiroko-Kristen
+        String currentRepeatAction = RepeatTestFilter.getRepeatActionsAsString();
+        if (currentRepeatAction != null && currentRepeatAction.contains("_spec")) {
+            assertNotNull("spec user feature WAB did not start the PolicyFactory", server.waitForStringInLog("CWWKS2866I.*PolicyFactory"));
+            assertNotNull("spec user feature WAB did not start the PolicyConfigurationFactory", server.waitForStringInLog("CWWKS2866I.*PolicyConfigurationFactory"));
+        }
     }
 
     public BasicAuthTest() {
@@ -99,15 +116,6 @@ public class BasicAuthTest extends CommonServletTestScenarios {
                             String appName) {
         super(server, logClass, client, sslClient);
         this.appName = appName;
-    }
-
-    @AfterClass
-    public static void tearDown() throws Exception {
-        try {
-            myServer.stopServer("CWWKZ0013E");
-        } finally {
-            JACCFatUtils.uninstallJaccUserFeature(myServer);
-        }
     }
 
     /**
@@ -147,6 +155,7 @@ public class BasicAuthTest extends CommonServletTestScenarios {
      * </OL>
      */
     @Test
+    @SkipForRepeat({ CHECKPOINT_RULE })
     public void testDynamicJaccOnOffOn() throws Exception {
         String response = client.accessProtectedServletWithAuthorizedCredentials(BasicAuthClient.PROTECTED_SIMPLE, employeeUser, employeePassword);
         assertTrue("Verification of programmatic APIs failed",
@@ -198,6 +207,7 @@ public class BasicAuthTest extends CommonServletTestScenarios {
 
             server.waitForStringInLogUsingMark("CWWKZ0001I: Application " + appName + " started ");
             server.waitForStringInLogUsingMark("CWWKG0017I");
+            verifyServerStartedWithJaccFeature(server);
 
 //            assertNotNull("JACC feature did not report it was starting", myServer.waitForStringInLog("CWWKS2850I")); //Hiroko-Kristen
 //            assertNotNull("JACC feature did not report it was ready", myServer.waitForStringInLog("CWWKS2851I")); //Hiroko-Kristen
@@ -216,6 +226,7 @@ public class BasicAuthTest extends CommonServletTestScenarios {
             server.setMarkToEndOfLog();
             server.setServerConfigurationFile("/basicauth.server.orig.xml");
             server.waitForStringInLogUsingMark("CWWKZ0001I: Application " + appName + " started ");
+            verifyServerStartedWithJaccFeature(server);
         }
     }
 

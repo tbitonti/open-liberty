@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2020 IBM Corporation and others.
+ * Copyright (c) 2009, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -108,7 +110,7 @@ public class StatefulTimeoutServlet extends FATServlet {
      */
     @Test
     @Mode(FULL)
-    @SkipForRepeat(SkipForRepeat.EE7_FEATURES)
+    @SkipForRepeat({ SkipForRepeat.EE7_FEATURES, SkipForRepeat.EE9_FEATURES })
     public void testNoSpecifiedTimeout() throws Exception {
         if (!recLogInit)
             initRecoveryLog();
@@ -320,7 +322,7 @@ public class StatefulTimeoutServlet extends FATServlet {
      */
     @Test
     @Mode(FULL)
-    @SkipForRepeat(SkipForRepeat.EE7_FEATURES)
+    @SkipForRepeat({ SkipForRepeat.EE7_FEATURES, SkipForRepeat.EE9_FEATURES })
     public void testNegativeOneValueInAnnotation() throws Exception {
         if (!recLogInit)
             initRecoveryLog();
@@ -345,7 +347,7 @@ public class StatefulTimeoutServlet extends FATServlet {
      */
     @Test
     @Mode(FULL)
-    @SkipForRepeat(SkipForRepeat.EE7_FEATURES)
+    @SkipForRepeat({ SkipForRepeat.EE7_FEATURES, SkipForRepeat.EE9_FEATURES })
     public void testNegativeOneValueInXML() throws Exception {
         if (!recLogInit)
             initRecoveryLog();
@@ -602,7 +604,7 @@ public class StatefulTimeoutServlet extends FATServlet {
      */
     @Test
     @Mode(FULL)
-    @SkipForRepeat(SkipForRepeat.EE7_FEATURES)
+    @SkipForRepeat({ SkipForRepeat.EE7_FEATURES, SkipForRepeat.EE9_FEATURES })
     public void testNoTimeoutStanzaInStatefulTimeoutXML() throws Exception {
         if (!recLogInit)
             initRecoveryLog();
@@ -634,7 +636,7 @@ public class StatefulTimeoutServlet extends FATServlet {
      */
     @Test
     @Mode(FULL)
-    @SkipForRepeat(SkipForRepeat.EE7_FEATURES)
+    @SkipForRepeat({ SkipForRepeat.EE7_FEATURES, SkipForRepeat.EE9_FEATURES })
     public void testUnitButNoTimeoutSpecifiedInStatefulTimeoutXML() throws Exception {
         if (!recLogInit)
             initRecoveryLog();
@@ -713,19 +715,30 @@ public class StatefulTimeoutServlet extends FATServlet {
         if (!recLogInit)
             initRecoveryLog();
 
-        StatefulTimeoutAsyncBean bean = (StatefulTimeoutAsyncBean) new InitialContext().lookup(JNDI_ASYNC);
-        Future<Long> f = bean.async(-1); // no sleep time
-        f.get();
-        FATHelper.sleep(BUFFER);
-        try {
-            bean.sync();
-        } catch (NoSuchEJBException ex) {
-            fail("Bean timed out too early after async method invocation");
+        int retry = 0;
+        StatefulTimeoutAsyncBean bean = null;
+        while (bean == null) {
+            bean = (StatefulTimeoutAsyncBean) new InitialContext().lookup(JNDI_ASYNC);
+            Future<Long> f = bean.async(-1); // no sleep time
+            long firstInvokeTime = f.get();
+            FATHelper.sleep(BUFFER);
+            try {
+                bean.sync();
+            } catch (NoSuchEJBException ex) {
+                long elapsedTime = System.currentTimeMillis() - firstInvokeTime;
+                if ((retry < 3) && (elapsedTime > USER_TIMEOUT)) {
+                    svLogger.info("Retry - Slow system; elapsed time to call method > timeout : " + elapsedTime + " > " + USER_TIMEOUT);
+                    retry++;
+                    bean = null;
+                } else {
+                    fail("Bean timed out too early after async method invocation");
+                }
+            }
         }
         bean.remove(false);
 
         bean = (StatefulTimeoutAsyncBean) new InitialContext().lookup(JNDI_ASYNC);
-        f = bean.async(-1); // no sleep time again
+        Future<Long> f = bean.async(-1); // no sleep time again
         f.get();
         FATHelper.sleep(USER_TIMEOUT + BUFFER);
         try {

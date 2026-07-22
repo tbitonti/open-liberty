@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,10 +27,10 @@ import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.log.Log;
 
-import componenttest.annotation.MinimumJavaLevel;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.custom.junit.runner.RepeatTestFilter;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
 
@@ -56,7 +58,6 @@ import componenttest.topology.impl.LibertyServerFactory;
  *
  */
 @RunWith(FATRunner.class)
-@MinimumJavaLevel(javaLevel = 7, runSyntheticTest = false)
 @Mode(TestMode.FULL)
 public class JASPIFormLoginJACCAuthorizationTest extends JASPITestBase {
 
@@ -181,9 +182,14 @@ public class JASPIFormLoginJACCAuthorizationTest extends JASPITestBase {
         verifyJaspiAuthenticationProcessedValidateRequestInMessageLog();
 
         // Redirect to the given page, ensure it is the original servlet request and it returns the right response.
-
-        String response = accessPageNoChallenge(httpclient, location, HttpServletResponse.SC_OK, DEFAULT_FORMLOGIN_SERVLET_NAME);
-        verifyUserResponse(response, getUserPrincipalFound + jaspi_notInRegistryNotInRoleUser, getRemoteUserFound + jaspi_notInRegistryNotInRoleUser);
+        boolean isEE11SpecRepeat = RepeatTestFilter.isRepeatActionActive(FATSuite.EE11_SPEC_ID);
+        String response = accessPageNoChallenge(httpclient, location, isEE11SpecRepeat ? HttpServletResponse.SC_FORBIDDEN : HttpServletResponse.SC_OK,
+                                                DEFAULT_FORMLOGIN_SERVLET_NAME);
+        if (isEE11SpecRepeat) {
+            verifyMessageReceivedInMessageLog(MSG_JACC_AUTHORIZATION_FAILED + jaspi_notInRegistryNotInRoleUser);
+        } else {
+            verifyUserResponse(response, getUserPrincipalFound + jaspi_notInRegistryNotInRoleUser, getRemoteUserFound + jaspi_notInRegistryNotInRoleUser);
+        }
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 

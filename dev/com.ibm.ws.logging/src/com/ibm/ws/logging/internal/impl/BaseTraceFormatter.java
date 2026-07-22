@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2019 IBM Corporation and others.
+ * Copyright (c) 2012, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -297,8 +299,14 @@ public class BaseTraceFormatter extends Formatter {
                 }
                 // Would any of the other parameters benefit from our whizzy formatting?
             }
-            // If this is a parameter list, use MessageFormat to sort it out
-            txt = MessageFormat.format(msg, formattedParams);
+            String formattedText;
+            try {
+                // If this is a parameter list, use MessageFormat to sort it out
+                formattedText = MessageFormat.format(msg, formattedParams);
+            } catch (Throwable t) {
+                formattedText = msg + " " + formatObj(formattedParams);
+            }
+            txt = formattedText;
         } else {
             txt = msg + (hasParams ? " " + formatObj(logParams) : "");
         }
@@ -441,7 +449,7 @@ public class BaseTraceFormatter extends Formatter {
                     message = kvp.getStringValue();
                 } else if (kvp.getKey().equals(LogFieldConstants.LEVELVALUE)) {
                     levelValue = kvp.getIntValue();
-                } else if (kvp.getKey().equals(LogFieldConstants.THROWABLE_LOCALIZED)) {
+                } else if (kvp.getKey().equals(LogFieldConstants.IBM_STACKTRACE_LOCALIZED)) {
                     throwable = kvp.getStringValue();
                 }
             }
@@ -528,7 +536,7 @@ public class BaseTraceFormatter extends Formatter {
                     loggerName = kvp.getStringValue();
                 } else if (kvp.getKey().equals(LogFieldConstants.IBM_CLASSNAME)) {
                     srcClassName = kvp.getStringValue();
-                } else if (kvp.getKey().equals(LogFieldConstants.THROWABLE)) {
+                } else if (kvp.getKey().equals(LogFieldConstants.IBM_STACKTRACE)) {
                     throwable = kvp.getStringValue();
                 }
 
@@ -539,6 +547,73 @@ public class BaseTraceFormatter extends Formatter {
         sb.append(DataFormatHelper.getThreadId()).append(' ');
         formatFixedString(sb, name, enhancedNameLength);
         sb.append(" " + level + " "); // sym has built-in padding
+        sb.append(message);
+
+        if (throwable != null) {
+            sb.append(LoggingConstants.nl).append(throwable);
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * The messages log always uses the same/enhanced format, and relies on already formatted
+     * messages. This does the formatting needed to take a message suitable for console.log
+     * and wrap it to fit into messages.log. This messages log is used for the trace basic logs.
+     *
+     * @param genData
+     * @return Formatted string for messages.log
+     */
+    public String messageLogFormatTBasic(GenericData genData) {
+        // This is a very light trace format, based on enhanced:
+        StringBuilder sb = new StringBuilder(256);
+        String name = null;
+        KeyValuePair[] pairs = genData.getPairs();
+        KeyValuePair kvp = null;
+        String message = null;
+        Long datetime = null;
+        String level = "";
+        String loggerName = null;
+        String srcClassName = null;
+        String methodName = null;
+        String throwable = null;
+        String extendedClassName = null;
+        for (KeyValuePair p : pairs) {
+
+            if (p != null && !p.isList()) {
+
+                kvp = p;
+                if (kvp.getKey().equals(LogFieldConstants.MESSAGE)) {
+                    message = kvp.getStringValue();
+                } else if (kvp.getKey().equals(LogFieldConstants.IBM_DATETIME)) {
+                    datetime = kvp.getLongValue();
+                } else if (kvp.getKey().equals(LogFieldConstants.SEVERITY)) {
+                    level = kvp.getStringValue();
+                } else if (kvp.getKey().equals(LogFieldConstants.MODULE)) {
+                    loggerName = fixedClassString(kvp.getStringValue(), basicNameLength);
+                } else if (kvp.getKey().equals(LogFieldConstants.IBM_CLASSNAME)) {
+                    extendedClassName = kvp.getStringValue();
+                    srcClassName = fixedClassString(extendedClassName, basicNameLength);
+                } else if (kvp.getKey().equals(LogFieldConstants.IBM_STACKTRACE)) {
+                    throwable = kvp.getStringValue();
+                } else if (kvp.getKey().equals(LogFieldConstants.IBM_METHODNAME)) {
+                    methodName = kvp.getStringValue();
+                }
+
+            }
+        }
+
+        name = nonNullString(loggerName, srcClassName);
+        sb.append('[').append(DateFormatHelper.formatTime(datetime, useIsoDateFormat)).append("] ");
+        sb.append(DataFormatHelper.getThreadId()).append(' ');
+        formatFixedString(sb, name, basicNameLength);
+
+        if (methodName != null) {
+            sb.append(" " + level + " "); // sym has built-in padding
+            sb.append(extendedClassName + " " + methodName + " ");
+        } else {
+            sb.append(" " + level + "   "); // sym has built-in padding
+        }
         sb.append(message);
 
         if (throwable != null) {
@@ -596,6 +671,7 @@ public class BaseTraceFormatter extends Formatter {
                     sb.append(LoggingConstants.nl).append(stackTrace);
                 break;
             case BASIC:
+            case TBASIC:
                 name = nonNullString(logRecord.getLoggerName(), logRecord.getSourceClassName());
 
                 sb.append(' '); // pad after thread id
@@ -736,7 +812,7 @@ public class BaseTraceFormatter extends Formatter {
                     threadName = kvp.getStringValue();
                 } else if (kvp.getKey().equals(LogFieldConstants.LEVELVALUE)) {
                     levelVal = kvp.getIntValue();
-                } else if (kvp.getKey().equals(LogFieldConstants.THROWABLE)) {
+                } else if (kvp.getKey().equals(LogFieldConstants.IBM_STACKTRACE)) {
                     stackTrace = kvp.getStringValue();
                 }
 
@@ -768,6 +844,7 @@ public class BaseTraceFormatter extends Formatter {
                     sb.append(LoggingConstants.nl).append(stackTrace);
                 break;
             case BASIC:
+            case TBASIC:
                 name = nonNullString(loggerName, className);
 
                 sb.append(' '); // pad after thread id
@@ -908,6 +985,24 @@ public class BaseTraceFormatter extends Formatter {
         }
     }
 
+    private String fixedClassString(String s, int len) {
+        String output;
+        if (s == null)
+            s = "null";
+
+        int i = s.lastIndexOf('.');
+        if (i >= 0) {
+            s = s.substring(i + 1);
+        }
+
+        if (s.length() > len) {
+            output = s.substring(0, len);
+        } else {
+            output = s;
+        }
+        return output;
+    }
+
     private String formatTraceable(Traceable t) {
         String formatted;
         try {
@@ -935,7 +1030,7 @@ public class BaseTraceFormatter extends Formatter {
         // Pad amount changes based on trace format
         if (TraceFormat.ADVANCED.equals(traceFormat)) {
             nlPad = nlAdvancedPadding;
-        } else if (TraceFormat.BASIC.equals(traceFormat)) {
+        } else if (TraceFormat.BASIC.equals(traceFormat) || TraceFormat.TBASIC.equals(traceFormat)) {
             nlPad = nlBasicPadding;
         } else {
             nlPad = nlEnhancedPadding;
@@ -1049,7 +1144,15 @@ public class BaseTraceFormatter extends Formatter {
             if (Proxy.isProxyClass(cls) || className.contains("$Proxy$_$$_Weld")) {
                 return "Proxy for " + className + "@" + Integer.toHexString(System.identityHashCode(objs));
             }
-            return objs.toString();
+            // Security level augmented to overcome a Java 2 sec error at a JAX-WS bundle
+            String s = AccessController.doPrivileged(new PrivilegedAction<String>() {
+                @Override
+                public String run() {
+                    return objs.toString();
+                }
+            });
+
+            return s;
         } catch (Exception e) {
             // No FFDC code needed
             String s = objs == null ? "null" : objs.getClass().getName();

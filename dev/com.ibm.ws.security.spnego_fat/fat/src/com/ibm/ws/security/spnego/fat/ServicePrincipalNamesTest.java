@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2014, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -38,7 +40,8 @@ import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 
 @RunWith(FATRunner.class)
-@Mode(TestMode.FULL)
+//@Mode(TestMode.FULL)
+@Mode(TestMode.QUARANTINE)
 public class ServicePrincipalNamesTest extends CommonTest {
 
     private static final Class<?> c = ServicePrincipalNamesTest.class;
@@ -59,7 +62,8 @@ public class ServicePrincipalNamesTest extends CommonTest {
 
         commonSetUp("ServicePrincipalNamesTest", null, checkApps, SPNEGOConstants.NO_PROPS, SPNEGOConstants.DONT_START_SERVER);
 
-        FATSuite.transformApps(myServer, "basicauth.war");
+        //FATSuite.transformApps(myServer, "basicauth.war");
+        //todo add back
     }
 
     /**

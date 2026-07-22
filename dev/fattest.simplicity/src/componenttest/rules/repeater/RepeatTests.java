@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2021 IBM Corporation and others.
+ * Copyright (c) 2017, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,6 +14,7 @@ package componenttest.rules.repeater;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.junit.rules.ExternalResource;
 import org.junit.runner.Description;
@@ -47,6 +50,13 @@ public class RepeatTests extends ExternalResource {
     }
 
     /**
+     * Adds an iteration of test execution without making any modifications, but only run in FULL mode
+     */
+    public static RepeatTests withoutModificationInFullMode() {
+        return new RepeatTests().andWithoutModificationInFullMode();
+    }
+
+    /**
      * Adds an iteration of test execution, where the action.setup() is called before repeating the tests.
      */
     public static RepeatTests with(RepeatTestAction action) {
@@ -70,6 +80,14 @@ public class RepeatTests extends ExternalResource {
     }
 
     /**
+     * Adds an iteration of test execution without making any modifications, but run in FULL mode
+     */
+    public RepeatTests andWithoutModificationInFullMode() {
+        actions.add(new EmptyAction().fullFATOnly());
+        return this;
+    }
+
+    /**
      * Adds an iteration of test execution, where the action.setup() is called before repeating the tests.
      */
     public RepeatTests andWith(RepeatTestAction action) {
@@ -77,9 +95,21 @@ public class RepeatTests extends ExternalResource {
         return this;
     }
 
+    /**
+     * Removes an iteration of test execution of the previous <code>and*</code> call if the passed-in supplier
+     * returns false. If true or if no test executions have been added, this method will have no effect.
+     */
+    public RepeatTests onlyIf(Supplier<Boolean> check) {
+        int size = actions.size();
+        if (size > 0 && !check.get()) {
+            actions.remove(size - 1);
+        }
+        return this;
+    }
+
     @Override
     public Statement apply(Statement statement, Description description) {
-        return new CompositeRepeatTestActionStatement(actions, statement);
+        return new CompositeRepeatTestActionStatement(actions, statement, description);
     }
 
     private static class CompositeRepeatTestActionStatement extends Statement {
@@ -87,10 +117,12 @@ public class RepeatTests extends ExternalResource {
 
         private final Statement statement;
         private final List<RepeatTestAction> actions;
+        private final Description description;
 
-        private CompositeRepeatTestActionStatement(List<RepeatTestAction> actions, Statement statement) {
+        private CompositeRepeatTestActionStatement(List<RepeatTestAction> actions, Statement statement, Description description) {
             this.statement = statement;
             this.actions = actions;
+            this.description = description;
         }
 
         @Override
@@ -98,25 +130,33 @@ public class RepeatTests extends ExternalResource {
             final String m = "evaluate";
             ArrayList<Throwable> errors = new ArrayList<>();
 
+            String descriptionDisplayName = description != null ? description.getDisplayName() : "tests";
+
             Log.info(c, m, "All tests attempt to run " + actions.size() + " times:");
             for (int i = 0; i < actions.size(); i++)
                 Log.info(c, m, "  [" + i + "] " + actions.get(i));
 
             for (RepeatTestAction action : actions) {
                 try {
-                    RepeatTestFilter.activateRepeatAction(action.getID());
+                    RepeatTestFilter.activateRepeatAction(action);
                     if (shouldRun(action)) {
                         Log.info(c, m, "===================================");
                         Log.info(c, m, "");
-                        Log.info(c, m, "Running tests with action: " + action);
+                        Log.info(c, m, "Running " + descriptionDisplayName + " with action: " + action);
                         Log.info(c, m, "");
                         Log.info(c, m, "===================================");
                         action.setup();
                         statement.evaluate();
+                        action.cleanup();
+                        Log.info(c, m, "===================================");
+                        Log.info(c, m, "");
+                        Log.info(c, m, "Exiting " + descriptionDisplayName + " with action: " + action);
+                        Log.info(c, m, "");
+                        Log.info(c, m, "===================================");
                     } else {
                         Log.info(c, m, "===================================");
                         Log.info(c, m, "");
-                        Log.info(c, m, "Skipping tests with action: " + action);
+                        Log.info(c, m, "Skipping " + descriptionDisplayName + " with action: " + action);
                         Log.info(c, m, "");
                         Log.info(c, m, "===================================");
                     }
@@ -142,8 +182,20 @@ public class RepeatTests extends ExternalResource {
                     // Note: If the user has requested this specific action, we ignore the isEnabled() flag
                     return action.getID().equals(repeatOnly);
                 } else { // repeatAny != null
-                    // Note: If the user has requested any of the active actions, we ignore isEnabled() flag.
-                    return RepeatTestFilter.isRepeatActionActive(repeatAny);
+                    boolean repeatNotAny = false;
+                    if (repeatAny.startsWith("!")) {
+                        repeatNotAny = true;
+                        repeatAny = repeatAny.substring(1, repeatAny.length());
+                    }
+
+                    if (repeatNotAny) {
+                        // Note: If the user has requested an action NOT be any of the
+                        //       active actions, we ignore isEnabled() flag.
+                        return !RepeatTestFilter.isRepeatActionActive(repeatAny);
+                    } else {
+                        // Note: If the user has requested any of the active actions, we ignore isEnabled() flag.
+                        return RepeatTestFilter.isRepeatActionActive(repeatAny);
+                    }
                 }
             }
         }

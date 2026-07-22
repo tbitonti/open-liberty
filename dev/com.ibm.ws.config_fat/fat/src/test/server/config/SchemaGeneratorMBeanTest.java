@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -90,8 +92,7 @@ public class SchemaGeneratorMBeanTest {
                       server.waitForStringInLog("CWWKT0016I.*IBMJMXConnectorREST"));
 
         Log.info(logClass, methodName, "Waiting for 'CWWKO0219I.*ssl'");
-        assertNotNull("'CWWKO0219I.*ssl' was not received on server",
-                      server.waitForStringInLog("CWWKO0219I.*ssl"));
+        server.waitForDefaultHTTPEndpointSSLStart();
 
         // Set up the trust store
         System.setProperty("javax.net.ssl.trustStore", outputDir + "/resources/security/key.p12");
@@ -243,7 +244,7 @@ public class SchemaGeneratorMBeanTest {
 
         Log.info(logClass, methodName, "Waiting for 'CWWKO0219I.*ssl'");
         assertNotNull("'CWWKO0219I.*ssl' was not received on server",
-                      server.waitForStringInLog("CWWKO0219I.*ssl"));
+                      server.waitForDefaultHTTPEndpointSSLStart(true));
 
         // Verify that the file was cleaned up after server restart
         assertFalse("Generated schema file was not deleted after server restart. File=" + sourcePath, new File(sourcePath).exists());

@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2010 IBM Corporation and others.
+# Copyright (c) 2010, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -54,6 +56,15 @@ javaAgent.desc=\
 \tthe jar used to launch the runtime.
 #------------------------------\n at 72 chars -- leading tab-----------\n\#
 # Actions: create, stop, version, package, dump
+action-key.checkpoint=\
+\ \ \ \ --checkpoint
+action-desc.checkpoint=\
+\tCheckpoint the named server at the specified checkpoint phase. Use   \n\
+\tthe --at option to specify the checkpoint phase. When the checkpoint \n\
+\tcompletes, the server stops and its current state is written to      \n\
+\tdisk. This checkpoint provides InstantOn behavior when the server    \n\
+\tlaunches. When the checkpoint completes, you can launch the server   \n\
+\twith InstantOn by using the run or start action.
 action-key.create=\
 \ \ \ \ --create
 action-desc.create=\
@@ -159,6 +170,12 @@ action-desc.resume=\
 \tResume all paused components in the server. You can specify the      \n\
 \t--target option to resume specific paused components.
 #------------------------------\n at 72 chars -- leading tab-----------\n\#
+option-key.at=\
+\ \ \ \ --at="checkpoint phase"
+option-desc.checkpoint.at=\
+\tSpecifies the checkpoint phase. The valid values are: beforeAppStart \n\
+\tor afterAppStart.
+#------------------------------\n at 72 chars -- leading tab-----------\n\#
 option-key.clean=\
 \ \ \ \ --clean
 option-desc.start.clean=\
@@ -233,21 +250,37 @@ option-desc.os=\
 option-key.no-password=\
 \ \ \ \ --no-password
 option-desc.no-password=\
-\tDisable generation of default keystore password
+\tDisable generation of default keystore password and default LTPA keys password.
 #------------------------------\n at 72 chars -- leading tab-----------\n\#
 option-key.server-root=\
 \ \ \ \ --server-root="root server folder in archive"
 option-desc.package.server-root=\
-\tSpecifies the root server folder name in the archive file.           \n\
+\tSpecifies the root server folder name in the archive file. 
 #------------------------------\n at 72 chars -- leading tab-----------\n\#
 option-key.force=\
 \ \ \ \ --force
 option-desc.stop.force=\
 \tSkips the quiesce stage before the server is shut down. Normal server\n\
 \tstop includes a quiesce stage before the server is shut down. The    \n\
-\tquiesce stage, a period of 30 seconds, allows services to perform    \n\
-\tpre-shutdown work; for example, inbound listeners are stopped but    \n\
-\texisting requests are allowed to complete. The --force option has no \n\
-\teffect if server stop was already invoked. If you use the --force    \n\
+\tquiesce stage, which is 30 seconds by default, allows services to    \n\
+\tperform pre-shutdown work; for example, inbound listeners are stopped\n\
+\tbut existing requests are allowed to complete. The --force option has\n\
+\tno effect if server stop was already invoked. If you use the --force \n\
 \toption, you might see unexpected exceptions in the messages.log file \n\
-\tthat occur after the server stop command was received by the server.
+\tthat occur after the server stop command was received by the server. \n
+#------------------------------\n at 72 chars -- leading tab-----------\n\#
+option-key.timeout=\
+\ \ \ \ --timeout
+option-desc.stop.timeout=\
+\tSets the maximum amount of time the \"server stop\" command waits for\n\
+\tconfirmation that the server has stopped.  Specify a positive integer\n\
+\tfollowed by a unit of time, which can include minutes (m) and        \n\
+\tseconds (s). For example, specify 2.5 minutes as --timeout=2m30s     \n\
+\tor --timeout=150s.                                                   \n\
+\t                                                                     \n\
+\tThe default timeout value is 30 seconds. If the server consistently  \n\
+\ttakes longer than 30 seconds to stop, consider increasing the timeout\n\
+\tvalue by using the --timeout option.  Setting this timeout to a value\n\
+\tless than the quiesceTimeout value might cause the server stop       \n\
+\tcommand to complete with an error code before the server process     \n\
+\tbegins to shut down.                                                 \n

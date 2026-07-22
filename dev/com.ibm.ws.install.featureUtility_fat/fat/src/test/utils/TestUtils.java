@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,15 +14,9 @@ package test.utils;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -49,34 +45,6 @@ public class TestUtils {
                 }
                 return true;
         }
-
-        // public static boolean deleteFolder(File file) {
-        //         Path path = file.toPath();
-        //         if (!path.toFile().exists()) {
-        //                 return true;
-        //         }
-        //         try {
-        //                 Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-        //                         @Override
-        //                         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-        //                                         throws IOException {
-        //                                 Files.delete(file);
-        //                                 return FileVisitResult.CONTINUE;
-        //                         }
-
-        //                         @Override
-        //                         public FileVisitResult postVisitDirectory(Path dir, IOException exc)
-        //                                         throws IOException {
-        //                                 Files.delete(dir);
-        //                                 return FileVisitResult.CONTINUE;
-        //                         }
-        //                 });
-        //         } catch (IOException e) {
-        //                 file.deleteOnExit();
-
-        //         }
-        //         return !file.exists();
-        // }
 
 
 

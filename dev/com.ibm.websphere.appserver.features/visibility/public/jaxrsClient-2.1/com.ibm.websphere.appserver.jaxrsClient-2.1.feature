@@ -10,15 +10,24 @@ IBM-API-Package: javax.ws.rs; type="spec", \
  javax.ws.rs.ext; type="spec", \
  javax.ws.rs.sse; type="spec", \
  com.ibm.websphere.jaxrs20.multipart; type="ibm-api", \
- com.ibm.websphere.jaxrs.providers.json4j; type="ibm-api"
+ com.ibm.websphere.jaxrs.providers.json4j; type="ibm-api", \
+ javax.activation; type="spec"; require-java:="9", \
+ javax.xml.bind; type="spec"; require-java:="9", \
+ javax.xml.bind.annotation; type="spec"; require-java:="9", \
+ javax.xml.bind.annotation.adapters; type="spec"; require-java:="9", \
+ javax.xml.bind.attachment; type="spec"; require-java:="9", \
+ javax.xml.bind.helpers; type="spec"; require-java:="9", \
+ javax.xml.bind.util; type="spec"; require-java:="9"
 IBM-SPI-Package: com.ibm.wsspi.webservices.handler
 IBM-App-ForceRestart: uninstall, \
  install
 IBM-ShortName: jaxrsClient-2.1
 Subsystem-Name: Java RESTful Services Client 2.1
 -features=com.ibm.websphere.appserver.jaxrs.common-2.1, \
- com.ibm.websphere.appserver.eeCompatible-8.0
+  com.ibm.websphere.appserver.eeCompatible-8.0
 -bundles=com.ibm.ws.jaxrs.2.0.client
 kind=ga
 edition=core
 WLP-Activation-Type: parallel
+WLP-InstantOn-Enabled: true
+WLP-Platform: javaee-8.0,jakartaee-8.0

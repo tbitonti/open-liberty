@@ -1,0 +1,239 @@
+#CMVCPATHNAME N/A
+#COMPONENTPREFIX CWMMC
+#COMPONENTNAMEFOR CWMMC MicroProfile Metrics API 
+#NLS_ENCODING=UNICODE
+#NLS_MESSAGEFORMAT_NONE
+#ISMESSAGEFILE true
+# #########################################################################
+###############################################################################
+# Copyright (c) 2009, 2024 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+###############################################################################
+# This file follows the WebSphere Message Guidelines.
+# For more information, visit: 
+# http://washome.austin.ibm.com/xwiki/bin/view/MessagesTeam/
+#
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Messages used by Metrics Impl -  range is 0000-2999, plus 9999 for the emergency message
+#-----------------------------------------------------------------------------------------------------------------------------
+
+#Accept Header not acceptable.
+notAcceptable.info.CWMMC0000I=CWMMC0000I: Le format de l'en-t\u00eate d'acceptation {0} est incorrect.
+notAcceptable.info.CWMMC0000I.explanation=L'en-t\u00eate d'acceptation utilise un format non pris en charge.
+notAcceptable.info.CWMMC0000I.useraction=Utilisez des en-t\u00eates appropri\u00e9es.
+
+#Method Not Allowed
+requestType.info.CWMMC0001I=CWMMC0001I: Le type de demande de la m\u00e9thode doit \u00eatre GET ou OPTIONS.
+requestType.info.CWMMC0001I.explanation=Le type de demande n'est pas pris en charge. Le type doit \u00eatre GET ou OPTIONS.
+requestType.info.CWMMC0001I.useraction=Effectuez des demandes GET ou OPTIONS.
+
+#Metric was not found.
+metricNotFound.info.CWMMC0002I=CWMMC0002I: Le nom de m\u00e9trique {0} n'a pas \u00e9t\u00e9 trouv\u00e9.
+metricNotFound.info.CWMMC0002I.explanation=La m\u00e9trique n'existe pas.
+metricNotFound.info.CWMMC0002I.useraction=Entrez le nom de m\u00e9trique correct.
+
+#Registry was not found.
+registryNotFound.info.CWMMC0003I=CWMMC0003I: Le registre {0} est introuvable.
+registryNotFound.info.CWMMC0003I.explanation=Le registre n'existe pas.
+registryNotFound.info.CWMMC0003I.useraction=Entrez le nom de registre correct.
+
+#Registry is empty.
+emptyRegistry.info.CWMMC0004I=CWMMC0004I: Le registre {0} n'a pas de contenu.
+emptyRegistry.info.CWMMC0004I.explanation=Le registre est vide.
+emptyRegistry.info.CWMMC0004I.useraction=Entrez des m\u00e9triques dans le registre.
+
+#An internal error occurred. The exception is {0}.
+internal.error.CWMMC0005E=CWMMC0005E: Une erreur interne s'est produite : {0}
+internal.error.CWMMC0005E.explanation=Le serveur d'applications a rencontr\u00e9 une erreur interne.
+internal.error.CWMMC0005E.useraction=Collectez une s\u00e9rie de traces et ouvrez un nouveau signalement de probl\u00e8me concernant votre serveur d'applications.
+
+#Generic error for internal failures. 
+internal.error.CWMMC0006E=CWMMC0006E: Une erreur interne s'est produite.
+internal.error.CWMMC0006E.explanation=Le serveur d'applications a rencontr\u00e9 une erreur interne.
+internal.error.CWMMC0006E.useraction=Collectez une s\u00e9rie de traces et ouvrez un nouveau signalement de probl\u00e8me concernant votre serveur d'applications.
+
+#Information regarding libraryRef attribute taking effect only after server restart
+configurationChange.info.CWMMC0007I=CWMMC0007I: Un changement de configuration a \u00e9t\u00e9 d\u00e9tect\u00e9 pour la fonction MicroProfile Metrics. Si une modification a \u00e9t\u00e9 apport\u00e9e \u00e0 l'attribut libraryRef, un red\u00e9marrage du serveur est requis pour que la modification soit prise en compte.
+configurationChange.info.CWMMC0007I.explanation=MicroProfile Metrics requiert un red\u00e9marrage du serveur pour modifier les biblioth\u00e8ques r\u00e9f\u00e9renc\u00e9es par libraryRef.
+configurationChange.info.CWMMC0007I.useraction=Si l'attribut libraryRef a \u00e9t\u00e9 modifi\u00e9, red\u00e9marrez le serveur pour que la modification soit prise en compte.
+
+#User configured mpMetrics to use user-defined library for Micrometer binaries without Prometheus Registry JAR
+noPrometheusRegistry.info.CWMMC0008I=CWMMC0008I: Le noeud final /metrics n'est pas disponible car aucun registre Prometheus n'est disponible.
+noPrometheusRegistry.info.CWMMC0008I.explanation=La fonction MicroProfile Metrics charge les biblioth\u00e8ques Micrometer qui sont d\u00e9finies via l'attribut libraryRef, mais la biblioth\u00e8que r\u00e9f\u00e9renc\u00e9e ne contient pas de registre Prometheus Micrometer.
+noPrometheusRegistry.info.CWMMC0008I.useraction=Si l'indisponibilit\u00e9 du registre Prometheus n'est pas intentionnelle, modifiez le contenu de la biblioth\u00e8que r\u00e9f\u00e9renc\u00e9e par l'attribut libraryRef pour qu'il contienne un fichier JAR de registre Prometheus Micrometer.
+
+#Prometheus Registry was disabled through the mp.metrics.prometheus.enabled MicroProfile Config property
+disabled.info.CWMMC0009I=CWMMC0009I: Le noeud final /metrics n'est pas disponible car le registre Prometheus est d\u00e9sactiv\u00e9.
+disabled.info.CWMMC0009I.explanation=La propri\u00e9t\u00e9 de configuration MicroProfile mp.metrics.prometheus.enabled est \u00e0 false.
+disabled.info.CWMMC0009I.useraction=Si la d\u00e9sactivation du registre Prometheus n'est pas intentionnelle, supprimez la configuration de la propri\u00e9t\u00e9 de configuration MicroProfile mp.metrics.prometheus.enabled ou mettez explicitement la propri\u00e9t\u00e9 \u00e0 true.
+
+#Embedded SmallRye Metrics or Micrometer JAR not found in the lib directory
+fileNotFound.error.CWMMC0010E=CWMMC0010E: La fonction MicroProfile Metrics n'a pas pu s'initialiser. Le fichier JAR requis {0} est introuvable dans le r\u00e9pertoire <wlp_home>/lib.
+fileNotFound.error.CWMMC0010E.explanation=Le fichier JAR est introuvable dans le r\u00e9pertoire <wlp_home>/lib. Le fichier peut \u00eatre avoir \u00e9t\u00e9 supprim\u00e9 ou renomm\u00e9.
+fileNotFound.error.CWMMC0010E.useraction=Le fichier JAR, qui se trouve normalement dans le r\u00e9pertoire <wlp_home>/lib, n'est pas pr\u00e9sent. Red\u00e9ployez l'installation du serveur d'applications.
+
+#Bundle add-on class loader was null
+nullBundleAddOnClassLoader.error.CWMMC0011E=CWMMC0011E: La fonction MicroProfile Metrics n'a pas pu s'initialiser. L'ex\u00e9cution MicroProfile Metrics n'a pas pu cr\u00e9er un chargeur de classe requis.
+nullBundleAddOnClassLoader.error.CWMMC0011E.explanation=Une erreur interne s'est produite lors de la cr\u00e9ation d'un chargeur de classe requis.
+nullBundleAddOnClassLoader.error.CWMMC0011E.useraction=Consultez les journaux de l'outil de diagnostic de premier niveau (FFDC) et le texte de l'exception pour identifier le probl\u00e8me.
+
+#SmallRye Metrics classes not found when loading through reflection
+missingSmallRyeClasses.error.CWMMC0012E=CWMMC0012E: La fonction MicroProfile Metrics n'a pas pu s'initialiser. Une classe de SmallRye Metrics n'a pas \u00e9t\u00e9 charg\u00e9e.
+missingSmallRyeClasses.error.CWMMC0012E.explanation=Une ou plusieurs classes du fichier JAR SmallRye Metrics fourni dans le r\u00e9pertoire <wlp_home>/lib n'ont pas \u00e9t\u00e9 charg\u00e9es ou sont manquantes.
+missingSmallRyeClasses.error.CWMMC0012E.useraction=Consultez les journaux FFDC et le texte de l'exception pour identifier la classe manquante et v\u00e9rifiez qu'elle existe dans le fichier JAR <wlp_home>/lib/io.openliberty.io.smallrye.metrics.
+
+#Configured Micrometer Library is missing dependencies
+missingDependencyClasses.error.CWMMC0013E=CWMMC0013E: La fonction MicroProfile Metrics n'a pas pu s'initialiser. Une classe requise pour une biblioth\u00e8que Micrometer fournie par l'utilisateur est manquante.
+missingDependencyClasses.error.CWMMC0013E.explanation=La fonction MicroProfile Metrics charge les biblioth\u00e8ques Micrometer qui sont d\u00e9finies via l'attribut libraryRef et doivent contenir toutes les d\u00e9pendances.
+missingDependencyClasses.error.CWMMC0013E.useraction=Indiquez les d\u00e9pendances n\u00e9cessaires avec les biblioth\u00e8ques Micrometer.
+
+#MicroProfile Metrics 5.0 has been configured to use a libraryRef attribute
+libraryRefConfigured.info.CWMMC0014I=CWMMC0014I: La fonction MicroProfile Metrics est configur\u00e9e pour utiliser l'attribut libraryRef suivant : [{0}]
+libraryRefConfigured.info.CWMMC0014I.explanation=La fonction MicroProfile Metrics est configur\u00e9e pour utiliser un attribut libraryRef. Cette biblioth\u00e8que r\u00e9f\u00e9renc\u00e9e doit contenir la biblioth\u00e8que de base Micrometer, les biblioth\u00e8ques Micrometer cible et les d\u00e9pendances.
+libraryRefConfigured.info.CWMMC0014I.useraction=Aucune action n'est\nrequise.
+
+#MicroProfile Metrics 3.0/4.0 configuration errors
+invalidHistogramValueConfigured.warning.CWMMC0015W=CWMMC0015W: La valeur {0} n'est pas valide pour la propri\u00e9t\u00e9 {1} . Seules les valeurs enti\u00e8res et d\u00e9cimales sont accept\u00e9es.
+invalidHistogramValueConfigured.warning.CWMMC0015W.explanation=Les valeurs d'histogramme configur\u00e9es ne sont pas valides.
+invalidHistogramValueConfigured.warning.CWMMC0015W.useraction=Configurez les valeurs avec des entiers et des d\u00e9cimales uniquement.
+
+#MicroProfile Metrics 3.0/4.0 configuration errors
+invalidTimerValueConfigured.warning.CWMMC0016W=CWMMC0016W: La valeur {0} n'est pas valide pour la propri\u00e9t\u00e9 {1} . Seules les valeurs enti\u00e8res avec une unit\u00e9 de temps (par exemple, ms, s, m, h) sont accept\u00e9es.
+invalidTimerValueConfigured.warning.CWMMC0016W.explanation=Les valeurs de temporisateur configur\u00e9es ne sont pas valides.
+invalidTimerValueConfigured.warning.CWMMC0016W.useraction=Configurez avec des valeurs enti\u00e8res et des unit\u00e9s de temps (par exemple, ms, s, m, h).
+
+#MicroProfile Metrics 3.0/4.0 configuration errors
+invalidPercentileValueConfigured.warning.CWMMC0017W=CWMMC0017W: La valeur {0} n'est pas valide pour la propri\u00e9t\u00e9 {1} . Les valeurs doivent \u00eatre comprises entre 0.0 et 1.0 inclus pour \u00eatre accept\u00e9es.
+invalidPercentileValueConfigured.warning.CWMMC0017W.explanation=Les valeurs de percentile configur\u00e9es ne sont pas valides.
+invalidPercentileValueConfigured.warning.CWMMC0017W.useraction=Configurez les valeurs de la plage d'inclusion 0.0 \u00e0 1.0 \u00e0 accepter.
+
+#Memory usedHeap message
+memory.usedHeap.description=Affiche la quantit\u00e9 de m\u00e9moire dynamique utilis\u00e9e en octets.
+
+#Memory committedHeap message
+memory.committedHeap.description=Affiche la quantit\u00e9 de m\u00e9moire en octets valid\u00e9e pour une utilisation par la machine virtuelle Java. Cette quantit\u00e9 de m\u00e9moire est garantie pour une utilisation par la machine virtuelle Java.
+
+#Memory maxHeap message
+memory.maxHeap.description=Affiche la quantit\u00e9 maximale de m\u00e9moire dynamique en octets qui peut \u00eatre utilis\u00e9e pour la gestion de la m\u00e9moire. Cet attribut affiche -1 si la taille de la m\u00e9moire dynamique maximale est ind\u00e9finie. Cette quantit\u00e9 de m\u00e9moire n'est pas garanti disponible pour la gestion de m\u00e9moire si elle d\u00e9passe la quantit\u00e9 de m\u00e9moire valid\u00e9e. Il est possible que la machine virtuelle Java ne r\u00e9ussisse pas \u00e0 allouer de la m\u00e9moire, m\u00eame si la quantit\u00e9 de m\u00e9moire utilis\u00e9e ne d\u00e9passe pas cette taille maximale.
+
+#Memory heapUtilization message
+memory.heapUtilization.description=Partie de la m\u00e9moire dynamique maximale actuellement utilis\u00e9e. Cette m\u00e9trique affiche -1 si la taille de segment de m\u00e9moire maximale n'est pas d\u00e9finie.
+
+#Jvm uptime message
+jvm.uptime.description=Affiche l'heure de d\u00e9marrage de la machine virtuelle Java en millisecondes. Cet attribut affiche l'heure approximative \u00e0 laquelle la machine virtuelle Java a \u00e9t\u00e9 d\u00e9marr\u00e9e.
+
+#Thread count message
+thread.count.description=Affiche le nombre d'unit\u00e9s d'ex\u00e9cution actives (unit\u00e9s d'ex\u00e9cution d\u00e9mon et non d\u00e9mon).
+
+#Thread daemon count message
+thread.daemon.count.description=Affiche le nombre actuel d'unit\u00e9s d'ex\u00e9cution d\u00e9mon actives.
+
+#Thread max count message
+thread.max.count.description=Affiche le nombre maximal d'unit\u00e9s d'ex\u00e9cution actives depuis le d\u00e9marrage de la machine virtuelle Java ou depuis le r\u00e9tablissement de l'activit\u00e9 maximale. Les unit\u00e9s d'ex\u00e9cution d\u00e9mon et non d\u00e9mon sont incluses.
+
+#Classloader currentLoadedClass count message
+classloader.currentLoadedClass.count.description=Affiche le nombre de classes actuellement charg\u00e9es dans la machine virtuelle Java.
+
+#Classloader totalLoadedClass count message
+classloader.totalLoadedClass.count.description=Affiche le nombre total de classes qui ont \u00e9t\u00e9 charg\u00e9es depuis le d\u00e9but de l'ex\u00e9cution de la machine virtuelle Java.
+
+#Classloader totalUnloadedClass count message
+classloader.totalUnloadedClass.count.description=Affiche le nombre total de classes d\u00e9charg\u00e9es depuis de d\u00e9but de l'ex\u00e9cution de la machine virtuelle Java.
+
+#Cpu availableProcessors message
+cpu.availableProcessors.description=Affiche le nombre de processeurs disponibles pour la machine virtuelle Java. Cette valeur peut changer lors d'une invocation particuli\u00e8re de la machine virtuelle.
+
+#Cpu systemLoadAverage message
+cpu.systemLoadAverage.description=Affiche la charge moyenne du syst\u00e8me au cours de la derni\u00e8re minute. La charge moyenne du syst\u00e8me est obtenue en ajoutant le nombre d'entit\u00e9s ex\u00e9cutables en attente sur les processeurs disponibles et le nombre d'entit\u00e9s ex\u00e9cutables en cours d'ex\u00e9cution sur les processeurs disponibles, et en calculant la moyenne sur une p\u00e9riode de temps. La fa\u00e7on dont est calcul\u00e9e la charge moyenne est sp\u00e9cifique au syst\u00e8me d'exploitation mais il s'agit g\u00e9n\u00e9ralement d'une moyenne avec contrainte horaire amortie. Si la charge moyenne n'est pas disponible, une valeur n\u00e9gative s'affiche. Cet attribut est con\u00e7u comme indicateur de la charge du syst\u00e8me et peut \u00eatre interrog\u00e9 fr\u00e9quemment. La charge moyenne peut ne pas \u00eatre disponible sur certaines plateformes sur lesquelles l'impl\u00e9mentation de cette m\u00e9thode est co\u00fbteuse.
+
+#Cpu processCpuLoad message
+cpu.processCpuLoad.description=Affiche l'utilisation r\u00e9cente de l'unit\u00e9 centrale ('recent cpu usage') pour le traitement de la machine virtuelle Java.
+
+#Cpu processCpuTime message
+cpu.processCpuTime.description=Affiche le temps UC utilis\u00e9 par le processus dans lequel la machine virtuelle Java s'ex\u00e9cute.
+
+#Cpu processCpuUtilization message
+cpu.processCpuUtilization.description=Temps UC r\u00e9cent utilis\u00e9 par le processus JVM \u00e0 partir de tous les processeurs disponibles pour la machine virtuelle Java.
+
+#Garbage collection count message
+garbageCollectionCount.description=Affiche le nombre total de collections qui se sont produites. L'attribut affiche -1 si le nombre de collections n'est pas d\u00e9fini pour ce collecteur.
+
+#Garbage collection time message
+garbageCollectionTime.description=Affiche le temps approximatif \u00e9coul\u00e9 pour la collection accumul\u00e9e en millisecondes. Cet attribut affiche -1 si le temps \u00e9coul\u00e9 pour la collection est ind\u00e9fini pour ce collecteur. L'impl\u00e9mentation de la machine virtuelle Java peut utiliser un temporisateur haute r\u00e9solution pour mesurer le temps \u00e9coul\u00e9. Cet attribut peut afficher la m\u00eame valeur m\u00eame si le nombre de collections a \u00e9t\u00e9 incr\u00e9ment\u00e9 si le temps \u00e9coul\u00e9 pour la collection est tr\u00e8s court.
+
+#Garbage collection time per garbage collection cycle message
+gc.time.per.cycle.description=Temps moyen r\u00e9cent pass\u00e9 par cycle de r\u00e9cup\u00e9ration de place. Cette mesure affiche -1 si le temps \u00e9coul\u00e9 ou le nombre de r\u00e9cup\u00e9rations de place n'est pas d\u00e9fini pour ce collecteur.
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Monitor Metrics messages
+#-----------------------------------------------------------------------------------------------------------------------------
+threadpool.activeThreads.description=Nombre d'unit\u00e9s d'ex\u00e9cution ex\u00e9cutant des t\u00e2ches.
+threadpool.size.description=Taille du pool d'unit\u00e9s d'ex\u00e9cution.
+
+servlet.request.total.description=Nombre de visites sur ce servlet depuis le d\u00e9marrage du serveur.
+servlet.responseTime.total.description=Temps de r\u00e9ponse total de ce servlet depuis le d\u00e9marrage du serveur.
+servlet.request.elapsedTime.per.request.description=Temps de r\u00e9ponse moyen r\u00e9cent par demande de servlet.
+
+connectionpool.create.total.description=Nombre total de connexions g\u00e9r\u00e9es qui ont \u00e9t\u00e9 cr\u00e9\u00e9es depuis la cr\u00e9ation du pool.
+connectionpool.destroy.total.description=Nombre total de connexions g\u00e9r\u00e9es qui ont \u00e9t\u00e9 d\u00e9truites depuis la cr\u00e9ation du pool.
+connectionpool.managedConnections.description=Nombre de connexions g\u00e9r\u00e9es dans les pools libres, partag\u00e9s et non partag\u00e9s.
+connectionpool.connectionHandles.description=Nombre de connexions utilis\u00e9es. Il peut inclure plusieurs connexions partag\u00e9es \u00e0 partir d'une seule connexion g\u00e9r\u00e9e.
+connectionpool.freeConnections.description=Nombre de connexions g\u00e9r\u00e9es dans le pool libre.
+connectionpool.waitTime.total.description=Le temps total d'attente sur l'ensemble des demandes de connexion depuis que le serveur a d\u00e9marr\u00e9.
+connectionpool.inUseTime.total.description=Le temps total d'utilisation de l'ensemble des connexions depuis que le serveur a d\u00e9marr\u00e9.
+connectionpool.usedConnections.total.description=Le nombre total de demandes de connexion qui ont attendu en raison d'un pool de connexions complet ou qui n'ont pas eu \u00e0 attendre, depuis que le serveur a d\u00e9marr\u00e9. Ce total ne tient pas compte des connexions actuellement utilis\u00e9es.
+connectionpool.queuedRequests.total.description=Le nombre total de demandes de connexion qui ont d\u00fb attendre en raison d'un pool de connexions complet, depuis que le serveur a d\u00e9marr\u00e9.
+connectionpool.inUseTime.per.usedConnection.description=Dur\u00e9e moyenne r\u00e9cente d'utilisation des connexions.
+connectionpool.waitTime.per.queuedRequest.description=Temps d'attente moyen r\u00e9cent pour les demandes de connexion en file d'attente.
+
+session.create.total.description=Nombre de sessions connect\u00e9es depuis l'activation de la m\u00e9trique.
+session.liveSessions.description=Nombre d'utilisateurs actuellement connect\u00e9s.
+session.activeSessions.description=Nombre de sessions actives simultan\u00e9ment. (Une session est active si le produit est en train de traiter une demande qui utilise cette session utilisateur).
+session.invalidated.total.description=Nombre de sessions d\u00e9connect\u00e9es depuis l'activation de cette m\u00e9trique.
+session.invalidatedbyTimeout.total.description=Nombre de sessions d\u00e9connect\u00e9es suite au d\u00e9passement du d\u00e9lai d'attente depuis l'activation de cette m\u00e9trique.
+
+grpc.server.rpcStarted.total.description=Nombre total d'appels de proc\u00e9dure distante d\u00e9marr\u00e9s sur le serveur.
+grpc.server.rpcCompleted.total.description=Nombre total d'appels de proc\u00e9dure distante ayant abouti ou \u00e9chou\u00e9 termin\u00e9s sur le serveur.
+grpc.server.sentMessages.total.description=Nombre total de messages de flux envoy\u00e9s par le serveur.
+grpc.server.receivedMessages.total.description=Nombre total de messages de flux re\u00e7us du client.
+grpc.server.responseTime.total.description=Temps de r\u00e9ponse total des appels de proc\u00e9dure distante termin\u00e9s.
+
+grpc.client.rpcStarted.total.description=Nombre total d'appels de proc\u00e9dure distante d\u00e9marr\u00e9s sur le client.
+grpc.client.rpcCompleted.total.description=Nombre total d'appels de proc\u00e9dure distante ayant abouti ou \u00e9chou\u00e9 termin\u00e9s sur le client.
+grpc.client.sentMessages.total.description=Nombre total de messages de flux envoy\u00e9s par le client.
+grpc.client.receivedMessages.total.description=Nombre total de messages de flux re\u00e7us du serveur.
+grpc.client.responseTime.total.description=Temps de r\u00e9ponse total des appels de proc\u00e9dure distante termin\u00e9s.
+
+REST.request.description=Nombre d'appels et temps de r\u00e9ponse total de cette m\u00e9thode de ressource RESTful depuis le d\u00e9marrage du serveur. La m\u00e9trique n'enregistre pas le temps \u00e9coul\u00e9 ni le comptage d'une demande REST si celle-ci a g\u00e9n\u00e9r\u00e9 une exception non mapp\u00e9e. Elle effectue le suivi de la dur\u00e9e la plus longue enregistr\u00e9e et de la dur\u00e9e la plus courte enregistr\u00e9e au cours de la minute compl\u00e8te pr\u00e9c\u00e9dente.
+REST.request.unmappedException.description=Nombre total d'exceptions non mapp\u00e9es \u00e9mises par cette m\u00e9thode de ressource RESTful depuis le d\u00e9marrage du serveur.
+REST.request.elapsedTime.per.request.description: Temps de r\u00e9ponse moyen r\u00e9cent par demande de m\u00e9thode de ressource RESTful.
+
+requestTiming.requestCount.description=Nombre de demandes de servlet depuis que le serveur a d\u00e9marr\u00e9.
+requestTiming.activeRequestCount.description=Nombre de demandes de servlet en cours d'ex\u00e9cution.
+requestTiming.slowRequestCount.description=Nombre de demandes de servlet en cours d'ex\u00e9cution mais qui sont lentes.
+requestTiming.hungRequestCount.description=Nombre de demandes de servlet en cours d'ex\u00e9cution mais qui sont bloqu\u00e9es.
+
+jaxws.invocations.total.description=Le nombre d'appels \u00e0 ce point d'extr\u00e9mit\u00e9 ou \u00e0 cette op\u00e9ration.
+jaxws.checkedApplicationFaults.total.description=Le nombre de d\u00e9fauts d'application v\u00e9rifi\u00e9s.
+jaxws.logicalRuntimeFaults.total.description=Le nombre de d\u00e9fauts d'ex\u00e9cution logiques.
+jaxws.runtimeFaults.total.description=Le nombre de d\u00e9fauts d'ex\u00e9cution.
+jaxws.uncheckedApplicationFaults.total.description=Le nombre de d\u00e9fauts d'application non v\u00e9rifi\u00e9s.
+jaxws.responseTime.total.description=Temps total de traitement des r\u00e9ponses depuis que le serveur a d\u00e9marr\u00e9.
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Emergency Metrics error message
+#-----------------------------------------------------------------------------------------------------------------------------
+
+# A Metrics API error has occurred: {0}
+temporary.CWMMC9999E=CWMMC9999E: Une erreur de l'API M\u00e9triques s'est produite : {0}
+temporary.CWMMC9999E.explanation=Une erreur au niveau de l'API M\u00e9triques emp\u00eache le fonctionnement normal.
+temporary.CWMMC9999E.useraction=Consultez les journaux de l'outil de diagnostic de premier niveau (FFDC) et le texte de l'exception pour identifier le probl\u00e8me.

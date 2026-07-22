@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2015, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,7 +13,6 @@
 package com.ibm.ws.classloading.java2sec;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -32,15 +33,14 @@ import java.security.cert.Certificate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import java.util.zip.ZipFile;
 import java.util.zip.ZipEntry;
-import java.util.Enumeration;
+import java.util.zip.ZipFile;
 
 import javax.security.auth.AuthPermission;
 
@@ -53,7 +53,13 @@ import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.framework.wiring.FrameworkWiring;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
+import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.url.URLStreamHandlerService;
 
 import com.ibm.websphere.ras.Tr;
@@ -63,6 +69,7 @@ import com.ibm.ws.kernel.boot.security.WLPDynamicPolicy;
 import com.ibm.wsspi.classloading.ClassLoadingService;
 import com.ibm.wsspi.kernel.service.utils.ConcurrentServiceReferenceSet;
 
+@Component(service = PermissionManager.class, immediate = true, configurationPolicy = ConfigurationPolicy.IGNORE, property = "service.vendor=IBM")
 public class PermissionManager implements PermissionsCombiner {
 
     /**
@@ -100,6 +107,8 @@ public class PermissionManager implements PermissionsCombiner {
 
     private boolean isServer = true;
     private boolean wsjarUrlStreamHandlerAvailable = false;
+
+    private static final String LOGGING_PERMISSION = "java.util.logging.LoggingPermission";
 
     /**
      * The list of effective restrictable permissions. The effective permissions are merged from the
@@ -181,6 +190,7 @@ public class PermissionManager implements PermissionsCombiner {
         setAsDynamicPolicyPermissionCombiner(null);
     }
 
+    @Reference(name = KEY_PERMISSION, cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY)
     protected void setPermission(ServiceReference<JavaPermissionsConfiguration> permission) {
         permissions.addReference(permission);
     }
@@ -196,6 +206,7 @@ public class PermissionManager implements PermissionsCombiner {
         }
     }
 
+    @Reference(name = "wsjarURLStreamHandler", service = URLStreamHandlerService.class, target = "(url.handler.protocol=wsjar)")
     protected synchronized void setWsjarURLStreamHandler(ServiceReference<URLStreamHandlerService> urlStreamHandlerServiceRef) {
         wsjarUrlStreamHandlerAvailable = true;
     }
@@ -219,6 +230,7 @@ public class PermissionManager implements PermissionsCombiner {
         codeBasePermissionMap.clear();
     }
 
+    @Reference(name = "classLoadingService")
     protected void setClassLoadingService(ClassLoadingService service) {
         classLoadingService = service;
     }
@@ -419,6 +431,12 @@ public class PermissionManager implements PermissionsCombiner {
                 Tr.debug(tc, "codeBase = " + codeBase);
             }
             ArrayList<Permission> permissions = codeBasePermissionMap.get(codeBase);
+            // Add the granted permissions to an arraylist
+            if (tc.isDebugEnabled()) {
+                Tr.debug(tc, "Adding grantedPermissions to codeBase: " + codeBase);
+            }
+                
+            permissions.addAll(grantedPermissions);
 
             if (tc.isDebugEnabled()) {
                 for (int i = 0; i < permissions.size(); i++) {
@@ -528,7 +546,11 @@ public class PermissionManager implements PermissionsCombiner {
                         if (target == null || target.equalsIgnoreCase("null")) {
                             permission = (Permission) getPermissionClass(permissionClass).newInstance();
                         } else {
-                            permission = (Permission) getPermissionClass(permissionClass).getConstructor(String.class).newInstance(target);
+                            if (permissionClass.equals(LOGGING_PERMISSION))  {
+                                permission = (Permission) getPermissionClass(permissionClass).getConstructor(String.class, String.class).newInstance(target, null);
+                            } else {
+                                permission = (Permission) getPermissionClass(permissionClass).getConstructor(String.class).newInstance(target);
+                            } 
                         }
                     } else {
                         permission = (Permission) getPermissionClass(permissionClass).getConstructor(String.class, String.class).newInstance(target, action);
@@ -812,10 +834,6 @@ public class PermissionManager implements PermissionsCombiner {
             }
         }
         
-        if (tc.isDebugEnabled()) {
-            Tr.debug(tc, "Effective permissions from permissions.xml for codeBase: : " + codeBase);
-            Tr.debug(tc, permissionXMLPermissionMap.get(codeBase).toString());
-        }
 
     }
 
@@ -850,6 +868,8 @@ public class PermissionManager implements PermissionsCombiner {
             return;
         }
 
+	if (files == null) 
+            return;
         // for every file in the current directory, see if it matches any of the individual archive files
         for (File file : files) {
             if (file.isFile()) {

@@ -1,15 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.fat.wc.tests;
 
+import static componenttest.annotation.SkipForRepeat.EE10_OR_LATER_FEATURES;
+import static componenttest.annotation.SkipForRepeat.EE9_OR_LATER_FEATURES;
+import static componenttest.annotation.SkipForRepeat.NO_MODIFICATION;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Collections;
@@ -37,8 +39,9 @@ import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
+import componenttest.topology.utils.HttpUtils;
 
 /**
  * All Servlet 4.0 tests with all applicable server features enabled.
@@ -63,13 +66,10 @@ public class WCServerTest {
 
         WebArchive testServlet40War = ShrinkWrap.create(WebArchive.class, SERVLET_40_APP_JAR_NAME + ".war");
         testServlet40War.addAsLibrary(testServlet40Jar);
-        testServlet40War.addPackage("testservlet40.war.servlets");
-        testServlet40War.addPackage("testservlet40.war.listeners");
+        testServlet40War.addPackage("testservlet40.servlets");
+        testServlet40War.addPackage("testservlet40.listeners");
 
-        WebArchive testServlet40Ear = ShrinkWrap.create(WebArchive.class, SERVLET_40_APP_JAR_NAME + ".ear");
-        testServlet40Ear.addAsLibrary(testServlet40War);
-
-        ShrinkHelper.exportDropinAppToServer(server, testServlet40Ear);
+        ShrinkHelper.exportDropinAppToServer(server, testServlet40War);
 
         server.startServer(WCServerTest.class.getSimpleName() + ".log");
         LOG.info("Setup : complete, ready for Tests");
@@ -92,23 +92,21 @@ public class WCServerTest {
      */
     @Test
     public void testSimpleServlet() throws Exception {
-        String url = "http://" + server.getHostname() + ":" + server.getHttpDefaultPort() + "/" + SERVLET_40_APP_JAR_NAME + "/SimpleTestServlet";
-        String expectedResponse = "Hello World";
-        verifyResponse(url, expectedResponse);
+        HttpUtils.findStringInReadyUrl(server, "/" + SERVLET_40_APP_JAR_NAME + "/SimpleTestServlet", "Hello World");
     }
 
     /**
      * Simple test to a servlet then read the header to ensure we are using
      * Servlet 4.0. This test looks for the X-Powered-By header specifically.
      *
-     * This test is skipped for EE9_FEATURES repeat because for servlet-5.0 + the
+     * This test is skipped for EE9_FEATURES+ repeat because for servlet-5.0+ the
      * X-Powered-By header is going to be disabled by default.
      *
      * @throws Exception
      *                       if something goes horribly wrong
      */
     @Test
-    @SkipForRepeat(SkipForRepeat.EE9_FEATURES)
+    @SkipForRepeat(EE9_OR_LATER_FEATURES)
     public void testServletXPoweredByHeader() throws Exception {
         String url = "http://" + server.getHostname() + ":" + server.getHttpDefaultPort() + "/" + SERVLET_40_APP_JAR_NAME + "/MyServlet";
         String expectedResponse = "Hello World";
@@ -135,7 +133,7 @@ public class WCServerTest {
 
     /**
      * Simple test to a servlet then read the header to ensure the X-Powered-By
-     * header is disabled on Servlet-5.0
+     * header is disabled on Servlet-5.0+
      *
      * This test is skipped for NO_MODIFICATION(servlet-4.0 feature).
      *
@@ -143,7 +141,7 @@ public class WCServerTest {
      *                       if something goes horribly wrong
      */
     @Test
-    @SkipForRepeat(SkipForRepeat.NO_MODIFICATION)
+    @SkipForRepeat(NO_MODIFICATION)
     public void testServletXPoweredByHeader_Servlet50_Default() throws Exception {
         String url = "http://" + server.getHostname() + ":" + server.getHttpDefaultPort() + "/" + SERVLET_40_APP_JAR_NAME + "/MyServlet";
         String expectedResponse = "Hello World";
@@ -175,7 +173,7 @@ public class WCServerTest {
      *                       if something goes horribly wrong
      */
     @Test
-    @SkipForRepeat(SkipForRepeat.NO_MODIFICATION)
+    @SkipForRepeat({ NO_MODIFICATION, EE10_OR_LATER_FEATURES })
     public void testServletXPoweredByHeader_Servlet50_Enabled() throws Exception {
         String url = "http://" + server.getHostname() + ":" + server.getHttpDefaultPort() + "/" + SERVLET_40_APP_JAR_NAME + "/MyServlet";
         String expectedResponse = "Hello World";
@@ -230,14 +228,19 @@ public class WCServerTest {
 
     @Test
     public void testServletContextMajorMinorVersion() throws Exception {
-        String url = "http://" + server.getHostname() + ":" + server.getHttpDefaultPort() + "/" + SERVLET_40_APP_JAR_NAME;
         String majorVersionExpectedResult = "majorVersion: 4";
-        if (JakartaEE9Action.isActive()) {
+        if (JakartaEEAction.isEE9Active()) {
             majorVersionExpectedResult = "majorVersion: 5";
+        } else if (JakartaEEAction.isEE10OrLaterActive()) {
+            majorVersionExpectedResult = "majorVersion: 6";
         }
-        verifyResponse(url + "/MyServlet?TestMajorMinorVersion=true", majorVersionExpectedResult);
+        HttpUtils.findStringInReadyUrl(server, "/" + SERVLET_40_APP_JAR_NAME + "/MyServlet?TestMajorMinorVersion=true", majorVersionExpectedResult);
 
-        verifyResponse(url + "/MyServlet?TestMajorMinorVersion=true", "minorVersion: 0");
+        if (JakartaEEAction.isEE11Active()) {
+            HttpUtils.findStringInReadyUrl(server, "/" + SERVLET_40_APP_JAR_NAME + "/MyServlet?TestMajorMinorVersion=true", "minorVersion: 1");
+        } else {
+            HttpUtils.findStringInReadyUrl(server, "/" + SERVLET_40_APP_JAR_NAME + "/MyServlet?TestMajorMinorVersion=true", "minorVersion: 0");
+        }
     }
 
     /**
@@ -254,9 +257,20 @@ public class WCServerTest {
 
         // First request will get a new session and will verify that the
         // getSessionTimeout method returns the correct timeout.
-        String[] expectedResponseStrings = new String[] { "Session Timeout: 1", "Session object: # HttpSessionImpl #",
-                                                          "max inactive interval : 60", "valid session : true",
-                                                          "new session : true" };
+        String[] expectedResponseStrings;
+        if (JakartaEEAction.isEE11OrLaterActive()) {
+            expectedResponseStrings = new String[] { "Session Timeout: 1", "Session object: # HttpSessionImpl61 #",
+                                                     "max inactive interval : 60", "valid session : true",
+                                                     "new session : true" };
+        } else if (JakartaEEAction.isEE10Active()) {
+            expectedResponseStrings = new String[] { "Session Timeout: 1", "Session object: # HttpSessionImpl60 #",
+                                                     "max inactive interval : 60", "valid session : true",
+                                                     "new session : true" };
+        } else {
+            expectedResponseStrings = new String[] { "Session Timeout: 1", "Session object: # HttpSessionImpl #",
+                                                     "max inactive interval : 60", "valid session : true",
+                                                     "new session : true" };
+        }
         HttpGet getMethod = new HttpGet(url);
         try (final CloseableHttpClient client = HttpClientBuilder.create().build()) {
             try (final CloseableHttpResponse response = client.execute(getMethod)) {
@@ -274,8 +288,16 @@ public class WCServerTest {
             // The second url.
             url = "http://" + server.getHostname() + ":" + server.getHttpDefaultPort() + "/" + SERVLET_40_APP_JAR_NAME + "/SessionTimeoutServlet?TestSessionTimeout=current";
             LOG.info("url: " + url);
-            expectedResponseStrings = new String[] { "Session object: # HttpSessionImpl #", "max inactive interval : 60",
-                                                     "valid session : true", "new session : false" };
+            if (JakartaEEAction.isEE11OrLaterActive()) {
+                expectedResponseStrings = new String[] { "Session object: # HttpSessionImpl61 #", "max inactive interval : 60",
+                                                         "valid session : true", "new session : false" };
+            } else if (JakartaEEAction.isEE10Active()) {
+                expectedResponseStrings = new String[] { "Session object: # HttpSessionImpl60 #", "max inactive interval : 60",
+                                                         "valid session : true", "new session : false" };
+            } else {
+                expectedResponseStrings = new String[] { "Session object: # HttpSessionImpl #", "max inactive interval : 60",
+                                                         "valid session : true", "new session : false" };
+            }
             getMethod = new HttpGet(url);
             try (final CloseableHttpResponse response = client.execute(getMethod)) {
                 String responseText = EntityUtils.toString(response.getEntity());
@@ -304,23 +326,6 @@ public class WCServerTest {
                 for (String expectedResponse : expectedResponseStrings) {
                     assertTrue("The response did not contain the following String: " + expectedResponse, responseText.contains(expectedResponse));
                 }
-            }
-        }
-    }
-
-    private void verifyResponse(String url, String expectedResponse) throws Exception {
-        LOG.info("url: " + url);
-        LOG.info("expectedResponse: " + expectedResponse);
-
-        HttpGet getMethod = new HttpGet(url);
-
-        try (final CloseableHttpClient client = HttpClientBuilder.create().build()) {
-            try (final CloseableHttpResponse response = client.execute(getMethod)) {
-                String responseText = EntityUtils.toString(response.getEntity());
-                LOG.info("\n" + "Response Text:");
-                LOG.info("\n" + responseText);
-
-                assertTrue("The response did not contain the following String: " + expectedResponse, responseText.contains(expectedResponse));
             }
         }
     }

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2018 IBM Corporation and others.
+ * Copyright (c) 2015, 2023, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,6 +14,7 @@ package com.ibm.ws.mongo.fat;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.runner.RunWith;
 
 import componenttest.annotation.Server;
@@ -22,6 +25,7 @@ import componenttest.topology.utils.FATServletClient;
 import fat.mongo.web.MongoTestServlet;
 
 @RunWith(FATRunner.class)
+@Ignore //Turning off the test cases to prevent build failures due to docker image - Defect 303550
 public class MongoBasicTest extends FATServletClient {
 
     @Server("mongo.fat.server")
@@ -30,6 +34,7 @@ public class MongoBasicTest extends FATServletClient {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
+        FATSuite.skipTestOnFIPS140_3Enabled(server);
         MongoServerSelector.assignMongoServers(server);
         FATSuite.createApp(server);
         server.startServer();

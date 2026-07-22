@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.oauth20.web;
 
@@ -77,6 +76,7 @@ import com.ibm.ws.security.oauth20.web.OAuth20Request.EndpointType;
 import com.ibm.ws.webcontainer.security.CookieHelper;
 import com.ibm.ws.webcontainer.security.ReferrerURLCookieHandler;
 import com.ibm.ws.webcontainer.security.WebAppSecurityCollaboratorImpl;
+import com.ibm.ws.webcontainer.security.openidconnect.OidcServerConfig;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 import com.ibm.wsspi.kernel.service.utils.ConcurrentServiceReferenceMap;
 import com.ibm.wsspi.security.oauth20.JwtAccessTokenMediator;
@@ -432,6 +432,16 @@ public class OAuth20EndpointServices {
         if (tc.isDebugEnabled()) {
             Tr.debug(tc, "Processing logout");
         }
+        // not part of spec: logout url defined in config, not client-specific
+        String logoutRedirectURL = provider.getLogoutRedirectURL();
+        String encodedURL = null;
+        if (logoutRedirectURL != null) {
+            encodedURL = URLEncodeParams(logoutRedirectURL);
+            // set this attribute here. so if other provider such as saml redirects to IdP, then it should take care of this redirect also
+            request.setAttribute("OIDC_LOGOUT_REDIRECT_URL", encodedURL);
+        } else {
+            request.setAttribute("OIDC_LOGOUT_REDIRECT_PAGE", new LogoutPages().getDefaultLogoutPage(request.getLocales()));
+        }
         try {
             request.logout(); // ltpa cookie removed if present. No exception if not.
         } catch (ServletException e) {
@@ -443,16 +453,20 @@ public class OAuth20EndpointServices {
         }
 
         // not part of spec: logout url defined in config, not client-specific
-        String logoutRedirectURL = provider.getLogoutRedirectURL();
+        //String logoutRedirectURL = provider.getLogoutRedirectURL();
         try {
-            if (logoutRedirectURL != null) {
-                String encodedURL = URLEncodeParams(logoutRedirectURL);
+            if (encodedURL != null && request.getAttribute("OIDC_LOGOUT_REDIRECT_URL") != null) {
+                request.removeAttribute("OIDC_LOGOUT_REDIRECT_URL");
                 if (tc.isDebugEnabled()) {
                     Tr.debug(tc, "OAUTH20 _SSO OP redirecting to [" + logoutRedirectURL + "], url encoded to [" + encodedURL + "]");
                 }
                 response.sendRedirect(encodedURL);
                 return;
-            } else {
+            } else if (request.getAttribute("OIDC_LOGOUT_REDIRECT_PAGE") != null) {
+                request.removeAttribute("OIDC_LOGOUT_REDIRECT_PAGE");
+                if (tc.isDebugEnabled()) {
+                    Tr.debug(tc, "OAUTH20 _SSO OP redirecting to default logout page");
+                }
                 // send default logout page
                 new LogoutPages().sendDefaultLogoutPage(request, response);
             }
@@ -736,7 +750,7 @@ public class OAuth20EndpointServices {
         }
 
         // getBack the resource. better double check it
-        OidcBaseClient client;
+        OidcBaseClient client = null;
         try {
             client = OAuth20ProviderUtils.getOidcOAuth20Client(provider, clientId);
             OAuth20ProviderUtils.validateResource(request, options, client);
@@ -750,16 +764,61 @@ public class OAuth20EndpointServices {
             options.setAttribute(OAuth20Constants.SCOPE, OAuth20Constants.ATTRTYPE_RESPONSE_ATTRIBUTE, reducedScopes);
         }
 
-        if (provider.isTrackOAuthClients()) {
-            OAuthClientTracker clientTracker = new OAuthClientTracker(request, response, provider);
-            clientTracker.trackOAuthClient(clientId);
-        }
+        trackAuthenticatedOAuthClients(request, response, provider, client);
 
         consent.handleConsent(provider, request, prompt, clientId);
         getExternalClaimsFromWSSubject(request, options);
         oauthResult = provider.processAuthorization(request, response, options);
 
         return oauthResult;
+    }
+
+    void trackAuthenticatedOAuthClients(HttpServletRequest request, HttpServletResponse response, OAuth20Provider provider, OidcBaseClient client) {
+        OAuthClientTracker clientTracker = new OAuthClientTracker(request, response, provider);
+        if (provider.isTrackOAuthClients()) {
+            clientTracker.trackOAuthClient(client.getClientId());
+        }
+        trackBackchannelLogoutClients(provider, client);
+    }
+
+    void trackBackchannelLogoutClients(OAuth20Provider provider, OidcBaseClient client) {
+        String bclUri = client.getBackchannelLogoutUri();
+        if (bclUri != null && !bclUri.isEmpty()) {
+            putOpIdIntoRunAsSubject(provider);
+        }
+    }
+
+    /**
+     * Adds the ID for the OIDC OP that corresponds to the OAuth provider (if one exists) to the run-as subject's private credentials.
+     */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    void putOpIdIntoRunAsSubject(OAuth20Provider provider) {
+        Subject runAsSubject = getRunAsSubject();
+        if (runAsSubject != null) {
+            Set<Hashtable> hashtableCreds = runAsSubject.getPrivateCredentials(Hashtable.class);
+            if (!hashtableCreds.isEmpty()) {
+                Hashtable hashtable = hashtableCreds.iterator().next();
+                OidcServerConfig oidcServerConfig = ConfigUtils.getOidcServerConfigForOAuth20Provider(provider.getID());
+                if (oidcServerConfig == null) {
+                    if (tc.isDebugEnabled()) {
+                        Tr.debug(tc, "Failed to find an OIDC provider configuration for provider ID [" + provider.getID() + "]");
+                    }
+                    return;
+                }
+                hashtable.put(com.ibm.ws.security.sso.common.Constants.WSCREDENTIAL_OIDC_OP_USED, oidcServerConfig.getProviderId());
+            }
+        }
+    }
+
+    Subject getRunAsSubject() {
+        try {
+            return WSSubject.getRunAsSubject();
+        } catch (WSSecurityException e) {
+            if (tc.isDebugEnabled()) {
+                Tr.debug(tc, "Exception while getting runAsSubject:", e.getCause());
+            }
+        }
+        return null;
     }
 
     /**

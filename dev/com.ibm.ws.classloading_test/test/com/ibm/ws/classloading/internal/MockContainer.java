@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014 IBM Corporation and others.
+ * Copyright (c) 2014, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -66,11 +68,12 @@ public class MockContainer implements Container {
     /** Reference to the root container, possibly <code>this</code> */
     private final MockContainer root;
 
+    /** Whether or not to throw an Exception from the InputStream adapted from an Entry */
+    private final boolean throwException;
+
     private Set<String> getImmediateChildren() {
         URL url = ucl.getURLs()[0];
-        return (url.toString().endsWith(".jar"))
-                        ? getChildrenFromJar(url, path)
-                        : getChildrenFromDir(url, path);
+        return (url.toString().endsWith(".jar")) ? getChildrenFromJar(url, path) : getChildrenFromDir(url, path);
     }
 
     private static Set<String> getChildrenFromDir(URL dirUrl, String relPath) {
@@ -137,7 +140,7 @@ public class MockContainer implements Container {
     }
 
     /** create a root container for a single jar or directory URL */
-    MockContainer(String name, URL url) {
+    MockContainer(String name, URL url, boolean throwException) {
         assertNotNull(name);
         assertNotNull(url);
         assertThat(url.toString(), startsWith("file:"));
@@ -146,6 +149,7 @@ public class MockContainer implements Container {
         this.butler = new ClassLoadingButlerImpl(this);
         this.path = "/"; // by convention the root always has this path
         this.root = this;
+        this.throwException = throwException;
     }
 
     /** create a subcontainer at a given path offset within a root container */
@@ -155,6 +159,7 @@ public class MockContainer implements Container {
         this.butler = root.butler;
         this.path = ensureLeadingSlash(path);
         this.root = root;
+        this.throwException = root.throwException;
     }
 
     @Override
@@ -241,6 +246,14 @@ public class MockContainer implements Container {
             if (adaptTarget == Container.class && path.endsWith("/"))
                 return adaptTarget.cast(new MockContainer(root, path));
             if (adaptTarget == InputStream.class && !!!path.endsWith("/")) {
+                if (throwException) {
+                    return adaptTarget.cast(new InputStream() {
+                        @Override
+                        public int read() throws IOException {
+                            throw new IOException("Test exception");
+                        }
+                    });
+                }
                 try {
                     return adaptTarget.cast(ucl.findResource(stripLeadingSlash(path)).openStream());
                 } catch (IOException e) {

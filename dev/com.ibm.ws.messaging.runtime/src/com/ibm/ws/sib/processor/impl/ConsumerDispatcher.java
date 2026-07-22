@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2014 IBM Corporation and others.
+ * Copyright 2012,2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -102,6 +104,8 @@ public class ConsumerDispatcher
                 extends AbstractConsumerManager
                 implements OutputHandler, MessageEventListener, ControllableSubscription, JSConsumerManager, TransactionCallback
 {
+	
+	public static final ConsumerDispatcher DUMMY_INSTANCE = new ConsumerDispatcher();
 
     //Trace
     private static final TraceComponent tc =
@@ -291,6 +295,12 @@ public class ConsumerDispatcher
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
             SibTr.exit(tc, "ConsumerDispatcher", this);
     }
+    
+    private ConsumerDispatcher() {
+		this.readyFwdScanningCPs = null;
+  	  //Used to create dummy objects to untangle a type abuse in PubSubRealization
+    }
+    
 
     /**
      * Create a pt-pt ConsumerDispatcher

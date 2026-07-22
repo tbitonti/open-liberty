@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2010 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,15 +13,17 @@
 package com.ibm.ws.sip.container.util;
 
 import java.util.Iterator;
-
 import javax.servlet.sip.SipApplicationSession;
 import javax.servlet.sip.SipSession;
 
 import com.ibm.websphere.logging.hpel.LogRecordContext;
 import com.ibm.ws.sip.container.properties.PropertiesStore;
+import com.ibm.ws.sip.container.servlets.SipURIImpl;
 import com.ibm.ws.sip.container.tu.TransactionUserWrapper;
 import com.ibm.ws.sip.container.was.ThreadLocalStorage;
 import com.ibm.ws.sip.properties.CoreProperties;
+import com.ibm.sip.util.log.Log;
+import com.ibm.sip.util.log.LogMgr;
 
 /**
  * HPEL log extension for SIP information.
@@ -33,6 +37,12 @@ import com.ibm.ws.sip.properties.CoreProperties;
  * @since Sep 23, 2012
  */
 public class SipLogExtension {
+	
+	
+	/**
+     * Class Logger. 
+     */
+    private static final LogMgr c_logger = Log.get(SipLogExtension.class);
 	
 	/**
 	 * The extension key for Sip Application Session ID..
@@ -111,6 +121,9 @@ public class SipLogExtension {
      * Registers the extensions. 
      */
     public static void init() {
+    	if (c_logger.isTraceEntryExitEnabled()) {
+    		c_logger.traceDebug("SipLogExtension", "init", "ENTRY");
+    	}
     	//Use custom property to enable/disable the feature
     	if (PropertiesStore.getInstance().getProperties().getBoolean(CoreProperties.ENABLE_HPEL_SIP_LOG_EXTENSION)) {
             LogRecordContext.registerExtension(SAS_ID_EXT_KEY, _sasIdExtension);
@@ -119,12 +132,18 @@ public class SipLogExtension {
             LogRecordContext.registerExtension(CALL_ID_2_EXT_KEY, _addCallIdExtension);
             LogRecordContext.registerExtension(SESSION_ID_2_EXT_KEY, _addSessionIdExtension);
     	}
+    	if (c_logger.isTraceEntryExitEnabled()) {
+    		c_logger.traceDebug("SipLogExtension", "init", "EXIT");
+    	}
     }
     
     /**
      * Unregisters the extensions. 
      */
     public static void destroy() {
+    	if (c_logger.isTraceEntryExitEnabled()) {
+    		c_logger.traceDebug("SipLogExtension", "destroy", "ENTRY");
+    	}
     	//Use custom property to enable/disable the feature
     	if (PropertiesStore.getInstance().getProperties().getBoolean(CoreProperties.ENABLE_HPEL_SIP_LOG_EXTENSION)) {
             LogRecordContext.unregisterExtension(SAS_ID_EXT_KEY);
@@ -132,6 +151,9 @@ public class SipLogExtension {
             LogRecordContext.unregisterExtension(SESSION_ID_EXT_KEY);
             LogRecordContext.unregisterExtension(CALL_ID_2_EXT_KEY);
             LogRecordContext.unregisterExtension(SESSION_ID_2_EXT_KEY);
+    	}
+    	if (c_logger.isTraceEntryExitEnabled()) {
+    		c_logger.traceDebug("SipLogExtension", "destroy", "EXIT");
     	}
     }
     
@@ -141,12 +163,15 @@ public class SipLogExtension {
      * @return SAS ID
      */
     private static String getSasId() {
-    	
+    	try {
     	SipApplicationSession sas = ThreadLocalStorage.getApplicationSession();
     	if (sas != null) {
     		return sas.getId(); 
     	}
     	
+    	} catch (NullPointerException e) {
+    		
+    	}
     	//If there's no SAS on ThreadLocal, get the ID from the TU on ThreadLocal
 		TransactionUserWrapper tu = ThreadLocalStorage.getTuWrapper();
 		if (tu != null) {
@@ -157,7 +182,6 @@ public class SipLogExtension {
 			}
 		}
 		
-		//Look for the SAS ID on the stack's ThreadLocal
 		return com.ibm.ws.sip.stack.util.ThreadLocalStorage.getSasID();
     }
     
@@ -170,7 +194,7 @@ public class SipLogExtension {
     	
     	SipApplicationSession sas = ThreadLocalStorage.getApplicationSession();
     	if (sas != null) {
-    		Iterator<SipSession> i = sas.getSessions("SIP");
+    		Iterator<SipSession> i = sas.getSessions("SIP", false);
     		//Get the first call ID
     		if (i.hasNext()) {
     			SipSession session = i.next();
@@ -201,7 +225,7 @@ public class SipLogExtension {
     	
     	SipApplicationSession sas = ThreadLocalStorage.getApplicationSession();
     	if (sas != null) {
-    		Iterator<SipSession> i = sas.getSessions("SIP");
+    		Iterator<SipSession> i = sas.getSessions("SIP", false);
     		//Get the first session ID
     		if (i.hasNext()) {
     			SipSession session = i.next();
@@ -217,7 +241,7 @@ public class SipLogExtension {
 			} catch (IllegalStateException e) {
 				// this exception can be thrown when the transaction is in TERMINATED state
 			}
-		}
+		} 
 		
 		return null;
     }
@@ -232,7 +256,8 @@ public class SipLogExtension {
     	SipApplicationSession sas = ThreadLocalStorage.getApplicationSession();
     	
     	if (sas != null) {
-    		Iterator<SipSession> i = sas.getSessions("SIP");
+    		
+    		Iterator<SipSession> i = sas.getSessions("SIP", false);
     		int sessionsCounter = 0;
     		//When there are several SIP sessions and/or call IDs associated 
     		//with the same SAS, only the first two will be printed.
@@ -255,11 +280,11 @@ public class SipLogExtension {
      * @return second SIP session ID
      */
     private static String getSecondSessionId() {
-    	
+  
     	SipApplicationSession sas = ThreadLocalStorage.getApplicationSession();
     	
     	if (sas != null) {
-    		Iterator<SipSession> i = sas.getSessions("SIP");
+    		Iterator<SipSession> i = sas.getSessions("SIP", false);
     		int sessionsCounter = 0;
     		//When there are several SIP sessions and/or call IDs associated 
     		//with the same SAS, only the first two will be printed.
@@ -272,7 +297,7 @@ public class SipLogExtension {
     			}
     		}
     	}
-    	
-		return null;
+    	return null;
     }
 }
+

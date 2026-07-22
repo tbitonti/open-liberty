@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.http.channel.h2internal;
 
@@ -41,6 +40,7 @@ import com.ibm.wsspi.bytebuffer.WsByteBuffer;
 import com.ibm.wsspi.bytebuffer.WsByteBufferPoolManager;
 import com.ibm.wsspi.channelfw.ConnectionLink;
 import com.ibm.wsspi.channelfw.VirtualConnection;
+import com.ibm.wsspi.kernel.service.utils.FrameworkState;
 import com.ibm.wsspi.tcpchannel.TCPConnectionContext;
 import com.ibm.wsspi.tcpchannel.TCPReadRequestContext;
 import com.ibm.wsspi.tcpchannel.TCPRequestContext;
@@ -82,6 +82,8 @@ public class H2InboundLink extends HttpInboundLink {
     private final int closeWaitForReadWatchDogTimer = 5000;
     private final int STREAM_CLOSE_DELAY = 2000;
 
+    private final boolean isClosing = false;
+
     // keep track of the highest IDs processed
     private int highestClientStreamId = 0;
     private int highestLocalStreamId = -1; // this moves to 0 when the connection stream is established
@@ -98,11 +100,20 @@ public class H2InboundLink extends HttpInboundLink {
     public volatile CountDownLatch initLock = new CountDownLatch(1) {
     };
 
-    volatile long initialWindowSize = Constants.SPEC_INITIAL_WINDOW_SIZE;
-    volatile long connectionReadWindowSize = Constants.SPEC_INITIAL_WINDOW_SIZE; // keep track of how much data the client is allowed to send to the us
+    // Stream level window size variables
+    volatile long initialWindowSize = Constants.SPEC_INITIAL_WINDOW_SIZE; // Write size default
+    volatile long connectionReadWindowSize = Constants.SPEC_INITIAL_WINDOW_SIZE; // keep track of how much data the client is allowed to send to the us on the stream
     private final Object readWindowSync = new Object() {
     };
-    volatile long maxReadWindowSize = Constants.SPEC_INITIAL_WINDOW_SIZE; // user-set max window size
+
+    // Don't send window update frames until 1/2 the window is used
+    volatile boolean limitWindowUpdateFrames = false;
+
+    // Will be overwritten by configured values
+    volatile int maxResetFrames = 100;
+    volatile int resetFrameWindow = 30000; // milliseconds
+    volatile int maxStreamsRefused = 100;
+    volatile long maxHeaderBlockSize = 512000;
 
     FrameReadProcessor frameReadProcessor = null;
 
@@ -149,7 +160,7 @@ public class H2InboundLink extends HttpInboundLink {
     };
     private boolean oneTimeEntry = false;
 
-    private final H2RateState rateState = new H2RateState();
+    private final H2RateState rateState;
 
     public H2RateState getH2RateState() {
         return this.rateState;
@@ -200,14 +211,21 @@ public class H2InboundLink extends HttpInboundLink {
         localConnectionSettings = new H2ConnectionSettings();
         localConnectionSettings.setMaxConcurrentStreams(this.config.getH2MaxConcurrentStreams());
         localConnectionSettings.setMaxFrameSize(this.config.getH2MaxFrameSize());
+        // Set up the initial stream window size
+        localConnectionSettings.setInitialWindowSize(this.config.getH2SettingsInitialWindowSize());
         configuredInactivityTimeout = this.config.getH2ConnectionIdleTimeout();
         remoteConnectionSettings = new H2ConnectionSettings();
 
         h2MuxServiceContextImpl = (HttpInboundServiceContextImpl) this.getChannelAccessor();
 
-        // set up the initial connection read window size
-        maxReadWindowSize = config.getH2ConnReadWindowSize();
-        connectionReadWindowSize = maxReadWindowSize;
+        // Initial connection window size and window update limit config values
+        connectionReadWindowSize = this.config.getH2ConnectionWindowSize();
+        limitWindowUpdateFrames = this.config.getH2LimitWindowUpdateFrames();
+        maxResetFrames = this.config.getH2MaxResetFrames();
+        resetFrameWindow = this.config.getH2ResetFramesWindow();
+        maxStreamsRefused = this.config.getH2MaxStreamsRefused();
+        maxHeaderBlockSize = this.config.getH2MaxHeaderBlockSize();
+        rateState = new H2RateState(maxResetFrames, resetFrameWindow, maxStreamsRefused);
 
         writeQ = new H2WriteTree();
         writeQ.init(h2MuxTCPWriteContext, h2MuxWriteCallback);
@@ -243,6 +261,11 @@ public class H2InboundLink extends HttpInboundLink {
                 if (maxPushStreams >= 0 && openPushStreams > maxPushStreams) {
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                         Tr.debug(tc, "createNewInboundLink cannot open a new push stream; maximum number of open push streams reached" + openPushStreams);
+                    }
+                    return null;
+                } else if (FrameworkState.isStopping()) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "createNewInboundLink cannot open a new push stream; framework is stopping");
                     }
                     return null;
                 }
@@ -629,7 +652,6 @@ public class H2InboundLink extends HttpInboundLink {
                     }
                     closeFuture = null;
                     connTimeout = null;
-
                 }
             }
         }
@@ -668,11 +690,11 @@ public class H2InboundLink extends HttpInboundLink {
                 }
                 frameReadProcessor.processCompleteFrame();
             }
-        } catch (Http2Exception e) {
+        } catch (Exception e) {
             // If we get here we either couldn't determine a frame type, had encountered an error processing a connection-oriented frame.
             // In either case we need to send out a connection error.
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                Tr.debug(tc, "processRead: an error occurred processing a frame: " + e.getErrorString());
+                Tr.debug(tc, "processRead: an error occurred processing a frame: " + e.getMessage());
             }
             close(vc, e);
 
@@ -1003,6 +1025,11 @@ public class H2InboundLink extends HttpInboundLink {
                 Tr.debug(tc, "HttpDispatcherLink found: " + hdLink);
             }
             try {
+                if (!hdLink.awaitH2FinishComplete(5, TimeUnit.SECONDS)) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "closeConnectionLink: timeout waiting for finish() to complete");
+                    }
+                }
                 hdLink.close(initialVC, exceptionForCloseFromHere);
             } catch (Exception consume) {
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
@@ -1137,24 +1164,44 @@ public class H2InboundLink extends HttpInboundLink {
 
         // the device link close should always use the initial VC that this object was created with, so inVC will be ignored.
 
+        boolean closeOnThisThreadOutsideSync = false;
+
         synchronized (linkStatusSync) {
 
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                 Tr.debug(tc, "close(vc,e): :linkstatus: is: " + linkStatus + " :close: H2InboundLink hc: " + this.hashCode() + "exception: " + e);
             }
 
-            if ((linkStatus == LINK_STATUS.CLOSING) || (linkStatus == LINK_STATUS.GOAWAY_SENDING)
-                || (linkStatus == LINK_STATUS.WAIT_TO_SEND_GOAWAY)) {
+            if (linkStatus != LINK_STATUS.INIT || linkStatus != LINK_STATUS.OPEN) {
                 // another thread is in charge of closing, or another thread has already armed the future to close
-                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "close(vc,e): returning: close of muxLink is being done on a differnt thread" + " :close: H2InboundLink hc: " + this.hashCode());
+                // howeverdon't attempt to cancel the runnable if it's already at GOAWAY_SENDING
+                if (linkStatus != LINK_STATUS.GOAWAY_SENDING && linkStatus != LINK_STATUS.CLOSING && (e != null || FrameworkState.isStopping())) {
+                    // we'll run the close from this thread, if it's not already in progress or complete
+                    if (closeFuture != null && !closeFuture.cancel(false)) {
+                        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                            Tr.debug(tc, "close(vc,e): returning: could not cancel close future, close of muxLink is being done on a different thread"
+                                         + " :close: H2InboundLink hc: " + this.hashCode());
+                        }
+                        return;
+                    }
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "close(vc,e): no active close runnable, will close from this thread due to server shutdown or error"
+                                     + " :close: H2InboundLink hc: " + this.hashCode());
+                    }
+                } else {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "close(vc,e): returning: close of muxLink is being done on a different thread"
+                                     + " :close: H2InboundLink hc: " + this.hashCode());
+                    }
+                    return;
                 }
-                return;
             }
 
-            if (e == null) {
-                // Attempt to close down cleanly if all streams are closed.
+            if (e == null && !FrameworkState.isStopping()) {
+                // Attempt to close down cleanly if all streams are closed,
+                // OR if the server is shutting down.
 
+                //If the server is NOT shutting down:
                 //Determine if all streams are in half closed or closed state
                 //If not, do nothing and return
                 //If so, look to see if the GoAway frame has been sent
@@ -1194,17 +1241,28 @@ public class H2InboundLink extends HttpInboundLink {
             }
             connTimeout = new H2ConnectionTimeout(e);
 
-            if (e == null) {
-                // close cleanly if no other traffic has been received for this H2 connection within the timeout
-                // Save the future so we can cancel it later on
+            if (e == null && !FrameworkState.isStopping()) {
+                // close cleanly if the server is not stopping and no other traffic has been received for this H2 connection within the timeout
+                // save the future so we can cancel it later on
                 closeFuture = scheduler.schedule(connTimeout, config.getH2ConnCloseTimeout(), TimeUnit.SECONDS);
             } else {
-                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "close(vc,e): close on link called with exception: " + e);
+                if (e != null) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "close(vc,e): close on link called with exception: " + e);
+                    }
+                } else {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "close(vc,e): close on link called due to server shutdown");
+                    }
                 }
 
-                // do the close immediately on this thread
-                connTimeout.run();
+                // We had a deadlock here when an exception happened. We are still in the linkStatusSync
+                // block, and the connTimeout.run() goes through shutting down all of the different links
+                // and objects.  Moving the connTimeout.run() outside of the sync block if not waiting on
+                // connection init.
+
+                // do the close immediately on this thread if the connection was initializing
+                // otherwise exit the sync block and do it there
 
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                     Tr.debug(tc, "close(vc,e): initLock count is : " + initLock.getCount());
@@ -1212,12 +1270,23 @@ public class H2InboundLink extends HttpInboundLink {
 
                 // if we are waiting on connection initialization and an error occurred, release the latch
                 if (0 < initLock.getCount()) {
+                    connTimeout.run();
+
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                         Tr.debug(tc, "close(vc,e): wake up the initLock countDownLatch");
                     }
                     initLock.countDown();
+                } else {
+                    closeOnThisThreadOutsideSync = true;
                 }
             }
+        }
+
+        if (closeOnThisThreadOutsideSync) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "close(vc,e): Closing the connection due to exception or shutdown outside the linkStatusSync block");
+            }
+            connTimeout.run();
         }
     }
 
@@ -1233,7 +1302,7 @@ public class H2InboundLink extends HttpInboundLink {
 
             synchronized (linkStatusSync) {
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "H2ConnectionTimeout-run: timeout has elapsed, look to close connection. :linkStatus: " + linkStatus + " :close: H2InboundLink hc: "
+                    Tr.debug(tc, "H2ConnectionTimeout-run: close connection. :linkStatus: " + linkStatus + " :close: H2InboundLink hc: "
                                  + hcDebug);
                 }
 
@@ -1371,6 +1440,10 @@ public class H2InboundLink extends HttpInboundLink {
 
     protected int getconfiguredInactivityTimeout() {
         return configuredInactivityTimeout;
+    }
+
+    public boolean isClosing() {
+        return this.isClosing;
     }
 
     /**

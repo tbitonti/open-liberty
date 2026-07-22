@@ -1,16 +1,16 @@
-/*
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+/*******************************************************************************
+ * Copyright (c) 2015, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
- */
+ * SPDX-License-Identifier: EPL-2.0
+ *******************************************************************************/
 package com.ibm.ws.jsf22.fat.tests;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.net.URL;
 import java.util.List;
@@ -21,12 +21,14 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
+import org.testcontainers.Testcontainers;
 
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlSubmitInput;
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.ws.jsf22.fat.FATSuite;
 import com.ibm.ws.jsf22.fat.JSFUtils;
 
 import componenttest.annotation.ExpectedFFDC;
@@ -34,13 +36,13 @@ import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
+import io.openliberty.faces.fat.selenium.util.internal.ExtendedWebDriver;
+import io.openliberty.faces.fat.selenium.util.internal.WebPage;
 import junit.framework.Assert;
 
 /**
- *
- * /**
  * Component System Event and EL tests for story 153719.
  */
 @Mode(TestMode.FULL)
@@ -58,9 +60,15 @@ public class JSFCompELTests {
 
     @BeforeClass
     public static void setup() throws Exception {
-        ShrinkHelper.defaultDropinApp(jsfTestServer2, "TestJSFEL.war", "com.ibm.ws.jsf22.el.*");
+        boolean isEE10 = JakartaEEAction.isEE10OrLaterActive();
 
-        jsfTestServer2.startServer(JSFCompELTests.class.getSimpleName() + ".log");
+        ShrinkHelper.defaultDropinApp(jsfTestServer2, "TestJSFEL.war",
+                                      isEE10 ? "com.ibm.ws.jsf22.el.beans.faces40" : "com.ibm.ws.jsf22.el.beans.jsf22",
+                                      "com.ibm.ws.jsf22.el.components");
+
+        jsfTestServer2.startServer(c.getSimpleName() + ".log");
+
+        Testcontainers.exposeHostPorts(jsfTestServer2.getHttpDefaultPort(), jsfTestServer2.getHttpDefaultSecurePort());
     }
 
     @AfterClass
@@ -116,7 +124,7 @@ public class JSFCompELTests {
 
             for (String expectedResponse : expectedResponseStrings) {
                 if (!page.asText().contains(expectedResponse)) {
-                    Assert.fail("The page did not contain the following expected response: " + expectedResponse);
+                    Assert.fail("The page did not contain the following expected response: " + expectedResponse + "\n" + page.asText());
                 }
             }
         }
@@ -127,10 +135,15 @@ public class JSFCompELTests {
     @Test
     public void testELResolverOrderAndComponentSystemEvent() throws Exception {
         String[] expectedInResponse = {
-                                        "The order and number of ELResolvers from the CompositeELResolver are correct!",
+                                        "The order and number of ELResolvers are correct!",
                                         "Invoked JSF 2.2 new methods in ComponentSystemEvent, isAppropriateListener() and processListener()"
         };
-        this.verifyResponse(contextRoot, "ComponentEventListener.xhtml", expectedInResponse);
+
+        if (JakartaEEAction.isEE11OrLaterActive()) {
+            this.verifyResponse(contextRoot, "ComponentEventListener.xhtml?isFaces41OrLater=true", expectedInResponse);
+        } else {
+            this.verifyResponse(contextRoot, "ComponentEventListener.xhtml", expectedInResponse);
+        }
     }
 
     //this tests Jira http://java.net/jira/browse/JAVASERVERFACES_SPEC_PUBLIC-1092
@@ -157,7 +170,8 @@ public class JSFCompELTests {
             }
 
             //Test case on the server, which is ELExceptionBean intentionally throws exception for valueChangeListener. Hence check if it's in the log
-            String msgToSearchFor = (JakartaEE9Action.isActive() ? "jakarta." : "javax.") + "servlet.ServletException: " + (JakartaEE9Action.isActive() ? "jakarta." : "javax.")
+            String msgToSearchFor = (JakartaEEAction.isEE9OrLaterActive() ? "jakarta." : "javax.") + "servlet.ServletException: "
+                                    + (JakartaEEAction.isEE9OrLaterActive() ? "jakarta." : "javax.")
                                     + "el.ELException: java.lang.NullPointerException";
             List<String> msgs = jsfTestServer2.findStringsInLogs(msgToSearchFor);
 
@@ -239,10 +253,12 @@ public class JSFCompELTests {
     @Test
     public void testAjaxEvent() throws Exception {
         // Fix the response once RTC is fixed
-        String[] expectedInResponse = {
-                                        "true"
-        };
-        this.verifyXmlResponse(contextRoot, "AjaxEvent.xhtml", "true");
+        ExtendedWebDriver driver = FATSuite.getWebDriver();
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "AjaxEvent.xhtml");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
+        assertTrue("true not found in page", page.isInPage("true"));
     }
 
 }

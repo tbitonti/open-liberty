@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.javaeesec.fat;
 
@@ -41,7 +40,7 @@ import componenttest.annotation.AllowedFFDC;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
 
@@ -357,13 +356,13 @@ public class MultipleIdentityStoreCustomFormPostTest extends JavaEESecTestBase {
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 
-/* ------------------------ support methods ---------------------- */
+    /* ------------------------ support methods ---------------------- */
     protected String getViewState(String form) {
-        Pattern p = Pattern.compile("[\\s\\S]*value=\"(.+)\".*autocomplete[\\s\\S]*");
+        Pattern p = Pattern.compile("[\\s\\S]*id=.*(javax.faces.ViewState|jakarta.faces.ViewState).*value=\"(.*?)\"[\\s\\S]*");
         Matcher m = p.matcher(form);
         String viewState = null;
         if (m.matches()) {
-            viewState = m.group(1);
+            viewState = m.group(2);
         }
         return viewState;
     }
@@ -376,7 +375,7 @@ public class MultipleIdentityStoreCustomFormPostTest extends JavaEESecTestBase {
         params.add(new BasicNameValuePair(PARAM_PHONE, VALUE_PHONE));
         params.add(new BasicNameValuePair(PARAM_OPERATION, VALUE_OPERATION));
         params.add(new BasicNameValuePair("form_SUBMIT", "1"));
-        if (JakartaEE9Action.isActive()) {
+        if (JakartaEEAction.isEE9OrLaterActive()) {
             params.add(new BasicNameValuePair("jakarta.faces.ViewState", viewState));
         } else {
             params.add(new BasicNameValuePair("javax.faces.ViewState", viewState));
@@ -386,11 +385,11 @@ public class MultipleIdentityStoreCustomFormPostTest extends JavaEESecTestBase {
 
     private static void startServer() throws Exception {
         WCApplicationHelper.addWarToServerApps(myServer, WAR_REDIRECT_NAME, true, WAR_RESOURCE_LOCATION, JAR_NAME, false, "web.jar.base",
-                                               "web.war.servlets.customform.post.redirect", "web.war.servlets.customform", "web.war.identitystores.ldap.ldap1",
-                                               "web.war.identitystores.ldap.ldap2", "web.war.identitystores.custom.grouponly", "web.war.identitystores.ldap");
+                "web.war.servlets.customform.post.redirect", "web.war.servlets.customform", "web.war.identitystores.ldap.ldap1",
+                "web.war.identitystores.ldap.ldap2", "web.war.identitystores.custom.grouponly", "web.war.identitystores.ldap");
         WCApplicationHelper.addWarToServerApps(myServer, WAR_FORWARD_NAME, true, WAR_RESOURCE_LOCATION, JAR_NAME, false, "web.jar.base", "web.war.servlets.customform.post.forward",
-                                               "web.war.servlets.customform", "web.war.identitystores.ldap.ldap1", "web.war.identitystores.ldap.ldap2",
-                                               "web.war.identitystores.custom.grouponly", "web.war.identitystores.ldap");
+                "web.war.servlets.customform", "web.war.identitystores.ldap.ldap1", "web.war.identitystores.ldap.ldap2",
+                "web.war.identitystores.custom.grouponly", "web.war.identitystores.ldap");
         myServer.setServerConfigurationFile(XML_NAME);
         myServer.addInstalledAppForValidation(APP_REDIRECT_NAME);
         myServer.addInstalledAppForValidation(APP_FORWARD_NAME);

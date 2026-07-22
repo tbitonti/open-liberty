@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2019 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,20 +17,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Map.Entry;
 
-import org.apache.aries.util.manifest.ManifestHeaderProcessor;
-import org.apache.aries.util.manifest.ManifestHeaderProcessor.GenericMetadata;
-import org.osgi.framework.Filter;
-import org.osgi.framework.FrameworkUtil;
-import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.Version;
-import org.osgi.framework.namespace.IdentityNamespace;
-import org.osgi.service.subsystem.SubsystemConstants;
 
 import com.ibm.ws.kernel.feature.AppForceRestart;
 import com.ibm.ws.kernel.feature.ProcessType;
@@ -38,7 +31,6 @@ import com.ibm.ws.kernel.feature.provisioning.HeaderElementDefinition;
 import com.ibm.ws.kernel.feature.provisioning.ProvisioningFeatureDefinition;
 import com.ibm.ws.kernel.feature.provisioning.SubsystemContentType;
 import com.ibm.ws.repository.common.enums.InstallPolicy;
-import com.ibm.ws.repository.resolver.internal.ResolutionMode;
 import com.ibm.ws.repository.resources.EsaResource;
 
 /**
@@ -48,25 +40,13 @@ import com.ibm.ws.repository.resources.EsaResource;
  */
 public class KernelResolverEsa implements ProvisioningFeatureDefinition {
 
-    public static class CapabilityMatchingResult {
-        List<ProvisioningFeatureDefinition> features;
-        boolean capabilitySatisfied;
-    }
-
-    public static class FeatureCapabilityInfo {
-        ProvisioningFeatureDefinition feature;
-        Map<String, String> capabilities;
-    }
-
     private final EsaResource esaResource;
-    private final ResolutionMode resolutionMode;
 
-    public KernelResolverEsa(EsaResource esaResource, ResolutionMode resolutionMode) {
+    public KernelResolverEsa(EsaResource esaResource) {
         if (esaResource == null) {
             throw new NullPointerException();
         }
         this.esaResource = esaResource;
-        this.resolutionMode = resolutionMode;
     }
 
     /**
@@ -99,26 +79,20 @@ public class KernelResolverEsa implements ProvisioningFeatureDefinition {
 
     @Override
     public Visibility getVisibility() {
-        if (resolutionMode == ResolutionMode.DETECT_CONFLICTS) {
-            // When we're installing a set, all features must be public and we must report visibility correctly
-            // as it affects the rules around tolerated features
-            switch (esaResource.getVisibility()) {
-                case PUBLIC:
-                    return Visibility.PUBLIC;
-                case PROTECTED:
-                    return Visibility.PROTECTED;
-                case INSTALL:
-                    return Visibility.INSTALL;
-                case PRIVATE:
-                    return Visibility.PRIVATE;
-                default:
-                    throw new IllegalArgumentException("Invalid visibility: " + esaResource.getVisibility());
-            }
-        } else {
-            // When installing from the command line, we don't care about visibility
-            // However, the kernel resolver requires that the features requested by the user are public
-            // To subvert this check, make all features report as public
-            return Visibility.PUBLIC;
+        if (esaResource.getVisibility() == null) {
+            return Visibility.PRIVATE;
+        }
+        switch (esaResource.getVisibility()) {
+            case PUBLIC:
+                return Visibility.PUBLIC;
+            case PROTECTED:
+                return Visibility.PROTECTED;
+            case INSTALL:
+                return Visibility.INSTALL;
+            case PRIVATE:
+                return Visibility.PRIVATE;
+            default:
+                throw new IllegalArgumentException("Invalid visibility: " + esaResource.getVisibility());
         }
     }
 
@@ -165,7 +139,7 @@ public class KernelResolverEsa implements ProvisioningFeatureDefinition {
 
     @Override
     public boolean isCapabilitySatisfied(Collection<ProvisioningFeatureDefinition> features) {
-        return matchCapability(features).capabilitySatisfied;
+        return CapabilityMatching.matchCapability(esaResource.getProvisionCapability(), features).isCapabilitySatisfied();
     }
 
     @Override
@@ -175,93 +149,6 @@ public class KernelResolverEsa implements ProvisioningFeatureDefinition {
         } catch (IllegalArgumentException ex) {
             return Version.emptyVersion;
         }
-    }
-
-    /**
-     * Find which of the passed features are used to satisfy the ProvisionCapability of this feature.
-     * <p>
-     * The returned list will be a subset of {@code features}
-     * <p>
-     * If this feature has no ProvisionCapability requirements, then an empty list will be returned.
-     *
-     * @param features the features which are available be used to satisfy the ProvisionCapabiliy requirements
-     * @return a list of features which were actually used to satisfy the ProvisionCapability requirements
-     */
-    public List<ProvisioningFeatureDefinition> findFeaturesSatisfyingCapability(Collection<? extends ProvisioningFeatureDefinition> features) {
-        return matchCapability(features).features;
-    }
-
-    /**
-     * Attempt to match the ProvisionCapability requirements against the given list of features
-     *
-     * @param features the list of features to match against
-     * @return a {@link CapabilityMatchingResult} specifying whether all requirements were satisfied and which features were used to satisfy them
-     */
-    private CapabilityMatchingResult matchCapability(Collection<? extends ProvisioningFeatureDefinition> features) {
-
-        String capabilityString = esaResource.getProvisionCapability();
-        if (capabilityString == null) {
-            CapabilityMatchingResult result = new CapabilityMatchingResult();
-            result.capabilitySatisfied = true;
-            result.features = Collections.emptyList();
-            return result;
-        }
-
-        CapabilityMatchingResult result = new CapabilityMatchingResult();
-        result.capabilitySatisfied = true;
-        result.features = new ArrayList<>();
-
-        List<FeatureCapabilityInfo> capabilityMaps = createCapabilityMaps(features);
-        for (Filter filter : createFilterList()) {
-            boolean matched = false;
-            for (FeatureCapabilityInfo capabilityInfo : capabilityMaps) {
-                if (filter.matches(capabilityInfo.capabilities)) {
-                    matched = true;
-                    result.features.add(capabilityInfo.feature);
-                    break;
-                }
-            }
-
-            // If any of the filters in the provision capability header don't match, we're not satisfied
-            if (!matched) {
-                result.capabilitySatisfied = false;
-            }
-        }
-
-        return result;
-    }
-
-    private List<FeatureCapabilityInfo> createCapabilityMaps(Collection<? extends ProvisioningFeatureDefinition> features) {
-        List<FeatureCapabilityInfo> result = new ArrayList<>();
-
-        for (ProvisioningFeatureDefinition feature : features) {
-            FeatureCapabilityInfo capabilityInfo = new FeatureCapabilityInfo();
-            capabilityInfo.feature = feature;
-            capabilityInfo.capabilities = new HashMap<>();
-            capabilityInfo.capabilities.put(IdentityNamespace.IDENTITY_NAMESPACE, feature.getSymbolicName());
-            capabilityInfo.capabilities.put(IdentityNamespace.CAPABILITY_TYPE_ATTRIBUTE, SubsystemConstants.SUBSYSTEM_TYPE_FEATURE);
-            result.add(capabilityInfo);
-        }
-
-        return result;
-    }
-
-    private List<Filter> createFilterList() {
-        List<GenericMetadata> metadatas = ManifestHeaderProcessor.parseCapabilityString(esaResource.getProvisionCapability());
-        List<Filter> result = new ArrayList<>();
-
-        for (GenericMetadata metadata : metadatas) {
-            String filterString = metadata.getDirectives().get(IdentityNamespace.REQUIREMENT_FILTER_DIRECTIVE);
-            if (IdentityNamespace.IDENTITY_NAMESPACE.equals(metadata.getNamespace()) && filterString != null) {
-                try {
-                    result.add(FrameworkUtil.createFilter(filterString));
-                } catch (InvalidSyntaxException e) {
-                    throw new IllegalArgumentException("Esa " + esaResource.getProvideFeature() + " contains invalid provisionCapabiliy requirement: " + filterString, e);
-                }
-            }
-        }
-
-        return result;
     }
 
     @Override
@@ -339,4 +226,74 @@ public class KernelResolverEsa implements ProvisioningFeatureDefinition {
         throw new UnsupportedOperationException();
     }
 
+    //
+
+    @Override
+    public List<String> getPlatformNames() {
+
+        return esaResource.getPlatforms() == null ? new ArrayList() : new ArrayList(esaResource.getPlatforms());
+    }
+
+    @Override
+    public String getPlatformName() {
+        return (!getPlatformNames().isEmpty() ? getPlatformNames().get(0) : null);
+    }
+
+    /**
+     * Tell if this is a versionless feature.
+     *
+     * Currently these are:
+     *
+     * <ul><li>public</li>
+     * <li>platformless</li>
+     * <li>have a short name that is equal to the feature name</li>
+     * <li>contain ".versionless." in their symbolic name.</li>
+     * <li>does not contain ".internal.versionless." in their symbolic name.</li>
+     * </ul>
+     *
+     * @return True or false telling if this is a versionless feature.
+     */
+    @Override
+    public boolean isVersionless() {
+        if (!getVisibility().equals(Visibility.PUBLIC) || (getPlatformName() != null)) {
+            return false;
+        }
+
+        String shortName = getIbmShortName();
+        if ((shortName == null) || !shortName.equals(getFeatureName())) {
+            return false;
+        }
+
+        if (getSymbolicName().contains(".versionless.")
+                && !getSymbolicName().contains(".internal.")) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean isConvenience() {
+        return false; // TODO
+    }
+
+    /**
+     * Tell if this is a compatibility feature.
+     *
+     * <ul><li>private</li>
+     * <li>do not have a short name</li>
+     * <li>has a platform value</li>
+     * </ul>
+     *
+     * @return True or false telling if this is a versionless feature.
+     */
+    @Override
+    public boolean isCompatibility() {
+        if (!getVisibility().equals(Visibility.PRIVATE)) {
+            return false;
+        } else if (getIbmShortName() != null) {
+            return false;
+        }
+        return (getPlatformName() != null);
+    }
 }

@@ -1,9 +1,11 @@
 #/*******************************************************************************
 # * Copyright (c) 2016, 2019 IBM Corporation and others.
 # * All rights reserved. This program and the accompanying materials
-# * are made available under the terms of the Eclipse Public License v1.0
+# * are made available under the terms of the Eclipse Public License 2.0
 # * which accompanies this distribution, and is available at
-# * http://www.eclipse.org/legal/epl-v10.html
+# * http://www.eclipse.org/legal/epl-2.0/
+# *
+# * SPDX-License-Identifier: EPL-2.0
 # *
 # * Contributors:
 # *     IBM Corporation - initial API and implementation
@@ -16,3 +18,7 @@
 #ISMESSAGEFILE FALSE
 #NLS_ENCODING=UNICODE
 # cmvc_en_version_level=%I%,%S%,%E%,%U%
+
+AUDIT_EVENT_MISSING_REST_ENDPOINT=CWWKS5856E: El nombre de suceso de auditor\u00eda {0} no est\u00e1 soportado porque el punto final REST no est\u00e1 habilitado.
+AUDIT_EVENT_MISSING_REST_ENDPOINT.explanation=Para utilizar el suceso de auditor\u00eda especificado, el punto final REST debe estar habilitado.
+AUDIT_EVENT_MISSING_REST_ENDPOINT.useraction=Aseg\u00farese de que una caracter\u00edstica que habilita el punto final REST est\u00e9 habilitada en la configuraci\u00f3n server.xml .

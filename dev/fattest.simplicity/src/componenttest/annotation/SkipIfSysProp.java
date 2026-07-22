@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -59,14 +61,32 @@ public @interface SkipIfSysProp {
 
     public static final String IS_SLE = "is.sle=true";
 
+    /**
+     * Skip tests if any database was configured.
+     * This is useful if you want to exclude tests
+     * from DB Rotation.
+     */
+    public static final String DB_Not_Default = "fat.bucket.db.type";
+
     // DB type system properties
     public static final String DB_DB2 = "fat.bucket.db.type=DB2";
     public static final String DB_Derby = "fat.bucket.db.type=Derby";
+    public static final String DB_DerbyClient = "fat.bucket.db.type=DerbyClient";
+    public static final String DB_H2 = "fat.bucket.db.type=H2";
     public static final String DB_Informix = "fat.bucket.db.type=Informix";
     public static final String DB_Oracle = "fat.bucket.db.type=Oracle";
     public static final String DB_Postgres = "fat.bucket.db.type=Postgres";
     public static final String DB_SQLServer = "fat.bucket.db.type=SQLServer";
     public static final String DB_Sybase = "fat.bucket.db.type=Sybase";
+
+    // OS system properties
+    public static final String OS_ZOS = "os.name=z/OS";
+    public static final String OS_IBMI = "os.name=OS/400";
+    public static final String OS_ISERIES = "os.name=ISERIES";
+    public static final String OS_AIX = "os.name=AIX";
+
+    // Network system properties
+    public static final String NETWORK_AWS = "global.network.location=AWS";
 
     String[] value();
 

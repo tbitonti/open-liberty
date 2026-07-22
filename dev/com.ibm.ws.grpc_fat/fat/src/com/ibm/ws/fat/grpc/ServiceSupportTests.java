@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package com.ibm.ws.fat.grpc;
 
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -76,6 +79,7 @@ public class ServiceSupportTests extends FATServletClient {
 
     @BeforeClass
     public static void setUp() throws Exception {
+        grpcServer.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         grpcServer.startServer(ServiceSupportTests.class.getSimpleName() + ".log");
     }
 
@@ -88,10 +92,6 @@ public class ServiceSupportTests extends FATServletClient {
         LOG.info("startBeerService() : Connecting to beerService gRPC service at " + address + ":" + port);
         beerChannel = ManagedChannelBuilder.forAddress(address, port).usePlaintext().build();
         beerServiceBlockingStub = BeerServiceGrpc.newBlockingStub(beerChannel);
-    }
-
-    private void stopGrpcService(ManagedChannel channel) {
-        channel.shutdownNow();
     }
 
     private void startHelloWorldService(String address, int port) {
@@ -113,8 +113,9 @@ public class ServiceSupportTests extends FATServletClient {
         assertTrue("Expected the grpc feature 'grpc-1.0' to be enabled but was not: " + features,
                    features.contains("grpc-1.0"));
 
+        // Ignore case for EE9 RepeatAction
         assertTrue("Expected the grpc feature 'grpcClient-1.0' to be enabled but was not: " + features,
-                   features.contains("grpcClient-1.0"));
+                   features.contains("grpcClient-1.0") || features.contains("grpcclient-1.0"));
 
     }
 
@@ -167,7 +168,7 @@ public class ServiceSupportTests extends FATServletClient {
         LOG.info("testSingleWarWithGrpcService() : Stopping the beer service.");
 
         // Stop the grpc service
-        stopGrpcService(beerChannel);
+        GrpcTestUtils.stopGrpcService(beerChannel);
 
         // Stop the grpc application
         LOG.info("testSingleWarWithGrpcService() : Stop the FavoriteBeerService application and remove it from dropins.");
@@ -242,8 +243,8 @@ public class ServiceSupportTests extends FATServletClient {
         assertTrue(greeting.getMessage().contains("Scarlett"));
 
         // Stop the grpc services
-        stopGrpcService(beerChannel);
-        stopGrpcService(worldChannel);
+        GrpcTestUtils.stopGrpcService(beerChannel);
+        GrpcTestUtils.stopGrpcService(worldChannel);
 
         // Stop the grpc applications
         LOG.info("testMultipleGrpcServiceWars() : Stop the FavoriteBeerService and HelloworldService applications and remove them from dropins.");
@@ -316,8 +317,7 @@ public class ServiceSupportTests extends FATServletClient {
         BeerResponse rsp2 = beerServiceBlockingStub.addBeer(newBeer2);
 
         assertTrue(rsp2.getDone());
-
-        stopGrpcService(beerChannel);
+        GrpcTestUtils.stopGrpcService(beerChannel);
 
         // Stop the grpc application
         LOG.info("testSingleWarUpdate() : Stop the FavoriteBeerService application and remove it from dropins.");
@@ -378,7 +378,7 @@ public class ServiceSupportTests extends FATServletClient {
         assertTrue(grpcExcep);
 
         LOG.info("testInvalidService() : Stop service.");
-        stopGrpcService(beerChannel);
+        GrpcTestUtils.stopGrpcService(beerChannel);
 
         assertTrue(grpcServer.removeAndStopDropinsApplications(is));
 
@@ -440,8 +440,7 @@ public class ServiceSupportTests extends FATServletClient {
         BeerResponse rsp = beerServiceBlockingStub.addBeer(newBeer);
 
         assertTrue(rsp.getDone());
-
-        stopGrpcService(beerChannel);
+        GrpcTestUtils.stopGrpcService(beerChannel);
 
         // Stop the grpc applications
         LOG.info("testDuplicateService() : Stop the FavoriteBeerService application and remove it from dropins.");

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2019 IBM Corporation and others.
+ * Copyright (c) 2014, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -45,7 +47,8 @@ public class SingletonLocalBean {
     private void postConstruct() {
         svLogger.info("> @Startup @Singleton PostConstruct");
         // FIXME(131630) - cannot be enabled until security fixes problem where not ready during app start
-        // svLogger.info("  principal = " + ivBean.role3Only());
+        // Problem is worked around by not adding application to server until security has started.
+        svLogger.info("  principal = " + ivBean.role3Only());
         svLogger.info("< @Startup @Singleton PostConstruct");
     }
 

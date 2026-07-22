@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -18,6 +20,7 @@ import java.io.IOException;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -25,6 +28,7 @@ import com.ibm.ws.microprofile.openapi.fat.utils.OpenAPIConnection;
 
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 import componenttest.topology.utils.HttpUtils;
@@ -43,10 +47,15 @@ import componenttest.topology.utils.HttpUtils;
 @RunWith(FATRunner.class)
 public class UICustomizationTest extends FATServletClient {
 
-    @Server("UICustomizationServer")
+    private static final String SERVER_NAME = "UICustomizationServer";
+
+    @Server(SERVER_NAME)
     public static LibertyServer server;
 
-    private final static int TIMEOUT = 10000; // in ms
+    @ClassRule
+    public static RepeatTests r = FATSuite.defaultRepeat(SERVER_NAME);
+
+    private final static int TIMEOUT = 30000; // in ms
     private final static int START_TIMEOUT = 60000; // in ms
 
     private final static String WARNING_CUSTOM_CSS_NOT_PROCESSED = "CWWKO1655W";
@@ -159,10 +168,10 @@ public class UICustomizationTest extends FATServletClient {
         validateOpenAPIUI(CSS_CONTENT_CUSTOM_IMAGE, true, true);
     }
 
-    private boolean validateOpenAPIUI(
-        String expectedContent,
-        boolean validateImage,
-        boolean assertion) throws IOException, Exception {
+    private boolean validateOpenAPIUI(String expectedContent,
+                                      boolean validateImage,
+                                      boolean assertion)
+        throws IOException, Exception {
         // UI endpoint - HTTP
         String cssContent = downloadUrl(UI_CUSTOM_HEADER_CSS);
         boolean valid = validateCSS(cssContent, expectedContent, assertion);
@@ -176,10 +185,9 @@ public class UICustomizationTest extends FATServletClient {
         return valid;
     }
 
-    private static boolean validateCSS(
-        String body,
-        String referenceText,
-        boolean assertion) {
+    private static boolean validateCSS(String body,
+                                       String referenceText,
+                                       boolean assertion) {
         if (assertion) {
             assertNotNull("FAIL: Unexpected null content", body);
             assertTrue("FAIL: Unexpected content : Didn't find '" + referenceText + "' within content : " + body,
@@ -194,8 +202,8 @@ public class UICustomizationTest extends FATServletClient {
         return true;
     }
 
-    private String downloadUrl(
-        String path) throws IOException, Exception {
+    private String downloadUrl(String path)
+        throws IOException, Exception {
         return new OpenAPIConnection(server, path).download();
     }
 }

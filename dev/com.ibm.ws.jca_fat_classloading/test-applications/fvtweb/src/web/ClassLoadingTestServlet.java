@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2014, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,9 @@ package web;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
+
+import com.ibm.ws.jca.fat.classloading.sharedlib.LibraryClassThatDoesNotUseResourceAdapterClasses;
+import com.ibm.ws.jca.fat.classloading.sharedlib.LibraryClassThatUsesResourceAdapterClasses;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -124,4 +129,24 @@ public class ClassLoadingTestServlet extends HttpServlet {
             System.out.println("Was not able to load third party class, this is correct.");
 
     }
+
+    /**
+     * Verify that resource adapter classes are available to a library that the
+     * resourceAdapter classloader references, which is in turn referenced by the application
+     * classloader via classProviderRef.
+     */
+    public void testResourceAdapterClassesAccessibleToSharedLibrary(HttpServletRequest request, PrintWriter out) throws Exception {
+        LibraryClassThatUsesResourceAdapterClasses libClassInstance = new LibraryClassThatUsesResourceAdapterClasses();
+        libClassInstance.createQueue();
+        libClassInstance.createTopic();
+    }
+
+    /**
+     * Verify that the application can use classes from a shared library.
+     */
+    public void testSharedLibraryClassesAccessibleToApplication(HttpServletRequest request, PrintWriter out) throws Exception {
+        LibraryClassThatDoesNotUseResourceAdapterClasses libClassInstance = new LibraryClassThatDoesNotUseResourceAdapterClasses();
+        libClassInstance.createSomething();
+    }
+
 }

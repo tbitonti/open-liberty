@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2014 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,20 +13,22 @@
 
 package com.ibm.ws.security.openid20.tai;
 
+import java.nio.charset.StandardCharsets;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 
 public class ClientAuthnData {
     private static TraceComponent tc = Tr.register(ClientAuthnData.class);
 
     public static final String Authorization_Header = "Authorization";
     public static final String AUTHORIZATION_ENCODING = "Authorization-Encoding";
-    public static final String BasicAuthEncoding = System.getProperty("com.ibm.websphere.security.BasicAuthEncoding", "UTF-8");
+    public static final String BasicAuthEncoding = System.getProperty("com.ibm.websphere.security.BasicAuthEncoding");
     String userName = null;
     String passWord = null;
     boolean authnData = false;
@@ -70,11 +74,16 @@ public class ClientAuthnData {
         if (encoding == null) {
             encoding = BasicAuthEncoding;
         }
-        try {
-            hdrValue = Base64Coder.base64Decode(hdrValue.substring(6), encoding);
-        } catch (Exception e) {
-            if (tc.isDebugEnabled()) {
-                Tr.debug(tc, "Decoding fails with encoding:" + encoding, e.getMessage());
+        // If BasicAuthEncoding is not configured, use UTF8
+        if (encoding == null) {
+            hdrValue = Base64Coder.base64Decode(hdrValue.substring(6), StandardCharsets.UTF_8);
+        } else {
+            try {
+                hdrValue = Base64Coder.base64Decode(hdrValue.substring(6), encoding);
+            } catch (Exception e) {
+                if (tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Decoding fails with encoding:" + encoding, e.getMessage());
+                }
             }
         }
 

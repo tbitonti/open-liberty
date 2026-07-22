@@ -1,15 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.kernel.boot.internal.commands;
 
+import static componenttest.annotation.SkipIfSysProp.OS_ZOS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
@@ -25,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -68,6 +72,10 @@ public class PackageCommandTest {
     private LibertyServer bootstrapFatServer;
     private String bootstrapFatInstallPath;
     private String bootstrapFatServerPath;
+
+    private static final String PPV_KEY = "PREFERRED_PLATFORM_VERSIONS";
+    private static final String PPV_VALUE = "jakartaee-10.0, jakartaee-9.1, microProfile-4.0";
+    private static final String PPV_WARN_MSG = "CWWKE0969W";
 
     @Before
     public void before() throws Exception {
@@ -145,7 +153,7 @@ public class PackageCommandTest {
      * Packages --include=minify,runnable jar and verifies correct content.
      */
     @Test
-    @SkipIfSysProp("os.name=z/OS") // Jar not supported on Z/OS
+    @SkipIfSysProp(OS_ZOS) // Jar not supported on Z/OS
     public void testRunnable() throws Exception {
         String serverName = bootstrapFatServerName;
         LibertyServer server = bootstrapFatServer;
@@ -192,7 +200,7 @@ public class PackageCommandTest {
 //     * the resulting jar files does NOT contain the self-extract files.
 //     */
 //    @Test
-//    @SkipIfSysProp("os.name=z/OS") // Jar not supported on Z/OS
+//    @SkipIfSysProp(OS_ZOS) // Jar not supported on Z/OS
 //    public void testPackageJarArchiveWithIncludeEqualsUsr() throws Exception {
 //        LibertyServer server = bootstrapFatServer;
 //
@@ -484,7 +492,7 @@ public class PackageCommandTest {
      * that a .jar archive is created by default.
      */
     @Test
-    @SkipIfSysProp("os.name=z/OS") // Jar not supported on Z/OS
+    @SkipIfSysProp(OS_ZOS) // Jar not supported on Z/OS
     public void testRunnable_DefaultToJar() throws Exception {
         LibertyServer server = rootFatServer;
 
@@ -553,7 +561,7 @@ public class PackageCommandTest {
      * error is returned.
      */
     @Test
-    @SkipIfSysProp("os.name=z/OS") // Jar not supported on Z/OS
+    @SkipIfSysProp(OS_ZOS) // Jar not supported on Z/OS
     public void testUsr_Error_Jar() throws Exception {
         LibertyServer server = rootFatServer;
 
@@ -565,6 +573,65 @@ public class PackageCommandTest {
         };
         verifyPackageError(server, packageCmd, "CWWKE0951E");
 
+    }
+
+    private static final List<String> IconFeatures;
+    static {
+        IconFeatures = new ArrayList<String>(2);
+        IconFeatures.add("openidConnectServer-1.0");
+        IconFeatures.add("adminCenter-1.0");
+    }
+
+    /**
+     * Verify minified server content includes all types of icons used by admin features.
+     */
+    @Test
+    @SkipIfSysProp("os.name=z/OS") // Jar not supported on Z/OS
+    public void testMinify_IncludesAdminIcons() throws Exception {
+        LibertyServer server = bootstrapFatServer;
+        String serverPath = bootstrapFatServerPath;
+
+        // '--include=minify' requires that the 'lib/extract' folder exists.
+        assumeSelfExtractExists(rootFatServer);
+
+        try (ServerFeatures serverFeatures = new ServerFeatures(server, IconFeatures)) {
+            String initialFeatures = collectFeatures(server, "initial");
+
+            String packageName = server.getServerName() + ".jar";
+            String packagePath = bootstrapFatServerPath + '/' + packageName;
+            String[] packageCmd = {
+                                    "--archive=" + packageName,
+                                    "--include=minify"
+            };
+            verifyPackage(server, packageCmd, packageName, packagePath);
+
+            try (ZipFile zipFile = new ZipFile(packagePath)) {
+                boolean foundIconEntry = false;
+                boolean foundEndpointIconsEntry = false;
+                Enumeration<? extends ZipEntry> en = zipFile.entries();
+                while ((!foundIconEntry || !foundEndpointIconsEntry) && en.hasMoreElements()) {
+                    ZipEntry entry = en.nextElement();
+                    String entryName = entry.getName();
+
+                    if (!foundIconEntry) {
+                        foundIconEntry = entryName.contains("lib/features/icons/com.ibm.websphere.appserver.adminCenter.tool.explore-1.0/OSGI-INF/explore_142x142.png");
+                    }
+                    if (!foundEndpointIconsEntry) {
+                        foundEndpointIconsEntry = entryName.contains("lib/features/icons/com.ibm.websphere.appserver.openidConnectServer-1.0/clientManagement/OSGI-INF/clientManagement_78.png");
+                    }
+                }
+                if (!foundIconEntry) {
+                    fail("Package [ " + packagePath + " ] missing [ lib/features/icons/com.ibm.websphere.appserver.adminCenter.tool.explore-1.0/OSGI-INF/explore_142x142.png ]");
+                }
+                if (!foundEndpointIconsEntry) {
+                    fail("Package [ " + packagePath
+                         + " ] missing [ lib/features/icons/com.ibm.websphere.appserver.openidConnectServer-1.0/clientManagement/OSGI-INF/clientManagement_78.png ]");
+                }
+            }
+
+            String finalFeatures = collectFeatures(server, "final");
+            assertEquals("Server [ " + serverPath + " ] features were changed", initialFeatures, finalFeatures);
+        }
     }
 
     /**
@@ -626,6 +693,63 @@ public class PackageCommandTest {
 
             assertEquals("Server [ " + serverPath + " ] cached features were changed", initialFeatures, finalFeatures);
         }
+    }
+
+    /**
+     * Tests that when the PPV environment variable is specified manually that the
+     * server package (archive option only) command throws a warning.
+     */
+    @Test
+    public void test_PPV_Warning() throws Exception {
+        LibertyServer server = bootstrapFatServer;
+
+        // Add PPV env variable manually
+        Properties envVars = new Properties();
+        envVars.setProperty(PPV_KEY, PPV_VALUE);
+
+        ensureProductExt(server);
+
+        String[] packageCmd = { "--archive=" + archiveNameZip };
+
+        verifyPackageWarning(server, packageCmd, PPV_WARN_MSG, envVars);
+    }
+
+    /**
+     * Tests that when the PPV environment variable is specified manually that the
+     * server package (archive and minify options utilized) command throws a warning.
+     */
+    @Test
+    public void test_PPV_Warning_Minify() throws Exception {
+        LibertyServer server = bootstrapFatServer;
+
+        // Add PPV env variable manually
+        Properties envVars = new Properties();
+        envVars.setProperty(PPV_KEY, PPV_VALUE);
+
+        ensureProductExt(server);
+
+        String[] packageCmd = { "--archive=" + archiveNameZip, "--include=minify" };
+
+        verifyPackageWarning(server, packageCmd, PPV_WARN_MSG, envVars);
+    }
+
+    /**
+     * Tests that when the PPV environment variable is set in the server.env there is
+     * no warning during a server package.
+     */
+    @Test
+    public void test_PPV_NoWarning() throws Exception {
+        LibertyServer server = bootstrapFatServer;
+
+        ensureProductExt(server);
+
+        // Add PPV Environment variable to server.env
+        server.addEnvVar(PPV_KEY, PPV_VALUE);
+
+        String packageName = archiveNameZip;
+        String packagePath = bootstrapFatServerPath + File.separator + packageName;
+        String[] packageCmd = { "--archive=" + archiveNameZip };
+        verifyPackage(server, packageCmd, packageName, packagePath);
     }
 
     private static class CloseableServer implements Closeable {
@@ -716,6 +840,10 @@ public class PackageCommandTest {
         return server.executeServerScript("package", packageCmd).getStdout();
     }
 
+    private String packageServer(LibertyServer server, String[] packageCmd, Properties envVars) throws Exception {
+        return server.executeServerScript("package", packageCmd, envVars).getStdout();
+    }
+
     private void verifyPackage(
                                LibertyServer server,
                                String[] packageCmd, String packageName, String packagePath) throws Exception {
@@ -740,12 +868,34 @@ public class PackageCommandTest {
         } else {
             System.out.println("Package file was created [ " + packagePath + " ]");
         }
+        if (stdout.contains(PPV_WARN_MSG)) {
+            fail("Packaging should not have contained " + PPV_WARN_MSG + " warning!  STDOUT = " + stdout);
+        }
     }
 
     private void verifyPackageError(LibertyServer server, String[] packageCmd, String errorText) throws Exception {
         String stdout = packageServer(server, packageCmd);
         if (!stdout.contains(errorText)) {
             fail("Packaging output missing error " + errorText + ". STDOUT = " + stdout);
+        }
+    }
+
+    /**
+     * This method does a package of the server passing in the env variables outside of the server.env file,
+     * and then checks to ensure the warning message is output during the packaging process.
+     *
+     * @param server
+     * @param packageCmd
+     * @param warningText
+     * @param envVars
+     * @throws Exception
+     */
+    private void verifyPackageWarning(LibertyServer server, String[] packageCmd, String warningText, Properties envVars) throws Exception {
+
+        String stdout = packageServer(server, packageCmd, envVars);
+
+        if (!stdout.contains(warningText)) {
+            fail("Packaging output missing warning " + warningText + ". STDOUT = " + stdout);
         }
     }
 }

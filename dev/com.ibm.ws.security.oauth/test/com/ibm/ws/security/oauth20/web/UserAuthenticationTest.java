@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -194,6 +196,8 @@ public class UserAuthenticationTest {
                     will(returnValue(new SSOCookieHelperImpl(config)));
                     allowing(authenticationService).authenticate(with(equal(thisAuthMech)), with(matchingAuthenticationData(authenticationData)), with(equal((Subject) null)));
                     will(returnValue(subject));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
                 }
             });
 
@@ -254,6 +258,8 @@ public class UserAuthenticationTest {
                     will(returnValue(true));
                     one(request).isUserInRole(userRole);
                     will(returnValue(true));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
                 }
             });
 
@@ -302,6 +308,8 @@ public class UserAuthenticationTest {
                     will(returnValue(false));
                     allowing(config).getSameSiteCookie();
                     will(returnValue("Disabled"));
+                    allowing(config).getPartitionedCookie();
+                    will(returnValue(null));
                 }
             });
             sendForLoginExpectations(requestUri, contextPath, loginUrl);
@@ -367,6 +375,8 @@ public class UserAuthenticationTest {
                     will(returnValue(true));
                     allowing(provider).isAllowCertAuthentication();
                     will(returnValue(true));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
                 }
             });
 
@@ -436,6 +446,8 @@ public class UserAuthenticationTest {
                     will(returnValue(null));
                     allowing(config).getSameSiteCookie();
                     will(returnValue("Disabled"));
+                    allowing(config).getPartitionedCookie();
+                    will(returnValue(null));
                 }
             });
             sendForLoginExpectations(requestUri, contextPath, loginUrl);
@@ -478,6 +490,8 @@ public class UserAuthenticationTest {
                     one(request).logout();
                     allowing(config).getSameSiteCookie();
                     will(returnValue("Disabled"));
+                    allowing(config).getPartitionedCookie();
+                    will(returnValue(null));
                 }
             });
             sendForLoginExpectations(requestUri, contextPath, loginUrl);
@@ -548,6 +562,8 @@ public class UserAuthenticationTest {
                     one(response).sendError(HttpServletResponse.SC_FORBIDDEN);
                     never(response).addCookie(with(any(Cookie.class)));
                     never(response).sendRedirect(with(any(String.class)));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
                 }
             });
 
@@ -682,6 +698,8 @@ public class UserAuthenticationTest {
                     will(returnValue(new SSOCookieHelperImpl(config)));
                     allowing(authenticationService).authenticate(with(equal(thisAuthMech)), with(matchingAuthenticationData(authenticationData)), with(equal((Subject) null)));
                     will(returnValue(subject));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
                 }
             });
 
@@ -754,6 +772,8 @@ public class UserAuthenticationTest {
                     will(returnValue(new ReferrerURLCookieHandler(config)));
                     allowing(authenticationService).authenticate(with(equal(thisAuthMech)), with(matchingAuthenticationData(authenticationData)), with(equal((Subject) null)));
                     will(returnValue(subject));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
                 }
             });
 
@@ -824,6 +844,8 @@ public class UserAuthenticationTest {
                     will(returnValue(new SSOCookieHelperImpl(config)));
                     allowing(authenticationService).authenticate(with(equal(thisAuthMech)), with(matchingAuthenticationData(authenticationData)), with(equal((Subject) null)));
                     will(returnValue(subject));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
                 }
             });
 
@@ -904,6 +926,8 @@ public class UserAuthenticationTest {
                     one(response).sendError(HttpServletResponse.SC_FORBIDDEN);
                     never(response).addCookie(with(any(Cookie.class)));
                     never(response).sendRedirect(with(any(String.class)));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
                 }
             });
 
@@ -980,6 +1004,8 @@ public class UserAuthenticationTest {
                     one(response).sendError(HttpServletResponse.SC_FORBIDDEN);
                     never(response).addCookie(with(any(Cookie.class)));
                     never(response).sendRedirect(with(any(String.class)));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
                 }
             });
 
@@ -1086,6 +1112,8 @@ public class UserAuthenticationTest {
                     will(returnValue(false));
                     allowing(config).getSameSiteCookie();
                     will(returnValue("Disabled"));
+                    allowing(config).getPartitionedCookie();
+                    will(returnValue(null));
                 }
             });
             sendForLoginExpectations(requestUri, contextPath, loginUrl);
@@ -1128,6 +1156,8 @@ public class UserAuthenticationTest {
                     will(returnValue(false));
                     allowing(config).getSameSiteCookie();
                     will(returnValue("Disabled"));
+                    allowing(config).getPartitionedCookie();
+                    will(returnValue(null));
                 }
             });
             sendForLoginExpectations(requestUri, contextPath, loginUrl);
@@ -1191,6 +1221,8 @@ public class UserAuthenticationTest {
                     allowing(authenticationService).authenticate(with(equal(JaasLoginConfigConstants.SYSTEM_WEB_INBOUND)), with(matchingAuthenticationData(authenticationData)),
                             with(equal((Subject) null)));
                     will(returnValue(subject));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
                 }
             });
 
@@ -1321,6 +1353,9 @@ public class UserAuthenticationTest {
                     allowing(authenticationService).authenticate(with(equal(JaasLoginConfigConstants.SYSTEM_WEB_INBOUND)), with(matchingAuthenticationData(authenticationData)),
                             with(equal((Subject) null)));
                     will(returnValue(subject));
+                    allowing(config).isUseContextRootForSSOCookiePath();
+                    will(returnValue(false));
+
                 }
             });
 

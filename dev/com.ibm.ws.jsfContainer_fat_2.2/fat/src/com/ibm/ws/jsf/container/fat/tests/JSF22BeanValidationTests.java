@@ -1,14 +1,15 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jsf.container.fat.tests;
+
+import static org.junit.Assert.assertNotNull;
 
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
@@ -53,15 +54,13 @@ public class JSF22BeanValidationTests extends FATServletClient {
                         .addPackage("jsf.beanval");
         mojarraApp = FATSuite.addMojarra(mojarraApp);
         mojarraApp = (WebArchive) ShrinkHelper.addDirectory(mojarraApp, "test-applications/" + MOJARRA_APP + "/resources");
-        ShrinkHelper.exportToServer(server, "dropins", mojarraApp);
-        server.addInstalledAppForValidation(MOJARRA_APP);
+        ShrinkHelper.exportDropinAppToServer(server, mojarraApp);
 
         WebArchive myfacesApp = ShrinkWrap.create(WebArchive.class, MYFACES_APP + ".war")
                         .addPackage("jsf.beanval");
         myfacesApp = FATSuite.addMyFaces(myfacesApp);
         myfacesApp = (WebArchive) ShrinkHelper.addDirectory(myfacesApp, "test-applications/" + MOJARRA_APP + "/resources");
-        ShrinkHelper.exportToServer(server, "dropins", myfacesApp);
-        server.addInstalledAppForValidation(MYFACES_APP);
+        ShrinkHelper.exportDropinAppToServer(server, myfacesApp);
 
         server.startServer();
     }
@@ -74,9 +73,9 @@ public class JSF22BeanValidationTests extends FATServletClient {
     @Test
     public void verifyAppProviders() throws Exception {
         server.resetLogMarks();
-        server.waitForStringInLogUsingMark("Initializing Mojarra .* for context '/" + MOJARRA_APP + "'");
+        assertNotNull(server.waitForStringInLogUsingMark("Initializing Mojarra .* for context '/" + MOJARRA_APP + "'"));
         server.resetLogMarks();
-        server.waitForStringInLogUsingMark("MyFaces Bean Validation support enabled");
+        assertNotNull(server.waitForStringInLogUsingMark("MyFaces Bean Validation support enabled"));
     }
 
     @Test
@@ -100,29 +99,30 @@ public class JSF22BeanValidationTests extends FATServletClient {
      * 1.0 and 1.1
      */
     private void testValidationBeanTagBinding(String app) throws Exception {
-        WebClient webClient = new WebClient();
+        try (WebClient webClient = new WebClient()) {
 
-        HtmlPage page = (HtmlPage) webClient.getPage(getServerURL() + app + "/BeanValidation.jsf");
+            HtmlPage page = (HtmlPage) webClient.getPage(getServerURL() + app + "/BeanValidation.jsf");
 
-        Log.info(getClass(), testName.getMethodName(), "Navigating to: /BeanValidationTests/BeanValidation.jsf");
-        Log.info(getClass(), testName.getMethodName(), "Attempting to validate with a string greater than max length");
-        HtmlTextInput bindingInputText = (HtmlTextInput) page.getElementById("binding");
-        bindingInputText.setValueAttribute("aaa");
-        page = doClick(page);
+            Log.info(getClass(), testName.getMethodName(), "Navigating to: /BeanValidationTests/BeanValidation.jsf");
+            Log.info(getClass(), testName.getMethodName(), "Attempting to validate with a string greater than max length");
+            HtmlTextInput bindingInputText = (HtmlTextInput) page.getElementById("binding");
+            bindingInputText.setValueAttribute("aaa");
+            page = doClick(page);
 
-        Assert.assertTrue("Sting greater than max did not cause a validation error: \n\n" + page.asText(),
-                          page.getElementById("bindingError").getTextContent().equals("binding: Validation Error: Length is greater than allowable maximum of '2'"));
+            Assert.assertTrue("Sting greater than max did not cause a validation error: \n\n" + page.asText(),
+                              page.getElementById("bindingError").getTextContent().equals("binding: Validation Error: Length is greater than allowable maximum of '2'"));
 
-        Log.info(getClass(), testName.getMethodName(), "Navigating to: /BeanValidationTests/BeanValidation.jsf");
-        page = (HtmlPage) webClient.getPage(getServerURL() + app + "/BeanValidation.jsf");
+            Log.info(getClass(), testName.getMethodName(), "Navigating to: /BeanValidationTests/BeanValidation.jsf");
+            page = (HtmlPage) webClient.getPage(getServerURL() + app + "/BeanValidation.jsf");
 
-        Log.info(getClass(), testName.getMethodName(), "Attempting to validate with a string of max length");
-        bindingInputText = (HtmlTextInput) page.getElementById("binding");
-        bindingInputText.setValueAttribute("aa");
-        page = doClick(page);
+            Log.info(getClass(), testName.getMethodName(), "Attempting to validate with a string of max length");
+            bindingInputText = (HtmlTextInput) page.getElementById("binding");
+            bindingInputText.setValueAttribute("aa");
+            page = doClick(page);
 
-        Assert.assertTrue("Valid input caused a validation error: \n\n" + page.asText(),
-                          page.getElementById("success").getTextContent().equals("SUCCESS"));
+            Assert.assertTrue("Valid input caused a validation error: \n\n" + page.asText(),
+                              page.getElementById("success").getTextContent().equals("SUCCESS"));
+        }
     }
 
     private HtmlPage doClick(HtmlPage page) throws Exception {

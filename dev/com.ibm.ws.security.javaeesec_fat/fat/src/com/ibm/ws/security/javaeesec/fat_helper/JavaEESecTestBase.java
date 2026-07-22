@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,10 +17,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
@@ -44,7 +49,7 @@ import org.apache.http.util.EntityUtils;
 
 import com.ibm.websphere.simplicity.log.Log;
 
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
 
 public class JavaEESecTestBase {
@@ -114,7 +119,7 @@ public class JavaEESecTestBase {
      * Process the response from an http invocation, such as validating
      * the status code, extracting the response entity...
      *
-     * @param response the HttpResponse
+     * @param response           the HttpResponse
      * @param expectedStatusCode
      * @return The response entity text, or null if request failed
      * @throws IOException
@@ -164,6 +169,26 @@ public class JavaEESecTestBase {
             }
         }
         return null;
+    }
+
+    protected void checkHeader(HttpResponse response, String headerKey, String headerValue) {
+        String methodName = "getHeader";
+        Log.info(logClass, methodName, response.toString() + ", headerKey=" + headerKey);
+        Header[] headers = response.getHeaders(headerKey);
+        if (headers == null) {
+            fail("Header: {" + headerKey + "} is missing from the response.");
+        }
+        for (Header header : headers) {
+            Log.info(logClass, methodName, "Header: " + header);
+            if (header.getName().equals(headerKey)) {
+                if (header.getValue().equals(headerValue)) {
+                    return;
+                } else {
+                    fail("Found Header: {" + headerKey + "} but the value: {" + header.getValue() + "}, does not match: {" + headerValue + "}.");
+                }
+            }
+        }
+        fail("Header: {" + headerKey + "} not found in header list: " + Arrays.toString(response.getAllHeaders()));
     }
 
     protected String accessWithCookie(DefaultHttpClient httpClient, String url, String cookieName, String cookie, int expectedStatusCode) {
@@ -294,10 +319,10 @@ public class JavaEESecTestBase {
      * Send HttpClient get request to the given URL, ensure that the user is redirected to the form login page
      * and that the JASPI provider was or was not called, as expected.
      *
-     * @param httpclient HttpClient object to execute request
-     * @param url URL for request, should be protected and redirect to form login page
+     * @param httpclient   HttpClient object to execute request
+     * @param url          URL for request, should be protected and redirect to form login page
      * @param providerName Name of JASPI provider that should authenticate the request, null if JASPI not enabled for request
-     * @param formTitle Name of Login form (defaults to Form Login Page if not specified)
+     * @param formTitle    Name of Login form (defaults to Form Login Page if not specified)
      * @throws Exception
      */
     public void getFormLoginPage(HttpClient httpclient, String url, String providerName) throws Exception {
@@ -340,10 +365,10 @@ public class JavaEESecTestBase {
      * This propety let httpclient disable following the redirect automatically.
      *
      * @param httpclient HttpClient object to execute request
-     * @param url URL for request, should be protected and redirect to form login page
-     * @param redirect true if redirect is used to go to the login page, otherwise, use forward.
-     * @param formUrl Url of login page. this value is used when redirect is set as true.
-     * @param formTitle Name of Login form.
+     * @param url        URL for request, should be protected and redirect to form login page
+     * @param redirect   true if redirect is used to go to the login page, otherwise, use forward.
+     * @param formUrl    Url of login page. this value is used when redirect is set as true.
+     * @param formTitle  Name of Login form.
      * @throws Exception
      */
 
@@ -396,11 +421,11 @@ public class JavaEESecTestBase {
      * This propety let httpclient disable following the redirect automatically.
      *
      * @param httpclient HttpClient object to execute request
-     * @param url URL for request, should be protected and redirect to form login page
-     * @param params post parameters.
-     * @param redirect true if redirect is used to go to the login page, otherwise, use forward.
-     * @param formUrl Url of login page. this value is used when redirect is set as true.
-     * @param formTitle Name of Login form.
+     * @param url        URL for request, should be protected and redirect to form login page
+     * @param params     post parameters.
+     * @param redirect   true if redirect is used to go to the login page, otherwise, use forward.
+     * @param formUrl    Url of login page. this value is used when redirect is set as true.
+     * @param formTitle  Name of Login form.
      * @throws Exception
      */
 
@@ -450,9 +475,9 @@ public class JavaEESecTestBase {
      * Post HttpClient request to execute a form login on the given page, using the given username and password
      *
      * @param httpclient HttpClient object to execute login
-     * @param url URL for login page
-     * @param username User name
-     * @param password User password
+     * @param url        URL for login page
+     * @param username   User name
+     * @param password   User password
      * @return URL of page redirected to after the login
      * @throws Exception
      */
@@ -527,7 +552,7 @@ public class JavaEESecTestBase {
         nvps.add(new BasicNameValuePair("form:j_id_e", "Login"));
         nvps.add(new BasicNameValuePair("form_SUBMIT", "1"));
         if (viewState != null) {
-            if (JakartaEE9Action.isActive()) {
+            if (JakartaEEAction.isEE9OrLaterActive()) {
                 nvps.add(new BasicNameValuePair("jakarta.faces.ViewState", viewState));
             } else {
                 nvps.add(new BasicNameValuePair("javax.faces.ViewState", viewState));
@@ -614,6 +639,31 @@ public class JavaEESecTestBase {
             } else {
                 return null;
             }
+        } catch (IOException e) {
+            fail("Caught unexpected exception: " + e);
+            return null;
+        }
+    }
+
+    protected HttpResponse accessPageWithChallenge(HttpClient client, String location, int expectedStatusCode) {
+        String methodName = "accessPageWithChallenge";
+        Log.info(logClass, methodName, "location =  " + location + " expectedStatusCode =" + expectedStatusCode);
+
+        try {
+            HttpResponse response;
+            // Get method on form login page
+            HttpGet getMethod = new HttpGet(location);
+            response = client.execute(getMethod);
+            Log.info(logClass, methodName, "getMethod status:  " + response.getStatusLine());
+
+            assertEquals("Expected " + expectedStatusCode + " was not returned",
+                         expectedStatusCode, response.getStatusLine().getStatusCode());
+
+            String content = EntityUtils.toString(response.getEntity());
+            Log.info(logClass, methodName, "Servlet full response content: \n" + content);
+
+            EntityUtils.consume(response.getEntity());
+            return response;
         } catch (IOException e) {
             fail("Caught unexpected exception: " + e);
             return null;
@@ -868,11 +918,7 @@ public class JavaEESecTestBase {
             Log.info(logClass, "setServerConfiguration", "setServerConfigurationFile to : " + serverXML);
             server.setMarkToEndOfLog();
             server.setServerConfigurationFile("/" + serverXML);
-            if (appNames != null) {
-                for (String appName : appNames) {
-                    server.addInstalledAppForValidation(appName);
-                }
-            }
+            server.waitForConfigUpdateInLogUsingMark(new HashSet<>(Arrays.asList(appNames)));
             serverConfigurationFile = serverXML;
         }
     }
@@ -885,7 +931,7 @@ public class JavaEESecTestBase {
 
     /**
      * Assert that the regular expression string is present or NOT present in the server's logs.
-     * 
+     *
      * @param regexp The regular expression string to search for.
      * @throws Exception If there was an error checking the log or trace files.
      */
@@ -895,8 +941,8 @@ public class JavaEESecTestBase {
 
     /**
      * Assert that the regular expression string is present or NOT present in the server's logs.
-     * 
-     * @param regexp The regular expression string to search for.
+     *
+     * @param regexp    The regular expression string to search for.
      * @param isPresent If true, check that the string is present. If false, check that it is NOT present.
      * @throws Exception If there was an error checking the log or trace files.
      */
@@ -911,7 +957,7 @@ public class JavaEESecTestBase {
 
     /**
      * Assert that the regular expression string is present in the server's logs or trace
-     * 
+     *
      * @param regexp The regular expression string to search for.
      * @throws Exception If there was an error checking the log or trace files.
      */
@@ -921,8 +967,8 @@ public class JavaEESecTestBase {
 
     /**
      * Assert that the regular expression string is present or NOT present in the server's logs or trace.
-     * 
-     * @param regexp The regular expression string to search for.
+     *
+     * @param regexp    The regular expression string to search for.
      * @param isPresent If true, check that the string is present. If false, check that it is NOT present.
      * @throws Exception If there was an error checking the log or trace files.
      */
@@ -932,6 +978,21 @@ public class JavaEESecTestBase {
             assertFalse("Did not find '" + regexp + "' in trace.", results.isEmpty());
         } else {
             assertTrue("Found '" + regexp + "' in trace: " + results, results.isEmpty());
+        }
+    }
+
+    /**
+     * Assume we are not on Windows and running the EE9 repeat action. There is an issue with
+     * the Jakarta transformer where the application fails to be transformed b/c the application
+     * directory cannot be deleted due to a "The process cannot access the file because it is
+     * being used by another process" error. I assume that either the transformer or the server
+     * is not releasing the handle to the directory, but I have not yet been able to figure it
+     * out.
+     */
+    public static void assumeNotWindowsEe9Plus() {
+        if (JakartaEEAction.isEE9OrLaterActive() && System.getProperty("os.name").toLowerCase().startsWith("win")) {
+            Log.info(logClass, "assumeNotWindowsEe9", "Skipping EE9 repeat action on Windows.");
+            assumeTrue(false);
         }
     }
 }

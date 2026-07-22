@@ -1,12 +1,11 @@
 ###############################################################################
-# Copyright (c) 1997, 2020 IBM Corporation and others.
+# Copyright (c) 1997, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 
 # This file has been modified to follow the WebSphere Message Guidelines.
@@ -21,8 +20,6 @@
 #ISMESSAGEFILE TRUE
 #NLS_MESSAGEFORMAT_VAR
 #NLS_ENCODING=UNICODE
-
-
 
 # --------------------------------
 Illegal.Argument.Trying.to.write.chars=SRVE0011E: Illeg\u00e1lis argumentum kiv\u00e9tel: Pr\u00f3b\u00e1lkoz\u00e1s 0-t\u00f3l kevesebb karakter \u00edr\u00e1s\u00e1ra.
@@ -215,7 +212,7 @@ failed.to.load.converter.properties.explanation=Nem t\u00f6lthet\u0151 be a mega
 failed.to.load.converter.properties.useraction=Gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy a megadott f\u00e1jl l\u00e9tezik, \u00e9s hogy a java.utils.Properties szerint helyes a form\u00e1tuma.
 
 # --------------------------------
-setbuffer.size.called.after.write=SRVE0157E: A setBufferSize() met\u00f3dus ker\u00fclt megh\u00edv\u00e1sra az els\u0151 \u00edr\u00e1s ut\u00e1n a kimeneti adatfolyamba/\u00edr\u00f3eszk\u00f6zbe
+setbuffer.size.called.after.write=SRVE0157E:setBufferSize( ) az els\u0151 \u00edr\u00e1si m\u0171velet vagy v\u00e1lasz v\u00e9gleges\u00edt\u00e9se ut\u00e1n h\u00edv\u00f3dik meg
 setbuffer.size.called.after.write.explanation=K\u00eds\u00e9rlet t\u00f6rt\u00e9nt a v\u00e1laszpuffer m\u00e9ret\u00e9nek be\u00e1ll\u00edt\u00e1s\u00e1ra a v\u00e1lasz v\u00e9grehajt\u00e1sa ut\u00e1n. Ez egy alkalmaz\u00e1shiba.
 setbuffer.size.called.after.write.useraction=T\u00e1vol\u00edtsa el a setBufferSize() h\u00edv\u00e1st vagy helyezze \u00e1t a v\u00e1lasz v\u00e9gleges\u00edt\u00e9se el\u0151tti poz\u00edci\u00f3ba.
 
@@ -445,7 +442,7 @@ class.transfered.using.binary.mode.explanation=Ez egy alkalmaz\u00e1shiba.
 class.transfered.using.binary.mode.useraction=Ellen\u0151rizze, hogy az oszt\u00e1ly \u00e1tvitele a f\u00e1jlrendszerbe bin\u00e1ris \u00e1tviteli m\u00f3d haszn\u00e1lat\u00e1val t\u00f6rt\u00e9nt-e.
 
 # -----------------------------------------------
-class.compiled.using.proper.case=SRVE0230E: Ellen\u0151rizze, hogy az oszt\u00e1ly kis- \u00e9s nagybet\u0171helyesen lett leford\u00edtva (ahogyan az oszt\u00e1ly meghat\u00e1roz\u00e1s\u00e1ban meg van hat\u00e1rozva).\n
+class.compiled.using.proper.case=SRVE0230E: Ellen\u0151rizze, hogy az oszt\u00e1ly kis- \u00e9s nagybet\u0171helyesen lett leford\u00edtva (ahogyan az oszt\u00e1ly meghat\ufffd\ufffdroz\u00e1s\u00e1ban meg van hat\u00e1rozva).\n
 class.compiled.using.proper.case.explanation=Ez egy alkalmaz\u00e1shiba.
 class.compiled.using.proper.case.useraction=Ellen\u0151rizze, hogy az oszt\u00e1ly kis- \u00e9s nagybet\u0171helyesen lett-e leford\u00edtva (ahogyan az oszt\u00e1ly meghat\u00e1roz\u00e1s\u00e1ban meg van hat\u00e1rozva).
 
@@ -1560,8 +1557,8 @@ servlet.with.same.name.already.exists.explanation=Ehhez az alkalmaz\u00e1shoz m\
 servlet.with.same.name.already.exists.useraction=Nem kell semmit tenni.  Ellen\u0151rizze az \u00fctk\u00f6z\u00e9seket a telep\u00edt\u00e9sle\u00edr\u00f3ban, magyar\u00e1zatokat \u00e9s forr\u00e1sk\u00f3dot, amit dinamikusan adhat hozz\u00e1 ehhez a szervlet be\u00e1ll\u00edt\u00e1shoz. 
 
 servlet.feature.not.loaded.correctly=SRVE8501E: A szervlet t\u00e1rol\u00f3 nem egy elfogadhat\u00f3 v\u00e1ltozattal t\u00f6lt\u00f6tt be.
-servlet.feature.not.loaded.correctly.explanation=A szervlet t\u00e1rol\u00f3 egy olyan v\u00e1ltozattal t\u00f6lt be, amely megfelel az adott szervlet szolg\u00e1ltat\u00e1s Java EE specifik\u00e1ci\u00f3j\u00e1nak. A t\u00e1rol\u00f3 v\u00e1ltozat megad\u00e1sa n\u00e9lk\u00fcl ker\u00fclt bet\u00f6lt\u00e9sre.
-servlet.feature.not.loaded.correctly.useraction=Ellen\u0151rizze, hogy a server.xml f\u00e1jl tartalmazza-e a servlet-3.0 vagy servlet-3.1 szolg\u00e1ltat\u00e1st. Az egyik szolg\u00e1ltat\u00e1st meg kell adni, de nem mindkett\u0151t.
+servlet.feature.not.loaded.correctly.explanation=A szervlet-t\u00e1rol\u00f3 elfogadhat\u00f3 verzi\u00f3 n\u00e9lk\u00fcl lett bet\u00f6ltve. Az alkalmaz\u00e1s a v\u00e1rtt\u00f3l elt\u00e9r\u0151en viselkedhet.
+servlet.feature.not.loaded.correctly.useraction=Ellen\u0151rizd a server.xml f\u00e1jl t\u00f6bb szervlet szolg\u00e1ltat\u00e1s l\u00e9tez\u00e9s\u00e9re.  A f\u00e1jl legfeljebb egy szervlet szolg\u00e1ltat\u00e1st hat\u00e1rozhat meg.
 
 filter.failed.app.destroyed=SRVE8502W: A(z) {0} k\u00e9r\u00e9se nem hajthat\u00f3 v\u00e9gre, mert az alkalmaz\u00e1s le\u00e1llt.
 filter.failed.app.destroyed.explanation=A webes alkalmaz\u00e1s le\u00e1ll\u00edt\u00e1s alatt van, \u00e9s a k\u00e9r\u00e9s nem hajthat\u00f3 v\u00e9gre. Ezt az okozhatta, hogy a kiszolg\u00e1l\u00f3 le\u00e1ll\u00edt\u00e1s alatt volt, m\u00edg a k\u00e9r\u00e9st m\u00e9g kezelte.
@@ -1581,10 +1578,7 @@ uncaught.exception.during.AsyncListener.onComplete.explanation=A hiba\u00fczenet
 uncaught.exception.during.AsyncListener.onComplete.useraction=Keresse meg az alkalmaz\u00e1shiba f\u0151 ok\u00e1t az AsyncListener forr\u00e1sk\u00f3dj\u00e1ban \u00e9s a kiszolg\u00e1l\u00f3napl\u00f3kban
 
 # Since servlet 4.0.  Use the registered and reserved prefix CWWWC from now on.  
-# 0001 - 0199 for Base
-# 0200 - 0299 for Servlet 3.0
-# 0300 - 0399 for Servlet 3.1
-# 0400 - 0499 for Servlet 4
+# Sequential increment the message number for all new releases and services
 
 #name.is.null=CWWWC0400E: An attribute name, or initial parameter name, is null.
 #name.is.null.explanation=This is an application error.  The name is null in either context getAttribute(), setAttribute(), getInitParameter(), or setInitParameter().
@@ -1614,3 +1608,46 @@ duplicate.samesite.attribute.for.cookie.name.useraction=Ellen\u0151rizze a telep
 duplicate.reported.for.samesite.attribute.cookie.name=CWWWC0004W: A(z) {1} SameSite attrib\u00fatum\u00e9rt\u00e9khez be\u00e1ll\u00edtott {0} cookie n\u00e9v kor\u00e1bban t\u00f6bbsz\u00f6r szerepl\u0151k\u00e9nt lett azonos\u00edtva. Ehhez a cookie-hoz nem ker\u00fcl hozz\u00e1ad\u00e1sra SameSite attrib\u00fatum.
 duplicate.reported.for.samesite.attribute.cookie.name.explanation=Egy cookie n\u00e9v nem konfigur\u00e1lhat\u00f3 t\u00f6bb SameSite attrib\u00fatum\u00e9rt\u00e9khez. Ez a cookie n\u00e9v m\u00e1r azonos\u00edt\u00e1sra ker\u00fclt t\u00f6bbsz\u00f6r szerepl\u0151k\u00e9nt.
 duplicate.reported.for.samesite.attribute.cookie.name.useraction=Ellen\u0151rizze a telep\u00edt\u00e9sle\u00edr\u00f3 konfigur\u00e1ci\u00f3j\u00e1t, \u00e9s gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy a cookie neve csak az egyik SameSite attrib\u00fatum\u00e9rt\u00e9khez van be\u00e1ll\u00edtva a k\u00f6vetkez\u0151k k\u00f6z\u00fcl: 'SameSiteCookies_Lax', 'SameSiteCookies_None' vagy 'SameSiteCookies_Strict'. 
+
+bad.request.uri\:.{0}=CWWWC0005I: A k\u00e9r\u00e9s URI \u00e9rv\u00e9nytelen vagy helytelen\u00fcl k\u00f3dolt karaktereket tartalmaz: [{0}]
+bad.request.uri\:.{0}.explanation=A k\u00e9r\u00e9s URI \u00e9rv\u00e9nytelen \u00fatvonalparam\u00e9tereket, \u00e9rv\u00e9nytelen pontszegmenseket vagy helytelen\u00fcl k\u00f3dolt karaktereket tartalmaz.
+bad.request.uri\:.{0}.useraction=Ellen\u0151rizze, hogy a k\u00e9r\u00e9s URI nem tartalmaz-e \u00e9rv\u00e9nytelen pont vagy \u00fatvonal param\u00e9ter kombin\u00e1ci\u00f3t vagy nem megfelel\u0151en k\u00f3dolt karaktereket.
+
+uri.has.fragment.character=Az URI egy t\u00f6red\u00e9k [#] karakterrel rendelkezik, k\u00f3dolt [%23] vagy nem.
+uri.has.dot.character=Az URI k\u00f3dolt pont [%2E] karaktert tartalmaz.
+uri.has.forwarslash.character=Az URI k\u00f3dolt oszt\u00e1sjelet [%2F] karaktert tartalmaz.
+uri.has.backslash.character=Az URI ford\u00edtott t\u00f6rtvonal karakter; k\u00f3dolt [%5C] vagy nem.
+
+multipart.file.count.max.exceeded=CWWWC0006E: A k\u00e9r\u00e9s t\u00f6bb f\u00e1jlt tartalmazott a felt\u00f6lt\u00e9shez, mint a megengedett. A f\u00e1jlok maxim\u00e1lis sz\u00e1ma [{0}].
+multipart.file.count.max.exceeded.explanation=A multipart/form-data k\u00e9r\u00e9s \u00e1ltal felt\u00f6lt\u00f6tt f\u00e1jlok sz\u00e1ma t\u00fall\u00e9pte a be\u00e1ll\u00edtott korl\u00e1tot.
+multipart.file.count.max.exceeded.useraction=N\u00f6velje a k\u00e9r\u00e9senk\u00e9nt felt\u00f6lthet\u0151 f\u00e1jlok maxim\u00e1lis sz\u00e1m\u00e1t a maxFileCount webContainer egy\u00e9ni tulajdons\u00e1g be\u00e1ll\u00edt\u00e1s\u00e1val a server.xml f\u00e1jlban. Az\nalap\u00e9rtelmezett \u00e9rt\u00e9k 5000. A korl\u00e1tlan f\u00e1jlfelt\u00f6lt\u00e9shez \u00e1ll\u00edtsa be a -1 \u00e9rt\u00e9ket.
+
+cannot.sendRedirect.response.already.committed=CWWWC0007E: A v\u00e1lasz sendRedirect nem enged\u00e9lyezett a v\u00e1lasz v\u00e9gleges\u00edt\u00e9se ut\u00e1n.
+cannot.sendRedirect.response.already.committed.explanation=A v\u00e1lasz v\u00e9gleges\u00edt\u00e9sekor nem tud \u00e1tir\u00e1ny\u00edt\u00e1st k\u00fcldeni.
+cannot.sendRedirect.response.already.committed.useraction=Ellen\u0151rizze a sendRedirect funkci\u00f3t, \u00e9s gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy a v\u00e1lasz nincs v\u00e9gleges\u00edtve, vagy k\u00e9zzel vagy automatikusan, miel\u0151tt a sendRedirect megh\u00edv\u00e1sra ker\u00fcl.
+
+redirect.location.cannot.be.null=CWWWC0008E: Az \u00e1tir\u00e1ny\u00edt\u00e1si hely nem lehet null.
+redirect.location.cannot.be.null.explanation=Az \u00e1tir\u00e1ny\u00edt\u00e1si hely URL c\u00edm\u00e9nek relat\u00edv vagy abszol\u00fat URL c\u00edmnek kell lennie. 
+redirect.location.cannot.be.null.useraction=Friss\u00edtse az \u00e1tir\u00e1ny\u00edt\u00e1si helyet olyan URL \u00e9rt\u00e9k megad\u00e1s\u00e1val, amely nem \u00fcres. Az URL lehet relat\u00edv vagy abszol\u00fat.
+
+sendRedirect.hyper.text.url=<html><body>Redirecting<p> <a href="{0}"></a></p></body></html>
+
+query.or.post.is.null=CWWWC0009E: A HTTP k\u00e9r\u00e9s lek\u00e9rdez\u00e9si karaktersorozat vagy HTTP POST k\u00e9r\u00e9s adatok null\u00e9rt\u00e9k\u0171ek.
+query.or.post.is.null.explanation=Az alkalmaz\u00e1s megpr\u00f3b\u00e1lt \u00e9rtelmezni egy null HTTP lek\u00e9rdez\u00e9si karaktersorozatot vagy egy null HTTP POST k\u00e9r\u00e9s t\u00f6rzset.
+query.or.post.is.null.useraction=Az \u00fcgyf\u00e9lnek nem null HTTP k\u00e9r\u00e9s lek\u00e9rdez\u00e9si karaktersorozatot vagy nem null HTTP POST k\u00e9r\u00e9s testet kell k\u00fcldenie.
+
+read.write.bytebuffer.null=CWWWC0010E: Egy InputStream m\u0171velet vagy egy OutputStream m\u0171velet \u00edr\u00e1sa meghi\u00fasult, mert egy v\u00e1ltoz\u00f3 argumentum ByteBuffer p\u00e9ld\u00e1ny null volt.
+read.write.bytebuffer.null.explanation=Az olvas\u00e1si vagy \u00edr\u00e1si API sz\u00e1m\u00e1ra \u00e1tadott ByteBuffer p\u00e9ld\u00e1ny nem lehet null.
+read.write.bytebuffer.null.useraction=M\u00f3dos\u00edtsa az alkalmaz\u00e1sk\u00f3dot egy nem null ByteBuffer p\u00e9ld\u00e1ny l\u00e9trehoz\u00e1s\u00e1hoz az InputStream vagy a OutputStream m\u0171velethez.
+
+read.write.failed.isReady.false=CWWWC0011E: Egy InputStream m\u0171velet vagy egy OutputStream m\u0171velet \u00edr\u00e1sa meghi\u00fasult, mert a isReady API false \u00e9rt\u00e9ket ad vissza.
+read.write.failed.isReady.false.explanation=Ha a isReady API false \u00e9rt\u00e9ket ad vissza, akkor nem h\u00edvhat olvas\u00e1si vagy \u00edr\u00e1si met\u00f3dust.
+read.write.failed.isReady.false.useraction=M\u00f3dos\u00edtsa az alkalmaz\u00e1slogik\u00e1t, hogy a folyam k\u00e9szen \u00e1lljon egy InputStream vagy a OutputStream m\u0171veletre.
+
+sendRedirect.cannot.convert.relative.url=CWWWC0012E: A sendRedirect relat\u00edv URL az alkalmaz\u00e1sban nem alak\u00edthat\u00f3 \u00e1t \u00e9rv\u00e9nyes URL -re.
+sendRedirect.cannot.convert.relative.url.explanation=A megadott relat\u00edv URL tartalmazhat \u00e9rv\u00e9nytelen el\u00e9r\u00e9si \u00fatvonalkeresztez\u0151 karaktereket vagy indexeket.
+sendRedirect.cannot.convert.relative.url.useraction=Ellen\u0151rizze a sendRedirect hely\u00e9t URL az alkalmaz\u00e1sban, miel\u0151tt megh\u00edvja a response.sendRedirect( ) m\u00f3dszert
+
+invalid.accept.language.length=CWWWC0013E: Az HTTP k\u00e9r\u00e9s Accept-Language fejl\u00e9c\u00e9nek \u00e9rt\u00e9ke t\u00fal hossz\u00fa.
+invalid.accept.language.length.explanation=Az \u00fcgyf\u00e9l t\u00fal hossz\u00fa \u201eAccept-Language\u201d fejl\u00e9ceket k\u00fcld.
+invalid.accept.language.length.useraction=Az \u00fcgyf\u00e9lnek olyan Accept-Language fejl\u00e9cet kell elk\u00fcldenie, amelynek \u00e9rt\u00e9ke legfeljebb 4096 b\u00e1jt hossz\u00fas\u00e1g\u00fa.

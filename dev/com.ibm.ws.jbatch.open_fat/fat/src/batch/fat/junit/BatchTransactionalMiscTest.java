@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2014, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *   IBM Corporation - initial API and implementation
@@ -30,6 +32,7 @@ import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.topology.impl.LibertyServerFactory;
 
 /**
  * As bugs are raised via RI, which itself doesn't handle transactions in SE, let's
@@ -45,6 +48,7 @@ public class BatchTransactionalMiscTest extends BatchFATHelper {
     @BeforeClass
     public static void setup() throws Exception {
 
+        server = LibertyServerFactory.getLibertyServer("batchFAT");
         BatchAppUtils.addDropinsBatchFATWar(server);
         BatchAppUtils.addDropinsDbServletAppWar(server);
 

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -42,7 +44,7 @@ import com.meterware.httpunit.WebConversation;
 import com.meterware.httpunit.WebRequest;
 
 import componenttest.common.apiservices.Bootstrap;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyClient;
 import componenttest.topology.impl.LibertyClientFactory;
 import componenttest.topology.impl.LibertyFileManager;
@@ -63,29 +65,6 @@ public class CommonTest {
                             return System.getProperty("java.version");
                         }
                     });
-    protected static final boolean JAVA_VERSION_6 = JAVA_VERSION
-                    .startsWith("1.6.");
-    protected static final boolean HOTSPOT_JVM_RUN = AccessController
-                    .doPrivileged(new PrivilegedAction<Boolean>() {
-                        @Override
-                        public Boolean run() {
-                            String hotspotString = System.getProperty("fat.on.hotspot");
-                            boolean hotspot;
-                            if (hotspotString != null) {
-                                Log.info(c, "<clinit>", "fat.on.hotspot="
-                                                        + hotspotString);
-                                hotspot = Boolean.parseBoolean(hotspotString);
-                            } else {
-                                String vm = System.getProperty("java.vm.name");
-                                Log.info(c, "<clinit>", "java.vm.name=" + vm);
-                                hotspot = vm.contains("HotSpot");
-                            }
-
-                            Log.info(c, "<clinit>", "HOTSPOT_JVM_RUN=" + hotspot);
-                            return hotspot;
-                        }
-                    });
-
     protected static final String MAC_RUN = AccessController
                     .doPrivileged(new PrivilegedAction<String>() {
                         @Override
@@ -181,7 +160,7 @@ public class CommonTest {
     /**
      * Sets up and runs a client. A client.xml file is expected to be present in
      * the client's root directory.
-     * 
+     *
      * @param testClientName
      * @param ignoreErrors
      * @throws Exception
@@ -216,7 +195,7 @@ public class CommonTest {
     /**
      * Sets up and runs a client. A client.xml file is expected to be present in
      * the client's root directory.
-     * 
+     *
      * @param testClientName
      * @throws Exception
      */
@@ -228,15 +207,15 @@ public class CommonTest {
     /**
      * Sets up and runs a client. A client.xml file is expected to be present in
      * the client's root directory.
-     * 
+     *
      * @param testClientName
      * @param clientxml
-     * @param pause the maximum wait time in seconds prior to invoke init() method of the ORB object.
-     *            This can be used in order to make sure that a SSL certificate is being genereated.
-     *            At the worst case, it took more than 20 seconds to generate. So putting 30 seconds.
-     *            When this value is set, the calc application will check whether key.jks file exists
-     *            in the default location for every two seconds, and if it's not there, wait up to specified wait time.
-     *            When it reaches the maximum wait time, the program resumes.
+     * @param pause          the maximum wait time in seconds prior to invoke init() method of the ORB object.
+     *                           This can be used in order to make sure that a SSL certificate is being genereated.
+     *                           At the worst case, it took more than 20 seconds to generate. So putting 30 seconds.
+     *                           When this value is set, the calc application will check whether key.p12 file exists
+     *                           in the default location for every two seconds, and if it's not there, wait up to specified wait time.
+     *                           When it reaches the maximum wait time, the program resumes.
      * @param ignoreErrors
      * @throws Exception
      */
@@ -247,15 +226,15 @@ public class CommonTest {
     /**
      * Sets up and runs a client. A client.xml file is expected to be present in
      * the client's root directory.
-     * 
+     *
      * @param testClientName
      * @param clientxml
-     * @param pause the maximum wait time in seconds prior to invoke init() method of the ORB object.
-     *            This can be used in order to make sure that a SSL certificate is being genereated.
-     *            At the worst case, it took more than 20 seconds to genereate. So putting 30 seconds.
-     *            When this value is set, the calc application will check whether key.jks file exists
-     *            in the default location for every two seconds, and if it's not there, wait up to specified wait time.
-     *            When it reaches the maximum wait time, the program resumes.
+     * @param pause          the maximum wait time in seconds prior to invoke init() method of the ORB object.
+     *                           This can be used in order to make sure that a SSL certificate is being genereated.
+     *                           At the worst case, it took more than 20 seconds to genereate. So putting 30 seconds.
+     *                           When this value is set, the calc application will check whether key.p12 file exists
+     *                           in the default location for every two seconds, and if it's not there, wait up to specified wait time.
+     *                           When it reaches the maximum wait time, the program resumes.
      * @param ignoreErrors
      * @throws Exception
      */
@@ -287,7 +266,7 @@ public class CommonTest {
         if (waitTime > 0) {
             startParms.add(Integer.toString(waitTime));
             String clientRoot = testClient.getClientRoot();
-            String keyLocation = clientRoot + "/resources/security/key.jks";
+            String keyLocation = clientRoot + "/resources/security/key.p12";
             Log.info(c, thisMethod, "wait Time is " + waitTime + " seconds. keyLocation is" + keyLocation);
             startParms.add(keyLocation);
         }
@@ -305,7 +284,7 @@ public class CommonTest {
     /**
      * Sets up and runs a client. A client.xml file is expected to be present in
      * the client's root directory.
-     * 
+     *
      * @param testClientName
      * @throws Exception
      */
@@ -332,7 +311,7 @@ public class CommonTest {
     /**
      * Sets up and runs a client. A client.xml file is expected to be present in
      * the client's root directory.
-     * 
+     *
      * @param testClientName
      * @param ignoreErrors
      * @throws Exception
@@ -375,7 +354,7 @@ public class CommonTest {
     /**
      * Sets up and runs a client, passing in the specified parameters as arguments to the client. A client.xml file is
      * expected to be present in the client's root directory.
-     * 
+     *
      * @param testClientName
      * @param parameters
      * @return
@@ -389,7 +368,7 @@ public class CommonTest {
      * Sets up and runs a client, passing in the specified parameters as arguments to the client. If {@code clientXml} is
      * not {@code null}, the client is configured to use the specified client configuration file from within the configs/
      * directory of the client. Otherwise, a client.xml file is expected to be present in the client's root directory.
-     * 
+     *
      * @param testClientName
      * @param clientXml
      * @param parameters
@@ -426,7 +405,7 @@ public class CommonTest {
      * Sets up and runs a client, passing in the specified parameters as arguments to the client. If {@code clientXml} is
      * not {@code null}, the client is configured to use the specified client configuration file from within the configs/
      * directory of the client. Otherwise, a client.xml file is expected to be present in the client's root directory.
-     * 
+     *
      * @param testClientName
      * @param clientXml
      * @param parameters
@@ -459,7 +438,7 @@ public class CommonTest {
     /**
      * Sets up and starts a server. A server.xml file is expected to be present
      * in the client's root directory.
-     * 
+     *
      * @param testServerName
      * @throws Exception
      */
@@ -480,7 +459,7 @@ public class CommonTest {
         // assertNotNull("Application did not start",
         // testServer.waitForStringInLog("CWWKZ0001I"));
         if (isSecure) {
-            assertNotNull("LTPA configuration did not report it was ready", testServer.waitForStringInLog("CWWKS4105I"));
+            testServer.waitForLTPAConfigReady();
         }
 
     }
@@ -520,13 +499,6 @@ public class CommonTest {
 
         // Always set tmp dir.
         JVM_ARGS += " -Djava.io.tmpdir=" + TMP_DIR;
-
-        // Avoid ClassLoader deadlocks on HotSpot Java 6.
-        if (HOTSPOT_JVM_RUN && JAVA_VERSION_6) {
-            JVM_ARGS += " -XX:+UnlockDiagnosticVMOptions"
-                        + " -XX:+UnsyncloadClass"
-                        + " -Dosgi.classloader.lock=classname";
-        }
 
         // Add JaCoCo java agent to generate code coverage for FAT test run
         if (DO_COVERAGE) {
@@ -608,8 +580,8 @@ public class CommonTest {
                 if (includeFiles != null) {
                     String[] files = includeFiles.split("\\s*,\\s*");
                     for (String fileName : files) {
-                        RemoteFile x = new RemoteFile(machine, clientRoot + "/"
-                                                               + fileName);
+                        RemoteFile x = machine.getFile(clientRoot + "/"
+                                                       + fileName);
                         if (x.exists()) {
                             props.clear();
                             InputStream is = null;
@@ -666,7 +638,7 @@ public class CommonTest {
 
     public static RemoteFile getClientBootstrapPropertiesFile(Machine machine,
                                                               String clientRoot) throws Exception {
-        return new RemoteFile(machine, clientRoot + "/bootstrap.properties");
+        return machine.getFile(clientRoot + "/bootstrap.properties");
     }
 
     /**
@@ -700,6 +672,14 @@ public class CommonTest {
             try {
                 Log.info(c, thisMethod, "Copying: " + copyFromFile + " to " + clientFileLoc);
                 LibertyFileManager.copyFileIntoLiberty(testClient.getMachine(), clientFileLoc, "client.xml", copyFromFile);
+                
+                // Also copy client_base.xml if it exists (for configs that use includes)
+                String baseConfigPath = new File(copyFromFile).getParent() + File.separator + "client_base.xml";
+                File baseConfigFile = new File(baseConfigPath);
+                if (baseConfigFile.exists()) {
+                    Log.info(c, thisMethod, "Copying base config: " + baseConfigPath + " to " + clientFileLoc);
+                    LibertyFileManager.copyFileIntoLiberty(testClient.getMachine(), clientFileLoc, "client_base.xml", baseConfigPath);
+                }
             } catch (Exception ex) {
                 ex.printStackTrace(System.out);
                 throw ex;
@@ -754,7 +734,7 @@ public class CommonTest {
 //
     /**
      * setup before running a test
-     * 
+     *
      * @throws Exception
      */
     @Before
@@ -769,7 +749,7 @@ public class CommonTest {
 
     /**
      * Clean up after running a test
-     * 
+     *
      * @throws Exception
      */
     @After
@@ -852,7 +832,7 @@ public class CommonTest {
     /**
      * Asserts that no System.err messages are contained in {@code output}. This is done by checking to see if there are
      * any lines in {@code output} that begin with {@code [err]}.
-     * 
+     *
      * @param output
      */
     public static void assertNoErrMessages(String output) {
@@ -867,11 +847,11 @@ public class CommonTest {
      * JakartaEE9 transform applications for a specific client.
      *
      * @param client
-     *            The client to transform the applications on.
+     *                   The client to transform the applications on.
      */
     public static void transformApps(LibertyClient client) {
-        if (JakartaEE9Action.isActive()) {
-            String[] apps = null;
+        String[] apps = null;
+        if (JakartaEEAction.isEE9OrLaterActive()) {
 
             switch (client.getClientName()) {
 
@@ -895,6 +875,9 @@ public class CommonTest {
                     apps = new String[] { "apps/BasicCalculatorClient.ear", "apps/earDD.ear" };
                     break;
                 case "myTestClient":
+                    apps = new String[] { "apps/BasicCalculatorClient.ear", "apps/TechnologySamples.ear" };
+                    break;
+                case "myTestClientCipher":
                     apps = new String[] { "apps/BasicCalculatorClient.ear", "apps/TechnologySamples.ear" };
                     break;
                 case "noDefaultKeyClient":
@@ -921,10 +904,12 @@ public class CommonTest {
                     apps = new String[] {};
                     break;
             }
+        }
 
+        if (apps != null) {
             for (String app : apps) {
                 Path someArchive = Paths.get(client.getClientRoot() + File.separatorChar + app);
-                JakartaEE9Action.transformApp(someArchive);
+                JakartaEEAction.transformApp(someArchive);
             }
         }
     }
@@ -935,8 +920,8 @@ public class CommonTest {
      * @param server The server to transform the applications on.
      */
     public static void transformApps(LibertyServer server) {
-        if (JakartaEE9Action.isActive()) {
-            String[] apps = null;
+        String[] apps = null;
+        if (JakartaEEAction.isEE9OrLaterActive()) {
 
             switch (server.getServerName()) {
 
@@ -944,6 +929,8 @@ public class CommonTest {
                 case "NonSecureServerTest":
                 case "SSLCipherTest":
                 case "SSLnonIBMCipherTest":
+                case "SSLHandshakeTest":
+                case "SSLHandshakeTestNonIBM":
                     apps = new String[] { "apps/BasicCalculator.ear", "dropins/testmarker.war" };
                     break;
                 case "javacolonServerInjection":
@@ -956,10 +943,12 @@ public class CommonTest {
                     apps = new String[] {};
                     break;
             }
+        }
 
+        if (apps != null) {
             for (String app : apps) {
                 Path someArchive = Paths.get(server.getServerRoot() + File.separatorChar + app);
-                JakartaEE9Action.transformApp(someArchive);
+                JakartaEEAction.transformApp(someArchive);
             }
         }
     }

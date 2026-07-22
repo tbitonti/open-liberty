@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -37,6 +39,7 @@ import com.google.gson.reflect.TypeToken;
 import com.ibm.oauth.core.api.error.OidcServerException;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.common.crypto.CryptoUtils;
 import com.ibm.ws.security.oauth20.util.CharsetRange;
 import com.ibm.ws.security.oauth20.util.DateUtil;
 import com.ibm.ws.security.oauth20.util.MediaRange;
@@ -86,7 +89,10 @@ public abstract class AbstractOidcEndpointServices {
     protected static final String HTTP_METHOD_PUT = "PUT";
     protected static final String HTTP_METHOD_DELETE = "DELETE";
 
-    protected static final String ALG_MD5 = "MD5";
+    // FIPS 140-3: Algorithm assessment complete; no changes required.
+    // ALG_MD5 is not used with FIPS enabled.
+    protected static final String ALG_MD5 = CryptoUtils.MESSAGE_DIGEST_ALGORITHM_MD5;
+    protected static final String ALG_SHA256 = CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA_256;
 
     private static TraceComponent tc = Tr.register(AbstractOidcEndpointServices.class);
 
@@ -141,25 +147,25 @@ public abstract class AbstractOidcEndpointServices {
             query = AMPERSAND + query;
         }
 
-        int masterNdx = 0;
-        while (masterNdx < query.length()) {
+        int mainNdx = 0;
+        while (mainNdx < query.length()) {
             /*
              * The first character is always '&' - bump past that
              */
-            masterNdx++;
+            mainNdx++;
 
             // Get the next name=value parameter pair, which ends with '&' or is last.
             String parm = EMPTY_STRING;
-            int startNdx = masterNdx;
+            int startNdx = mainNdx;
             int endNdx = query.indexOf(AMPERSAND, startNdx);
 
             if (endNdx == -1) {
                 // If there is no '&' then we're at the end of the line
                 parm = query.substring(startNdx);
-                masterNdx = query.length();
+                mainNdx = query.length();
             } else {
                 parm = query.substring(startNdx, endNdx);
-                masterNdx = endNdx;
+                mainNdx = endNdx;
             }
             loadParmInMap(parm, map, decode);
         }

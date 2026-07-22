@@ -1,12 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2020 IBM Corporation and others.
+# Copyright (c) 2020, 2024 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
 bVersion=1.0
@@ -23,11 +22,6 @@ src:\
     test-applications/CDI12TestV2Listeners.war/src,\
     test-applications/CDI12TestV2NoInjection.war/src,\
     test-applications/CDI12TestV2Upgrade.war/src,\
-    test-applications/FormLogin_ReadListener.war/src,\
-    test-applications/LibertyReadListenerFilterTest.war/src,\
-    test-applications/LibertyReadWriteListenerTest.war/src,\
-    test-applications/LibertyWriteListenerFilterTest.war/src,\
-    test-applications/multiNBReadApp.war/src,\
     test-applications/ServletContextAddListener.war/src,\
     test-applications/ServletContextCreateListener.war/src,\
     test-applications/SessionIdListener.jar/src,\
@@ -44,10 +38,11 @@ src:\
     test-applications/TestServlet31AltVHost2.war/src,\
     test-applications/TestServletMapping.war/src,\
     test-applications/TestServletMappingAnno.war/src,\
+    test-applications/PH62271.war/src
 
 fat.project: true
 
-# Define additional tested features that are NOT present any any XML files in this bucket.
+# Define additional tested features that are NOT present in any XML files in this bucket.
 tested.features:\
     servlet-4.0,\
     cdi-2.0,\
@@ -56,6 +51,16 @@ tested.features:\
     cdi-3.0,\
     appsecurity-3.0,\
     appsecurity-4.0,\
+    servlet-6.0,\
+    expressionlanguage-5.0,\
+    pages-3.1,\
+    cdi-4.0,\
+    appsecurity-5.0,\
+    servlet-6.1,\
+    expressionlanguage-6.0,\
+    pages-4.0,\
+    cdi-4.1,\
+    appsecurity-6.0
 
 -buildpath: \
     com.ibm.websphere.javaee.cdi.1.2;version=latest,\
@@ -70,4 +75,5 @@ tested.features:\
     org.apache.httpcomponents:httpcore;strategy=exact;version=4.1.2,\
     com.ibm.ws.webcontainer.security_test.servlets;version=latest,\
     com.ibm.websphere.javaee.annotation.1.2;version=latest,\
-    com.ibm.websphere.javaee.interceptor.1.2;version=latest
+    com.ibm.websphere.javaee.interceptor.1.2;version=latest,\
+    io.openliberty.org.apache.xercesImpl;version=latest

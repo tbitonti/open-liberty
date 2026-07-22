@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.microprofile.config12.test;
 
@@ -16,6 +15,7 @@ import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.microprofile.config12.converter.implicit.web.ImplicitConverterServlet;
 import com.ibm.ws.microprofile.config12.converter.priority.web.ConverterPriorityServlet;
 import com.ibm.ws.microprofile.config12.converter.type.web.TypeConverterServlet;
@@ -24,10 +24,10 @@ import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.annotation.TestServlets;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.rules.repeater.MicroProfileActions;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
+import io.openliberty.microprofile.config.fat.repeat.ConfigRepeatActions;
 
 /**
  * Example Shrinkwrap FAT project:
@@ -45,12 +45,13 @@ import componenttest.topology.utils.FATServletClient;
 @RunWith(FATRunner.class)
 public class Config12ConverterTests extends FATServletClient {
 
+    public static final String SERVER_NAME = "ConverterServer";
     public static final String APP_NAME = "converterApp";
 
     @ClassRule
-    public static RepeatTests r = MicroProfileActions.repeat("ConverterServer", MicroProfileActions.LATEST, MicroProfileActions.MP13);
+    public static RepeatTests r = ConfigRepeatActions.repeatDefault(SERVER_NAME);
 
-    @Server("ConverterServer")
+    @Server(SERVER_NAME)
     @TestServlets({
                     @TestServlet(servlet = ConverterPriorityServlet.class, contextRoot = APP_NAME),
                     @TestServlet(servlet = ImplicitConverterServlet.class, contextRoot = APP_NAME),
@@ -59,7 +60,8 @@ public class Config12ConverterTests extends FATServletClient {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        ShrinkHelper.defaultDropinApp(server, APP_NAME, "com.ibm.ws.microprofile.config12.converter.*");
+        DeployOptions[] options = { DeployOptions.SERVER_ONLY };
+        ShrinkHelper.defaultDropinApp(server, APP_NAME, options, "com.ibm.ws.microprofile.config12.converter.*");
 
         server.startServer();
     }

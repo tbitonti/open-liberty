@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2013 IBM Corporation and others.
+ * Copyright (c) 2011, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jfap.inbound.channel;
 
@@ -37,7 +36,7 @@ import com.ibm.wsspi.kernel.service.utils.FrameworkState;
  * JFAP inbound chain class definition
  * As of now only two instances are possible: InboundBasic and InboundSecure
  */
-public class CommsInboundChain implements ChainEventListener {
+public class CommsInboundChain implements InboundChain, ChainEventListener {
     private static final TraceComponent tc = Tr.register(CommsInboundChain.class, JFapChannelConstants.MSG_GROUP, JFapChannelConstants.MSG_BUNDLE);
 
     private boolean _isSecureChain = false;
@@ -112,7 +111,7 @@ public class CommsInboundChain implements ChainEventListener {
 
     }
 
-    public void init(String endpointName, CHFWBundle cfBundle) {
+    public InboundChain init(String endpointName, CHFWBundle cfBundle) {
         _cfw = cfBundle.getFramework();
         _endpointMgr = cfBundle.getEndpointManager();
         _endpointName = endpointName;
@@ -127,6 +126,7 @@ public class CommsInboundChain implements ChainEventListener {
             _tcpName = _endpointName;
             _jfapName = "JFAP-" + _endpointName;
         }
+        return this;
     }
 
     public void enable(boolean enbaled) {
@@ -180,8 +180,8 @@ public class CommsInboundChain implements ChainEventListener {
         Map<String, Object> sslOptions = (_isSecureChain) ? _commsServerFacade.getSslOptions() : null;
 
         final ChainConfiguration newConfig = new ChainConfiguration(
-                        (_isSecureChain) ? _commsServerFacade.getConfigured_wasJmsSSLPort() : _commsServerFacade.getConfigured_wasJmsPort(),
-                        _commsServerFacade.getConfigured_Host(),
+                        (_isSecureChain) ? _commsServerFacade.getSecurePort() : _commsServerFacade.getBasicPort(),
+                        _commsServerFacade.getHost(),
                         tcpOptions,
                         sslOptions);
 
@@ -290,7 +290,7 @@ public class CommsInboundChain implements ChainEventListener {
                 _isChainStarted = false;
                 jmsActivePort = -1;
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
-                    SibTr.debug(tc, "JFAP chain InboundBasicMessaging failed in obtaining Listening port from ChannelFrameWork", e);
+                    SibTr.debug(tc, "JFAP chain " + _chainName +  " failed in obtaining Listening port from ChannelFrameWork", e);
                 if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
                     SibTr.exit(tc, "update");
                 return;
@@ -298,7 +298,7 @@ public class CommsInboundChain implements ChainEventListener {
 
             //Chain successfully started and bound to port. Channel Framework logs to System.out. So just add to trace
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
-                SibTr.debug(tc, "JFAP chain InboundBasicMessaging successfully started and bound to port: ", jmsActivePort);
+                SibTr.debug(tc, "JFAP chain " + _chainName +  " successfully started and bound to port: ", jmsActivePort);
 
             _isChainStarted = true;
             newConfig.isValidConfig = true;

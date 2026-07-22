@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,7 +13,6 @@
 package io.openliberty.microprofile.metrics.internal.monitor_fat;
 
 import java.io.BufferedReader;
-
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -34,11 +35,10 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.log.Log;
 
+import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.Server;
-import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
 
@@ -51,6 +51,7 @@ import componenttest.topology.impl.LibertyServer;
  * @SkipForRepeat("MPM3X")
  */
 @RunWith(FATRunner.class)
+@AllowedFFDC("javax.management.InstanceNotFoundException")
 public class MetricsMonitorTest {
 
     private static Class<?> c = MetricsMonitorTest.class;
@@ -103,9 +104,8 @@ public class MetricsMonitorTest {
                 "------- Enable mpMetrics-3.0 and monitor-1.0: vendor metrics should be available ------");
         server.setServerConfigurationFile("server_monitor30.xml");
         server.startServer();
-        Assert.assertNotNull("LTPA keys are not created/ready within timeout period of " + 60000 + "ms.",
-                server.waitForStringInLog("CWWKS4104A.*|CWWKS4105I.*", 60000));
-        Assert.assertNotNull("CWWKO0219I NOT FOUND", server.waitForStringInLog("defaultHttpEndpoint-ssl", 60000));
+        server.waitForLTPAConfigReady(60000);
+        server.waitForDefaultHTTPEndpointSSLStart(60000);
         Log.info(c, testName, "------- server started -----");
         Assert.assertNotNull("CWWKT0016I NOT FOUND", server.waitForStringInLogUsingMark("CWWKT0016I"));
         checkStrings(getHttpsServlet("/metrics"), new String[] { "base_", "vendor_" }, new String[] {});

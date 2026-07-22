@@ -31,7 +31,10 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -91,11 +94,15 @@ import org.apache.cxf.workqueue.AutomaticWorkQueue;
 import org.apache.cxf.workqueue.WorkQueueManager;
 import org.apache.cxf.ws.addressing.EndpointReferenceType;
 
+// Liberty Change Start - Imports
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.cxf.client.component.AsyncClientRunnableWrapperManager;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 
+
+import com.ibm.websphere.ras.annotation.Trivial;
+// Liberty Change End
 /*
  * HTTP Conduit implementation.
  * <p>
@@ -151,6 +158,7 @@ import com.ibm.ws.ffdc.annotation.FFDCIgnore;
  * instance is governed by policies either explicitly set or by
  * configuration.
  */
+@Trivial // Liberty Change
 @NoJSR250Annotations
 public abstract class HTTPConduit
     extends AbstractConduit
@@ -169,13 +177,27 @@ public abstract class HTTPConduit
 
     public static final String PROCESS_FAULT_ON_HTTP_400 = "org.apache.cxf.transport.process_fault_on_http_400";
     public static final String NO_IO_EXCEPTIONS = "org.apache.cxf.transport.no_io_exceptions";
+
+    /** 
+     * The HTTP status codes as contextual property (comma-separated integers as String) 
+     * on the outgoing {@link Message} which lead to setting {@code org.apache.cxf.transport.service_not_available} 
+     * for all responses with those status codes. This is used e.g. by the 
+     * {@code org.apache.cxf.clustering.FailoverTargetSelector} to determine if it should do the fail-over.
+     * Default: {@code 404,429,503} as per {@code DEFAULT_SERVICE_NOT_AVAILABLE_ON_HTTP_STATUS_CODES}
+     */
+    public static final String SERVICE_NOT_AVAILABLE_ON_HTTP_STATUS_CODES = 
+        "org.apache.cxf.transport.service_not_available_on_http_status_codes";
+
     /**
      * The Logger for this class.
      */
     protected static final Logger LOG = LogUtils.getL7dLogger(HTTPConduit.class);
 
+    private static final Collection<Integer> DEFAULT_SERVICE_NOT_AVAILABLE_ON_HTTP_STATUS_CODES = 
+            Arrays.asList(404, 429, 503);
+
     private static boolean hasLoggedAsyncWarning;
-    private static final TraceComponent tc = Tr.register(HTTPConduit.class);
+    private static final TraceComponent tc = Tr.register(HTTPConduit.class); // Liberty Change
 
     /**
      * This constant holds the suffix ".http-conduit" that is appended to the
@@ -192,6 +214,9 @@ public abstract class HTTPConduit
     private static final String HTTP_GET_METHOD = "GET";
     private static final Set<String> KNOWN_HTTP_VERBS_WITH_NO_CONTENT =
         new HashSet<>(Arrays.asList(new String[]{"GET", "HEAD", "OPTIONS", "TRACE"}));
+
+    private static final String AUTHORIZED_REDIRECTED_HTTP_VERBS = "http.redirect.allowed.verbs";
+
     /**
      * This constant is the Message(Map) key for a list of visited URLs that
      * is used in redirect loop protection.
@@ -280,6 +305,29 @@ public abstract class HTTPConduit
 
     private volatile boolean clientSidePolicyCalced;
 
+    // Liberty Change begin
+    private static boolean enableAutoRedirect;
+
+    static {
+
+        String autoRedirectPolicy = AccessController.doPrivileged(new PrivilegedAction<String>() {
+            @Override
+            public String run() {
+                return System.getProperty("jaxws.http.autoredirect");
+            }
+        });
+        if (LOG.isLoggable(Level.FINEST)) {
+            LOG.finest("jaxws.http.autoredirect property is set to " + autoRedirectPolicy);
+        }
+        if (autoRedirectPolicy != null 
+            && autoRedirectPolicy.trim().length() > 0
+            && autoRedirectPolicy.trim().equalsIgnoreCase("true")) {
+            enableAutoRedirect = true;
+        } else {
+            enableAutoRedirect = false;
+        }
+    } // Liberty Change End
+
 
     /**
      * Constructor
@@ -329,6 +377,11 @@ public abstract class HTTPConduit
         if (!clientSidePolicyCalced) {
             PolicyDataEngine policyEngine = bus.getExtension(PolicyDataEngine.class);
             if (policyEngine != null && endpointInfo.getService() != null) {
+                // Liberty Change begin
+                if (LOG.isLoggable(Level.FINEST)) {
+                   LOG.finest("updateClientPolicy: GetClientEndpointPolicy for endpoint: " + endpointInfo);
+                }
+                // Liberty Change end
                 clientSidePolicy = policyEngine.getClientEndpointPolicy(m,
                                                                         endpointInfo,
                                                                         this,
@@ -356,7 +409,7 @@ public abstract class HTTPConduit
     /**
      * This method returns the registered Logger for this conduit.
      */
-    @Override
+    @Override // Liberty Change
     protected Logger getLogger() {
         return LOG;
     }
@@ -494,15 +547,24 @@ public abstract class HTTPConduit
      *
      * @param message The message to be sent.
      */
-    @FFDCIgnore(URISyntaxException.class)
-    @Override
+    @FFDCIgnore(URISyntaxException.class) // Liberty Change
+    @Override // Liberty Change
     public void prepare(Message message) throws IOException {
+
+        AsyncClientRunnableWrapperManager.prepare(message); // Liberty Change
+        
         // This call can possibly change the conduit endpoint address and
         // protocol from the default set in EndpointInfo that is associated
         // with the Conduit.
+        boolean isLoggableFinest = LOG.isLoggable(Level.FINEST); // Liberty Change
         Address currentAddress;
         try {
             currentAddress = setupAddress(message);
+            // Liberty Change begin
+            if (isLoggableFinest) {
+               LOG.finest("HTTPConduit currentAddress: " + currentAddress.getString());
+            }
+            // Liberty Change end
         } catch (URISyntaxException e) {
             throw new IOException(e);
         }
@@ -541,8 +603,13 @@ public abstract class HTTPConduit
         }
         if (csPolicy.isAutoRedirect()) {
             needToCacheRequest = true;
-            LOG.log(Level.FINE, "AutoRedirect is turned on.");
+            // Liberty Change begin
+            if (isLoggableFinest) {
+               LOG.finest("AutoRedirect is turned on.");
+            }
+            // Liberty Change end
         }
+
         if (csPolicy.getMaxRetransmits() > 0) {
             needToCacheRequest = true;
             LOG.log(Level.FINE, "MaxRetransmits is set > 0.");
@@ -557,13 +624,14 @@ public abstract class HTTPConduit
             //use -1 and allow the URL connection to pick a default value
             isChunking = true;
             chunkThreshold = csPolicy.getChunkingThreshold();
+            if (isLoggableFinest) {
+              LOG.finest("Chunking enabled with Threshold: " + chunkThreshold); 
+            }
         }
         cookies.writeToMessageHeaders(message);
 
         // The trust decision is relegated to after the "flushing" of the
         // request headers.
-
-
 
         if (certConstraints != null) {
             message.put(CertConstraints.class.getName(), certConstraints);
@@ -588,6 +656,11 @@ public abstract class HTTPConduit
                                                   chunkThreshold));
         }
         // We are now "ready" to "send" the message.
+        // Liberty Change begin
+        if (isLoggableFinest) {
+           LOG.finest("HTTPConduit: Ready to send message...");
+        }
+        // Liberty Change end
     }
 
     protected boolean isChunkingSupported(Message message, String httpMethod) {
@@ -663,7 +736,7 @@ public abstract class HTTPConduit
         return (int)ctimeout;
     }
 
-    @Override
+    @Override // Liberty Change
     public void close(Message msg) throws IOException {
         InputStream in = msg.getContent(InputStream.class);
         try {
@@ -680,6 +753,7 @@ public abstract class HTTPConduit
                 }
             }
         } finally {
+			// Liberty Change Start
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                 Tr.debug(tc, "Finished servicing http request on conduit. ");
             }
@@ -689,7 +763,7 @@ public abstract class HTTPConduit
                 //clean up address within threadlocal of EndPointInfo
                 endpointInfo.resetAddress();  //Liberty #3669
             }
-
+			// Liberty Change End
         }
     }
 
@@ -744,8 +818,9 @@ public abstract class HTTPConduit
     /**
      * Close the conduit
      */
-    @Override
+    @Override // Liberty Change
     public void close() {
+	    // Liberty Change Start
         try {
             if (clientSidePolicy != null) {
                 clientSidePolicy.removePropertyChangeListener(this);
@@ -758,7 +833,7 @@ public abstract class HTTPConduit
             //clean up address within threadlocal of EndPointInfo
             endpointInfo.resetAddress();    //Liberty #3669
         }
-
+		// Liberty Change End
     }
 
     /**
@@ -840,12 +915,22 @@ public abstract class HTTPConduit
         AuthorizationPolicy effectiveAuthPolicy = getEffectiveAuthPolicy(message);
         String authString = authSupplier.getAuthorization(effectiveAuthPolicy, currentURI, message, null);
         if (authString != null) {
+            // Liberty Change begin
+            if (LOG.isLoggable(Level.FINEST)) {
+               LOG.finest("setHeadersByAuthorizationPolicy: authString: " + authString);
+            }
+            // Liberty Change end
             headers.setAuthorization(authString);
         }
 
         String proxyAuthString = proxyAuthSupplier.getAuthorization(proxyAuthorizationPolicy,
                                                                currentURI, message, null);
         if (proxyAuthString != null) {
+            // Liberty Change begin
+            if (LOG.isLoggable(Level.FINEST)) {
+               LOG.finest("setHeadersByAuthorizationPolicy: proxyAuthString: " + proxyAuthString);
+            }
+            // Liberty Change end
             headers.setProxyAuthorization(proxyAuthString);
         }
     }
@@ -855,7 +940,7 @@ public abstract class HTTPConduit
      * configuration from spring injection.
      */
     // REVISIT:What happens when the endpoint/bean name is null?
-    @Override
+    @Override // Liberty Change 
     public String getBeanName() {
         if (endpointInfo.getName() != null) {
             return endpointInfo.getName().toString() + ".http-conduit";
@@ -1072,8 +1157,8 @@ public abstract class HTTPConduit
          *
          * @param inMessage
          */
-        @Override
-        @FFDCIgnore(IOException.class)
+        @Override // Liberty Change 
+        @FFDCIgnore(IOException.class) // Liberty Change 
         public void onMessage(Message inMessage) {
             // disposable exchange, swapped with real Exchange on correlation
             inMessage.setExchange(new ExchangeImpl());
@@ -1110,18 +1195,18 @@ public abstract class HTTPConduit
         LOG.warning(sw.toString());
     }
 
-    @Override
+    @Override // Liberty Change 
     public void assertMessage(Message message) {
         PolicyDataEngine policyDataEngine = bus.getExtension(PolicyDataEngine.class);
         policyDataEngine.assertMessage(message, getClient(), new ClientPolicyCalculator());
     }
 
-    @Override
+    @Override // Liberty Change 
     public boolean canAssert(QName type) {
         return type.equals(new QName("http://cxf.apache.org/transports/http/configuration", "client"));
     }
 
-    @Override
+    @Override // Liberty Change 
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getSource() == clientSidePolicy
             && "decoupledEndpoint".equals(evt.getPropertyName())) {
@@ -1136,6 +1221,7 @@ public abstract class HTTPConduit
      * Wrapper output stream responsible for flushing headers and handling
      * the incoming HTTP-level response (not necessarily the MEP response).
      */
+    @Trivial // Liberty Change 
     protected abstract class WrappedOutputStream extends AbstractThresholdOutputStream {
         /**
          * This boolean is true if the request must be cached.
@@ -1223,7 +1309,7 @@ public abstract class HTTPConduit
         }
 
 
-        @FFDCIgnore(RejectedExecutionException.class)
+        @FFDCIgnore(RejectedExecutionException.class) // Liberty Change Start
         protected void handleResponseOnWorkqueue(boolean allowCurrentThread, boolean forceWQ) throws IOException {
             Runnable runnable = AsyncClientRunnableWrapperManager.wrap(outMessage, new Runnable() {
                 @Override
@@ -1282,6 +1368,7 @@ public abstract class HTTPConduit
                         if (LOG.isLoggable(Level.FINEST)) {
                             LOG.log(Level.FINEST, "Executing with " + ex);
                         }
+						// Liberty Change End
                         ex.execute(runnable);
                     }
                 } catch (RejectedExecutionException rex) {
@@ -1303,8 +1390,21 @@ public abstract class HTTPConduit
 
 
         protected void retransmit(String newURL) throws IOException {
+
+            // Liberty Change begin
+            boolean isLoggableFinest = LOG.isLoggable(Level.FINEST);
+            if (isLoggableFinest) {
+               LOG.finest("retransmit: Calling setupNewConnection for: " + newURL);
+            }
+            // Liberty Change end
             setupNewConnection(newURL);
+
             if (cachedStream != null && cachedStream.size() < Integer.MAX_VALUE) {
+                // Liberty Change begin
+                if (isLoggableFinest) {
+                   LOG.finest("retransmit: Calling setFixedLengthStreamingMode with cachedStream size: " + cachedStream.size());
+                }
+                // Liberty Change end
                 setFixedLengthStreamingMode((int)cachedStream.size());
             }
             setProtocolHeaders();
@@ -1321,6 +1421,11 @@ public abstract class HTTPConduit
             // If this is a GET method we must not touch the output
             // stream as this automagically turns the request into a POST.
             if ("GET".equals(getMethod()) || cachedStream == null) {
+                // Liberty Change begin
+                if (isLoggableFinest) {
+                   LOG.finest("retransmit: Invoking handleNoOutput");
+                }
+                // Liberty Change end
                 handleNoOutput();
                 return;
             }
@@ -1344,7 +1449,7 @@ public abstract class HTTPConduit
          * reset output stream ... etc.)
          */
         @Override
-        @FFDCIgnore(IOException.class)
+        @FFDCIgnore(IOException.class) // Liberty Change 
         protected void onFirstWrite() throws IOException {
             try {
                 handleHeadersTrustCaching();
@@ -1383,6 +1488,11 @@ public abstract class HTTPConduit
             String method = getMethod();
             if (KNOWN_HTTP_VERBS_WITH_NO_CONTENT.contains(method)
                 || PropertyUtils.isTrue(outMessage.get(Headers.EMPTY_REQUEST_PROPERTY))) {
+                // Liberty Change begin
+                if (LOG.isLoggable(Level.FINEST)) {
+                   LOG.finest("handleHeadersTrustCaching: Invoking handleNoOutput");
+                }
+                // Liberty Change end
                 handleNoOutput();
                 return;
             }
@@ -1393,8 +1503,8 @@ public abstract class HTTPConduit
         /**
          * Perform any actions required on stream closure (handle response etc.)
          */
-        @Override
-        @FFDCIgnore(value = {HttpRetryException.class, IOException.class, RuntimeException.class})
+        @Override // Liberty Change 
+        @FFDCIgnore(value = {HttpRetryException.class, IOException.class, RuntimeException.class}) // Liberty Change 
         public void close() throws IOException {
             try {
                 if (buffer != null && buffer.size() > 0) {
@@ -1429,6 +1539,11 @@ public abstract class HTTPConduit
                 if (origMessage != null && origMessage.contains(url.toString())) {
                     throw e;
                 }
+				// Liberty Change - Trace statement
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    // tracing here because this exception can get lost in async scenarios
+                    Tr.debug(tc, "Caught IOException while closing HTTPConduit", e);
+                }
                 throw mapException(e.getClass().getSimpleName()
                                    + " invoking " + url + ": "
                                    + e.getMessage(), e,
@@ -1441,10 +1556,10 @@ public abstract class HTTPConduit
             }
         }
 
-        @FFDCIgnore(Throwable.class)
+        @FFDCIgnore(Throwable.class) // Liberty Change 
         private <T extends Exception> T mapException(String msg,
                                                      T ex, Class<T> cls) {
-            T ex2 = ex;
+            T ex2 = ex; // Liberty Change 
             try {
                 ex2 = cls.cast(ex.getClass().getConstructor(String.class).newInstance(msg));
                 ex2.initCause(ex);
@@ -1462,9 +1577,23 @@ public abstract class HTTPConduit
          * @throws IOException
          */
         protected void handleRetransmits() throws IOException {
+
+            Set<String> allowedVerbsSet = MessageUtils.getContextualStrings(outMessage,
+                    AUTHORIZED_REDIRECTED_HTTP_VERBS, KNOWN_HTTP_VERBS_WITH_NO_CONTENT);
+            // Liberty Change begin
+            boolean isLoggableFinest = LOG.isLoggable(Level.FINEST);  
+            // If jaxws.http.autoredirect property is set to true, set AutoRedirect in HTTPClientPolicy
+            if (enableAutoRedirect) {
+                if (isLoggableFinest) {
+                    LOG.finest("handleRetransmits: Setting AutoRedirect to true in HTTPClientPolicy...");
+                }
+                getClient().setAutoRedirect(true);
+            }
+            // Liberty Change end
+
             // If we have a cachedStream, we are caching the request.
             if (cachedStream != null
-                || getClient().isAutoRedirect() && KNOWN_HTTP_VERBS_WITH_NO_CONTENT.contains(getMethod())
+                || getClient().isAutoRedirect() && allowedVerbsSet.contains(getMethod())
                 || authSupplier != null && authSupplier.requiresRequestCaching()) {
 
                 if (LOG.isLoggable(Level.FINE) && cachedStream != null) {
@@ -1477,8 +1606,12 @@ public abstract class HTTPConduit
                     LOG.fine(b.toString());
                 }
 
-
                 int maxRetransmits = getMaxRetransmits();
+                // Liberty Change begin
+                if (isLoggableFinest) {
+                   LOG.finest("handleRetransmits: Max Retransmits: " + maxRetransmits);
+                }
+                // Liberty Change end
                 updateCookiesBeforeRetransmit();
                 int nretransmits = 0;
                 while ((maxRetransmits < 0 || nretransmits < maxRetransmits) && processRetransmit()) {
@@ -1494,10 +1627,18 @@ public abstract class HTTPConduit
          * @throws IOException
          */
         protected boolean processRetransmit() throws IOException {
+            boolean isLoggableFinest = LOG.isLoggable(Level.FINEST);  // Liberty Change
             int responseCode = getResponseCode();
+            // Liberty Change begin
+            if (LOG.isLoggable(Level.FINEST)) {
+               LOG.finest("processRetransmit responseCode: " + responseCode);
+            }
+            // Liberty Change end
+
             if ((outMessage != null) && (outMessage.getExchange() != null)) {
                 outMessage.getExchange().put(Message.RESPONSE_CODE, responseCode);
             }
+
             // Process Redirects first.
             switch(responseCode) {
             case HttpURLConnection.HTTP_MOVED_PERM:
@@ -1515,10 +1656,16 @@ public abstract class HTTPConduit
             return false;
         }
 
-        @FFDCIgnore(value = {IOException.class, URISyntaxException.class})
+        @FFDCIgnore(value = {IOException.class, URISyntaxException.class}) // Liberty Change
         protected boolean redirectRetransmit() throws IOException {
+            boolean isLoggableFinest = LOG.isLoggable(Level.FINEST);  // Liberty Change
             // If we are not redirecting by policy, then we don't.
             if (!getClient(outMessage).isAutoRedirect()) {
+                // Liberty Change begin
+                if (isLoggableFinest) {
+                   LOG.finest("redirectRetransmit: AutoRedirect not set, returning...");
+                }
+                // Liberty Change end
                 return false;
             }
             Message m = new MessageImpl();
@@ -1527,8 +1674,20 @@ public abstract class HTTPConduit
             String newURL = extractLocation(Headers.getSetProtocolHeaders(m));
             String urlString = url.toString();
 
+            // Liberty Change begin
+            if (isLoggableFinest) {
+               LOG.finest("redirectRetransmit: New URL: " + newURL);
+               LOG.finest("redirectRetransmit: URL String : " + urlString);
+            }
+            // Liberty Change end
+
             try {
                 newURL = convertToAbsoluteUrlIfNeeded(conduitName, urlString, newURL, outMessage);
+                // Liberty Change begin
+                if (isLoggableFinest) {
+                   LOG.finest("redirectRetransmit: New Absolute URL is: " + newURL);
+                }
+                // Liberty Change end
                 detectRedirectLoop(conduitName, urlString, newURL, outMessage);
                 checkAllowedRedirectUri(conduitName, urlString, newURL, outMessage);
             } catch (IOException ex) {
@@ -1552,6 +1711,11 @@ public abstract class HTTPConduit
                 }
                 cookies.writeToMessageHeaders(outMessage);
                 outMessage.put("transport.retransmit.url", newURL);
+                // Liberty Change begin
+                if (isLoggableFinest) {
+                   LOG.finest("redirectRetransmit: Retransmitting to new URL: " + newURL);
+                }
+                // Liberty Change end
                 retransmit(newURL);
                 return true;
             }
@@ -1564,8 +1728,9 @@ public abstract class HTTPConduit
          * @return true if there was a retransmit
          * @throws IOException
          */
-        @FFDCIgnore(Throwable.class)
+        @FFDCIgnore(Throwable.class) // Liberty Change
         protected boolean authorizationRetransmit() throws IOException {
+            boolean isLoggableFinest = LOG.isLoggable(Level.FINEST);  // Liberty Change
             Message m = new MessageImpl();
             updateResponseHeaders(m);
             List<String> authHeaderValues = Headers.getSetProtocolHeaders(m).get("WWW-Authenticate");
@@ -1583,12 +1748,22 @@ public abstract class HTTPConduit
                     effectiveAthPolicy, currentURI, outMessage, authHeader.getFullHeader());
             if (authorizationToken == null) {
                 // authentication not possible => we give up
+                // Liberty Change begin
+                if (isLoggableFinest) {
+                   LOG.finest("authorizationRetransmit: authorizationToken is null, returning false");
+                }
+                // Liberty Change end
                 return false;
             }
 
             try {
                 closeInputStream();
             } catch (Throwable t) {
+                // Liberty Change begin
+                if (isLoggableFinest) {
+                   LOG.finest("authorizationRetransmit: Ignoring Throwable from closeInputStream: " + t);
+                }
+                // Liberty Change end
                 //ignore
             }
             new Headers(outMessage).setAuthorization(authorizationToken);
@@ -1596,9 +1771,6 @@ public abstract class HTTPConduit
             retransmit(url.toString());
             return true;
         }
-
-
-
 
         private int getMaxRetransmits() {
             HTTPClientPolicy policy = getClient(outMessage);
@@ -1622,6 +1794,11 @@ public abstract class HTTPConduit
                 || outMessage.getExchange().isSynchronous()) {
                 handleResponseInternal();
             } else {
+                // Liberty Change begin
+                if (LOG.isLoggable(Level.FINEST)) {
+                   LOG.finest("Invoking handleResponseAsync...");
+                }
+                // Liberty Change end
                 handleResponseAsync();
             }
         }
@@ -1653,7 +1830,10 @@ public abstract class HTTPConduit
             }
             if (exchange != null) {
                 exchange.put(Message.RESPONSE_CODE, rc);
-                if (rc == 404 || rc == 503 || rc == 429) {
+                final Collection<Integer> serviceNotAvailableOnHttpStatusCodes = MessageUtils
+                    .getContextualIntegers(outMessage, SERVICE_NOT_AVAILABLE_ON_HTTP_STATUS_CODES, 
+                        DEFAULT_SERVICE_NOT_AVAILABLE_ON_HTTP_STATUS_CODES);
+                if (serviceNotAvailableOnHttpStatusCodes.contains(rc)) {
                     exchange.put("org.apache.cxf.transport.service_not_available", true);
                 }
             }
@@ -1676,6 +1856,11 @@ public abstract class HTTPConduit
         protected void handleResponseInternal() throws IOException {
             Exchange exchange = outMessage.getExchange();
             int responseCode = doProcessResponseCode();
+            // Liberty Change begin
+            if (LOG.isLoggable(Level.FINEST)) {
+               LOG.finest("handleResponseInternal: ResponseCode returned: " + responseCode);
+            }
+            // Liberty Change end
 
             InputStream in = null;
             // oneway or decoupled twoway calls may expect HTTP 202 with no content
@@ -1686,7 +1871,7 @@ public abstract class HTTPConduit
             inMessage.put(Message.RESPONSE_CODE, responseCode);
             if (MessageUtils.getContextualBoolean(outMessage, SET_HTTP_RESPONSE_MESSAGE, false)) {
                 inMessage.put(HTTP_RESPONSE_MESSAGE, getResponseMessage());
-            }
+	    }
             propagateConduit(exchange, inMessage);
 
             if ((!doProcessResponse(outMessage, responseCode)
@@ -1707,14 +1892,29 @@ public abstract class HTTPConduit
                     if (null != ep && null != ep.getEndpointInfo() && null == ep.getEndpointInfo().
                             getProperty("org.apache.cxf.ws.addressing.MAPAggregator.decoupledDestination")) {
                         // remove callback so that it won't be invoked twice
+                        // Liberty Change begin
+                        if (LOG.isLoggable(Level.FINEST)) {
+                           LOG.finest("handleResponseInternal: Removing ClientCallBack...");
+                        }
+                        // Liberty Change end
                         ClientCallback cc = exchange.remove(ClientCallback.class);
                         if (null != cc) {
+                            // Liberty Change begin
+                            if (LOG.isLoggable(Level.FINEST)) {
+                               LOG.finest("handleResponseInternal: Invoking handleResponse for ClientCallBack: " + cc.getClass().getName());
+                            }
+                            // Liberty Change end
                             cc.handleResponse(null, null);
                         }
                     }
                     exchange.put("IN_CHAIN_COMPLETE", Boolean.TRUE);
-                    
+
                     exchange.setInMessage(inMessage);
+                    if (MessageUtils.getContextualBoolean(outMessage, 
+                            Message.PROPAGATE_202_RESPONSE_ONEWAY_OR_PARTIAL, false)) {
+                        incomingObserver.onMessage(inMessage);
+                    }
+
                     return;
                 }
             } else {
@@ -1745,7 +1945,6 @@ public abstract class HTTPConduit
             }
             inMessage.setContent(InputStream.class, in);
 
-
             incomingObserver.onMessage(inMessage);
 
         }
@@ -1762,6 +1961,7 @@ public abstract class HTTPConduit
         protected void handleHttpRetryException(HttpRetryException e) throws IOException {
             String msg = "HTTP response '" + e.responseCode() + ": "
                 + getResponseMessage() + "' invoking " + url;
+
             switch (e.responseCode()) {
             case HttpURLConnection.HTTP_MOVED_PERM: // 301
             case HttpURLConnection.HTTP_MOVED_TEMP: // 302
@@ -1820,7 +2020,7 @@ public abstract class HTTPConduit
          *                     established by the configured MessageTrustDecider.
          * @see MessageTrustDecider
          */
-        @FFDCIgnore(UntrustedURLConnectionIOException.class)
+        @FFDCIgnore(UntrustedURLConnectionIOException.class) // Liberty Change 
         protected void makeTrustDecision() throws IOException {
 
             MessageTrustDecider decider2 = outMessage.get(MessageTrustDecider.class);
@@ -1894,7 +2094,7 @@ public abstract class HTTPConduit
                     || !newUri.getHost().equals(lastUri.getHost())) {
                     String msg = "Different HTTP Scheme or Host Redirect detected on Conduit '"
                         + conduitName + "' on '" + newURL + "'";
-                    LOG.log(Level.INFO, msg);
+                    LOG.log(Level.FINEST, msg); // Liberty Change 
                     throw new IOException(msg);
                 }
             }
@@ -1902,7 +2102,7 @@ public abstract class HTTPConduit
             String allowedRedirectURI = (String)message.getContextualProperty(AUTO_REDIRECT_ALLOWED_URI);
             if (allowedRedirectURI != null && !newURL.startsWith(allowedRedirectURI)) {
                 String msg = "Forbidden Redirect URI " + newURL + "detected on Conduit '" + conduitName;
-                LOG.log(Level.INFO, msg);
+                LOG.log(Level.FINEST, msg); // Liberty Change 
                 throw new IOException(msg);
             }
 

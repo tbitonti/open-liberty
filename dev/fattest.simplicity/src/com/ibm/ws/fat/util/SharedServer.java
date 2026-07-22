@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -46,6 +48,7 @@ public class SharedServer extends ExternalResource {
 
     private final String serverName;
     private final boolean waitForSecurity;
+    private final boolean validateApps;
     private LibertyServer server;
     private String[] featuresToInstall = new String[] {};
 
@@ -76,8 +79,13 @@ public class SharedServer extends ExternalResource {
      * @param waitForSecurity true if the {@link #startIfNotStarted()} method should wait for security-related methods before proceeding
      */
     public SharedServer(String serverName, boolean waitForSecurity) {
+        this(serverName, waitForSecurity, true);
+    }
+
+    public SharedServer(String serverName, boolean waitForSecurity, boolean validateApps) {
         this.serverName = serverName;
         this.waitForSecurity = waitForSecurity;
+        this.validateApps = validateApps;
     }
 
     @Override
@@ -167,9 +175,13 @@ public class SharedServer extends ExternalResource {
             LOG.info(delimiter);
             LOG.info("Starting server: " + server.getServerName());
             LOG.info(delimiter);
-            server.startServer(); // throws exception if start fails
+            if (validateApps) {
+                server.startServer(); // throws exception if start fails
+            } else {
+                server.startServerAndValidate(true, true, false);
+            }
             if (this.waitForSecurity) {
-                server.waitForStringInLog(".*CWWKS4105I: LTPA configuration is ready.*");
+                server.waitForLTPAConfigReady();
                 server.waitForStringInLog(".*CWWKS0008I: The security service is ready.*");
             }
             LOG.info(delimiter);
@@ -196,7 +208,7 @@ public class SharedServer extends ExternalResource {
             LOG.info(delimiter);
             server.startServerAndValidate(preClean, cleanStart, validateApps); // throws exception if start fails
             if (this.waitForSecurity) {
-                server.waitForStringInLog(".*CWWKS4105I: LTPA configuration is ready.*");
+                server.waitForLTPAConfigReady();
                 server.waitForStringInLog(".*CWWKS0008I: The security service is ready.*");
             }
             LOG.info(delimiter);

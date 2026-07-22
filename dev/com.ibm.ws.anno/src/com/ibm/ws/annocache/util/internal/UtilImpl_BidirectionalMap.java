@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -31,12 +33,11 @@ public class UtilImpl_BidirectionalMap implements Util_BidirectionalMap {
 
     public static final String CLASS_NAME = "UtilImpl_BidirectionalMap";
 
-    protected final String hashText;
-
     @Override
     @Trivial
     public String getHashText() {
-        return hashText;
+        return getClass().getSimpleName() + "@" + Integer.toHexString(hashCode()) +
+                        "(" + holderTag + " : " + heldTag + ")";
     }
 
     //
@@ -48,9 +49,6 @@ public class UtilImpl_BidirectionalMap implements Util_BidirectionalMap {
         super();
 
         String methodName = "<init>";
-
-        this.hashText = getClass().getSimpleName() + "@" + Integer.toHexString(hashCode()) +
-                        "(" + holderTag + " : " + heldTag + ")";
 
         this.factory = factory;
 
@@ -64,7 +62,7 @@ public class UtilImpl_BidirectionalMap implements Util_BidirectionalMap {
         this.i_heldToHoldersMap = new IdentityHashMap<String, Set<String>>();
 
         if ( logger.isLoggable(Level.FINER) ) {
-            logger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ]", this.hashText);
+            logger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ]", this.getHashText());
         }
     }
 
@@ -79,14 +77,12 @@ public class UtilImpl_BidirectionalMap implements Util_BidirectionalMap {
     }
 
     //
-
-    @Deprecated
+    
     @Override
-    @Trivial
-    public boolean getEnabled() {
+    public boolean getIsEnabled() {
         return true;
     }
-
+    
     //
 
     protected final String holderTag;
@@ -97,7 +93,7 @@ public class UtilImpl_BidirectionalMap implements Util_BidirectionalMap {
         return holderTag;
     }
 
-    protected String heldTag;
+    protected final String heldTag;
 
     @Override
     @Trivial
@@ -503,25 +499,27 @@ public class UtilImpl_BidirectionalMap implements Util_BidirectionalMap {
     @Override
     @Trivial
     public void log(Logger useLogger) {
-        String methodName = "log";
-        
-        useLogger.logp(Level.FINER, CLASS_NAME, methodName, "BiDi Map: BEGIN: [ {0} ]", getHashText());
+        if (useLogger.isLoggable(Level.FINER)) {
+            String methodName = "log";
 
-        useLogger.logp(Level.FINER, CLASS_NAME, methodName, "Holder Intern Map:");
-        getHolderInternMap().log(useLogger);
+            useLogger.logp(Level.FINER, CLASS_NAME, methodName, "BiDi Map: BEGIN: [ {0} ]", getHashText());
 
-        useLogger.logp(Level.FINER, CLASS_NAME, methodName, "Held Intern Map:");
-        getHeldInternMap().log(useLogger);
+            useLogger.logp(Level.FINER, CLASS_NAME, methodName, "Holder Intern Map:");
+            getHolderInternMap().log(useLogger);
 
-        logHolderMap(useLogger);
+            useLogger.logp(Level.FINER, CLASS_NAME, methodName, "Held Intern Map:");
+            getHeldInternMap().log(useLogger);
 
-        logHeldMap(useLogger);
+            logHolderMap(useLogger);
 
-        useLogger.logp(Level.FINER, CLASS_NAME, methodName, "BiDi Map: END: [ {0} ]", getHashText());
+            logHeldMap(useLogger);
+
+            useLogger.logp(Level.FINER, CLASS_NAME, methodName, "BiDi Map: END: [ {0} ]", getHashText());
+        }
     }
 
     @Trivial
-    public void logHolderMap(Logger useLogger) {
+    private void logHolderMap(Logger useLogger) {
         String methodName = "logHolderMap";
 
         useLogger.logp(Level.FINER, CLASS_NAME, methodName, "Holder-to-held Map: BEGIN");
@@ -539,7 +537,7 @@ public class UtilImpl_BidirectionalMap implements Util_BidirectionalMap {
     }
 
     @Trivial
-    public void logHeldMap(Logger useLogger) {
+    private void logHeldMap(Logger useLogger) {
         String methodName = "logHeldMap";
 
         useLogger.logp(Level.FINER, CLASS_NAME, methodName, "Held-to-holder Map: BEGIN");
@@ -690,25 +688,27 @@ public class UtilImpl_BidirectionalMap implements Util_BidirectionalMap {
     @Override
     @Trivial
     public void log(TraceComponent useLogger) {
-        Tr.debug(useLogger, MessageFormat.format("BEGIN Intern Map [ {0} ]:", getHashText()));
+        if (useLogger.isDebugEnabled()) {
+            Tr.debug(useLogger, MessageFormat.format("BEGIN Intern Map [ {0} ]:", getHashText()));
 
-        Tr.debug(useLogger, MessageFormat.format("BiDi Map: BEGIN: [ {0} ]", getHashText()));
+            Tr.debug(useLogger, MessageFormat.format("BiDi Map: BEGIN: [ {0} ]", getHashText()));
 
-        Tr.debug(useLogger, "Holder Intern Map:");
-        getHolderInternMap().log(useLogger);
+            Tr.debug(useLogger, "Holder Intern Map:");
+            getHolderInternMap().log(useLogger);
 
-        Tr.debug(useLogger, "Held Intern Map:");
-        getHeldInternMap().log(useLogger);
+            Tr.debug(useLogger, "Held Intern Map:");
+            getHeldInternMap().log(useLogger);
 
-        logHolderMap(useLogger);
+            logHolderMap(useLogger);
 
-        logHeldMap(useLogger);
+            logHeldMap(useLogger);
 
-        Tr.debug(useLogger, MessageFormat.format("BiDi Map: END: [ {0} ]", getHashText()));
+            Tr.debug(useLogger, MessageFormat.format("BiDi Map: END: [ {0} ]", getHashText()));
+        }
     }
 
     @Trivial
-    public void logHolderMap(TraceComponent useLogger) {
+    private void logHolderMap(TraceComponent useLogger) {
         Tr.debug(useLogger, "Holder-to-held Map: BEGIN");
 
         for (Map.Entry<String, Set<String>> i_holderEntry : i_holderToHeldMap.entrySet()) {
@@ -724,7 +724,7 @@ public class UtilImpl_BidirectionalMap implements Util_BidirectionalMap {
     }
 
     @Trivial
-    public void logHeldMap(TraceComponent useLogger) {
+    private void logHeldMap(TraceComponent useLogger) {
         Tr.debug(useLogger, "Held-to-holder Map: BEGIN");
 
         for ( Map.Entry<String, Set<String>> i_heldEntry : i_heldToHoldersMap.entrySet() ) {
@@ -738,11 +738,4 @@ public class UtilImpl_BidirectionalMap implements Util_BidirectionalMap {
 
         Tr.debug(useLogger, "Held-to-holder Map: END");
     }
-
-    //
-
-	@Override
-	public boolean getIsEnabled() {
-		return true;
-	}
 }

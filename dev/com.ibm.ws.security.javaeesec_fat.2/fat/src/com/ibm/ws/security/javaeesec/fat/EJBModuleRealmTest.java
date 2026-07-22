@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -109,6 +111,7 @@ public class EJBModuleRealmTest extends JavaEESecTestBase {
     }
 
     protected static void startServer(String config, String appName, String appName2) throws Exception {
+        myServer.removeAllInstalledAppsForValidation(); // We're changing configuration, so clear the list of apps expected to start
         myServer.setServerConfigurationFile(config);
         myServer.addInstalledAppForValidation(appName);
         myServer.addInstalledAppForValidation(appName2);
@@ -138,6 +141,8 @@ public class EJBModuleRealmTest extends JavaEESecTestBase {
         //create app and setup server
         Log.info(logClass, getCurrentTestName(), "-----Entering " + getCurrentTestName());
         Log.info(logClass, getCurrentTestName(), "-----Creating EAR app.");
+
+        assumeNotWindowsEe9Plus();
 
         // create ejbinwarservlet.war,
         WCApplicationHelper.createWar(myServer, TEMP_DIR, EJB_REALM1_WAR_NAME, true, EJB_BEAN_JAR_NAME, true, "web.jar.base", "web.ejb.jar.bean",
@@ -194,8 +199,6 @@ public class EJBModuleRealmTest extends JavaEESecTestBase {
         httpclient.getConnectionManager().shutdown();
         setupConnection();
 
-        myServer.removeInstalledAppForValidation(EJB_REALM_APP_NAME);
-        myServer.removeInstalledAppForValidation(EJB_REALM2_APP_NAME);
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 
@@ -220,6 +223,8 @@ public class EJBModuleRealmTest extends JavaEESecTestBase {
         String queryString;
         //create app and setup server
         Log.info(logClass, getCurrentTestName(), "-----Entering " + getCurrentTestName());
+        assumeNotWindowsEe9Plus();
+
         Log.info(logClass, getCurrentTestName(), "-----Creating EAR app.");
 
         // create ejbinwarservlet.war,
@@ -275,8 +280,6 @@ public class EJBModuleRealmTest extends JavaEESecTestBase {
         httpclient.getConnectionManager().shutdown();
         setupConnection();
 
-        myServer.removeInstalledAppForValidation(EJB_REALM_APP_NAME);
-        myServer.removeInstalledAppForValidation(EJB_REALM2_APP_NAME);
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2016 IBM Corporation and others.
+ * Copyright (c) 2015, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -50,6 +52,7 @@ public class ApplicationImpl implements Application {
     private final ApplicationType type;
     private final Collection<CDIArchive> moduleArchives;
     private final Collection<CDIArchive> libraryArchives;
+    private ClassLoader tccl = null; //A stored reference to the ClassLoader after it has been transformed into a TCCL.
 
     public ApplicationImpl(ApplicationInfo applicationInfo, RuntimeFactory factory) throws CDIException {
         this.applicationInfo = (ExtendedApplicationInfo) applicationInfo;
@@ -153,7 +156,7 @@ public class ApplicationImpl implements Application {
                     ArchiveType type = null;
                     ClassLoader classLoader = null;
 
-                    if (libType == LibraryType.PRIVATE_LIB) {
+                    if (libType == LibraryType.PRIVATE_LIB || libType == LibraryType.OVERRIDE_LIB) {
                         type = ArchiveType.EAR_LIB;
                         classLoader = getApplicationClassLoader();
                     } else {
@@ -230,5 +233,17 @@ public class ApplicationImpl implements Application {
 
     public ExtendedApplicationInfo getApplicationInfo() {
         return applicationInfo;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setTCCL(ClassLoader tccl) {
+        this.tccl = tccl;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ClassLoader getTCCL() {
+        return tccl;
     }
 }

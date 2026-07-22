@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -36,8 +38,6 @@ import com.ibm.wsspi.kernel.service.utils.ConcurrentServiceReferenceMap;
 import com.ibm.wsspi.kernel.service.utils.FrameworkState;
 import com.ibm.wsspi.ssl.SSLConfiguration;
 import com.ibm.wsspi.ssl.SSLSupport;
-import com.ibm.wsspi.timer.ApproximateTime;
-import com.ibm.wsspi.timer.QuickApproxTime;
 
 /**
  * DS component for providing channel factories to the channel framework.
@@ -187,7 +187,8 @@ public class SSLChannelProvider implements ChannelFactoryProvider, ManagedServic
      * @see com.ibm.websphere.channelfw.osgi.ChannelFactoryProvider#init()
      */
     @Override
-    public void init() {}
+    public void init() {
+    }
 
     /**
      * Required service: this is not dynamic, and so is called before activate
@@ -298,7 +299,8 @@ public class SSLChannelProvider implements ChannelFactoryProvider, ManagedServic
      *
      * @param service
      */
-    protected void unsetEventService(EventEngine service) {}
+    protected void unsetEventService(EventEngine service) {
+    }
 
     /**
      * DS method for setting the event reference.
@@ -315,27 +317,7 @@ public class SSLChannelProvider implements ChannelFactoryProvider, ManagedServic
      *
      * @param service
      */
-    protected void unsetChfwBundle(ServiceReference<CHFWBundle> service) {}
-
-    /**
-     * Set the approximate time service reference.
-     * This is a required reference: will be called before activation.
-     * It is also dynamic: it may be replaced-- but we will always have one.
-     *
-     * @param ref new ApproximateTime service instance/provider
-     */
-    protected void setApproxTime(ApproximateTime ref) {
-        // do nothing: need the ref for activation of service
-    }
-
-    /**
-     * Remove the reference to the approximate time service.
-     * This is a required reference, will be called after deactivate.
-     *
-     * @param ref ApproximateTime service instance/provider to remove
-     */
-    protected void unsetApproxTime(ApproximateTime ref) {
-        // do nothing: need the ref for activation of service
+    protected void unsetChfwBundle(ServiceReference<CHFWBundle> service) {
     }
 
     /**
@@ -394,6 +376,6 @@ public class SSLChannelProvider implements ChannelFactoryProvider, ManagedServic
      * @return the approximate time service instance to use within the channel framework
      */
     public static long getApproxTime() {
-        return QuickApproxTime.getApproxTime();
+        return System.currentTimeMillis();
     }
 }

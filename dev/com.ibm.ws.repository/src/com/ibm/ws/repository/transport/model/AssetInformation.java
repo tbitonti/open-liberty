@@ -1,15 +1,19 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 
 package com.ibm.ws.repository.transport.model;
+
+import static com.ibm.ws.repository.transport.model.CopyUtils.copyCollection;
 
 import java.util.List;
 
@@ -19,6 +23,21 @@ public class AssetInformation extends AbstractJSON {
     private List<PlatformRequirement> platformrequirements;
     private List<Platform> platforms;
     private String size;
+
+    public AssetInformation() {
+    }
+
+    /**
+     * Copy constructor
+     *
+     * @param other the object to copy
+     */
+    public AssetInformation(AssetInformation other) {
+        this.languages = copyCollection(other.languages);
+        this.platformrequirements = copyCollection(other.platformrequirements);
+        this.platforms = copyCollection(other.platforms);
+        this.size = other.size;
+    }
 
     public enum Language {
         JS

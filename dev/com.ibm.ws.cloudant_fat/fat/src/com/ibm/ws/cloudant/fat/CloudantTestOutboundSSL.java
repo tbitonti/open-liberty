@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2019 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,6 +27,8 @@ import com.ibm.websphere.simplicity.config.SSL;
 import com.ibm.websphere.simplicity.config.ServerConfiguration;
 
 import componenttest.annotation.Server;
+import componenttest.containers.KeystoreBuilder;
+import componenttest.containers.KeystoreBuilder.STORE_TYPE;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
@@ -42,7 +46,7 @@ public class CloudantTestOutboundSSL extends FATServletClient {
     public static final String JEE_APP = "cloudantfat";
     public static final String SERVLET_NAME = "CloudantTestServlet";
     // CWWKO0801E (SSLHandshakeErrorTracker - no cipher suites in common) : See defect 260787
-    public static String[] expectedFailures = { "CWWKG0033W.*does_not_exist", "CWWKO0801E" };
+    public static String[] expectedFailures = { "CWWKG0033W.*does_not_exist", "CWWKO0801E", "CWPKI0063W" };
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -54,6 +58,14 @@ public class CloudantTestOutboundSSL extends FATServletClient {
         server.addEnvVar("cloudant_databaseName", DB_NAME);
 
         cloudant.createDb(DB_NAME);
+
+        KeystoreBuilder.of(server, cloudant)
+                        .withCertificate("server", "/etc/couchdb/cert/server.crt")
+                        .withDirectory(server.getServerRoot() + "/security")
+                        .withFilename("keystore")
+                        .withStoreType(STORE_TYPE.JKS)
+                        .withPassword("liberty")
+                        .export();
 
         // Create a normal Java EE application and export to server
         ShrinkHelper.defaultApp(server, JEE_APP, "cloudant.web");

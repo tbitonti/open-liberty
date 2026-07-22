@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.http.channel.h2internal;
 
@@ -25,6 +24,7 @@ import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
 import com.ibm.ws.http.channel.h2internal.Constants.Direction;
 import com.ibm.ws.http.channel.h2internal.exceptions.CompressionException;
+import com.ibm.ws.http.channel.h2internal.exceptions.EnhanceYourCalmException;
 import com.ibm.ws.http.channel.h2internal.exceptions.FlowControlException;
 import com.ibm.ws.http.channel.h2internal.exceptions.Http2Exception;
 import com.ibm.ws.http.channel.h2internal.exceptions.ProtocolException;
@@ -52,7 +52,6 @@ import com.ibm.wsspi.bytebuffer.WsByteBufferPoolManager;
 import com.ibm.wsspi.channelfw.VirtualConnection;
 import com.ibm.wsspi.http.channel.values.MethodValues;
 import com.ibm.wsspi.tcpchannel.TCPReadRequestContext;
-import com.ibm.wsspi.tcpchannel.TCPRequestContext;
 
 /**
  * Represents an independent HTTP/2 stream
@@ -109,9 +108,6 @@ public class H2StreamProcessor {
     private long streamWindowUpdateWriteInitialSize;
     private long streamWindowUpdateWriteLimit;
 
-    //change to 8192 to track better if this is occurring
-    private final int MAX_TIME_TO_WAIT_FOR_WINDOW_UPDATE_MS = 8192;
-
     // the local window, which we're keeping track of as a receiver
     private long streamReadWindowSize = Constants.SPEC_INITIAL_WINDOW_SIZE;
 
@@ -128,8 +124,8 @@ public class H2StreamProcessor {
     // handle various stream close conditions
     private boolean rstStreamSent = false;
 
-    // keep track of how many empty data frames have been received
-    private int emptyFrameReceivedCount = 0;
+    // handle maximum size of header block
+    private long currentHeaderBlockSize = 0;
 
     /**
      * Create a stream processor initialized in idle state
@@ -154,8 +150,8 @@ public class H2StreamProcessor {
         myID = id.intValue();
         h2HttpInboundLinkWrap = link;
         muxLink = m;
-        // init the stream read window size to the max
-        streamReadWindowSize = muxLink.maxReadWindowSize;
+        // init the stream read window size
+        streamReadWindowSize = muxLink.getLocalConnectionSettings().getInitialWindowSize();
         updateStreamState(state);
         streamWindowUpdateWriteInitialSize = muxLink.getInitialWindowSize();
         streamWindowUpdateWriteLimit = muxLink.getInitialWindowSize();
@@ -164,7 +160,7 @@ public class H2StreamProcessor {
     /**
      * Complete the connection preface. At this point, we should have received the client connection preface string.
      * Now we need to make sure that the client sent a settings frame along with the preface, update our settings,
-     * and send an empty settings frame in response to the client preface.
+     * and send a settings frame in response to the client preface.
      *
      * @throws Http2Exception
      */
@@ -172,22 +168,31 @@ public class H2StreamProcessor {
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
             Tr.debug(tc, "completeConnectionPreface entry: about to send preface SETTINGS frame");
         }
+        Tr.debug(tc, "completeConnectionPreface MaxStreams is " + this.muxLink.config.getH2MaxConcurrentStreams() + " InitWindowSize is "
+                     + this.muxLink.config.getH2SettingsInitialWindowSize() + " MaxFrameSize is " + this.muxLink.config.getH2MaxFrameSize());
+
         FrameSettings settings;
         // send out a settings frame with any HTTP2 settings that the user may have changed
-        if (Constants.SPEC_INITIAL_WINDOW_SIZE != this.streamReadWindowSize) {
-            settings = new FrameSettings(0, -1, -1, this.muxLink.config.getH2MaxConcurrentStreams(), (int) this.streamReadWindowSize, this.muxLink.config.getH2MaxFrameSize(), -1, false);
+        // The window size here is the default for any stream that is opened by this server, SETTINGS_INITIAL_WINDOW_SIZE from the spec
+        if (Constants.SPEC_INITIAL_WINDOW_SIZE != this.muxLink.getLocalConnectionSettings().getInitialWindowSize()) {
+            settings = new FrameSettings(0, -1, -1, this.muxLink.config.getH2MaxConcurrentStreams(), this.muxLink.getLocalConnectionSettings().getInitialWindowSize(), this.muxLink.getLocalConnectionSettings().getMaxFrameSize(), -1, false);
         } else {
-            settings = new FrameSettings(0, -1, -1, this.muxLink.config.getH2MaxConcurrentStreams(), -1, this.muxLink.config.getH2MaxFrameSize(), -1, false);
+            settings = new FrameSettings(0, -1, -1, this.muxLink.config.getH2MaxConcurrentStreams(), -1, this.muxLink.getLocalConnectionSettings().getMaxFrameSize(), -1, false);
         }
 
         this.frameType = FrameTypes.SETTINGS;
         this.processNextFrame(settings, Direction.WRITING_OUT);
 
-        if (Constants.SPEC_INITIAL_WINDOW_SIZE != muxLink.maxReadWindowSize) {
-            // the user has changed the max connection read window, so we'll update that now
-            FrameWindowUpdate wup = new FrameWindowUpdate(0, (int) muxLink.maxReadWindowSize, false);
+        // Check to see if the user configured the connection window size.  If so, send a window update frame to let the client know.
+        // The window size here is to let the client know that at the connection level, we have a different size window than the default
+        if (Constants.SPEC_INITIAL_WINDOW_SIZE != this.muxLink.config.getH2ConnectionWindowSize()) {
+            // window update sets the difference between what the client has (default) and the new value.
+            int updateSize = this.muxLink.config.getH2ConnectionWindowSize() - Constants.SPEC_INITIAL_WINDOW_SIZE;
+            this.muxLink.connectionReadWindowSize = this.muxLink.config.getH2ConnectionWindowSize();
+            FrameWindowUpdate wup = new FrameWindowUpdate(0, updateSize, false);
             this.processNextFrame(wup, Direction.WRITING_OUT);
         }
+
     }
 
     /**
@@ -207,6 +212,11 @@ public class H2StreamProcessor {
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
             Tr.debug(tc, "processNextFrame-entry:  stream: " + myID + " frame type: " + frame.getFrameType().toString() + " direction: " + direction.toString()
                          + " H2InboundLink hc: " + muxLink.hashCode());
+        }
+
+        H2RateState h2rs = muxLink.getH2RateState();
+        if (direction.equals(Constants.Direction.READ_IN)) {
+            h2rs.updateCounters(frame);
         }
 
         // if we've already sent a reset frame on this stream , process any window size changes then ignore the new frame
@@ -255,10 +265,8 @@ public class H2StreamProcessor {
 
         ADDITIONAL_FRAME addFrame = ADDITIONAL_FRAME.FIRST_TIME;
         Http2Exception addFrameException = null;
-        H2RateState h2rs = muxLink.getH2RateState();
 
         while (addFrame != ADDITIONAL_FRAME.NO) {
-
             currentFrame = frame;
 
             // skip only first debug here, since it was done on entry
@@ -353,23 +361,19 @@ public class H2StreamProcessor {
                     }
                     return;
                 }
+
                 if (addFrame == null || addFrame == ADDITIONAL_FRAME.FIRST_TIME) {
-                    // check to see if this connection is misbehaving
-                    if (isControlFrame(frame)) {
-                        h2rs.incrementReadControlFrameCount();
-                    } else {
-                        h2rs.incrementReadNonControlFrameCount();
-                    }
-                    // check to see if this connection is misbehaving
-                    if (h2rs.isControlRatioExceeded() || h2rs.isStreamMisbehaving(emptyFrameReceivedCount)) {
-                        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                            Tr.debug(tc, "processNextFrame: too many no-op frames received, sending GOAWAY");
-                        }
+                    if (h2rs.isControlRatioExceeded() || h2rs.isResetsInTimeExceeded() || h2rs.isStreamMisbehaving()) {
                         addFrame = ADDITIONAL_FRAME.GOAWAY;
-                        if (h2rs.isStreamMisbehaving(emptyFrameReceivedCount)) {
-                            addFrameException = new ProtocolException("too many empty frames generated");
+                        if (h2rs.isStreamMisbehaving()) {
+                            addFrameException = new EnhanceYourCalmException("too many empty frames received");
+                            Tr.debug(tc, "processNextFrame: too many empty frames received on stream " + this.myID + ", sending GOAWAY");
+                        } else if (h2rs.isResetsInTimeExceeded()) {
+                            addFrameException = new EnhanceYourCalmException("too many reset frames processed");
+                            Tr.debug(tc, "processNextFrame: too many reset frames sent/received on stream " + this.myID + ", sending GOAWAY");
                         } else {
-                            addFrameException = new ProtocolException("too many control frames generated");
+                            addFrameException = new EnhanceYourCalmException("too many control frames received");
+                            Tr.debug(tc, "processNextFrame: too many control frames received on stream " + this.myID + ", sending GOAWAY");
                         }
                         continue;
                     }
@@ -378,9 +382,9 @@ public class H2StreamProcessor {
                 // This frame type is artificially generated, process it as a headers frame,
                 // as if it had come in off the wire
                 if (frameType == FrameTypes.PUSHPROMISEHEADERS) {
-                    getHeadersFromFrame();
-                    setHeadersComplete();
                     try {
+                        getHeadersFromFrame();
+                        setHeadersComplete();
                         processCompleteHeaders(true);
                         setReadyForRead();
                     } catch (Http2Exception he) {
@@ -518,6 +522,7 @@ public class H2StreamProcessor {
 
                 try {
                     readWriteTransitionState(direction);
+
                 } catch (CompressionException e) {
                     // if this is a compression exception, something has gone very wrong and the connection is hosed
                     if (addFrame == ADDITIONAL_FRAME.FIRST_TIME) {
@@ -527,6 +532,7 @@ public class H2StreamProcessor {
                         addFrame = ADDITIONAL_FRAME.NO;
                     }
                     continue;
+
                 } catch (Http2Exception e) {
                     if (addFrame == ADDITIONAL_FRAME.FIRST_TIME) {
                         if (e.isConnectionError()) {
@@ -551,7 +557,7 @@ public class H2StreamProcessor {
                     if (addFrame == null || addFrame == ADDITIONAL_FRAME.FIRST_TIME) {
                         if (h2rs.isControlRatioExceeded()) {
                             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                                Tr.debug(tc, "processNextFrame: too many control processed, sending GOAWAY");
+                                Tr.debug(tc, "processNextFrame: too many control frames, sending GOAWAY");
                             }
                             addFrame = ADDITIONAL_FRAME.GOAWAY;
                             addFrameException = new ProtocolException("too many control frames generated");
@@ -631,7 +637,7 @@ public class H2StreamProcessor {
                 writeFrameSync();
             } finally {
                 rstStreamSent = true;
-                muxLink.getH2RateState().setStreamReset();
+                muxLink.getH2RateState().incrementResetFrameCount();
                 this.updateStreamState(StreamState.CLOSED);
                 if (currentFrame.getFrameType() == FrameTypes.GOAWAY) {
                     muxLink.closeConnectionLink(e);
@@ -848,24 +854,35 @@ public class H2StreamProcessor {
                         throw new FlowControlException("Too much data received from the remote client");
                     }
 
-                    // update the connection read limit to its max
-                    int windowChange = (int) (muxLink.maxReadWindowSize - muxLink.connectionReadWindowSize);
-                    FrameWindowUpdate wuf = new FrameWindowUpdate(0, windowChange, false);
-                    muxLink.getStream(0).processNextFrame(wuf, Direction.WRITING_OUT);
-                    muxLink.connectionReadWindowSize += windowChange;
-
-                    // update the stream read limit to its max
-                    windowChange = (int) (muxLink.maxReadWindowSize - this.streamReadWindowSize);
-                    Frame savedFrame = currentFrame; // save off the current frame
-                    if (!currentFrame.flagEndStreamSet()) {
-                        currentFrame = new FrameWindowUpdate(myID, windowChange, false);
-                        writeFrameSync();
-                        streamReadWindowSize += windowChange;
-                        currentFrame = savedFrame;
+                    // Only send window_update frame for the connection if we are under half the max size, or if we are not limiting
+                    if ((!muxLink.limitWindowUpdateFrames) ||
+                        (muxLink.connectionReadWindowSize < muxLink.config.getH2ConnectionWindowSize() / 2)) {
+                        // update the connection read limit to its max
+                        int windowChange = (int) (muxLink.config.getH2ConnectionWindowSize() - muxLink.connectionReadWindowSize);
+                        FrameWindowUpdate wuf = new FrameWindowUpdate(0, windowChange, false);
+                        muxLink.getStream(0).processNextFrame(wuf, Direction.WRITING_OUT);
+                        muxLink.connectionReadWindowSize += windowChange;
+                        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                            Tr.debug(tc, "updateStreamReadWindow: window update sent; connection limit:" + muxLink.connectionReadWindowSize);
+                        }
                     }
-                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                        Tr.debug(tc, "updateStreamReadWindow: window updates sent; new stream read limit: " + streamReadWindowSize
-                                     + " connection limit:" + muxLink.connectionReadWindowSize);
+
+                    // Only send window_update frame for the stream if we are under half the max size, or if not limiting
+                    if ((!muxLink.limitWindowUpdateFrames) ||
+                        (this.streamReadWindowSize < muxLink.getLocalConnectionSettings().getInitialWindowSize() / 2)) {
+                        // update the stream read limit to its max
+                        int windowChange = (int) (muxLink.getLocalConnectionSettings().getInitialWindowSize() - this.streamReadWindowSize);
+                        Frame savedFrame = currentFrame; // save off the current frame
+                        if (!currentFrame.flagEndStreamSet()) {
+                            currentFrame = new FrameWindowUpdate(myID, windowChange, false);
+                            writeFrameSync();
+                            streamReadWindowSize += windowChange;
+                            currentFrame = savedFrame;
+                        }
+                        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                            Tr.debug(tc, "updateStreamReadWindow: window update sent; new stream read limit: " + streamReadWindowSize);
+
+                        }
                     }
                 }
             }
@@ -1033,9 +1050,19 @@ public class H2StreamProcessor {
                 // check to see if too many client streams are currently open for this stream's h2 connection
                 muxLink.incrementActiveClientStreams();
                 if (muxLink.getActiveClientStreams() > muxLink.getLocalConnectionSettings().getMaxConcurrentStreams()) {
-                    RefusedStreamException rse = new RefusedStreamException("too many client-initiated streams are currently active; rejecting this stream");
-                    rse.setConnectionError(false);
-                    throw rse;
+                    muxLink.getH2RateState().incrementRefusedStreamCount();
+                    // Close the connection if too many connection refused errors, otherwise reset the stream
+                    if (muxLink.getH2RateState().tooManyStreamsRefused()) {
+                        Tr.debug(tc, "processIdle entry: Too many streams refused " + muxLink.getH2RateState().getRefusedStreamCount());
+                        EnhanceYourCalmException eyc = new EnhanceYourCalmException("too many client-initiated streams have been refused; closing the connection");
+                        eyc.setConnectionError(true);
+                        throw eyc;
+                    } else {
+                        RefusedStreamException rse = new RefusedStreamException("too many client-initiated streams are currently active; rejecting this stream");
+                        rse.setConnectionError(false);
+                        throw rse;
+                    }
+
                 }
 
                 processHeadersPriority();
@@ -1540,21 +1567,36 @@ public class H2StreamProcessor {
     /**
      * Appends the header block fragment in the current header frame to this stream's incomplete header block
      */
-    private void getHeadersFromFrame() {
+    private void getHeadersFromFrame() throws Http2Exception {
         byte[] hbf = null;
         if (currentFrame.getFrameType() == FrameTypes.HEADERS || currentFrame.getFrameType() == FrameTypes.PUSHPROMISEHEADERS) {
             hbf = ((FrameHeaders) currentFrame).getHeaderBlockFragment();
         } else if (currentFrame.getFrameType() == FrameTypes.CONTINUATION) {
             hbf = ((FrameContinuation) currentFrame).getHeaderBlockFragment();
         }
-
+        currentHeaderBlockSize += hbf.length;
+        // According to RFC 9113 A receiver MUST terminate the connection with a connection error (Section 5.4.1)
+        // of type COMPRESSION_ERROR if it does not decompress a field block
+        // In this case we haven't decompressed the header block because we are still queueing blocks from frames,
+        // so we will close the connection with a EnhanceYourCalm error to keep the Header tables in sync since
+        // we won't be processing any more headers
+        if (muxLink.maxHeaderBlockSize > 0 && currentHeaderBlockSize > muxLink.maxHeaderBlockSize) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "getHeadersFromFrame entry: Found header exceeding maximum header block size. According to RFC we should shut the connection down since we don't have any processing done for headers.");
+            }
+            muxLink.setContinuationExpected(false);
+            muxLink.setWriteContinuationExpected(false);
+            Http2Exception headersTooBig = new EnhanceYourCalmException("Stream: " + myID + " exceeds the maximum header block size configured.");
+            headersTooBig.setConnectionError(true);
+            throw headersTooBig;
+        }
         if (hbf != null && hbf.length > 0) {
             if (headerBlock == null) {
                 headerBlock = new ArrayList<byte[]>();
             }
             headerBlock.add(hbf);
         } else {
-            emptyFrameReceivedCount++;
+            muxLink.getH2RateState().incrementEmptyFrameReceivedCount();
         }
     }
 
@@ -1590,6 +1632,9 @@ public class H2StreamProcessor {
             boolean isFirstHeaderBlock;
             boolean isFirstHeader = true;
             boolean processTrailerHeaders = headersCompleted;
+
+            int limitTokenSize = muxLink.config.getLimitOfFieldSize();
+            int limitNumberOfHeaders = muxLink.config.getLimitOnNumberOfHeaders();
 
             //Decode headers until we reach the end of the buffer
             while (buf.hasRemaining()) {
@@ -1645,6 +1690,17 @@ public class H2StreamProcessor {
                     }
 
                     headers.add(current);
+                }
+                // If the headers exceeds the limits configured, we will stop handling headers and
+                // we will close the connection with a compression error according to RFC 9113 Section 4.3
+                // "A receiver MUST terminate the connection with a connection error (Section 5.4.1) of
+                // type COMPRESSION_ERROR if it does not decompress a field block"
+                if(current.getName().length() > limitTokenSize || current.getValue().length() > limitTokenSize ||
+                        pseudoHeaders.size() + headers.size() > limitNumberOfHeaders) {
+                    buf.release();
+                    CompressionException comp = new CompressionException("Headers on stream: " + myID + " exceed limits configured for the server.");
+                    comp.setConnectionError(true);
+                    throw comp;
                 }
             }
             buf.release();
@@ -1703,7 +1759,7 @@ public class H2StreamProcessor {
         }
         if (currentFrame.getFrameType() == FrameTypes.DATA) {
             if (currentFrame.getPayloadLength() == 0) {
-                emptyFrameReceivedCount++;
+                muxLink.getH2RateState().incrementEmptyFrameReceivedCount();
             } else {
                 dataPayload.add(((FrameData) currentFrame).getData());
             }
@@ -1892,7 +1948,7 @@ public class H2StreamProcessor {
                 firstReadLatch.countDown();
             } else {
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "not counting down firstReadLatch: " + firstReadLatch.hashCode() + " becuase "
+                    Tr.debug(tc, "not counting down firstReadLatch: " + firstReadLatch.hashCode() + " because "
                                  + this.streamReadSize + " bytes remain on stream " + myID);
                 }
             }
@@ -1952,34 +2008,39 @@ public class H2StreamProcessor {
         if (currentFrame.isWriteFrame() && currentFrame.getInitialized()) {
             WsByteBuffer writeFrameBuffer = null;
             WsByteBuffer[] writeFrameBuffers = null;
+            int writeTimeout = muxLink.config.getWriteTimeout();
             try {
                 if (currentFrame.getFrameType() == FrameTypes.DATA) {
                     FrameData data = (FrameData) currentFrame;
                     boolean timedOut = false;
 
-                    // Check to see if the write window is large enough to write this data.
+                    // Check to see if the write window is large enough to write this data
+                    // if it's not, wait for at most the configured writeTimeout period (default 60s)
                     if (isWindowLimitExceeded((FrameData) currentFrame)) {
-                        // the connection or stream window is too small to write this data frame.  This thread will wait for a max of
-                        // 5 seconds for a window update that's large enough to allow the data frame to be written out
                         long startTime = System.currentTimeMillis();
+                        long elapsed = 0;
                         while (isWindowLimitExceeded((FrameData) currentFrame) && !timedOut) {
                             synchronized (this) {
-                                this.wait(MAX_TIME_TO_WAIT_FOR_WINDOW_UPDATE_MS);
+                                this.wait(1000);
                             }
+                            elapsed = System.currentTimeMillis() - startTime;
                             if (state.equals(StreamState.CLOSED) || muxLink.checkIfGoAwaySendingOrClosing()) {
                                 return false;
-                            } else if (System.currentTimeMillis() - startTime > MAX_TIME_TO_WAIT_FOR_WINDOW_UPDATE_MS) {
+                            } else if (elapsed >= writeTimeout) {
                                 timedOut = true;
                             }
+                        }
+                        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                            Tr.debug(tc, "stream: " + myID + " write window wait complete; waited " + elapsed + " ms, timed out = " + timedOut);
                         }
                     }
                     // the flow control window is large enough to write the data frame
                     if (!timedOut) {
                         writeFrameBuffers = data.buildFrameArrayForWrite();
                         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                            Tr.debug(tc, "stream: " + myID + " write with default (60 second) timeout.");
+                            Tr.debug(tc, "stream: " + myID + " write with timeout: " + writeTimeout);
                         }
-                        muxLink.writeSync(null, writeFrameBuffers, data.getWriteFrameLength(), TCPRequestContext.USE_CHANNEL_TIMEOUT,
+                        muxLink.writeSync(null, writeFrameBuffers, data.getWriteFrameLength(), writeTimeout,
                                           data.getFrameType(), data.getPayloadLength(), myID);
 
                         streamWindowUpdateWriteLimit -= currentFrame.getPayloadLength();
@@ -1998,9 +2059,9 @@ public class H2StreamProcessor {
                     // this frame is not a data frame, and so it's not subject to flow control and we can write immediately
                     writeFrameBuffer = currentFrame.buildFrameForWrite();
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                        Tr.debug(tc, "stream: " + myID + " write with default (60 second) timeout");
+                        Tr.debug(tc, "stream: " + myID + " write with timeout: " + writeTimeout);
                     }
-                    muxLink.writeSync(writeFrameBuffer, null, currentFrame.getWriteFrameLength(), TCPRequestContext.USE_CHANNEL_TIMEOUT,
+                    muxLink.writeSync(writeFrameBuffer, null, currentFrame.getWriteFrameLength(), writeTimeout,
                                       currentFrame.getFrameType(), currentFrame.getPayloadLength(), myID);
                 }
             } catch (IOException e) {
@@ -2164,27 +2225,6 @@ public class H2StreamProcessor {
 
     public H2HttpInboundLinkWrap getWrappedInboundLink() {
         return h2HttpInboundLinkWrap;
-    }
-
-    /**
-     * @param frame
-     * @return true if frame is a control frame
-     */
-    public static boolean isControlFrame(Frame frame) {
-        switch (frame.getFrameType()) {
-            case PRIORITY:
-                return true;
-            case RST_STREAM:
-                return true;
-            case SETTINGS:
-                return true;
-            case PING:
-                return true;
-            case GOAWAY:
-                return true;
-            default:
-                return false;
-        }
     }
 
     public boolean getEndStream() {

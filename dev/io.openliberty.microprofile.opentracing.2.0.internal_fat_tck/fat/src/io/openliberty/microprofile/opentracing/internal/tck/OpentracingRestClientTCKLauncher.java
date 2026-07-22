@@ -1,16 +1,16 @@
 /*******************************************************************************
- * Copyright (c) 2020, 2021 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package io.openliberty.microprofile.opentracing.internal.tck;
-
-import java.util.Collections;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -21,21 +21,23 @@ import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
-import componenttest.topology.utils.MvnUtils;
+import componenttest.topology.utils.tck.TCKResultsInfo.Type;
+import componenttest.topology.utils.tck.TCKRunner;
+import componenttest.topology.utils.tck.TCKResultsConstants;
 
 /**
  * This is a test class that runs a whole Maven TCK as one test FAT test.
  */
 @RunWith(FATRunner.class)
 public class OpentracingRestClientTCKLauncher {
-	
-	final static String SERVER_NAME = "OpentracingRestClientTCKServer";
+
+    final static String SERVER_NAME = "OpentracingRestClientTCKServer";
 
 //    @ClassRule
 //    public static RepeatTests r = RepeatTests.withoutModification()
 //        .andWith(FATSuite.MP_REST_CLIENT("1.3", SERVER_NAME))
 //        .andWith(FATSuite.MP_REST_CLIENT("1.4", SERVER_NAME));
-    
+
     @Server(SERVER_NAME)
     public static LibertyServer server;
 
@@ -54,7 +56,12 @@ public class OpentracingRestClientTCKLauncher {
 
     @Test
     @AllowedFFDC // The tested deployment exceptions cause FFDC so we have to allow for this.
-    public void launchOpentracingRestClientTck() throws Exception {
-        MvnUtils.runTCKMvnCmd(server, "io.openliberty.opentracing.2.0.internal_fat", this.getClass() + ":launchOpentracingRestClientTck", "rest-client-tck-suite.xml", Collections.emptyMap(), Collections.emptySet());
+    public void launchOpenTracing20RestClientTck() throws Exception {
+        String suiteName = "rest-client-tck-suite.xml";
+
+        TCKRunner.build(server, Type.MICROPROFILE, TCKResultsConstants.OPEN_TRACING)
+                        .withSuiteFileName(suiteName)
+                        .withPlatformVersion(TCKResultsConstants.MICROPROFILE_VERSION_41) //Latest MicroProfile version
+                        .runTCK();
     }
 }

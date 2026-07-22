@@ -1,15 +1,15 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.rest.handler.config.fat;
 
+import static com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions.SERVER_ONLY;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -26,6 +26,7 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jboss.shrinkwrap.api.spec.ResourceAdapterArchive;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -33,12 +34,32 @@ import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.rules.repeater.FeatureReplacementAction;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
-import componenttest.topology.utils.HttpsRequest;
 
 @RunWith(FATRunner.class)
 public class ConfigRESTHandlerJCATest extends FATServletClient {
+
+    @ClassRule
+    public static RepeatTests r = RepeatTests.withoutModificationInFullMode() // servlet-3.1
+                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.jca.fat")
+                                    .alwaysAddFeature("servlet-4.0")
+                                    .fullFATOnly())
+                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.jca.fat")
+                                    .alwaysAddFeature("servlet-5.0")
+                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11))
+                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.jca.fat")
+                                    .alwaysAddFeature("servlet-6.0")
+                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17))
+                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.jca.fat")
+                                    .alwaysAddFeature("servlet-6.1"));
+
     @Server("com.ibm.ws.rest.handler.config.jca.fat")
     public static LibertyServer server;
 
@@ -47,12 +68,12 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
         ResourceAdapterArchive tca_rar = ShrinkWrap.create(ResourceAdapterArchive.class, "TestConfigAdapter.rar")
                         .addAsLibraries(ShrinkWrap.create(JavaArchive.class)
                                         .addPackage("org.test.config.adapter"));
-        ShrinkHelper.exportToServer(server, "connectors", tca_rar);
+        ShrinkHelper.exportToServer(server, "connectors", tca_rar, SERVER_ONLY);
 
         ResourceAdapterArchive ata_rar = ShrinkWrap.create(ResourceAdapterArchive.class, "AnotherTestAdapter.rar")
                         .addAsLibraries(ShrinkWrap.create(JavaArchive.class)
                                         .addPackage("org.test.config.adapter"));
-        ShrinkHelper.exportToServer(server, "connectors", ata_rar);
+        ShrinkHelper.exportToServer(server, "connectors", ata_rar, SERVER_ONLY);
 
         FATSuite.setupServerSideAnnotations(server);
 
@@ -79,7 +100,7 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
     // Test the output of the /ibm/api/config/connectionFactory/{uid} REST endpoint.
     @Test
     public void testConfigConnectionFactory() throws Exception {
-        JsonObject cf = new HttpsRequest(server, "/ibm/api/config/connectionFactory/cf1").run(JsonObject.class);
+        JsonObject cf = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/connectionFactory/cf1").run(JsonObject.class);
         String err = "unexpected response: " + cf;
         assertEquals(err, "connectionFactory", cf.getString("configElementName"));
         assertEquals(err, "cf1", cf.getString("uid"));
@@ -120,7 +141,7 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
     // Test the output of the /ibm/api/config/activationSpec REST endpoint.
     @Test
     public void testMultipleActivationSpecs() throws Exception {
-        JsonArray aspecs = new HttpsRequest(server, "/ibm/api/config/activationSpec").run(JsonArray.class);
+        JsonArray aspecs = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/activationSpec").run(JsonArray.class);
         String err = "unexpected response: " + aspecs;
         assertEquals(err, 2, aspecs.size()); // increase this if additional activationSpec elements are added
 
@@ -149,7 +170,7 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
     // Test the output of the /ibm/api/config/adminObject REST endpoint.
     @Test
     public void testMultipleAdminObjects() throws Exception {
-        JsonArray adminObjects = new HttpsRequest(server, "/ibm/api/config/adminObject").run(JsonArray.class);
+        JsonArray adminObjects = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/adminObject").run(JsonArray.class);
         String err = "unexpected response: " + adminObjects;
         assertEquals(err, 3, adminObjects.size()); // increase this if additional adminObject elements are added
 
@@ -187,7 +208,7 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
     // Test the output of the /ibm/api/config/connectionFactory REST endpoint.
     @Test
     public void testMultipleConnectionFactories() throws Exception {
-        JsonArray cfs = new HttpsRequest(server, "/ibm/api/config/connectionFactory").run(JsonArray.class);
+        JsonArray cfs = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/connectionFactory").run(JsonArray.class);
         String err = "unexpected response: " + cfs;
         assertEquals(err, 3, cfs.size()); // increase this if additional connectionFactory elements are added
 
@@ -232,7 +253,7 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
     // Test the output of the /ibm/api/config/resourceAdapter/{uid} REST endpoint.
     @Test
     public void testConfigResourceAdapter() throws Exception {
-        JsonObject adapter = new HttpsRequest(server, "/ibm/api/config/resourceAdapter/tca").run(JsonObject.class);
+        JsonObject adapter = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/resourceAdapter/tca").run(JsonObject.class);
         String err = "unexpected response: " + adapter;
         assertEquals(err, "resourceAdapter", adapter.getString("configElementName"));
         assertEquals(err, "tca", adapter.getString("uid"));
@@ -249,7 +270,8 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
     // Test the output of the /ibm/api/config/properties.{generated identifier for resourceAdapter}/{config display id} REST endpoint
     @Test
     public void testConfigResourceAdapterPropertiesByIdentifier() throws Exception {
-        JsonObject props = new HttpsRequest(server, "/ibm/api/config/properties.tca/resourceAdapter[tca]%2Fproperties.tca[tca]").run(JsonObject.class);
+        JsonObject props = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/properties.tca/resourceAdapter%5Btca%5D%2Fproperties.tca%5Btca%5D")
+                        .run(JsonObject.class);
         String err = "unexpected response: " + props;
         assertEquals(err, "properties.tca", props.getString("configElementName"));
         assertEquals(err, "resourceAdapter[tca]/properties.tca[tca]", props.getString("uid"));
@@ -257,7 +279,8 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
         assertEquals(err, true, props.getBoolean("debugMode"));
         assertEquals(err, "host1.openliberty.io", props.getString("hostName"));
 
-        props = new HttpsRequest(server, "/ibm/api/config/properties.AnotherTestAdapter/resourceAdapter[default-0]%2Fproperties.AnotherTestAdapter[AnotherTestAdapter]")
+        props = FATSuite.createHttpsRequestWithAdminUser(server,
+                                                         "/ibm/api/config/properties.AnotherTestAdapter/resourceAdapter%5Bdefault-0%5D%2Fproperties.AnotherTestAdapter%5BAnotherTestAdapter%5D")
                         .run(JsonObject.class);
         err = "unexpected response: " + props;
         assertEquals(err, "properties.AnotherTestAdapter", props.getString("configElementName"));
@@ -270,7 +293,7 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
     // Test the output of the /ibm/api/config/properties.{generated identifier for resourceAdapter}
     @Test
     public void testConfigResourceAdapterPropertiesFromDefaultInstance() throws Exception {
-        JsonArray array = new HttpsRequest(server, "/ibm/api/config/properties.AnotherTestAdapter").run(JsonArray.class);
+        JsonArray array = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/properties.AnotherTestAdapter").run(JsonArray.class);
         String err = "unexpected response: " + array;
         assertEquals(err, 1, array.size());
         JsonObject props;
@@ -285,7 +308,7 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
     // Test the output of the /ibm/api/config/resourceAdapter/{config display id} REST endpoint.
     @Test
     public void testConfigResourceAdapterWithoutId() throws Exception {
-        JsonObject adapter = new HttpsRequest(server, "/ibm/api/config/resourceAdapter/resourceAdapter[default-0]").run(JsonObject.class);
+        JsonObject adapter = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/resourceAdapter/resourceAdapter%5Bdefault-0%5D").run(JsonObject.class);
         String err = "unexpected response: " + adapter;
         assertEquals(err, "resourceAdapter", adapter.getString("configElementName"));
         assertEquals(err, "resourceAdapter[default-0]", adapter.getString("uid"));
@@ -301,7 +324,7 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
     // Test the output of the /ibm/api/config/activationSpec/{uid} REST endpoint.
     @Test
     public void testSingleActivationSpec() throws Exception {
-        JsonObject aspec = new HttpsRequest(server, "/ibm/api/config/activationSpec/App1%2FEJB1%2FMyMDB").run(JsonObject.class);
+        JsonObject aspec = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/activationSpec/App1%2FEJB1%2FMyMDB").run(JsonObject.class);
         String err = "unexpected response: " + aspec;
 
         assertEquals(err, "activationSpec", aspec.getString("configElementName"));
@@ -329,7 +352,7 @@ public class ConfigRESTHandlerJCATest extends FATServletClient {
     // Test the output of the /ibm/api/config/adminObject/{uid} REST endpoint.
     @Test
     public void testSingleAdminObject() throws Exception {
-        JsonObject conspec = new HttpsRequest(server, "/ibm/api/config/adminObject/adminObject[default-0]").run(JsonObject.class);
+        JsonObject conspec = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/adminObject/adminObject%5Bdefault-0%5D").run(JsonObject.class);
         String err = "unexpected response: " + conspec;
 
         assertEquals(err, "adminObject", conspec.getString("configElementName"));

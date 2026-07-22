@@ -1,0 +1,43 @@
+/*******************************************************************************
+ * Copyright (c) 2023,2026 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
+package test.jakarta.data.validation.web;
+
+import java.util.List;
+
+import jakarta.data.repository.Query;
+import jakarta.data.repository.Save;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Positive;
+
+/**
+ * Repository for a record with bean validation annotations.
+ */
+//TODO enable when generated Entities include validation annos
+//@Repository(dataStore = "java:module/jdbc/DerbyDataSource")
+public interface Rectangles {
+
+    @NotEmpty
+    Rectangle[] findByIdStartsWith(String prefix);
+
+    List<Rectangle> findByWidth(@Positive int width);
+
+    @Query("SELECT width WHERE id=?1")
+    int getWidth(String id);
+
+    @Save
+    void save(@Valid Rectangle r);
+
+    @Save
+    void saveAll(@Valid Rectangle... rectangles);
+}

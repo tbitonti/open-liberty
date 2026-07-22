@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2010, 2020 IBM Corporation and others.
+# Copyright (c) 2010, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -100,7 +102,9 @@ error.secPermission=CWWKE0016E: The bootstrap JAR file requires the AllPermissio
 error.secPermission.explanation=The Java 2 Security permissions are insufficient for the bootstrap JAR file to launch the runtime environment and the OSGi framework.
 error.secPermission.useraction=Ensure that the bootstrap JAR file has been granted AllPermission privileges in the Java 2 Security policy file.
 
-# CWWKE0017E removed because it's only used in com.ibm.ws.kernel.boot.cmdline. Do not reuse.
+error.badBitmode=CWWKE0017E: The process detected a 31-bit JVM that is not supported. The runtime environment requires 64-bit Java 8 version or higher.
+error.badBitmode.explanation=The JAVA_HOME system variable is set to point to a version of Java that is 31-bit.
+error.badBitmode.useraction=Adjust the JAVA_HOME system variable to point to a 64-bit Java 8 version or higher.
 
 error.unknownException=CWWKE0018E: An exception occurred while launching the runtime environment: {0}
 error.unknownException.explanation=The exception prevented the launch of the server.
@@ -126,6 +130,10 @@ error.kernelDefFile=CWWKE0023E: The specified kernel definition ({0}) does not e
 error.kernelDefFile.explanation=The specified kernel definition could not be found.
 error.kernelDefFile.useraction=Ensure that the kernel definition resource exists and can be read by the current user.
 
+error.badOptionValue=CWWKE0024E: The ({0}) value for the ({1}) option is not valid.
+error.badOptionValue.explanation=The specified value is not appropriate for the specified option.
+error.badOptionValue.useraction=Run the `server help` command for a description of the options.  If the value is a number, ensure it is in the valid range.
+
 error.specifiedLocation=CWWKE0025E: The value of {0} must refer to a directory. The specified value \
  references an existing file resource. Value: {1}
 error.specifiedLocation.explanation=The supplied location refers to an existing file instead of a directory.
@@ -139,6 +147,10 @@ warning.singleServer=CWWKE0027W: Only one server may be specified on the command
   subsequent names will be ignored (server={0}, ignored={1}).
 warning.singleServer.explanation=You may specify only one server on the command line. The first server name has been processed; the remaining names have been ignored.
 warning.singleServer.useraction=No action is required. Specify only one server to avoid this warning.
+
+error.optionNotApplicableToCommand=CWWKE0028E: The ({0}) option is not applicable for the command.
+error.optionNotApplicableToCommand.explanation=The specified option is not allowed for the specified command.
+error.optionNotApplicableToCommand.useraction=Run the `server <command> help` command to get information about valid options for the command.
   
 error.serverAlreadyRunning=CWWKE0029E: An instance of server {0} is already running.
 error.serverAlreadyRunning.explanation=You are trying to start a server that is already running.
@@ -386,6 +398,10 @@ audit.jvm.shutdown=CWWKE0085I: The server {0} is stopping because the JVM is exi
 audit.jvm.shutdown.explanation=The server intercepted a request to stop the JVM and will attempt to stop in an orderly manner. The JVM might be exiting because the operating system sent a terminating signal to the server process.
 audit.jvm.shutdown.useraction=If stopping the server was unexpected, determine if a terminating signal was sent to the server process.
 
+error.optionRequiresEquals=CWWKE0086E: The {0} option must include an equals sign (=) before the specified value. 
+error.optionRequiresEquals.explanation=The specified option must be followed by an equals sign (=) and a value.
+error.optionRequiresEquals.useraction=The option must be specified in the following format: --option=value.
+
 warning.serverStartedCommandPortDisabled=CWWKE0087W: Server start was initiated for server {0}, but it is not possible to tell if startup was completed because the server command port is disabled.
 warning.serverStartedCommandPortDisabled.explanation=The server command port is required for communication with a running server.  The command port was explicitly disabled for this server, therefore it is not possible to tell when the server has completed startup.
 warning.serverStartedCommandPortDisabled.useraction=Manually check the server logs to verify that the server started successfully.
@@ -421,6 +437,14 @@ warning.unableToPackageLooseConfigFileCannotResolveLocSymbol.useraction=Change t
 warning.unableToPackageLooseConfigFileMissingPath=CWWKE0095W: The server cannot package application files specified in the {0} loose configuration application XML file because it cannot find them.
 warning.unableToPackageLooseConfigFileMissingPath.explanation=The specified loose configuration application XML file contains invalid information about the location of the files. For example, it might specify a directory that cannot be found. Paths in this XML file should be relative to the configuration directory of the server. The archive represented by this file will not be included in the packaged server output.
 warning.unableToPackageLooseConfigFileMissingPath.useraction=Modify the paths in the loose configuration application XML file to point to the correct location that contains the application files. 
+
+warning.tooManySymbolicLinks=CWWKE0096W: Too many symbolic links were encountered when the system tried to resolve the following path: {0}.
+warning.tooManySymbolicLinks.explanation=Symbolic links are shortcuts that point to other files or directories. This error occurs when the system encounters too many symbolic links in a chain and it is unable to resolve the path.
+warning.tooManySymbolicLinks.useraction=To resolve this issue, check the symbolic links in the path and ensure that they do not create circular references. You might also use the 'readlink' command to inspect individual links in the chain.
+
+warning.javaHomeNotSet=CWWKE0097W: The JAVA_HOME environment variable is not set.
+warning.javaHomeNotSet.explanation=The server script cannot determine the location of the Java installation. This issue does not occur if the JAVA_HOME environment variable is set properly, or if the "java" executable, found by searching the PATH, is located in a complete Java installation. The Java installation location is needed to find version-specific configuration files, such as the Java release and options. If the Java installation cannot be found, these files are not loaded, and applications that rely on them might not behave as expected.
+warning.javaHomeNotSet.useraction=Set the JAVA_HOME environment variable.
 
 warn.packageRuntime.include.unknownOption=CWWKE0099W: Unable to use option --include={0}, will use --include=wlp instead.
 warn.packageRuntime.include.unknownOption.explanation=The option was ignored because it was not recognized.
@@ -708,6 +732,82 @@ warning.earlyRelease=CWWKE0953W: This version of {0} is an unsupported early rel
 warning.earlyRelease.explanation=New features that are not fully tested are made available in early releases to elicit feedback before they are included in a supported release.
 warning.earlyRelease.useraction=Do not use an early release version on production systems, since early release versions are not supported.
 
+error.invalidPhaseName=CWWKE0954E: The specified ({0}) checkpoint phase is empty or unknown.
+error.invalidPhaseName.explanation=An unknown phase was specified as the value of the checkpoint option.
+error.invalidPhaseName.useraction=Review the documentation to determine valid phase names. Reissue the command using a valid checkpoint phase.
+
+error.set.securitymanager.jdk18=CWWKE0955E: The websphere.java.security property was set in the bootstrap.properties file but the Java version is {0}.  This property enables the Java Security Manager and is not valid with Java 18 or later.
+error.set.securitymanager.jdk18.explanation= As part of the deprecation of the Java Security Manager, as specified by JEP 411, Liberty does not support the Java Security Manager with Java 18 or later.
+error.set.securitymanager.jdk18.useraction=Remove the websphere.java.security property from the bootstrap.properties file or use a Java version that is earlier than Java 18.
+
+error.cannotset.securitymanager.jdk18=CWWKE0956E: Failed to set the Java Security Manager due to exception: {0}.  This occurs if the server is using Java 18 or later, and the Java system property "java.security.manager" was not set to "allow".
+error.cannotset.securitymanager.jdk18.explanation=Java Security Manager could not be enabled because the system is using Java 18, which by default disallows use of a Java Security Manager.
+error.cannotset.securitymanager.jdk18.useraction=Start the server with the JVM argument -Djava.security.manager=allow.
+
+error.checkpoint.workarea.restore=CWWKE0957E: The checkpoint server workarea directory cannot be restored from the {0} directory.
+error.checkpoint.workarea.restore.explanation=An error occurred restoring the checkpoint workarea directory.
+error.checkpoint.workarea.restore.useraction=Ensure that the user has sufficient permissions to restore the checkpoint workarea. Reissue the command with a user that has sufficient permissions.
+
+error.checkpoint.securitymanager.not.supported=CWWKE0958E: The server checkpoint request failed because the websphere.java.security property was set in the bootstrap.properties file. This property enables the Java Security Manager and is not valid when a server checkpoint occurs.
+error.checkpoint.securitymanager.not.supported.explanation=Liberty does not support the Java Security Manager when a server checkpoint is requested. The Java Security Manager is deprecated, as specified by JEP 411.
+error.checkpoint.securitymanager.not.supported.useraction=Remove the websphere.java.security property from the bootstrap.properties file.
+
+error.checkpoint.delete=CWWKE0959E: The server checkpoint request failed because the existing checkpoint image cannot be deleted from the {0} directory.
+error.checkpoint.delete.explanation=A checkpoint request for the server failed because an existing checkpoint image cannot be deleted.
+error.checkpoint.delete.useraction=Ensure the user has permission to delete the existing directory. Reissue the command with a user that has sufficient permissions.
+
+error.checkpoint.workarea.backup=CWWKE0960E: The server checkpoint request failed because the {0} directory cannot be backed up.
+error.checkpoint.workarea.backup.explanation=An error occurred backing up the checkpoint server workarea directory.
+error.checkpoint.workarea.backup.useraction=Ensure that the user has sufficient permissions to back up the checkpoint workarea directory. Reissue the command with a user that has sufficient permissions.
+
+info.checkpoint.restore.failed=CWWKE0961I: Restoring the checkpoint server process failed. Check the {0} log to determine why the checkpoint process was not restored. Launching the server without using the checkpoint image.
+info.checkpoint.restore.failed.explanation=An error occurred restoring a checkpoint server process.  The server launched without using the checkpoint image.
+info.checkpoint.restore.failed.useraction=Check the logs to determine why the checkpoint process was not restored.
+
+error.checkpoint.failed=CWWKE0962E: The server checkpoint request failed. The following output is from the CRIU {0} file that contains details on why the checkpoint failed.
+error.checkpoint.failed.explanation=A checkpoint request for the server failed. No valid checkpoint process image for the server was created.
+error.checkpoint.failed.useraction=To determine why the checkpoint failed, inspect the log files in the checkpoint directory that is located in the server logs directory.
+
+error.checkpoint.failed.selinux.netdiag=CWWKE0963E: The server checkpoint request failed because netlink system calls were unsuccessful. If SELinux is enabled in enforcing mode, netlink system calls might be blocked by the SELinux "virt_sandbox_use_netlink" policy setting. Either disable SELinux or enable the netlink system calls with the "setsebool virt_sandbox_use_netlink 1" command.
+error.checkpoint.failed.selinux.netdiag.explanation=A checkpoint request for the server failed because netlink system calls were unsuccessful.
+error.checkpoint.failed.selinux.netdiag.useraction=If SELinux is enabled in enforcing mode, netlink system calls might be blocked by the SELinux "virt_sandbox_use_netlink" policy setting. Either disable SELinux or enable the netlink system calls with the "setsebool virt_sandbox_use_netlink 1" command.
+
+error.checkpoint.restore.failed.no.recovery=CWWKE0964E: Restoring the checkpoint server process failed. Check the {0} log to determine why the checkpoint process was not restored. The server did not launch because checkpoint restore recovery is disabled.
+error.checkpoint.restore.failed.no.recovery.explanation=An error occurred restoring a checkpoint server process. The server did not launch because checkpoint restore recovery is disabled.
+error.checkpoint.restore.failed.no.recovery.useraction=Check the logs to determine why the checkpoint process was not restored. To enable restore failure recovery, set the CRIU_RESTORE_DISABLE_RECOVERY environment variable to true.
+
+warning.serverLockFileNotExist=CWWKE0965W: The {0} server lock file does not exist.
+warning.serverLockFileNotExist.explanation=The warning might indicate that the server is not running or the lock file was unexpectedly deleted.
+warning.serverLockFileNotExist.useraction=Check whether the server is running by using appropriate system monitoring tools. On Windows, you can use the Task Manager. On UNIX-like systems, use the 'ps -ef' command.
+
+warning.serverCommandFileNotExist=CWWKE0966W: The {0} server command file does not exist.
+warning.serverCommandFileNotExist.explanation=The warning suggests that the server command file, which contains essential information for establishing a socket connection with the server, is missing. The server might not be running or the file might have been unexpectedly deleted.
+warning.serverCommandFileNotExist.useraction=Check whether the server is running by using appropriate system monitoring tools. On Windows, you can use the Task Manager. On UNIX-like systems, use the 'ps -ef' command. If the server is running, you must restart it, which involves stopping the process. Use the Task Manager on Windows to stop the process. On UNIX-like systems, use the 'kill' command.
+
+warning.timeoutWaitingForServerToReleaseLock=CWWKE0967W: A timeout occurred while waiting for the server to release the {0} server lock file.
+warning.timeoutWaitingForServerToReleaseLock.explanation=The warning indicates a timeout occurred. The timeout might be due to a slow server shutdown, server hang, or file locking by another program.
+warning.timeoutWaitingForServerToReleaseLock.useraction=If the server is still running, consider increasing the timeout value for the 'server stop' command. If the server is stopped, use file monitoring tools to check whether another program locked the file.
+
+warning.timeoutWaitingForServerProcessToStop=CWWKE0968W: A timeout occurred while waiting for the server process to stop.
+warning.timeoutWaitingForServerProcessToStop.explanation=The server did not stop within the time allowed by the timeout value. This might be due to a slow server shutdown or a server hang.   
+warning.timeoutWaitingForServerProcessToStop.useraction=If the server is still running, consider increasing the timeout value for the 'server stop' command. On UNIX-like systems, the server stop command waits for the server process to stop. On Windows, the command waits to obtain a lock on the console.log file. Use file monitoring tools to check whether another program, such as an editor, locked the console.log file.
+
+warning.manual.PPV.env.var=CWWKE0969W: A manual PREFERRED_PLATFORM_VERSION environment variable was specified during server packaging.
+warning.manual.PPV.env.var.explanation=A manual PREFERRED_PLATFORM_VERSION environment variable was set in the environment but will not be included in the server package.
+warning.manual.PPV.env.var.useraction=To retain the PREFERRED_PLATFORM_VERSION environment variable, specify it in the server.env configuration file.
+
+error.read.server.env=CWWKE0970E: Unable to read the server.env file at the {} location.
+error.read.server.env.explanation=Failure to read the server.env file.
+error.read.server.env.useraction=Unable to read the server.env file. Check file permissions and retry the operation.
+
+warning.java2security.stopped=CWWKE0971W: Java 2 Security is disabled because Jakarta EE 11 does not support it.
+warning.java2security.stopped.explanation=Jakarta EE 11 removed support for Java 2 Security.
+warning.java2security.stopped.useraction=Disable Java 2 Security in the server configuration when you are using Jakarta EE 11 features.
+
+info.java2security.restarted=CWWKE0972I: Java 2 Security is re-enabled because Jakarta EE 11 features were removed.
+info.java2security.restarted.explanation=This message is for informational purposes only.
+info.java2security.restarted.useraction=No action is required.
+
 info.serverStarting=Starting server {0}.
 info.serverStarted=Server {0} started.
 info.serverStartedWithPID=Server {0} started with process ID {1}.
@@ -791,3 +891,7 @@ info.list.of.defined.servers=The following servers are defined relative to the u
 info.communicate.server=A communication error has occurred between the command {0} and the server {1}.
 
 info.serialFilterLoaded=The serial filter agent loaded.
+
+# {0} The full path to a configured logs directory.
+# Displayed when creating a server dump, if an alternate server logs directory has been configured.
+info.dump.server.alt.logs=Detected the configured server logs directory at {0}.

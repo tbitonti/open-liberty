@@ -1,10 +1,12 @@
 /*******************************************************************************
-* Copyright (c) 2019, 2020 IBM Corporation and others.
+* Copyright (c) 2019, 2024 IBM Corporation and others.
 *
 * All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v1.0
+* are made available under the terms of the Eclipse Public License 2.0
 * which accompanies this distribution, and is available at
-* http://www.eclipse.org/legal/epl-v10.html
+* http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
 *
 *******************************************************************************
 * Copyright 2010-2013 Coda Hale and Yammer, Inc.
@@ -28,21 +30,20 @@ import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 
 import javax.enterprise.inject.Vetoed;
 
-import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.spi.ConfigProviderResolver;
 import org.eclipse.microprofile.metrics.ConcurrentGauge;
 import org.eclipse.microprofile.metrics.Counter;
@@ -59,8 +60,6 @@ import org.eclipse.microprofile.metrics.MetricType;
 import org.eclipse.microprofile.metrics.Tag;
 import org.eclipse.microprofile.metrics.Timer;
 
-import com.ibm.ws.ffdc.annotation.FFDCIgnore;
-
 /**
  * A registry of metric instances.
  */
@@ -71,7 +70,7 @@ public class MetricRegistryImpl extends MetricRegistry {
     protected final ConcurrentMap<String, Metadata> metadata;
     protected final ConcurrentMap<MetricID, Metric> metricsMID;
     protected final ConcurrentMap<String, Metadata> metadataMID;
-    protected final ConcurrentHashMap<String, ConcurrentLinkedQueue<MetricID>> applicationMap;
+    protected final ConcurrentHashMap<String, Set<MetricID>> applicationMap;
     private final ConfigProviderResolver configResolver;
 
     private final static boolean usingJava2Security = System.getSecurityManager() != null;
@@ -89,7 +88,7 @@ public class MetricRegistryImpl extends MetricRegistry {
         this.metadata = new ConcurrentHashMap<String, Metadata>(); //duped
         this.metadataMID = new ConcurrentHashMap<String, Metadata>();
 
-        this.applicationMap = new ConcurrentHashMap<String, ConcurrentLinkedQueue<MetricID>>();
+        this.applicationMap = new ConcurrentHashMap<String, Set<MetricID>>();
 
         this.configResolver = configResolver;
     }
@@ -188,7 +187,6 @@ public class MetricRegistryImpl extends MetricRegistry {
     }
 
     @Override
-    @FFDCIgnore({ NoSuchElementException.class })
     public <T extends Metric> T register(Metadata metadata, T metric, Tag... tags) throws IllegalArgumentException {
 
         /*
@@ -210,33 +208,6 @@ public class MetricRegistryImpl extends MetricRegistry {
 
         ArrayList<Tag> cumulativeTags = (tags == null) ? new ArrayList<Tag>() : new ArrayList<Tag>(Arrays.asList(tags));
 
-        //Append global tags to the metric
-        //rf-rm
-        Config config = configResolver.getConfig(getThreadContextClassLoader());
-        try {
-            String[] globaltags = config.getValue("MP_METRICS_TAGS", String.class).split("(?<!\\\\),");
-            for (String tag : globaltags) {
-                if (!(tag == null || tag.isEmpty() || !tag.contains("="))) {
-                    String key = tag.substring(0, tag.indexOf("="));
-                    String val = tag.substring(tag.indexOf("=") + 1);
-                    if (key.length() == 0 || val.length() == 0) {
-                        throw new IllegalArgumentException("Malformed list of Global Tags. Tag names "
-                                                           + "must match the following regex [a-zA-Z_][a-zA-Z0-9_]*."
-                                                           + " Global Tag values must not be empty."
-                                                           + " Global Tag values MUST escape equal signs `=` and commas `,`"
-                                                           + "with a backslash `\\` ");
-                    }
-                    val = val.replace("\\,", ",");
-                    val = val.replace("\\=", "=");
-                    if (!cumulativeTags.contains(key)) {
-                        cumulativeTags.add(new Tag(key, val));
-                    }
-                }
-            }
-        } catch (NoSuchElementException e) {
-            //Continue if there is no global tags
-        }
-
         MetricID MetricID = new MetricID(metadata.getName(), tags);
         Class<T> metricClass = determineMetricClass(metric);
 
@@ -255,6 +226,30 @@ public class MetricRegistryImpl extends MetricRegistry {
         }
 
         this.metadataMID.putIfAbsent(metadata.getName(), metadataBuilder.build());
+
+        /*
+         * This is the method used by monitor metrics to register metrics.
+         * Previously, connectionpool metrics will be associated with an application
+         * as the initial creation of a connection pool occurs under an application context thread.
+         *
+         * We must avoid associating connection pool metrics to an application
+         * so that it is not deregistered. The metric is to remain until the datasource
+         * is removed via mbean deregistration (i.e., server shut down or jbc-x.x is removed or thee datasource
+         * element in sever.xml is removed.
+         *
+         */
+        String metricName = metadata.getName();
+        if (metricName.equalsIgnoreCase("connectionpool.create.total") ||
+            metricName.equalsIgnoreCase("connectionpool.destroy.total") ||
+            metricName.equalsIgnoreCase("connectionpool.managedConnections") ||
+            metricName.equalsIgnoreCase("connectionpool.connectionHandles") ||
+            metricName.equalsIgnoreCase("connectionpool.freeConnections") ||
+            metricName.equalsIgnoreCase("connectionpool.waitTime.total") ||
+            metricName.equalsIgnoreCase("connectionpool.inUseTime.total") ||
+            metricName.equalsIgnoreCase("connectionpool.queuedRequests.total") ||
+            metricName.equalsIgnoreCase("connectionpool.usedConnections.total")) {
+            return metric;
+        }
 
         addNameToApplicationMap(MetricID);
         return metric;
@@ -284,14 +279,14 @@ public class MetricRegistryImpl extends MetricRegistry {
         // If it is a base metric, the name will be null
         if (appName == null)
             return;
-        ConcurrentLinkedQueue<MetricID> list = applicationMap.get(appName);
-        if (list == null) {
-            ConcurrentLinkedQueue<MetricID> newList = new ConcurrentLinkedQueue<MetricID>();
-            list = applicationMap.putIfAbsent(appName, newList);
-            if (list == null)
-                list = newList;
+        Set<MetricID> metricIDSet = applicationMap.get(appName);
+        if (metricIDSet == null) {
+            Set<MetricID> newSet = new HashSet<MetricID>();
+            metricIDSet = applicationMap.putIfAbsent(appName, newSet);
+            if (metricIDSet == null)
+                metricIDSet = newSet;
         }
-        list.add(metricID);
+        metricIDSet.add(metricID);
     }
 
     public void unRegisterApplicationMetrics() {
@@ -299,7 +294,7 @@ public class MetricRegistryImpl extends MetricRegistry {
     }
 
     public void unRegisterApplicationMetrics(String appName) {
-        ConcurrentLinkedQueue<MetricID> list = applicationMap.remove(appName);
+        Set<MetricID> list = applicationMap.remove(appName);
 
         if (list != null) {
             for (MetricID metricID : list) {

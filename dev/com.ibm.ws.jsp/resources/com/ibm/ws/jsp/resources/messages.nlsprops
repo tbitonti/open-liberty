@@ -1,16 +1,15 @@
 ###############################################################################
-# Copyright (c) 2017 IBM Corporation and others.
+# Copyright (c) 2017, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 #CMVCPATHNAME ws/code/jsp/src/com/ibm/ws/jsp/resources/messages.nlsprops
-#COMPONENTPREFIX JSPG
-#COMPONENTNAMEFOR JSPG jsp
+#COMPONENTPREFIX JSPG CWWJS
+#COMPONENTNAMEFOR JSPG CWWJS jsp
 #ISMESSAGEFILE TRUE
 #NLS_MESSAGEFORMAT_VAR
 #NLS_ENCODING=UNICODE
@@ -1259,6 +1258,38 @@ system.java.compiler.not.found=JSPG0304W: The JSP attribute, useJDKCompiler, is 
 system.java.compiler.not.found.explanation=The JSP container was unable to find the system compiler, which usually indicates that the Java SDK jar file, tools.jar, was not found in the class path.
 system.java.compiler.not.found.useraction=Ensure that the Java SDK jar file, tools.jar, is in the class path and verify that the Java SDK supports the Java Compiler API. See Java Specification Request 199 for more information.
 
-jsp.feature.not.loaded.correctly=CWWJS0001: The JSP [Pages] feature did not load with an acceptable version.
-jsp.feature.not.loaded.correctly.explanation=The JSP [Pages] feature is loaded with a version that corresponds to the Java [Jakarta] EE specification of that JSP [Pages] feature. The feature was loaded with no version defined.
-jsp.feature.not.loaded.correctly.useraction=Check the server.xml file for existence of either a JSP [Pages] feature. Only one should be specified.
+jsp.feature.not.loaded.correctly=CWWJS0001E: The pages (JSP) container did not load with an acceptable version.
+jsp.feature.not.loaded.correctly.explanation=The pages (JSP) container loaded without an acceptable version. The application might behave differently than expected.
+jsp.feature.not.loaded.correctly.useraction=Check the server.xml file for existence of multiple pages (JSP) features. The file must specify no more than one pages (JSP) feature.
+
+jsp.error.page.invalid.erroronelnotfound=CWWJS0002E: Invalid value for errorOnELNotFound attribute
+jsp.error.page.invalid.erroronelnotfound.explanation=
+jsp.error.page.invalid.erroronelnotfound.useraction=
+
+jsp.isthreadsafe.warning=CWWJS0003W: The Pages 3.1 specification strongly advises Pages developers not to use the deprecated page directive isThreadSafe.
+jsp.isthreadsafe.warning.explanation=SingleThreadModel was removed from Servlet 6.0. Pages 3.1 deprecated isThreadSafe with plans to remove it in a future Pages update.
+jsp.isthreadsafe.warning.useraction=Remove the isThreadSafe directive from all pages.
+
+jsp.useinmemory.warning=CWWJS0004W: The 'useInMemory' JSP Option is not supported. The JSPs will be compiled and saved on disk instead.
+jsp.useinmemory.warning.explanation=This feature was never ported from Traditional WebSphere for historical reasons.
+jsp.useinmemory.warning.useraction=Remove the useInMemory option from the server.xml, ibm-web-bnd.xml, or the ibm-web-ext.xmi files.
+
+pages.removed.element.error=CWWJS0005E: The {0} element was removed in Pages 4.0 and therefore is no longer supported.
+pages.removed.element.error.explanation=The jsp plugin and related actions were deprecated in Pages 3.1 and removed in 4.0. 
+pages.removed.element.error.useraction= Remove the jsp plugin, fallback, and params elements from your web app.
+
+jsp.javasourcelevel.warning=CWWJS0006W: The specified javaSourceLevel={0} value exceeds the {1} installed Java level. Therefore, the default Java level is set to {1}.
+jsp.javasourcelevel.warning.explanation=File cannot be compiled with a higher source than the available JDK level. 
+jsp.javasourcelevel.warning.useraction=Specify a javaSourceLevel value that is less than or equal to the available JDK level.
+
+jsp.bothsourcelevelset.warning=CWWJS0007W: Both javaSourceLevel={0} and jdkSourceLevel={1} are specified. Defaulting to javaSourceLevel={0}.
+jsp.bothsourcelevelset.warning.explanation=Only one source level attribute can be used at a time.
+jsp.bothsourcelevelset.warning.useraction=Specify only the javaSourceLevel attribute. The jdkSourceLevel attribute is stabilized. 
+
+jsp.javasourcelevel.value=CWWJS0008I: The value of the JSP attribute javaSourceLevel is \"{0}\".
+jsp.javasourcelevel.value.explanation =
+jsp.javasourcelevel.value.useraction =
+
+pages.removed.directive.error=CWWJS0009E: The \"{0}\" directive is no longer supported as it was removed in {1}.
+pages.removed.directive.error.explanation = The directive is no longer supported. 
+pages.removed.directive.error.useraction = Remove the use of the directive.

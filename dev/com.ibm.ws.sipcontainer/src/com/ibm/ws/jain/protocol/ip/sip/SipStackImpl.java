@@ -1,40 +1,30 @@
 /*******************************************************************************
- * Copyright (c) 2003,2009 IBM Corporation and others.
+ * Copyright (c) 2003, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.jain.protocol.ip.sip;
 
-import jain.protocol.ip.sip.ListeningPoint;
-import jain.protocol.ip.sip.ListeningPointUnavailableException;
-import jain.protocol.ip.sip.SipProvider;
-import jain.protocol.ip.sip.SipStack;
-import jain.protocol.ip.sip.UnableToDeleteProviderException;
-
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Timer;
+import java.util.*;
 
-import org.osgi.service.component.annotations.Component;
-import org.osgi.service.component.annotations.ConfigurationPolicy;
-import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.*;
 
-import com.ibm.sip.util.log.Log;
-import com.ibm.sip.util.log.LogMgr;
-import com.ibm.sip.util.log.Situation;
+import com.ibm.sip.util.log.*;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.sip.container.properties.PropertiesStore;
 import com.ibm.ws.sip.properties.SipPropertiesMap;
 import com.ibm.ws.sip.stack.transaction.SIPTransactionStack;
+
+import jain.protocol.ip.sip.*;
 
 /**
  * 
@@ -235,7 +225,7 @@ public class SipStackImpl
 	}
 	
 	/**
-	 * get The underlyn Timer Object
+	 * get The underlying Timer ObjectO
 	 * @return - the stack's Timer
 	 */
 	public Timer getTimer()

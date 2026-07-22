@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -83,7 +85,7 @@ public class EmbeddedContainerTest {
         expected = "a"; // no dirPath, smallest artifact
         assertTrue("Artifact name is " + expected, expected.equals(getArtifactId("a-2.jar")));
         expected = "b"; // dirPath, smallest artifact
-        assertTrue("Artifact name is " + expected, expected.equals(getArtifactId("/b-c.jar")));
+        assertTrue("Artifact name is " + expected, expected.equals(getArtifactId("/b-2.jar")));
     }
 
     @Test
@@ -102,7 +104,7 @@ public class EmbeddedContainerTest {
         };
         // clone the unmodifiable result
         expected = new HashSet<String>();
-        expected.addAll(EmbeddedContainer.getStarterArtifactIds("spring-boot-starter-tomcat-1.5"));
+        expected.addAll(EmbeddedContainer.getStarterArtifactIds("tomcat-1.5"));
         expectedSize = expected.size();
         tomcat15StarterArtifactIds.forEach(artifactId -> expected.remove(artifactId));
 
@@ -118,25 +120,27 @@ public class EmbeddedContainerTest {
 
         sourceFatJar = new JarFile(getUndertowStarter20AppJar());
         starterJarName = springBoot20UndertowStarterJars.get(random0max(springBoot20UndertowStarterJars.size() - 1));
-        filter = getStarterFilter(sourceFatJar);
+        Manifest manifest = createManifest(springBoot20WebAppManifestContent);
+        SpringBootManifest sbmf = new SpringBootManifest(manifest);
+        filter = getStarterFilter(sourceFatJar, sbmf);
         assertTrue("JarName " + starterJarName + " is a SB 2.0 UNDERTOW starter artifact, apply() is true", filter.apply(starterJarName));
         sourceFatJar.close();
 
         sourceFatJar = new JarFile(getJettyStarter20AppJar());
         starterJarName = springBoot20JettyStarterJars.get(random0max(springBoot20JettyStarterJars.size() - 1));
-        filter = getStarterFilter(sourceFatJar);
+        filter = getStarterFilter(sourceFatJar, sbmf);
         assertTrue("JarName " + starterJarName + " is a SB 2.0 JETTY starter artifact, apply() is true", filter.apply(starterJarName));
         sourceFatJar.close();
 
         sourceFatJar = new JarFile(getWebStarter20AppJar());
         starterJarName = springBoot20TomcatStarterJars.get(random0max(springBoot20TomcatStarterJars.size() - 1));
-        filter = getStarterFilter(sourceFatJar);
+        filter = getStarterFilter(sourceFatJar, sbmf);
         assertTrue("JarName " + starterJarName + " is a SB 2.0 TOMCAT starter artifact, apply() is true", filter.apply(starterJarName));
         sourceFatJar.close();
 
         sourceFatJar = new JarFile(getNettyStarter20AppJar());
         starterJarName = springBoot20NettyStarterJars.get(random0max(springBoot20NettyStarterJars.size() - 1));
-        filter = getStarterFilter(sourceFatJar);
+        filter = getStarterFilter(sourceFatJar, sbmf);
         assertTrue("JarName " + starterJarName + " is a SB 2.0 NETTY starter artifact, apply() is true", filter.apply(starterJarName));
         sourceFatJar.close();
 
@@ -345,32 +349,38 @@ public class EmbeddedContainerTest {
                                                                                          "META-INF/maven/org.springframework/gs-spring-boot/pom.xml",
                                                                                          "META-INF/maven/org.springframework/gs-spring-boot/pom.properties",
                                                                                          "BOOT-INF/lib/",
-                                                                                         "BOOT-INF/lib/spring-boot-starter-web-1.5.10.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/spring-boot-starter-1.5.10.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/spring-boot-1.5.10.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/spring-boot-autoconfigure-1.5.10.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/spring-boot-starter-logging-1.5.10.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/logback-classic-1.1.11.jar",
-                                                                                         "BOOT-INF/lib/logback-core-1.1.11.jar",
+                                                                                         "BOOT-INF/lib/spring-boot-starter-web-2.0.1.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-boot-starter-2.0.1.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-boot-2.0.1.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-boot-autoconfigure-2.0.1.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-boot-starter-logging-2.0.1.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/logback-classic-1.2.3.jar",
+                                                                                         "BOOT-INF/lib/logback-core-1.2.3.jar",
                                                                                          "BOOT-INF/lib/slf4j-api-1.7.25.jar",
-                                                                                         "BOOT-INF/lib/jcl-over-slf4j-1.7.25.jar",
+                                                                                         "BOOT-INF/lib/log4j-to-slf4j-2.10.0.jar",
+                                                                                         "BOOT-INF/lib/log4j-api-2.10.0.jar",
                                                                                          "BOOT-INF/lib/jul-to-slf4j-1.7.25.jar",
-                                                                                         "BOOT-INF/lib/log4j-over-slf4j-1.7.25.jar",
-                                                                                         "BOOT-INF/lib/spring-core-4.3.14.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/snakeyaml-1.17.jar",
-                                                                                         "BOOT-INF/lib/hibernate-validator-5.3.6.Final.jar",
-                                                                                         "BOOT-INF/lib/validation-api-1.1.0.Final.jar",
-                                                                                         "BOOT-INF/lib/jboss-logging-3.3.1.Final.jar",
+                                                                                         "BOOT-INF/lib/javax.annotation-api-1.3.2.jar",
+                                                                                         "BOOT-INF/lib/spring-core-5.0.5.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-jcl-5.0.5.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/snakeyaml-1.19.jar",
+                                                                                         "BOOT-INF/lib/spring-boot-starter-json-2.0.1.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/jackson-databind-2.9.5.jar",
+                                                                                         "BOOT-INF/lib/jackson-annotations-2.9.0.jar",
+                                                                                         "BOOT-INF/lib/jackson-core-2.9.5.jar",
+                                                                                         "BOOT-INF/lib/jackson-datatype-jdk8-2.9.5.jar",
+                                                                                         "BOOT-INF/lib/jackson-datatype-jsr310-2.9.5.jar",
+                                                                                         "BOOT-INF/lib/jackson-module-parameter-names-2.9.5.jar",
+                                                                                         "BOOT-INF/lib/hibernate-validator-6.0.9.Final.jar",
+                                                                                         "BOOT-INF/lib/validation-api-2.0.1.Final.jar",
+                                                                                         "BOOT-INF/lib/jboss-logging-3.3.2.Final.jar",
                                                                                          "BOOT-INF/lib/classmate-1.3.4.jar",
-                                                                                         "BOOT-INF/lib/jackson-databind-2.8.10.jar",
-                                                                                         "BOOT-INF/lib/jackson-annotations-2.8.0.jar",
-                                                                                         "BOOT-INF/lib/jackson-core-2.8.10.jar",
-                                                                                         "BOOT-INF/lib/spring-web-4.3.14.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/spring-aop-4.3.14.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/spring-beans-4.3.14.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/spring-context-4.3.14.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/spring-webmvc-4.3.14.RELEASE.jar",
-                                                                                         "BOOT-INF/lib/spring-expression-4.3.14.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-web-5.0.5.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-beans-5.0.5.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-webmvc-5.0.5.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-aop-5.0.5.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-context-5.0.5.RELEASE.jar",
+                                                                                         "BOOT-INF/lib/spring-expression-5.0.5.RELEASE.jar",
                                                                                          "org/",
                                                                                          "org/springframework/",
                                                                                          "org/springframework/boot/",

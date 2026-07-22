@@ -1,12 +1,11 @@
 ###############################################################################
-# Copyright (c) 1997, 2020 IBM Corporation and others.
+# Copyright (c) 1997, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 
 # This file has been modified to follow the WebSphere Message Guidelines.
@@ -21,8 +20,6 @@
 #ISMESSAGEFILE TRUE
 #NLS_MESSAGEFORMAT_VAR
 #NLS_ENCODING=UNICODE
-
-
 
 # --------------------------------
 Illegal.Argument.Trying.to.write.chars=SRVE0011E: V\u00fdjimka - nepovolen\u00fd argument: Do\u0161lo k pokusu o z\u00e1pis m\u00e9n\u011b ne\u017e 0 znak\u016f.
@@ -215,7 +212,7 @@ failed.to.load.converter.properties.explanation=Ur\u010den\u00fd soubor nebylo m
 failed.to.load.converter.properties.useraction=Ov\u011b\u0159te, \u017ee ur\u010den\u00fd soubor existuje a \u017ee m\u00e1 spr\u00e1vn\u00fd form\u00e1t podle specifikace java.utils.Properties.
 
 # --------------------------------
-setbuffer.size.called.after.write=SRVE0157E: Po prvn\u00edm z\u00e1pisu do v\u00fdstupn\u00edho proudu/zapisova\u010de byla vol\u00e1na metoda setBufferSize()
+setbuffer.size.called.after.write=SRVE0157E:setBufferSize( ) se vol\u00e1 po potvrzen\u00ed prvn\u00edho z\u00e1pisu nebo odpov\u011bdi
 setbuffer.size.called.after.write.explanation=Do\u0161lo k pokusu o nastaven\u00ed velikosti vyrovn\u00e1vac\u00ed pam\u011bti odezvy pot\u00e9, co ji\u017e byla potvrzena odezva. Jde o chybu aplikace.
 setbuffer.size.called.after.write.useraction=Odeberte vol\u00e1n\u00ed metody setBufferSize() nebo je p\u0159esu\u0148te p\u0159ed potvrzen\u00ed odezvy.
 
@@ -1560,8 +1557,8 @@ servlet.with.same.name.already.exists.explanation=Servlet s t\u00edmto n\u00e1zv
 servlet.with.same.name.already.exists.useraction=Nen\u00ed nutn\u00e1 \u017e\u00e1dn\u00e1 akce. Zjist\u011bte konflikty v deskriptoru implementace, anotac\u00edch a zdrojov\u00e9m k\u00f3du, kter\u00e9 mohou dynamicky p\u0159id\u00e1vat tuto konfiguraci servletu. 
 
 servlet.feature.not.loaded.correctly=SRVE8501E: Kontejner servlet\u016f se nena\u010detl s akceptovatelnou verz\u00ed.
-servlet.feature.not.loaded.correctly.explanation=Kontejner servlet\u016f se na\u010detl s verz\u00ed, kter\u00e1 odpov\u00edd\u00e1 specifikaci Java EE funkce servletu. Kontejner nebyl na\u010dten se \u017e\u00e1dnou definovanou verz\u00ed.
-servlet.feature.not.loaded.correctly.useraction=Zkontrolujte soubor server.xml, zda v n\u011bm existuje funkce servlet-3.0 nebo servlet-3.1. Jedna z t\u011bchto funkc\u00ed by m\u011bla b\u00fdt definov\u00e1na, ale ne ob\u011b.
+servlet.feature.not.loaded.correctly.explanation=Kontejner servletu na\u010dten bez p\u0159ijateln\u00e9 verze. Aplikace se m\u016f\u017ee chovat jinak, ne\u017e se o\u010dek\u00e1valo.
+servlet.feature.not.loaded.correctly.useraction=Zkontrolovat server.xml soubor pro existenci v\u00edce funkc\u00ed servletu.  Soubor nesm\u00ed specifikovat v\u00edce ne\u017e jednu funkci servletu.
 
 filter.failed.app.destroyed=SRVE8502W: Po\u017eadavek pro {0} nelze dokon\u010dit, proto\u017ee aplikace byla zastavena.
 filter.failed.app.destroyed.explanation=Webov\u00e1 aplikace se zastavuje a po\u017eadavek nelze dokon\u010dit. Tato akce mohla b\u00fdt zp\u016fsobena vypnut\u00edm serveru b\u011bhem zpracov\u00e1n\u00ed po\u017eadavku.
@@ -1581,10 +1578,7 @@ uncaught.exception.during.AsyncListener.onComplete.explanation=Modul AsyncListen
 uncaught.exception.during.AsyncListener.onComplete.useraction=Pro vyhled\u00e1n\u00ed ko\u0159enov\u00e9 p\u0159\u00ed\u010diny chyby aplikace zkontrolujte zdrojov\u00fd k\u00f3d modulu AsyncListener a protokoly serveru.
 
 # Since servlet 4.0.  Use the registered and reserved prefix CWWWC from now on.  
-# 0001 - 0199 for Base
-# 0200 - 0299 for Servlet 3.0
-# 0300 - 0399 for Servlet 3.1
-# 0400 - 0499 for Servlet 4
+# Sequential increment the message number for all new releases and services
 
 #name.is.null=CWWWC0400E: An attribute name, or initial parameter name, is null.
 #name.is.null.explanation=This is an application error.  The name is null in either context getAttribute(), setAttribute(), getInitParameter(), or setInitParameter().
@@ -1614,3 +1608,46 @@ duplicate.samesite.attribute.for.cookie.name.useraction=Zkontrolujte konfiguraci
 duplicate.reported.for.samesite.attribute.cookie.name=CWWWC0004W: N\u00e1zev souboru cookie {0}, kter\u00fd je nakonfigurov\u00e1n pro hodnotu atributu {1} SameSite, byl d\u0159\u00edve identifikov\u00e1n jako duplicitn\u00ed. Pro tento soubor cookie nen\u00ed p\u0159id\u00e1n \u017e\u00e1dn\u00fd atribut SameSite.
 duplicate.reported.for.samesite.attribute.cookie.name.explanation=N\u00e1zev souboru cookie nem\u016f\u017ee b\u00fdt konfigurov\u00e1n pro v\u00edce hodnot atributu SameSite. Tento n\u00e1zev souboru cookie ji\u017e byl identifikov\u00e1n jako duplicitn\u00ed.
 duplicate.reported.for.samesite.attribute.cookie.name.useraction=Zkontrolujte konfiguraci deskriptoru implementace a ujist\u011bte se, \u017ee n\u00e1zev souboru cookie je nakonfigurov\u00e1n pouze pro jednu z n\u00e1sleduj\u00edc\u00edch hodnot atributu SameSite: 'SameSiteCookies_Lax', 'SameSiteCookies_None' nebo 'SameSiteUCookies_SURI'. 
+
+bad.request.uri\:.{0}=CWWWC0005I: Identifik\u00e1tor URI po\u017eadavku obsahuje neplatn\u00e9 nebo nespr\u00e1vn\u011b k\u00f3dovan\u00e9 znaky: [{0}]
+bad.request.uri\:.{0}.explanation=Identifik\u00e1tor URI po\u017eadavku m\u00e1 neplatn\u00e9 parametry cesty, neplatn\u00e9 te\u010dkov\u00e9 segmenty nebo nespr\u00e1vn\u011b k\u00f3dovan\u00e9 znaky.
+bad.request.uri\:.{0}.useraction=Ov\u011b\u0159te, \u017ee identifik\u00e1tor URI po\u017eadavku neobsahuje neplatnou kombinaci parametr\u016f te\u010dek nebo cesty nebo n\u011bkter\u00e9 nespr\u00e1vn\u011b k\u00f3dovan\u00e9 znaky.
+
+uri.has.fragment.character=Identifik\u00e1tor URI m\u00e1 znak fragmentu [#]; k\u00f3dovan\u00fd [%23] nebo ne.
+uri.has.dot.character=Identifik\u00e1tor URI zak\u00f3doval znak te\u010dky [%2E].
+uri.has.forwarslash.character=Identifik\u00e1tor URI zak\u00f3doval znak dop\u0159edn\u00e9ho lom\u00edtka [%2F].
+uri.has.backslash.character=Identifik\u00e1tor URI m\u00e1 znak zp\u011btn\u00e9ho lom\u00edtka; zak\u00f3dovan\u00fd [%5C] nebo ne.
+
+multipart.file.count.max.exceeded=CWWWC0006E: Po\u017eadavek obsahoval v\u00edce soubor\u016f pro odesl\u00e1n\u00ed, ne\u017e je povoleno. Maxim\u00e1ln\u00ed po\u010det soubor\u016f je [{0}].
+multipart.file.count.max.exceeded.explanation=Po\u010det soubor\u016f odeslan\u00fdch po\u017eadavkem multipart/form-data p\u0159ekro\u010dil nastaven\u00fd limit.
+multipart.file.count.max.exceeded.useraction=Zvy\u0161te maxim\u00e1ln\u00ed po\u010det soubor\u016f, kter\u00e9 mohou b\u00fdt odesl\u00e1ny na po\u017eadavek, nastaven\u00edm p\u0159izp\u016fsoben\u00e9 vlastnosti maxFileCount webContainer v souboru server.xml. V\u00fdchoz\u00ed hodnota je 5000. Pro neomezen\u00e9 odesl\u00e1n\u00ed souboru nastavte hodnotu na -1.
+
+cannot.sendRedirect.response.already.committed=CWWWC0007E: Odpov\u011b\u010f sendRedirect nen\u00ed po potvrzen\u00ed odezvy povolena.
+cannot.sendRedirect.response.already.committed.explanation=Kdy\u017e je odezva potvrzena, nem\u016f\u017ee odeslat p\u0159esm\u011brov\u00e1n\u00ed.
+cannot.sendRedirect.response.already.committed.useraction=Ov\u011b\u0159te logiku sendRedirect , abyste se ujistili, \u017ee odpov\u011b\u010f nen\u00ed potvrzena, bu\u010f ru\u010dn\u011b, nebo automaticky, p\u0159ed vol\u00e1n\u00edm sendRedirect .
+
+redirect.location.cannot.be.null=CWWWC0008E: Um\u00edst\u011bn\u00ed p\u0159esm\u011brov\u00e1n\u00ed nem\u016f\u017ee m\u00edt hodnotu null.
+redirect.location.cannot.be.null.explanation=Adresa URL pro p\u0159esm\u011brov\u00e1n\u00ed mus\u00ed b\u00fdt relativn\u00ed nebo absolutn\u00ed adresa URL. 
+redirect.location.cannot.be.null.useraction=Aktualizujte um\u00edst\u011bn\u00ed p\u0159esm\u011brov\u00e1n\u00ed zad\u00e1n\u00edm hodnoty adresy URL, kter\u00e1 nen\u00ed pr\u00e1zdn\u00e1. Adresa URL m\u016f\u017ee b\u00fdt bu\u010f relativn\u00ed, nebo absolutn\u00ed.
+
+sendRedirect.hyper.text.url=<html><body><p>P\u0159esm\u011brov\u00e1n\u00ed na <a href="{0}"></a></p></body></html>
+
+query.or.post.is.null=CWWWC0009E: \u0158et\u011bzec dotazu po\u017eadavku HTTP nebo data po\u017eadavku HTTP POST maj\u00ed hodnotu null.
+query.or.post.is.null.explanation=Aplikace se pokusila analyzovat \u0159et\u011bzec dotazu po\u017eadavku HTTP s hodnotou null nebo t\u011blo po\u017eadavku POST HTTP s hodnotou null.
+query.or.post.is.null.useraction=Klient mus\u00ed odeslat nenulov\u00fd \u0159et\u011bzec dotazu HTTP nebo nenulov\u00fd text HTTP po\u017eadavku POST.
+
+read.write.bytebuffer.null=CWWWC0010E: Pokus o \u010dten\u00ed z operace InputStream nebo o z\u00e1pis do operace OutputStream se nezda\u0159il, proto\u017ee instance argumentu prom\u011bnn\u00e9 ByteBuffer m\u011bla hodnotu null.
+read.write.bytebuffer.null.explanation=Instance argumentu prom\u011bnn\u00e9 ByteBuffer p\u0159edan\u00e1 rozhran\u00ed API pro \u010dten\u00ed nebo z\u00e1pis nesm\u00ed m\u00edt hodnotu null.
+read.write.bytebuffer.null.useraction=Upravte k\u00f3d aplikace tak, aby byla vytvo\u0159ena instance ByteBuffer s jinou hodnotou ne\u017e null pro p\u0159ed\u00e1n\u00ed do operace InputStream nebo OutputStream .
+
+read.write.failed.isReady.false=CWWWC0011E: Pokus o \u010dten\u00ed z operace InputStream nebo o z\u00e1pis do operace OutputStream se nezda\u0159il, proto\u017ee rozhran\u00ed API isReady vrac\u00ed hodnotu false.
+read.write.failed.isReady.false.explanation=Pokud rozhran\u00ed API isReady vr\u00e1t\u00ed hodnotu false, nem\u016f\u017eete volat metodu \u010dten\u00ed ani z\u00e1pisu.
+read.write.failed.isReady.false.useraction=Upravte logiku aplikace, abyste se ujistili, \u017ee je proud p\u0159ipraven na operaci InputStream nebo OutputStream .
+
+sendRedirect.cannot.convert.relative.url=CWWWC0012E: Relativn\u00ed adresu sendRedirect URL v aplikaci nelze p\u0159ev\u00e9st na platnou adresu URL.
+sendRedirect.cannot.convert.relative.url.explanation=Zadan\u00fd relativn\u00ed URL m\u016f\u017ee obsahovat neplatn\u00e9 znaky proch\u00e1zen\u00ed cest nebo indexy.
+sendRedirect.cannot.convert.relative.url.useraction=Ov\u011b\u0159en\u00ed um\u00edst\u011bn\u00ed sendRedirect URL v aplikaci p\u0159ed vol\u00e1n\u00edm metody response.sendRedirect( )
+
+invalid.accept.language.length=CWWWC0013E: Hodnota hlavi\u010dky Accept-Language v po\u017eadavku HTTP je p\u0159\u00edli\u0161 dlouh\u00e1.
+invalid.accept.language.length.explanation=Klient ode\u0161le hlavi\u010dku Accept-Language, kter\u00e1 je p\u0159\u00edli\u0161 dlouh\u00e1.
+invalid.accept.language.length.useraction=Klient mus\u00ed odeslat hlavi\u010dku Accept-Language s hodnotou d\u00e9lky 4096 bajt\u016f nebo m\u00e9n\u011b.

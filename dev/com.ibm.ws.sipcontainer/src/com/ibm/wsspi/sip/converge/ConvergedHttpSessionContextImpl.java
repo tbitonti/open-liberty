@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -33,7 +35,7 @@ import com.ibm.ws.webcontainer.session.impl.HttpSessionImpl;
 import com.ibm.wsspi.session.ISession;
 import com.ibm.wsspi.session.IStore;
 
-public class ConvergedHttpSessionContextImpl extends HttpSessionContextImpl {
+public class ConvergedHttpSessionContextImpl extends HttpSessionContextImpl implements IConvergedHttpSessionContext {
 
     /**
 	 * Class Logger.
@@ -208,6 +210,9 @@ public class ConvergedHttpSessionContextImpl extends HttpSessionContextImpl {
      * Added for SIP/HTTP Converged App Support. SIP container calls this method via
      * com.ibm.wsspi.servlet.session.ConvergedAppUtils to get an HTTP session reference
      * for those HTTP sessions that belong to application sessions.
+     * 
+     * NOTE: This method was duplicated to com.ibm.ws.sipcontainer.servlet.3.1/com/ibm/ws/sip/container/was/servlet31/converged/ConvergedHttpSessionContext31Impl.java
+     * Any changes should be applied to both methods. 
      */
     public HttpSession getHttpSessionById(String sessId) {
     	HttpSessionImpl sd = null;

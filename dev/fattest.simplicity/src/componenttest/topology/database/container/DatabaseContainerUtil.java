@@ -1,188 +1,689 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2021 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package componenttest.topology.database.container;
 
+import java.io.File;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.testcontainers.containers.JdbcDatabaseContainer;
 
+import com.ibm.websphere.simplicity.config.AuthData;
+import com.ibm.websphere.simplicity.config.ConfigElement;
 import com.ibm.websphere.simplicity.config.DataSource;
 import com.ibm.websphere.simplicity.config.DataSourceProperties;
 import com.ibm.websphere.simplicity.config.DatabaseStore;
+import com.ibm.websphere.simplicity.config.Fileset;
+import com.ibm.websphere.simplicity.config.JavaPermission;
+import com.ibm.websphere.simplicity.config.Library;
 import com.ibm.websphere.simplicity.config.ServerConfiguration;
+import com.ibm.websphere.simplicity.config.Transaction;
 import com.ibm.websphere.simplicity.config.dsprops.Properties;
 import com.ibm.websphere.simplicity.log.Log;
 
 import componenttest.topology.impl.LibertyServer;
 
+/**
+ * <pre>
+ * When using <b>database rotation</b> the server configuration needs to be updated
+ * for the database which is currenlty under test. This class updates server
+ * configuration by following this routine:
+ *
+ * 1. Retrieves database specific properties from the provided JdbcDatabaseContainer, such as;
+ * databaseName, server, port, username, password, etc.
+ *
+ * 2. Using the ServerConfiguration API.
+ * Retrieves all {@code <dataSource>}, {@code <authData>}, and {@code<library>} elements
+ * and modifies those that have the <b>fat.modify=true</b> attribute set. <br>
+ *
+ * 3. Replace the dataSource {@code <properties.derby.[embedded | client] ...>}
+ * with the generic {@code <properties ...>} or specific {@code <properties.[database] ...>}
+ * element for the provided JdbcDatabaseContainer. <br>
+ *
+ * </pre>
+ *
+ * @see com.ibm.websphere.simplicity.config.ServerConfiguration
+ */
+//TODO Change class to DatabaseContainerProperties
 public final class DatabaseContainerUtil {
     //Logging Constants
     private static final Class<DatabaseContainerUtil> c = DatabaseContainerUtil.class;
 
-    private DatabaseContainerUtil() {
-        //No objects should be created from this class
+    // Location server expects to find JDBC drivers
+    private static File sharedResourcesDir = new File("publish/shared/resources");
+
+    // Replacement keys
+    private static String DRIVER_KEY = "DB_DRIVER";
+    private static String USER_KEY = "DB_USER";
+    private static String PASS_KEY = "DB_PASS";
+    private static String URL_KEY = "DB_URL";
+
+    private static final String toReplacementString(String key) {
+        return "${env." + key + "}";
     }
 
-    /**
-     * Performs the same property substitution as {@link DatabaseContainerUtil#setupDataSourceProperties(LibertyServer, JdbcDatabaseContainer)}
-     * but ensures that we use properties.{database} instead of generic properties.
-     */
-    public static void setupDataSourceDatabaseProperties(LibertyServer serv, JdbcDatabaseContainer<?> cont) throws CloneNotSupportedException, Exception {
-        //Skip for Derby and DerbyClient
-        if (DatabaseContainerType.valueOf(cont) == DatabaseContainerType.Derby ||
-            DatabaseContainerType.valueOf(cont) == DatabaseContainerType.DerbyClient)
-            return; //Derby used by default no need to change DS properties
+    //Required fields
+    private final LibertyServer server;
+    private final DatabaseContainerType databaseType;
 
-        //Get server config
-        ServerConfiguration cloneConfig = serv.getServerConfiguration().clone();
-        //Get datasources to be changed
-        List<DataSource> datasources = getDataSources(serv, cloneConfig);
-        //Modify those datasources
-        modifyDataSourcePropsForDatabase(datasources, cloneConfig, serv, cont);
-    }
+    // Calculated fields
+    private final ServerConfiguration serverClone;
+    private final JdbcDatabaseContainer<?> databaseCont;
+    private final File driverDir;
+    private final String relativeDriverDir;
+    private final boolean hasDriverPermissionVariable;
 
-    /**
-     * For use when attempting to use <b>database rotation</b>. <br>
-     *
-     * Retrieves database specific properties from the provided JdbcDatabaseContainer, such as;
-     * username, password, etc. <br>
-     *
-     * Using the ServerConfiguration API. Retrieves all &lt;dataSource&gt; elements and modifies
-     * those that have the <b>fat.modify=true</b> attribute set. <br>
-     *
-     * This will replace the datasource &lt;derby.*.properties... &gt; with the generic properties
-     * for the provided JdbcDatabaseContainer. <br>
-     *
-     * @see com.ibm.websphere.simplicity.config.ServerConfiguration
-     *
-     * @param serv - LibertyServer server instance being used for this FAT suite.
-     * @param cont - JdbcDatabaseContainer instance being used for database connectivity.
-     *
-     * @throws Exception
-     */
-    public static void setupDataSourceProperties(LibertyServer serv, JdbcDatabaseContainer<?> cont) throws Exception {
-        //Skip for Derby and DerbyClient
-        if (DatabaseContainerType.valueOf(cont) == DatabaseContainerType.Derby ||
-            DatabaseContainerType.valueOf(cont) == DatabaseContainerType.DerbyClient)
-            return; //Derby used by default no need to change DS properties
+    //Optional fields
+    private boolean useGeneric = true;
 
-        //Get server config
-        ServerConfiguration cloneConfig = serv.getServerConfiguration().clone();
-        //Get datasources to be changed
-        List<DataSource> datasources = getDataSources(serv, cloneConfig);
-        //Modify those datasources
-        modifyDataSourcePropsGeneric(datasources, cloneConfig, serv, cont);
-    }
+    //Required updates
+    private final Set<DataSource> datasources;
+    private final Set<AuthData> authDatas;
 
-    /*
-     * Helper method to get a list of datasources that need to be updated
-     */
-    private static List<DataSource> getDataSources(LibertyServer serv, ServerConfiguration cloneConfig) {
+    //Optional updates
+    private Map<String, Fileset> libraries = Collections.emptyMap();
+    private Set<JavaPermission> permissions = Collections.emptySet();
+    private boolean isModifiable = false;
+
+    //Optional additions/removals
+    private Set<JavaPermission> addPermissions = Collections.emptySet();
+    private Set<JavaPermission> removePermissions = Collections.emptySet();
+
+    ///// Constructor /////
+    private DatabaseContainerUtil(LibertyServer serv, JdbcDatabaseContainer<?> cont) throws Exception {
+        // Setup required fields
+        this.server = Objects.requireNonNull(serv);
+        this.serverClone = server.getServerConfiguration().clone();
+
+        this.databaseCont = Objects.requireNonNull(cont);
+        this.databaseType = DatabaseContainerType.valueOf(databaseCont);
+
+        this.driverDir = findJdbcDriverLocation(databaseType)
+                        .orElseThrow(() -> new IllegalStateException("Could not find where the JDBC Driver was located"));
+        this.relativeDriverDir = driverDir.getAbsolutePath()
+                        .replace(sharedResourcesDir.getAbsolutePath(), "${shared.resource.dir}")
+                        .replace("\\", "/");
+
+        this.hasDriverPermissionVariable = serverClone.getJavaPermissions()
+                        .stream()
+                        .filter(p -> Objects.nonNull(p.getCodeBase()))
+                        .filter(p -> p.getCodeBase().contains(toReplacementString(DRIVER_KEY)))
+                        .findAny()
+                        .isPresent();
+
+        boolean isDerby = DatabaseContainerType.valueOf(databaseCont) == DatabaseContainerType.Derby ||
+                          DatabaseContainerType.valueOf(databaseCont) == DatabaseContainerType.DerbyClient;
+
+        boolean isDerbyJava17Plus = DatabaseContainerType.valueOf(databaseCont) == DatabaseContainerType.DerbyJava17Plus ||
+                                    DatabaseContainerType.valueOf(databaseCont) == DatabaseContainerType.DerbyClientJava17Plus;
+
+        boolean isH2 = DatabaseContainerType.valueOf(databaseCont) == DatabaseContainerType.H2 ||
+                       DatabaseContainerType.valueOf(databaseCont) == DatabaseContainerType.H2Java11Plus;
+
+        if (isDerby || isDerbyJava17Plus) {
+            this.datasources = Collections.emptySet();
+            this.authDatas = Collections.emptySet();
+            this.isModifiable = false;
+            return;
+        }
+
+        //TODO Allow H2 to both be default and a rotation
+        // might be helpful to have a build that attempts to use
+        // H2 in rotation so teams know going into the transition
+        // what failures they will need to deal with.
+
+        if (isH2) {
+            this.datasources = Collections.emptySet();
+            this.authDatas = Collections.emptySet();
+            this.isModifiable = false;
+
+            // H2 uses a URL for connection properties that may change depending
+            // on how the container was initialized.
+            server.addEnvVar(URL_KEY, databaseCont.getJdbcUrl());
+
+            return;
+        }
+
         //Get a list of datasources that need to be updated
-        List<DataSource> datasources = new ArrayList<>();
+        Set<DataSource> dsSet = new HashSet<>();
 
-        //Get general datasources
-        for (DataSource ds : cloneConfig.getDataSources())
-            if (ds.getFatModify() != null && ds.getFatModify().equals("true"))
-                datasources.add(ds);
+        //Get general dataSources
+        dsSet.addAll(serverClone.getDataSources());
 
         //Get datasources that are nested under databasestores
-        for (DatabaseStore dbs : cloneConfig.getDatabaseStores())
-            for (DataSource ds : dbs.getDataSources())
-                if (ds.getFatModify() != null && ds.getFatModify().equals("true"))
-                    datasources.add(ds);
+        for (DatabaseStore dbs : serverClone.getDatabaseStores()) {
+            dsSet.addAll(dbs.getDataSources());
+        }
 
-        return datasources;
+        //Get datasources that are nested under transactions
+        Transaction tx = serverClone.getTransaction();
+        if (tx != null) {
+            dsSet.addAll(tx.getDataSources());
+        }
+
+        this.datasources = dsSet.stream()
+                        .filter(ds -> ds.getFatModify() != null)
+                        .filter(ds -> ds.getFatModify().equalsIgnoreCase("true"))
+                        .collect(Collectors.toSet());
+
+        //Get a set of distinct authDatas that could be updated
+        this.authDatas = this.datasources.stream()
+                        .flatMap(ds -> findAuthDataLocations(ds).stream())
+                        .distinct()
+                        .collect(Collectors.toSet());
+
+        //TODO what about authData elements inside a <databaseStore> element?
+
+        //If there is nothing to modify, this is not modifiable
+        this.isModifiable |= !this.datasources.isEmpty() || !this.authDatas.isEmpty();
     }
 
-    /*
-     * Creates generic properties for each database
+    ///// Builder /////
+
+    /**
+     * @param  serv LibertyServer server instance being used for this FAT suite.
+     * @param  cont JdbcDatabaseContainer instance being used for database connectivity.
+     * @return      instance of DatabaseContainerUtil
      */
-    private static void modifyDataSourcePropsGeneric(List<DataSource> datasources, ServerConfiguration cloneConfig, LibertyServer serv,
-                                                     JdbcDatabaseContainer<?> cont) throws Exception {
-        //Get database type
-        DatabaseContainerType type = DatabaseContainerType.valueOf(cont);
-
-        //Create general properties
-        DataSourceProperties props = new Properties();
-        props.setUser(cont.getUsername());
-        props.setPassword(cont.getPassword());
-        props.setServerName(cont.getContainerIpAddress());
-        props.setPortNumber(Integer.toString(cont.getFirstMappedPort()));
+    public static DatabaseContainerUtil build(LibertyServer server, JdbcDatabaseContainer<?> cont) {
         try {
-            props.setDatabaseName(cont.getDatabaseName());
-        } catch (UnsupportedOperationException e) {
+            return new DatabaseContainerUtil(server, cont);
+        } catch (Exception e) {
+            throw new RuntimeException("Failure while building database container util", e);
+        }
+    }
+
+    ///// Configuration /////
+
+    /**
+     * Performs substitution of the library element with the name of the driver for the database used at runtime.
+     * This is helpful during checkpoint tests since the JVM will return null for environment variables before checkpoint.
+     *
+     * Example (${env.DB_DRIVER} will be replaced):
+     *
+     * <pre>
+     * <code>
+     *   &lt;library id="JDBCLibrary" &gt;
+     *     &lt;fileset dir="${shared.resource.dir}/jdbc" includes="${env.DB_DRIVER}" /&gt;
+     *   &lt;/library&gt;
+     * </code>
+     * </pre>
+     *
+     * TODO consider requiring fat.modify = true for this replacement
+     *
+     * @return this
+     */
+    public DatabaseContainerUtil withDriverReplacement() {
+        this.libraries = new HashMap<>();
+
+        //Get filesets
+        for (Library lib : serverClone.getLibraries())
+            for (Fileset fs : lib.getFilesets())
+                if (fs.getIncludes().equals(toReplacementString(DRIVER_KEY))) {
+                    //Reference library id here since it will be more recognizable
+                    //We could check the fileset to verify it was configured with the correct relativeDriverDir
+                    this.libraries.put(getElementId(lib), fs);
+                }
+
+        this.isModifiable |= !this.libraries.isEmpty();
+
+        return this;
+    }
+
+    /**
+     * If Java 2 Security is enabled:
+     *
+     * Performs substitution of the permission element with the name of the driver for the database used at runtime.
+     * This is helpful during checkpoint tests since the JVM will return null for environment variables before checkpoint.
+     *
+     * Example (${env.DB_DRIVER} will be replaced):
+     *
+     * <pre>
+     * <code>
+     *   &lt;javaPermission codebase="${shared.resource.dir}/jdbc/${env.DB_DRIVER}"
+     *                      className="java.security.AllPermission"/&gt;
+     * </code>
+     * </pre>
+     *
+     * Will also add additional permission elements to server for each support
+     * library for this driver.
+     *
+     * @return this
+     */
+    public DatabaseContainerUtil withPermissionReplacement() {
+        if (server.isJava2SecurityEnabled()) {
+            this.permissions = serverClone.getJavaPermissions()
+                            .stream()
+                            .filter(p -> Objects.nonNull(p.getCodeBase()))
+                            .filter(p -> p.getCodeBase().contains(toReplacementString(DRIVER_KEY)))
+                            .collect(Collectors.toSet());
+
+            this.addPermissions = databaseType.getSupportLibraries()
+                            .stream()
+                            .map(name -> {
+                                JavaPermission p = new JavaPermission();
+                                p.setCodeBase(this.relativeDriverDir + "/" + name);
+                                p.setClassName("java.security.AllPermission");
+                                return p;
+                            })
+                            .collect(Collectors.toSet());
+
+            this.isModifiable |= !this.permissions.isEmpty() || !this.addPermissions.isEmpty();
         }
 
-        //TODO this should not be required even when using general datasource properties
-        // investigating here: https://github.com/OpenLiberty/open-liberty/issues/10066
-        if (type.equals(DatabaseContainerType.DB2)) {
-            props.setExtraAttribute("driverType", "4");
+        return this;
+
+    }
+
+    /**
+     * Adds the environment variable `DB_DRIVER` to the server to avoid having to modify the library element.
+     *
+     * Example:
+     *
+     * <pre>
+     * <code>
+     *   &lt;library id="JDBCLibrary"&gt;
+     *     &lt;fileset dir="${shared.resource.dir}/jdbc" includes="${env.DB_DRIVER}" /&gt;
+     *   &lt;/library&gt;
+     * </code>
+     * </pre>
+     *
+     * Will also add additional permission elements to server for each support
+     * library for this driver (which will require a config update).
+     *
+     * @return this
+     */
+    public DatabaseContainerUtil withDriverVariable() {
+        this.server.addEnvVar(DRIVER_KEY, databaseType.streamAllArtifacts().collect(Collectors.joining(", ")));
+
+        /**
+         * It is inadequate to just add the driver key, we must also add additional
+         * permissions for support libraries since there are places where ${env.DB_DRIVER}
+         * are used for permissions.
+         */
+        if (server.isJava2SecurityEnabled() && hasDriverPermissionVariable) {
+            this.addPermissions = databaseType.streamAllArtifacts()
+                            .map(name -> {
+                                JavaPermission p = new JavaPermission();
+                                p.setCodeBase(this.relativeDriverDir + "/" + name);
+                                p.setClassName("java.security.AllPermission");
+                                return p;
+                            })
+                            .collect(Collectors.toSet());
+
+            this.removePermissions = serverClone.getJavaPermissions()
+                            .stream()
+                            .filter(p -> Objects.nonNull(p.getCodeBase()))
+                            .filter(p -> p.getCodeBase().contains(toReplacementString(DRIVER_KEY)))
+                            .collect(Collectors.toSet());
+
+            this.isModifiable |= !this.addPermissions.isEmpty() || !this.removePermissions.isEmpty();
         }
 
-        if (type.equals(DatabaseContainerType.SQLServer)) {
-            props.setExtraAttribute("selectMethod", "cursor");
+        return this;
+    }
+
+    /**
+     * Adds the additional environment variables `DB_USER` and `DB_PASS` to the server to allow for
+     * customized user/password variables that are not the system/admin authentication data.
+     *
+     * @param  user a database user
+     * @param  pass a database user's password
+     *
+     * @return      this
+     */
+    public DatabaseContainerUtil withAuthVariables(String user, String pass) {
+        this.server.addEnvVar(USER_KEY, user);
+        this.server.addEnvVar(PASS_KEY, pass);
+        return this;
+    }
+
+    /**
+     * Performs substitution of the dataSource element {@code <properties.derby.embedded ... />}
+     * with a set of generic properties {@code <properties .../>}
+     *
+     * NOTE: this is the default behavior
+     *
+     * @return this
+     */
+    public DatabaseContainerUtil withGenericProperties() {
+        useGeneric = true;
+        return this;
+    }
+
+    /**
+     * Performs substitution of the dataSource element {@code <properties.derby.embedded ... />}
+     * with a set of specific properties for the database under test {@code <properties.[database] .../>}
+     *
+     * @return this
+     */
+    public DatabaseContainerUtil withDatabaseProperties() {
+        useGeneric = false;
+        return this;
+    }
+
+    ///// Termination /////
+    public void modify() throws Exception {
+
+        final String m = "modify";
+
+        //Skip modify if there is nothing to modify
+        if (!isModifiable) {
+            Log.info(c, m, "Nothing was found to be modifiable and therefore we will skip the modify step.");
+            return;
         }
 
-        if (type.equals(DatabaseContainerType.Oracle)) {
-            Class<?> clazz = type.getContainerClass();
-            Method getSid = clazz.getMethod("getSid");
-            props.setDatabaseName((String) getSid.invoke(cont));
-            props.setExtraAttribute("driverType", "thin");
+        //If a test suite legitimately wants to call this method outside of the Database Rotation SOE
+        //Then we need to fail them on the IBMi SOE to avoid generic errors that arise when trying to infer datasource types.
+        if (useGeneric && System.getProperty("os.name").equalsIgnoreCase("OS/400")) {
+            throw new IllegalStateException("Attempting to modify the DataSource server configuration with a generic <properties /> element on an IBMi server. "
+                                            + " IBMi ships with a JDK that has a DB2 driver globally available which means we cannot infer the datasource type. "
+                                            + " Switch to use the setupDataSourceDatabaseProperties method.");
         }
 
-        for (DataSource ds : datasources) {
-            Log.info(c, "setupDataSourceProperties", "FOUND: DataSource to be enlisted in database rotation.  ID: " + ds.getId());
-            //Replace derby properties
-            ds.replaceDatasourceProperties(props);
+        // modify datasources
+        if (!datasources.isEmpty()) {
+
+            //Create generic or specific properties
+            DataSourceProperties commonProps = useGeneric ? new Properties() : databaseType.getDataSourceProps();
+
+            //Common configuration
+            commonProps.setServerName(databaseCont.getHost());
+            commonProps.setPortNumber(Integer.toString(databaseCont.getFirstMappedPort()));
+            try {
+                commonProps.setDatabaseName(databaseCont.getDatabaseName());
+            } catch (UnsupportedOperationException e) {
+                if (databaseType.equals(DatabaseContainerType.SQLServer)) {
+                    commonProps.setDatabaseName("TEST");
+                }
+            }
+
+            //Specific configuration
+            if (useGeneric) {
+                //TODO this should not be required even when using general datasource properties
+                // investigating here: https://github.com/OpenLiberty/open-liberty/issues/10066
+                if (databaseType.equals(DatabaseContainerType.DB2)) {
+                    commonProps.setExtraAttribute("driverType", "4");
+                }
+
+                if (databaseType.equals(DatabaseContainerType.SQLServer)) {
+                    commonProps.setExtraAttribute("selectMethod", "cursor");
+                }
+
+                if (databaseType.equals(DatabaseContainerType.Oracle)) {
+                    Class<?> clazz = databaseType.getContainerClass();
+                    Method getSid = clazz.getMethod("getSid");
+                    commonProps.setDatabaseName((String) getSid.invoke(databaseCont));
+                    commonProps.setExtraAttribute("driverType", "thin");
+                }
+            } else {
+                if (databaseType.equals(DatabaseContainerType.Oracle)) {
+                    Class<?> clazz = databaseType.getContainerClass();
+                    Method getSid = clazz.getMethod("getSid");
+                    commonProps.setDatabaseName((String) getSid.invoke(databaseCont));
+                }
+            }
+
+            //Update DataSources
+            for (DataSource ds : datasources) {
+                Log.info(c, m, "FOUND: DataSource to be enlisted in database rotation. ID: " + getElementId(ds));
+
+                if (ds.getDataSourceProperties().size() != 1) {
+                    throw new RuntimeException("Expected exactly one set of DataSoure properties for DataSource: " + getElementId(ds));
+                }
+
+                //Make a clone of common props and determine username/password
+                DataSourceProperties clone = (DataSourceProperties) commonProps.clone();
+
+                for (DataSourceProperties originalProps : ds.getDataSourceProperties()) {
+                    if (canUpdate(originalProps)) {
+                        clone.setUser(databaseCont.getUsername());
+                        clone.setPassword(databaseCont.getPassword());
+                    } else {
+                        clone.setUser(originalProps.getUser());
+                        clone.setPassword(originalProps.getPassword());
+                    }
+                }
+
+                //Replace dataSource properties
+                ds.replaceDatasourceProperties(clone);
+            }
+        }
+
+        // Modify authDatas
+        for (AuthData ad : authDatas) {
+            if (!canUpdate(ad)) {
+                Log.info(c, m, "SKIP: AuthData cannot be enlisted in database rotation. ID: " + getElementId(ad));
+                continue;
+            }
+
+            Log.info(c, m, "FOUND: AuthData to be enlisted in database rotation.  ID: " + getElementId(ad));
+
+            ad.setUser(databaseCont.getUsername());
+            ad.setPassword(databaseCont.getPassword());
+        }
+
+        // Modify libraries
+        for (Map.Entry<String, Fileset> entry : libraries.entrySet()) {
+            Log.info(c, m, "FOUND: Library to be enlisted in database rotation.  ID: " + entry.getKey());
+
+            //Replace includes with driver name
+            entry.getValue().setIncludes(databaseType.streamAllArtifacts().collect(Collectors.joining(", ")));
+        }
+
+        // Remove permissions
+        for (JavaPermission permission : removePermissions) {
+            Log.info(c, m, "REMOVE: Permission to be enlisted in database rotation. ID: " + getElementId(permission));
+
+            serverClone.getJavaPermissions().remove(permission);
+        }
+
+        // Modify permissions
+        for (JavaPermission permission : permissions) {
+            Log.info(c, m, "FOUND: Permission to be enlisted in database rotation. ID: " + getElementId(permission));
+
+            String codeBase = permission.getCodeBase();
+            permission.setCodeBase(codeBase.replace(toReplacementString(DRIVER_KEY), databaseType.getDriverName()));
+        }
+
+        // Add permissions
+        for (JavaPermission permission : addPermissions) {
+            Log.info(c, m, "ADD: Permission for database rotation. ID: " + getElementId(permission));
+
+            serverClone.getJavaPermissions().add(permission);
         }
 
         //Update config
-        serv.updateServerConfiguration(cloneConfig);
+        server.updateServerConfiguration(serverClone);
     }
 
-    /*
-     * Creates properties for specific database
+    ///// Deprecated static methods ////
+
+    /**
+     * Instead use:
+     * <code>
+     * DatabaseContainerUtil.build(server, cont).withDatabaseProperties().modify();
+     * </code>
      */
-    private static void modifyDataSourcePropsForDatabase(List<DataSource> datasources, ServerConfiguration cloneConfig, LibertyServer serv,
-                                                         JdbcDatabaseContainer<?> cont) throws Exception {
-        //Get database type
-        DatabaseContainerType type = DatabaseContainerType.valueOf(cont);
-
-        //Create properties based on type
-        DataSourceProperties props = type.getDataSourceProps();
-        props.setUser(cont.getUsername());
-        props.setPassword(cont.getPassword());
-        props.setServerName(cont.getContainerIpAddress());
-        props.setPortNumber(Integer.toString(cont.getFirstMappedPort()));
-        try {
-            props.setDatabaseName(cont.getDatabaseName());
-        } catch (UnsupportedOperationException e) {
-        }
-
-        if (type.equals(DatabaseContainerType.Oracle)) {
-            Class<?> clazz = type.getContainerClass();
-            Method getSid = clazz.getMethod("getSid");
-            props.setDatabaseName((String) getSid.invoke(cont));
-        }
-
-        for (DataSource ds : datasources) {
-            Log.info(c, "setupDataSourceProperties", "FOUND: DataSource to be enlisted in database rotation.  ID: " + ds.getId());
-            //Replace derby properties
-            ds.replaceDatasourceProperties(props);
-        }
-
-        //Update config
-        serv.updateServerConfiguration(cloneConfig);
+    @Deprecated //TODO remove once Websphere Liberty repository is updated
+    public static void setupDataSourceDatabaseProperties(LibertyServer serv, JdbcDatabaseContainer<?> cont) throws CloneNotSupportedException, Exception {
+        DatabaseContainerUtil.build(serv, cont).withDatabaseProperties().modify();
     }
+
+    /**
+     * Instead use:
+     * <code>
+     * DatabaseContainerUtil.build(server, cont).modify();
+     * </code>
+     */
+    @Deprecated
+    public static void setupDataSourceProperties(LibertyServer serv, JdbcDatabaseContainer<?> cont) throws Exception {
+        DatabaseContainerUtil.build(serv, cont).modify();
+    }
+
+    ///// Helper methods /////
+    /**
+     * Helper method gets the id of a configuration element, or generates a unique id based on that element
+     */
+    private String getElementId(ConfigElement element) {
+        return element.getId() == null ? //
+                        element.getClass().getSimpleName() + "@" + Integer.toHexString(element.toString().hashCode()) : //
+                        element.getId();
+    }
+
+    /**
+     * <pre>
+     * Determine if we can update AuthData based on the following checks:
+     *
+     * 1. The original AuthData set fat.modify to true (not null, false, or any other string)
+     * 2. The original AuthData did not contain the username ${env.DB_USER} and password ${env.DB_PASS}
+     * </pre>
+     *
+     * @param  props The original AuthData element
+     * @return       true if the original AuthData can be updated, false otherwise.
+     */
+    private boolean canUpdate(AuthData ad) {
+        if (ad.getFatModify() == null || //
+            ad.getFatModify().equalsIgnoreCase("false")) {
+            return false;
+        }
+
+        if (ad.getUser().equalsIgnoreCase(toReplacementString(USER_KEY)) && //
+            ad.getPassword().equalsIgnoreCase(toReplacementString(PASS_KEY))) {
+            return false;
+        }
+
+        return ad.getFatModify().equalsIgnoreCase("true");
+    }
+
+    /**
+     * <pre>
+     * Determine if we can update DataSourceProperties based on the following checks:
+     *
+     * 1. The original DataSourceProperties contained a username and password
+     * 2. The original DataSourceProperties did not contain the username ${env.DB_USER} and password ${env.DB_PASS}
+     * </pre>
+     *
+     * @param  props The original DataSourceProperties element
+     * @return       true if the original DataSourceProperties can be updated, false otherwise.
+     */
+    private boolean canUpdate(DataSourceProperties props) {
+        if (props.getUser() == null && props.getPassword() == null) {
+            return false;
+        }
+
+        if (props.getUser().equalsIgnoreCase(toReplacementString(USER_KEY)) && //
+            props.getPassword().equalsIgnoreCase(toReplacementString(PASS_KEY))) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * <pre>
+     * Authentication data for a dataSource can be found in any of the following locations:
+     *
+     * 1. Within the {@code <containerAuthData... />} element of the dataSource.
+     * 2. Within the {@code <recoveryAuthData... />} element of the dataSource.
+     * 3. Within the {@code <dataSource containerAuthDataRef... /> attribute of the dataSource
+     *
+     * </pre>
+     *
+     * @param ds The dataSource
+     *
+     * @return a set of AuthDatas that the dataSource references or contains.
+     */
+    private Set<AuthData> findAuthDataLocations(DataSource ds) {
+
+        Set<AuthData> authDataElements = new HashSet<>();
+
+        authDataElements.addAll(ds.getContainerAuthDatas());
+
+        if (ds.getContainerAuthDataRef() != null) {
+            authDataElements.add(serverClone.getAuthDataElements().getById(ds.getContainerAuthDataRef()));
+        }
+
+        if (ds.getRecoveryAuthDataRef() != null) {
+            authDataElements.add(serverClone.getAuthDataElements().getById(ds.getRecoveryAuthDataRef()));
+        }
+
+        return authDataElements;
+    }
+
+    /**
+     * Search for the JDBC driver and optional support libraries necessary for
+     * this database container in locations where the server might expect to find it. <br>
+     *
+     * @return Optional - directory of JDBC driver and support libraries if found, empty otherwise.
+     */
+    public Optional<File> findJdbcDriverLocation(DatabaseContainerType type) {
+
+        // Set of possible locations for JDBC drivers (directory prefixed with jdbc)
+        final Set<File> jdbcResourceDirs = Stream.of(sharedResourcesDir.listFiles())
+                        .filter(file -> file.isDirectory())
+                        .filter(dir -> dir.toPath().getFileName().toString().startsWith("jdbc"))
+                        .collect(Collectors.toSet());
+
+        for (File directory : jdbcResourceDirs) {
+            Log.info(c, "findJdbcDriverLocation", "Searching " + directory + " for JDBC driver and supporting libraries.");
+
+            final AtomicBoolean foundAll = new AtomicBoolean(true);
+
+            // Search for each file
+            type.streamAllArtifacts()
+                            .map(name -> new File(directory, name))
+                            .forEach(file -> {
+                                boolean foundFile = file.exists();
+
+                                if (foundFile) {
+                                    Log.info(c, "isJdbcDriverAvailable", "\tFOUND: " + type + " container's JDBC driver in location: " + file.getAbsolutePath());
+                                } else {
+                                    Log.info(c, "isJdbcDriverAvailable", "\tMISSING: " + type + " container's JDBC driver from location: " + file.getAbsolutePath());
+                                }
+
+                                //equivalent to foundAll &= foundFile
+                                foundAll.compareAndSet(true, foundFile);
+                            });
+
+            // Found all in single directory
+            if (foundAll.get()) {
+                return Optional.of(directory);
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    @Override
+    public String toString() {
+        return "DatabaseContainerUtil"
+               + System.lineSeparator() + "[server=" + server.getServerName() + ", databaseType=" + databaseType + ", isModifiable=" + isModifiable
+               + System.lineSeparator() + "\tdatasources=" + datasources.stream().map(ds -> getElementId(ds)).collect(Collectors.toList())
+               + System.lineSeparator() + "\tauthDatas=" + authDatas.stream().map(ad -> getElementId(ad)).collect(Collectors.toList())
+               + System.lineSeparator() + "\tlibraries=" + libraries.keySet()
+               + System.lineSeparator() + "\tpermissions=" + permissions.stream().map(ps -> getElementId(ps)).collect(Collectors.toList())
+               + System.lineSeparator() + "\taddPermissions=" + addPermissions.stream().map(ps -> getElementId(ps)).collect(Collectors.toList())
+               + System.lineSeparator() + "]";
+    }
+
 }

@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.ejbcontainer.interceptor.fat;
 
@@ -31,6 +30,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.ejbcontainer.interceptor.aroundTimeout.web.AdvancedAroundTimeoutAnnServlet;
 import com.ibm.ws.ejbcontainer.interceptor.aroundTimeout.web.AdvancedAroundTimeoutMixServlet;
 import com.ibm.ws.ejbcontainer.interceptor.aroundTimeout.web.AdvancedAroundTimeoutXmlServlet;
@@ -75,8 +75,21 @@ public class AroundTimeoutTest extends FATServletClient {
     })
     public static LibertyServer server;
 
+    /*@formatter:off*/
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().forServers("com.ibm.ws.ejbcontainer.interceptor.fat.AroundTimeoutServer")).andWith(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.ejbcontainer.interceptor.fat.AroundTimeoutServer"));
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.interceptor.fat.AroundTimeoutServer"))
+                                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.interceptor.fat.AroundTimeoutServer"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11)
+                                                    .forServers("com.ibm.ws.ejbcontainer.interceptor.fat.AroundTimeoutServer"))
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17)
+                                                    .forServers("com.ibm.ws.ejbcontainer.interceptor.fat.AroundTimeoutServer"))
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.interceptor.fat.AroundTimeoutServer"));
+    /*@formatter:on*/
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -96,7 +109,7 @@ public class AroundTimeoutTest extends FATServletClient {
         EnterpriseArchive AroundTimeoutTest = ShrinkWrap.create(EnterpriseArchive.class, "AroundTimeoutTest.ear");
         AroundTimeoutTest.addAsModule(AroundTimeoutAnnEJB).addAsModule(AroundTimeoutExcEJB).addAsModule(AroundTimeoutMixEJB).addAsModule(AroundTimeoutXmlEJB).addAsModule(AroundTimeoutWeb);
 
-        ShrinkHelper.exportDropinAppToServer(server, AroundTimeoutTest);
+        ShrinkHelper.exportDropinAppToServer(server, AroundTimeoutTest, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }

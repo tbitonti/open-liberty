@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2016 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,7 +14,11 @@ package com.ibm.wsspi.kernel.service.utils;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.Iterator;
+import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.component.ComponentContext;
@@ -27,56 +33,76 @@ import org.osgi.service.component.ComponentContext;
  * service instance).
  * <p>
  * Usage (following OSGi DS naming conventions/patterns):
- * <code><pre>
+ * <code>
+ *
+ * <pre>
  * private final AtomicServiceReference&ltT&gt serviceRef = new AtomicServiceReference&ltT&gt("referenceName");
- * 
+ *
  * protected void activate(ComponentContext ctx) {
  * &nbsp;serviceRef.activate(ctx);
  * }
- * 
+ *
  * protected void deactivate(ComponentContext ctx) {
  * &nbsp;serviceRef.deactivate(ctx);
  * }
- * 
+ *
  * protected void setReferenceName(ServiceReference&ltT&gt ref) {
  * &nbsp;serviceRef.setReference(ref);
  * }
- * 
+ *
  * protected void unsetReferenceName(ServiceReference&ltT&gt ref) {
  * &nbsp;serviceRef.unsetReference(ref);
  * }
- * 
+ *
  * private T getReferenceName() {
  * &nbsp;return serviceRef.getService();
  * }
- * </pre></code>
+ * </pre>
+ *
+ * </code>
  */
 public class AtomicServiceReference<T> {
     private final String referenceName;
 
-    static class ReferenceTuple<T> {
-        final ComponentContext context;
-        final ServiceReference<T> serviceRef;
-        final T locatedService;
+    private final AtomicReference<ComponentContext> contextRef = new AtomicReference<>();
 
-        ReferenceTuple(ComponentContext ctx, ServiceReference<T> ref, T svc) {
-            context = ctx;
+    static class ReferenceTuple<T> implements Comparable<ReferenceTuple<T>> {
+        final ServiceReference<T> serviceRef;
+        final AtomicReference<T> locatedService = new AtomicReference<>();
+
+        ReferenceTuple(ServiceReference<T> ref) {
             serviceRef = ref;
-            locatedService = svc;
         }
 
         @Override
         public String toString() {
-            return "ctx=" + context + ",ref=" + serviceRef + ",svc=" + locatedService;
+            return "ref=" + serviceRef + ",svc=" + locatedService;
+        }
+
+        @Override
+        public int compareTo(ReferenceTuple<T> o) {
+            // reverse sort because priority queue peeks the least
+            return -(this.serviceRef.compareTo(o.serviceRef));
+        }
+
+        @SuppressWarnings("rawtypes")
+        @Override
+        public boolean equals(Object o) {
+            if (o instanceof ReferenceTuple) {
+                return this.serviceRef.equals(((ReferenceTuple) o).serviceRef);
+            }
+            return false;
         }
     }
 
-    private final AtomicReference<ReferenceTuple<T>> tuple = new AtomicReference<ReferenceTuple<T>>(new ReferenceTuple<T>(null, null, null));
+    // size of 2; it will be very uncommon to this to be used with more than 2 at a time
+    private final PriorityQueue<ReferenceTuple<T>> references = new PriorityQueue<>(2);
+    private final ReadWriteLock referencesLock = new ReentrantReadWriteLock();
 
     /**
      * Create a new AtomicServiceReference for the named service.
      * e.g. from bnd.bnd: referenceName=.... or from component.xml: <reference name="referenceName".... >
-     * 
+     *
      * @param name Name of DS reference
      */
     public AtomicServiceReference(String name) {
@@ -84,69 +110,60 @@ public class AtomicServiceReference<T> {
     }
 
     public void activate(ComponentContext context) {
-        ReferenceTuple<T> previous = null;
-        ReferenceTuple<T> newTuple = null;
-
-        // Try this until we either manage to make our update or we know we don't have to
-        do {
-            // Get the current tuple
-            previous = tuple.get();
-
-            // If we don't have a previous value
-            newTuple = new ReferenceTuple<T>(context, previous.serviceRef, null);
-
-            // Try to set our new value 
-        } while (!tuple.compareAndSet(previous, newTuple));
+        contextRef.set(context);
     }
 
     public void deactivate(ComponentContext context) {
-        ReferenceTuple<T> previous = null;
-        ReferenceTuple<T> newTuple = null;
-
-        // Try this until we manage to set/replace the value
-        do {
-            // Get the current tuple
-            previous = tuple.get();
-
-            // Create a new tuple that clears out the context (preserve the reference to the service,
-            // as that can have attributes that should be accessible by a user between deactivate
-            // and unset
-            newTuple = new ReferenceTuple<T>(null, previous.serviceRef, null);
-
-            // Try to save the new tuple: retry if someone changed the value meanwhile
-        } while (!tuple.compareAndSet(previous, newTuple));
+        contextRef.set(null);
+        referencesLock.writeLock().lock();
+        try {
+            // clear services located from the context that is deactivating
+            references.forEach((r) -> r.locatedService.set(null));
+        } finally {
+            referencesLock.writeLock().unlock();
+        }
     }
 
     /**
      * Update service reference associated with this service.
-     * 
+     *
      * @param referenceName ServiceReference for the target service. Service references are
-     *            equal if they point to the same service registration, and are ordered by
-     *            increasing service.ranking and decreasing service.id. ServiceReferences hold
-     *            no service properties: requests/queries for properties are forwarded onto
-     *            the backing service registration.
+     *                          equal if they point to the same service registration, and are ordered by
+     *                          increasing service.ranking and decreasing service.id. ServiceReferences hold
+     *                          no service properties: requests/queries for properties are forwarded onto
+     *                          the backing service registration.
      * @return true if this is replacing a previous (non-null) service reference
      */
     public boolean setReference(ServiceReference<T> reference) {
-        ReferenceTuple<T> previous = null;
-        ReferenceTuple<T> newTuple = null;
-
-        // Try this until we either manage to make our update or we know we don't have to
-        do {
-            // Get the current tuple
-            previous = tuple.get();
-
-            // If we have something to do.. 
-            if (reference != previous.serviceRef) {
-                newTuple = new ReferenceTuple<T>(previous.context, reference, null);
-            } else {
-                break; // break out. Nothing to see here.
+        referencesLock.writeLock().lock();
+        try {
+            // TODO not sure null should be handled
+            if (reference == null) {
+                boolean isEmpty = references.isEmpty();
+                // if null just remove all references
+                references.clear();
+                return !isEmpty;
             }
-
-            // Try to save the new tuple: retry if someone changed the value meanwhile
-        } while (!tuple.compareAndSet(previous, newTuple));
-
-        return previous.serviceRef != null;
+            Iterator<ReferenceTuple<T>> iRefs = references.iterator();
+            ReferenceTuple<T> highest = null;
+            ReferenceTuple<T> existing = null;
+            while (iRefs.hasNext()) {
+                ReferenceTuple<T> next = iRefs.next();
+                if (highest == null) {
+                    highest = next;
+                }
+                if (reference.equals(next.serviceRef)) {
+                    iRefs.remove();
+                    existing = next;
+                    break;
+                }
+            }
+            ReferenceTuple<T> newTuple = existing != null ? existing : new ReferenceTuple<>(reference);
+            references.add(newTuple);
+            return highest != null && highest != references.peek();
+        } finally {
+            referencesLock.writeLock().unlock();
+        }
     }
 
     /**
@@ -155,30 +172,34 @@ public class AtomicServiceReference<T> {
      * current reference. For Declarative Services dynamic components: if a replacement
      * is available for a dynamic reference, DS will call set with the new
      * reference before calling unset to clear the old one.
-     * 
+     *
      * @param reference ServiceReference associated with service to be unset.
      * @return true if a non-null value was replaced
      */
     public boolean unsetReference(ServiceReference<T> reference) {
-        ReferenceTuple<T> previous = null;
-        ReferenceTuple<T> newTuple = null;
-
-        // Try this until we either manage to make our update or we know we don't have to
-        do {
-            // Get the current tuple
-            previous = tuple.get();
-
-            // If we have something to do.. 
-            if (reference == previous.serviceRef) {
-                newTuple = new ReferenceTuple<T>(previous.context, null, null);
-            } else {
-                break; // break out. Nothing to see here.
+        referencesLock.writeLock().lock();
+        try {
+            // TODO not sure null should be handled
+            if (reference == null) {
+                // nothing really to do
+                return false;
             }
-
-            // Try to save the new tuple: retry if someone changed the value meanwhile
-        } while (!tuple.compareAndSet(previous, newTuple));
-
-        return newTuple != null;
+            Iterator<ReferenceTuple<T>> iRefs = references.iterator();
+            ReferenceTuple<T> highest = null;
+            while (iRefs.hasNext()) {
+                ReferenceTuple<T> next = iRefs.next();
+                if (highest == null) {
+                    highest = next;
+                }
+                if (reference.equals(next.serviceRef)) {
+                    iRefs.remove();
+                    break;
+                }
+            }
+            return highest != null && highest.serviceRef.equals(reference);
+        } finally {
+            referencesLock.writeLock().unlock();
+        }
     }
 
     /**
@@ -189,8 +210,13 @@ public class AtomicServiceReference<T> {
      *         the backing service registration.
      */
     public ServiceReference<T> getReference() {
-        ReferenceTuple<T> current = tuple.get();
-        return current != null ? current.serviceRef : null;
+        referencesLock.readLock().lock();
+        try {
+            ReferenceTuple<T> highest = references.peek();
+            return highest == null ? null : highest.serviceRef;
+        } finally {
+            referencesLock.readLock().unlock();
+        }
     }
 
     /**
@@ -203,8 +229,8 @@ public class AtomicServiceReference<T> {
     /**
      * @return T
      * @throws IllegalStateException if the internal state is such that
-     *             locating the service is not possible or if the service
-     *             is not retrievable
+     *                                   locating the service is not possible or if the service
+     *                                   is not retrievable
      */
     public T getServiceWithException() {
         return getService(true);
@@ -212,63 +238,61 @@ public class AtomicServiceReference<T> {
 
     /**
      * Try to locate the service
-     * 
+     *
      * @param throwException if true, throw exception when required services are
-     *            missing
+     *                           missing
      * @return T or null if unavailable
      */
     @SuppressWarnings("unchecked")
     private T getService(boolean throwException) {
-        T svc = null;
-        ReferenceTuple<T> current = null;
-        ReferenceTuple<T> newTuple = null;
 
-        do {
-            // Get the current tuple
-            current = tuple.get();
-
-            // We have both a context and a service reference.. 
-            svc = current.locatedService;
-            if (svc != null) {
-                break; // break out. We know the answer, yes
+        final ComponentContext currentContext = contextRef.get();
+        if (currentContext == null) {
+            if (throwException) {
+                throw new IllegalStateException("Not activated yet: " + toString());
             }
+            return null;
+        }
 
-            // If we're missing the required bits, bail... 
-            if (current.context == null || current.serviceRef == null) {
-                if (throwException)
-                    throw new IllegalStateException("Required attribute is null," + toString());
-                break; // break out. Nothing more to do here
+        final ReferenceTuple<T> highest;
+        referencesLock.readLock().lock();
+        try {
+            highest = references.peek();
+        } finally {
+            referencesLock.readLock().unlock();
+        }
+        if (highest == null) {
+            if (throwException) {
+                throw new IllegalStateException("No service reference available: " + toString());
             }
+            return null;
+        }
 
-            // We have to locate / resolve the service from the reference 
-            SecurityManager sm = System.getSecurityManager();
-            if (sm != null) {
-                final ReferenceTuple<T> finalCurrent = current;
-                svc = AccessController.doPrivileged(new PrivilegedAction<T>() {
+        T svc = highest.locatedService.get();
+        if (svc != null) {
+            return svc;
+        }
+        // We have to locate / resolve the service from the reference
+        SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            svc = AccessController.doPrivileged(new PrivilegedAction<T>() {
 
-                    @Override
-                    public T run() {
-                        return finalCurrent.context.locateService(referenceName, finalCurrent.serviceRef);
-                    }
-                });
-            } else {
-                svc = current.context.locateService(referenceName, current.serviceRef);
+                @Override
+                public T run() {
+                    return currentContext.locateService(referenceName, highest.serviceRef);
+                }
+            });
+        } else {
+            svc = currentContext.locateService(referenceName, highest.serviceRef);
+        }
+
+        // if we're asked to throw, throw if we couldn't find the service
+        if (svc == null) {
+            if (throwException) {
+                throw new IllegalStateException("Located service is null," + toString());
             }
-
-            // if we're asked to throw, throw if we couldn't find the service
-            if (svc == null) {
-                if (throwException)
-                    throw new IllegalStateException("Located service is null," + toString());
-
-                break; // break out. Nothing more to do here
-            }
-
-            // Create a new tuple: keep the context and reference, set the cached service 
-            newTuple = new ReferenceTuple<T>(current.context, current.serviceRef, svc);
-
-            // Try to save the new tuple: retry if someone changed the value meanwhile
-        } while (!tuple.compareAndSet(current, newTuple));
-
+        }
+        highest.locatedService.set(svc);
         return svc;
     }
 
@@ -276,7 +300,7 @@ public class AtomicServiceReference<T> {
     public String toString() {
         return this.getClass().getSimpleName()
                + "[name=" + referenceName
-               + "," + tuple.get()
+               + "," + references
                + "]";
     }
 }

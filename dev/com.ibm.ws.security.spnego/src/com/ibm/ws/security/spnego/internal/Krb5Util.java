@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -28,7 +30,7 @@ import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
 import com.ibm.websphere.ras.annotation.Trivial;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.security.authentication.AuthenticationConstants;
 import com.ibm.ws.security.authentication.AuthenticationException;
@@ -96,7 +98,7 @@ public class Krb5Util {
 
         try {
             preUseSubjectCredsOnly = Krb5Common.setPropertyAsNeeded(Krb5Common.USE_SUBJECT_CREDS_ONLY, currentUseSubjectCredsOnly);
-            if (Krb5Common.isOtherSupportJDKs) {
+            if (Krb5Common.OTHER_KRB5_LOGIN_MODULE_AVAILABLE) {
                 previousSpn = Krb5Common.setPropertyAsNeeded(Krb5Common.KRB5_PRINCIPAL, currentSpn);
                 Krb5Common.setPropertyAsNeeded(Krb5Common.KRB5_NAME, currentSpn);
             }
@@ -118,7 +120,7 @@ public class Krb5Util {
             disposeGssContext(gssContext);
         } finally {
             Krb5Common.restorePropertyAsNeeded(Krb5Common.USE_SUBJECT_CREDS_ONLY, preUseSubjectCredsOnly, currentUseSubjectCredsOnly);
-            if (Krb5Common.isOtherSupportJDKs) {
+            if (Krb5Common.OTHER_KRB5_LOGIN_MODULE_AVAILABLE) {
                 Krb5Common.restorePropertyAsNeeded(Krb5Common.KRB5_PRINCIPAL, previousSpn, currentSpn);
                 Krb5Common.restorePropertyAsNeeded(Krb5Common.KRB5_NAME, previousSpn, currentSpn);
             }

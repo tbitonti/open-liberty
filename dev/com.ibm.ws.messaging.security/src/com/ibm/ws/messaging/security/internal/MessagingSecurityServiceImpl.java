@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.security.auth.Subject;
 
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.ServiceReference;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.cm.ConfigurationEvent;
@@ -36,6 +39,7 @@ import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.condition.Condition;
 
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.ffdc.FFDCFilter;
@@ -56,6 +60,7 @@ import com.ibm.ws.security.SecurityService;
 import com.ibm.ws.security.registry.RegistryException;
 import com.ibm.ws.security.registry.UserRegistry;
 import com.ibm.ws.security.registry.UserRegistryService;
+import com.ibm.ws.security.token.ltpa.LTPAConfiguration;
 import com.ibm.wsspi.sib.utils.ras.SibTr;
 
 /**
@@ -177,11 +182,11 @@ public class MessagingSecurityServiceImpl implements MessagingSecurityService, C
      * is raised during authentication resulting in an FFDC dump.
      * This function is a "dummy" that will influence OSGi's running of this bundle, delaying until the service can be resolved.
      */
-    @Reference( service = com.ibm.ws.security.token.ltpa.LTPAConfiguration.class )
-    protected void setLTPA2(Object arg) {
+    @Reference(service = LTPAConfiguration.class)
+    protected void setLTPA2(ServiceReference<LTPAConfiguration> ref) {
         final String methodName = "setLTPA2";
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
-          SibTr.entry(tc, methodName, new Object[] {this, arg});
+          SibTr.entry(tc, methodName, new Object[] {this, ref});
           SibTr.exit(tc, methodName);
         }
     }

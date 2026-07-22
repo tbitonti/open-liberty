@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -78,13 +80,13 @@ public class CommitedAddressImpl extends ContactSystemAddressImpl
     }
     
     /**
-     * In this Class only user part MAY be modified
+     * In this Class only the User part MAY be modified
      * @see javax.servlet.sip.Address#setURI(URI)
      */
     @Override
 	public void setURI(URI uri)
     {
-    	throw new IllegalStateException("This Address is used in commited message where it cannot be modified");
+    	throw new IllegalStateException("This Address is used in a committed message, therefore it cannot be modified");
     }
     
     /**
@@ -93,7 +95,7 @@ public class CommitedAddressImpl extends ContactSystemAddressImpl
      */
     @Override
 	public void setParameter(String name, String value){
-    	throw new IllegalStateException("This Address is used in commited message where it cannot be modified");
+    	throw new IllegalStateException("This Address is used in a committed message, therefore it cannot be modified");
     }
     
     /**
@@ -101,7 +103,7 @@ public class CommitedAddressImpl extends ContactSystemAddressImpl
 	 */
 	@Override
 	public void setValue(String value) throws IllegalStateException {
-		throw new IllegalStateException("This Address is used in commited message where it cannot be modified");
+		throw new IllegalStateException("This Address is used in a committed message, therefore it cannot be modified");
 	}
 	
     /**
@@ -110,7 +112,7 @@ public class CommitedAddressImpl extends ContactSystemAddressImpl
     @Override
 	public void setExpires(int seconds)
     {
-    	throw new IllegalStateException("This Address is used in commited message where it cannot be modified");
+    	throw new IllegalStateException("This Address is used in a committed message, therefore it cannot be modified");
     }
 
     
@@ -120,6 +122,6 @@ public class CommitedAddressImpl extends ContactSystemAddressImpl
     @Override
 	public void setQ(float q)
     {
-    	throw new IllegalStateException("This Address is used in commited message where it cannot be modified");
+    	throw new IllegalStateException("This Address is used in committed message, therefore it cannot be modified");
     }
 }

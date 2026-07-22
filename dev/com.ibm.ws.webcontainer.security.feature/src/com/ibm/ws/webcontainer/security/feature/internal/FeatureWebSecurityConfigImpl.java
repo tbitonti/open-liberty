@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.security.feature.internal;
 
@@ -45,8 +44,11 @@ class FeatureWebSecurityConfigImpl implements WebAppSecurityConfig {
     private final Boolean useLtpaSSOForJaspic = false;
     private final Boolean useAuthenticationDataForUnprotectedResource = true;
     private final Boolean includePathInWASReqURL = false;
-    private final Boolean trackLoggedOutSSOCookies = false;
+    private final Boolean trackLoggedOutSSOCookies = true;
     private final Boolean useOnlyCustomCookieName = false;
+    private final Boolean useContextRootForSSOCookiePath = false;
+    private final Boolean partitionedCookie = null;
+    private final long postParamMaxRequestBodySize = 1024 * 1024 * 128L;
 
     FeatureWebSecurityConfigImpl(Map<String, Object> newProperties) {
         //nothing to do, values are hard-coded
@@ -405,8 +407,58 @@ class FeatureWebSecurityConfigImpl implements WebAppSecurityConfig {
     public String getSameSiteCookie() {
         WebAppSecurityConfig globalConfig = WebAppSecurityCollaboratorImpl.getGlobalWebAppSecurityConfig();
         if (globalConfig != null)
-            return WebAppSecurityCollaboratorImpl.getGlobalWebAppSecurityConfig().getSameSiteCookie();
+            return globalConfig.getSameSiteCookie();
         else
             return null;
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public Boolean getPartitionedCookie() {
+        WebAppSecurityConfig globalConfig = WebAppSecurityCollaboratorImpl.getGlobalWebAppSecurityConfig();
+        if (globalConfig != null)
+            return globalConfig.getPartitionedCookie();
+        else
+            return partitionedCookie;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isPartitionedCookie() {
+        WebAppSecurityConfig globalConfig = WebAppSecurityCollaboratorImpl.getGlobalWebAppSecurityConfig();
+        if (globalConfig != null)
+            return globalConfig.isPartitionedCookie();
+       
+        return false;
+    }
+
+    @Override
+    public boolean isUseContextRootForSSOCookiePath() {
+        WebAppSecurityConfig globalConfig = WebAppSecurityCollaboratorImpl.getGlobalWebAppSecurityConfig();
+        if (globalConfig != null)
+            return globalConfig.isUseContextRootForSSOCookiePath();
+        else
+            return useContextRootForSSOCookiePath;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long postParamMaxRequestBodySize() {
+        WebAppSecurityConfig globalConfig = WebAppSecurityCollaboratorImpl.getGlobalWebAppSecurityConfig();
+        if (globalConfig != null)
+            return globalConfig.postParamMaxRequestBodySize();
+        else
+            return postParamMaxRequestBodySize;
+    }
+    
+    /** {@inheritDoc} */
+    @Override
+    public boolean getAllowInMemoryIdentityStores() { 
+        WebAppSecurityConfig globalConfig = WebAppSecurityCollaboratorImpl.getGlobalWebAppSecurityConfig();
+        if (globalConfig != null) {
+            return globalConfig.getAllowInMemoryIdentityStores();
+        } else {
+            return false;
+        }
+    }	
 }

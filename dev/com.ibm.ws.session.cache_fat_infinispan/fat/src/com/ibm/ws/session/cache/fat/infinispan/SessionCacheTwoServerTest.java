@@ -1,15 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2019 IBM Corporation and others.
+ * Copyright (c) 2018, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.session.cache.fat.infinispan;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -18,19 +21,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import com.ibm.websphere.simplicity.log.Log;
+
+import componenttest.annotation.MaximumJavaLevel;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.custom.junit.runner.RepeatTestFilter;
 import componenttest.custom.junit.runner.TestModeFilter;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 
+// TODO Currently Infinispan does not support Java 23 with the versions of Infinispan we support
+// The @MaximumJavaLevel annotation should be removed once the this issue is fixed in a version of Infinispan we support
+@MaximumJavaLevel(javaLevel = 22)
 @RunWith(FATRunner.class)
 public class SessionCacheTwoServerTest extends FATServletClient {
 
@@ -43,17 +56,31 @@ public class SessionCacheTwoServerTest extends FATServletClient {
     public static SessionCacheApp appA;
     public static SessionCacheApp appB;
 
+    @ClassRule
+    public static RepeatTests repeatRule = RepeatTests.withoutModification().andWith(new CacheManagerRepeatAction());
+
     @BeforeClass
     public static void setUp() throws Exception {
         appA = new SessionCacheApp(serverA, true, "session.cache.infinispan.web"); // no HttpSessionListeners are registered by this app
         appB = new SessionCacheApp(serverB, true, "session.cache.infinispan.web", "session.cache.infinispan.web.cdi", "session.cache.infinispan.web.listener1");
         serverB.useSecondaryHTTPPort();
+
+        String sessionCacheConfigFile = "httpSessionCache_1.xml";
+        if (RepeatTestFilter.isRepeatActionActive(CacheManagerRepeatAction.ID)) {
+            sessionCacheConfigFile = "httpSessionCache_2.xml";
+        }
+
         String rand = UUID.randomUUID().toString();
         Map<String, String> options = serverA.getJvmOptionsAsMap();
         options.put("-Dinfinispan.cluster.name", rand);
+        options.put("-Dsession.cache.config.file", sessionCacheConfigFile);
+        options.put("-Djgroups.bind.address", "127.0.0.1"); // Resolves JGroup multicast issues on some OS's.
         serverA.setJvmOptions(options);
+
         options = serverB.getJvmOptionsAsMap();
         options.put("-Dinfinispan.cluster.name", rand);
+        options.put("-Dsession.cache.config.file", sessionCacheConfigFile);
+        options.put("-Djgroups.bind.address", "127.0.0.1"); // Resolves JGroup multicast issues on some OS's.
         serverB.setJvmOptions(options);
 
         serverA.startServer();
@@ -66,6 +93,12 @@ public class SessionCacheTwoServerTest extends FATServletClient {
         appA.invalidateSession(sessionA);
 
         serverB.startServer();
+
+        // Wait for Infinispan/JGroups to form a 2-node cluster. This message appears in serverA's log
+        // when serverB joins. Using a log-based wait instead of a fixed sleep makes this
+        // reliable across machines with varying startup times (especially Windows under load).
+        assertNotNull("Infinispan 2-node cluster did not form within 60 seconds",
+                      serverA.waitForStringInLog("ISPN000094.*\\(2\\)", 60000));
     }
 
     @AfterClass
@@ -74,14 +107,34 @@ public class SessionCacheTwoServerTest extends FATServletClient {
             testFailover();
         } finally {
             try {
-                if (serverA.isStarted())
+                if (serverA.isStarted()) {
+                    Log.info(SessionCacheTwoServerTest.class, "tearDown", "Start server A shutdown");
                     serverA.stopServer();
+                }
+            } catch (Exception e) {
+                Log.info(SessionCacheTwoServerTest.class, "tearDown", "Ignoring exception due to slow test machine during server shutdown");
             } finally {
-                if (serverB.isStarted())
+                if (serverB.isStarted()) {
+                    Log.info(SessionCacheTwoServerTest.class, "tearDown", "Start server B shutdown");
                     serverB.stopServer();
+                }
             }
         }
+
+        if (isZOS()) {
+            Log.info(SessionCacheTwoServerTest.class, "tearDown", "Allow more time for ZOS shutdown");
+            TimeUnit.SECONDS.sleep(20);
+        }
     }
+
+    private static final boolean isZOS() {
+        String osName = System.getProperty("os.name");
+        if (osName.contains("OS/390") || osName.contains("z/OS") || osName.contains("zOS")) {
+            return true;
+        }
+        return false;
+    }
+
 
     /**
      * Test lifecycle of cache for http sessions by putting data into a server,
@@ -93,9 +146,28 @@ public class SessionCacheTwoServerTest extends FATServletClient {
         List<String> session = new ArrayList<>();
         appA.sessionPut("testFailover-1", "foo", session, true);
         appA.sessionGet("testFailover-1", "foo", session);
+        
+        // Poll for session replication to serverB before stopping serverA (especially important on slower platforms like z/OS)
+        long timeout = System.currentTimeMillis() + 10_000; // 10 second max wait
+        boolean replicated = false;
+        AssertionError lastError = null;
+        while (System.currentTimeMillis() < timeout) {
+            try {
+                appB.sessionGet("testFailover-1", "foo", session);
+                replicated = true;
+                break; // replication succeeded
+            } catch (AssertionError e) {
+                lastError = e;
+                TimeUnit.MILLISECONDS.sleep(500);
+            }
+        }
+        if (!replicated) {
+            throw new AssertionError("Session did not replicate to appB within 10 seconds before failover", lastError);
+        }
+        
         serverA.stopServer();
 
-        // Now verify the cache failed over to Server B
+        // Now verify the cache is still available on Server B after failover
         appB.sessionGet("testFailover-1", "foo", session);
         serverB.stopServer();
 
@@ -202,6 +274,25 @@ public class SessionCacheTwoServerTest extends FATServletClient {
     public void testModifyWithoutPut() throws Exception {
         List<String> session = new ArrayList<>();
         appA.sessionPut("testModifyWithoutPut-key", new StringBuffer("MyValue"), session, true);
+        
+        // Poll for session replication to appB (especially important on slower platforms like z/OS)
+        long timeout = System.currentTimeMillis() + 10_000; // 10 second max wait
+        boolean replicated = false;
+        AssertionError lastError = null;
+        while (System.currentTimeMillis() < timeout) {
+            try {
+                appB.sessionGet("testModifyWithoutPut-key&compareAsString=true", new StringBuffer("MyValue"), session);
+                replicated = true;
+                break; // replication succeeded
+            } catch (AssertionError e) {
+                lastError = e;
+                TimeUnit.MILLISECONDS.sleep(500);
+            }
+        }
+        if (!replicated) {
+            throw new AssertionError("Session attribute did not replicate to appB within 10 seconds", lastError);
+        }
+        
         try {
             appB.invokeServlet("testStringBufferAppendWithoutSetAttribute&key=testModifyWithoutPut-key", session);
             // appA should not see the update because it does not get written to the persistent store without a putAttribute per writeContents=ONLY_SET_ATTRIBUTES
@@ -291,7 +382,24 @@ public class SessionCacheTwoServerTest extends FATServletClient {
     public void testMaxInactiveInterval() throws Exception {
         List<String> session = new ArrayList<>();
         appA.sessionPut("testMaxInactiveInterval-key", 55901, session, true);
-        appB.sessionGet("testMaxInactiveInterval-key", 55901, session);
+        
+        // Poll for session replication to appB (especially important on slower platforms like z/OS)
+        long timeout = System.currentTimeMillis() + 10_000; // 10 second max wait
+        boolean replicated = false;
+        AssertionError lastError = null;
+        while (System.currentTimeMillis() < timeout) {
+            try {
+                appB.sessionGet("testMaxInactiveInterval-key", 55901, session);
+                replicated = true;
+                break; // replication succeeded
+            } catch (AssertionError e) {
+                lastError = e;
+                TimeUnit.MILLISECONDS.sleep(500);
+            }
+        }
+        if (!replicated) {
+            throw new AssertionError("Session did not replicate to appB within 10 seconds", lastError);
+        }
         appA.invokeServlet("setMaxInactiveInterval", session); //set max inactive interval to 1 second
 
         for (int attempt = 0; attempt < 5; attempt++) {

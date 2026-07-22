@@ -1,14 +1,39 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 import org.apache.tools.ant.filters.ReplaceTokens
+
+configurations {
+	projectDependencies { transitive = false }
+}
+
+dependencies {
+	projectDependencies project(':com.ibm.websphere.javaee.jaxb.2.2'),
+	                    project(':com.ibm.websphere.javaee.jsonp.1.0'),
+	                    project(':com.ibm.ws.common.encoder'),
+	                    project(':com.ibm.ws.componenttest'),
+	                    project(':com.ibm.ws.jaxb.tools'),
+	                    project(':com.ibm.ws.junit.extensions'),
+	                    project(':com.ibm.ws.logging.core'),
+	                    project(':com.ibm.ws.org.glassfish.json'),
+	                    project(':com.ibm.ws.org.slf4j.api'),
+	                    project(':com.ibm.ws.org.slf4j.simple'),
+	                    project(':io.openliberty.com.fasterxml.jackson'),
+	                    project(':io.openliberty.org.apache.commons.logging'),
+	                    project(':io.openliberty.org.bouncycastle.bcpkix-jdk18on'),
+	                    project(':io.openliberty.org.bouncycastle.bcprov-jdk18on'),
+	                    project(':io.openliberty.org.bouncycastle.bcutil-jdk18on'),
+	                    project(':io.openliberty.org.testcontainers')	               
+}
 
 task assembleBootstrap(type: Copy) {
     inputs.property("javaHome", System.properties.('java.home').replace('\\', '\\\\').replace(':', '\\:'))
@@ -18,36 +43,53 @@ task assembleBootstrap(type: Copy) {
     filter(ReplaceTokens, tokens: [JAVA_HOME: javaHome])
 }
 
-task assembleBinaryDependencies() {
-    File buildDirLib = new File(buildDir, 'lib')
-    outputs.dir buildDirLib
-    doLast {
-        // Copy maven dependencies of this project into a directory that can be included by the junit
-        // task of every FAT bucket, effectively making all of fattest.simplicty's dependencies transitive
-        sourceSets.main.runtimeClasspath.each {
-            def path = it.getAbsolutePath()
-            if((path.contains('.m2') || path.contains('.ibmartifactory') || path.contains('.ibmdhe')) && 
-               !(new File(buildDirLib, it.getName()).exists())) {
-                copy {
-                    from path
-                    into buildDirLib
-                }
-            }
-        }
-    }
+task assembleBinaryDependencyJar(type:Copy) {
+	from jar
+	into new File(buildDir, 'lib')
+	include 'fattest.simplicity.jar'
 }
 
-jar {
-    dependsOn assembleBootstrap
-    dependsOn assembleBinaryDependencies
+task assembleBinaryDependencyProject(type:Copy) {
+	from configurations.projectDependencies
+	into new File(buildDir, 'lib')
+	rename 'com.ibm.ws.common.encoder.jar', 'fattest.encoder.jar'
+}
+
+task assembleBinaryDependencyMaven(type:Copy) {
+	dependsOn ':cnf:copyMavenLibs'
+	from cnf.file('mavenlibs')
+	into new File(buildDir, 'lib')
+	include 'infra.buildtasks-core-7.0.2.jar'
+	include 'asm-all-5.2.jar'
+	include 'org.apache.aries.util-*.jar'
+	include 'osgi.core*.jar'
+	include 'jsch-*.jar'
+}
+
+task assembleBinaryDependencySource(type:Copy) {
+	from sourceSets.main.runtimeClasspath.findAll {
+		it.getAbsolutePath().contains('.m2') ||
+		it.getAbsolutePath().contains('.ibmartifactory') ||
+		it.getAbsolutePath().contains('.ibmdhe')
+	}
+	into new File(buildDir, 'lib')
+}
+
+task assembleBinaryDependencies() {
+	dependsOn assembleBinaryDependencySource
+	dependsOn assembleBinaryDependencyMaven
+	dependsOn assembleBinaryDependencyProject
+	dependsOn assembleBinaryDependencyJar
 }
 
 configurations {
     arquillianFeature
+    arquillianJakartaFeature21
 }
 
 dependencies {
-    arquillianFeature 'io.openliberty.arquillian:arquillian-liberty-support:1.0.5:feature@zip'
+    arquillianFeature 'io.openliberty.arquillian:arquillian-liberty-support:1.0.8:feature@zip'
+    arquillianJakartaFeature21 'io.openliberty.arquillian:arquillian-liberty-support-jakarta:2.1.1:feature@zip'
 }
 
 task extractArquillianSupportFeature(type:Sync) {
@@ -63,10 +105,50 @@ task extractArquillianSupportFeature(type:Sync) {
     }
 }
 
+task extractArquillianSupportJakartaFeature21(type:Sync) {
+    configurations.arquillianJakartaFeature21.each {
+        from(zipTree(it))
+    }
+    rename { String mfFile ->
+        mfFile.replace("arquillian-liberty-support.mf", "arquillian-liberty-support-jakarta-2.1.mf")
+    }
+    into('build/arquillian-jakarta-feature-extract-2.1')
+
+    doLast {
+        // Update the feature manifest to mark it as a test feature
+        file('build/arquillian-jakarta-feature-extract-2.1/extension/lib/features/arquillian-liberty-support-jakarta-2.1.mf')
+            .append('IBM-Test-Feature: true\n')
+    }
+}
+
+jar { // NOTE: this is called by fat.gradle:autoFVT
+    dependsOn assembleBootstrap
+    dependsOn extractArquillianSupportFeature
+    dependsOn extractArquillianSupportJakartaFeature21
+    finalizedBy assembleBinaryDependencies
+}
+
+test {
+   jvmArgs = ["--add-opens", "java.base/java.lang=ALL-UNNAMED"]
+   
+   // For unit tests set fat.test.localrun to false to replicate the behavior
+   // during our builds so we do not write unit tests locally that depend on 
+   // this being set to true. 
+   systemProperty "fat.test.localrun", "false"
+   
+   // In order to test the ExternalTestService this property must be set
+   systemProperty "global.network.location", "IBM9US"
+}
+
 task publishArquillianSupportFeature(type:Copy) {
     dependsOn extractArquillianSupportFeature
     from('build/arquillian-feature-extract/extension')
+    dependsOn extractArquillianSupportJakartaFeature21
+    from('build/arquillian-jakarta-feature-extract-2.1/extension')
+
     into(buildImage.file('wlp'))
 }
 
-assemble.dependsOn publishArquillianSupportFeature
+assemble {
+    dependsOn publishArquillianSupportFeature
+}

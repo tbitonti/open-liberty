@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,21 +15,22 @@ import java.io.File;
 import java.io.PrintStream;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import com.ibm.websphere.crypto.InvalidPasswordDecodingException;
 import com.ibm.websphere.crypto.PasswordUtil;
 import com.ibm.websphere.crypto.UnsupportedCryptoAlgorithmException;
 import com.ibm.ws.install.InstallConstants;
 import com.ibm.ws.install.InstallException;
 import com.ibm.ws.install.RepositoryConfigValidationResult;
-import com.ibm.ws.install.featureUtility.FeatureUtility;
-import com.ibm.ws.install.featureUtility.props.PropertiesUtils;
 import com.ibm.ws.install.featureUtility.props.FeatureUtilityProperties;
-import com.ibm.ws.install.internal.MavenRepository;
+import com.ibm.ws.install.featureUtility.props.PropertiesUtils;
 import com.ibm.ws.install.internal.InstallLogUtils.Messages;
 import com.ibm.ws.install.internal.InstallUtils;
+import com.ibm.ws.install.internal.MavenRepository;
 import com.ibm.ws.install.internal.cmdline.InstallExecutor;
 import com.ibm.ws.kernel.boot.ReturnCode;
 import com.ibm.ws.kernel.boot.cmdline.ActionHandler;
@@ -97,8 +100,13 @@ public class ViewSettingsAction implements ActionHandler {
         sb.append(InstallUtils.NEWLINE);
 
         String defaultRepoUseage = FeatureUtilityProperties.isUsingDefaultRepo() ? PropertiesUtils.getMessage("MSG_TRUE") : PropertiesUtils.getMessage("MSG_FALSE");
+	String verifyFeature = FeatureUtilityProperties.getFeatureVerifyOption() == null
+		? PropertiesUtils.getMessage("MSG_DEFAULT_VERIFY")
+		: FeatureUtilityProperties.getFeatureVerifyOption();
         sb.append(PropertiesUtils.getMessage("MSG_DEFAULT_REPO_NAME_LABEL") + " " + PropertiesUtils.getMessage("MSG_DEFAULT_REPO_NAME")).append(InstallUtils.NEWLINE);
         sb.append(PropertiesUtils.getMessage("MSG_DEFAULT_REPO_USEAGE_LABEL") + " " + defaultRepoUseage).append(InstallUtils.NEWLINE);
+	sb.append(PropertiesUtils.getMessage("MSG_VERIFY_FEATURE_LABEL") + " " + verifyFeature)
+		.append(InstallUtils.NEWLINE);
 
         System.out.println(sb.toString());
 
@@ -143,7 +151,7 @@ public class ViewSettingsAction implements ActionHandler {
                 } catch (UnsupportedCryptoAlgorithmException ucae) {
                     throw new InstallException(Messages.INSTALL_KERNEL_MESSAGES.getLogMessage("ERROR_TOOL_PWD_CRYPTO_UNSUPPORTED"), ucae, InstallException.CONNECTION_FAILED);
                 }
-//                }
+           }
 
                 sb.append(PropertiesUtils.getMessage("FIELD_NAME") + " " + r).append(InstallUtils.NEWLINE);
                 sb.append(PropertiesUtils.getMessage("FIELD_LOCATION") + " " + url).append(InstallUtils.NEWLINE);
@@ -158,8 +166,7 @@ public class ViewSettingsAction implements ActionHandler {
                     }
                 }
                 sb.append(InstallUtils.NEWLINE);
-            }
-        }
+           }
 
         System.out.println(PropertiesUtils.getMessage("MSG_CONFIG_REPO_LABEL"));
         System.out.println(PropertiesUtils.CmdlineConstants.DASHES);
@@ -169,6 +176,33 @@ public class ViewSettingsAction implements ActionHandler {
             System.out.println(PropertiesUtils.getMessage("MSG_NO_CONFIG_REPO"));
             System.out.println();
         }
+    }
+
+    private void showKeys() throws InstallException {
+	StringBuffer sb = new StringBuffer();
+
+	for (Map.Entry<String, Map<String, String>> entry : FeatureUtilityProperties.getKeyMap().entrySet()) {
+	    String keyName = entry.getKey();
+	    String keyId = entry.getValue().get(InstallConstants.KEYID_QUALIFIER);
+	    String keyUrl = entry.getValue().get(InstallConstants.KEYURL_QUALIFIER);
+
+	    keyId = (keyId == null || keyId.isEmpty()) ? PropertiesUtils.getMessage("MSG_UNSPECIFIED") : keyId;
+	    keyUrl = (keyUrl == null || keyUrl.isEmpty()) ? PropertiesUtils.getMessage("MSG_UNSPECIFIED") : keyUrl;
+
+	    sb.append(PropertiesUtils.getMessage("FIELD_NAME") + " " + keyName).append(InstallUtils.NEWLINE);
+	    sb.append(PropertiesUtils.getMessage("FIELD_LOCATION") + " " + keyUrl).append(InstallUtils.NEWLINE);
+	    sb.append(PropertiesUtils.getMessage("FIELD_KEYID") + " " + keyId).append(InstallUtils.NEWLINE);
+	    sb.append(InstallUtils.NEWLINE);
+	}
+
+	System.out.println(PropertiesUtils.getMessage("MSG_CONFIG_KEY_LABEL"));
+	System.out.println(PropertiesUtils.CmdlineConstants.DASHES);
+	if (sb.length() > 0) {
+	    System.out.print(sb.toString());
+	} else {
+	    System.out.println(PropertiesUtils.getMessage("MSG_NO_CONFIG_KEY"));
+	    System.out.println();
+	}
     }
 
     private void showProxyInfo() throws InstallException {
@@ -267,6 +301,6 @@ public class ViewSettingsAction implements ActionHandler {
         showLocalRepository();
         showRepositories();
         showProxyInfo();
-
+	showKeys();
     }
 }

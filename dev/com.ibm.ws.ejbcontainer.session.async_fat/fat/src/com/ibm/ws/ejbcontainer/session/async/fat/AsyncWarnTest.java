@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 IBM Corporation and others.
+ * Copyright (c) 2009, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -32,7 +34,10 @@ import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
+import componenttest.custom.junit.runner.RepeatTestFilter;
+import componenttest.rules.repeater.EE8FeatureReplacementAction;
 import componenttest.rules.repeater.FeatureReplacementAction;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyFileManager;
 import componenttest.topology.impl.LibertyServer;
@@ -42,6 +47,7 @@ import componenttest.topology.utils.FATServletClient;
 @Mode(FULL)
 @RunWith(FATRunner.class)
 public class AsyncWarnTest extends FATServletClient {
+    public static String eeVersion;
     public static LibertyServer server;
 
     private static RemoteFile warnTraceLog = null;
@@ -57,7 +63,7 @@ public class AsyncWarnTest extends FATServletClient {
     private static final String SERVLET = "AsyncWarnTest/AsyncWarnServlet";
 
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().forServers("com.ibm.ws.ejbcontainer.session.async.fat.AsyncWarnServer")).andWith(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.ejbcontainer.session.async.fat.AsyncWarnServer"));
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().forServers("com.ibm.ws.ejbcontainer.session.async.fat.AsyncWarnServer")).andWith(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.ejbcontainer.session.async.fat.AsyncWarnServer")).andWith(FeatureReplacementAction.EE9_FEATURES().forServers("com.ibm.ws.ejbcontainer.session.async.fat.AsyncWarnServer")).andWith(FeatureReplacementAction.EE10_FEATURES().forServers("com.ibm.ws.ejbcontainer.session.async.fat.AsyncWarnServer")).andWith(FeatureReplacementAction.EE11_FEATURES().forServers("com.ibm.ws.ejbcontainer.session.async.fat.AsyncWarnServer"));
 
     protected void runTest(String testName) throws Exception {
         FATServletClient.runTest(server, SERVLET, testName);
@@ -65,6 +71,8 @@ public class AsyncWarnTest extends FATServletClient {
 
     @BeforeClass
     public static void setUp() throws Exception {
+        eeVersion = JakartaEEAction.isEE11OrLaterActive() ? "_EE11" : JakartaEEAction.isEE10Active() ? "_EE10" : JakartaEEAction.isEE9Active() ? "_EE9" : RepeatTestFilter.isRepeatActionActive(EE8FeatureReplacementAction.ID) ? "_EE8" : "";
+
         server = LibertyServerFactory.getLibertyServer("com.ibm.ws.ejbcontainer.session.async.fat.AsyncWarnServer");
 
         // Use ShrinkHelper to build the ears
@@ -124,21 +132,21 @@ public class AsyncWarnTest extends FATServletClient {
         AsyncWarnTest.addAsModule(AsyncWarnTestWar).addAsModule(AsyncWarnTestBean);
         AsyncWarnTest = (EnterpriseArchive) ShrinkHelper.addDirectory(AsyncWarnTest, "test-applications/AsyncWarnTest.ear/resources/");
 
-        ShrinkHelper.exportAppToServer(server, AsyncInLocalIf1BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncInLocalIf2BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncInLocalIf3BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncInRemoteIf1BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncInRemoteIf2BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncInRemoteIf3BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncNotInLocalIf1BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncNotInLocalIf2BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncNotInLocalIf3BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncNotInRemoteIf1BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncNotInRemoteIf2BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportAppToServer(server, AsyncNotInRemoteIf3BeanApp, DeployOptions.DISABLE_VALIDATION);
-        ShrinkHelper.exportDropinAppToServer(server, AsyncWarnTest);
+        ShrinkHelper.exportAppToServer(server, AsyncInLocalIf1BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncInLocalIf2BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncInLocalIf3BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncInRemoteIf1BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncInRemoteIf2BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncInRemoteIf3BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncNotInLocalIf1BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncNotInLocalIf2BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncNotInLocalIf3BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncNotInRemoteIf1BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncNotInRemoteIf2BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportAppToServer(server, AsyncNotInRemoteIf3BeanApp, DeployOptions.DISABLE_VALIDATION, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportDropinAppToServer(server, AsyncWarnTest, DeployOptions.SERVER_ONLY);
 
-        ShrinkHelper.exportToServer(server, "lib/global", AsyncAWarnIntf);
+        ShrinkHelper.exportToServer(server, "lib/global", AsyncAWarnIntf, DeployOptions.SERVER_ONLY);
 
         server.startServer();
 
@@ -156,7 +164,7 @@ public class AsyncWarnTest extends FATServletClient {
                 LibertyFileManager.copyFileIntoLiberty(server.getMachine(), server.getServerRoot(), "bootstrap.properties", "lib/LibertyFATTestFiles/default.properties");
                 server.stopServer("CNTR0305W");
 
-                server.setServerConfigurationFile("checkFalse_server.xml");
+                server.setServerConfigurationFile("checkFalse_server" + eeVersion + ".xml");
                 server.startServer();
                 runTest("initRecoveryLog");
 
@@ -174,7 +182,7 @@ public class AsyncWarnTest extends FATServletClient {
                 LibertyFileManager.copyFileIntoLiberty(server.getMachine(), server.getServerRoot(), "bootstrap.properties", "lib/LibertyFATTestFiles/default.properties");
                 server.stopServer("CNTR0305W");
 
-                server.setServerConfigurationFile("checkTrue_server.xml");
+                server.setServerConfigurationFile("checkTrue_server" + eeVersion + ".xml");
                 server.startServer();
                 runTest("initRecoveryLog");
 
@@ -192,12 +200,12 @@ public class AsyncWarnTest extends FATServletClient {
                 LibertyFileManager.copyFileIntoLiberty(server.getMachine(), server.getServerRoot(), "bootstrap.properties", "lib/LibertyFATTestFiles/EJBTrace.properties");
                 server.stopServer("CNTR0305W");
 
-                server.setServerConfigurationFile("EJBTrace_server.xml");
+                server.setServerConfigurationFile("EJBTrace_server" + eeVersion + ".xml");
                 server.startServer();
                 runTest("initRecoveryLog");
 
                 if (warnTraceLog == null)
-                    warnTraceLog = new RemoteFile(server.getMachine(), server.getLogsRoot() + "trace.log");
+                    warnTraceLog = server.getMachine().getFile(server.getLogsRoot() + "trace.log");
 
                 isCheckFalse = false;
                 isCheckTrue = false;
@@ -211,12 +219,12 @@ public class AsyncWarnTest extends FATServletClient {
                 LibertyFileManager.copyFileIntoLiberty(server.getMachine(), server.getServerRoot(), "bootstrap.properties", "lib/LibertyFATTestFiles/MetaDataTrace.properties");
                 server.stopServer("CNTR0305W");
 
-                server.setServerConfigurationFile("MetaDataTrace_server.xml");
+                server.setServerConfigurationFile("MetaDataTrace_server" + eeVersion + ".xml");
                 server.startServer();
                 runTest("initRecoveryLog");
 
                 if (warnTraceLog == null)
-                    warnTraceLog = new RemoteFile(server.getMachine(), server.getLogsRoot() + "trace.log");
+                    warnTraceLog = server.getMachine().getFile(server.getLogsRoot() + "trace.log");
 
                 isCheckFalse = false;
                 isCheckTrue = false;
@@ -230,7 +238,7 @@ public class AsyncWarnTest extends FATServletClient {
                 LibertyFileManager.copyFileIntoLiberty(server.getMachine(), server.getServerRoot(), "bootstrap.properties", "lib/LibertyFATTestFiles/default.properties");
                 server.stopServer("CNTR0305W");
 
-                server.setServerConfigurationFile("default_server.xml");
+                server.setServerConfigurationFile("default_server" + eeVersion + ".xml");
                 server.startServer();
                 runTest("initRecoveryLog");
 

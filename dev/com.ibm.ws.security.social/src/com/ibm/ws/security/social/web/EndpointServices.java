@@ -1,17 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.social.web;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -30,7 +30,9 @@ import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.security.SecurityService;
 import com.ibm.ws.security.common.web.CommonWebConstants;
+import com.ibm.ws.security.openidconnect.backchannellogout.BackchannelLogoutHelper;
 import com.ibm.ws.security.openidconnect.clients.common.ConvergedClientConfig;
+import com.ibm.ws.security.openidconnect.clients.common.OidcClientUtil;
 import com.ibm.ws.security.openidconnect.clients.common.RedirectionEntry;
 import com.ibm.ws.security.openidconnect.clients.common.RedirectionProcessor;
 import com.ibm.ws.security.social.Constants;
@@ -114,6 +116,13 @@ public class EndpointServices {
             if (tc.isDebugEnabled()) {
                 Tr.debug(tc, "logout:" + socialLoginRequest.getRequestUrl());
             }
+
+        } else if (socialLoginRequest.isBackchannelLogout()) {
+            if (tc.isDebugEnabled()) {
+                Tr.debug(tc, "backchannel logout:" + socialLoginRequest.getRequestUrl());
+            }
+            SocialLoginConfig config = socialLoginRequest.getSocialLoginConfig();
+            handleBackchannelLogoutRequest(request, response, config);
         } else if (socialLoginRequest.isWellknownConfig()) {
             // handle /.well-known/config
             if (tc.isDebugEnabled()) {
@@ -229,32 +238,32 @@ public class EndpointServices {
         if (config instanceof OidcLoginConfigImpl) {
             // for oidc, handle redirect consistent with how the rest of oidc does it.
             // Use their cookies, etc.
-        	RedirectionProcessor redirectionProcessor = new RedirectionProcessor(request, response, tc);
-			redirectionProcessor.processRedirection(new RedirectionEntry() {
+            RedirectionProcessor redirectionProcessor = new RedirectionProcessor(request, response, tc);
+            redirectionProcessor.processRedirection(new RedirectionEntry() {
 
-				@Override
-				public ConvergedClientConfig getConvergedClientConfig(HttpServletRequest request, String clientId) {
-					return (ConvergedClientConfig) config;
-				}
+                @Override
+                public ConvergedClientConfig getConvergedClientConfig(HttpServletRequest request, String clientId) {
+                    return (ConvergedClientConfig) config;
+                }
 
-				@Override
-				public void handleNoState(HttpServletRequest request, HttpServletResponse response) throws IOException {
-					traceAndSetResponseForNoState(response);
-				}
+                @Override
+                public void handleNoState(HttpServletRequest request, HttpServletResponse response) throws IOException {
+                    traceAndSetResponseForNoState(response);
+                }
 
-				@Override
-				public void sendError(HttpServletRequest request, HttpServletResponse response) throws IOException {
-					throw new UnsupportedOperationException();
-				}
-			});
+                @Override
+                public void sendError(HttpServletRequest request, HttpServletResponse response) throws IOException {
+                    throw new UnsupportedOperationException();
+                }
+            });
         } else {
             finishOAuthRedirect(request, response, config);
         }
 
     }
-    
+
     private void traceAndSetResponseForNoState(HttpServletResponse response) {
-    	if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
             Tr.debug(tc, "The state is null");
         }
         Tr.error(tc, "STATE_NULL_OR_MISMATCHED", new Object[] {});
@@ -263,12 +272,12 @@ public class EndpointServices {
 
     private void finishOAuthRedirect(HttpServletRequest request, HttpServletResponse response, SocialLoginConfig config) throws IOException {
         String state = request.getParameter(ClientConstants.STATE);
-        
+
         if (state == null || state.isEmpty()) {
-        	traceAndSetResponseForNoState(response);
+            traceAndSetResponseForNoState(response);
             return;
         }
-        
+
         String stateCookie = getStateCookieValue(request, response);
         if (!state.equals(stateCookie)) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
@@ -297,7 +306,8 @@ public class EndpointServices {
 
         try {
             SocialUtil.validateEndpointWithQuery(requestUrl);
-        } catch (SocialLoginException e) {
+            OidcClientUtil.verifyReferrerHostIsValid(request, requestUrl, ClientConstants.COOKIE_NAME_REQ_URL_PREFIX);
+        } catch (Exception e) {
             Tr.error(tc, "REQUEST_URL_NOT_VALID", new Object[] { requestUrl, e.getMessage() });
             ErrorHandlerImpl.getInstance().handleErrorResponse(response);
             return;
@@ -378,6 +388,16 @@ public class EndpointServices {
     protected void handleSocialLoginAPIRequest(HttpServletRequest request, HttpServletResponse response) {
         JSONObject json = getAllSocialLoginConfigs();
         writeToResponse(json, response);
+    }
+
+    protected void handleBackchannelLogoutRequest(HttpServletRequest request, HttpServletResponse response, SocialLoginConfig config) {
+        if (config != null && !(config instanceof ConvergedClientConfig)) {
+            Tr.error(tc, "BACKCHANNEL_REQUEST_NOT_SUPPORTED_CONFIG", new Object[] { request.getRequestURI(), config.getUniqueId() });
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+        BackchannelLogoutHelper logoutHelper = new BackchannelLogoutHelper(request, response, (ConvergedClientConfig) config);
+        logoutHelper.handleBackchannelLogoutRequest();
     }
 
     /**

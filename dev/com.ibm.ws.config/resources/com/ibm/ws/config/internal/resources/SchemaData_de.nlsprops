@@ -2,9 +2,11 @@
 ###############################################################################
 # Copyright (c) 2011 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -23,7 +25,7 @@ config.internal.metatype.includeType.documentation=Konfigurationsressource angeb
 config.internal.metatype.includeType.label=Einschlie\u00dfen
 config.internal.metatype.includeType.attribute.optional.documentation=\u00dcberspringen der eingeschlossenen Datei zulassen, wenn sie nicht gefunden wird
 config.internal.metatype.includeType.attribute.optional.label=Ressource ist optional
-config.internal.metatype.includeType.attribute.location.documentation=Gibt die Ressourcenposition an. Dies kann ein Dateipfad oder eine URI f\u00fcr eine ferne Ressource sein.
+config.internal.metatype.includeType.attribute.location.documentation=Gibt die Ressourcenposition an. Der Wert kann ein Dateipfad, ein Verzeichnis oder ein URI f\u00fcr eine ferne Ressource sein.
 config.internal.metatype.includeType.attribute.location.label=Position
 config.internal.metatype.includeType.attribute.onConflict.documentation=Gibt das Verhalten an, das f\u00fcr die Zusammenf\u00fchrung von Elementen verwendet wird, wenn Konflikte gefunden werden.
 config.internal.metatype.includeType.attribute.onConflict.label=Bei Konflikt

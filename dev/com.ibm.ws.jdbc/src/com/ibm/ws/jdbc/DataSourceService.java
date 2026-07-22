@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2021 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,8 +19,8 @@ import java.sql.Driver;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLNonTransientException;
-import java.util.AbstractMap;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -412,9 +414,10 @@ public class DataSourceService extends AbstractConnectionFactoryService implemen
             final boolean trace = TraceComponent.isAnyTracingEnabled();
 
             // data source class is loaded from thread context class loader
+            ClassLoader loader = null;
             if (identifier == null) {
-                ClassLoader tccl = priv.getContextClassLoader();
-                identifier = connectorSvc.getClassLoaderIdentifierService().getClassLoaderIdentifier(tccl);
+                loader = priv.getContextClassLoader();
+                identifier = connectorSvc.getClassLoaderIdentifierService().getClassLoaderIdentifier(loader);
                 // TODO better error handling when thread context class loader does not have an identifier
             }
             mcf1 = mcfPerClassLoader.get(identifier);
@@ -467,7 +470,9 @@ public class DataSourceService extends AbstractConnectionFactoryService implemen
                 } else
                     throw new SQLNonTransientException(ConnectorService.getMessage("MISSING_RESOURCE_J2CA8030", DSConfig.TYPE, type, DATASOURCE, jndiName == null ? id : jndiName));
 
-                mcf1 = new WSManagedConnectionFactoryImpl(dsConfigRef, ifc, vendorImpl, jdbcRuntime);
+                if (loader == null)
+                    loader = connectorSvc.getClassLoaderIdentifierService().getClassLoader(identifier);
+                mcf1 = new WSManagedConnectionFactoryImpl(dsConfigRef, ifc, vendorImpl, loader, jdbcRuntime);
                 WSManagedConnectionFactoryImpl mcf0 = mcfPerClassLoader.putIfAbsent(identifier, mcf1);
                 mcf1 = mcf0 == null ? mcf1 : mcf0;
 
@@ -527,7 +532,7 @@ public class DataSourceService extends AbstractConnectionFactoryService implemen
             mcf1 = mcf;
 
         DatabaseHelper dbHelper = mcf1.getHelper();
-        return new int[] { dbHelper.getThreadIdentitySupport(), dbHelper.getThreadSecurity() ? 1 : 0, dbHelper.getRRSTransactional() ? 1 : 0 };
+        return new int[] { dbHelper.getThreadIdentitySupport(), dbHelper.getThreadSecurity() ? 1 : 0, dbHelper.getRRSTransactional() ? 1 : 0, AbstractConnectionFactoryService.SERVICE_JDBC_TYPE};
     }
 
     /** {@inheritDoc} */
@@ -667,14 +672,16 @@ public class DataSourceService extends AbstractConnectionFactoryService implemen
 
             dsConfigRef.set(new DSConfig(id, jndiName, wProps, vProps, connectorSvc));
 
-            WSManagedConnectionFactoryImpl mcfImpl = new WSManagedConnectionFactoryImpl(dsConfigRef, ifc, vendorImpl, jdbcRuntime);
+            boolean loadFromApp = jdbcDriverSvc.loadFromApp();
+            ClassLoader loader = loadFromApp ? priv.getContextClassLoader() : jdbcDriverSvc.getClassLoaderForLibraryRef();
 
-            if (jdbcDriverSvc.loadFromApp()) {
+            WSManagedConnectionFactoryImpl mcfImpl = new WSManagedConnectionFactoryImpl(dsConfigRef, ifc, vendorImpl, loader, jdbcRuntime);
+
+            if (loadFromApp) {
                 // data source class loaded from thread context class loader
                 mcf = null;
                 mcfPerClassLoader = new ConcurrentHashMap<String, WSManagedConnectionFactoryImpl>();
-                ClassLoader tccl = priv.getContextClassLoader();
-                String identifier = connectorSvc.getClassLoaderIdentifierService().getClassLoaderIdentifier(tccl);
+                String identifier = connectorSvc.getClassLoaderIdentifierService().getClassLoaderIdentifier(loader);
                 mcfPerClassLoader.put(identifier, mcfImpl);
             } else {
                 // data source class loaded from shared library
@@ -749,7 +756,8 @@ public class DataSourceService extends AbstractConnectionFactoryService implemen
                     || !match(newProperties.get(DSConfig.HELPER_CLASS), properties.get(DSConfig.HELPER_CLASS))
                     || !match(newProperties.get(DSConfig.JDBC_DRIVER_REF), properties.get(DSConfig.JDBC_DRIVER_REF))
                     || !match(newProperties.get(DSConfig.ON_CONNECT), properties.get(DSConfig.ON_CONNECT))
-                    || !match(newProperties.get(DataSourceDef.transactional.name()), properties.get(DataSourceDef.transactional.name()))) {
+                    || !match(newProperties.get(DataSourceDef.transactional.name()), properties.get(DataSourceDef.transactional.name()))
+                    || connectorSvc.isHeritageEnabled() && !config.identifyExceptions.equals(wProps.get(DSConfig.IDENTIFY_EXCEPTION))) {
                     // Destroy everything, and allow lazy initialization to recreate
                     destroyConnectionFactories(true);
                 } else if (!AdapterUtil.match(vProps, config.vendorProps)
@@ -854,6 +862,14 @@ public class DataSourceService extends AbstractConnectionFactoryService implemen
             }
         }
 
+        // Validate H2 URLs don't contain PASSWORD parameter
+        if (vPropsPID != null && vPropsPID.endsWith(".h2")) {
+            String url = vProps.getProperty("URL", vProps.getProperty("url"));
+            if (url != null && url.matches("(?i).*;\\bPASSWORD=.*")) {
+                throw new IllegalArgumentException(AdapterUtil.getNLSMessage("8070_H2_URL_PASSWORD", id));
+            }
+        }
+
         // identifyException, which is a group of
         // (identifyException.#.sqlState, identifyException.#.errorCode, identifyException.#.as)
         // is parsed separately to have a predictable order of precedence when collisions occur
@@ -882,8 +898,7 @@ public class DataSourceService extends AbstractConnectionFactoryService implemen
                 identifications.put(new SQLStateAndCode(sqlState, errorCode), as);
             }
         }
-        if (identifications != null)
-            wProps.put(DSConfig.IDENTIFY_EXCEPTION, identifications);
+        wProps.put(DSConfig.IDENTIFY_EXCEPTION, identifications == null ? Collections.EMPTY_MAP : identifications);
 
         //Don't send out auth alias recommendation message with UCP since it may be required to set the 
         //user and password as ds props

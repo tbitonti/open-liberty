@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.oauth.core.internal.oauth20;
 
@@ -15,6 +14,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.ibm.oauth.core.internal.OAuthConstants;
+import com.ibm.ws.common.crypto.CryptoUtils;
 
 public interface OAuth20Constants extends OAuthConstants {
 
@@ -74,12 +74,7 @@ public interface OAuth20Constants extends OAuthConstants {
     public static final String CODE_CHALLENGE = "code_challenge";
     public static final String CODE_CHALLENGE_METHOD = "code_challenge_method";
     public static final String CODE_VERIFIER = "code_verifier";
-    public static final String CODE_CHALLENGE_METHOD_PLAIN = "plain";
-    public static final String CODE_CHALLENGE_METHOD_S256 = "S256";
-    public static final String CODE_CHALLENGE_ALG_METHOD_SHA256 = "SHA-256";
     public static final String CODE_VERIFIER_ASCCI = "US-ASCII";
-    public static final int CODE_VERIFIER_MIN_LENGTH = 43;
-    public static final int CODE_VERIFIER_MAX_LENGTH = 128;
 
     public static final String ISSUER_IDENTIFIER = "issuerIdentifier";
     public static final String REFRESH_TOKEN_KEY = "refresh_key";
@@ -195,7 +190,9 @@ public interface OAuth20Constants extends OAuthConstants {
 
     public static final String REFRESH_TOKEN_ORIGINAL_GT = "originalGrantType";
     public static final String HASH = "hash"; // matches result from PasswordUtil.getCryptoAlgorithm
-    public static final String APP_PASSWORD_HASH_SALT = "notrandom";
+
+    // With FIPS enabled we want a 128 byte salt length minimum.
+    public static final String APP_PASSWORD_HASH_SALT = CryptoUtils.isFips140_3Enabled() ? "notrandomnotrandom" : "notrandom";
     public static final String PLAIN_ENCODING = "plain";
     public static final String APP_PASSWORD_TOKEN_STATE_ID = "iamapppasswordorapptokenstateid";
     public final static String XOR = "xor"; // matches result from PasswordUtil.getCryptoAlgorithm
@@ -203,5 +200,9 @@ public interface OAuth20Constants extends OAuthConstants {
     public static final String HASH_ALGORITHM = "hash_alg";
     public static final String HASH_ITERATIONS = "hash_itr";
     public static final String HASH_LENGTH = "hash_len";
+
+    // constants for identifying third party tokens
+    public static final String THIRD_PARTY_ID_TOKEN = "third_party_idtoken";
+    public static final String THIRD_PARTY_ID_TOKEN_PREFIX = THIRD_PARTY_ID_TOKEN + ":";
 
 }

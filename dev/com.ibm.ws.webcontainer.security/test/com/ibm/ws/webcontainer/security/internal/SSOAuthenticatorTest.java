@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -238,7 +240,6 @@ public class SSOAuthenticatorTest {
 
                 one(authService).authenticate(with(equal(JaasLoginConfigConstants.SYSTEM_WEB_INBOUND)), with(any(AuthenticationData.class)), with(equal((Subject) null)));
                 will(throwException(new AuthenticationException("Invalid LTPAToken")));
-
             }
         });
 
@@ -274,7 +275,7 @@ public class SSOAuthenticatorTest {
                 one(webAppSecConfig).isUseOnlyCustomCookieName();
                 will(returnValue(false));
 
-                allowing(ssoCookieHelper).addJwtSsoCookiesToResponse(authSubject, req, resp);
+                allowing(ssoCookieHelper).addJwtSsoCookiesToResponse(authSubject, req, resp, null);
 
                 // Now authenticate, which should be successful and the result
                 // immediately returned

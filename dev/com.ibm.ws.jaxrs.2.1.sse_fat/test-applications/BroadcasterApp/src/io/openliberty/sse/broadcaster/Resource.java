@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,7 +13,9 @@
 package io.openliberty.sse.broadcaster;
 
 import java.lang.reflect.Field;
+import java.lang.NoSuchFieldException;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
@@ -41,19 +45,17 @@ public class Resource extends Application {
     static SseBroadcaster broadcaster;
     final static AtomicInteger registeredClients = new AtomicInteger();
     final static AtomicBoolean closeAfterRegister = new AtomicBoolean(true);
+    final static AtomicInteger closedClients = new AtomicInteger();
 
     @POST
     @Produces(MediaType.TEXT_PLAIN)
     public boolean setup(@Context Sse sse) { //returns whether setup was necessary
         synchronized (Resource.class) {
-            if (broadcaster == null) {
-                broadcaster = sse.newBroadcaster();
-                _log.info("setup created new Broadcaster: " + broadcaster);
-                return true;
-            }
+            //Always create a new broadcaster instance.
+            broadcaster = sse.newBroadcaster();
+            _log.info("setup created new Broadcaster: " + broadcaster);
+            return true;
         }
-        _log.info("setup Broadcaster previously created: " + broadcaster);
-        return false;
     }
 
     @GET
@@ -98,6 +100,12 @@ public class Resource extends Application {
     }
 
     @GET
+    @Path("/numClosedClients")
+    @Produces(MediaType.TEXT_PLAIN)
+    public int getNumOfClosedClients() throws Exception {
+        return closedClients.get();
+    }
+    @GET
     @Path("/numSinks")
     @Produces(MediaType.TEXT_PLAIN)
     public int getNumOfSinksInBroadcaster() throws Exception {
@@ -107,10 +115,22 @@ public class Resource extends Application {
         //Class<?> broadcasterImplClass = Class.forName("org.apache.cxf.jaxrs.sse.SseBroadcasterImpl");
         Class<?> broadcasterImplClass = broadcaster.getClass();
         _log.info("broadcasterImplClass " + broadcasterImplClass);
-        Field subscribersField = broadcasterImplClass.getDeclaredField("subscribers");
-        subscribersField.setAccessible(true);
-        Set<SseEventSink> registeredSinks = (Set<SseEventSink>) subscribersField.get(broadcaster);
-        int size = registeredSinks.size();
+        
+        // CXF and RestEasy have different fields and types in their versions of BroadcasterImpl.
+        Field subscribersField = null;
+        int size = 0;
+        try {
+            subscribersField = broadcasterImplClass.getDeclaredField("subscribers");
+            subscribersField.setAccessible(true);
+            Set<SseEventSink> registeredSinks = (Set<SseEventSink>) subscribersField.get(broadcaster);
+            size = registeredSinks.size();            
+        } catch (NoSuchFieldException e) {  //check EE9
+            subscribersField = broadcasterImplClass.getDeclaredField("outputQueue");
+            subscribersField.setAccessible(true);
+            ConcurrentLinkedQueue<SseEventSink> registeredSinks = (ConcurrentLinkedQueue<SseEventSink>) subscribersField.get(broadcaster);
+            size = registeredSinks.size();          
+        }
+        
         _log.info("getNumOfSinksInBroadcaster " + size);
         return size;
     }
@@ -120,13 +140,31 @@ public class Resource extends Application {
     @Path("/closedSinkTest")
     public void registerForClosedSinkTest(@Context Sse sse, @Context SseEventSink sink) {  
         register(sse, sink);
-        synchronized (closeAfterRegister) {
-            if (closeAfterRegister.getAndSet(!closeAfterRegister.get())) {
+
+        if (doClose()) {
+            try {
                 //automatically close every other client sink
                 _log.info("registerForClosedSinkTest - closing new sink: " + sink);
                 sink.close();
+                _log.info("registerForClosedSinkTest - closed new sink: " + sink);
+            } finally {
+                closedClients.incrementAndGet();
             }
         }
+        
+    }
+
+    /**
+     * Returns true every other time this method is called.
+     *
+     * @return whether to close the sink
+     */
+    private boolean doClose() {
+        boolean current;
+        do {
+            current = closeAfterRegister.get();
+        } while (!closeAfterRegister.compareAndSet(current, !current));
+        return current;
         
     }
 }

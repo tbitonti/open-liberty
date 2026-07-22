@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,13 +13,18 @@
 
 apply plugin: 'war'
 
-war { enabled false } // We aren't making a war for the entire project
+war { enabled = false } // We aren't making a war for the entire project
+
+configurations {
+  requiredLibs {
+    transitive = false
+  }
+}
 
 dependencies {
   requiredLibs 'org.apache.httpcomponents:httpclient:4.1.2',
                'org.apache.httpcomponents:httpcore:4.1.2',
                project(':io.openliberty.org.apache.commons.codec'),
-               project(':io.openliberty.org.apache.commons.logging'),
                project(':com.ibm.websphere.security')
 }
 addRequiredLibraries.dependsOn addJakartaTransformer
@@ -36,8 +43,8 @@ def appBuildDir = "${buildDir}/test-application"
  ******************************************************************
  ******************************************************************/
 task WebsphereUserRegistry_WAR(type: War, dependsOn: classes) {
-  destinationDir file("${appBuildDir}")
-  archiveName "WebsphereUserRegistry.war"
+  destinationDirectory = file("${appBuildDir}")
+  archiveFileName = "WebsphereUserRegistry.war"
   classpath = classpath.filter{ false }
 
   from ('test-applications/WebsphereUserRegistry/resources') { 
@@ -58,8 +65,8 @@ task WebsphereUserRegistry_WAR(type: War, dependsOn: classes) {
  ******************************************************************
  ******************************************************************/
 task PasswordUtilAPI_WAR(type: War, dependsOn: classes) {
-  destinationDir file("${appBuildDir}")
-  archiveName "PasswordUtilAPI.war"
+  destinationDirectory = file("${appBuildDir}")
+  archiveFileName = "PasswordUtilAPI.war"
   classpath = classpath.filter{ false }
 
   from ('test-applications/PasswordUtilAPI/resources') { 
@@ -91,12 +98,15 @@ assemble.dependsOn PasswordUtilAPI_WAR
  ******************************************************************
  ******************************************************************/
 autoFVT.dependsOn ':com.ibm.ws.security.registry_test.custom:assemble'
-autoFVT.doLast {
+autoFVT {
+  def apacheDirectoryProject = project(':com.ibm.ws.org.apache.directory.server')
+  def registryTestProject = project(':com.ibm.ws.security.registry_test.custom')
+  doLast {
   /*
    * Copy the local ApacheDS LDAP instances. 
    */
   copy {
-    from project(':com.ibm.ws.org.apache.directory.server').projectDir
+    from apacheDirectoryProject.projectDir
     into autoFvtDir
     include 'apacheds-2.0.0-M15/**'
   }
@@ -135,12 +145,13 @@ autoFVT.doLast {
    * Copy sample custom UserRegistry feature to this test bucket.
    */
   copy { 
-    from project(':com.ibm.ws.security.registry_test.custom').file('publish/features/customRegistrySample-1.0.mf')
+    from registryTestProject.file('publish/features/customRegistrySample-1.0.mf')
     into new File(autoFvtDir, 'lib/LibertyFATTestFiles/internalfeatures')
   }
   copy {
-    from new File(project(':com.ibm.ws.security.registry_test.custom').buildDir, 'com.ibm.ws.security.registry_test.custom.jar')
+    from new File(registryTestProject.buildDir, 'com.ibm.ws.security.registry_test.custom.jar')
     into new File(autoFvtDir, 'lib/LibertyFATTestFiles/internalfeatures')
     rename 'com.ibm.ws.security.registry_test.custom.jar', 'com.ibm.ws.security.registry.custom.sample_1.0.jar'
+  }
   }
 }

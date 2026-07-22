@@ -1,12 +1,12 @@
 /*******************************************************************************
- * Copyright (c) 2003 IBM Corporation and others.
+ * Copyright (c) 2003, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.sip.container.proxy;
 
@@ -317,7 +317,7 @@ public class ProxyBranchImpl extends BranchManager
     	tu.setBranch(this);
     	if (c_logger.isTraceDebugEnabled()) {
     		c_logger.traceDebug(this, "relateTU", "Relating TU= " + tu +
-    				" to branch= " + this + ". Current related TUs count to this branch="+ relatedTUs.size());
+    				" to branch= " + this + ". Number of TUs related to this branch = "+ relatedTUs.size());
       	}
     }
     
@@ -332,7 +332,7 @@ public class ProxyBranchImpl extends BranchManager
     	relatedTUs.remove(tu);
     	if (c_logger.isTraceDebugEnabled()) {
     		c_logger.traceDebug(this, "unrelateTU", "Unrelating TU= " + tu +
-    				" from branch= " + this + ". Current related TUs count to this branch="+ relatedTUs.size());
+    				" from branch= " + this + ". Number of TUs related to this branch = "+ relatedTUs.size());
       	}
     }
     
@@ -341,7 +341,7 @@ public class ProxyBranchImpl extends BranchManager
      */
     public boolean hasAnyTUGotFinalResponse(){ 
     	 if (c_logger.isTraceEntryExitEnabled()) {
-    		 c_logger.traceEntry(this, "hasAnyTUGotFinalResponse", "Related TU number="+ relatedTUs.size());
+    		 c_logger.traceEntry(this, "hasAnyTUGotFinalResponse", "Related TU number = "+ relatedTUs.size());
     	 }
     	 boolean result = false;
     	 for(TransactionUserWrapper tu : relatedTUs){
@@ -366,7 +366,7 @@ public class ProxyBranchImpl extends BranchManager
      */
     public void incrementTransactionCounters(){ 
     	 if (c_logger.isTraceEntryExitEnabled()) {
-    		 c_logger.traceEntry(this, "incrementTransactionCounters", "Related TU number="+ relatedTUs.size());
+    		 c_logger.traceEntry(this, "incrementTransactionCounters", "Related TU number = "+ relatedTUs.size());
     	 }
     	 
     	 for(TransactionUserWrapper tu : relatedTUs){
@@ -387,7 +387,7 @@ public class ProxyBranchImpl extends BranchManager
      */
     public void decrementTransactionCounters(){ 
     	 if (c_logger.isTraceEntryExitEnabled()) {
-    		 c_logger.traceEntry(this, "decrementTransactionCounters", "Related TU number="+ relatedTUs.size());
+    		 c_logger.traceEntry(this, "decrementTransactionCounters", "Related TU number = "+ relatedTUs.size());
     	 }
     	 
     	 for(TransactionUserWrapper tu : relatedTUs){
@@ -413,7 +413,7 @@ public class ProxyBranchImpl extends BranchManager
         
         if (c_logger.isTraceDebugEnabled()) {
 			c_logger.traceDebug(this, "continueAndSend", 
-					getMyInfo() + " ProxyBranch will expired in " + _proxyBranchTimeOut + "seconds");
+					getMyInfo() + " ProxyBranch will expire in " + _proxyBranchTimeOut + " seconds");
 		}
     }
     
@@ -488,7 +488,7 @@ public class ProxyBranchImpl extends BranchManager
         if( response.getRequest().isInitial() && 
         		status >= 200 &&
         		((SipServletRequestImpl)response.getRequest()).isJSR289Application()) {
-        	// Proxy Final response is not committed.
+        	//Proxy Final response is not committed.
         	response.setIsCommited(false);
         	associateResponseWithSipSession(response, this);
         	//Don't send branch response to application on 2xx & 6xx response
@@ -562,7 +562,7 @@ public class ProxyBranchImpl extends BranchManager
     	int status = response.getStatus();
     	
     	if(c_logger.isTraceDebugEnabled()){
-        	c_logger.traceDebug(this, "updateStatusFromLatestResponse" ,"received status= " + status);
+        	c_logger.traceDebug(this, "updateStatusFromLatestResponse" ,"received status = " + status);
         }
     	
     	if(status > 199){
@@ -1030,7 +1030,7 @@ public class ProxyBranchImpl extends BranchManager
 																				reasonText[i]);
 								reasons.add(reason);
 							} catch (SipParseException e) {
-								//should not get here. Creation can't faile.
+								//should not get here. Creation can't fail.
 								e.printStackTrace();
 							}
 			        	}
@@ -1067,7 +1067,7 @@ public class ProxyBranchImpl extends BranchManager
         
         if(_isCancelled) {
         	if (c_logger.isTraceDebugEnabled()) {
-				c_logger.traceDebug(this, "cancel", getMyInfo() + "already cancelled");
+				c_logger.traceDebug(this, "cancel", getMyInfo() + " already cancelled");
 			}
 	        return;
 	    }
@@ -1084,7 +1084,7 @@ public class ProxyBranchImpl extends BranchManager
 										this,
 										"cancel",
 										getMyInfo()
-												+ "This proxy is in recurse mode - cancel all branches");
+												+ " This proxy is in recurse mode - cancel all branches");
 					}
 					// Iterate through all branches
 					for (int i = 0; i < _proxyBranches.size(); i++) {
@@ -1159,7 +1159,7 @@ public class ProxyBranchImpl extends BranchManager
         	// Cancel itself.
         	cancel();
 
-        	//terminate the branch only if the transaction was timedout 
+        	//terminate the branch only if the transaction has timed out 
         	//if the branch/proxy timer timed out we only need to send cancel
         	if (isTimeout){
         		// Change our state
@@ -1183,7 +1183,9 @@ public class ProxyBranchImpl extends BranchManager
 	 * should be used to send the request out.
 	 * 
 	 */
-    public synchronized void proxyTimedOut(boolean isTimeout){
+
+	//remove synchronized as it caused deadlock 
+	public void proxyTimedOut(boolean isTimeout){
     	
     	if (c_logger.isTraceDebugEnabled()) {
 			c_logger.traceDebug(this, "proxyTimedOut", getMyInfo() );
@@ -1192,7 +1194,7 @@ public class ProxyBranchImpl extends BranchManager
     	_parentTimedOut = true;
     	
     	executeTimeOut(isTimeout);
-     }
+	}
 
     /**
      * Gets the branch Id of this Proxy Branch from the top via header. 
@@ -1270,16 +1272,16 @@ public class ProxyBranchImpl extends BranchManager
 			if (proxyTimerTime < seconds) {
 				// From Servlet API 1.1:
 				// Application called to setProxyBranchTimeout() method. When
-				// the ProxyBranchImple represents parallel proxy - the new
+				// the ProxyBranchImpl represents parallel proxy - the new
 				// parameter of timeout should be lower than 
-				//Proxy.getProxyTimeout()
+				// Proxy.getProxyTimeout()
 			if (c_logger.isTraceDebugEnabled()) {
 				StringBuffer buff = new StringBuffer();
 				buff.append(getMyInfo());
-				buff.append("Failed to set timeout for parallels ProxyBranch");
+				buff.append("Failed to set timeout for parallel ProxyBranch");
 				buff.append(" Proxy timeout = ");
 				buff.append(proxyTimerTime);
-				buff.append(" requests timeout for this branch");
+				buff.append(" requests timeout for this branch = ");
 				buff.append(seconds);
 				c_logger.traceDebug(this, "setProxyBranchTimeout", buff.toString());
 			}
@@ -1299,7 +1301,7 @@ public class ProxyBranchImpl extends BranchManager
 		if(_state == PB_STATE_TRYING || (isStarted() && _proxy.getParallel())){
 			if (c_logger.isTraceDebugEnabled()) {
 				c_logger.traceDebug(this, "setProxyBranchTimeout", 
-						getMyInfo() + "Reschedule the timer for " + seconds + "from now");
+						getMyInfo() + "Reschedule the timer for " + seconds + " from now");
 			}
 			if(_timer != null){
 				_timer.cancel();
@@ -1311,7 +1313,7 @@ public class ProxyBranchImpl extends BranchManager
 			_shouldStartTimer = true;
 			if (c_logger.isTraceDebugEnabled()) {
 				c_logger.traceDebug(this, "setProxyBranchTimeout", 
-						"When State will be TRYING or starting in parallel mode timer will start.");
+						"Timer will start when State will be TRYING or starting in parallel mode.");
 			}
 		}
 	}
@@ -1355,7 +1357,7 @@ public class ProxyBranchImpl extends BranchManager
     	if(_proxyBranches == null || _proxyBranches.isEmpty()){
     		if (c_logger.isTraceDebugEnabled()) {
 				c_logger.traceDebug(this, "getRecursedProxyBranches", 
-						getMyInfo() + "No ProxyBranches were created");
+						getMyInfo() + " No ProxyBranches were created");
 			}
     		return allBranches;
     	}
@@ -1386,7 +1388,7 @@ public class ProxyBranchImpl extends BranchManager
 	public void setAddToPath(boolean p) {
 		_appPath = p;
 		if (c_logger.isTraceDebugEnabled()) {
-			c_logger.traceDebug(this, "setAddToPath", getMyInfo() + "Add to path = " + _appPath);
+			c_logger.traceDebug(this, "setAddToPath", getMyInfo() + " Add to path = " + _appPath);
 		}
 	}
 
@@ -1411,7 +1413,7 @@ public class ProxyBranchImpl extends BranchManager
 		_isRecurse = recurse;
 		if (c_logger.isTraceDebugEnabled()) {
 			c_logger.traceDebug(this, "setRecurse", 
-					getMyInfo() +"This ProxyBranch is recurse = " + _isRecurse);
+					getMyInfo() +" This ProxyBranch is recurse = " + _isRecurse);
 		}
 	}
 
@@ -1467,7 +1469,7 @@ public class ProxyBranchImpl extends BranchManager
 		
 		if (c_logger.isTraceDebugEnabled()) {
 			c_logger.traceDebug(this, "findRecurseBranchByUri", 
-					getMyInfo() + "uri = " + uri);
+					getMyInfo() + " uri = " + uri);
 		}
 		// In this case we should not compare this branch ID to the given
 		// branchId as it was compared in the parent findRecurseBranch() or
@@ -1487,7 +1489,7 @@ public class ProxyBranchImpl extends BranchManager
 		
 		if (c_logger.isTraceDebugEnabled()) {
 			c_logger.traceDebug(this, "findRecurseBranchByUri", 
-					getMyInfo() + "FoundBranch = " + foundProxyBranch);
+					getMyInfo() + " FoundBranch = " + foundProxyBranch);
 		}
 		
 		return foundProxyBranch;
@@ -1655,7 +1657,7 @@ public class ProxyBranchImpl extends BranchManager
 			
 			if (!isSet)
 			{
-				throw new IllegalArgumentException("address:" + address + " is not listed as allowed outbound interface.");
+				throw new IllegalArgumentException("address: " + address + " is not listed as allowed outbound interface.");
 			}
 		}
         else
@@ -1771,9 +1773,14 @@ public class ProxyBranchImpl extends BranchManager
 	}
 
 	/**
-	 * @see javax.servlet.sip.ProxyBranch#setRecordRoute(boolean) 
-	 */	
+	 * @see javax.servlet.sip.ProxyBranch#setRecordRoute(boolean)
+	 */
 	public void setRecordRoute(boolean includeRecordRoute) {
+		//throw IllegalStateException if proxy branch has been already started
+		if (isStarted()) {
+			throw new IllegalStateException(
+				"Cannot set record-route: proxy branch has already been started");
+		}
 		_isRecordRoute = includeRecordRoute;
 	}
 
@@ -1796,13 +1803,13 @@ public class ProxyBranchImpl extends BranchManager
 	public void addTransaction(String method) {
 		
 		if (c_logger.isTraceEntryExitEnabled()) {
-			c_logger.traceEntry(this, "addTransaction", " ProxyBrunch ="+ getMyInfo());
+			c_logger.traceEntry(this, "addTransaction", " ProxyBranch = "+ getMyInfo());
 		 }
 		
 		if(method != null && method.equals(Request.CANCEL)){
 			if (c_logger.isTraceDebugEnabled()) {
 				c_logger.traceDebug(this, "addTransaction",
-						"Do NOT count transaction for CANCEL request ProxyBrunch" + getMyInfo());
+						"Do NOT count transaction for CANCEL request ProxyBranch " + getMyInfo());
 			}
 			return;
 		}
@@ -1816,7 +1823,7 @@ public class ProxyBranchImpl extends BranchManager
 		}
 		
 		if (c_logger.isTraceEntryExitEnabled()) {
-			c_logger.traceExit(this, "addTransaction", " ProxyBrunch ="+ getMyInfo());
+			c_logger.traceExit(this, "addTransaction", " ProxyBranch = "+ getMyInfo());
 		 }
 	}
 	
@@ -1824,13 +1831,13 @@ public class ProxyBranchImpl extends BranchManager
 	public void removeTransaction(String method) {
 		
 		if (c_logger.isTraceEntryExitEnabled()) {
-			c_logger.traceEntry(this, "removeTransaction", "From method ="+ method+ " ProxyBrunch ="+ getMyInfo());
+			c_logger.traceEntry(this, "removeTransaction", "From method = "+ method+ " ProxyBranch = "+ getMyInfo());
 		 }
 		
 		if( method != null && method.equals(Request.CANCEL)){
 			if (c_logger.isTraceDebugEnabled()) {
 				c_logger.traceDebug(this, "removeTransaction",
-						"Do NOT count transaction for CANCEL request ProxyBrunch" + getMyInfo());
+						"Do NOT count transaction for CANCEL request ProxyBranch " + getMyInfo());
 			}
 			return;
 		}
@@ -1874,7 +1881,7 @@ public class ProxyBranchImpl extends BranchManager
 		}
 		
 		if (c_logger.isTraceEntryExitEnabled()) {
-			c_logger.traceExit(this, "removeTransaction", " ProxyBrunch ="+ getMyInfo());
+			c_logger.traceExit(this, "removeTransaction", " ProxyBranch = "+ getMyInfo());
 		 }
 		
 	}

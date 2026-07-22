@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 1997, 2004 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -61,9 +63,9 @@ public class JspInputSourceFactoryImpl implements JspInputSourceFactory {
         Container localContainer = container;
         if(container != null){ //If container is null, we won't ever have a JspInputSourceContainerImpl. No container logic
             try {
-                localContainer = ((JspInputSourceContainerImpl)base).getContainer(); //Look for the file in the given container. If not, just use the master (probably the war)
+                localContainer = ((JspInputSourceContainerImpl)base).getContainer(); //Look for the file in the given container. If not, just use the primary (probably the war)
             } catch(ClassCastException cce) {
-                //FFDCIgnore. Just use the master container
+                //FFDCIgnore. Just use the primary container
             }
         }
         if (System.getSecurityManager() != null) {

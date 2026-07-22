@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2010, 2020 IBM Corporation and others.
+# Copyright (c) 2010, 2022 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -29,7 +31,7 @@
 #   Messages in the range CWWKF1000 are reserved for the FeatureToolMessages.
 # -------------------------------------------------------------------------------------------------
 
-UPDATE_MISSING_FEATURE_ERROR=CWWKF0001E: Nu s-a putut g\u0103si o defini\u0163ie de caracteristic\u0103 pentru {0}
+UPDATE_MISSING_FEATURE_ERROR=CWWKF0001E: Nu s-a g\u0103sit nicio defini\u021bie a caracteristicii pentru {0}. Pentru a instala func\u021bia, executa\u021bi comanda \u201e bin/featureUtility \u201d ( installFeature {0} ) sau comanda \u201e bin/featureUtility \u201d ( installServerFeatures ).
 UPDATE_MISSING_FEATURE_ERROR.explanation=Managerul de caracteristici nu a putut g\u0103si o defini\u0163ie pentru caracteristica specificat\u0103.
 UPDATE_MISSING_FEATURE_ERROR.useraction=Verifica\u0163i c\u0103 numele caracteristicii specificate este scris corect \u015fi c\u0103 defini\u0163ia caracteristicii exist\u0103 \u015fi este lizibil\u0103 \u00een directorul lib/features.
 
@@ -153,34 +155,17 @@ INVALID_START_PHASE_WARNING=CWWKF0030W: Faza de pornire {0} specificat\u0103 pen
 INVALID_START_PHASE_WARNING.explanation=S-a specificat o valoare invalid\u0103 pentru faza de pornire.
 INVALID_START_PHASE_WARNING.useraction=Specifica\u0163i o valoare valid\u0103 pentru faza de pornire. 
 
-FEATURE_NOT_INSTALLED=CWWKF0031I: Serverul a \
-s\u0103rit peste caracteristica de \u00eenc\u0103rcare {0} deoarece func\u0163ionalitatea \
-echivalent\u0103 exist\u0103 deja.
-FEATURE_NOT_INSTALLED.explanation=Dac\u0103 sunt \
-specificate \u00een mod explicit dou\u0103 versiuni ale aceleia\u015fi \
-caracteristici \u00een fi\u015fierul server.xml file, sau dac\u0103 fi\u015fierul \
-server.xml file specific\u0103 caracteristici care includ caracteristici \
-cu func\u0163ionalit\u0103\u0163i duble, serverul ocole\u015fte \u00eenc\u0103rcarea versiunii \
-secunde.
-FEATURE_NOT_INSTALLED.useraction=Dac\u0103 dou\u0103 versiuni \
-ale aceleia\u015fi caracteristici sunt specificate explicit \u00een fi\u015fierul \
-server.xml, \u015fterge\u0163i versiunea care nu este necesar\u0103.
+FEATURE_NOT_INSTALLED=CWWKF0031I: Serverul a s\u0103rit peste caracteristica de \u00eenc\u0103rcare {0} deoarece func\u0163ionalitatea echivalent\u0103 exist\u0103 deja.
+FEATURE_NOT_INSTALLED.explanation=Dac\u0103 sunt specificate \u00een mod explicit dou\u0103 versiuni ale aceleia\u015fi caracteristici \u00een fi\u015fierul server.xml file, sau dac\u0103 fi\u015fierul server.xml file specific\u0103 caracteristici care includ caracteristici cu func\u0163ionalit\u0103\u0163i duble, serverul ocole\u015fte \u00eenc\u0103rcarea versiunii secunde.
+FEATURE_NOT_INSTALLED.useraction=Dac\u0103 dou\u0103 versiuni ale aceleia\u015fi caracteristici sunt specificate explicit \u00een fi\u015fierul server.xml, \u015fterge\u0163i versiunea care nu este necesar\u0103.
 
-FEATURE_JAVA_LEVEL_NOT_MET_ERROR=CWWKF0032E: Caracteristica \
-{0} are nevoie de o versiune de mediu runtime Java minim\u0103 de {1}.
-FEATURE_JAVA_LEVEL_NOT_MET_ERROR.explanation=Pentru \
-a folosi caracteristica men\u0163ionat\u0103, trebuie s\u0103 ave\u0163i versiunea \
-specificat\u0103 sau o versiune ulterioar\u0103 a mediului runtime Java (JRE) \
-instalat\u0103 \u00een mediul dumneavoastr\u0103.
-FEATURE_JAVA_LEVEL_NOT_MET_ERROR.useraction=Moderniza\u0163i-v\u0103 \
-mediul runtimeJava la versiunea specificat\u0103 sau mai sus.
+FEATURE_JAVA_LEVEL_NOT_MET_ERROR=CWWKF0032E: Caracteristica {0} are nevoie de o versiune de mediu runtime Java minim\u0103 de {1}.
+FEATURE_JAVA_LEVEL_NOT_MET_ERROR.explanation=Pentru a folosi caracteristica men\u0163ionat\u0103, trebuie s\u0103 ave\u0163i versiunea specificat\u0103 sau o versiune ulterioar\u0103 a mediului runtime Java (JRE) instalat\u0103 \u00een mediul dumneavoastr\u0103.
+FEATURE_JAVA_LEVEL_NOT_MET_ERROR.useraction=Moderniza\u0163i-v\u0103 mediul runtimeJava la versiunea specificat\u0103 sau mai sus.
 
 UPDATE_CONFLICT_FEATURE_ERROR=CWWKF0033E: Caracteristicile singleton {0} \u015fi {1} nu pot fi \u00eenc\u0103rcate \u00een acela\u015fi timp.  Caracteristicile configurate {2} \u015fi {3} includ una sau mai multe caracteristici care cauzeaz\u0103 conflictul. Configura\u0163ia dumneavoastr\u0103 nu este suportat\u0103; actualiza\u0163i server.xml pentru a \u00eenl\u0103tura caracteristicile incompatibile.
-UPDATE_CONFLICT_FEATURE_ERROR.explanation=Nu pot fi \u00eenc\u0103rcate \u00een acela\u015fi timp mai multe versiuni ale unei caracteristici singleton.  Acest conflict poate ap\u0103rea atunci c\u00e2nd dou\u0103 versiuni ale unei caracteristici singleton sunt configurate direct \u00een configura\u0163ia serverului. Sau atunci c\u00e2nd caracteristicile configurate includ versiuni deiferite ale unei caracteristici singleton \u015fi nu pot \
-tolera o versiune comun\u0103 a caracteristicii singleton.
-UPDATE_CONFLICT_FEATURE_ERROR.useraction=\u00cencerca\u0163i s\u0103 specifica\u0163i o versiune diferit\u0103 a \
-caracteristicilor configurate care au cauzat conflictul \u00een server.xml.  Dac\u0103 nu sunt disponibile alte versiuni, \
-caracteristicile configurate nu sunt compatibile una cu alta \u015fi nu pot fi configurate \u00een acela\u015fi timp.
+UPDATE_CONFLICT_FEATURE_ERROR.explanation=Nu pot fi \u00eenc\u0103rcate \u00een acela\u015fi timp mai multe versiuni ale unei caracteristici singleton.  Acest conflict poate ap\u0103rea atunci c\u00e2nd dou\u0103 versiuni ale unei caracteristici singleton sunt configurate direct \u00een configura\u0163ia serverului. Sau atunci c\u00e2nd caracteristicile configurate includ versiuni deiferite ale unei caracteristici singleton \u015fi nu pot tolera o versiune comun\u0103 a caracteristicii singleton.
+UPDATE_CONFLICT_FEATURE_ERROR.useraction=\u00cencerca\u0163i s\u0103 specifica\u0163i o versiune diferit\u0103 a caracteristicilor configurate care au cauzat conflictul \u00een server.xml.  Dac\u0103 nu sunt disponibile alte versiuni, caracteristicile configurate nu sunt compatibile una cu alta \u015fi nu pot fi configurate \u00een acela\u015fi timp.
 
 FEATURES_ADDED_CLIENT=CWWKF0034I: Clientul a instalat urm\u0103toarele caracteristici: {0}.
 FEATURES_ADDED_CLIENT.explanation=Clientul a instalat un set de caracteristici.
@@ -217,17 +202,14 @@ UPDATE_WRONG_PROCESS_TYPE_DEPENDENCY_CLIENT_ERROR.explanation=Caracteristica con
 UPDATE_WRONG_PROCESS_TYPE_DEPENDENCY_CLIENT_ERROR.useraction=\u00cenl\u0103tura\u0163i caracteristica din configura\u0163ie sau modifica\u0163i fi\u015fierul manifest de caracteristic\u0103 pentru a activa suportul pentru tipul de proces dorit.
 
 # CWWK0042E  {0} = feature Name: {1} = server name 
-UPDATE_MISSING_CORE_FEATURE_ERROR=CWWKF0042E: Nu s-a putut g\u0103si o defini\u0163ie de caracteristic\u0103 pentru caracteristica {0}.  \u00cencerca\u0163i rularea comenzii bin/installUtility install {0} pentru a instala caracteristica. Alternativ, pute\u0163i rula comanda bin/installUtility install {1}pentru a instala toate caracteristicile la care se face referire \u00een aceast\u0103 configura\u0163ie.
+UPDATE_MISSING_CORE_FEATURE_ERROR=CWWKF0042E: Nu s-a putut g\u0103si o defini\u0163ie de caracteristic\u0103 pentru caracteristica {0}.  \u00cencerca\u021bi s\u0103 rula\u021bi comanda \u201e bin/featureUtility \u201d, \u201e installFeature \u201d \u0219i \u201e {0} \u201d pentru a instala func\u021bia. Alternativ, pute\u021bi rula comanda \u201e bin/featureUtility \u201d installServerFeatures {1} pentru a instala toate func\u021bionalit\u0103\u021bile la care face referire aceast\u0103 configura\u021bie.
 UPDATE_MISSING_CORE_FEATURE_ERROR.explanation=Managerul de caracteristici nu a putut g\u0103si o defini\u0163ie pentru caracteristica specificat\u0103.
-UPDATE_MISSING_CORE_FEATURE_ERROR.useraction=Verifica\u0163i c\u0103 numele caracteristicii specificate este scris corect.  \
-De asemenea, verifica\u0163i c\u0103 exist\u0103 defini\u0163ia caracteristicii \u015fi c\u0103 este lizibil\u0103 \u00een directorul lib/features.  \
-Dac\u0103 caracteristica nu exist\u0103,  \u00eencerca\u0163i s\u0103 rula\u0163i comanda bin/installUtility install feature_name pentru a instala caracteristica sau \u00eencerca\u0163i s\u0103 rula\u0163i comanda bin/installUtility install server_name, pentru a instala toate caracteristicile la care se face referire \u00een aceast\u0103 configura\u0163ie.
+UPDATE_MISSING_CORE_FEATURE_ERROR.useraction=Verifica\u0163i c\u0103 numele caracteristicii specificate este scris corect.  De asemenea, verifica\u0163i c\u0103 exist\u0103 defini\u0163ia caracteristicii \u015fi c\u0103 este lizibil\u0103 \u00een directorul lib/features.  Dac\u0103 func\u021bionalitatea nu exist\u0103, \u00eencerca\u021bi s\u0103 executa\u021bi comanda \u201e bin/featureUtilityinstallFeature feature_name\u201d pentru a instala func\u021bionalitatea sau \u00eencerca\u021bi s\u0103 executa\u021bi comanda \u201e bin/featureUtilityinstallServerFeatures server_name\u201d pentru a instala toate func\u021bionalit\u0103\u021bile la care face referire aceast\u0103 configura\u021bie.
 
 # CWWK0043E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = configuredFeature1: {3} = configuredFeature2: {4} EePlaformCommonToProgModels 
 UPDATE_CONFLICT_INCOMPATIBLE_EE_FEATURES_SAME_PLATFORM_ERROR=CWWKF0043E: Caracteristica configurat\u0103 {2} din {0} este incompatibil\u0103 cu caracteristica configurat\u0103 {3} din {1}.  Configura\u0163ia include o combina\u0163ie incompatibil\u0103 de {4} caracteristici care nu sunt suportate.  Actualiza\u0163i configura\u0163ia pentru a utiliza versiuni compatibile ale caracteristicilor configurate care suport\u0103 modelele de programare {0} sau {1}.
 UPDATE_CONFLICT_INCOMPATIBLE_EE_FEATURES_SAME_PLATFORM_ERROR.explanation=Configura\u0163ia serverului con\u0163ine o combina\u0163ie incompatibil\u0103 de caracteristici pentru modelele de programare indicate.  Acest conflict poate ap\u0103rea dac\u0103 cele dou\u0103 caracteristici incompatibile sunt configurate direct \u00een configura\u0163ia de server sau dac\u0103 caracteristicile configurate includ versiuni diferite ale unei caracteristici care sunt incompatibile.
-UPDATE_CONFLICT_INCOMPATIBLE_EE_FEATURES_SAME_PLATFORM_ERROR.useraction=\u00cencerca\u0163i s\u0103 specifica\u0163i o versiune compatibil\u0103 pentru caracteristicile configurate care au cauzat conflictul \u00een fi\u015fierul server.xml.  Dac\u0103 nu sunt disponibile alte versiuni, \
-caracteristicile configurate nu sunt compatibile una cu alta \u015fi nu pot fi configurate \u00een acela\u015fi timp.
+UPDATE_CONFLICT_INCOMPATIBLE_EE_FEATURES_SAME_PLATFORM_ERROR.useraction=\u00cencerca\u0163i s\u0103 specifica\u0163i o versiune compatibil\u0103 pentru caracteristicile configurate care au cauzat conflictul \u00een fi\u015fierul server.xml.  Dac\u0103 nu sunt disponibile alte versiuni, caracteristicile configurate nu sunt compatibile una cu alta \u015fi nu pot fi configurate \u00een acela\u015fi timp.
 
 # CWWK0044E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2: {6} platformName1: {7} platformName2
 UPDATE_CONFLICT_INCOMPATIBLE_EE_FEATURES_DIFFERENT_PLATFORM_ERROR=CWWKF0044E: Caracteristicile {2} \u015fi {3} nu pot fi \u00eenc\u0103rcate \u00een acela\u015fi timp. Caracteristica {2} din {0} este incompatibil\u0103 cu caracteristica {3} din {1}. Caracteristicile configurate {4} \u015fi {5} includ o combina\u0163ie incompatibil\u0103 de caracteristici. Configura\u0163ia dumneavoastr\u0103 nu este suportat\u0103. Actualiza\u0163i configura\u0163ia pentru a utiliza caracteristici care suport\u0103 oricare din modelele de programare {6} \u015fi {7}, dar nu ambele.
@@ -243,11 +225,50 @@ UPDATE_DISABLED_FEATURES_ON_CONFLICT=CWWKF0046W: Configura\u0163ia include o com
 UPDATE_DISABLED_FEATURES_ON_CONFLICT.explanation=Configura\u0163ia include o combina\u0163ie incompatibil\u0103 de caracteristici. Pentru a evita un comportament invalid, managerul de caracteristici a dezactivat toate caracteristicile.
 UPDATE_DISABLED_FEATURES_ON_CONFLICT.useraction=Specifica\u0163i o versiune diferit\u0103 a caracteristicilor configurate care au cauzat conflictul.
 
-# CWWK0044E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2 {6} EePlaformCommonToProgModels
+# CWWK0047E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2 {6} EePlatformCommonToProgModels
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR=CWWKF0047E: Caracteristicile {2} \u015fi {3} nu pot fi \u00eenc\u0103rcate \u00een acela\u015fi timp. Caracteristica {2} din {0} este incompatibil\u0103 cu caracteristica {3} din {1}. Configura\u0163ia include o combina\u0163ie incompatibil\u0103 de {6} caracteristici care nu sunt suportate. Caracteristicile configurate {4} \u015fi {5} includ o combina\u0163ie incompatibil\u0103 de caracteristici. Configura\u0163ia dumneavoastr\u0103 nu este suportat\u0103. Actualiza\u0163i configura\u0163ia pentru a utiliza versiuni compatibile ale caracteristicilor configurate care suport\u0103 modelele de programare {0} sau {1}.
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.explanation=Configura\u0163ia serverului con\u0163ine o combina\u0163ie incompatibil\u0103 de caracteristici pentru modelele de programare indicate. Acest conflict poate ap\u0103rea dac\u0103 cele dou\u0103 caracteristici incompatibile sunt configurate direct \u00een configura\u0163ia de server sau dac\u0103 caracteristicile configurate includ versiuni diferite ale unei caracteristici care sunt incompatibile.
-UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.useraction=\u00cencerca\u0163i s\u0103 specifica\u0163i o versiune compatibil\u0103 pentru caracteristicile configurate care au cauzat conflictul \u00een fi\u015fierul server.xml. Dac\u0103 nu sunt disponibile alte versiuni, \
-caracteristicile configurate nu sunt compatibile una cu alta \u015fi nu pot fi configurate \u00een acela\u015fi timp.
+UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.useraction=\u00cencerca\u0163i s\u0103 specifica\u0163i o versiune compatibil\u0103 pentru caracteristicile configurate care au cauzat conflictul \u00een fi\u015fierul server.xml. Dac\u0103 nu sunt disponibile alte versiuni, caracteristicile configurate nu sunt compatibile una cu alta \u015fi nu pot fi configurate \u00een acela\u015fi timp.
+
+# CWWKF0048E  {0} = the unknown platform value in the environment variable
+UNKNOWN_PLATFORM_VALUE_ENV_VAR=CWWKF0048E: The {0} valoarea variabilei de mediu a platformei PREFERRED_PLATFORM_VERSIONS nu con\u021bine o versiune valid\u0103.
+UNKNOWN_PLATFORM_VALUE_ENV_VAR.explanation=Fiecare valoare din variabila de mediu platform\u0103 trebuie s\u0103 fie o platform\u0103 cunoscut\u0103. Platformele cunoscute sunt o versiune a javaee, jakartaee sau microProfile.
+UNKNOWN_PLATFORM_VALUE_ENV_VAR.useraction=Verifica\u021bi dac\u0103 variabila de mediu con\u021bine doar platforme cunoscute.
+
+# CWWKF0049E  {0} = set of duplicate platforms
+DUPLICATE_PLATFORMS=CWWKF0049E: Urm\u0103toarele versiuni de platform\u0103 configurat\u0103 sunt \u00een conflict: {0}.
+DUPLICATE_PLATFORMS.explanation=Au fost specificate mai multe versiuni pentru aceea\u0219i platform\u0103.
+DUPLICATE_PLATFORMS.useraction=Elimina\u021bi toate versiunile platformei, cu excep\u021bia uneia.
+
+# CWWKF0050E  {0} = the versionless features that cannot be resolved
+UNRESOLVED_VERSIONLESS_FEATURE=CWWKF0050E: The {0} caracteristicile f\u0103r\u0103 versiune nu pot fi rezolvate
+UNRESOLVED_VERSIONLESS_FEATURE.explanation=Func\u021biile f\u0103r\u0103 versiune necesit\u0103 o platform\u0103 desemnat\u0103 \u00eenainte de a putea fi rezolvate.
+UNRESOLVED_VERSIONLESS_FEATURE.useraction=Asigura\u021bi-v\u0103 c\u0103 exist\u0103 un element de platform\u0103 specificat pentru caracteristica dvs.
+
+# CWWKF0051I  {0} = the versionless features: {1} = the features that were resolved from the versionless features
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE=CWWKF0051I: The {0} caracteristici f\u0103r\u0103 versiune rezolvate la {1}
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE.explanation=Caracteristicile versionate care au fost rezolvate din caracteristicile f\u0103r\u0103 versiune.
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE.useraction=Nu este necesar\u0103 nicio ac\u0163iune.
+
+# CWWKF0052E  {0} = the unknown platform
+UNKNOWN_PLATFORM_ELEMENT=CWWKF0052E: The {0} platforma nu este valabil\u0103
+UNKNOWN_PLATFORM_ELEMENT.explanation=Elementul de platform\u0103 specificat nu este o platform\u0103 cunoscut\u0103. Platformele cunoscute sunt o versiune a javaee, jakartaee sau microProfile
+UNKNOWN_PLATFORM_ELEMENT.useraction=Asigura\u021bi-v\u0103 c\u0103 platforma configurat\u0103 este o platform\u0103 cunoscut\u0103.
+
+# CWWKF0053I  {0} = the resolved platforms
+RESOLVED_PLATFORM=CWWKF0053I: Rezolu\u021bia caracteristicii a selectat {0} platforme.
+RESOLVED_PLATFORM.explanation=Versiunile platformei au fost selectate pentru a permite rezolu\u021bia caracteristicilor f\u0103r\u0103 versiune. Versiunile platformei au fost ob\u021binute din elemente de platform\u0103, din caracteristici versionate sau dintr-o variabil\u0103 de mediu.
+RESOLVED_PLATFORM.useraction=Nu este necesar\u0103 nicio ac\u0163iune.
+
+# CWWKF0054E  {0} = the versionless feature that cannot be resolved: {1} = the resolved platform
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM=CWWKF0054E: The {0} Caracteristica f\u0103r\u0103 versiune nu are o versiune care apar\u021bine {1} platform\u0103.
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM.explanation=Nicio versiune a func\u021biei nu este disponibil\u0103 pentru versiunea platformei. Rezolu\u021bia caracteristicii a fost finalizat\u0103, dar nu a selectat o versiune a caracteristicii.
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM.useraction=Fie elimina\u021bi caracteristica f\u0103r\u0103 versiune, specifica\u021bi o versiune diferit\u0103 a platformei sau utiliza\u021bi o func\u021bie cu versiune.
+
+# CWWKF0055E  {0} = the versionless features
+NO_RESOLVED_PLATFORM=CWWKF0055E: The {0} Caracteristicile f\u0103r\u0103 versiune nu au o platform\u0103 configurat\u0103.
+NO_RESOLVED_PLATFORM.explanation=Fiecare tip de caracteristic\u0103 f\u0103r\u0103 versiune este necesar pentru a avea o platform\u0103 configurat\u0103. Dac\u0103 sunt configurate caracteristici f\u0103r\u0103 versiune javaee sau jakartaee, acestea necesit\u0103 o platform\u0103 javaee sau jakartaee corespunz\u0103toare. Dac\u0103 microProfile caracteristicile f\u0103r\u0103 versiune sunt configurate, acestea necesit\u0103 o microProfile platform\u0103.
+NO_RESOLVED_PLATFORM.useraction=Fie ad\u0103uga\u021bi un element de platform\u0103, o caracteristic\u0103 versionat\u0103 sau o variabil\u0103 de mediu.
 
 #   Messages in the range CWWKF1000 are reserved for the FeatureToolMessages.
 
@@ -337,44 +358,37 @@ tool.find.view.info.description=\ \ \ \ Descriere: {0}
 tool.find.view.info.enabled.by=\ \ \ \ Activat de:
 tool.find.no.feature=Nu a fost g\u0103sit\u0103 nicio caracteristic\u0103.
 
-tool.missing.option=CWWKF1025E: Ac\u0163iunea {0} \
-necesit\u0103 op\u0163iunea {1}, dar op\u0163iunea cerut\u0103 nu a fost furnizat\u0103.
-tool.missing.option.explanation=S-a f\u0103cut o \
-\u00eencercare de a rula o comand\u0103 f\u0103r\u0103 a specifica o op\u0163iune necesar\u0103.
-tool.missing.option.useraction=Rula\u0163i din nou \
-comanda cu op\u0163iunea necesar\u0103.
+tool.missing.option=CWWKF1025E: Ac\u0163iunea {0} necesit\u0103 op\u0163iunea {1}, dar op\u0163iunea cerut\u0103 nu a fost furnizat\u0103.
+tool.missing.option.explanation=S-a f\u0103cut o \u00eencercare de a rula o comand\u0103 f\u0103r\u0103 a specifica o op\u0163iune necesar\u0103.
+tool.missing.option.useraction=Rula\u0163i din nou comanda cu op\u0163iunea necesar\u0103.
 
-tool.classpath.feature.not.found=CWWKF1026E: Caracteristica \
-{0} nu exist\u0103.
-tool.classpath.feature.not.found.explanation=S-a \
-specificat o caracteristic\u0103 ce nu exist\u0103.
-tool.classpath.feature.not.found.useraction=Rula\u0163i \
-din nou comanda f\u0103r\u0103 a specifica acea caracteristic\u0103. 
+tool.classpath.feature.not.found=CWWKF1026E: Caracteristica {0} nu exist\u0103.
+tool.classpath.feature.not.found.explanation=S-a specificat o caracteristic\u0103 ce nu exist\u0103.
+tool.classpath.feature.not.found.useraction=Rula\u0163i din nou comanda f\u0103r\u0103 a specifica acea caracteristic\u0103. 
 
-tool.classpath.feature.not.public=CWWKF1027E: Caracteristica \
-{0} nu este public\u0103.
-tool.classpath.feature.not.public.explanation=S-a \
-specificat o caracteristic\u0103 ce nu este public\u0103.
-tool.classpath.feature.not.public.useraction=Rula\u0163i \
-din nou comanda f\u0103r\u0103 a specifica acea caracteristic\u0103.
+tool.classpath.feature.not.public=CWWKF1027E: Caracteristica {0} nu este public\u0103.
+tool.classpath.feature.not.public.explanation=S-a specificat o caracteristic\u0103 ce nu este public\u0103.
+tool.classpath.feature.not.public.useraction=Rula\u0163i din nou comanda f\u0103r\u0103 a specifica acea caracteristic\u0103.
 
-tool.classpath.wrong.drive=CWWKF1028E: Fi\u015fierul \
-de ie\u015fire {0} trebuie s\u0103 se afle pe aceea\u015fi unitate ca fi\u015fierul {1}.
-tool.classpath.wrong.drive.explanation=Fi\u015fierul \
-de ie\u015fire trebuie s\u0103 se afle pe aceea\u015fi unitate ca toate fi\u015fierele \
-care sunt referite de c\u0103tre caracteristicile specificate.
-tool.classpath.wrong.drive.useraction=Rula\u0163i din nou \
-comanda cu un fi\u015fier de ie\u015fire care se afl\u0103 pe aceea\u015fi unitate ca \
-fi\u015fierul specificat.
+tool.classpath.wrong.drive=CWWKF1028E: Fi\u015fierul de ie\u015fire {0} trebuie s\u0103 se afle pe aceea\u015fi unitate ca fi\u015fierul {1}.
+tool.classpath.wrong.drive.explanation=Fi\u015fierul de ie\u015fire trebuie s\u0103 se afle pe aceea\u015fi unitate ca toate fi\u015fierele care sunt referite de c\u0103tre caracteristicile specificate.
+tool.classpath.wrong.drive.useraction=Rula\u0163i din nou comanda cu un fi\u015fier de ie\u015fire care se afl\u0103 pe aceea\u015fi unitate ca fi\u015fierul specificat.
 
-tool.classpath.create.fail=CWWKF1029E: Fi\u015fierul \
-de ie\u015fire {0} nu a putut fi creat. S-a primit urm\u0103toarea eroare: {1}
-tool.classpath.create.fail.explanation=A \
-ap\u0103rut o eroare la crearea fi\u015fierului de ie\u015fire.
-tool.classpath.create.fail.useraction=Examina\u0163i \
-mesajul erorii, corecta\u0163i problema \u015fi rula\u0163i din nou comanda. 
+tool.classpath.create.fail=CWWKF1029E: Fi\u015fierul de ie\u015fire {0} nu a putut fi creat. S-a primit urm\u0103toarea eroare: {1}
+tool.classpath.create.fail.explanation=A ap\u0103rut o eroare la crearea fi\u015fierului de ie\u015fire.
+tool.classpath.create.fail.useraction=Examina\u0163i mesajul erorii, corecta\u0163i problema \u015fi rula\u0163i din nou comanda. 
 
 tool.userfeature.install.location.invalid=CWWKF1036E: Caracteristica de utilizator {0} nu a putut fi instalat\u0103 la nucleu (core).
 tool.userfeature.install.location.invalid.explanation= Caracteristica de utilizator nu este o caracteristic\u0103 de nucleu \u015fi prin urmare nu poate fi instalat\u0103 la nucleu.
 tool.userfeature.install.location.invalid.useraction= Instala\u0163i caracteristica de utilizator la usr. 
+
+FEATURES_ADDED_DELTA=CWWKF1037I: Serverul a ad\u0103ugat caracteristicile {0} la setul de caracteristici existent.
+FEATURES_ADDED_DELTA.explanation=Serverul a instalat un set de noi caracteristici, \u00een plus fa\u021b\u0103 de caracteristicile instalate anterior.
+FEATURES_ADDED_DELTA.useraction=Nu este necesar\u0103 nicio ac\u0163iune.
+
+FEATURES_ADDED_CLIENT_DELTA=CWWKF1038I: Clientul a ad\u0103ugat {0} caracteristici la setul de caracteristici existent. 
+FEATURES_ADDED_CLIENT_DELTA.explanation=Clientul a instalat un set de noi caracteristici, \u00een plus fa\u021b\u0103 de caracteristicile instalate anterior.
+FEATURES_ADDED_CLIENT_DELTA.useraction=Nu este necesar\u0103 nicio ac\u0163iune. 
+
+
 

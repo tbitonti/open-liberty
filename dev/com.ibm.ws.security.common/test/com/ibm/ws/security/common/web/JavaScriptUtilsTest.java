@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -50,6 +52,7 @@ public class JavaScriptUtilsTest extends CommonTestClass {
     static final String VALID_URL = "https://localhost:8010/myApp";
     static final String SAME_SITE_ATTR_VALUE = "SameSiteValue";
     static final String SAME_SITE_PROP = "SameSite=" + SAME_SITE_ATTR_VALUE + ";";
+    static final String PARTITIONED_PROP = "Partitioned;";
 
     final HttpServletRequest request = mockery.mock(HttpServletRequest.class);
     final HttpServletResponse response = mockery.mock(HttpServletResponse.class);
@@ -210,6 +213,30 @@ public class JavaScriptUtilsTest extends CommonTestClass {
         }
     }
 
+    @Test
+    public void test_getJavaScriptHtmlCookieString_nonEmptyName_nonEmptyValue_withPartitionedTrue() throws Exception {
+        try {
+            String name = "some prop";
+            String value = "some value";
+
+            getWebAppSecurityConfigCookiePropertiesExpectations(false, "None", "true");
+
+            String result = utils.getJavaScriptHtmlCookieString(name, value);
+
+            final String expectedCookieString = name + "=" + value + ";";
+            verifyPattern(result, Pattern.quote(expectedCookieString), "Expected cookie name and value did not appear in the result.");
+
+            Map<String, String> cookieProps = new HashMap<String, String>();
+            cookieProps.put("Partitioned", null);
+            cookieProps.put("SameSite", "None");
+            cookieProps.put("secure", null);
+            verifyCookiePropertyStrings(result, cookieProps);
+
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
     /**
      * Tests:
      * - Cookie property map: Empty
@@ -230,6 +257,29 @@ public class JavaScriptUtilsTest extends CommonTestClass {
             String result = utils.getJavaScriptHtmlCookieString(name, value, cookieProps);
 
             verifyCaseInsensitiveQuotedPatternMatches(result, DOCUMENT_COOKIE_START + expectedCookieString + DOCUMENT_COOKIE_END, "Cookie string did not match expected pattern.");
+
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
+    @Test
+    public void test_getJavaScriptHtmlCookieString_emptyCookieProperties_withPartitioned() throws Exception {
+        try {
+            String name = "some prop";
+            String value = "some value";
+            Map<String, String> cookieProps = new HashMap<String, String>();
+
+            getWebAppSecurityConfigCookiePropertiesExpectations(false, "None", "true");
+
+            String result = utils.getJavaScriptHtmlCookieString(name, value, cookieProps);
+            final String expectedCookieString = name + "=" + value + ";";
+            verifyPattern(result, Pattern.quote(expectedCookieString), "Expected cookie name and value did not appear in the result.");
+
+            cookieProps.put("Partitioned", null);
+            cookieProps.put("SameSite", "None");
+            cookieProps.put("secure", null);
+            verifyCookiePropertyStrings(result, cookieProps);
 
         } catch (Throwable t) {
             outputMgr.failWithThrowable(testName.getMethodName(), t);
@@ -439,6 +489,32 @@ public class JavaScriptUtilsTest extends CommonTestClass {
             verifyPattern(result, Pattern.quote(expectedCookieString), "Expected cookie name and value did not appear in the result.");
 
             cookieProps.put("SameSite", SAME_SITE_ATTR_VALUE);
+            verifyCookiePropertyStrings(result, cookieProps);
+
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
+    @Test
+    public void test_getUnencodedJavaScriptHtmlCookieString_withCookieProperties_withPartitionedTrue() throws Exception {
+        try {
+            String name = "<cookie name\"'>";
+            String value = ">cookie'<\" value ";
+            Map<String, String> cookieProps = new HashMap<String, String>();
+            cookieProps.put("key1", "value1");
+            cookieProps.put("key2", "value2");
+
+            getWebAppSecurityConfigCookiePropertiesExpectations(false, "None", "true");
+
+            String result = utils.getUnencodedJavaScriptHtmlCookieString(name, value, cookieProps);
+
+            String expectedCookieString = DOCUMENT_COOKIE_START + name + "=" + value + ";";
+            verifyPattern(result, Pattern.quote(expectedCookieString), "Expected cookie name and value did not appear in the result.");
+
+            cookieProps.put("SameSite", "None");
+            cookieProps.put("Partitioned", null);
+            cookieProps.put("secure", null);
             verifyCookiePropertyStrings(result, cookieProps);
 
         } catch (Throwable t) {
@@ -742,6 +818,37 @@ public class JavaScriptUtilsTest extends CommonTestClass {
         }
     }
 
+    @Test
+    public void test_getHtmlCookieString_nonEmptyPropertyMap_withPartitionedTrue() throws Exception {
+        try {
+            String name = "some name";
+            String value = "a value";
+            Map<String, String> cookieProps = new HashMap<String, String>();
+            cookieProps.put(">\"name,", "&value<");
+            cookieProps.put(null, "null_key_value");
+            cookieProps.put("", "empty_key_value");
+            cookieProps.put(";", "semi_colon_value");
+            cookieProps.put("path", "https://localhost:43/");
+            cookieProps.put("NullValue", null);
+            cookieProps.put("EmptyValue", "");
+
+            getWebAppSecurityConfigCookiePropertiesExpectations(false, "None", "true");
+
+            String result = utils.getHtmlCookieString(name, value, cookieProps);
+
+            String expectedCookieNameAndValue = name + "=" + value + ";";
+            verifyPattern(result, Pattern.quote(expectedCookieNameAndValue), "Expected cookie name and value did not appear in the result.");
+
+            cookieProps.put("SameSite", "None");
+            cookieProps.put("Partitioned", null);
+            cookieProps.put("secure", null);
+            verifyCookiePropertyStrings(result, cookieProps);
+
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
     /************************************** getUnencodedHtmlCookieString **************************************/
 
     /**
@@ -884,6 +991,9 @@ public class JavaScriptUtilsTest extends CommonTestClass {
             String expectedCookieString = name + "=" + value + ";";
             verifyPattern(result, Pattern.quote(expectedCookieString), "Expected cookie name and value did not appear in the result.");
 
+            cookieProps.put("SameSite", SAME_SITE_ATTR_VALUE);
+            verifyCookiePropertyStrings(result, cookieProps);
+
         } catch (Throwable t) {
             outputMgr.failWithThrowable(testName.getMethodName(), t);
         }
@@ -913,6 +1023,31 @@ public class JavaScriptUtilsTest extends CommonTestClass {
             verifyPattern(result, Pattern.quote(expectedCookieString), "Expected cookie name and value did not appear in the result.");
 
             cookieProps.put("SameSite", SAME_SITE_ATTR_VALUE);
+            verifyCookiePropertyStrings(result, cookieProps);
+
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
+    public void test_getUnencodedHtmlCookieString_withCookieProperties_withPartitionedTrue() throws Exception {
+        try {
+            String name = "<cookie name\"'>";
+            String value = ">cookie'<\" value ";
+            Map<String, String> cookieProps = new HashMap<String, String>();
+            cookieProps.put("key1", "value1");
+            cookieProps.put("key2", "value2");
+
+            getWebAppSecurityConfigCookiePropertiesExpectations(false, "None", "true");
+
+            String result = utils.getUnencodedHtmlCookieString(name, value, cookieProps);
+
+            String expectedCookieString = name + "=" + value + ";";
+            verifyPattern(result, Pattern.quote(expectedCookieString), "Expected cookie name and value did not appear in the result.");
+
+            cookieProps.put("SameSite", "None");
+            cookieProps.put("Partitioned", null);
+            cookieProps.put("secure", null);
             verifyCookiePropertyStrings(result, cookieProps);
 
         } catch (Throwable t) {
@@ -1220,6 +1355,65 @@ public class JavaScriptUtilsTest extends CommonTestClass {
         }
     }
 
+    @Test
+    public void test_getJavaScriptForRedirect_withCookieProperties_withPartitionedTrue() throws Exception {
+        try {
+            String requestUrlCookieName = "some cookie name";
+            String redirectUrl = VALID_URL;
+
+            Map<String, String> cookieProps = new HashMap<String, String>();
+            cookieProps.put(">\"name,", "&value<");
+            cookieProps.put(null, "null_key_value");
+            cookieProps.put("", "empty_key_value");
+            cookieProps.put(";", "semi_colon_value");
+            cookieProps.put("path", "https://localhost:43/");
+            cookieProps.put("NullValue", null);
+            cookieProps.put("EmptyValue", "");
+
+            getWebAppSecurityConfigCookiePropertiesExpectations(false, "None", "true");
+
+            String result = utils.getJavaScriptForRedirect(requestUrlCookieName, redirectUrl, cookieProps);
+
+            cookieProps.put("SameSite", "None");
+            cookieProps.put("Partitioned", null);
+            cookieProps.put("secure", null);
+            verifyValidJavaScriptForRedirectBlock(result, requestUrlCookieName, redirectUrl, cookieProps);
+
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
+    //One test with SS=None and Partitioned=false
+    @Test
+    public void test_getJavaScriptForRedirect_withCookieProperties_withPartitionedFalse() throws Exception {
+        try {
+            String requestUrlCookieName = "some cookie name";
+            String redirectUrl = VALID_URL;
+
+            Map<String, String> cookieProps = new HashMap<String, String>();
+            cookieProps.put(">\"name,", "&value<");
+            cookieProps.put(null, "null_key_value");
+            cookieProps.put("", "empty_key_value");
+            cookieProps.put(";", "semi_colon_value");
+            cookieProps.put("path", "https://localhost:43/");
+            cookieProps.put("NullValue", null);
+            cookieProps.put("EmptyValue", "");
+
+            getWebAppSecurityConfigCookiePropertiesExpectations(false, "None", "false");
+
+            String result = utils.getJavaScriptForRedirect(requestUrlCookieName, redirectUrl, cookieProps);
+
+            cookieProps.put("SameSite", "None");
+            cookieProps.put("secure", null);
+            assertFalse("Result should not have contained Partitioned attribute, but did. Cookie string was [" + result + "].", result.contains("Partitioned"));
+            verifyValidJavaScriptForRedirectBlock(result, requestUrlCookieName, redirectUrl, cookieProps);
+
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
     /************************************** Helper methods **************************************/
 
     private void verifyCaseInsensitiveQuotedPatternMatches(String result, String patternString, String failureMsg) {
@@ -1330,14 +1524,34 @@ public class JavaScriptUtilsTest extends CommonTestClass {
     }
 
     private void getWebAppSecurityConfigCookiePropertiesExpectations(final boolean ssoRequiresSsl) {
-        mockery.checking(new Expectations() {
-            {
-                one(webAppConfig).getSSORequiresSSL();
-                will(returnValue(ssoRequiresSsl));
-                one(webAppConfig).getSameSiteCookie();
-                will(returnValue(SAME_SITE_ATTR_VALUE));
-            }
-        });
+        getWebAppSecurityConfigCookiePropertiesExpectations(ssoRequiresSsl, null, null);
+    }
+
+    private void getWebAppSecurityConfigCookiePropertiesExpectations(final boolean ssoRequiresSsl, final String sameSite, final String partitioned) {
+        if (partitioned!=null) {
+          final boolean isPartitioned = ("true".equals(partitioned)?true:false);
+          mockery.checking(new Expectations() {
+              {
+                  allowing(webAppConfig).getSSORequiresSSL();
+                  will(returnValue(ssoRequiresSsl));
+                  allowing(webAppConfig).getSameSiteCookie();
+                  will(returnValue(sameSite));
+                  allowing(webAppConfig).isPartitionedCookie();
+                  will(returnValue(isPartitioned));
+              }
+          });
+        } else {
+          mockery.checking(new Expectations() {
+              {
+                  allowing(webAppConfig).getSSORequiresSSL();
+                  will(returnValue(ssoRequiresSsl));
+                  allowing(webAppConfig).getSameSiteCookie();
+                  will(returnValue(SAME_SITE_ATTR_VALUE));
+                  allowing(webAppConfig).isPartitionedCookie();
+                  will(returnValue(partitioned));
+              }
+          });
+        }
     }
 
 }

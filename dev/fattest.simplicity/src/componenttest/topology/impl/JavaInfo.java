@@ -1,22 +1,34 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package componenttest.topology.impl;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
+import java.nio.charset.Charset;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.ibm.websphere.simplicity.log.Log;
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+
+import componenttest.common.apiservices.Bootstrap;
+import componenttest.rules.repeater.FeatureUtilities;
 
 /**
  * A class used for identifying properties of a JDK other
@@ -26,7 +38,19 @@ public class JavaInfo {
     private static Class<?> c = JavaInfo.class;
     private static Map<String, JavaInfo> cache = new HashMap<String, JavaInfo>();
 
-    public static int JAVA_VERSION = JavaInfo.forCurrentVM().majorVersion();
+    public final static int JAVA_VERSION = JavaInfo.forCurrentVM().majorVersion();
+
+    public final static int BOOTSTRAP_JAVA_VERSION;
+    static {
+        try {
+            BOOTSTRAP_JAVA_VERSION = JavaInfo.forBootstrap(Bootstrap.getInstance()).majorVersion();
+        } catch (Exception ex) {
+            if (ex instanceof RuntimeException) {
+                throw (RuntimeException) ex;
+            }
+            throw new RuntimeException(ex);
+        }
+    }
 
     public static JavaInfo forCurrentVM() {
         String javaHome = System.getProperty("java.home");
@@ -59,6 +83,19 @@ public class JavaInfo {
     }
 
     /**
+     * Get the JavaInfo for the JDK that will be used for LibertyServer and LibertyClient
+     * from the Bootstrap that is fed to those classes. The Java used to run the tests
+     * can be different than the one to run the client and server when using the
+     * supports.framework.java variable.
+     * </ol>
+     */
+    public static JavaInfo forBootstrap(Bootstrap bootstrap) throws IOException {
+        String bootstrapHostName = bootstrap.getValue("hostName");
+        String bootstrapJava = bootstrap.getValue(bootstrapHostName + ".JavaHome");
+        return fromPath(bootstrapJava);
+    }
+
+    /**
      * Get the JavaInfo for the JDK that will be used for a given LibertyServer.
      * The priority is determined in the following way:
      * <ol>
@@ -70,6 +107,12 @@ public class JavaInfo {
     public static JavaInfo forServer(LibertyServer server) throws IOException {
         String serverJava = server.getServerEnv().getProperty("JAVA_HOME");
         return fromPath(serverJava);
+    }
+
+    //FIPS 140-3
+    public static JavaInfo forClient(LibertyClient client) throws IOException {
+        String clientJava = client.getClientEnv().getProperty("JAVA_HOME");
+        return fromPath(clientJava);
     }
 
     /**
@@ -89,8 +132,10 @@ public class JavaInfo {
     final Vendor VENDOR;
     final int SERVICE_RELEASE;
     final int FIXPACK;
+    final String RUNTIME_NAME;
+    Optional<Boolean> criuSupported = Optional.empty();
 
-    private JavaInfo(String jdk_home, int major, int minor, int micro, Vendor v, int sr, int fp) {
+    private JavaInfo(String jdk_home, int major, int minor, int micro, Vendor v, int sr, int fp, String runtime_name) {
         JAVA_HOME = jdk_home;
         MAJOR = major;
         MINOR = minor;
@@ -98,6 +143,7 @@ public class JavaInfo {
         VENDOR = v;
         SERVICE_RELEASE = sr;
         FIXPACK = fp;
+        RUNTIME_NAME = runtime_name;
 
         Log.info(c, "<init>", this.toString());
     }
@@ -175,6 +221,8 @@ public class JavaInfo {
         }
         FIXPACK = fp;
 
+        RUNTIME_NAME = System.getProperty("java.runtime.name");
+
         Log.info(c, "<init>", this.toString());
     }
 
@@ -190,6 +238,60 @@ public class JavaInfo {
         return MICRO;
     }
 
+    private static final Map<String, Boolean> systemClassAvailability = new ConcurrentHashMap<>();
+
+    /**
+     * In rare cases where different behaviour is performed based on the JVM vendor
+     * this method should be used to test for a unique JVM class provided by the
+     * vendor rather than using the vendor method. For example if on JVM provides a
+     * different Kerberos login module testing for that login module being loadable
+     * before configuring to use it is preferable to using the vendor data.
+     *
+     * New users of this method should consider adding their class name in
+     * JavaInfoTest in the com.ibm.ws.java11_fat project.
+     *
+     * @param  className the name of a class in the JVM to test for
+     * @return           true if the class is available, false otherwise.
+     */
+    public static boolean isSystemClassAvailable(String className) {
+        return systemClassAvailability.computeIfAbsent(className, (k) -> AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
+            @Override
+            @FFDCIgnore(ClassNotFoundException.class)
+            public Boolean run() {
+                try {
+                    // Using ClassLoader.findSystemClass() instead of
+                    // Class.forName(className, false, null) because Class.forName with a null
+                    // ClassLoader only looks at the boot ClassLoader with Java 9 and above
+                    // which doesn't look at all the modules available to the findSystemClass.
+                    systemClassAccessor.getSystemClass(className);
+                    return true;
+                } catch (ClassNotFoundException e) {
+                    //No FFDC needed
+                    return false;
+                }
+            }
+        }));
+    }
+
+    private static final SystemClassAccessor systemClassAccessor = new SystemClassAccessor();
+
+    private static final class SystemClassAccessor extends ClassLoader {
+        public Class<?> getSystemClass(String className) throws ClassNotFoundException {
+            return findSystemClass(className);
+        }
+    }
+
+    /**
+     * @deprecated
+     *             This method should not be used to determine behaviour based on the Java vendor.
+     *             Instead if there are behaviour differences between JVMs a test should be performed
+     *             to detect the actual capability used before making a decision. For example if there
+     *             is a different class on one JVM that needs to be used vs another an attempt should
+     *             be made to load the class and take the code path.
+     *
+     * @return     the detected vendor of the JVM
+     */
+    @Deprecated
     public Vendor vendor() {
         return VENDOR;
     }
@@ -204,6 +306,81 @@ public class JavaInfo {
 
     public int fixpack() {
         return FIXPACK;
+    }
+
+    public String runtimeName() {
+        return RUNTIME_NAME;
+    }
+
+    /**
+     * For debug purposes only
+     *
+     * @return a String containing basic info about the JDK
+     */
+    public String debugString() {
+        return "Vendor = " + vendor() + ", Version = " + majorVersion() + "." + minorVersion();
+    }
+
+    synchronized public Boolean isCriuSupported() {
+        return criuSupported.orElseGet(() -> probeCriuSupport());
+    }
+
+    /**
+     * Check for criu support by invoking a criu operation in a forked jvm.
+     * As a side effect, update this instance of JavaInfo with the result of the check.
+     *
+     * @return Boolean indicating if criu is supported.
+     */
+    private Boolean probeCriuSupport() {
+        final String method = "probeCriuSupport";
+        //Find path to fattest.simplicity.jar jar on file system (the jar containing this class).
+        String simplicityJar;
+        try {
+            simplicityJar = new File(componenttest.topology.impl.probe.CriuSupport.class.getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()).getPath();
+        } catch (URISyntaxException e) {
+            throw new Error(e);
+        }
+        // Temp fix for a JVM bug affecting checkpoint. Add hard coded location to library search path for libcriu.
+        // the specified paths cover criu installed on a range of supported systems where we may run checkpoint FATs
+        String libLoadPathSpec = "-Djava.library.path=" + System.getProperty("java.library.path") +
+                                 ":/usr/local/lib64:/usr/lib/x86_64-linux-gnu:/usr/local/lib/x86_64-linux-gnu";
+
+        List<String> command = new ArrayList<>();
+        command.add(javaHome() + "/bin/java");
+        command.add("-XX:+EnableCRIUSupport");
+        if (majorVersion() >= 24) {
+            command.add("--enable-native-access=ALL-UNNAMED");
+        }
+        command.add(libLoadPathSpec);
+        command.add("-cp");
+        command.add(simplicityJar);
+        command.add("componenttest.topology.impl.probe.CriuSupport");
+
+        ProcessBuilder procBuilder = new ProcessBuilder(command);
+        Process proc;
+        try {
+            proc = procBuilder.start();
+            BufferedReader stdErrReader = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
+            BufferedReader stdOutReader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+            proc.waitFor();
+            //log stdout
+            stdOutReader.lines().forEach(line -> Log.info(c, method, "STDOUT: " + line));
+            //If there is any error output then criu support not present (or could not be determined).
+            Long numStdErrLines = stdErrReader.lines().peek(line -> Log.info(c, method, "STDERR: " + line)).count();
+            if (numStdErrLines > 0) {
+                criuSupported = Optional.of(Boolean.FALSE);
+            } else {
+                criuSupported = Optional.of(Boolean.TRUE);
+            }
+        } catch (IOException | InterruptedException ex) {
+            Log.info(c, method, "Exception launching process to probe for criu support:" + ex);
+            criuSupported = Optional.of(Boolean.FALSE);
+        }
+        Log.info(c, method, "Executed isCriuSupported on Jinfo: " + this);
+        return criuSupported.get();
     }
 
     private static JavaInfo runJavaVersion(String javaHome) throws IOException {
@@ -225,27 +402,58 @@ public class JavaInfo {
         // Fixpack (IBM JDK specific) = 50
         // Vendor = IBM
 
+        Log.info(c, m, "java file exists " + javaHome + "/bin/java " + new File(javaHome + "/bin/java").exists());
         ProcessBuilder pb = new ProcessBuilder(javaHome + "/bin/java", "-version");
-        Process p = pb.start();
-        try {
-            p.waitFor();
-        } catch (InterruptedException e) {
+        Map<String, String> env = pb.environment();
+        env.put("JAVA_HOME", javaHome);
+
+        // With Java 8 on z/OS things don't work the same so you need to set the LIBPATH
+        // When we drop Java 8 support this logic can be removed.
+        if (FeatureUtilities.isZOS()) {
+            String java8LibPath = javaHome + "/lib/s390x/j9vm:" +
+                                  javaHome + "/lib/s390x:" +
+                                  javaHome + "/lib";
+
+            String existingLibPath = env.get("LIBPATH");
+            if (existingLibPath != null && !existingLibPath.isEmpty()) {
+                env.put("LIBPATH", java8LibPath + ":" + existingLibPath);
+            } else {
+                env.put("LIBPATH", java8LibPath);
+            }
         }
-        InputStreamReader isr = new InputStreamReader(p.getErrorStream());
+
+        Process p = pb.start();
+
+        // Need to consume the stream before calling waitFor.
+        InputStreamReader isr = FeatureUtilities.isZOS() ? new InputStreamReader(p.getErrorStream(), Charset.forName("IBM1047")) : new InputStreamReader(p.getErrorStream());
         BufferedReader br = new BufferedReader(isr);
         String versionInfo = br.readLine(); // 1st line has version info
         String buildInfo = br.readLine(); // 2nd line has service release and fixpack info
-        String vendorInfo = br.readLine().toLowerCase();;
+        String vendorInfo = br.readLine();
+        if (vendorInfo != null) {
+            vendorInfo = vendorInfo.toLowerCase();
+        }
 
         br.close();
         isr.close();
+
+        int returnCode = Integer.MAX_VALUE;
+        try {
+            returnCode = p.waitFor();
+        } catch (InterruptedException e) {
+        }
+        if (returnCode != 0) {
+            Log.info(c, m, "Exit value is " + returnCode);
+        }
 
         Log.info(c, m, versionInfo);
         Log.info(c, m, vendorInfo);
 
         // Parse vendor
         Vendor v;
-        if (vendorInfo.contains("ibm") || vendorInfo.contains("j9")) {
+        if (vendorInfo == null) {
+            v = Vendor.UNKNOWN;
+        } else if (vendorInfo.contains("ibm") || vendorInfo.contains("j9")) {
             v = Vendor.IBM;
         } else if (vendorInfo.contains("oracle") || vendorInfo.contains("hotspot")) {
             v = Vendor.SUN_ORACLE;
@@ -294,11 +502,15 @@ public class JavaInfo {
             }
         }
 
-        return new JavaInfo(javaHome, major, minor, micro, v, sr, fp);
+        String runtimeName = buildInfo.trim();
+
+        return new JavaInfo(javaHome, major, minor, micro, v, sr, fp, runtimeName);
     }
 
     @Override
     public String toString() {
-        return "major=" + MAJOR + "  minor=" + MINOR + " service release=" + SERVICE_RELEASE + " fixpack=" + FIXPACK + "  vendor=" + VENDOR + "  javaHome=" + JAVA_HOME;
+        return "major=" + MAJOR + ",  minor=" + MINOR + ", service release=" + SERVICE_RELEASE
+               + ", fixpack=" + FIXPACK + ",  vendor=" + VENDOR
+               + ",  javaHome=" + JAVA_HOME + ", criuSupported=" + criuSupported;
     }
 }

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020, 2021 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -11,6 +13,7 @@
 package com.ibm.ws.security.fat.common;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.security.Provider;
 import java.security.Security;
 import java.util.HashMap;
@@ -27,9 +30,13 @@ import javax.naming.directory.InitialDirContext;
 import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.security.fat.common.servers.ServerBootstrapUtils;
 
+import componenttest.custom.junit.runner.RepeatTestFilter;
+import componenttest.rules.repeater.JakartaEEAction;
+import componenttest.rules.repeater.RepeatActions.EEVersion;
 import componenttest.topology.impl.LibertyFileManager;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.LDAPUtils;
+import componenttest.topology.utils.LibertyServerUtils;
 
 public class ShibbolethHelpers {
     private final static Class<?> thisClass = ShibbolethHelpers.class;
@@ -277,9 +284,12 @@ public class ShibbolethHelpers {
         updateConfigFiles(TestHelpers.getFileList_endsWith(spServerHome + "/localhost", ".orig"), spServer, idpServer);
 
         // if default idpMetadata.xml file exists, copy the updated version to serversettings/SAMLServerFiles/localhost/idpMetadata.xml
-        if (LibertyFileManager.libertyFileExists(spServer.getServer().getMachine(), spServerHome + "/localhost/idpMetadata.xml")) {
+        if (LibertyFileManager.libertyFileExists(spServer.getServer().getMachine(), spServerHome + "/imports/localhost/idpMetadata.xml")) {
+            Log.info(thisClass, thisMethod, "doing file save to copy to idp server"); // chc
             String toDir = new File(".").getAbsoluteFile().getCanonicalPath().replace("\\", "/") + "/lib/LibertyFATTestFiles/serversettings/SAMLServerFiles/localhost";
-            LibertyFileManager.copyFileIntoLiberty(spServer.getServer().getMachine(), toDir, spServerHome + "/localhost/idpMetadata.xml");
+            LibertyFileManager.copyFileIntoLiberty(spServer.getServer().getMachine(), toDir, spServerHome + "/imports/localhost/idpMetadata.xml");
+        } else {
+            Log.info(thisClass, thisMethod, "NOT doing file save to copy to idp server"); // chc
         }
 
     }
@@ -475,16 +485,36 @@ public class ShibbolethHelpers {
 
     public void chooseIdpWarVersion(TestServer idpServer) throws Exception {
 
+        EEVersion eeVersion = null;
+        String eeVersionString = "";
+
+        String currentRepeatAction = RepeatTestFilter.getRepeatActionsAsString();
+        if (currentRepeatAction.contains(JakartaEEAction.EE9_ACTION_ID)) {
+            eeVersion = EEVersion.EE9;
+        }
+        if (currentRepeatAction.contains(JakartaEEAction.EE10_ACTION_ID)) {
+            eeVersion = EEVersion.EE10;
+        }
+
         String thisMethod = "chooseIdpWarVersion";
         LibertyServer theServer = idpServer.getServer();
+
+        File transformedWarFile = new java.io.File(LibertyServerUtils.makeJavaCompatible(theServer.getServerRoot() + "/idp-apps/idp-war-4.1.0.war"));
 
         // copy the appropriate version of the idp.war file
         if (System.getProperty("java.specification.version").matches("1\\.[789]")) {
             Log.info(thisClass, thisMethod, "################## Copying the 3.1.1 version of Shibbolet ##################h");
-            LibertyFileManager.copyFileIntoLiberty(theServer.getMachine(), theServer.getServerRoot() + "/test-apps", "idp.war", theServer.getServerRoot() + "/test-apps/idp-war-3.3.1.war");
+            LibertyFileManager.copyFileIntoLiberty(theServer.getMachine(), theServer.getServerRoot() + "/test-apps", "idp.war", theServer.getServerRoot() + "/idp-apps/idp-war-3.3.1.war");
         } else {
             Log.info(thisClass, thisMethod, "################## Copying the 4.1.0 version of Shibboleth ##################");
-            LibertyFileManager.copyFileIntoLiberty(theServer.getMachine(), theServer.getServerRoot() + "/test-apps", "idp.war", theServer.getServerRoot() + "/test-apps/idp-war-4.1.0.war");
+            if (eeVersion != null) {
+                eeVersionString = "." + eeVersion.toString();
+                transformedWarFile = new java.io.File(LibertyServerUtils.makeJavaCompatible(theServer.getServerRoot() + "/idp-apps/idp-war-4.1.0.war" + eeVersionString));
+            }
+            if (!transformedWarFile.exists() && eeVersion != null) {
+                JakartaEEAction.transformApp(Paths.get(theServer.getServerRoot() + "/idp-apps/idp-war-4.1.0.war"), Paths.get(theServer.getServerRoot() + "/idp-apps/idp-war-4.1.0.war" + eeVersionString), eeVersion);
+            }
+            LibertyFileManager.copyFileIntoLiberty(theServer.getMachine(), theServer.getServerRoot() + "/test-apps", "idp.war", theServer.getServerRoot() + "/idp-apps/idp-war-4.1.0.war" + eeVersionString);
         }
 
     }

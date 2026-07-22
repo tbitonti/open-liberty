@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2005 IBM Corporation and others.
+ * Copyright (c) 2004, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,8 +22,10 @@ import java.util.logging.Level;
 import java.util.logging.LogRecord;
 
 import com.ibm.ejs.ras.TraceNLS;
+import com.ibm.websphere.logging.hpel.LogRecordContext;
 import com.ibm.websphere.ras.DataFormatHelper;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.logging.ResourceBundleSupport;
 import com.ibm.wsspi.logging.LogRecordExt;
 
 /**
@@ -124,6 +128,11 @@ public class WsLogRecord extends LogRecord implements java.io.Serializable, LogR
     public static final int REQUIRES_NO_LOCALIZATION = 2;
 
     private int localizable;
+    
+    /**
+     * Check if the log record is from Tr, JUL, or other logging frameworks.
+     */
+    private boolean isTr;
 
     /**
      * The class that issued the Logger request that created this LogRecord.
@@ -516,8 +525,11 @@ public class WsLogRecord extends LogRecord implements java.io.Serializable, LogR
 
         retMe.setLoggerName(tc.getName());
         retMe.setParameters(msgParms);
-        retMe.setTraceClass(tc.getTraceClass());
+        retMe.setTraceClass(ResourceBundleSupport.getTraceClassForResourceBundle(tc));
         retMe.setResourceBundleName(tc.getResourceBundleName());
+        
+        // Only Messages/trace logged through BaseTraceService (Tr), call this method to construct the WsLogRecord object.
+        retMe.setTr(true);
 
         if (level.intValue() >= Level.INFO.intValue()) {
             retMe.setLocalizable(REQUIRES_LOCALIZATION);
@@ -525,6 +537,10 @@ public class WsLogRecord extends LogRecord implements java.io.Serializable, LogR
         else {
             retMe.setLocalizable(REQUIRES_NO_LOCALIZATION);
         }
+        
+        // Get Extensions when messages are logged with Tr.
+        LogRecordContext.getExtensions(retMe.getExtensions());  
+        
         return retMe;
     }
 
@@ -541,5 +557,19 @@ public class WsLogRecord extends LogRecord implements java.io.Serializable, LogR
     public void setLocalizable(int localizable) {
         this.localizable = localizable;
     }
+
+    /**
+     * Verify if the log record is from Tr, JUL, or other logging frameworks.
+     */
+	public boolean isTr() {
+		return isTr;
+	}
+
+    /**
+     * @param isTr set to true, if the log record is logged using Tr. Otherwise, set it to false.
+     */
+	public void setTr(boolean isTr) {
+		this.isTr = isTr;
+	}
 
 }

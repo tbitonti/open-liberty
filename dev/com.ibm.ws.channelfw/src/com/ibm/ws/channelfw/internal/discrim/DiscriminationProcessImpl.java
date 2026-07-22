@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2005, 2006, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -71,9 +73,9 @@ public class DiscriminationProcessImpl implements DiscriminationGroup {
     private static Object indexLock = new Object();
 
     /**
-     * master index to be incremented for each DiscriminationProcess.
+     * primary index to be incremented for each DiscriminationProcess.
      */
-    private static int masterIndex = 0;
+    private static int primaryIndex = 0;
 
     /**
      * the index of this entry;
@@ -126,7 +128,7 @@ public class DiscriminationProcessImpl implements DiscriminationGroup {
         this.status = STOPPED;
         this.name = channelName;
         synchronized (indexLock) {
-            this.myIndex = masterIndex++;
+            this.myIndex = primaryIndex++;
         }
     }
 

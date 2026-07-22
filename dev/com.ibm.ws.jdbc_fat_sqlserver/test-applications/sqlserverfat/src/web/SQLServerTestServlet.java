@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019,2021 IBM Corporation and others.
+ * Copyright (c) 2019,2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package web;
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -29,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import javax.annotation.Resource;
+import javax.naming.InitialContext;
 import javax.servlet.annotation.WebServlet;
 import javax.sql.ConnectionPoolDataSource;
 import javax.sql.DataSource;
@@ -44,6 +48,8 @@ import com.microsoft.sqlserver.jdbc.ISQLServerDataSource;
 import com.microsoft.sqlserver.jdbc.ISQLServerStatement;
 
 import componenttest.annotation.AllowedFFDC;
+import componenttest.annotation.ExpectedFFDC;
+import componenttest.annotation.SkipIfSysProp;
 import componenttest.app.FATServlet;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
@@ -57,23 +63,32 @@ public class SQLServerTestServlet extends FATServlet {
     @Resource(lookup = "jdbc/ss", authenticationType = Resource.AuthenticationType.APPLICATION)
     private DataSource ds_ss;
 
-    @Resource(lookup = "jdbc/ss-inferred")
-    private DataSource ss_inferred_ds;
-
-    @Resource(lookup = "jdbc/ss-using-driver")
-    private DataSource ss_using_driver;
-
     @Resource(lookup = "jdbc/ss-using-driver-type")
     private DataSource ss_using_driver_type;
-
-    @Resource(lookup = "jdbc/sqlserver-ssl")
-    DataSource secureDs;
 
     @Resource(name = "java:comp/jdbc/env/unsharable-ds-xa-loosely-coupled", shareable = false)
     private DataSource unsharable_ds_xa_loosely_coupled;
 
     @Resource(name = "java:comp/jdbc/env/unsharable-ds-xa-tightly-coupled", shareable = false)
     private DataSource unsharable_ds_xa_tightly_coupled;
+
+    @Resource(lookup = "jdbc/ntlm")
+    private DataSource ds_ntlm;
+
+    @Resource(lookup = "jdbc/driver-property-preferred")
+    private DataSource driver_property_perferred;
+
+    @Resource(lookup = "jdbc/ds-property-preferred")
+    private DataSource ds_property_perferred;
+
+    @Resource(lookup = "jdbc/driver-no-override")
+    private DataSource driver_no_override;
+
+    @Resource(lookup = "jdbc/ds-no-override")
+    private DataSource ds_no_override;
+
+    @Resource(lookup = "jdbc/ds-no-url-defaults")
+    private DataSource ds_no_url_defaults;
 
     @Resource
     private ExecutorService executor;
@@ -210,17 +225,17 @@ public class SQLServerTestServlet extends FATServlet {
 
     // Test XA transaction timeout
     // Expected XAER_NOTA (-4) when transaction manager tries to roll back XAResource that already rolled back in the database upon transaction timeout
+    // Allow java.lang.IllegalStateException that occurs if connection abort is processed before rollback completes
     @Test
     @Mode(TestMode.FULL)
-    @AllowedFFDC("javax.transaction.xa.XAException")
+    @AllowedFFDC({ "javax.transaction.xa.XAException", "java.lang.IllegalStateException" })
     public void testTransactionTimeout() throws Exception {
         boolean committed = false;
         tran.setTransactionTimeout(8);
         tran.begin();
         long start = System.nanoTime();
         try {
-            Connection con = ds.getConnection();
-            try {
+            try (Connection con = ds.getConnection()) {
                 con.createStatement().executeQuery("SELECT STRVAL FROM MYTABLE WHERE ID=0").close(); //perform db operation
                 con.createStatement().execute("WAITFOR DELAY '00:00:16'"); // Wait for 16 seconds
 
@@ -239,8 +254,6 @@ public class SQLServerTestServlet extends FATServlet {
             } catch (SQLException x) {
                 if (x.getErrorCode() != 1206) // distributed transaction cancelled (due to timeout)
                     throw x;
-            } finally {
-                con.close();
             }
         } finally {
             try {
@@ -271,6 +284,9 @@ public class SQLServerTestServlet extends FATServlet {
             } catch (RollbackException x) {
                 System.out.println("tran.commit() threw a RollbackException as expected.");
                 x.printStackTrace(System.out);
+            } finally {
+                //Restore default transaction timeout
+                tran.setTransactionTimeout(0);
             }
         }
 
@@ -327,16 +343,10 @@ public class SQLServerTestServlet extends FATServlet {
         }
     }
 
-    @Test
-    public void testDatasourceWithSSL() throws Exception {
-        try (Connection con = secureDs.getConnection()) {
-            System.out.println("Got connection with SSL");
-        }
-    }
-
     //Test that a datasource backed by Driver can be used with both the generic properties element and properties.microsoft.sqlserver
     //element when type="java.sql.Driver"
     @Test
+    @SkipIfSysProp(SkipIfSysProp.OS_IBMI) //Skip on IBM i due to Db2 native driver in JDK
     public void testDSUsingDriver() throws Exception {
         Connection conn = ss_using_driver_type.getConnection();
         assertFalse("ss_using_driver_type should not wrap ISQLServerDataSource", ss_using_driver_type.isWrapperFor(ISQLServerDataSource.class));
@@ -351,6 +361,7 @@ public class SQLServerTestServlet extends FATServlet {
             conn.close();
         }
 
+        DataSource ss_using_driver = InitialContext.doLookup("jdbc/ss-using-driver");
         assertFalse("ss_using_driver should not wrap ISQLServerDataSource", ss_using_driver.isWrapperFor(ISQLServerDataSource.class));
         Connection conn2 = ss_using_driver.getConnection();
         try {
@@ -367,6 +378,7 @@ public class SQLServerTestServlet extends FATServlet {
     //Test that the proper implementation classes are used for the various datasources configured in this test bucket
     //since the JDBC Driver used is named so as not to be recognized by the built-in logic
     @Test
+    @SkipIfSysProp(SkipIfSysProp.OS_IBMI) //Skip on IBM i due to Db2 native driver in JDK
     public void testInferSQLServerDataSource() throws Exception {
         //The default datasource should continue to be inferred as an XADataSource, since it has properties.microsoft.sqlserver configured
         assertTrue("default datasource should wrap XADataSource", ds.isWrapperFor(XADataSource.class));
@@ -375,9 +387,11 @@ public class SQLServerTestServlet extends FATServlet {
         assertTrue("ds_ss should wrap ConnectionPoolDataSource", ds_ss.isWrapperFor(ConnectionPoolDataSource.class));
 
         //ss_using_driver doesn't specify a type.  The presence of URL will result in the DataSource being back by Driver
+        DataSource ss_using_driver = InitialContext.doLookup("jdbc/ss-using-driver");
         assertFalse("The presence of the URL should result in ss_using_driver being back by Driver", ss_using_driver.isWrapperFor(ISQLServerDataSource.class));
 
         //inferred ds does not specify a URL or type. This should result in inferring a datasource class name
+        DataSource ss_inferred_ds = InitialContext.doLookup("jdbc/ss-inferred");
         assertTrue("ss_inferred_ds should wrap datasource since it does not have a URL property",
                    ss_inferred_ds.isWrapperFor(ISQLServerDataSource.class));
 
@@ -441,6 +455,92 @@ public class SQLServerTestServlet extends FATServlet {
         } finally {
             // TODO switch to commit once Microsoft bug is fixed
             tran.rollback();
+        }
+    }
+
+    //Verify that the NTLM authentication scheme can be configured on the DataSource.
+    //This is not supported by the Database because we cannot run Active Directory in a container.
+    //Just ensure that the setting was passed to the driver for now.
+    //Without integratedSecurity=true this setting will be ignored and normal UN/PW will be used for authentication
+    public void testAuthenticationSchemeNTLM() throws Exception {
+        //Try to use NTLM datasource to create a connection, and insert data into database
+        tran.begin();
+        try (Connection con = ds_ntlm.getConnection()) {
+            try (PreparedStatement ps = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+                ps.setInt(1, 40);
+                ps.setNString(2, "fourty");
+                assertEquals(1, ps.executeUpdate());
+            }
+            tran.commit();
+        } catch (SQLException e) {
+            tran.rollback();
+            fail("Update should have been committed, but wasn't because of an Exception: " + e.getMessage());
+        }
+
+        //Query database using a different datasoruce to ensure the data was committed.
+        try (Connection con = ds.getConnection(); Statement stmt = con.createStatement();) {
+            ResultSet result = stmt.executeQuery("SELECT STRVAL FROM MYTABLE WHERE ID=40");
+            assertTrue("Query should have returned a result", result.next());
+            assertEquals("Unexpected value returned", "fourty", result.getString(1));
+        }
+    }
+
+    @Test
+    public void testVerifyConnectionPrecedence() throws Throwable {
+        try (Connection con = driver_property_perferred.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 41);
+            stmt.setString(2, "fourty-one");
+            stmt.execute();
+        }
+
+        try (Connection con = ds_property_perferred.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 42);
+            stmt.setString(2, "fourty-two");
+            stmt.execute();
+        }
+    }
+
+    @Test
+    public void testVerifyDefaultDoesNotOverride() throws Throwable {
+        try (Connection con = driver_no_override.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 43);
+            stmt.setString(2, "fourty-three");
+            stmt.execute();
+        }
+
+        try (Connection con = ds_no_override.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 44);
+            stmt.setString(2, "fourty-four");
+            stmt.execute();
+        }
+    }
+
+    /**
+     * If a URL is not set, and no serverName is configured on the DataSource, then the JDBC Driver does default to localhost when attempting a connection.
+     *
+     * This is where the serverName is queried and defaulted:
+     * https://github.com/microsoft/mssql-jdbc/blob/3343f73f0a18ce322d894b5646f3d89a3fbe375c/src/main/java/com/microsoft/sqlserver/jdbc/SQLServerConnection.java#L2090-L2097
+     *
+     * Here is where you would expect to find the default value (but isn't)
+     * https://github.com/microsoft/mssql-jdbc/blob/3343f73f0a18ce322d894b5646f3d89a3fbe375c/src/main/java/com/microsoft/sqlserver/jdbc/SQLServerDriver.java#L577
+     *
+     * This test will verify this behavior does not change in future releases.
+     *
+     * @throws Throwable
+     */
+    @Test
+    @ExpectedFFDC({ "com.microsoft.sqlserver.jdbc.SQLServerException",
+                    "javax.resource.spi.ResourceAllocationException",
+                    "com.ibm.ws.rsadapter.exceptions.DataStoreAdapterException" })
+    public void testVerifyDefaultWithoutURL() throws Throwable {
+        try (Connection con = ds_no_url_defaults.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 45);
+            stmt.setString(2, "fourty-five");
+            stmt.execute();
+            fail("Should not have been able to create a connection using default serverName.");
+        } catch (SQLException e) {
+            //Expect the default to be localhost and for the connection to fail.
+            assertTrue(e.getMessage().contains("TCP/IP connection to the host localhost"));
         }
     }
 }

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2013, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -123,7 +125,7 @@ public class MetatypeGenerator {
                                                                                                  Serializable.class.getName(),
                                                                                                  Wrapper.class.getName()));
     private final List<String> buildTimeWarnings = new LinkedList<String>();
-    private Metatype masterMetatype;
+    private Metatype primaryMetatype;
     private MetaGenConfig config;
     private String generalAdapterName = null;
     //private static JAXBContext metatypeContext = null;
@@ -225,11 +227,11 @@ public class MetatypeGenerator {
             if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
                 long duration = (System.nanoTime() - start) / 1000000l; // milliseconds
                 Tr.event(this, tc, "Metatype for resource adapter " + generalAdapterName + " generated in " + (duration / 1000.0f) + " seconds",
-                         masterMetatype == null ? null : masterMetatype.toMetatypeString(true));
+                         primaryMetatype == null ? null : primaryMetatype.toMetatypeString(true));
             }
         }
 
-        return masterMetatype;
+        return primaryMetatype;
     }
 
     /**
@@ -1278,7 +1280,7 @@ public class MetatypeGenerator {
      * @throws InvalidPropertyException
      */
     private void postBuild(Map<String, Object> configProps) throws IOException, JAXBException, InvalidPropertyException {
-        masterMetatype = config.getInstance().metatype;
+        primaryMetatype = config.getInstance().metatype;
 
         translateAndBuildNLSFile(); // NLS file production needs to run before writing metatype.xml
         writeMetatypeToFile();
@@ -1621,13 +1623,13 @@ public class MetatypeGenerator {
                 customInput.close();
             }
 
-            mergeMetatypes(masterMetatype, custom);
+            mergeMetatypes(primaryMetatype, custom);
         }
 
         // write the final metatype.xml file
         BufferedWriter writer = new BufferedWriter(new FileWriter(config.getMetatypeOutputFile()));
         try {
-            writer.write(masterMetatype.toMetatypeString(true));
+            writer.write(primaryMetatype.toMetatypeString(true));
         } finally {
             writer.close();
         }
@@ -1703,7 +1705,7 @@ public class MetatypeGenerator {
         if (nlsOutputFilePresent)
             nls.append("#").append(Utils.NEW_LINE).append(Utils.NEW_LINE);
 
-        for (MetatypeDesignate designate : masterMetatype.getDesignates()) {
+        for (MetatypeDesignate designate : primaryMetatype.getDesignates()) {
             MetatypeOcd ocd = designate.getObject().getMatchingOcd();
             ocd.sort(true);
             String nameKey = null, descKey = null, message, name, desc;

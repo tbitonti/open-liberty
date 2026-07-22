@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,6 +18,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.runner.RunWith;
+import org.junit.Rule;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.ws.jdbc.fat.oracle.containters.OracleSSLContainer;
@@ -24,6 +27,7 @@ import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
+import componenttest.rules.SkipJavaSemeruWithFipsEnabled;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 import ssl.web.OracleSSLTestServlet;
@@ -40,6 +44,9 @@ public class OracleSSLTest extends FATServletClient {
     public static final String JEE_APP = "oraclesslfat";
     public static final String SERVLET_NAME = "OracleSSLTestServlet";
 
+    @Rule
+    public static final SkipJavaSemeruWithFipsEnabled skipJavaSemeruWithFipsEnabled = new SkipJavaSemeruWithFipsEnabled("com.ibm.ws.jdbc.fat.oracle.ssl");
+
     @Server("com.ibm.ws.jdbc.fat.oracle.ssl")
     @TestServlet(servlet = OracleSSLTestServlet.class, path = JEE_APP + "/" + SERVLET_NAME)
     public static LibertyServer server;
@@ -53,12 +60,20 @@ public class OracleSSLTest extends FATServletClient {
         // Set server environment variables
         server.addEnvVar("BASIC_URL", oracle.getJdbcUrl());
         server.addEnvVar("SSL_URL", oracle.getJdbcSSLUrl());
-        server.addEnvVar("USER", oracle.getUsername());
-        server.addEnvVar("PASS", oracle.getPassword());
+        server.addEnvVar("ORACLE_USER", oracle.getUsername());
+        server.addEnvVar("ORACLE_PASS", oracle.getPassword());
         server.addEnvVar("WALLET_PASS", oracle.getWalletPassword());
 
         // Create a normal Java EE application and export to server
         ShrinkHelper.defaultApp(server, JEE_APP, "ssl.web");
+
+        // Copy wallet files
+        oracle.copyFileFromContainer("/client/oracle/wallet/ewallet.p12", server.getServerRoot() + "/security/ewallet.p12");
+        oracle.copyFileFromContainer("/client/oracle/wallet/cwallet.sso", server.getServerRoot() + "/security/cwallet.sso");
+
+        // Copy keystore files
+        oracle.copyFileFromContainer("/client/oracle/store/client-keystore.jks", server.getServerRoot() + "/store/client-keystore.jks");
+        oracle.copyFileFromContainer("/client/oracle/store/client-truststore.jks", server.getServerRoot() + "/store/client-truststore.jks");
 
         // Start Server
         server.startServer();

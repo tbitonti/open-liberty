@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2015 IBM Corporation and others.
+ * Copyright (c) 2012, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -39,7 +41,9 @@ import com.ibm.ws.jca.service.EndpointActivationService;
 import com.ibm.ws.jca.service.WSMessageEndpointFactory;
 import com.ibm.ws.kernel.launch.service.PauseableComponent;
 import com.ibm.ws.kernel.launch.service.PauseableComponentException;
+import com.ibm.ws.kernel.productinfo.ProductInfo;
 import com.ibm.ws.util.ThreadContextAccessor;
+import com.ibm.wsspi.kernel.service.utils.FrameworkState;
 
 /**
  * This class implements the MDB MessageEndpointFactory interface and is used
@@ -66,6 +70,7 @@ public class MessageEndpointFactoryImpl extends BaseMessageEndpointFactory imple
     private static final long serialVersionUID = 5888307461965940506L;
     private static final TraceComponent tc = Tr.register(MessageEndpointFactoryImpl.class);
     private static final ThreadContextAccessor threadContextAccessor = AccessController.doPrivileged(ThreadContextAccessor.getPrivilegedAction());
+    private static final boolean isBeta = ProductInfo.getBetaEdition();
 
     /**
      * Returned by endpoint activation service when this endpoint is
@@ -98,7 +103,7 @@ public class MessageEndpointFactoryImpl extends BaseMessageEndpointFactory imple
     boolean runtimeActivated;
 
     /**
-     * Indicates whether the message endpoint should be activated. 
+     * Indicates whether the message endpoint should be activated.
      * False if autoStart is set to false until a resume command is issued
      */
     boolean shouldActivate;
@@ -169,9 +174,9 @@ public class MessageEndpointFactoryImpl extends BaseMessageEndpointFactory imple
      * Nor should this method be called while the provided endpoint activation
      * service is being removed. <p>
      *
-     * @param eas endpoint activation service configured for the message endpoint
+     * @param eas          endpoint activation service configured for the message endpoint
      * @param maxEndpoints maximum number of concurrently active endpoints
-     * @param adminObjSvc admin object service located by the mdb runtime
+     * @param adminObjSvc  admin object service located by the mdb runtime
      * @throws ResourceException if a failure occurs activating the endpoint
      */
     @Trivial
@@ -442,6 +447,15 @@ public class MessageEndpointFactoryImpl extends BaseMessageEndpointFactory imple
         return beanMetaData.ivMessageDestinationJndiName;
     }
 
+    @Trivial
+    @Override
+    public boolean isDeactivateOnQuiesce() {
+        if (!isBeta) {
+            return true;
+        }
+        return beanMetaData.isDeactivateOnQuiesce();
+    }
+
     //PausableComponent Methods
 
     /*
@@ -484,12 +498,21 @@ public class MessageEndpointFactoryImpl extends BaseMessageEndpointFactory imple
      */
     @Override
     public void pause() throws PauseableComponentException {
+        if (isBeta && FrameworkState.isStopping() && !beanMetaData.isDeactivateOnQuiesce()) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "deactivate skipped on quiesce; will deactivate on stop : " + beanMetaData.j2eeName);
+            return;
+        }
+
         try {
             if (ivState == ACTIVE_STATE) {
                 deactivateEndpoint();
             } else if (ivState == INACTIVE_STATE) {
                 Tr.info(tc, "MDB_ENDPOINT_ALREADY_INACTIVE_CNTR4117I", beanMetaData.enterpriseBeanName, beanMetaData.getModuleMetaData().getName(),
                         beanMetaData.getModuleMetaData().getApplicationMetaData().getName());
+            } else if (ivState == DEACTIVATE_PENDING_STATE || ivState == DEACTIVATING_STATE) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(tc, "The message endpoint is already deactivating : " + beanMetaData.j2eeName);
             } else {
                 throw new PauseableComponentException(Tr.formatMessage(tc, "MDB_ENDPOINT_DID_NOT_PAUSE_CNTR4119W", beanMetaData.enterpriseBeanName,
                                                                        beanMetaData.getModuleMetaData().getName(),

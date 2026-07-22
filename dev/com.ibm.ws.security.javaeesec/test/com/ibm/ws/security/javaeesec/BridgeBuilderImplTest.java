@@ -1,25 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.javaeesec;
 
-import static org.junit.Assert.assertTrue;
-
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
 
 import javax.enterprise.inject.Instance;
 import javax.security.auth.message.config.AuthConfigFactory;
@@ -38,6 +31,8 @@ import org.junit.Test;
 
 import com.ibm.ws.security.javaeesec.properties.ModulePropertiesProvider;
 import com.ibm.ws.security.javaeesec.properties.ModulePropertiesUtils;
+import com.ibm.ws.threadContext.ComponentMetaDataAccessorImpl;
+import com.ibm.ws.webcontainer.osgi.webapp.WebAppConfiguration;
 
 import test.common.SharedOutputManager;
 
@@ -89,19 +84,24 @@ public class BridgeBuilderImplTest {
         hami = mockery.mock(Instance.class, "hami");
         ham = mockery.mock(HttpAuthenticationMechanism.class, "ham");
         itl = mockery.mock(Iterator.class, "itl");
+        WebAppConfiguration wac = new WebAppConfiguration(null, null);
+        wac.setVirtualHostName("localhost");
+        wac.setContextRoot("/contextRoot");
+        ComponentMetaDataAccessorImpl.getComponentMetaDataAccessor().beginContext(wac.getDefaultComponentMetaData());
     }
 
     @After
     public void tearDown() throws Exception {
+        ComponentMetaDataAccessorImpl.getComponentMetaDataAccessor().endContext();
         outputMgr.resetStreams();
         mockery.assertIsSatisfied();
     }
 
     @Test
     public void testNoAuthMechDoesNotRegisterProvider() throws Exception {
-        withNoCachedProvider().doesNotRegisterProvider();
+        withNoHAM().doesNotRegisterProvider();
         isHAM = false;
-        bridgeBuilder.buildBridgeIfNeeded(APP_CONTEXT, providerFactory);
+        bridgeBuilder.buildBridgeIfNeeded(null, providerFactory);
     }
 
     @Test
@@ -116,20 +116,30 @@ public class BridgeBuilderImplTest {
             }
         });
 
-        bridgeBuilder.buildBridgeIfNeeded(APP_CONTEXT, providerFactory);
+        bridgeBuilder.buildBridgeIfNeeded(null, providerFactory);
     }
 
     @Test
     public void testWithCachedProviderDoesNotRegisterProvider() throws Exception {
+        isHAM = true;
         withCachedProvider().doesNotRegisterProvider();
-
-        bridgeBuilder.buildBridgeIfNeeded(APP_CONTEXT, providerFactory);
+        bridgeBuilder.buildBridgeIfNeeded(null, providerFactory);
     }
 
     private BridgeBuilderImplTest withNoCachedProvider() throws Exception {
         mockery.checking(new Expectations() {
             {
-                one(providerFactory).getConfigProvider("HttpServlet", APP_CONTEXT, null);
+                exactly(2).of(providerFactory).getConfigProvider("HttpServlet", APP_CONTEXT, null);
+                will(returnValue(null));
+            }
+        });
+        return this;
+    }
+
+    private BridgeBuilderImplTest withNoHAM() throws Exception {
+        mockery.checking(new Expectations() {
+            {
+                never(providerFactory).getConfigProvider("HttpServlet", APP_CONTEXT, null);
                 will(returnValue(null));
             }
         });
@@ -170,8 +180,7 @@ public class BridgeBuilderImplTest {
         public boolean isHttpAuthenticationMechanism() {
             return isHAM;
         }
-        
-    
+
     }
 
 }

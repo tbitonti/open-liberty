@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019,2021 IBM Corporation and others.
+ * Copyright (c) 2019,2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -31,6 +33,8 @@ import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.custom.junit.runner.Mode;
+import componenttest.custom.junit.runner.Mode.TestMode;
 import failover1serv.web.Failover1ServerTestServlet;
 
 /**
@@ -75,7 +79,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
             if (server.isStarted())
                 server.stopServer(
                         "CWWKC1500W", "CWWKC1501W", "CWWKC1502W", "CWWKC1503W", // Rolled back task that exceeded missedTaskThreshold. The rollback/abort can lead to further warnings/errors...
-                        "DSRA", "J2CA");
+                        "DSRA", "J2CA", "WTRN");
         } finally {
             server.updateServerConfiguration(originalConfig);
         }
@@ -188,6 +192,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
      * testEnableFailOverWhileServerIsStopped - Schedules tasks on an instance where fail over is not enabled.
      * Stops the server and enables fail over. Starts up the server and verifies that the previous, as well as new, tasks run.
      */
+    @Mode(TestMode.FULL)
     @Test
     public void testEnableFailOverWhileServerIsStopped() throws Exception {
         ServerConfiguration config = originalConfig.clone();
@@ -238,7 +243,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
 
             server.stopServer(
                     "CWWKC1500W", "CWWKC1501W", "CWWKC1502W", "CWWKC1503W", // Rolled back task that exceeded missedTaskThreshold. The rollback/abort can lead to further warnings/errors...
-                    "DSRA", "J2CA");
+                    "DSRA", "J2CA", "WTRN");
 
             // Enable fail over
             server.updateServerConfiguration(originalConfig);
@@ -297,6 +302,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
      * This is not a recommended way of enabling fail over, because it leaves instances with and without fail over running at
      * the same time. But it is being tested here in case anyone tries it.
      */
+    @Mode(TestMode.FULL)
     @Test
     public void testNewFailOverEnabledInstance() throws Exception {
         ServerConfiguration config = originalConfig.clone();
@@ -336,7 +342,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
 
             server.stopServer(
                     "CWWKC1500W", "CWWKC1501W", "CWWKC1502W", "CWWKC1503W", // Rolled back task that exceeded missedTaskThreshold. The rollback/abort can lead to further warnings/errors...
-                    "DSRA", "J2CA");
+                    "DSRA", "J2CA", "WTRN");
 
             // Enable fail over on a new instance
             persistentExec = (PersistentExecutor) persistentExec.clone();
@@ -364,7 +370,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
 
             server.stopServer(
                     "CWWKC1500W", "CWWKC1501W", "CWWKC1502W", "CWWKC1503W", // Rolled back task that exceeded missedTaskThreshold. The rollback/abort can lead to further warnings/errors...
-                    "DSRA", "J2CA");
+                    "DSRA", "J2CA", "WTRN");
 
             // Remove the old instance
             config.getPersistentExecutors().removeById("persistentExec2");
@@ -421,6 +427,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
      * This is not a recommended way of enabling fail over, because it leaves instances with and without fail over running at
      * the same time. But it is being tested here in case anyone tries it.
      */
+    @Mode(TestMode.FULL)
     @Test
     public void testNewFailOverEnabledInstanceWhileServerIsRunning() throws Exception {
         ServerConfiguration config = originalConfig.clone();
@@ -539,6 +546,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
      * some operations are performed to manually transfer them. Users should not do this. This test is only written
      * to experiment with what would happen and explore how to cope with it.
      */
+    @Mode(TestMode.FULL)
     @Test
     public void testRemoveFailOverEnablementWhileServerIsRunning() throws Exception {
         // start with fail over enabled
@@ -637,6 +645,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
      * some MBean operations are performed. Users should not do this. This test is only written to experiment with
      * what would happen and explore how to cope with it.
      */
+    @Mode(TestMode.FULL)
     @Test
     public void testRemoveFailOverEnablementWhileServerIsStopped() throws Exception {
         // start with fail over enabled
@@ -684,7 +693,8 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
                     "CWWKC1502W.*", // Rolled back task [id or name]
                     "CWWKC1503W.*", // Rolled back task [id or name] due to failure ...
                     "DSRA*", // various errors possible due to rollback or usage during shutdown
-                    "J2CA*" // various errors possible due to rollback or usage during shutdown
+                    "J2CA*", // various errors possible due to rollback or usage during shutdown
+                    "WTRN*" // errors due to usage during shutdown
                     );
 
             // Disable fail over
@@ -741,6 +751,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
      * While the server is running, removes the original instance, creating a new one with fail over enabled. Then verifies
      * that the previous, as well as new, tasks run.
      */
+    @Mode(TestMode.FULL)
     @Test
     public void testReplaceWithNewFailOverEnabledInstanceWhileServerIsRunning() throws Exception {
         ServerConfiguration config = originalConfig.clone();
@@ -832,6 +843,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
      * Stops the server and removes the original instance, creating a new one with fail over enabled. Starts up the server and verifies
      * that the previous, as well as new, tasks run.
      */
+    @Mode(TestMode.FULL)
     @Test
     public void testReplaceWithNewFailOverEnabledInstanceWhileServerIsStopped() throws Exception {
         ServerConfiguration config = originalConfig.clone();
@@ -871,7 +883,7 @@ public class SwitchFromSingleInstanceToFailOverTest extends FATServletClient {
 
             server.stopServer(
                     "CWWKC1500W", "CWWKC1501W", "CWWKC1502W", "CWWKC1503W", // Rolled back task that exceeded missedTaskThreshold. The rollback/abort can lead to further warnings/errors...
-                    "DSRA", "J2CA");
+                    "DSRA", "J2CA", "WTRN");
 
             // Enable fail over
             config.getPersistentExecutors().removeById("persistentExec2");

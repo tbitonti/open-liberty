@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jsonb.fat;
 
@@ -14,6 +13,8 @@ import static com.ibm.ws.jsonb.fat.FATSuite.CDI_APP;
 import static com.ibm.ws.jsonb.fat.FATSuite.JSONB_APP;
 import static com.ibm.ws.jsonb.fat.FATSuite.PROVIDER_GLASSFISH_JSONP;
 import static com.ibm.ws.jsonb.fat.FATSuite.PROVIDER_YASSON;
+import static componenttest.annotation.SkipForRepeat.EE10_FEATURES;
+import static componenttest.annotation.SkipForRepeat.EE11_FEATURES;
 import static componenttest.annotation.SkipForRepeat.EE9_FEATURES;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -26,6 +27,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.config.ServerConfiguration;
+import com.ibm.websphere.simplicity.log.Log;
 
 import componenttest.annotation.Server;
 import componenttest.annotation.SkipForRepeat;
@@ -44,25 +46,31 @@ public class JSONBTest extends FATServletClient {
     @Server("com.ibm.ws.jsonb.fat")
     @TestServlets({
                     @TestServlet(servlet = JSONBTestServlet.class, contextRoot = JSONB_APP),
-                    @TestServlet(servlet = YassonTestServlet.class, contextRoot = JSONB_APP),
+                    @TestServlet(servlet = YassonTestServlet.class, contextRoot = JSONB_APP), //This test always uses yasson
                     @TestServlet(servlet = JsonbCDITestServlet.class, contextRoot = CDI_APP)
     })
     public static LibertyServer server;
 
     @BeforeClass
     public static void setUp() throws Exception {
+        Log.info(JSONBTest.class, "setUp", "=====> Start JSONBTest");
+
+        FATSuite.configureImpls(server);
         FATSuite.jsonbApp(server);
         FATSuite.cdiApp(server);
+
         server.startServer();
     }
 
     @AfterClass
     public static void tearDown() throws Exception {
         server.stopServer();
+
+        Log.info(JSONBTest.class, "tearDown", "<===== Stop JSONBTest");
     }
 
     @Test
-    @SkipForRepeat(EE9_FEATURES)
+    @SkipForRepeat({ EE9_FEATURES, EE10_FEATURES, EE11_FEATURES })
     //Skipping the test for jakartaee testing since it is beyond the scope of what is needed
     //TODO for jakartaee testing: Transform the johnzon jars in AUTO_FVT/publish/shared/resources folder, solve the classloader problems with yasson and jonhzon provider impls
     public void testJsonbFromUserFeature() throws Exception {
@@ -88,6 +96,7 @@ public class JSONBTest extends FATServletClient {
         assertTrue(found, found.contains("410"));
 
         // Clean up the test by removing the jsonb-1.0 feature
+        server.setMarkToEndOfLog();
         config.getFeatureManager().getFeatures().remove("usr:testFeatureUsingJsonb-1.0");
         server.updateServerConfiguration(config);
         server.waitForConfigUpdateInLogUsingMark(Collections.emptySet());

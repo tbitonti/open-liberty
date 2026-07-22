@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -110,7 +112,7 @@ public class SchemaValidatorTest {
     }
 
     @Test
-    public void testMultipleOfLessThanOne() {
+    public void testMultipleOfLessOrEqualToZero() {
 
         SchemaValidator validator = SchemaValidator.getInstance();
         TestValidationHelper vh = new TestValidationHelper();
@@ -121,6 +123,31 @@ public class SchemaValidatorTest {
         validator.validate(vh, context, null, schema);
         Assert.assertEquals(1, vh.getEventsSize());
         Assert.assertTrue(vh.getResult().getEvents().get(0).message.contains("The Schema Object must have the \"multipleOf\" property set to a number strictly greater than zero"));
+
+        vh = new TestValidationHelper();
+
+        schema = new SchemaImpl();
+        schema.setMultipleOf(new BigDecimal(-3));
+
+        validator.validate(vh, context, null, schema);
+        Assert.assertEquals(1, vh.getEventsSize());
+        Assert.assertTrue(vh.getResult().getEvents().get(0).message.contains("The Schema Object must have the \"multipleOf\" property set to a number strictly greater than zero"));
+
+        vh = new TestValidationHelper();
+
+        schema = new SchemaImpl();
+        schema.setMultipleOf(new BigDecimal(0.002));
+
+        validator.validate(vh, context, null, schema);
+        Assert.assertEquals(0, vh.getEventsSize());
+
+        vh = new TestValidationHelper();
+
+        schema = new SchemaImpl();
+        schema.setMultipleOf(new BigDecimal(7));
+
+        validator.validate(vh, context, null, schema);
+        Assert.assertEquals(0, vh.getEventsSize());
     }
 
     @Test

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,12 +16,10 @@ dependencies {
   requiredLibs project(':com.ibm.ws.wssecurity.fat.utils.common'),
                project(':com.ibm.ws.security.saml.sso_fat.common'),
                project(':com.ibm.ws.org.apache.commons.io'),
-               project(':io.openliberty.org.apache.commons.logging'),
                project(':io.openliberty.org.apache.commons.codec'),
                'org.apache.httpcomponents:httpclient:4.5.4',
                'org.apache.httpcomponents:httpcore:4.4.9',
                'org.apache.commons:commons-lang3:3.5',
-               'org.apache.ws.security:wss4j:1.6.18',
                'httpunit:httpunit:1.6.2',                           
                'jtidy:jtidy:4aug2000r7-dev',
                'rhino:js:1.6R5',
@@ -31,10 +31,12 @@ dependencies {
                'org.apache.httpcomponents:httpcomponents-client:4.5.3',
                'net.sourceforge.htmlunit:neko-htmlunit:2.44.0',
                'xalan:xalan:2.7.2',
-               'xerces:xercesImpl:2.11.0'   
+               project(':io.openliberty.org.apache.xercesImpl'),
+               project(':com.ibm.ws.com.unboundid') 
                         
 }
 
+addRequiredLibraries.dependsOn addJakartaTransformer
 
 /*
  * This is where all application WARs will be built.
@@ -50,8 +52,8 @@ def appBuildDir = "${buildDir}/test-application"
  ******************************************************************
  ******************************************************************/
 task samlcallerclient_WAR(type: War, dependsOn: classes) {
-  destinationDir file(appBuildDir)
-  archiveName "samlcallerclient.war"
+  destinationDirectory = file(appBuildDir)
+  archiveFileName = "samlcallerclient.war"
   
   manifest {
     attributes("Class-Path": "")
@@ -75,8 +77,8 @@ task samlcallerclient_WAR(type: War, dependsOn: classes) {
  ******************************************************************
  ******************************************************************/
 task samlcallertoken_WAR(type: War, dependsOn: classes) {
-  destinationDir file(appBuildDir)
-  archiveName "samlcallertoken.war"
+  destinationDirectory = file(appBuildDir)
+  archiveFileName = "samlcallertoken.war"
   
   manifest {
     attributes("Class-Path": "")
@@ -100,8 +102,8 @@ task samlcallertoken_WAR(type: War, dependsOn: classes) {
  ******************************************************************
  ******************************************************************/
 task samltoken_WAR(type: War, dependsOn: classes) {
-  destinationDir file(appBuildDir)
-  archiveName "samltoken.war"
+  destinationDirectory = file(appBuildDir)
+  archiveFileName = "samltoken.war"
   
   manifest {
     attributes("Class-Path": "")
@@ -126,7 +128,7 @@ assemble {
   dependsOn samltoken_WAR
 }
 
-addRequiredLibraries.dependsOn copyShibbolethIdpConfig, copyShibbolethServer
+addRequiredLibraries.dependsOn copyApache, copyShibbolethIdpConfig, copyShibbolethServer
 
 autoFVT.doLast {
 
@@ -186,6 +188,18 @@ autoFVT.doLast {
     }
     
     copy {
+    from project.file('publish/files/features')
+    include 'wsseccbh-2.0.mf'
+    into new File(autoFvtDir, 'publish/features')
+    }
+    
+    copy {
+    from project.file('publish/files/bundles')
+    include 'com.ibm.ws.wssecurity.example.cbhwss4j.jar'
+    into new File(autoFvtDir, 'publish/bundles')
+    }
+    
+    copy {
     from project(':com.ibm.ws.security.saml.sso_fat.common').buildDir
     include 'shibboleth-idp/**'
     into autoFvtDir
@@ -194,7 +208,8 @@ autoFVT.doLast {
 /* Copy common files to all servers */
   def servers = [
         'com.ibm.ws.wssecurity_fat.saml.2servers',
-        'com.ibm.ws.wssecurity_fat.saml.caller'
+        'com.ibm.ws.wssecurity_fat.saml.caller',
+        'com.ibm.ws.wssecurity_fat.saml.caller.ee7lite'
   ]
 
   servers.each { server ->
@@ -237,12 +252,18 @@ autoFVT.doLast {
       from new File(project(':com.ibm.ws.security.fat.common').buildDir, 'test-application/testmarker.war')
       into new File(autoFvtDir, 'publish/servers/' + server + '/dropins')
     }
+
+    copy {
+      from project.file('publish/files/envVars/jvm.options')
+      into new File(autoFvtDir, 'publish/servers/' + server + '/')
+    }
   }    
   
   
 /* Copy files for specific server */
   servers = [
-        'com.ibm.ws.wssecurity_fat.saml.caller'
+        'com.ibm.ws.wssecurity_fat.saml.caller',
+        'com.ibm.ws.wssecurity_fat.saml.caller.ee7lite'
   ]
   
   servers.each { server ->

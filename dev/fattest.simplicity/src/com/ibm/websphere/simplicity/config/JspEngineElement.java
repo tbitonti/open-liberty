@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.websphere.simplicity.config;
 
@@ -19,10 +18,14 @@ public class JspEngineElement extends ConfigElement {
     private Boolean useStringCast;
     private Boolean usescriptvardupinit;
     private String jdkSourceLevel;
+    private String javaSourceLevel;
     private Boolean disableResourceInjection;
     private Boolean disableTldSearch;
     private String scratchdir;
     private Boolean keepGenerated;
+    private Boolean useJDKCompiler;
+    private String prepareJSPs;
+    private Boolean loadTagFilesFromJars;
 
     /**
      * @return the useStringCast
@@ -61,6 +64,18 @@ public class JspEngineElement extends ConfigElement {
     }
 
     /**
+     * @return the javaSourceLevel
+     */
+    public String getJavaSourceLevel() {
+        return javaSourceLevel;
+    }
+
+    @XmlAttribute(name = "javaSourceLevel")
+    public void setJavaSourceLevel(String s) {
+        this.javaSourceLevel = s;
+    }
+
+    /**
      * @return the disableResourceInjection
      */
     public Boolean isDisableResourceInjection() {
@@ -93,7 +108,7 @@ public class JspEngineElement extends ConfigElement {
     public String getScratchdir() {
         return scratchdir;
     }
-    
+
     /**
      * @return the keepGenerated
      */
@@ -106,6 +121,42 @@ public class JspEngineElement extends ConfigElement {
         this.keepGenerated = b;
     }
 
+    /**
+     * @return the keepGenerated
+     */
+    public Boolean isUseJDKCompiler() {
+        return useJDKCompiler;
+    }
+
+    @XmlAttribute(name = "useJDKCompiler")
+    public void setUseJDKCompiler(Boolean b) {
+        this.useJDKCompiler = b;
+    }
+
+    /**
+     * @return the prepareJSPs
+     */
+    public String getPrepareJSPs() {
+        return prepareJSPs;
+    }
+
+    @XmlAttribute(name = "prepareJSPs")
+    public void setPrepareJSPs(String prepareJSPs) {
+        this.prepareJSPs = prepareJSPs;
+    }
+
+    /**
+     * @return the loadTagFilesFromJars
+     */
+    public Boolean isLoadTagFilesFromJars() {
+        return loadTagFilesFromJars;
+    }
+
+    @XmlAttribute(name = "loadTagFilesFromJars")
+    public void setLoadTagFilesFromJars(Boolean b) {
+        this.loadTagFilesFromJars = b;
+    }
+
     @Override
     public String toString() {
         StringBuffer buf = new StringBuffer("JspElement{");
@@ -115,6 +166,8 @@ public class JspEngineElement extends ConfigElement {
             buf.append("usescriptvardupinit=\"" + usescriptvardupinit + "\" ");
         if (jdkSourceLevel != null)
             buf.append("jdkSourceLevel=\"" + jdkSourceLevel + "\" ");
+        if (javaSourceLevel != null)
+            buf.append("javaSourceLevel=\"" + javaSourceLevel + "\" ");
         if (disableResourceInjection != null)
             buf.append("disableResourceInjection=\"" + disableResourceInjection + "\" ");
         if (disableTldSearch != null)
@@ -123,6 +176,12 @@ public class JspEngineElement extends ConfigElement {
             buf.append("scratchdir=\"" + scratchdir + "\" ");
         if (keepGenerated != null)
             buf.append("keepGenerated=\"" + keepGenerated + "\" ");
+        if (useJDKCompiler != null)
+            buf.append("useJDKCompiler=\"" + useJDKCompiler + "\" ");
+        if (prepareJSPs != null)
+            buf.append("prepareJSPs=\"" + prepareJSPs + "\" ");
+        if (loadTagFilesFromJars != null)
+            buf.append("loadTagFilesFromJars=\"" + loadTagFilesFromJars + "\" ");
 
         buf.append("}");
         return buf.toString();

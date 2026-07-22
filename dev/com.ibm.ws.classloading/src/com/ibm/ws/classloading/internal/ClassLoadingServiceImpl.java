@@ -1,16 +1,20 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2017 IBM Corporation and others.
+ * Copyright (c) 2010, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.classloading.internal;
 
+import static com.ibm.ws.classloading.configuration.GlobalClassloadingConfiguration.LibraryPrecedence.beforeApp;
 import static com.ibm.ws.classloading.internal.ClassLoadingConstants.SHARED_LIBRARY_DOMAIN;
+import static com.ibm.ws.classloading.internal.ClassLoadingConstants.SPI_SHARED_LIBRARY_DOMAIN;
 import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
 import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
 import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
@@ -34,9 +38,11 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 
 import org.eclipse.equinox.region.RegionDigraph;
 import org.osgi.framework.Bundle;
@@ -52,6 +58,7 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.FieldOption;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
@@ -75,6 +82,7 @@ import com.ibm.ws.classloading.internal.util.MultiMap;
 import com.ibm.ws.classloading.serializable.ClassLoaderIdentityImpl;
 import com.ibm.ws.container.service.metadata.extended.MetaDataIdentifierService;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+import com.ibm.ws.kernel.boot.utils.KeyBasedLockStore;
 import com.ibm.ws.runtime.metadata.ComponentMetaData;
 import com.ibm.ws.runtime.metadata.MetaData;
 import com.ibm.wsspi.adaptable.module.Container;
@@ -96,20 +104,27 @@ import com.ibm.wsspi.logging.Introspector;
            immediate = true,
            configurationPolicy = ConfigurationPolicy.IGNORE,
            property = "service.vendor=IBM")
-public class ClassLoadingServiceImpl implements LibertyClassLoadingService, ClassLoaderIdentifierService, Introspector {
+public class ClassLoadingServiceImpl implements LibertyClassLoadingService<LibertyLoader>, ClassLoaderIdentifierService, Introspector {
     static final TraceComponent tc = Tr.register(ClassLoadingServiceImpl.class);
-    private final Map<ClassLoader, StackTraceElement[]> leakDetectionMap = new HashMap<ClassLoader, StackTraceElement[]>();
+
+    private final Map<ClassLoader, StackTraceElement[]> leakDetectionMap = new ConcurrentHashMap<ClassLoader, StackTraceElement[]>();
     private final Set<AppClassLoader> appClassLoaders = Collections.newSetFromMap(new WeakHashMap<AppClassLoader, Boolean>());
 
     private static final int TCCL_LOCK_WAIT = Integer.getInteger("com.ibm.ws.classloading.tcclLockWaitTimeMillis", 15000);
     static final String REFERENCE_GENERATORS = "generators";
 
-    private BundleContext bundleContext;
-    private CanonicalStore<ClassLoaderIdentity, AppClassLoader> aclStore;
-    private CanonicalStore<String, ThreadContextClassLoader> tcclStore;
-    private final ReentrantLock tcclStoreLock = new ReentrantLock();
-    private RegionDigraph digraph;
-    private ClassRedefiner redefiner = new ClassRedefiner(null);
+    private static final KeyBasedLockStore<String, ReentrantLock> tcclLockStore = new KeyBasedLockStore<>(new Function<String, ReentrantLock>() {
+        @Override
+        public ReentrantLock apply(String key) {
+            return new ReentrantLock();
+        }
+    });
+    
+    private final BundleContext bundleContext;
+    private final CanonicalStore<ClassLoaderIdentity, AppClassLoader> aclStore = new CanonicalStore<ClassLoaderIdentity, AppClassLoader>();
+    private final CanonicalStore<String, ThreadContextClassLoader> tcclStore = new CanonicalStore<String, ThreadContextClassLoader>();
+    private final RegionDigraph digraph;
+    private final ClassRedefiner redefiner;
     private final BundleListener listener = new BundleListener() {
         @Override
         public void bundleChanged(BundleEvent event) {
@@ -139,7 +154,19 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
                policyOption = ReferencePolicyOption.GREEDY)
     protected volatile List<ApplicationExtensionLibrary> appExtLibs;
 
-    private GlobalClassloadingConfiguration globalConfig;
+    private final GlobalClassloadingConfiguration globalConfig;
+
+    // These services are not expected to come and go often,
+    // but we want quick iteration so using copy on write approach
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE,
+                    policy = ReferencePolicy.DYNAMIC,
+                    policyOption = ReferencePolicyOption.GREEDY,
+                    fieldOption = FieldOption.UPDATE,
+                    target = "(io.openliberty.classloading.system.transformer=true)")
+    private final List<ClassFileTransformer> systemTransformers = new CopyOnWriteArrayList<>();
+    List<ClassFileTransformer> unitTestOnlyGetSystemTransformers() {
+        return systemTransformers;
+    }
 
     /**
      * Mapping from META-INF services file names to the corresponding service provider implementation class name.
@@ -156,31 +183,43 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
     /**
      * For converting type/app/module/comp to a metadata ID under getClassLoaderIdentifier.
      */
-    protected MetaDataIdentifierService metadataIdentifierService;
+    protected final MetaDataIdentifierService metadataIdentifierService;
 
     /**
      * reference to the global library - primarily used for dump introspector output
      */
     private final AtomicReference<Library> globalSharedLibrary = new AtomicReference<>();
-    
-    @Reference
-    protected void setGlobalClassloadingConfiguration(GlobalClassloadingConfiguration globalConfig) {
-        this.globalConfig = globalConfig;
-    }
-    
-    protected void unsetGlobalClassloadingConfiguration(GlobalClassloadingConfiguration globalConfig) {
-        if(this.globalConfig == globalConfig) {
-            this.globalConfig = null;
-        }      
+
+    List<ClassFileTransformer> getSystemTransformers() {
+        return systemTransformers;
     }
 
     @Activate
-    protected void activate(ComponentContext cCtx, Map<String, Object> properties) {
+    public ClassLoadingServiceImpl(ComponentContext cCtx,
+                            @Reference GlobalClassloadingConfiguration globalConfig,
+                            @Reference RegionDigraph digraph,
+                            @Reference MetaDataIdentifierService mdiService,
+                            @Reference(service = URLStreamHandlerService.class, target = "(url.handler.protocol=wsjar)") URLStreamHandlerService wsjar,
+                            @Reference(cardinality = ReferenceCardinality.OPTIONAL) Instrumentation instr) {
+        // Declared a dependency on the URLStreamHandlerService so the wsjar protocol
+        // doesn't go away while we still may still need it; no need to store the instance of wsjar here.
+        this.bundleContext = cCtx.getBundleContext();
+        this.globalConfig = globalConfig;
+        this.digraph = digraph;
+        this.metadataIdentifierService = mdiService;
+        this.redefiner = new ClassRedefiner(instr);
+
         generatorRefs.activate(cCtx);
         metaInfServicesRefs.activate(cCtx);
-        this.bundleContext = cCtx.getBundleContext();
-        this.aclStore = new CanonicalStore<ClassLoaderIdentity, AppClassLoader>();
-        this.tcclStore = new CanonicalStore<String, ThreadContextClassLoader>();
+    }
+
+    // NOTE: it is valid to have both a constructor activate and a method activate.
+    // Here we separate out registering the listener from the constructor because
+    // it is best to not escape this as a listener before the constructor is complete;
+    // otherwise we risk the listener being called before the JVM has finalized the construction
+    // of the object.
+    @Activate
+    protected void activate() {
         // use the system bundle so that it is ensured to see all bundle events
         Bundle systemBundle = this.bundleContext.getBundle(Constants.SYSTEM_BUNDLE_LOCATION);
         BundleContext systemContext = systemBundle.getBundleContext();
@@ -194,9 +233,7 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
         Bundle systemBundle = this.bundleContext.getBundle(Constants.SYSTEM_BUNDLE_LOCATION);
         BundleContext systemContext = systemBundle.getBundleContext();
         systemContext.removeBundleListener(listener);
-        this.bundleContext = null;
         this.cleanupRememberedBundles();
-        this.aclStore = null;
         this.resourceProviders.clear();
     }
 
@@ -243,54 +280,11 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
         resourceProviders.remove(rp);
     }
 
-    @Reference
-    protected void setRegionDigraph(RegionDigraph digraph) {
-        this.digraph = digraph;
-    }
-
-    protected void unsetRegionDigraph(RegionDigraph digraph) {}
-
-    @Reference(cardinality = ReferenceCardinality.OPTIONAL)
-    protected void setInstrumentation(Instrumentation inst) {
-        redefiner = new ClassRedefiner(inst);
-    }
-
-    protected void unsetInstrumentation(Instrumentation inst) {
-        redefiner = null;
-    }
-
-    /**
-     * Declarative Services method for setting the metadata identifier service.
-     *
-     * @param svc the service
-     */
-    @Reference(service = MetaDataIdentifierService.class, name = "metadataIdentifierService")
-    protected void setMetadataIdentifierService(MetaDataIdentifierService svc) {
-        metadataIdentifierService = svc;
-    }
-
-    /**
-     * Declarative Services method for unsetting the metadata identifier service.
-     *
-     * @param svc the service
-     */
-    protected void unsetMetadataIdentifierService(MetaDataIdentifierService svc) {
-        metadataIdentifierService = null;
-    }
-
-    @Reference(service = URLStreamHandlerService.class, target = "(url.handler.protocol=wsjar)")
-    protected void setURLStreamHandlerService(URLStreamHandlerService svc) {
-        // Declare a dependency on the URLStreamHandlerService so the wsjar protocol
-        // doesn't go away while we still may still need it
-    }
-
-    protected void unsetURLStreamHandlerService(URLStreamHandlerService svc) {}
-
     @Override
     public AppClassLoader createTopLevelClassLoader(List<Container> classPath, GatewayConfiguration gwConfig, ClassLoaderConfiguration clConfig) {
         if (clConfig.getIncludeAppExtensions())
             addAppExtensionLibs(clConfig);
-        AppClassLoader result = createAppClassLoader(new ClassLoaderFactory(bundleContext, digraph, classloaders, aclStore, resourceProviders, redefiner, generatorManager, globalConfig)
+        AppClassLoader result = createAppClassLoader(new ClassLoaderFactory(bundleContext, digraph, classloaders, aclStore, resourceProviders, redefiner, generatorManager, globalConfig, getSystemTransformers())
             .setClassPath(classPath)
             .configure(gwConfig)
             .configure(clConfig));
@@ -301,7 +295,7 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
 
     @Override
     public AppClassLoader createBundleAddOnClassLoader(List<File> classPath, ClassLoader gwClassLoader, ClassLoaderConfiguration clConfig) {
-        return createAppClassLoader(new ClassLoaderFactory(bundleContext, digraph, classloaders, aclStore, resourceProviders, redefiner, generatorManager, globalConfig)
+        return createAppClassLoader(new ClassLoaderFactory(bundleContext, digraph, classloaders, aclStore, resourceProviders, redefiner, generatorManager, globalConfig, getSystemTransformers())
             .setSharedLibPath(classPath)
             .configure(createGatewayConfiguration())
             .useBundleAddOnLoader(gwClassLoader)
@@ -312,7 +306,7 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
     public AppClassLoader createChildClassLoader(List<Container> classPath, ClassLoaderConfiguration config) {
         if (config.getIncludeAppExtensions())
             addAppExtensionLibs(config);
-        return createAppClassLoader(new ClassLoaderFactory(bundleContext, digraph, classloaders, aclStore, resourceProviders, redefiner, generatorManager, globalConfig)
+        return createAppClassLoader(new ClassLoaderFactory(bundleContext, digraph, classloaders, aclStore, resourceProviders, redefiner, generatorManager, globalConfig, getSystemTransformers())
             .setClassPath(classPath)
             .configure(config));
     }
@@ -397,16 +391,61 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
     }
 
     @Override
+    /**
+     * Create or retrieve the shared class loader for a shared library that requires SPI visibility.
+     * The resulting library SPI classloader instance is unique from that obtained using
+     * {@link getSharedLibraryClassloader()}.  Both instances see the same binaries and API, and
+     * both are managed similarly regarding library updates; only the SPI loader can see SPI packages.
+     * The library SPI loader must not be a delegate of an application classloader.
+     *
+     * @param lib the shared library to create an SPI class loader for
+     * @param ownerId a non-empty string used to create a purposeful class loader identity.
+     *  e.g. "BELL"
+     * @return the unique class loader for the provided library that requires SPI visibility.
+     */
+    public AppClassLoader getSharedLibrarySpiClassLoader(Library lib, final String ownerId) {
+
+        if (ownerId == null || "".equals(ownerId)) {
+            throw new IllegalArgumentException("Argument ownerId cannot be null or empty");
+        }
+        return getSharedLibraryClassLoader(lib, true, ownerId);
+    }
+
+    @Override
     public AppClassLoader getSharedLibraryClassLoader(Library lib) {
 
-        ClassLoaderIdentity clId = createIdentity(SHARED_LIBRARY_DOMAIN, lib.id());
+        return getSharedLibraryClassLoader(lib, false, null);
+    }
+
+    /**
+     * Helper method to create or retrieve the class loader for a shared library.
+     * 
+     * @see #getSharedLibraryClassLoader(Library)
+     * @see #getSharedLibrarySpiClassLoader(Library,boolean,String)
+     */
+    private AppClassLoader getSharedLibraryClassLoader(Library lib, boolean spiVisibility, String ownerId) {
+
+        final String libId;
+        final String libDomain;
+        if (spiVisibility) {
+            libId = lib.id() + ":" + ownerId;
+            libDomain = SPI_SHARED_LIBRARY_DOMAIN;
+        } else {
+            libId = lib.id();
+            libDomain = SHARED_LIBRARY_DOMAIN;
+        }
+        ClassLoaderIdentity clId = createIdentity(libDomain, libId);
 
         AppClassLoader loader = aclStore.retrieve(clId);
         if (loader != null)
             return loader;
         EnumSet<ApiType> apiTypeVisibility = lib.getApiTypeVisibility();
 
-        ClassLoaderConfiguration clsCfg = createClassLoaderConfiguration().setId(clId).setSharedLibraries(lib.id());
+        ClassLoaderConfiguration clsCfg = createClassLoaderConfiguration()
+                        // if the library is searched before app then we must use parentLast for the shared library
+                        .setDelegateToParentAfterCheckingLocalClasspath(globalConfig.libraryPrecedence() == beforeApp)
+                        .setId(clId)
+                        .setSharedLibraries(lib.id()); // Configure lib binaries
 
         Collection<Fileset> filesets = lib.getFilesets();
         if (filesets != null && filesets.isEmpty() == false) {
@@ -420,12 +459,15 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
             }
         }
 
-        AppClassLoader result = new ClassLoaderFactory(bundleContext, digraph, classloaders, aclStore, resourceProviders, redefiner, generatorManager, globalConfig)
-                        .configure(createGatewayConfiguration().setApplicationName(SHARED_LIBRARY_DOMAIN + ": " + lib.id())
-                                        .setDynamicImportPackage("*")
-                                        .setApiTypeVisibility(apiTypeVisibility))
+        GatewayConfiguration gwConfig = createGatewayConfiguration().setApplicationName(libDomain + ": " + libId)
+                        .setDynamicImportPackage("*")
+                        .setApiTypeVisibility(apiTypeVisibility);
+        ((GatewayConfigurationImpl) gwConfig).setSpiVisibility(spiVisibility);
+
+        AppClassLoader result = new ClassLoaderFactory(bundleContext, digraph, classloaders, aclStore, resourceProviders, redefiner, generatorManager, globalConfig, getSystemTransformers())
+                        .configure(gwConfig)
                         .configure(clsCfg)
-                        .onCreate(listenForLibraryChanges(lib.id()))
+                        .onCreate(listenForLibraryChanges(lib.id())) // Listen for updates to lib
                         .getCanonical();
 
         this.rememberBundle(result.getBundle());
@@ -528,9 +570,10 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
         new WeakLibraryListener(libid, acl.getKey().getId(), acl, bundleContext) {
             @Override
             protected void update() {
-                Object cl = get();
-                if (cl instanceof AppClassLoader && aclStore != null)
-                    aclStore.remove((AppClassLoader) cl);
+                AppClassLoader cl = get();
+                if (cl != null) {
+                    aclStore.remove(cl);
+                }
                 deregister();
             }
         };
@@ -560,15 +603,19 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
         }
 
         ThreadContextClassLoader result;
+        final ReentrantLock tcclStoreLock = tcclLockStore.getLock(key);
         try {
             if (tcclStoreLock.tryLock(TCCL_LOCK_WAIT, TimeUnit.MILLISECONDS)) {
+                // using an anonymous inner class here for clarity - the object should be GCable as soon as the method call returns
+                Factory<ThreadContextClassLoader> factory = new Factory<ThreadContextClassLoader>() {
+                    @Override
+                    public ThreadContextClassLoader createInstance() {
+                        return ClassLoadingServiceImpl.this.createTCCL(applicationClassLoader, key);
+                    }
+                };
+
                 do {
-                    result = this.tcclStore.retrieveOrCreate(key, new Factory<ThreadContextClassLoader>() {
-                        @Override
-                        public ThreadContextClassLoader createInstance() {
-                            return ClassLoadingServiceImpl.this.createTCCL(applicationClassLoader, key);
-                        }
-                    }); // using an anonymous inner class here for clarity - the object should be GCable as soon as the method call returns
+                    result = this.tcclStore.retrieveOrCreate(key, factory); 
                     if (!!!result.isFor(applicationClassLoader)) {
                         // this is a stale entry for a previous ClassLoader that had the same key
                         this.tcclStore.remove(result);
@@ -605,7 +652,7 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
                         .setDynamicImportPackage("*;thread-context=\"true\"")
                         .setDelegateToSystem(false);
         ClassLoaderConfiguration clConfig = this.createClassLoaderConfiguration().setId(createIdentity("Thread Context", key));
-        GatewayBundleFactory gatewayBundleFactory = new GatewayBundleFactory(bundleContext, digraph, classloaders);
+        GatewayBundleFactory gatewayBundleFactory = new GatewayBundleFactory(bundleContext, digraph, classloaders, globalConfig.jvmPackages());
         GatewayClassLoader aug = gatewayBundleFactory.createGatewayBundleClassLoader(gwConfig, clConfig, resourceProviders);
 
         ThreadContextClassLoader tccl;
@@ -661,9 +708,10 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
     @Override
     public void destroyThreadContextClassLoader(ClassLoader loader) {
         if (loader instanceof ThreadContextClassLoader) {
+            ThreadContextClassLoader tccl = (ThreadContextClassLoader) loader;
+            ReentrantLock tcclStoreLock = tcclLockStore.getLock(tccl.getKey());
             tcclStoreLock.lock();
             try {
-                ThreadContextClassLoader tccl = (ThreadContextClassLoader) loader;
                 if (tccl.decrementRefCount() <= 0) {
                     this.tcclStore.remove(tccl);
                     leakDetectionMap.remove(tccl);
@@ -854,5 +902,20 @@ public class ClassLoadingServiceImpl implements LibertyClassLoadingService, Clas
     private void addAppExtensionLibs(ClassLoaderConfiguration config) {
         for (ApplicationExtensionLibrary appExt : appExtLibs)
             config.addSharedLibraries(appExt.getReference().id());
+    }
+
+    @Override
+    public boolean isThreadContextClassLoaderForAppClassLoader(ClassLoader tccl, ClassLoader appClassLoader) {
+       if (! isThreadContextClassLoader(tccl)) {
+           return false;
+       }
+       
+       if (! isAppClassLoader(appClassLoader)) {
+           return false;
+       }
+       
+       ThreadContextClassLoader castedTCCL = (ThreadContextClassLoader) tccl;
+       
+       return castedTCCL.isFor(appClassLoader);
     }
 }

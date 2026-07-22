@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2019 IBM Corporation and others.
+ * Copyright (c) 2014, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -184,7 +186,7 @@ public class TargetCacheImpl_DataApp extends TargetCacheImpl_DataBase {
 
     // Module cache data storage ...
 
-    private class ModsLock {
+    protected static class ModsLock {
         // EMPTY
     }
     private final ModsLock modsLock;
@@ -236,7 +238,7 @@ public class TargetCacheImpl_DataApp extends TargetCacheImpl_DataBase {
 
     // Containers storage ...
 
-    private class ConsLock {
+    protected static class ConsLock {
         // EMPTY
     }
     private final ConsLock consLock;
@@ -439,9 +441,11 @@ public class TargetCacheImpl_DataApp extends TargetCacheImpl_DataBase {
                         // Without this added step information about the spawning thread is
                         // lost, making debugging writer problems very difficult.
 
-                        logger.logp(Level.WARNING, CLASS_NAME, innerMethodName, "Caught Asynchronous exception", e);
-                        logger.logp(Level.WARNING, CLASS_NAME, innerMethodName, "Scheduler", scheduler);
-                        logger.logp(Level.WARNING, CLASS_NAME, innerMethodName, "Synchronization error", e);
+                        String innerClassName = getClass().getName();
+
+                        logger.logp(Level.WARNING, innerClassName, innerMethodName, "Caught Asynchronous exception", e);
+                        logger.logp(Level.WARNING, innerClassName, innerMethodName, "Scheduler", scheduler);
+                        logger.logp(Level.WARNING, innerClassName, innerMethodName, "Synchronization error", e);
 
                         throw e;
                     }

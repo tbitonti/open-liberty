@@ -1,19 +1,22 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2020 IBM Corporation and others.
+ * Copyright (c) 2013, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
-
 package com.ibm.tx.config;
 
+import java.util.List;
 import java.util.logging.Level;
 
 import com.ibm.tx.util.alarm.AlarmManager;
+import com.ibm.wsspi.resource.ResourceConfig;
 import com.ibm.wsspi.resource.ResourceFactory;
 
 public interface ConfigurationProvider {
@@ -207,13 +210,17 @@ public interface ConfigurationProvider {
     public ResourceFactory getResourceFactory();
 
     /**
-     * Returns whether we will propagate the transaction timeout to XAResources
-     */
-    public boolean getPropagateXAResourceTransactionTimeout();
-
-    /**
+     * Allows the retrieval of the ResourceConfig specified for a Resource
+     *
      * @return
      */
+    public ResourceConfig getResourceConfig();
+
+    /**
+     * Returns whether we will propagate the transaction timeout to XAResources
+     */
+    public boolean isPropagateXAResourceTransactionTimeout();
+
     public String getRecoveryIdentity();
 
     public String getRecoveryGroup();
@@ -227,6 +234,10 @@ public interface ConfigurationProvider {
     public int getLeaseLength();
 
     public int getLeaseRenewalThreshold();
+
+    public int getLeaseExpiryThreshold();
+
+    public String getBackendURL();
 
     /**
      * Sets the applId of the server.
@@ -263,7 +274,7 @@ public interface ConfigurationProvider {
      *
      * @return
      */
-    public boolean enableHADBPeerLocking();
+    public boolean enableLogLocking();
 
     /**
      * Configures the length of time between heartbeats when the peer locking scheme is enabled for the Tran recovery logs that are stored in a database.
@@ -281,30 +292,113 @@ public interface ConfigurationProvider {
     public int getPeerTimeBeforeStale();
 
     /**
-     * Configures the length of time between retries for HADB transient errors for standard operations where the Tran recovery logs are stored in a database.
+     * Configures the length of time between retries for HADB transient errors for standard operations (open and force) where the Tran recovery logs are stored in a database.
      *
      * @return
      */
-    public int getStandardTransientErrorRetryTime();
+    public int getLogRetryInterval();
 
     /**
-     * Configures the number of retries for HADB transient errors for standard operations where the Tran recovery logs are stored in a database.
+     * Configures the number of retries for HADB transient errors for standard operations (open and force)where the Tran recovery logs are stored in a database.
      *
      * @return
      */
-    public int getStandardTransientErrorRetryAttempts();
+    public int getLogRetryLimit();
 
     /**
      * Configures the length of time between retries for HADB transient errors for lightweight operations where the Tran recovery logs are stored in a database.
      *
      * @return
      */
-    public int getLightweightTransientErrorRetryTime();
+    public int getLightweightLogRetryInterval();
 
     /**
      * Configures the number of retries for HADB transient errors for lightweight operations where the Tran recovery logs are stored in a database.
      *
      * @return
      */
-    public int getLightweightTransientErrorRetryAttempts();
+    public int getLightweightLogRetryLimit();
+
+    /**
+     * Return true when all SQLExceptions should be retried when logging to a database.
+     *
+     * @return
+     */
+    public boolean enableLogRetries();
+
+    /**
+     * Retrieves an Integer list of sqlcodes for SQLExceptions that are thrown on Transaction recovery log operations. These operations will be retried.
+     * This property is only relevant where the Transaction recovery logs are stored in a database.
+     *
+     * @return
+     */
+    public List<Integer> getRetriableSqlCodes();
+
+    /**
+     * Retrieves an Integer list of sqlcodes for SQLExceptions that are thrown on Transaction recovery log operations. These operations will not be retried and
+     * the recovery log will be invalidated. This property is only relevant where the Transaction recovery logs are stored in a database.
+     *
+     * @return
+     */
+    public List<Integer> getNonRetriableSqlCodes();
+
+    /**
+     * Returns true if a DataSourceFactory reference has been set through Declarative Services
+     *
+     * @return
+     */
+    public boolean isDataSourceFactorySet();
+
+    /**
+     * Setting forcePrepare causes 2PC resources to be prepared even if 1PC optimization could happen.
+     *
+     * @return
+     */
+    public boolean isForcePrepare();
+
+    /**
+     * Return true when a peer server that has claimed the logs of a home server is to be allowed to proceed with peer recovery. The home server
+     * claim on its own logs will then fail.
+     *
+     * @return
+     */
+    public boolean peerRecoveryPrecedence();
+
+    /**
+     * The optional database-name where tables are created in DB2
+     *
+     * @return
+     */
+    public String getTransactionLogDBName();
+
+    /**
+     * @return
+     */
+    public String getUserDir();
+
+    /**
+     * Whether methods annotated with @Transactional are allowed to throw undeclared checked exceptions.
+     *
+     * @return
+     */
+    public boolean isThrowCheckedExceptions();
+
+    /**
+     * Size of threadpool for sending protocol messages
+     */
+    public int getAsyncResponseThreadpoolSize();
+
+    /**
+     * Whether UserTransaction methods are reenabled according to spec
+     *
+     * @return
+     */
+    public boolean isUTAsSpecified();
+
+    /**
+     * Whether UOWScopeCallbacks are called correctly for end events
+     *
+     * @return
+     */
+    public boolean isCorrectUOWScopeCallbacks();
 }

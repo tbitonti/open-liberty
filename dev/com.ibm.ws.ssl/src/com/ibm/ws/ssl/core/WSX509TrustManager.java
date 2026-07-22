@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2019 IBM Corporation and others.
+ * Copyright (c) 2005, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,6 +22,7 @@ import java.net.Socket;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,6 +45,7 @@ import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ssl.Constants;
 import com.ibm.websphere.ssl.JSSEHelper;
 import com.ibm.websphere.ssl.SSLConfig;
+import com.ibm.ws.common.crypto.CryptoUtils;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.ssl.ConsoleWrapper;
 import com.ibm.ws.ssl.config.KeyStoreManager;
@@ -355,7 +359,7 @@ public final class WSX509TrustManager extends X509ExtendedTrustManager {
                                                                                                      + ".\n\nHere's the signer information (verify the digest value matches what is displayed at the server):"));
             for (int j = 0; j < chain.length; j++) {
                 stdout.println("");
-                String shaDigest = KeyStoreManager.getInstance().generateDigest("SHA-1", chain[j]);
+                String shaDigest = KeyStoreManager.getInstance().generateDigest(CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA256, chain[j]);
                 stdout.println(TraceNLSHelper.getInstance().getString("ssl.trustmanager.signer.prompt.CWPKI0102I", "  Subject DN:    ")
                                + chain[j].getSubjectDN());
                 stdout.println(TraceNLSHelper.getInstance().getString("ssl.trustmanager.signer.prompt.CWPKI0103I", "  Issuer DN:     ")
@@ -363,7 +367,7 @@ public final class WSX509TrustManager extends X509ExtendedTrustManager {
                 stdout.println(TraceNLSHelper.getInstance().getString("ssl.trustmanager.signer.prompt.CWPKI0104I", "  Serial number: ")
                                + chain[j].getSerialNumber());
                 stdout.println(TraceNLSHelper.getInstance().getString("ssl.trustmanager.signer.prompt.CWPKI0109I", "  Expires: ") + chain[j].getNotAfter());
-                stdout.println(TraceNLSHelper.getInstance().getString("ssl.trustmanager.signer.prompt.CWPKI0105I", "  SHA-1 digest:  ") + shaDigest);
+                stdout.println(TraceNLSHelper.getInstance().getString("ssl.trustmanager.signer.prompt.CWPKI0105I", "  SHA-256 digest:  ") + shaDigest);
                 stdout.println("");
             }
 
@@ -435,11 +439,13 @@ public final class WSX509TrustManager extends X509ExtendedTrustManager {
                     if (tc.isDebugEnabled())
                         Tr.debug(tc, "Adding alias \"" + alias + "\" to truststore \"" + tsFile + "\".");
                     wsks.setCertificateEntry(alias, chain[chain.length - 1]);
-                    String shaDigest = KeyStoreManager.getInstance().generateDigest("SHA-1", chain[chain.length - 1]);
-
-                    issueMessage("ssl.signer.add.to.local.truststore.CWPKI0308I", new Object[] { alias, tsFile, shaDigest }, "CWPKI0308I: Adding signer alias \"" + alias
-                                                                                                                             + "\" to local keystore \"" + tsFile
-                                                                                                                             + "\" with the following SHA digest: " + shaDigest);
+                    // FIPS 140-3: Replaced deprecated algorithm with modern, FIPS compliant equivalent: SHA-1 to SHA-256.
+                    String messageDigestAlgorithm = CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA_256;
+                    String shaDigest = KeyStoreManager.getInstance().generateDigest(messageDigestAlgorithm, chain[chain.length - 1]);
+                    String defaultMsg = "CWPKI0308I: Adding signer alias \"" + alias + "\" to local keystore \"" + tsFile + "\" with the following "
+                                        + messageDigestAlgorithm + " digest: " + shaDigest;
+                    issueMessage("ssl.signer.add.to.local.truststore.CWPKI0308I", new Object[] { alias, tsFile, shaDigest, messageDigestAlgorithm },
+                                 defaultMsg);
 
                     //Certificate is set on the truststore now clear the caches, if the file monitor is on let it handle the change.
                     String trigger = wsks.getTrigger();
@@ -840,7 +846,8 @@ public final class WSX509TrustManager extends X509ExtendedTrustManager {
 
         Exception excpt = configTrustEx;
         if (excpt.getClass().toString().startsWith("class com.ibm.jsse2")) {
-            excpt = (Exception) excpt.getCause();
+            if (excpt.getCause() != null)
+                excpt = (Exception) excpt.getCause();
         }
 
         FFDCFilter.processException(excpt, getClass().getName(), "checkClientTrusted", this, new Object[] { chain, authType });
@@ -899,7 +906,8 @@ public final class WSX509TrustManager extends X509ExtendedTrustManager {
         // IBM JDK will throw the exception in obfuscated code, get the cause
         Exception e = excpt;
         if (e.getClass().toString().startsWith("class com.ibm.jsse2")) {
-            e = (Exception) excpt.getCause();
+            if (excpt.getCause() != null)
+                e = (Exception) excpt.getCause();
         }
 
         // This the server print a message and rethrow the exception
@@ -943,7 +951,8 @@ public final class WSX509TrustManager extends X509ExtendedTrustManager {
             } else {
                 // Hostname verification error
                 String extendedMessage = ex.getMessage();
-                Tr.error(tc, "ssl.client.handshake.error.CWPKI0824E", new Object[] { peerHost, extendedMessage });
+                String sanInfo = getSANInfoForHostnameVerificationError(peerHost, chain);
+                Tr.error(tc, "ssl.client.handshake.error.CWPKI0824E", new Object[] { peerHost, sanInfo, extendedMessage });
                 throw ex;
             }
         } catch (Exception e) {
@@ -954,4 +963,37 @@ public final class WSX509TrustManager extends X509ExtendedTrustManager {
         }
     }
 
+    private String getSANInfoForHostnameVerificationError(String peerHost, X509Certificate[] chain) {
+        int GENERAL_NAME_DNSNAME = 2;
+        int GENERAL_NAME_IPADDRESS = 7;
+        X509Certificate certificate = chain[0];
+        boolean doesDnsNameExist = false;
+        ArrayList<String> sanInfoList = new ArrayList<>();
+        try {
+            Collection<List<?>> subjectAltNames = certificate.getSubjectAlternativeNames();
+            if (subjectAltNames != null) {
+                for (List<?> sanEntry : subjectAltNames) {
+                    Integer sanType = (Integer) sanEntry.get(0);
+                    if (sanType == GENERAL_NAME_DNSNAME) {
+                        sanInfoList.add("dnsName:" + sanEntry.get(1));
+                        doesDnsNameExist = true;
+                    }
+                    if (sanType == GENERAL_NAME_IPADDRESS) {
+                        sanInfoList.add("ipAddress:" + sanEntry.get(1));
+                    }
+                }
+            }
+        } catch (CertificateParsingException e) {
+            // SAN cannot be decoded
+        }
+        String sanInfo = String.join(", ", sanInfoList);
+        String output;
+        if (Character.isDigit(peerHost.charAt(0)) || doesDnsNameExist) {
+            output = "Subject Alternative Name [" + sanInfo + "]";
+        } else {
+            output = "subjectDN [" + certificate.getSubjectDN() + "]";
+        }
+
+        return output;
+    }
 }

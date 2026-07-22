@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -21,9 +23,7 @@ import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.jaxws.bus.LibertyApplicationBus.Type;
-import com.ibm.ws.wsat.service.Handler;
 import com.ibm.ws.wsat.service.WSATException;
-import com.ibm.ws.wsat.utils.WSATOSGIService;
 import com.ibm.ws.wsat.utils.WSCoorConstants;
 import com.ibm.ws.wsat.utils.WSCoorUtil;
 
@@ -47,7 +47,7 @@ public class WSATCompleteTransInterceptor extends AbstractPhaseInterceptor<Messa
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see org.apache.cxf.interceptor.Interceptor#handleMessage(org.apache.cxf.message.Message)
      */
     @Override
@@ -55,27 +55,22 @@ public class WSATCompleteTransInterceptor extends AbstractPhaseInterceptor<Messa
         boolean isOutbound = ContextUtils.isOutbound(message);
         try {
             WSCoorUtil.checkHandlerServiceReady();
-            if (!isOutbound)
-            {
+            if (!isOutbound) {
                 if (busType == Type.CLIENT) {
-                    final Handler handler = WSATOSGIService.getInstance().getHandlerService();
-
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                         Tr.debug(tc,
                                  "handleMessage",
                                  "Execute handleClientResponse in Client Inbound Interceptor, " + Message.RESPONSE_CODE + "="
-                                                 + message.get(Message.RESPONSE_CODE));
+                                                  + message.get(Message.RESPONSE_CODE));
 
-                    handler.handleClientResponse();
+                    WSCoorUtil.getHandlerService().handleClientResponse();
                 }
-            }
-            else
-            {
+            } else {
                 if (busType == Type.SERVER) {
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                         Tr.debug(tc, "handleMessage",
                                  "Execute handleServerResponse in Server Outbound Interceptor");
-                    WSATOSGIService.getInstance().getHandlerService().handleServerResponse();
+                    WSCoorUtil.getHandlerService().handleServerResponse();
                 }
             }
         } catch (WSATException e) {
@@ -101,9 +96,9 @@ public class WSATCompleteTransInterceptor extends AbstractPhaseInterceptor<Messa
         boolean isOutbound = ContextUtils.isOutbound(message);
         try {
             if (!isOutbound) {
-                WSATOSGIService.getInstance().getHandlerService().handleClientFault();
+                WSCoorUtil.getHandlerService().handleClientFault();
             } else {
-                WSATOSGIService.getInstance().getHandlerService().handleServerFault();
+                WSCoorUtil.getHandlerService().handleServerFault();
             }
         } catch (Throwable e) {
             FFDCFilter.processException(e, "com.ibm.ws.wsat.interceptor.WSATCompleteTransInterceptor", "119");

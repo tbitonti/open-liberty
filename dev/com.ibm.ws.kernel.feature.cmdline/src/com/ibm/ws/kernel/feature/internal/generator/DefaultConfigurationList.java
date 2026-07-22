@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -60,6 +62,7 @@ public class DefaultConfigurationList {
 
     private static final String DEFAULT_INSTANCE = "defaultInstance";
     private static final String PROVIDING_FEATURES = "providingFeatures";
+    private static final XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance();
 
     private final Map<String, ProvisioningFeatureDefinition> features;
     private final FeatureListOptions options;
@@ -172,7 +175,7 @@ public class DefaultConfigurationList {
 
                 ZipEntry defaultConfigFile = jar.getEntry(fileFilter);
                 if (defaultConfigFile != null) {
-                    this.reader = XMLInputFactory.newInstance().createXMLStreamReader(jar.getInputStream(defaultConfigFile));
+                    this.reader = xmlInputFactory.createXMLStreamReader(jar.getInputStream(defaultConfigFile));
 
                     // Parse the config into a list of top level elements. 
                     parseConfig(elements, existing, notExisting);

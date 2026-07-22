@@ -32,10 +32,11 @@
         </appProperties>
     </application>
     
-    <logging traceSpecification="*=info:HEALTH=all:logservice=all=enabled:com.ibm.websphere.org.eclipse.microprofile.health.2.0.*=all=enabled"/>
+    <!-- Enable trace for debug purposes only.-->
+    <!--logging traceSpecification="*=info:HEALTH=all"/-->
 
     <!-- this sections mirrors permissions.xml to apply the permissions to the Kafka client jar in the shared library -->
-    <variable name="kafkaCodebase" value="${server.config.dir}/kafkaLib/kafka-clients-2.3.0.jar"/>
+    <variable name="kafkaCodebase" value="${server.config.dir}/kafkaLib/kafka-clients-3.5.1.jar"/>
     <javaPermission codebase="${kafkaCodebase}" className="javax.management.MBeanServerPermission" name="createMBeanServer"/>
     <javaPermission codebase="${kafkaCodebase}" className="javax.management.MBeanPermission" name="*" actions="*"/>
     <javaPermission codebase="${kafkaCodebase}" className="javax.management.MBeanTrustPermission" name="register"/>
@@ -43,4 +44,9 @@
     <javaPermission codebase="${kafkaCodebase}" className="java.net.SocketPermission" name="*" actions="connect"/>
     <javaPermission codebase="${kafkaCodebase}" className="java.lang.RuntimePermission" name="getClassLoader" actions="*"/>
     <javaPermission codebase="${kafkaCodebase}" className="java.io.FilePermission" name="*" actions="read"/>
+    
+    <httpEndpoint id="defaultHttpEndpoint" host="*" httpPort="${bvt.prop.HTTP_default}" httpsPort="${bvt.prop.HTTP_default.secure}">
+        <tcpOptions portOpenRetries="60" />                   
+    </httpEndpoint>
+	
 </server>

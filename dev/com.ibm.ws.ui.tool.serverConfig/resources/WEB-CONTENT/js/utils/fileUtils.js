@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2015 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -220,7 +222,14 @@ var fileUtils = (function() {
             var variableResolvedPath = serverVariables[i].resolvedPath;
             if(variableResolvedPath !== null && variableResolvedPath !== undefined) {
                 if(filePath.indexOf(serverVariables[i].resolvedPath) === 0) {
-                    return "${" + serverVariables[i].name + "}" + filePath.substring(variableResolvedPath.length);
+                    // Check if this is a proper directory boundary match
+                    // The character after the matched path should be a path separator or end of string
+                    var nextCharIndex = variableResolvedPath.length;
+                    if(nextCharIndex >= filePath.length ||
+                       filePath.charAt(nextCharIndex) === '/' ||
+                       filePath.charAt(nextCharIndex) === '\\') {
+                        return "${" + serverVariables[i].name + "}" + filePath.substring(variableResolvedPath.length);
+                    }
                 }
             }
         }

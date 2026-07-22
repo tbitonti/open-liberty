@@ -1,14 +1,24 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2017 IBM Corporation and others.
+ * Copyright (c) 2010, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.kernel.launch.internal;
+
+import static com.ibm.ws.kernel.LibertyProcess.CONDITION_LIBERTY_PROCESS_ACTIVE;
+import static io.openliberty.checkpoint.spi.CheckpointPhase.CHECKPOINT_PROPERTY;
+import static io.openliberty.checkpoint.spi.CheckpointPhase.CHECKPOINT_RESTORED_PROPERTY;
+import static io.openliberty.checkpoint.spi.CheckpointPhase.CONDITION_PROCESS_RUNNING_ID;
+import static java.util.Collections.singletonMap;
+import static org.osgi.framework.FrameworkUtil.asDictionary;
+import static org.osgi.service.condition.Condition.CONDITION_ID;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -19,7 +29,9 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.text.MessageFormat;
@@ -27,11 +39,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Dictionary;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -39,16 +53,23 @@ import java.util.concurrent.TimeUnit;
 
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleEvent;
 import org.osgi.framework.BundleException;
+import org.osgi.framework.Constants;
 import org.osgi.framework.FrameworkEvent;
+import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.ServiceReference;
+import org.osgi.framework.ServiceRegistration;
+import org.osgi.framework.SynchronousBundleListener;
 import org.osgi.framework.launch.Framework;
 import org.osgi.framework.launch.FrameworkFactory;
+import org.osgi.service.condition.Condition;
 
 import com.ibm.ejs.ras.TraceNLS;
 import com.ibm.websphere.ras.DataFormatHelper;
 import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TrConfigurator;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.kernel.LibertyProcess;
@@ -81,6 +102,9 @@ import com.ibm.ws.kernel.productinfo.ProductInfoReplaceException;
 import com.ibm.ws.kernel.provisioning.BundleRepositoryRegistry;
 import com.ibm.wsspi.logging.Introspector;
 import com.ibm.wsspi.logprovider.LogProvider;
+
+import io.openliberty.checkpoint.spi.CheckpointHook;
+import io.openliberty.checkpoint.spi.CheckpointPhase;
 
 /**
  * Implementation of FrameworkManager. There are several important threads:
@@ -194,7 +218,7 @@ public class FrameworkManager {
      *                        framework management activities (start/stop/.. ), or null
      * @param callback
      */
-    public void launchFramework(BootstrapConfig config, LogProvider logProvider) {
+    public void launchFramework(final BootstrapConfig config, final LogProvider logProvider) {
         if (config == null)
             throw new IllegalArgumentException("bootstrap config must not be null");
         boolean isClient = config.getProcessType().equals(BootstrapConstants.LOC_PROCESS_TYPE_CLIENT);
@@ -216,51 +240,54 @@ public class FrameworkManager {
             // Save the bootstrap config locally
             this.config = config;
 
-            boolean j2secManager = false;
             if (config.get(BootstrapConstants.JAVA_2_SECURITY_PROPERTY) != null) {
-                j2secManager = true;
-            }
-
-            String j2secNoRethrow = config.get(BootstrapConstants.JAVA_2_SECURITY_NORETHROW);
-
-            if (j2secManager) {
-
-                if (j2secNoRethrow == null || j2secNoRethrow.equals("false")) {
-                    try {
-                        AccessController.doPrivileged(new java.security.PrivilegedExceptionAction<Void>() {
-                            @Override
-                            public Void run() throws Exception {
-                                System.setSecurityManager(new SecurityManager());
-                                return null;
-                            }
-                        });
-                    } catch (Exception ex) {
-
-                        Tr.error(tc, "error.set.securitymanager", ex.getMessage());
-                    }
+                // OLGH#20289 -- Java 2 Security Manager is no longer supported with Java 18+
+                if (javaVersion() >= 18) {
+                    Tr.error(tc, "error.set.securitymanager.jdk18", javaVersion());
                 } else {
-                    if ("true".equals(config.get(BootstrapConstants.JAVA_2_SECURITY_UNIQUE)))
-                        MissingDoPrivDetectionSecurityManager.setUniqueOnly(true);
-                    try {
-                        AccessController.doPrivileged(new java.security.PrivilegedExceptionAction<Void>() {
-                            @Override
-                            public Void run() throws Exception {
-                                System.setSecurityManager(new MissingDoPrivDetectionSecurityManager());
-                                return null;
-                            }
-                        });
-                    } catch (Exception ex) {
+                    CheckpointPhase.getPhase().addMultiThreadedHook(new CheckpointHook() {
+                        @Override
+                        // fail a checkpoint if j2secManager was requested.
+                        public void prepare() {
+                            throw new IllegalStateException(Tr.formatMessage(tc, "error.checkpoint.securitymanager.not.supported"));
+                        }
+                    });
+                    String j2secNoRethrow = config.get(BootstrapConstants.JAVA_2_SECURITY_NORETHROW);
 
-                        Tr.error(tc, "error.set.trace.securitymanager", ex.getMessage());
+                    if (j2secNoRethrow == null || j2secNoRethrow.equals("false")) {
+                        try {
+                            AccessController.doPrivileged(new java.security.PrivilegedExceptionAction<Void>() {
+                                @Override
+                                public Void run() throws Exception {
+                                    System.setSecurityManager(new SecurityManager());
+                                    return null;
+                                }
+                            });
+                        } catch (Exception ex) {
+                            Tr.error(tc, "error.set.securitymanager", ex.getMessage());
+                        }
+                    } else {
+                        if ("true".equals(config.get(BootstrapConstants.JAVA_2_SECURITY_UNIQUE)))
+                            MissingDoPrivDetectionSecurityManager.setUniqueOnly(true);
+                        try {
+                            AccessController.doPrivileged(new java.security.PrivilegedExceptionAction<Void>() {
+                                @Override
+                                public Void run() throws Exception {
+                                    System.setSecurityManager(new MissingDoPrivDetectionSecurityManager());
+                                    return null;
+                                }
+                            });
+                        } catch (Exception ex) {
+                            Tr.error(tc, "error.set.trace.securitymanager", ex.getMessage());
+                        }
+
                     }
-
+                    Tr.info(tc, "info.java2security.started", config.getProcessName());
                 }
-                Tr.info(tc, "info.java2security.started", config.getProcessName());
-
             }
 
             // Init the framework.
-            Framework fwk = initFramework(config);
+            Framework fwk = initFramework(config, logProvider);
 
             if (fwk == null) {
                 Tr.error(tc, "error.unableToLaunch");
@@ -348,6 +375,16 @@ public class FrameworkManager {
                 frameworkShutdownLatch.countDown();
             }
         }
+    }
+
+    private static int javaVersion() {
+        String version = System.getProperty("java.version");
+        String[] versionElements = version.split("\\D"); // split on non-digits
+
+        // Pre-JDK 9 the java.version is 1.MAJOR.MINOR
+        // Post-JDK 9 the java.version is MAJOR.MINOR
+        int i = Integer.valueOf(versionElements[0]) == 1 ? 1 : 0;
+        return Integer.valueOf(versionElements[i]);
     }
 
     private void launchClient() {
@@ -541,7 +578,7 @@ public class FrameworkManager {
      * Create and start a new instance of an OSGi framework using the provided
      * properties as framework properties.
      */
-    protected Framework initFramework(BootstrapConfig config) throws BundleException {
+    protected Framework initFramework(final BootstrapConfig config, final LogProvider logProvider) throws BundleException {
         // Set the default startlevel of the framework. We want the framework to
         // start at our bootstrap level (i.e. Framework bundle itself will start, and
         // it will pre-load and re-start any previously known bundles in the
@@ -557,10 +594,98 @@ public class FrameworkManager {
         // This exception will have a translated message stating that an unknown exception occurred.
         // This is so bizarre a case that it should never happen.
         try {
-            Framework fwk = fwkFactory.newFramework(config.getFrameworkProperties());
+            final Framework fwk = fwkFactory.newFramework(config.getFrameworkProperties());
             if (fwk == null)
                 return null;
             fwk.init();
+            final CheckpointPhase phase = CheckpointPhase.getPhase();
+
+            // register the checkpoint phase as early as possible
+            final BundleContext fwkContext = fwk.getBundleContext();
+            final Dictionary<String, Object> phaseRegProps = new Hashtable<>();
+            phaseRegProps.put(CHECKPOINT_RESTORED_PROPERTY, Boolean.valueOf(phase.restored()));
+            phaseRegProps.put(CHECKPOINT_PROPERTY, phase);
+            final ServiceRegistration<CheckpointPhase> phaseReg = fwkContext.registerService(CheckpointPhase.class, phase, phaseRegProps);
+
+            // only register the hooks if we are not the INACTIVE phase
+            if (phase != CheckpointPhase.INACTIVE) {
+                fwkContext.registerService(CheckpointHook.class, new CheckpointHook() {
+                    boolean calledLogProviderStop = false;
+
+                    @Override
+                    public void prepare() {
+                        try {
+                            if (System.getProperty("io.openliberty.checkpoint.dump.threads") != null) {
+                                // If the sys property is set then dump the threads while in single threaded mode.
+                                // This is useful when trying to determine if unexpected async work is going on
+                                // before the checkpoint happens.
+                                dumpJava(Collections.singleton(JavaDumpAction.THREAD));
+                            }
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                        calledLogProviderStop = true;
+                        logProvider.stop();
+                    }
+
+                    @Override
+                    public void checkpointFailed() {
+                        if (calledLogProviderStop) {
+                            // restore the logging when checkpoint failed
+                            restoreLogging();
+                        }
+                    }
+
+                    private void restoreLogging() {
+                        Map<String, Object> configMap = Collections.singletonMap(BootstrapConstants.RESTORE_ENABLED, (Object) "true");
+                        TrConfigurator.update(configMap);
+                    }
+
+                    @Override
+                    public void restore() {
+                        restoreLogging();
+                        String consoleLogHeader = config.remove(BootstrapConstants.BOOTPROP_CONSOLE_LOG_HEADER);
+                        if (consoleLogHeader != null) {
+                            // log the initial console log header;
+                            // This is done with normal logging instead of System.out so that it shows up properly in messages.log
+                            Tr.audit(tc, consoleLogHeader);
+                        }
+                    }
+
+                }, FrameworkUtil.asDictionary(Collections.singletonMap(Constants.SERVICE_RANKING, Integer.MIN_VALUE)));
+
+                final ServiceRegistration<Condition> beforeCheckpointReg = //
+                                fwkContext.registerService(Condition.class,
+                                                           Condition.INSTANCE,
+                                                           FrameworkUtil.asDictionary(Collections.singletonMap(Condition.CONDITION_ID,
+                                                                                                               CheckpointPhase.CONDITION_BEFORE_CHECKPOINT_ID)));
+
+                Hashtable<String, Object> restoredHookProps = new Hashtable<>();
+                restoredHookProps.put(Constants.SERVICE_RANKING, Integer.MIN_VALUE);
+                restoredHookProps.put(CheckpointHook.MULTI_THREADED_HOOK, Boolean.TRUE);
+                fwkContext.registerService(CheckpointHook.class, new CheckpointHook() {
+                    @Override
+                    public void prepare() {
+                        // kick equinox to force a save before checkpoint single-threaded mode
+                        saveEquinoxStateNow(fwkContext);
+                        beforeCheckpointReg.unregister();
+                    }
+
+                    @Override
+                    public void restore() {
+                        // Update service properties while in multi-threaded to allow proper events.
+                        phaseRegProps.put(CHECKPOINT_RESTORED_PROPERTY, Boolean.TRUE);
+                        phaseReg.setProperties(phaseRegProps);
+                    }
+                }, restoredHookProps);
+
+                // register the hooks from the CheckpointPhase that may be statically added
+                registerCheckpointPhaseStaticHooks(phase, fwkContext);
+            } else {
+                // not an active checkpoint launch; register the running condition now
+                registerRunningCondition(fwk);
+            }
+            registerLibertyActiveCondition(fwk);
             return fwk;
         } catch (BundleException ex) {
             throw ex;
@@ -572,6 +697,57 @@ public class FrameworkManager {
                 throw ex;
             return null;
         }
+    }
+
+    @FFDCIgnore(Exception.class)
+    void saveEquinoxStateNow(BundleContext fwkContext) {
+        Bundle systemBundle = fwkContext.getBundle();
+        try {
+            Method getEquinoxContainer = systemBundle.getClass().getSuperclass().getDeclaredMethod("getEquinoxContainer");
+            getEquinoxContainer.setAccessible(true);
+            Object equinoxContainer = getEquinoxContainer.invoke(systemBundle);
+            Method getStorage = equinoxContainer.getClass().getDeclaredMethod("getStorage");
+            Object storage = getStorage.invoke(equinoxContainer);
+            Method save = storage.getClass().getDeclaredMethod("save");
+            save.invoke(storage);
+        } catch (Exception e) {
+            throw new RuntimeException("Error trying to save Equinox state.", e);
+        }
+    }
+
+    private void registerCheckpointPhaseStaticHooks(CheckpointPhase phase, BundleContext fwkContext) {
+        try {
+            Method setContext = CheckpointPhase.class.getDeclaredMethod("setContext", Object.class);
+            setContext.setAccessible(true);
+            setContext.invoke(phase, fwkContext);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void registerRunningCondition(Framework framework) {
+        BundleContext bc = framework.getBundleContext();
+        bc.registerService(Condition.class, Condition.INSTANCE,
+                           asDictionary(singletonMap(CONDITION_ID, CONDITION_PROCESS_RUNNING_ID)));
+    }
+
+    private static void registerLibertyActiveCondition(Framework framework) {
+        BundleContext bc = framework.getBundleContext();
+
+        final ServiceRegistration<Condition> reg = bc.registerService(Condition.class, Condition.INSTANCE,
+                                                                      asDictionary(singletonMap(CONDITION_ID, CONDITION_LIBERTY_PROCESS_ACTIVE)));
+        // unregister when server is stopping
+        bc.addBundleListener(new SynchronousBundleListener() {
+            @Override
+            public void bundleChanged(BundleEvent event) {
+                Bundle b = event.getBundle();
+                if (b.getBundleId() == 0) {
+                    if (b.getState() == Bundle.STOPPING) {
+                        reg.unregister();
+                    }
+                }
+            }
+        });
     }
 
     private static final String MANAGER_DIR_NAME = ".manager";
@@ -758,7 +934,7 @@ public class FrameworkManager {
             @Override
             public void run() {
                 String uuid = systemBundleCtx.getProperty("org.osgi.framework.uuid");
-                sc = new ServerCommandListener(config, uuid, FrameworkManager.this, this);
+                sc = new ServerCommandListener(config, uuid, FrameworkManager.this, this, FrameworkManager.this.systemBundleCtx);
                 serverListenerLatch.countDown();
                 sc.startListening();
             }
@@ -1174,7 +1350,7 @@ public class FrameworkManager {
             PrintWriter pw = null;
             try {
                 out = new FileOutputStream(introspectionFile);
-                pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
+                pw = new PrintWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8));
 
                 // write header
                 if (introspectionDesc != null && !introspectionDesc.isEmpty()) {
@@ -1223,7 +1399,7 @@ public class FrameworkManager {
 
         Writer writer = null;
         try {
-            writer = new OutputStreamWriter(new FileOutputStream(statusFile), "UTF-8");
+            writer = new OutputStreamWriter(new FileOutputStream(statusFile), StandardCharsets.UTF_8);
             for (JavaDumpAction javaDumpAction : javaDumpActions) {
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                     Tr.debug(tc, "Start javadump action " + javaDumpAction);

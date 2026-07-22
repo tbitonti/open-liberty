@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2020 IBM Corporation and others.
+ * Copyright (c) 2010, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -605,10 +607,15 @@ class ConfigEvaluator {
         if (rawValue == null) {
             return;
         }
-        if (!!!(rawValue instanceof List)) {
-            //TODO error
+
+        // rawValue is guaranteed to be a List at this point
+        List<?> values = (List<?>) rawValue;
+        if (values.size() > 0 && !!!(values.get(0) instanceof ConfigElement)) {
+            // The only way we get to this is if a flat attribute has been specified as something like '<flat>value</flat>'.
+            Tr.error(tc, "error.attribute.validation.exception", config.getNodeDisplayName(), attributeName, rawValue, "The value is a String attribute but should be an element");
             return;
         }
+
         @SuppressWarnings("unchecked")
         List<ConfigElement> rawList = (List<ConfigElement>) rawValue;
         int cardinality = context.getAttributeDefinition(attributeName).getCardinality();
@@ -1004,7 +1011,14 @@ class ConfigEvaluator {
     private Object convertStringToSingleValue(String rawValue, ExtendedAttributeDefinition attrDef, EvaluationContext context,
                                               boolean ignoreWarnings) throws ConfigEvaluatorException {
         String value = processString(rawValue, attrDef, context, ignoreWarnings);
-        return evaluateString(value, attrDef, context);
+        Object result;
+        try {
+            result = evaluateString(value, attrDef, context);
+        } catch (IllegalArgumentException iae) {
+            issueWarning("error.attribute.validation.exception", context.getConfigElement().getNodeName(), attrDef.getAttributeName(), rawValue, iae.getLocalizedMessage());
+            result = evaluateString(attrDef.getDefaultValue()[0], attrDef, context);
+        }
+        return result;
     }
 
     /**

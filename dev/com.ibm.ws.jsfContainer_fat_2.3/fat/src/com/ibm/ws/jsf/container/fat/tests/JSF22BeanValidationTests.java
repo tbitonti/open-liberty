@@ -1,14 +1,15 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jsf.container.fat.tests;
+
+import static org.junit.Assert.assertNotNull;
 
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
@@ -30,6 +31,7 @@ import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.annotation.TestServlets;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 import jsf.beanval.BeanValTestServlet;
@@ -40,6 +42,8 @@ public class JSF22BeanValidationTests extends FATServletClient {
     private static final String MOJARRA_APP = "BeanValidationTests";
     private static final String MYFACES_APP = "BeanValidationTests_MyFaces";
 
+    private static boolean isEE10;
+
     @Server("jsf.container.2.3_fat.beanval")
     @TestServlets({
                     @TestServlet(servlet = BeanValTestServlet.class, path = MOJARRA_APP + "/BeanValTestServlet"),
@@ -49,8 +53,12 @@ public class JSF22BeanValidationTests extends FATServletClient {
 
     @BeforeClass
     public static void setup() throws Exception {
+
+        isEE10 = JakartaEEAction.isEE10OrLaterActive();
+
         WebArchive mojarraApp = ShrinkWrap.create(WebArchive.class, MOJARRA_APP + ".war")
-                        .addPackage("jsf.beanval");
+                        .addPackage("jsf.beanval")
+                        .addPackage(isEE10 ? "jsf.beanval.faces40" : "jsf.beanval.jsf22");
         mojarraApp = FATSuite.addMojarra(mojarraApp);
         mojarraApp = (WebArchive) ShrinkHelper.addDirectory(mojarraApp, "publish/files/permissions");
         mojarraApp = (WebArchive) ShrinkHelper.addDirectory(mojarraApp, "test-applications/" + MOJARRA_APP + "/resources");
@@ -58,7 +66,8 @@ public class JSF22BeanValidationTests extends FATServletClient {
         server.addInstalledAppForValidation(MOJARRA_APP);
 
         WebArchive myfacesApp = ShrinkWrap.create(WebArchive.class, MYFACES_APP + ".war")
-                        .addPackage("jsf.beanval");
+                        .addPackage("jsf.beanval")
+                        .addPackage(isEE10 ? "jsf.beanval.faces40" : "jsf.beanval.jsf22");
         myfacesApp = FATSuite.addMyFaces(myfacesApp);
         myfacesApp = (WebArchive) ShrinkHelper.addDirectory(myfacesApp, "publish/files/permissions");
         myfacesApp = (WebArchive) ShrinkHelper.addDirectory(myfacesApp, "test-applications/" + MOJARRA_APP + "/resources");
@@ -70,18 +79,18 @@ public class JSF22BeanValidationTests extends FATServletClient {
 
     @AfterClass
     public static void testCleanup() throws Exception {
-      // Stop the server
-      if (server != null && server.isStarted()) {
-        server.stopServer();
-      }
+        // Stop the server
+        if (server != null && server.isStarted()) {
+            server.stopServer();
+        }
     }
 
     @Test
     public void verifyAppProviders() throws Exception {
         server.resetLogMarks();
-        server.waitForStringInLogUsingMark("Initializing Mojarra .* for context '/" + MOJARRA_APP + "'");
+        assertNotNull(server.waitForStringInLogUsingMark("Initializing Mojarra .* for context '/" + MOJARRA_APP + "'"));
         server.resetLogMarks();
-        server.waitForStringInLogUsingMark("MyFaces Bean Validation support enabled");
+        assertNotNull(server.waitForStringInLogUsingMark("MyFaces Core Bean Validation support enabled"));
     }
 
     @Test

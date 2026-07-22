@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2006 IBM Corporation and others.
+ * Copyright (c) 2005, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.tcpchannel.internal;
 
@@ -56,6 +55,35 @@ public class SocketRWChannelSelector extends ChannelSelector implements Runnable
      */
     protected SocketRWChannelSelector(int _wakeupOption, WorkQueueManager _wqm, int _index, int _channelType, boolean _checkCancel) throws IOException {
         super(_checkCancel);
+        this.wqm = _wqm;
+        this.countIndex = _index;
+        this.channelType = _channelType;
+        this.wakeupOption = _wakeupOption;
+        this.wakeupNeeded = (_wakeupOption == ValidateUtils.SELECTOR_WAKEUP_WHEN_NEEDED);
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(this, tc, "Created RW selector: " + this);
+        }
+    }
+
+    /**
+     * Create a new SocketRWChannelSelector.
+     *
+     * @param _wakeupOption
+     *            specifies the algorithm to use to decide if the
+     *            selector should be woken up after adding work to its work queue
+     * @param _wqm
+     *            Work queue that this thread is to service.
+     * @param _index
+     *            the index within a group of the same type of selector that
+     *            this one is. This is used for pruning.
+     * @param _channelType
+     *            what kind of channel this object is serving
+     * @param _checkCancel
+     *            pass to the super constructor
+     * @throws IOException
+     */
+    protected SocketRWChannelSelector(int _wakeupOption, WorkQueueManager _wqm, int _index, int _channelType, boolean _checkCancel, boolean _startImmediately) throws IOException {
+        super(_checkCancel, _startImmediately);
         this.wqm = _wqm;
         this.countIndex = _index;
         this.channelType = _channelType;
@@ -187,6 +215,13 @@ public class SocketRWChannelSelector extends ChannelSelector implements Runnable
                 continue;
             }
 
+            if (ioSocket == null || ioSocket.getChannel() == null) {
+                if (bTrace && tc.isEventEnabled()) {
+                    Tr.event(this, tc, "Ignoring due to null ioSocket or channel");
+                }
+                continue;
+            }
+
             final int selectorOp;
             if (work.isRequestTypeRead()) {
                 selectorOp = SelectionKey.OP_READ;
@@ -223,8 +258,16 @@ public class SocketRWChannelSelector extends ChannelSelector implements Runnable
                         }
                     } // end-vc-sync
                 } else {
-                    // Change the request's selection key's interested
-                    key.interestOps(selectorOp);
+                    try {
+                        // Change the request's selection key's interested
+                        key.interestOps(selectorOp);
+                    } catch (CancelledKeyException cke) {
+                        // Key cancelled (channel likely closed), ignore
+                        if (bTrace && tc.isDebugEnabled()) {
+                            Tr.debug(this, tc, "Key cancelled while updating interest ops for  " + ioSocket.getChannel()
+                                    + ". exception is: " + cke);
+                        }
+                    }
                 }
             } else {
                 if (work.isRequestTypeRead()) {
@@ -399,7 +442,6 @@ public class SocketRWChannelSelector extends ChannelSelector implements Runnable
                         continue;
                     }
                     if (req.getTimeoutTime() <= now) {
-                        
 
                         // create timeout exception to pass to callback error method
                         // Add local and remote address information

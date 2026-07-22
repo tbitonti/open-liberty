@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2020 IBM Corporation and others.
+ * Copyright (c) 2004, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.http.channel.internal;
 
@@ -127,6 +126,7 @@ public class HttpRequestMessageImpl extends HttpBaseMessageImpl implements HttpR
         super();
         // for requests, we don't care about the validation
         setHeaderValidation(false);
+        setRejectHeaderLineFolding(true);
         setOwner(null);
         setBinaryParseState(HttpInternalConstants.PARSING_BINARY_VERSION);
     }
@@ -162,6 +162,7 @@ public class HttpRequestMessageImpl extends HttpBaseMessageImpl implements HttpR
     public void init(HttpInboundServiceContext sc) {
         // for requests, we don't care about the validation
         setHeaderValidation(false);
+        setRejectHeaderLineFolding(true);
         setOwner(sc);
         setBinaryParseState(HttpInternalConstants.PARSING_BINARY_VERSION);
     }
@@ -189,6 +190,7 @@ public class HttpRequestMessageImpl extends HttpBaseMessageImpl implements HttpR
     public void init(HttpInboundServiceContext sc, BNFHeaders hdrs) {
         // for requests, we don't care about the validation
         setHeaderValidation(false);
+        setRejectHeaderLineFolding(true);
         setOwner(sc);
         setBinaryParseState(HttpInternalConstants.PARSING_BINARY_VERSION);
         if (null != hdrs) {
@@ -336,7 +338,7 @@ public class HttpRequestMessageImpl extends HttpBaseMessageImpl implements HttpR
             this.setScheme(pseudoHeaders.get(HpackConstants.SCHEME));
         }
         if (pseudoHeaders.containsKey(HpackConstants.AUTHORITY)) {
-            parseH2Authority(pseudoHeaders.get(HpackConstants.AUTHORITY).getBytes());
+            parseH2Authority(GenericUtils.getBytes(pseudoHeaders.get(HpackConstants.AUTHORITY)));
         }
 
     }
@@ -1160,7 +1162,7 @@ public class HttpRequestMessageImpl extends HttpBaseMessageImpl implements HttpR
             // PK22096 - default to "/" if not found, should have caught empty
             // string inputs previously (http://host:port is valid)
             this.myURIBytes = SLASH;
-            if (tc.isDebugEnabled()) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                 Tr.debug(tc, "Defaulting to slash since no URI data found");
             }
             return;
@@ -1915,6 +1917,7 @@ public class HttpRequestMessageImpl extends HttpBaseMessageImpl implements HttpR
         return getServiceContext().getStartNanoTime();
     }
 
+    @Override
     public String getRemoteUser() {
         String remoteUser = "";
 
@@ -2100,8 +2103,13 @@ public class HttpRequestMessageImpl extends HttpBaseMessageImpl implements HttpR
         H2StreamProcessor promisedSP = ((H2HttpInboundLinkWrap) link).muxLink.createNewInboundLink(promisedStreamId);
         if (promisedSP == null) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
-                Tr.exit(tc, "pushNewRequest exit; cannot create new push stream -"
-                            + " the max number of concurrent streams has already been reached on link: " + link);
+                if (((H2HttpInboundLinkWrap) link).muxLink.isClosing()) {
+                    Tr.exit(tc, "pushNewRequest exit; cannot create new push stream - "
+                                + "server is shutting down, closing link: " + link);
+                } else {
+                    Tr.exit(tc, "pushNewRequest exit; cannot create new push stream -"
+                                + " the max number of concurrent streams has already been reached on link: " + link);
+                }
             }
             return;
         }
@@ -2158,10 +2166,11 @@ public class HttpRequestMessageImpl extends HttpBaseMessageImpl implements HttpR
      * genericbnf.HeaderKeys, byte[])
      */
     @Override
-    protected boolean filterAdd(HeaderKeys key, byte[] value) {
-        boolean rc = super.filterAdd(key, value);
-
-        if (HttpHeaderKeys.isWasPrivateHeader(key.getName()) && !this.deserialized) {
+    protected boolean filterAdd(HeaderKeys key, byte[] value, boolean isWASPrivateHeader) {
+        boolean rc = true;
+        if (!isWASPrivateHeader) {
+            rc = super.filterAdd(key, value, isWASPrivateHeader);
+        } else if (!this.deserialized) {
             rc = isPrivateHeaderTrusted(key);
         }
         return rc;
@@ -2195,5 +2204,16 @@ public class HttpRequestMessageImpl extends HttpBaseMessageImpl implements HttpR
             return false;
         }
         return true;
+    }
+
+    /**
+     * Obtains the request end time by leveraging the recorded start of the response.
+     * The service context marks the start of the response time when it is done
+     * processing the request, so the start of the response coincides with the end
+     * time for the request.
+     */
+    @Override
+    public long getEndTime() {
+        return this.getServiceContext().getResponseStartTime();
     }
 }

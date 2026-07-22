@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -38,7 +40,8 @@ public class OAuth20RequestFilter implements Filter {
     public static final String REGEX_COMPONENT_ID = "/([\\w-]+)/"; // first capture group, /name_of_provider/
 
     // Matches paths such as /registration/* to extract clientId values
-    public static final String REGEX_REGISTRATION = "registration(/[\u0020-\u007E]*)?";
+    public static final String REGEX_RANGE_VSCHAR = "[\u0020-\u007E]";
+    public static final String REGEX_REGISTRATION = "registration(/" + REGEX_RANGE_VSCHAR + "*)?";
     public static final String PATH_PTM = "personalTokenManagement";
     public static final String PATH_UTM = "usersTokenManagement";
     public static final String PATH_CLIENTMGT = "clientManagement";

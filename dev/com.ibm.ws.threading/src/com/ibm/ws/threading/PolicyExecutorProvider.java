@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,6 +24,8 @@ import org.osgi.service.component.annotations.Reference;
 import com.ibm.ws.threading.internal.ExecutorServiceImpl;
 import com.ibm.ws.threading.internal.PolicyExecutorImpl;
 import com.ibm.wsspi.kernel.service.utils.ServerQuiesceListener;
+
+import io.openliberty.threading.virtual.VirtualThreadOps;
 
 /**
  * <p>Provider class which can programmatically create policy executors.
@@ -45,7 +49,7 @@ import com.ibm.wsspi.kernel.service.utils.ServerQuiesceListener;
 @Component(configurationPolicy = ConfigurationPolicy.IGNORE, service = { PolicyExecutorProvider.class, ServerQuiesceListener.class })
 public class PolicyExecutorProvider implements ServerQuiesceListener {
     @Reference(target = "(component.name=com.ibm.ws.threading)")
-    private ExecutorService globalExecutor;
+    private ExecutorService libertyThreadPool;
 
     /**
      * Programmatically created instances (via PolicyExecutorProvider) which have not yet been shut down.
@@ -53,6 +57,12 @@ public class PolicyExecutorProvider implements ServerQuiesceListener {
      * upon construction, and removing themselves upon completion of shutdown.
      */
     private final ConcurrentHashMap<String, PolicyExecutorImpl> policyExecutors = new ConcurrentHashMap<String, PolicyExecutorImpl>();
+
+    /**
+     * Virtual thread operations that were introduced in Java 21
+     */
+    @Reference
+    protected VirtualThreadOps virtualThreadOps;
 
     /**
      * Creates a new policy executor instance and initializes it per the specified OSGi service component properties.
@@ -64,9 +74,12 @@ public class PolicyExecutorProvider implements ServerQuiesceListener {
      * @throws NullPointerException  if the specified identifier is null
      */
     public PolicyExecutor create(Map<String, Object> props) {
-        PolicyExecutor executor = new PolicyExecutorImpl((ExecutorServiceImpl) globalExecutor, (String) props.get("config.displayId"), null, policyExecutors);
-        executor.updateConfig(props);
-        return executor;
+        return new PolicyExecutorImpl( //
+                        (ExecutorServiceImpl) libertyThreadPool, //
+                        (String) props.get("config.displayId"), //
+                        policyExecutors, //
+                        virtualThreadOps, //
+                        props);
     }
 
     /**
@@ -79,7 +92,7 @@ public class PolicyExecutorProvider implements ServerQuiesceListener {
      * @throws NullPointerException  if the specified identifier is null
      */
     public PolicyExecutor create(String identifier) {
-        return new PolicyExecutorImpl((ExecutorServiceImpl) globalExecutor, "PolicyExecutorProvider-" + identifier, null, policyExecutors);
+        return new PolicyExecutorImpl((ExecutorServiceImpl) libertyThreadPool, "PolicyExecutorProvider-" + identifier, null, policyExecutors, virtualThreadOps);
     }
 
     /**
@@ -93,7 +106,7 @@ public class PolicyExecutorProvider implements ServerQuiesceListener {
      * @throws NullPointerException  if the specified identifier is null
      */
     public PolicyExecutor create(String fullIdentifier, String owner) {
-        return new PolicyExecutorImpl((ExecutorServiceImpl) globalExecutor, fullIdentifier, owner, policyExecutors);
+        return new PolicyExecutorImpl((ExecutorServiceImpl) libertyThreadPool, fullIdentifier, owner, policyExecutors, virtualThreadOps);
     }
 
     public void introspectPolicyExecutors(PrintWriter out) {

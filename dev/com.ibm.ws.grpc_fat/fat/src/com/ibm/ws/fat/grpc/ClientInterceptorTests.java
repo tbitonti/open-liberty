@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -106,8 +108,12 @@ public class ClientInterceptorTests extends FATServletClient {
 
     @AfterClass
     public static void tearDown() throws Exception {
+        // Setting serverConfigurationFile to null forces a server.xml update (when GrpcTestUtils.setServerConfiguration() is first called) on the repeat run
+        // If not set to null, test failures may occur (since the incorrect server.xml could be used)
+        serverConfigurationFile = null;
+
         Exception excep = null;
-        worldChannel.shutdownNow();
+        GrpcTestUtils.stopGrpcService(worldChannel);
 
         try {
             if (grpcClient != null && grpcClient.isStarted()) {

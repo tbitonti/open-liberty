@@ -1,11 +1,10 @@
-# Copyright (c) 2018, 2021 IBM Corporation and others.
+# Copyright (c) 2018, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 # -------------------------------------------------------------------------------------------------
 #CMVCPATHNAME N/A
 #COMPONENTPREFIX CWWKO
@@ -64,3 +63,118 @@ OPENAPI_APPLICATION_PROCESSED.useraction=Aucune action n'est requise.
 OPENAPI_APPLICATION_PROCESSING_ERROR=CWWKO1661E: Une erreur est survenue lors du traitement de l''application {0} et aucun document OpenAPI n''a \u00e9t\u00e9 g\u00e9n\u00e9r\u00e9. L''erreur est la suivante : {1}.
 OPENAPI_APPLICATION_PROCESSING_ERROR.explanation=Une erreur d'ex\u00e9cution est survenue lors du traitement de l'application.
 OPENAPI_APPLICATION_PROCESSING_ERROR.useraction=Consultez les journaux de l'outil de diagnostic de premier niveau (FFDC) et le texte de l'exception pour identifier le probl\u00e8me.
+
+OPENAPI_MERGE_PROBLEMS_CWWKO1662W=CWWKO1662W: Les probl\u00e8mes suivants sont survenus lors de la fusion de documents OpenAPI : {0}
+OPENAPI_MERGE_PROBLEMS_CWWKO1662W.explanation=La documentation OpenAPI de plusieurs modules Web ne peut pas \u00eatre fusionn\u00e9e. Les noeuds finaux des modules signal\u00e9s ne sont pas inclus dans le document OpenAPI g\u00e9n\u00e9r\u00e9.
+OPENAPI_MERGE_PROBLEMS_CWWKO1662W.useraction=Prenez connaissance des probl\u00e8mes de fusion afin d'identifier les raisons pour lesquelles les documents OpenAPI g\u00e9n\u00e9r\u00e9s ne peuvent pas \u00eatre fusionn\u00e9s.
+
+OPENAPI_MERGE_PROBLEM_PATH_CLASH=Le chemin {0} du module {1} est en conflit avec un chemin du module {2}. Le module {1} ne peut pas \u00eatre fusionn\u00e9.
+OPENAPI_MERGE_PROBLEM_PATH_CLASH.explanation=Le chemin d'acc\u00e8s est constitu\u00e9 de deux modules. Les deux instances du chemin ne peuvent pas \u00eatre incluses dans le m\u00eame document OpenAPI. Ce message fait partie du message CWWKO1662.
+OPENAPI_MERGE_PROBLEM_PATH_CLASH.useraction=Modifiez l'un des modules conflictuel ou configurez la fonction mpOpenApi-2.0 pour exclure l'un des modules. Ce probl\u00e8me peut survenir si des serveurs sont inclus dans le document OpenAPI et que l'URL du serveur ne se termine pas par la racine de contexte de l'application, par exemple lorsque l'application est accessible \u00e0 une adresse URL diff\u00e9rente par le biais d'un proxy inverse.
+
+OPENAPI_MERGE_PROBLEM_EXTENSION_CLASH=La cl\u00e9 d''extension {0} du module {1} entre en conflit avec la m\u00eame cl\u00e9 d''extension du module {2}. Le module {1} ne peut pas \u00eatre fusionn\u00e9.
+OPENAPI_MERGE_PROBLEM_EXTENSION_CLASH.explanation=Deux modules d\u00e9clarent la m\u00eame extension avec des valeurs diff\u00e9rentes au niveau sup\u00e9rieur du document OpenAPI. Les deux instances de l'extension ne peuvent \u00eatre incluses dans le m\u00eame document OpenAPI. Ce message fait partie du message CWWKO1662.
+OPENAPI_MERGE_PROBLEM_EXTENSION_CLASH.useraction=Modifiez l'un des modules conflictuel pour retirer l'extension ou configurez la fonction mpOpenApi-2.0 pour exclure l'un des modules. 
+
+OPENAPI_MERGE_DISABLED_CWWKO1663I=CWWKO1663I: La combinaison de la documentation OpenAPI de plusieurs modules est d\u00e9sactiv\u00e9e. Seul {0} est utilis\u00e9 pour g\u00e9n\u00e9rer la documentation OpenAPI. Pour activer la fusion de la documentation OpenAPI de tous les modules, d\u00e9finissez la propri\u00e9t\u00e9 config mp.openapi.extensions.liberty.merged.include = all.
+OPENAPI_MERGE_DISABLED_CWWKO1663I.explanation=A moins que la fusion de la documentation OpenAPI n'est activ\u00e9e, la documentation OpenAPI n'est g\u00e9n\u00e9r\u00e9e que pour le premier module OpenAPI d\u00e9ploy\u00e9.
+OPENAPI_MERGE_DISABLED_CWWKO1663I.useraction=Si vous souhaitez que tous vos modules Web soient utilis\u00e9s pour g\u00e9n\u00e9rer la documentation OpenAPI, d\u00e9finissez la propri\u00e9t\u00e9 MicroProfile Config qui est list\u00e9e dans le message. Cette propri\u00e9t\u00e9 peut \u00eatre d\u00e9finie dans n'importe lequel des emplacements o\u00f9 MicroProfile Config recherche des propri\u00e9t\u00e9s de configuration, telles que dans une propri\u00e9t\u00e9 syst\u00e8me Java ou une variable d'environnement.
+
+OPENAPI_MERGE_INFO_INVALID_CWWKO1664W=CWWKO1664W: L''objet info configur\u00e9 avec la propri\u00e9t\u00e9 {0} n''est pas valide. Les propri\u00e9t\u00e9s de titre et de version doivent \u00eatre d\u00e9finies. Valeur non valide : {1}
+OPENAPI_MERGE_INFO_INVALID_CWWKO1664W.explanation=Si la propri\u00e9t\u00e9 est d\u00e9finie, elle doit \u00eatre d\u00e9finie sur une section info compl\u00e8te au format JSON, les propri\u00e9t\u00e9s de titre et de version \u00e9tant d\u00e9finies sur des valeurs valides.
+OPENAPI_MERGE_INFO_INVALID_CWWKO1664W.useraction=Corrigez la valeur info configur\u00e9e.
+
+OPENAPI_MERGE_INFO_PARSE_ERROR_CWWKO1665W=CWWKO1665W: La propri\u00e9t\u00e9 de configuration {0} ne peut pas \u00eatre analys\u00e9e comme JSON. La valeur est la suivante : {1}\nL''erreur est la suivante : {2}
+OPENAPI_MERGE_INFO_PARSE_ERROR_CWWKO1665W.explanation=Si la propri\u00e9t\u00e9 est d\u00e9finie, elle doit \u00eatre d\u00e9finie sur une section info compl\u00e8te au format JSON.
+OPENAPI_MERGE_INFO_PARSE_ERROR_CWWKO1665W.useraction=Consultez le texte de l'erreur pour identifier le probl\u00e8me et corriger la valeur info configur\u00e9e de sorte qu'elle soit valide.
+
+OPENAPI_MERGE_INVALID_NAME_CWWKO1666W=CWWKO1666W: Nom non valide trouv\u00e9 dans {0} : {1}. Chaque nom doit utiliser le format "applicationName" ou "applicationName/moduleName".
+OPENAPI_MERGE_INVALID_NAME_CWWKO1666W.explanation=La propri\u00e9t\u00e9 config doit contenir une liste de noms d'application et de modules s\u00e9par\u00e9s par des virgules, ou une des valeurs sp\u00e9ciales "all", "first" ou "none".
+OPENAPI_MERGE_INVALID_NAME_CWWKO1666W.useraction=Consultez le texte d'erreur pour identifier le probl\u00e8me et corriger la propri\u00e9t\u00e9 de configuration indiqu\u00e9e.
+
+OPENAPI_MERGE_UNUSED_INCLUDE_CWWKO1667W=CWWKO1667W: La propri\u00e9t\u00e9 de configuration {0} inclut "{1}" mais ne correspond \u00e0 aucune application ou module Web d\u00e9ploy\u00e9.
+OPENAPI_MERGE_UNUSED_INCLUDE_CWWKO1667W.explanation=Le serveur est configur\u00e9 pour cr\u00e9er la documentation OpenAPI pour l'application ou le nom de module, mais aucune application ou module Web portant ce nom n'a \u00e9t\u00e9 d\u00e9ploy\u00e9.
+OPENAPI_MERGE_UNUSED_INCLUDE_CWWKO1667W.useraction=V\u00e9rifiez que toutes les applications ont d\u00e9marr\u00e9 correctement et que les noms de la propri\u00e9t\u00e9 de configuration sont sp\u00e9cifi\u00e9s correctement.
+
+OPEN_API_UI_PATH_UPDATE_CWWKO1668I=CWWKO1668I: Le chemin de l''IU OpenAPI est d\u00e9fini sur {0}.
+OPEN_API_UI_PATH_UPDATE_CWWKO1668I.explanation=Le chemin de l'IU OpenAPI est d\u00e9fini sur une valeur qui n'est pas la valeur par d\u00e9faut.
+OPEN_API_UI_PATH_UPDATE_CWWKO1668I.useraction=Aucune action n'est requise.
+
+OPEN_API_DOC_PATH_UPDATE_CWWKO1669I=CWWKO1669I: Le chemin du document OpenAPI est d\u00e9fini sur {0}.
+OPEN_API_DOC_PATH_UPDATE_CWWKO1669I.explanation=Le chemin du document OpenAPI est d\u00e9fini sur une valeur qui n'est pas la valeur par d\u00e9faut.
+OPEN_API_DOC_PATH_UPDATE_CWWKO1669I.useraction=Aucune action n'est requise.
+
+OPEN_API_UI_PATH_UPDATE_FAILED_CWWKO1670E=CWWKO1670E: Le chemin d'IU OpenAPI n'est pas valide. La valeur par d\u00e9faut est utilis\u00e9e \u00e0 la place. Consultez les avertissements pr\u00e9c\u00e9dents pour conna\u00eetre la cause de l'\u00e9chec de la validation.
+OPEN_API_UI_PATH_UPDATE_FAILED_CWWKO1670E.explanation=Le chemin d'IU OpenAPI n'est pas valide. La valeur par d\u00e9faut est utilis\u00e9e \u00e0 la place.
+OPEN_API_UI_PATH_UPDATE_FAILED_CWWKO1670E.useraction=Consultez les messages d'erreur pr\u00e9c\u00e9dents pour conna\u00eetre la cause de l'\u00e9chec de la validation.
+
+OPEN_API_DOC_PATH_UPDATE_FAILED_CWWKO1671E=CWWKO1671E: Le chemin du document OpenAPI n'est pas valide. La valeur par d\u00e9faut est utilis\u00e9e \u00e0 la place. Consultez les avertissements pr\u00e9c\u00e9dents pour conna\u00eetre la cause de l'\u00e9chec de la validation.
+OPEN_API_DOC_PATH_UPDATE_FAILED_CWWKO1671E.explanation=Le chemin du document OpenAPI n'est pas valide. La valeur par d\u00e9faut est utilis\u00e9e \u00e0 la place.
+OPEN_API_DOC_PATH_UPDATE_FAILED_CWWKO1671E.useraction=Consultez les messages d'erreur pr\u00e9c\u00e9dents pour conna\u00eetre la cause de l'\u00e9chec de la validation.
+
+OPEN_API_UI_PATH_CONFLICT_CWWKO1672E=CWWKO1672E: Le chemin d''IU OpenAPI ne peut pas \u00eatre d\u00e9fini sur {0}. Ce chemin est utilis\u00e9 pour extraire les documents OpenAPI.
+OPEN_API_UI_PATH_CONFLICT_CWWKO1672E.explanation=Les chemins de document OpenAPI et d'IU OpenAPI ne peuvent pas \u00eatre identiques.
+OPEN_API_UI_PATH_CONFLICT_CWWKO1672E.useraction=Sp\u00e9cifiez un chemin unique pour l'IU OpenAPI.
+
+OPEN_API_UI_PATH_INVALID_CWWKO1675E=CWWKO1675E: Le chemin d'IU OpenAPI n'est pas valide ou contient des caract\u00e8res non valides. L'URL doit \u00eatre construite avec des caract\u00e8res alphanum\u00e9riques Unicode A-Za-z0-9, un trait de soulignement (_), un tiret (-), une barre oblique (/) ou un point (.).
+OPEN_API_UI_PATH_INVALID_CWWKO1675E.explanation=Le chemin d'IU OpenAPI ne peut pas \u00eatre d\u00e9fini sur une valeur qui contient des caract\u00e8res non valides.
+OPEN_API_UI_PATH_INVALID_CWWKO1675E.useraction=V\u00e9rifiez que le chemin OpenAPI contient uniquement A-Za-z0-9, _, -, ., /.
+
+OPEN_API_DOC_PATH_INVALID_CWWKO1676E=CWWKO1676E: Le chemin du document OpenAPI n'est pas valide ou contient des caract\u00e8res non valides. L'URL doit \u00eatre construite avec des caract\u00e8res alphanum\u00e9riques Unicode A-Za-z0-9, un trait de soulignement (_), un tiret (-), une barre oblique (/) ou un point (.).
+OPEN_API_DOC_PATH_INVALID_CWWKO1676E.explanation=Le chemin du document OpenAPI ne peut pas \u00eatre d\u00e9fini sur une valeur qui contient des caract\u00e8res non valides.
+OPEN_API_DOC_PATH_INVALID_CWWKO1676E.useraction=V\u00e9rifiez que le chemin OpenAPI contient uniquement A-Za-z0-9, _, -, ., /.
+
+OPEN_API_PATH_SEGMENT_INVALID_CWWKO1677E=CWWKO1677E: Segment de chemin "/." ou "/.." n'est pas valide pour les n\u0153uds finaux OpenAPI.
+OPEN_API_PATH_SEGMENT_INVALID_CWWKO1677E.explanation=Segment de chemin OpenAPI "/." ou "/.." n'est pas valide.
+OPEN_API_PATH_SEGMENT_INVALID_CWWKO1677E.useraction=Supprimez les chemins "/." ou "/.." segment \u00e0 partir du chemin.
+
+# {1} - the server.xml element name, either includeApplication or excludeApplication
+OPEN_API_SLASH_IN_APPLICATION_CWWKO1678W=CWWKO1678W: Le nom de l''application configur\u00e9e {0} dans l''\u00e9l\u00e9ment {1} n''est pas valide car il contient le caract\u00e8re "/" ou est vide.
+OPEN_API_SLASH_IN_APPLICATION_CWWKO1678W.explanation=Le nom d'une application ne peut pas comporter de "/", car le "/" est utilis\u00e9 pour s\u00e9parer l'application des modules qui la composent.
+OPEN_API_SLASH_IN_APPLICATION_CWWKO1678W.useraction=Supprimez le "/" de l'\u00e9l\u00e9ment includeApplication ou excludeApplication dans votre fichier server.xml, ou convertissez cet \u00e9l\u00e9ment en includeModule ou excludeModule pour faire r\u00e9f\u00e9rence \u00e0 un seul module.
+
+# {1} - the server.xml element name, either includeModule or excludeModule
+OPEN_API_SLASH_IN_MODULE_CWWKO1679W=CWWKO1679W: Le nom du module configur\u00e9 {0} dans l''\u00e9l\u00e9ment {1} n''est pas valide car il ne respecte pas le format "<nom de l''application>/<nom du module>".
+OPEN_API_SLASH_IN_MODULE_CWWKO1679W.explanation=Un module doit avoir le format "<nom de l'application>/<nom du module>" ; par cons\u00e9quent, un nom de module sans barre oblique ("/"), ou un nom d'application ou de module vide, n'est pas valide.
+OPEN_API_SLASH_IN_MODULE_CWWKO1679W.useraction=Corrigez l'\u00e9l\u00e9ment includeModule ou excludeModule dans votre fichier server.xml, ou convertissez cet \u00e9l\u00e9ment en includeApplication ou excludeApplication pour r\u00e9f\u00e9rencer une application enti\u00e8re.
+
+OPENAPI_USING_WRONG_NAME_SOURCE_CWWKO1680W=CWWKO1680W: Le nom de l''application {1} dans l''\u00e9l\u00e9ment de configuration {0} ne correspond au nom d''aucune application d\u00e9ploy\u00e9e, mais il correspond soit au nom du descripteur de d\u00e9ploiement, soit au nom de l''archive de l''application {2}. Le nom de l''application utilis\u00e9 ici doit \u00eatre celui sp\u00e9cifi\u00e9 dans le fichier server.xml ou, si aucun nom n''est sp\u00e9cifi\u00e9, le nom du fichier d''archive sans l''extension.
+OPENAPI_USING_WRONG_NAME_SOURCE_CWWKO1680W.explanation=La r\u00e9f\u00e9rence au nom de l'application dans l'\u00e9l\u00e9ment de configuration mpOpenAPI correspond au nom d'un descripteur de d\u00e9ploiement d'application, mais ne correspond \u00e0 aucun nom d'application d\u00e9fini dans le fichier server.xml.
+OPENAPI_USING_WRONG_NAME_SOURCE_CWWKO1680W.useraction=V\u00e9rifiez que toutes les applications ont d\u00e9marr\u00e9 correctement et que les noms dans l'\u00e9l\u00e9ment de configuration sont sp\u00e9cifi\u00e9s correctement.
+
+OPENAPI_VERSION_INVALID_CWWK06181W=CWWKO1681W: La version configur\u00e9e {0} de l OpenAPI n''est pas dans un format valide, il doit s''agir de deux ou trois nombres s\u00e9par\u00e9s par un point (.). Les valeurs prises en charge sont {1}. La version par d\u00e9faut de {2} est utilis\u00e9e \u00e0 la place.
+OPENAPI_VERSION_INVALID_CWWK06181W.explanation=L'attribut openAPIVersion de l'\u00e9l\u00e9ment de configuration mpOpenAPI est d\u00e9fini sur une valeur qui n'est pas une version OpenAPI valide.
+OPENAPI_VERSION_INVALID_CWWK06181W.useraction=Mettez \u00e0 jour l'attribut openAPIVersion avec l'une des valeurs prises en charge figurant dans le message d'erreur.
+
+OPENAPI_VERSION_NOT_SUPPORTED_CWWK06182W=CWWKO1682W: Cette version de mpOpenAPI ne prend pas en charge la version configur\u00e9e {0} de l OpenAPI. Les valeurs prises en charge sont {1}. La version par d\u00e9faut de {2} est utilis\u00e9e \u00e0 la place.
+OPENAPI_VERSION_NOT_SUPPORTED_CWWK06182W.explanation=L'attribut openAPIVersion de l'\u00e9l\u00e9ment de configuration mpOpenAPI est d\u00e9fini sur une version OpenAPI qui n'est pas prise en charge par la version en cours d'ex\u00e9cution de la fonctionnalit\u00e9 mpOpenAPI.
+OPENAPI_VERSION_NOT_SUPPORTED_CWWK06182W.useraction=Mettez \u00e0 jour l'attribut openAPIVersion avec l'une des valeurs prises en charge figurant dans le message d'erreur, ou utilisez une version de la fonctionnalit\u00e9 mpOpenAPI qui prend en charge la version OpenAPI configur\u00e9e.
+
+# "mpOpenAPI", "info", "title" and "version" are names in server.xml and should not be translated
+OPENAPI_INFO_INVALID_SERVERXML_CWWKO1683W=CWWKO1683W: L'\u00e9l\u00e9ment de configuration mpOpenAPI info du fichier server.xml n'est pas valide. Les attributs title et version doivent \u00eatre d\u00e9finis. L'\u00e9l\u00e9ment info sera ignor\u00e9.
+OPENAPI_INFO_INVALID_SERVERXML_CWWKO1683W.explanation=Les champs titre et version sont des propri\u00e9t\u00e9s obligatoires de l'objet info d'un document OpenAPI. Lors de la configuration de l'objet info, une valeur doit \u00eatre fournie pour les attributs title et version.
+OPENAPI_INFO_INVALID_SERVERXML_CWWKO1683W.useraction=Assurez-vous que les attributs title et version sont d\u00e9finis sur des valeurs valides dans l'\u00e9l\u00e9ment d'information mpOpenAPI 
+
+OPENAPI_MERGE_UNUSED_INCLUDE_SERVERXML_CWWKO1684W=CWWKO1684W: L''\u00e9l\u00e9ment de configuration {0} inclut{1}" mais cela ne correspond \u00e0 aucune application ou module web d\u00e9ploy\u00e9.
+OPENAPI_MERGE_UNUSED_INCLUDE_SERVERXML_CWWKO1684W.explanation=Le serveur est configur\u00e9 pour cr\u00e9er la documentation OpenAPI pour l'application ou le nom de module, mais aucune application ou module Web portant ce nom n'a \u00e9t\u00e9 d\u00e9ploy\u00e9.
+OPENAPI_MERGE_UNUSED_INCLUDE_SERVERXML_CWWKO1684W.useraction=V\u00e9rifiez que toutes les applications ont d\u00e9marr\u00e9 correctement et que les noms dans la configuration sont sp\u00e9cifi\u00e9s correctement.
+
+OPENAPI_MP_CONFIG_REDUNDANT_CWWKO1685I=CWWKO1685I: La propri\u00e9t\u00e9 {0} MicroProfile Config est ignor\u00e9e car une configuration \u00e9quivalente est fournie dans le fichier server.xml.
+OPENAPI_MP_CONFIG_REDUNDANT_CWWKO1685I.explanation=Lorsque cette propri\u00e9t\u00e9 est d\u00e9finie et que la m\u00eame fonction est configur\u00e9e \u00e0 l'aide du fichier server.xml, la configuration du fichier server.xml est utilis\u00e9e et la propri\u00e9t\u00e9 MicroProfile Config est ignor\u00e9e.
+OPENAPI_MP_CONFIG_REDUNDANT_CWWKO1685I.useraction=Supprimer la propri\u00e9t\u00e9 MicroProfile Config.
+
+OPENAPI_MP_CONFIG_CONFLICTS_CWWKO1686W=CWWKO1686W: La propri\u00e9t\u00e9 {0} MicroProfile Config est ignor\u00e9e car une configuration conflictuelle est fournie dans le fichier server.xml.
+OPENAPI_MP_CONFIG_CONFLICTS_CWWKO1686W.explanation=Lorsque cette propri\u00e9t\u00e9 est d\u00e9finie et que la m\u00eame fonction est configur\u00e9e \u00e0 l'aide du fichier server.xml, la configuration du fichier server.xml est utilis\u00e9e et la propri\u00e9t\u00e9 MicroProfile Config est ignor\u00e9e.
+OPENAPI_MP_CONFIG_CONFLICTS_CWWKO1686W.useraction=Supprimez la propri\u00e9t\u00e9 MicroProfile Config et assurez-vous que la configuration du fichier server.xml est correcte.
+
+OPENAPI_ANNOTATION_TOO_NEW_CWWKO1687W=CWWKO1687W: L''\u00e9l\u00e9ment d''annotation {0} de la classe {1} est ignor\u00e9 parce qu''il n\u00e9cessite la version {2} de l OpenAPI, alors que la version actuelle de l OpenAPI est {3}.
+OPENAPI_ANNOTATION_TOO_NEW_CWWKO1687W.explanation=L'\u00e9l\u00e9ment d'annotation se rapporte \u00e0 une fonctionnalit\u00e9 ajout\u00e9e \u00e0 une version plus r\u00e9cente de la sp\u00e9cification OpenAPI que celle configur\u00e9e. La version d' OpenAPI utilis\u00e9e ne peut pas repr\u00e9senter cette information, elle est donc exclue de la documentation OpenAPI produite.
+OPENAPI_ANNOTATION_TOO_NEW_CWWKO1687W.useraction=Envisagez de supprimer l'\u00e9l\u00e9ment d'annotation ou de d\u00e9finir l'\u00e9l\u00e9ment de configuration openAPIVersion sur une version qui le prend en charge dans le fichier server.xml.
+
+OPENAPI_CACHE_READ_ERROR_CWWKO1688W=CWWKO1688W: Une erreur s''est produite lors de la lecture du cache OpenAPI pour l''application {0}. Le cache ne sera pas utilis\u00e9. L''erreur est la suivante : {1}
+OPENAPI_CACHE_READ_ERROR_CWWKO1688W.explanation=La fonction MicroProfile OpenAPI stocke certaines donn\u00e9es calcul\u00e9es lors du d\u00e9marrage de l'application afin d'\u00e9viter de les recalculer lors des prochains d\u00e9marrages du serveur si l'application reste inchang\u00e9e. Une erreur s'est produite lors de la lecture de ces donn\u00e9es, elles seront donc recalcul\u00e9es.
+OPENAPI_CACHE_READ_ERROR_CWWKO1688W.useraction=Consultez le journal message.log du serveur et les journaux de l'outil de diagnostic de premier niveau (FFDC) pour identifier le probl\u00e8me.
+
+OPENAPI_CACHE_WRITE_ERROR_CWWKO1689W=CWWKO1689W: Une erreur s''est produite lors de l''\u00e9criture du cache OpenAPI pour l''application {0}. Le cache ne sera pas disponible au prochain d\u00e9marrage. L''erreur est la suivante : {1}
+OPENAPI_CACHE_WRITE_ERROR_CWWKO1689W.explanation=La fonction MicroProfile OpenAPI stocke certaines donn\u00e9es calcul\u00e9es lors du d\u00e9marrage de l'application afin d'\u00e9viter de les recalculer lors des prochains d\u00e9marrages du serveur si l'application reste inchang\u00e9e. Une erreur s'est produite lors de l'\u00e9criture de ces donn\u00e9es, elles seront donc recalcul\u00e9es lors du prochain d\u00e9marrage du serveur.
+OPENAPI_CACHE_WRITE_ERROR_CWWKO1689W.useraction=Consultez le journal message.log du serveur et les journaux de l'outil de diagnostic de premier niveau (FFDC) pour identifier le probl\u00e8me.

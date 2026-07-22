@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2018 IBM Corporation and others.
+ * Copyright (c) 2013, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- * IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.openidconnect.clients.common;
 
@@ -14,22 +13,19 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
@@ -37,9 +33,13 @@ import org.jmock.lib.legacy.ClassImposteriser;
 import org.junit.After;
 import org.junit.Test;
 
-import com.ibm.ws.security.openidconnect.common.Constants;
+import com.ibm.ws.security.common.http.HttpUtils;
 import com.ibm.ws.security.test.common.CommonTestClass;
 
+import io.openliberty.security.oidcclientcore.http.HttpConstants;
+import io.openliberty.security.oidcclientcore.http.OidcClientHttpUtil;
+import io.openliberty.security.oidcclientcore.storage.CookieBasedStorage;
+import io.openliberty.security.oidcclientcore.storage.CookieStorageProperties;
 import test.common.SharedOutputManager;
 
 public class OidcClientUtilTest extends CommonTestClass {
@@ -70,6 +70,10 @@ public class OidcClientUtilTest extends CommonTestClass {
     protected final HttpGet mockHttpGet = mock.mock(HttpGet.class, "mockHttpGet");
     protected final HttpClient mockHttpClient = mock.mock(HttpClient.class, "mockHttpClient");
     protected final HttpResponse mockHttpResponse = mock.mock(HttpResponse.class, "mockHttpResponse");
+    protected final HttpUtils mockHttpUtils = mock.mock(HttpUtils.class, "mockHttpUtils");
+    protected final BasicCredentialsProvider mockBcp = mock.mock(BasicCredentialsProvider.class, "mockBcp");
+    protected final CookieBasedStorage cookieBasedStorage = mock.mock(CookieBasedStorage.class);
+    protected final CookieStorageProperties cookieStorageProperties = mock.mock(CookieStorageProperties.class);
     private static final String authMethod = "basic";
 
     final String access_token = "access_token";
@@ -84,6 +88,38 @@ public class OidcClientUtilTest extends CommonTestClass {
     public void tearDown() {
         mock.assertIsSatisfied();
         outputMgr.resetStreams();
+    }
+
+    private void createHttpClientExpectations(boolean isCredentialProviderNeeded) {
+        if (isCredentialProviderNeeded) {
+            mock.checking(new Expectations() {
+                {
+                    one(mockHttpUtils).createCredentialsProvider(with("baUsername"), with("baPassword"));
+                    will(returnValue(mockBcp));
+                    one(mockHttpUtils).createHttpClient(with(any(SSLSocketFactory.class)), with(any(String.class)),
+                            with(any(Boolean.class)), with(any(Boolean.class)), with(any(BasicCredentialsProvider.class)));
+                    will(returnValue(mockHttpClient));
+                }
+            });
+        } else {
+            mock.checking(new Expectations() {
+                {
+                    one(mockHttpUtils).createHttpClient(with(any(SSLSocketFactory.class)), with(any(String.class)),
+                            with(any(Boolean.class)), with(any(Boolean.class)), with(aNull(BasicCredentialsProvider.class)));
+                    will(returnValue(mockHttpClient));
+                }
+            });
+        }
+        try {
+            mock.checking(new Expectations() {
+                {
+                    one(mockHttpClient).execute(with(any(HttpUriRequest.class)));
+                    will(returnValue(mockHttpResponse));
+                }
+            });
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
     }
 
     @Test
@@ -134,38 +170,6 @@ public class OidcClientUtilTest extends CommonTestClass {
 
     /**
      * Test method for
-     * {@link com.ibm.ws.security.openidconnect.clients.common.OidcClientUtil#getFromEndpoint(java.lang.String, java.util.List, java.lang.String, java.lang.String, java.lang.String)}.
-     */
-    @Test
-    public void testGetFromEndpoint() {
-        OidcClientUtil oicu = new OidcClientUtil();
-        try {
-            final HttpGet getMethod = new HttpGet("http://localhost:8010/oidc/someEndPoint");
-
-            mock.checking(new Expectations() {
-                {
-                    one(oidcHttpUtil).createHTTPClient(with(any(SSLSocketFactory.class)), with(any(String.class)),
-                            with(any(Boolean.class)), with(any(String.class)), with(any(String.class)), with(any(Boolean.class)));
-                    will(returnValue(mockHttpClient));
-                    one(mockHttpClient).execute(with(any(HttpUriRequest.class)));
-                    will(returnValue(mockHttpResponse));
-                }
-            });
-
-            List<NameValuePair> params = new ArrayList<NameValuePair>();
-            oicu.oidcHttpUtil = oidcHttpUtil;
-            Map<String, Object> result = oicu.getFromEndpoint("http://localhost:8010/oidc/someEndPoint", params, "baUsername", "baPassword", access_token_content, sslSocketFactory, false, false);
-            HttpResponse responseCode = (HttpResponse) result.get(ClientConstants.RESPONSEMAP_CODE);
-            assertNotNull("Expect to see valid response code", responseCode);
-            HttpGet getMethod2 = (HttpGet) result.get(ClientConstants.RESPONSEMAP_METHOD);
-            assertEquals("HttpGet method ", getMethod.getMethod(), getMethod2.getMethod());
-        } catch (Throwable t) {
-            outputMgr.failWithThrowable(testName.getMethodName(), t);
-        }
-    }
-
-    /**
-     * Test method for
      * {@link com.ibm.ws.security.openidconnect.clients.common.OidcClientUtil#getUserinfo(java.lang.String, java.lang.String)}.
      */
     @Test
@@ -174,18 +178,25 @@ public class OidcClientUtilTest extends CommonTestClass {
             final String userInfoEndpoint = "https://localhost:8010/oidc/userInfo";
             final OidcClientUtil oicu = new OidcClientUtil();
             oicu.oidcHttpUtil = oidcHttpUtil;
+            oicu.httpUtils = mockHttpUtils;
             final Map<String, Object> postResponseMap = new HashMap<String, Object>();
-            postResponseMap.put(token_type, "bearer");
+            postResponseMap.put(HttpConstants.RESPONSEMAP_CODE, mockHttpResponse);
+            postResponseMap.put(HttpConstants.RESPONSEMAP_METHOD, mockHttpGet);
 
             mock.checking(new Expectations() {
                 {
-                    one(oidcHttpUtil).createHTTPClient(with(any(SSLSocketFactory.class)), with(any(String.class)),
-                            with(any(Boolean.class)), with(any(Boolean.class)));
-                    will(returnValue(mockHttpClient));
-                    one(mockHttpClient).execute(with(any(HttpUriRequest.class)));
-                    will(returnValue(mockHttpResponse));
+                    one(oidcHttpUtil).getFromEndpoint(with(any(String.class)),
+                            with(any(List.class)),
+                            with(any(String.class)),
+                            with(any(String.class)),
+                            with(any(String.class)),
+                            with(any(SSLSocketFactory.class)),
+                            with(any(Boolean.class)),
+                            with(any(Boolean.class)));
+                    will(returnValue(postResponseMap));
                 }
             });
+
             Map<String, Object> userInfoResponse = oicu.getUserinfo(userInfoEndpoint, access_token_content, sslSocketFactory, false, false);
             assertNotNull("Expected to get an instance of userInfo map", userInfoResponse);
             assertTrue("Returned map did not contain expected " + ClientConstants.RESPONSEMAP_CODE + " entry. Map was: " + userInfoResponse, userInfoResponse.containsKey(ClientConstants.RESPONSEMAP_CODE));
@@ -205,7 +216,7 @@ public class OidcClientUtilTest extends CommonTestClass {
         try {
             final String strTokenEndpoint = "https://unknown.ibm.com:8020/openidserver/token";
             final String strClientId = "client01";
-            final String strClientSecret = "secret";
+            final String strClientSecret = "secret1234";
             final OidcClientUtil oicu = new OidcClientUtil();
             oicu.oidcHttpUtil = oidcHttpUtil;
 
@@ -227,7 +238,6 @@ public class OidcClientUtilTest extends CommonTestClass {
                             with(any(String.class)), // strClientSecret,
                             with(any(String.class)), // (String) null,
                             with(any(SSLSocketFactory.class)), // sslContext,
-                            with(any(List.class)), // commonHeaders
                             with(any(Boolean.class)), //isHostnameVerification
                             with(any(String.class)),
                             with(any(Boolean.class))); // use jvm props
@@ -241,175 +251,69 @@ public class OidcClientUtilTest extends CommonTestClass {
         }
     }
 
-    @SuppressWarnings("unchecked")
     @Test
-    public void testGetTokensFromAuthzCode() {
+    public void testStoreCookieValue_nullCookieValue() {
         try {
-            final String strTokenEndpoint = "https://unknown.ibm.com:8020/openidserver/token";
-            final String strClientId = "client01";
-            final String strClientSecret = "secret";
-            final String strRedirectUri = "https://client.ibm.com:8020/oidcclient/redirect";
-            final String strCode = "xabceyfghil";
-            final String strGrantType = "autoiztion_code";
-            OidcClientUtil oicu = new OidcClientUtil();
-            assertNotNull("Expected to get an instance of OidcClientutil but none", oicu);
-            oicu.oidcHttpUtil = oidcHttpUtil;
-            final Map<String, Object> postResponseMap = new HashMap<String, Object>();
-            // {"access_token":"qOuZdH6Anmxclul5d71AXoDbFVmRG2dPnHn9moaw","token_type":"bearer","expires_in":3599,"scope":"openid profile","refresh_token":"QGCYpfziPZY2saAagbsf5jxbMucqcF3743euknBxzkUlof7uSv","id_token":"eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vaGFybW9uaWM6ODAxMS9vYXV0aDIvZW5kcG9pbnQvT0F1dGhDb25maWdTYW1wbGUvdG9rZW4iLCJpYXQiOjEzODczODM5NTMsInN1YiI6InRlc3R1c2VyIiwiZXhwIjoxMzg3Mzg3NTUzLCJhdWQiOiJjbGllbnQwMSJ9.ottD3eYa6qrnItRpL_Q9UaKumAyo14LnlvwnyF3Kojk"}
-            postResponseMap.put(access_token, "qOuZdH6Anmxclul5d71AXoDbFVmRG2dPnHn9moaw");
-            postResponseMap.put(token_type, "bearer");
-            postResponseMap.put(expires_in, new Long(3599));
-            postResponseMap.put(scope, "openid profile");
-            postResponseMap.put(refresh_token, "QGCYpfziPZY2saAagbsf5jxbMucqcF3743euknBxzkUlof7uSv");
-            postResponseMap.put(
-                    id_token,
-                    "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vaGFybW9uaWM6ODAxMS9vYXV0aDIvZW5kcG9pbnQvT0F1dGhDb25maWdTYW1wbGUvdG9rZW4iLCJpYXQiOjEzODczODM5NTMsInN1YiI6InRlc3R1c2VyIiwiZXhwIjoxMzg3Mzg3NTUzLCJhdWQiOiJjbGllbnQwMSJ9.ottD3eYa6qrnItRpL_Q9UaKumAyo14LnlvwnyF3Kojk");
-            mock.checking(new Expectations() {
-                {
-                    one(oidcHttpUtil).postToEndpoint(with(any(String.class)), //strTokenEndpoint
-                            with(any(List.class)), // params
-                            with(any(String.class)), // strClientId,
-                            with(any(String.class)), // strClientSecret,
-                            with(any(String.class)), // (String) null,
-                            with(any(SSLSocketFactory.class)), // sslContext,
-                            with(any(List.class)), // commonHeaders
-                            with(any(Boolean.class)),
-                            with(any(String.class)), //isHostnameVerification
-                            with(any(Boolean.class)));
-                    will(returnValue(postResponseMap));
-                    allowing(oidcHttpUtil).setClientId(strClientId);
-                    one(oidcHttpUtil).extractTokensFromResponse(with(any(Map.class)));
-                    will(returnValue(strContent));
-                }
-            });
-            HashMap<String, String> results = oicu.getTokensFromAuthzCode(strTokenEndpoint,
-                    strClientId,
-                    strClientSecret,
-                    strRedirectUri,
-                    strCode,
-                    strGrantType,
-                    sslSocketFactory,
-                    false,
-                    authMethod,
-                    null, null, false);
-
-            Set<String> keys = results.keySet();
-            boolean bAccessToken = false;
-            boolean bTokenType = false;
-            boolean bScope = false;
-            boolean bRefreshToken = false;
-            boolean bIdToken = false;
-            for (String key : keys) {
-                String value = results.get(key);
-                System.out.println("**" + key + ":" + value);
-                if (key.equalsIgnoreCase(access_token))
-                    bAccessToken = true;
-                if (key.equalsIgnoreCase(token_type))
-                    bTokenType = true;
-                if (key.equalsIgnoreCase(scope))
-                    bScope = true;
-                if (key.equalsIgnoreCase(refresh_token))
-                    bRefreshToken = true;
-                if (key.equalsIgnoreCase(id_token))
-                    bIdToken = true;
-            }
-            assertNotNull("Expect to get an instance of Tokens but none returned", results);
-            assertTrue("access_token not found", bAccessToken);
-            assertTrue("token_type not found", bTokenType);
-            assertTrue("scope not found", bScope);
-            assertTrue("refresh_token not found", bRefreshToken);
-            assertTrue("id_token not found", bIdToken);
+            final String cookieValue = null;
+            // Should be a no-op
+            OidcClientUtil.storeCookieValue(cookieBasedStorage, cookieStorageProperties, cookieValue);
         } catch (Throwable t) {
             outputMgr.failWithThrowable(testName.getMethodName(), t);
         }
     }
 
-    @SuppressWarnings("unchecked")
     @Test
-    public void testPostToTokenEndpoint() {
+    public void testStoreCookieValue_emptyCookieValue() {
         try {
-            final String strTokenEndpoint = "https://unknown.ibm.com:8020/openidserver/token";
-            final String strClientId = "client01";
-            final String strClientSecret = "secret";
-            final String strRedirectUri = "https://client.ibm.com:8020/oidcclient/redirect";
-            final String strCode = "xabceyfghil";
-            final String strGrantType = "autoiztion_code";
-            OidcClientUtil oicu = new OidcClientUtil();
-            assertNotNull("Expected to get an instance of OidcClientutil but none", oicu);
-            oicu.oidcHttpUtil = oidcHttpUtil;
-            final Map<String, Object> postResponseMap = new HashMap<String, Object>();
-            // {"access_token":"qOuZdH6Anmxclul5d71AXoDbFVmRG2dPnHn9moaw","token_type":"bearer","expires_in":3599,"scope":"openid profile","refresh_token":"QGCYpfziPZY2saAagbsf5jxbMucqcF3743euknBxzkUlof7uSv","id_token":"eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vaGFybW9uaWM6ODAxMS9vYXV0aDIvZW5kcG9pbnQvT0F1dGhDb25maWdTYW1wbGUvdG9rZW4iLCJpYXQiOjEzODczODM5NTMsInN1YiI6InRlc3R1c2VyIiwiZXhwIjoxMzg3Mzg3NTUzLCJhdWQiOiJjbGllbnQwMSJ9.ottD3eYa6qrnItRpL_Q9UaKumAyo14LnlvwnyF3Kojk"}
-            postResponseMap.put(access_token, "qOuZdH6Anmxclul5d71AXoDbFVmRG2dPnHn9moaw");
-            postResponseMap.put(token_type, "bearer");
-            postResponseMap.put(expires_in, new Long(3599));
-            postResponseMap.put(scope, "openid profile");
-            postResponseMap.put(refresh_token, "QGCYpfziPZY2saAagbsf5jxbMucqcF3743euknBxzkUlof7uSv");
-            postResponseMap.put(
-                    id_token,
-                    "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vaGFybW9uaWM6ODAxMS9vYXV0aDIvZW5kcG9pbnQvT0F1dGhDb25maWdTYW1wbGUvdG9rZW4iLCJpYXQiOjEzODczODM5NTMsInN1YiI6InRlc3R1c2VyIiwiZXhwIjoxMzg3Mzg3NTUzLCJhdWQiOiJjbGllbnQwMSJ9.ottD3eYa6qrnItRpL_Q9UaKumAyo14LnlvwnyF3Kojk");
+            final String cookieValue = "";
+            // Should be a no-op
+            OidcClientUtil.storeCookieValue(cookieBasedStorage, cookieStorageProperties, cookieValue);
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
+    @Test
+    public void testStoreCookieValue_shortCookieValue() {
+        try {
+            final String cookieValue = "some short cookie value";
             mock.checking(new Expectations() {
                 {
-                    one(oidcHttpUtil).postToEndpoint(with(any(String.class)), //strTokenEndpoint
-                            with(any(List.class)), // params
-                            with(any(String.class)), // strClientId,
-                            with(any(String.class)), // strClientSecret,
-                            with(any(String.class)), // (String) null,
-                            with(any(SSLSocketFactory.class)), // sslContext,
-                            with(any(List.class)), // commonHeaders
-                            with(any(Boolean.class)), //isHostnameVerification
-                            with(any(String.class)),
-                            with(any(Boolean.class)));
-                    will(returnValue(postResponseMap));
+                    one(cookieBasedStorage).store(ClientConstants.WAS_OIDC_CODE, cookieValue, cookieStorageProperties);
                 }
             });
-            List<NameValuePair> params = new ArrayList<NameValuePair>();
-            params.add(new BasicNameValuePair(ClientConstants.GRANT_TYPE, strGrantType));
-            params.add(new BasicNameValuePair(ClientConstants.REDIRECT_URI, strRedirectUri));
-            params.add(new BasicNameValuePair(Constants.CODE, strCode));
+            OidcClientUtil.storeCookieValue(cookieBasedStorage, cookieStorageProperties, cookieValue);
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
 
-            Map<String, Object> results = oicu.postToTokenEndpoint(strTokenEndpoint,
-                    params,
-                    strClientId,
-                    strClientSecret,
-                    sslSocketFactory,
-                    false,
-                    authMethod,
-                    false);
-            Set<String> keys = results.keySet();
-            boolean bAccessToken = false;
-            boolean bTokenType = false;
-            boolean bExpiresIn = false;
-            boolean bScope = false;
-            boolean bRefreshToken = false;
-            boolean bIdToken = false;
-            for (String key : keys) {
-                Object obj = results.get(key);
-                String value = null;
-                if (obj instanceof String)
-                    value = (String) obj;
-                else
-                    value = obj.toString();
-                System.out.println("**" + key + ":" + value);
-                if (key.equalsIgnoreCase(access_token))
-                    bAccessToken = true;
-                if (key.equalsIgnoreCase(token_type))
-                    bTokenType = true;
-                if (key.equalsIgnoreCase(expires_in))
-                    bExpiresIn = true;
-                if (key.equalsIgnoreCase(scope))
-                    bScope = true;
-                if (key.equalsIgnoreCase(refresh_token))
-                    bRefreshToken = true;
-                if (key.equalsIgnoreCase(id_token))
-                    bIdToken = true;
+    @Test
+    public void testStoreCookieValue_hugeCookieValue() {
+        try {
+            int testStringLength = 5000;
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < testStringLength; i++) {
+                sb.append('A');
             }
-            assertNotNull("Expect to get an instance of Tokens but none returned", results);
-            assertTrue("access_token not found", bAccessToken);
-            assertTrue("token_type not found", bTokenType);
-            assertTrue("expires_in not found", bExpiresIn);
-            assertTrue("scope not found", bScope);
-            assertTrue("refresh_token not found", bRefreshToken);
-            assertTrue("id_token not found", bIdToken);
+            final String cookieValue = sb.toString();
+
+            StringBuilder expectedFirstCookieValue = new StringBuilder();
+            for (int i = 0; i < OidcClientUtil.SPLIT_COOKIES_AT_VALUE_LENGTH; i++) {
+                expectedFirstCookieValue.append('A');
+            }
+            StringBuilder expectedSecondCookieValue = new StringBuilder();
+            for (int i = 0; i < (testStringLength - OidcClientUtil.SPLIT_COOKIES_AT_VALUE_LENGTH); i++) {
+                expectedSecondCookieValue.append('A');
+            }
+            mock.checking(new Expectations() {
+                {
+                    one(cookieBasedStorage).store(ClientConstants.WAS_OIDC_CODE + OidcClientUtil.SPLIT_COOKIE_SUFFIX + "0", expectedFirstCookieValue.toString(), cookieStorageProperties);
+                    one(cookieBasedStorage).store(ClientConstants.WAS_OIDC_CODE + OidcClientUtil.SPLIT_COOKIE_SUFFIX + "1", expectedSecondCookieValue.toString(), cookieStorageProperties);
+                    one(cookieBasedStorage).store(ClientConstants.WAS_OIDC_CODE + OidcClientUtil.NUMBER_OF_SPLIT_COOKIES_NAME_SUFFIX, "2", cookieStorageProperties);
+                }
+            });
+            OidcClientUtil.storeCookieValue(cookieBasedStorage, cookieStorageProperties, cookieValue);
         } catch (Throwable t) {
             outputMgr.failWithThrowable(testName.getMethodName(), t);
         }

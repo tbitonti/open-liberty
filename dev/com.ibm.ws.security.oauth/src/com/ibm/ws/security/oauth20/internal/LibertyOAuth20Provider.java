@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.oauth20.internal;
 
@@ -71,7 +70,7 @@ import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
 import com.ibm.websphere.security.oauth20.store.OAuthStore;
-import com.ibm.ws.config.xml.internal.nester.Nester;
+import com.ibm.ws.config.xml.nester.Nester;
 import com.ibm.ws.security.SecurityService;
 import com.ibm.ws.security.common.config.CommonConfigUtils;
 import com.ibm.ws.security.oauth20.TraceConstants;
@@ -237,8 +236,10 @@ public class LibertyOAuth20Provider implements OAuth20Provider, ConfigurationLis
 
     public static final String KEY_CLIENT_PROOF_KEY_FOR_CODE_EXCHANGE = "proofKeyForCodeExchange";
     public static final String KEY_CLIENT_PUBLIC_CLIENT = "publicClient";
+    public static final String KEY_CLIENT_BACKCHANNEL_LOGOUT_URI = "backchannelLogoutUri";
 
     public static final String KEY_ROPC_PREFER_USERSECURITYNAME = "ropcPreferUserSecurityName";
+    public static final String KEY_ROPC_PREFER_USERPRINCIPALNAME = "ropcPreferUserPrincipalName";
 
     private volatile SecurityService securityService;
 
@@ -352,6 +353,7 @@ public class LibertyOAuth20Provider implements OAuth20Provider, ConfigurationLis
     private String tokenFormat;
     private boolean revokeAccessTokensWithRefreshTokens = true;
     private boolean ropcPreferUserSecurityName = false;
+    private boolean ropcPreferUserPrincipalName = false;
     private boolean trackOAuthClients = false;
     private OAuthEndpointSettings oauthEndpointSettings;
 
@@ -476,6 +478,7 @@ public class LibertyOAuth20Provider implements OAuth20Provider, ConfigurationLis
         appTokenOrPasswordLimit = (Long) properties.get(KEY_APP_TOKEN_OR_PASSWORD_LIMIT);
         clientSecretEncoding = getClientSecretEncodingFromConfig();
         ropcPreferUserSecurityName = (Boolean) properties.get(KEY_ROPC_PREFER_USERSECURITYNAME);
+        ropcPreferUserPrincipalName = (Boolean) properties.get(KEY_ROPC_PREFER_USERPRINCIPALNAME);
         trackOAuthClients = (Boolean) properties.get(KEY_TRACK_OAUTH_CLIENTS);
         oauthEndpointSettings = populateOAuthEndpointSettings(properties, KEY_OAUTH_ENDPOINT);
         refreshedAccessTokenLimit = configUtils.getLongConfigAttribute(properties, KEY_REFRESHED_ACCESS_TOKEN_LIMIT, refreshedAccessTokenLimit);
@@ -541,18 +544,20 @@ public class LibertyOAuth20Provider implements OAuth20Provider, ConfigurationLis
     }
 
     private void setUpInternalClientId() {
-        // TODO
         internalClientId = configUtils.getConfigAttribute(properties, KEY_INTERNAL_CLIENT_ID);
     }
 
     private void setUpInternalClientSecret() {
-        // TODO
         Object o = properties.get(KEY_INTERNAL_CLIENT_SECRET);
         if (o != null) {
             if (o instanceof SerializableProtectedString) {
                 internalClientSecret = new String(((SerializableProtectedString) o).getChars());
             } else {
                 internalClientSecret = (String) o;
+            }
+            String decodedInternalClientSecret = PasswordUtil.passwordDecode(internalClientSecret);
+            if (decodedInternalClientSecret != null) {
+                internalClientSecret = decodedInternalClientSecret;
             }
         } else {
             internalClientSecret = null;
@@ -1269,6 +1274,7 @@ public class LibertyOAuth20Provider implements OAuth20Provider, ConfigurationLis
             publicClient = ((Boolean) props.get(KEY_CLIENT_PUBLIC_CLIENT)).booleanValue();
         }
         newClient.setPublicClient(publicClient);
+        newClient.setBackchannelLogoutUri((String) props.get(KEY_CLIENT_BACKCHANNEL_LOGOUT_URI));
         // newClient.setAppPasswordLifetime(((Long) props.get(KEY_CLIENT_APP_PASSWORD_LIFETIME)).longValue());
         // newClient.setAppTokenLifetime(((Long) props.get(KEY_CLIENT_APP_TOKEN_LIFETIME)).longValue());
         // newClient.setAppTokenOrPasswordLimit(((Long) props.get(KEY_APP_TOKEN_OR_PASSWORD_LIMIT)).longValue());
@@ -2454,6 +2460,11 @@ public class LibertyOAuth20Provider implements OAuth20Provider, ConfigurationLis
     @Override
     public boolean isROPCPreferUserSecurityName() {
         return this.ropcPreferUserSecurityName;
+    }
+
+    @Override
+    public boolean isROPCPreferUserPrincipalName() {
+        return this.ropcPreferUserPrincipalName;
     }
 
     @Override

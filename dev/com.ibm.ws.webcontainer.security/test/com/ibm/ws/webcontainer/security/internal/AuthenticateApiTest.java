@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2018 IBM Corporation and others.
+ * Copyright (c) 2017, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -126,7 +128,7 @@ public class AuthenticateApiTest {
                 allowing(req).getRemoteUser();
                 allowing(req).getUserPrincipal();
                 allowing(req).getHeader("Authorization");
-                allowing(ssoCookieHelper).addJwtSsoCookiesToResponse(null, req, resp);
+                allowing(ssoCookieHelper).addJwtSsoCookiesToResponse(null, req, resp, null);
                 allowing(req).getMethod();
                 will(returnValue("GET"));
                 allowing(unauthSubjectService).getUnauthenticatedSubject();
@@ -168,7 +170,7 @@ public class AuthenticateApiTest {
                 allowing(req).getUserPrincipal();
                 allowing(securityService).getUserRegistryService();
                 allowing(req).getHeader("Authorization");
-                allowing(ssoCookieHelper).addJwtSsoCookiesToResponse(null, req, resp);
+                allowing(ssoCookieHelper).addJwtSsoCookiesToResponse(null, req, resp, null);
                 allowing(req).getMethod();
                 will(returnValue("GET"));
                 allowing(unauthSubjectService).getUnauthenticatedSubject();
@@ -259,7 +261,7 @@ public class AuthenticateApiTest {
         AuthenticationResult authResult = new AuthenticationResult(AuthResult.SUCCESS, loginSubject);
         mock.checking(new Expectations() {
             {
-                allowing(ssoCookieHelper).addSSOCookiesToResponse(loginSubject, req, resp);
+                allowing(ssoCookieHelper).addSSOCookiesToResponse(loginSubject, req, resp, null);
                 allowing(config).getWebAlwaysLogin();
                 will(returnValue(false));
                 allowing(securityServiceRef).getService();
@@ -289,7 +291,7 @@ public class AuthenticateApiTest {
         AuthenticationResult authResult = new AuthenticationResult(AuthResult.SUCCESS, loginSubject);
         mock.checking(new Expectations() {
             {
-                allowing(ssoCookieHelper).addSSOCookiesToResponse(loginSubject, req, resp);
+                allowing(ssoCookieHelper).addSSOCookiesToResponse(loginSubject, req, resp, null);
                 allowing(config).getWebAlwaysLogin();
                 will(returnValue(true));
                 allowing(securityServiceRef).getService();
@@ -372,7 +374,7 @@ public class AuthenticateApiTest {
                 will(returnValue(false));
                 allowing(authnService).authenticate(with(equal(jaasEntryName)), with(matchingAuthenticationData(authenticationData)), with(equal((Subject) null)));
                 will(returnValue(null));
-                one(ssoCookieHelper).addSSOCookiesToResponse(null, req, resp);
+                one(ssoCookieHelper).addSSOCookiesToResponse(null, req, resp, null);
                 allowing(securityServiceRef).getService();
                 will(returnValue(securityService));
                 allowing(securityService).getAuthenticationService();
@@ -415,7 +417,7 @@ public class AuthenticateApiTest {
                 will(returnValue(false));
                 allowing(authnService).authenticate(with(equal(jaasEntryName)), with(matchingAuthenticationData(authenticationData)), with(equal((Subject) null)));
                 will(returnValue(subject));
-                one(ssoCookieHelper).addSSOCookiesToResponse(subject, req, resp);
+                one(ssoCookieHelper).addSSOCookiesToResponse(subject, req, resp, null);
                 allowing(securityServiceRef).getService();
                 will(returnValue(securityService));
                 allowing(securityService).getAuthenticationService();

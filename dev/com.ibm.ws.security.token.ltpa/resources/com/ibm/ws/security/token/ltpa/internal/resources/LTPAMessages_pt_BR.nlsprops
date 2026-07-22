@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2011 IBM Corporation and others.
+# Copyright (c) 2011, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -46,12 +48,62 @@ LTPA_CONFIG_ERROR=CWWKS4106E: Erro de configura\u00e7\u00e3o LTPA. N\u00e3o foi 
 LTPA_CONFIG_ERROR.explanation=As chaves LTPA n\u00e3o puderam ser lidas ou criadas no local especificado.
 LTPA_CONFIG_ERROR.useraction=Assegure que o local esteja acess\u00edvel pelo processo do servidor. Quaisquer FFDCs podem indicar um erro fatal na gera\u00e7\u00e3o ou carregamento das chaves.
 
-LTPA_KEYS_TO_LOAD=CWWKS4107A: O arquivo de chaves LTPA ou a configura\u00e7\u00e3o foram modificados. As chaves LTPA ser\u00e3o recarregadas do arquivo: {0}
-LTPA_KEYS_TO_LOAD.explanation=As chaves LTPA precisam ser recarregadas porque ocorreu uma mudan\u00e7a no arquivo de chaves LTPA ou na configura\u00e7\u00e3o.
-LTPA_KEYS_TO_LOAD.useraction=Assegure-se de que todos os servidores que participam da Conex\u00e3o \u00danica usem as mesmas chaves LTPA e senha.
+LTPA_KEYS_TO_LOAD=CWWKS4107A: a configura\u00e7\u00e3o LTPA \u00e9 modificada. Os seguintes arquivos foram modificados: {0}. Todas as chaves LTPA na configura\u00e7\u00e3o LTPA s\u00e3o recarregadas.
+LTPA_KEYS_TO_LOAD.explanation=Os arquivos de chaves LTPA devem ser recarregados devido a uma mudan\u00e7a nos arquivos de chaves LTPA ou na configura\u00e7\u00e3o.
+LTPA_KEYS_TO_LOAD.useraction=Assegure que todos os servidores que participam da conex\u00e3o \u00fanica compartilhem as mesmas chaves e senha LTPA.
 
 LTPA_KEY_CREATE_ERROR=CWWKS4108E: O sistema n\u00e3o pode criar a chave LTPA.
 LTPA_KEY_CREATE_ERROR.explanation=A chave LTPA n\u00e3o pode ser criada.
 LTPA_KEY_CREATE_ERROR.useraction=Quaisquer FFDCs podem indicar um erro fatal na gera\u00e7\u00e3o das chaves.
 
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST=CWWKS4109W: O valor {0} para o atributo de Data validUntilpara o arquivo de chave de valida\u00e7\u00e3o LTPA {1} est\u00e1 no passado. As chaves de valida\u00e7\u00e3o LTPA n\u00e3o podem ser usadas.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST.explanation=As chaves de valida\u00e7\u00e3o LTPA ser\u00e3o usadas apenas se o valor do atributo de Data validUntilestiver no futuro.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST.useraction=Atualize o valor do atributo de Data validUntilpara uma data futura se as chaves LTPA precisarem ser usadas. Caso contr\u00e1rio, exclua o arquivo de chaves LTPA.
 
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT=CWWKS4110E: O valor {0} para o atributo de Data validUntilpara o arquivo de chaves de valida\u00e7\u00e3o LTPA {1} possui um formato de data inv\u00e1lido. As chaves de valida\u00e7\u00e3o LTPA n\u00e3o podem ser usadas.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT.explanation=O valor do atributo validUntilDate deve ser formatado no formato de data, hora e zona do ISO O exemplo a seguir mostra o formato de data ISO: "2023-11-18T18:08:35Z".
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT.useraction=Atualize o valor do atributo de data validUntilpara o formato de data, hora e zona ISO (por exemplo, '2023-11-18T18:08:35Z')
+
+LTPA_VALIDATION_KEYS_MISSING_ATTR=CWWKS4111E: O elemento {0} LTPA validationKeys especificado no arquivo server.xml n\u00e3o possui o nome do arquivo, a senha ou ambos: {1}.
+LTPA_VALIDATION_KEYS_MISSING_ATTR.explanation=O elemento LTPA validationKeys requer os atributos de nome de arquivo e senha.
+LTPA_VALIDATION_KEYS_MISSING_ATTR.useraction=Inclua os atributos ausentes.
+
+LTPA_KEYS_FILE_DOES_NOT_EXIST=CWWKS4112E: O arquivo de chaves de valida\u00e7\u00e3o LTPA {0} n\u00e3o existe.
+LTPA_KEYS_FILE_DOES_NOT_EXIST.explanation=O arquivo de chaves de valida\u00e7\u00e3o n\u00e3o existe.
+LTPA_KEYS_FILE_DOES_NOT_EXIST.useraction=Certifique-se de que o arquivo de chaves de valida\u00e7\u00e3o exista no local especificado pelo elemento validationKeys.
+
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED=CWWKS4113W: O atributo LTPA updateTrigger \u00e9 configurado como pesquisado, monitorValidationKeysDir \u00e9 configurado como true, mas monitorInterval \u00e9 configurado como {0}. N\u00e3o ocorre nenhum recarregamento din\u00e2mico quando os arquivos-chave LTPA s\u00e3o modificados
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED.explanation=O valor de atributo monitorInterval \u00e9 zero ou menor que zero. O diret\u00f3rio n\u00e3o pode ser monitorado para quaisquer modifica\u00e7\u00f5es em arquivos com o sufixo .keys e o recarregamento din\u00e2mico n\u00e3o pode ocorrer
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED.useraction=Configure o atributo monitorInterval para um intervalo maior que zero.
+
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE=CWWKS4114W: O atributo updateTrigger \u00e9 configurado como desativado e o atributo monitorValidationKeysDir \u00e9 configurado como true Nenhum recarregamento din\u00e2mico ocorrer\u00e1 quando os arquivos-chave LTPA forem modificados no diret\u00f3rio
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE.explanation=Quando o atributo updateTrigger \u00e9 configurado para desativado, o diret\u00f3rio n\u00e3o \u00e9 monitorado para nenhuma modifica\u00e7\u00e3o nos arquivos com o sufixo .keys e o recarregamento din\u00e2mico n\u00e3o ocorre Mesmo se o atributo monitorValidationKeysDir for configurado como true, o atributo ser\u00e1 ignorado, e o diret\u00f3rio n\u00e3o ser\u00e1 monitorado
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE.useraction=Configure o valor do atributo updateTrigger para pesquisado ou mbean
+
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO=CWWKS4115W: O atributo updateTrigger \u00e9 configurado como desativado e o intervalo do monitor \u00e9 maior que {0}. N\u00e3o ocorre nenhum recarregamento din\u00e2mico quando os arquivos-chave LTPA s\u00e3o modificados
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO.explanation=Quando o atributo updateTrigger \u00e9 configurado para desativado, os arquivos n\u00e3o s\u00e3o monitorados para nenhuma modifica\u00e7\u00e3o nos arquivos com o sufixo .keys e o recarregamento din\u00e2mico n\u00e3o ocorre Mesmo se o atributo monitorInterval for configurado para um intervalo maior que zero, o atributo ser\u00e1 ignorado e os arquivos n\u00e3o ser\u00e3o monitorados.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO.useraction=Configure o valor do atributo updateTrigger para pesquisado ou mbean
+
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE=CWWKS4116W: As chaves de valida\u00e7\u00e3o do {0} devem ser regeneradas usando algoritmos criptogr\u00e1ficos com certifica\u00e7\u00e3o FIPS 140-3.
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE.explanation=As chaves de valida\u00e7\u00e3o LTPA que s\u00e3o criadas sem o FIPS 140-3 ativado falham quando o FIPS 140-3 \u00e9 ativado.
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE.useraction=Use o comando securityUtility createLTPAKeys para criar as chaves de valida\u00e7\u00e3o aprovadas pelo FIPS quando o FIPS 140-3 estiver configurado.
+
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE=CWWKS4117W: As chaves de valida\u00e7\u00e3o do {0} devem ser regeneradas usando algoritmos criptogr\u00e1ficos que n\u00e3o s\u00e3o certificados pelo FIPS 140-3.
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE.explanation=As chaves de valida\u00e7\u00e3o LTPA criadas com o FIPS 140-3 ativado falham quando o FIPS 140-3 \u00e9 desativado.
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE.useraction=Use o comando securityUtility createLTPAKeys para criar as chaves de valida\u00e7\u00e3o n\u00e3o aprovadas pelo FIPS quando o FIPS 140-3 estiver desativado.
+
+LTPA_KEYS_PASSWORD_ERROR=CWWKS4118E: Erro de configura\u00e7\u00e3o LTPA. O atributo ` keysPassword ` n\u00e3o est\u00e1 configurado no <ltpa /> elemento, a vari\u00e1vel de ambiente `ltpa_keys_password` n\u00e3o est\u00e1 definida e a vari\u00e1vel de ambiente `keystore_password` tamb\u00e9m n\u00e3o est\u00e1 definida.
+LTPA_KEYS_PASSWORD_ERROR.explanation=A configura\u00e7\u00e3o do LTPA exige uma senha para armazenar e ler as chaves do LTPA.
+LTPA_KEYS_PASSWORD_ERROR.useraction=Configure o atributo ` keysPassword ` no <ltpa /> elemento, ou defina as vari\u00e1veis de ambiente `ltpa_keys_password` ou `keystore_password` para fornecer uma senha.
+
+LTPA_KEYS_REENCRYPT=CWWKS4119I: As chaves LTPA do ` {0} ` est\u00e3o sendo recriptografadas utilizando a vari\u00e1vel de ambiente ''keystore_password''.
+LTPA_KEYS_REENCRYPT.explanation=As chaves LTPA est\u00e3o sendo recriptografadas usando a 'keystore_password', pois o valor padr\u00e3o do atributo ' keysPassword ' do LTPA foi removido para aumentar a seguran\u00e7a.
+LTPA_KEYS_REENCRYPT.useraction=Nenhuma a\u00e7\u00e3o \u00e9 necess\u00e1ria.
+
+LTPA_KEYS_REENCRYPT_SUCCESS=CWWKS4120I: Consegui recriptografar com sucesso as chaves LTPA do {0} utilizando a vari\u00e1vel de ambiente ''keystore_password''.
+LTPA_KEYS_REENCRYPT_SUCCESS.explanation=As chaves LTPA s\u00e3o recriptografadas utilizando a vari\u00e1vel de ambiente 'keystore_password'.
+LTPA_KEYS_REENCRYPT_SUCCESS.useraction=Se voc\u00ea estiver compartilhando as chaves LTPA entre servidores em um local comum, os outros servidores devem ser atualizados para que possam continuar a ler essas chaves LTPA. Defina o atributo ` keysPassword ` no elemento <ltpa /> correspondente, ou o atributo `password` no elemento <validationKeys /> correspondente, com o valor da vari\u00e1vel de ambiente `keystore_password` deste servidor. A vari\u00e1vel de ambiente 'keystore_password' \u00e9 normalmente definida no arquivo ` server.env `.
+
+LTPA_KEYS_REENCRYPT_ERROR=CWWKS4121E: N\u00e3o foi poss\u00edvel recriptografar as chaves LTPA do {0}. Exce\u00e7\u00e3o: {1}
+LTPA_KEYS_REENCRYPT_ERROR.explanation=N\u00e3o foi poss\u00edvel recriptografar as chaves LTPA. Para obter mais informa\u00e7\u00f5es, consulte a exce\u00e7\u00e3o na mensagem.
+LTPA_KEYS_REENCRYPT_ERROR.useraction=Certifique-se de que o arquivo de chaves LTPA e seu diret\u00f3rio n\u00e3o estejam configurados como somente leitura. Se o arquivo de chaves LTPA e seu diret\u00f3rio n\u00e3o estiverem definidos como somente leitura, consulte a exce\u00e7\u00e3o na mensagem para obter mais informa\u00e7\u00f5es.

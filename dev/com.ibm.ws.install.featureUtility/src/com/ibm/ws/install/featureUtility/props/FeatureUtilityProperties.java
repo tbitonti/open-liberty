@@ -1,19 +1,16 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.install.featureUtility.props;
-
-import com.ibm.ws.install.InstallException;
-import com.ibm.ws.install.internal.InstallLogUtils;
-import com.ibm.ws.install.internal.MavenRepository;
-import com.ibm.ws.kernel.boot.cmdline.Utils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,20 +28,42 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import com.ibm.ws.install.InstallConstants;
+import com.ibm.ws.install.InstallException;
+import com.ibm.ws.install.internal.InstallLogUtils;
+import com.ibm.ws.install.internal.MavenRepository;
+import com.ibm.ws.kernel.boot.cmdline.Utils;
+import com.ibm.ws.crypto.util.AESKeyManager;
+
 public class FeatureUtilityProperties {
 
     private final static String FILEPATH_EXT = "/etc/featureUtility.properties";
-    private final static Set<String> DEFINED_OPTIONS= new HashSet<>(Arrays.asList("proxyHost", "proxyPort", "proxyUser", "proxyPassword", "featureLocalRepo"));
+    private final static String FeatureVerifyQualifier = "feature.verify";
+    private final static Set<String> DEFINED_OPTIONS = new HashSet<>(Arrays.asList("proxyHost", "proxyPort",
+     "proxyUser", "proxyPassword", "http.nonProxyHosts", "featureLocalRepo", FeatureVerifyQualifier,
+     "wlp.password.encryption.key", "wlp.aes.encryption.key"));
     private static Map<String, String> definedVariables = new HashMap<>();
     private static List<MavenRepository> repositoryList = new ArrayList<>();
-    private static List<String> additionalJsonsList = new ArrayList<>();
-    private final static String jsonCoordQualifier = ".json.coordinate";
+    private static List<String> bomIdList = new ArrayList<>();
+    private static Map<String, Map<String, String>> keyMap = new HashMap<>();
+    private final static String bomIdQualifier = ".featuresbom";
+
     private static boolean didFileParse;
 
     static {
+        // Load properties first, then initialize the KeyStringResolver
+        // This allows the resolver to read encryption keys from featureUtility.properties
+        // in addition to bootstrap.properties, server.env, and environment variables
         Properties properties = null;
         try {
             properties = loadProperties();
+            
+            // Initialize the KeyStringResolver AFTER loading properties but BEFORE parsing
+            // This ensures that any AES-encrypted passwords in featureUtility.properties
+            // can be properly decrypted using encryption keys from the same file
+            FeatureUtilityKeyResolver keyResolver = new FeatureUtilityKeyResolver(properties);
+            AESKeyManager.setKeyStringResolver(keyResolver);
+            
             didFileParse = parseProperties(properties);
         } catch (InstallException e) {
             // log here that could not be found.
@@ -56,12 +75,16 @@ public class FeatureUtilityProperties {
         return repositoryList;
     }
     
-    public static List<String> getAdditionalJsons(){
-        return additionalJsonsList;
+    public static List<String> getBomIds(){
+        return bomIdList;
     }
     
-    public static boolean additionalJsonsRequired() {
-    	return !getAdditionalJsons().isEmpty();
+    public static Map<String, Map<String, String>> getKeyMap() {
+	return keyMap;
+    }
+
+    public static boolean bomIdsRequired() {
+    	return !getBomIds().isEmpty();
     }
 
     public static boolean canConstructHttpProxy(){
@@ -88,6 +111,10 @@ public class FeatureUtilityProperties {
         return definedVariables.get("proxyPassword"); // char array instead?
     }
 
+    public static String getNoProxySetting() {
+	return definedVariables.get("http.nonProxyHosts");
+    }
+
     public static String getFeatureLocalRepo(){
         return definedVariables.get("featureLocalRepo");
     }
@@ -102,6 +129,10 @@ public class FeatureUtilityProperties {
 
     public static String getRepoPropertiesFileLocation(){
         return new File(Utils.getInstallDir() + FILEPATH_EXT).getPath();
+    }
+
+    public static String getFeatureVerifyOption() {
+	return definedVariables.get(FeatureVerifyQualifier);
     }
 
     public static boolean isUsingDefaultRepo(){
@@ -139,26 +170,37 @@ public class FeatureUtilityProperties {
 
         // iterate over the properties
         for(Object obj : Collections.list(properties.keys())){
-            String key = obj.toString();
+	    String key = obj.toString();
             String value = properties.getProperty(key);
-            if(DEFINED_OPTIONS.contains(key.toString())){
-                definedVariables.putIfAbsent(key.toString(), value.toString()); // only write the first proxy variables we see
+	    if (DEFINED_OPTIONS.contains(key)) {
+		definedVariables.putIfAbsent(key, value); // only write the first proxy variables we see
             } else {
-            	if (key.toLowerCase().contains(jsonCoordQualifier)) {
-            		additionalJsonsList.add(value);
+		if (key.toLowerCase().contains(bomIdQualifier)) {
+            		bomIdList.add(value);
             	} else {
-            		String [] split = key.toString().split("\\.");
+		    String[] split = key.toString().split("\\.");
                     if(split.length < 2){ // invalid key
                         continue;
                     }
-                    String repoName = split[0];
+		    String propName = split[0];
                     String option = split[split.length - 1]; // incase there are periods in the key, cant use [1]
-                    if(repoMap.containsKey(repoName)){
-                        repoMap.get(repoName).put(option, value.toString());
-                    } else {
-                        HashMap<String, String> individualMap = new HashMap<>();
-                        individualMap.put(option, value.toString());
-                        repoMap.put(repoName, individualMap);
+		    if (option.equalsIgnoreCase(InstallConstants.KEYID_QUALIFIER)
+			    || option.equalsIgnoreCase(InstallConstants.KEYURL_QUALIFIER)) {
+			if (keyMap.containsKey(propName)) {
+			    keyMap.get(propName).put(option, value);
+			} else {
+			    HashMap<String, String> individualMap = new HashMap<>();
+			    individualMap.put(option, value);
+			    keyMap.put(propName, individualMap);
+			}
+		    } else {
+			if (repoMap.containsKey(propName)) {
+			    repoMap.get(propName).put(option, value);
+			} else {
+			    HashMap<String, String> individualMap = new HashMap<>();
+			    individualMap.put(option, value);
+			    repoMap.put(propName, individualMap);
+			}
                     }
             	}
             }

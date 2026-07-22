@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -29,7 +31,7 @@ public class JwtTokenActions extends TestActions {
     // anyone calling this method needs to add upn to the extraClaims that it passes in (if they need it)
     public String getJwtTokenUsingBuilder(String testName, LibertyServer server, String builderId, List<NameValuePair> extraClaims) throws Exception {
 
-        String jwtBuilderUrl = SecurityFatHttpUtils.getServerUrlBase(server) + "/jwtbuilder/build";
+        String jwtBuilderUrl = SecurityFatHttpUtils.getServerUrlBase(server) + JwtConstants.JWT_SIMPLE_BUILDER_ENDPOINT;
 
         List<NameValuePair> requestParams = setRequestParms(builderId, extraClaims);
 

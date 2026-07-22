@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -156,8 +158,7 @@ public class BroadcasterTestServlet extends FATServlet {
             
             if (!latch.await(timeout, TimeUnit.SECONDS)) {                
                 throw new RuntimeException(m + " timed out waiting for initial registration welcome with timeout of: " + timeout);
-            }
-
+            }            
             // everybody should receive the welcome event - but then two of the four should be closed/removed from the broadcaster
             latch = new CountDownLatch(numClients - 2);
             for (ClientListener clientListener : clients) {
@@ -166,7 +167,23 @@ public class BroadcasterTestServlet extends FATServlet {
                 events.clear();
                 clientListener.setLatch(latch);
             }
-            
+
+            int numOfClosedClients = target.path("numClosedClients").request().get().readEntity(Integer.class);
+
+            if (numOfClosedClients != 2) {
+                int retries = 0;
+
+                // if it isn't 2, retry 10 times with a 500 ms sleep between each retry
+                // closedSinkTest is run asynchronously so the close may not have finished yet so 
+                // retry until both are closed
+                do {
+                    Thread.sleep(500);
+                    numOfClosedClients = target.path("numClosedClients").request().get().readEntity(Integer.class);
+                    retries++;
+                } while (numOfClosedClients != 2 && retries < 10);
+            }
+            assertEquals(2, numOfClosedClients);
+
             target.request().put(Entity.text("Event1"));
             
             if (!latch.await(timeout, TimeUnit.SECONDS)) {
@@ -174,7 +191,7 @@ public class BroadcasterTestServlet extends FATServlet {
             }
  
             int numOfReceivedEvents = 0;
-            for (ClientListener clientListener : clients) {                
+            for (ClientListener clientListener : clients) { 
                 List<String> events = clientListener.getReceivedEvents();
                 if (events.size() == 1 && events.get(0).equals("Event1")) {
                     numOfReceivedEvents++;
@@ -184,6 +201,19 @@ public class BroadcasterTestServlet extends FATServlet {
             assertEquals(2, numOfReceivedEvents);
             
             int numOfRegisteredClients = target.path("numSinks").request().get().readEntity(Integer.class);
+
+            if (numOfRegisteredClients != 2) {
+                int retries = 0;
+
+                // if it isn't 2, retry 10 times with a 500 ms sleep between each retry
+                // On RestEasy, the close doesn't remove the sink from the broadcaster until
+                // the broadcaster attempts to broadcast "Event1" on the closed sinks
+                do {
+                    Thread.sleep(500);
+                    numOfRegisteredClients = target.path("numSinks").request().get().readEntity(Integer.class);
+                    retries++;
+                } while (numOfRegisteredClients != 2 && retries < 10);
+            }
             assertEquals(2, numOfRegisteredClients);
         } finally {
             target.request().delete();

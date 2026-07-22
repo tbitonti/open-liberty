@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -56,7 +58,7 @@ public final class CustomProperties
   private int _max_system_threadpool_size = 5;
   // Value to indicate the maximum size of the Reconstitute Thread Pool
   //The deault value is numberofcores*2
-  private int _max_reconstitute_threadpool_size = CpuInfo.getAvailableProcessors();
+  private int _max_reconstitute_threadpool_size = CpuInfo.getAvailableProcessors().get();
 
   // Browse Protocol Liveness Parameters. Should be configurable
 
@@ -735,7 +737,7 @@ public final class CustomProperties
       // target) see a gap appear, nack the gap (after a few milliseconds) then the
       // message arrives anyway so we add it to the stream. Then the source receives
       // the nack and re-sends the message. When that arrives at us we just ignore it
-      // becuase we already have it.
+      // because we already have it.
       // You'd expect this to happen occasionally but if it happens too often, especially after
       // an initial re-start period, it will add unnecessary traffic, reducing performance.
       // There are a couple of reasons this can occur:

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,12 +27,12 @@ public class AbortableXAResourceImpl extends com.ibm.tx.jta.ut.util.XAResourceIm
     /**  */
     private static final long serialVersionUID = -1945889317488521383L;
 
-    public AbortableXAResourceImpl(int i) {
-        super(i);
+    public AbortableXAResourceImpl(String string) {
+        super(string);
     }
 
-    public static AbortableXAResourceImpl getAbortableXAResourceImpl(int key) {
-        return new AbortableXAResourceImpl(key);
+    public static AbortableXAResourceImpl getAbortableXAResourceImpl(String string) {
+        return new AbortableXAResourceImpl(string);
     }
 
     @Override

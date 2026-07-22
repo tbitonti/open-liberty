@@ -87,6 +87,10 @@ import org.opensaml.saml.common.SAMLVersion;
 /**
  *
  */
+// Liberty Change; This class has no Liberty specific changes other than the Sensitive annotation 
+// It is required as an overlay because of Liberty specific changes to MessageImpl.put(). Any call
+// to SoapMessage.put() will cause a NoSuchMethodException in the calling class if the class is not recompiled.
+// If a solution to this compilation issue can be found, this class should be removed as an overlay. 
 public class AsymmetricBindingHandler extends AbstractBindingBuilder {
 
     private static final Logger LOG = LogUtils.getL7dLogger(AsymmetricBindingHandler.class);
@@ -235,8 +239,8 @@ public class AsymmetricBindingHandler extends AbstractBindingBuilder {
             }
 
             if (encToken != null) {
-                WSSecBase encr = null;
                 if (encToken.getToken() != null && !enc.isEmpty()) {
+                    final WSSecBase encr; // Liberty Change: Backport 4.x
                     if (encToken.getToken().getDerivedKeys() == DerivedKeys.RequireDerivedKeys) {
                         encr = doEncryptionDerived(encToken, enc);
                     } else {
@@ -342,7 +346,7 @@ public class AsymmetricBindingHandler extends AbstractBindingBuilder {
             unassertPolicy(encryptionToken, ex);
         }
 
-        List<WSEncryptionPart> encrParts = null;
+        final List<WSEncryptionPart> encrParts;
         try {
             encrParts = getEncryptedParts();
             //Signed parts are determined before encryption because encrypted signed headers
@@ -492,7 +496,7 @@ public class AsymmetricBindingHandler extends AbstractBindingBuilder {
 
             Crypto crypto = getEncryptionCrypto();
 
-            SecurityToken securityToken = null;
+            final SecurityToken securityToken;
             try {
                 securityToken = getSecurityToken();
                 if (!isRequestor() && securityToken != null
@@ -779,7 +783,7 @@ public class AsymmetricBindingHandler extends AbstractBindingBuilder {
             }
 
             List<Reference> referenceList = sig.addReferencesToSign(sigParts);
-            if (!referenceList.isEmpty()) {
+            if (!referenceList.isEmpty()) { 
                 //Do signature
                 if (bottomUpElement == null) {
                     sig.computeSignature(referenceList, false, null);

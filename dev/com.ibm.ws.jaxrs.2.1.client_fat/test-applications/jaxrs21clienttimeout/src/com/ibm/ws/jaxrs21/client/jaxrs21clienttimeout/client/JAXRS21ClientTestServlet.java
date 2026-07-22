@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,6 +17,7 @@ import java.io.PrintWriter;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -35,6 +38,8 @@ public class JAXRS21ClientTestServlet extends HttpServlet {
     private static final long serialVersionUID = 7188707949976646396L;
 
     private static final String moduleName = "jaxrs21clienttimeout";
+
+    private static final boolean isWindows = System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("win");
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -146,6 +151,9 @@ public class JAXRS21ClientTestServlet extends HttpServlet {
                 e2.printStackTrace();
                 long timeElapsed = System.currentTimeMillis() - startTime;
                 long fudgeFactorTime = 4000;
+                if (isWindows) {
+                    fudgeFactorTime = 8000;
+                }
                 if (timeElapsed - fudgeFactorTime < longTimeout && timeElapsed + fudgeFactorTime > longTimeout) {
                     res = "[Basic Resource]:testTimeoutNonRoutable";
                 } else {

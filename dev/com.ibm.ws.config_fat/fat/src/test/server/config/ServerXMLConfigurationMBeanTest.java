@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -80,8 +82,7 @@ public class ServerXMLConfigurationMBeanTest {
                       server.waitForStringInLog("CWWKT0016I.*IBMJMXConnectorREST"));
 
         Log.info(logClass, methodName, "Waiting for 'CWWKO0219I.*ssl'");
-        assertNotNull("'CWWKO0219I.*ssl' was not received on server",
-                      server.waitForStringInLog("CWWKO0219I.*ssl"));
+server.waitForDefaultHTTPEndpointSSLStart();
 
         Log.info(logClass, methodName, "Waiting for 'CWPKI0803A.*ssl'");
         assertNotNull("'CWPKI0803A.*ssl' was not generated on server",
@@ -92,8 +93,7 @@ public class ServerXMLConfigurationMBeanTest {
                       server.waitForStringInLog("CWWKS0008I"));
 
         Log.info(logClass, methodName, "Waiting for 'CWWKS4105I: LTPA configuration is ready'");
-        assertNotNull("'CWWKS4105I: LTPA configuration is ready' was not generated on server",
-                      server.waitForStringInLog("CWWKS4105I"));
+        server.waitForLTPAConfigReady();
 
         // Set up the trust store
         TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
@@ -162,13 +162,17 @@ public class ServerXMLConfigurationMBeanTest {
         assertNotNull("Configuration file path collection should not be null.", configFilePaths);
 
         // Check that the collection contains the expected file paths.
-        assertEquals("Config file path collection size is not 3.", 3, configFilePaths.size());
+        assertEquals("Config file path collection size is not 5.", 5, configFilePaths.size());
         assertTrue("server.xml is missing from the collection.",
                    configFilePaths.contains("${server.config.dir}/server.xml"));
         assertTrue("fatTestPorts.xml is missing from the collection.",
                    configFilePaths.contains("${wlp.user.dir}/servers/fatTestPorts.xml"));
         assertTrue("fatTestCommon.xml is missing from the collection.",
                    configFilePaths.contains("${wlp.user.dir}/servers/fatTestCommon.xml"));
+        assertTrue("configDropins/defaults/a.xml is missing from the collection.",
+                   configFilePaths.contains("${server.config.dir}/configDropins/defaults/a.xml"));
+        assertTrue("configDropins/overrides/b.xml is missing from the collection.",
+                   configFilePaths.contains("${server.config.dir}/configDropins/overrides/b.xml"));
     }
 
     private static int getSSLPort() {

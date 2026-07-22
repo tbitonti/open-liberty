@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -19,7 +21,7 @@ import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.SQLInvalidAuthorizationSpecException;
+import java.sql.SQLNonTransientException;
 import java.sql.Statement;
 import java.util.HashSet;
 import java.util.Set;
@@ -84,7 +86,7 @@ public class DB2KerberosTestServlet extends FATServlet {
     public void testNonKerberosConnectionRejected() throws Exception {
         try (Connection con = noKrb5.getConnection()) {
             throw new Exception("Should not be able to obtain a non-kerberos connection from a kerberos-only database");
-        } catch (SQLInvalidAuthorizationSpecException e) {
+        } catch (SQLNonTransientException e) {
             System.out.println("Got expected error getting non-kerberos connection");
         }
     }
@@ -102,6 +104,22 @@ public class DB2KerberosTestServlet extends FATServlet {
     public void testTicketCache() throws Exception {
         try (Connection con = krb5DataSource.getConnection()) {
             con.createStatement().execute("SELECT 1 FROM SYSIBM.SYSDUMMY1");
+        }
+    }
+
+    public void testTicketCacheExpired() throws Exception {
+        try (Connection con = krb5DataSource.getConnection()) {
+            fail("The expired ticket should result in a LoginException");
+        } catch (SQLException expected) {
+            Throwable cause1 = expected.getCause();
+            if (cause1.getClass().getCanonicalName().contains("ResourceException")) { // javax.resource.ResourceException is not on the cp
+                Throwable cause2 = cause1.getCause();
+                if (cause2 instanceof LoginException) {
+                    System.out.println("Caught expected SQLException with nested LoginException");
+                    return;
+                }
+            }
+            throw expected;
         }
     }
 
@@ -283,16 +301,14 @@ public class DB2KerberosTestServlet extends FATServlet {
             TestXAResource.removeSuccessLimit(cons);
             try {
                 tran.rollback();
-            } catch (Throwable t) {
-            }
+            } catch (Throwable t) {}
             throw x;
         } finally {
             for (Connection con : cons)
                 if (con != null)
                     try {
                         con.close();
-                    } catch (Throwable x) {
-                    }
+                    } catch (Throwable x) {}
         }
 
         // At this point, the transaction is in-doubt.
@@ -377,8 +393,7 @@ public class DB2KerberosTestServlet extends FATServlet {
                 String mc1 = String.valueOf(f1.get(conn1));
                 f1.setAccessible(false);
                 return mc1;
-            } catch (Exception ignore) {
-            }
+            } catch (Exception ignore) {}
         }
         throw new RuntimeException("Did not find field 'managedConn' on " + conn1.getClass());
     }

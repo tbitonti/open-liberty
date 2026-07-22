@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2018 IBM Corporation and others.
+ * Copyright (c) 2014, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,7 +18,7 @@ import com.ibm.wsspi.http.HttpInboundConnection;
 import com.ibm.wsspi.tcpchannel.TCPConnectionContext;
 
 /**
- *
+ * This package is not SPI even though it is in wsspi.
  */
 public interface HttpInboundConnectionExtended extends HttpInboundConnection {
 
@@ -69,5 +71,21 @@ public interface HttpInboundConnectionExtended extends HttpInboundConnection {
      *
      * @return
      */
-    boolean useForwardedHeaders();
+    boolean useRemoteIpOptions();
+
+    /**
+     * Since Servlet 6.0 : support jakarta.servlet.ServletRequest#getProtocolRequestId()
+     *
+     * @return (int) Stream ID; -1 otherwise
+     *
+     */
+    public int getStreamId();
+
+    /**
+     * Since Servlet 6.0 : support jakarta.servlet.ServletConnection#getConnectionId()
+     *
+     * @return (int) connection dispatcher link for the servlet request
+     *
+     */
+    public int getConnectionId();
 }

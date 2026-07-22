@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2011, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -46,6 +48,8 @@ import com.ibm.wsspi.kernel.service.location.WsLocationAdmin;
 import com.ibm.wsspi.kernel.service.location.WsLocationConstants;
 import com.ibm.wsspi.kernel.service.utils.FilterUtils;
 import com.ibm.wsspi.kernel.service.utils.FrameworkState;
+
+import io.openliberty.checkpoint.spi.CheckpointPhase;
 
 /**
  * App manager file monitoring service which monitors a given directory for applications being added/deleted and starts/stops them as
@@ -300,7 +304,7 @@ public class DropinMonitor {
     private void tidyUpMonitoredDirectory(boolean createdDir, File dirToCleanup) {
         if (createdDir && dirToCleanup != null) {
             File[] fileListing = dirToCleanup.listFiles();
-            if (fileListing == null || fileListing.length == 0) {
+            if (fileListing != null && fileListing.length == 0) {
                 if (!!!dirToCleanup.delete()) {
                     Tr.error(_tc, "MONITOR_DIR_CLEANUP_FAIL", dirToCleanup);
                 } else if (_tc.isDebugEnabled()) {
@@ -472,7 +476,17 @@ public class DropinMonitor {
                 _monitors.clear();
 
                 if (!!!newDir.exists()) {
-                    createdMonitoredDir.set(newDir.mkdirs());
+                    boolean successfulMkDirs = newDir.mkdirs();
+                    if (CheckpointPhase.getPhase().restored()) {
+                        createdMonitoredDir.set(successfulMkDirs);
+                    } else {
+                        // Any created dropins directory created before checkpoint we want to avoid
+                        // deleting on shutdown.
+                        // The directory may be in the middle of being monitored during checkpoint.
+                        // Deleting such a directory on shutdown potentially can prevent the process
+                        // from being restored subsequent times.
+                        createdMonitoredDir.set(false);
+                    }
                 }
             } else {
                 oldDir = null;

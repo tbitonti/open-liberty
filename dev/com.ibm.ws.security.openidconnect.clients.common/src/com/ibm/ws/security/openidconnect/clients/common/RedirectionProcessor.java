@@ -1,27 +1,26 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.openidconnect.clients.common;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 
-import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.security.common.web.WebUtils;
-import com.ibm.ws.security.openidconnect.common.Constants;
-import com.ibm.ws.webcontainer.security.CookieHelper;
+
+import io.openliberty.security.oidcclientcore.storage.OidcStorageUtils;
 
 /**
  * Processes the End-User redirection to the Client by the OP.
@@ -104,6 +103,7 @@ public class RedirectionProcessor {
         out.flush();
     }
 
+    @FFDCIgnore(Exception.class)
     private void continueWithRedirection(RedirectionEntry redirectionEntry, String state) throws IOException {
         if (state == null || state.isEmpty()) {
             redirectionEntry.handleNoState(request, response);
@@ -113,8 +113,15 @@ public class RedirectionProcessor {
         String requestUrl = getOriginalRequestUrl(state);
 
         if (requestUrl == null || requestUrl.isEmpty()) {
-            String errorMsg = Tr.formatMessage(tc, "OIDC_CLIENT_BAD_REQUEST_NO_COOKIE", request.getRequestURL()); // CWWKS1750E
+            String errorMsg = Tr.formatMessage(tc, "OIDC_CLIENT_BAD_REQUEST_NO_COOKIE", request.getRequestURL()); // CWWKS1520E & CWWKS2352E
             Tr.error(tc, errorMsg);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return;
+        }
+        try {
+            OidcClientUtil.verifyReferrerHostIsValid(request, requestUrl, OidcStorageUtils.getOriginalReqUrlStorageKey(state));
+        } catch (Exception e) {
+            Tr.error(tc, e.getMessage());
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return;
         }
@@ -133,9 +140,10 @@ public class RedirectionProcessor {
     }
 
     private String getOriginalRequestUrl(String state) {
-        String cookieName = ClientConstants.WAS_REQ_URL_OIDC + HashUtils.getStrHashCode(state);
-        Cookie[] cookies = request.getCookies();
-        String requestUrl = CookieHelper.getCookieValue(cookies, cookieName);
+        String cookieName = OidcStorageUtils.getOriginalReqUrlStorageKey(state);
+        //Cookie[] cookies = request.getCookies();
+        //String requestUrl = CookieHelper.getCookieValue(cookies, cookieName);
+        String requestUrl = OidcClientUtil.getReferrerURLCookieHandler().getReferrerURLFromCookies(request, cookieName);
         OidcClientUtil.invalidateReferrerURLCookie(request, response, cookieName);
         return requestUrl;
     }
@@ -164,7 +172,7 @@ public class RedirectionProcessor {
             Tr.debug(tc, "Request info: state: " + state + " session_state: " + sessionState);
         }
         boolean isHttpsRequest = requestUrl.toLowerCase().startsWith("https");
-        new OidcClientUtil().setCookieForRequestParameter(request, response, clientId, state, isHttpsRequest, clientCfg);
+        OidcClientUtil.setCookieForRequestParameter(request, response, clientId, state, isHttpsRequest, clientCfg);
         if ((oidcClientId != null && !oidcClientId.isEmpty()) || id_token != null) {
             postToWASReqURLForImplicitFlow(requestUrl, oidcClientId);
         } else {

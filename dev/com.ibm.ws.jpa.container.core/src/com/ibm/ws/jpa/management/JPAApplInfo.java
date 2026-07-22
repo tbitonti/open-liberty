@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2006, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -59,6 +61,13 @@ public abstract class JPAApplInfo {
     // "EAR_Scope_Module" is used as the unique key.
     // Now synchronized to accomodate Dump Introspector events
     private Map<String, JPAScopeInfo> puScopes = null;
+
+    /**
+     * @return the puScopes
+     */
+    public Map<String, JPAScopeInfo> getPuScopes() {
+        return puScopes;
+    }
 
     /*
      * Constructor.

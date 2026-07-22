@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2018 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -23,6 +25,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import com.ibm.websphere.simplicity.AsyncProgramOutput;
 import com.ibm.websphere.simplicity.Machine;
@@ -84,21 +87,21 @@ public class LocalProvider {
      * of a remote file.
      *
      * A failure to delete any nested child file will cause the entire
-     * deletion to fail.  However, the delete operation will attempt to
+     * deletion to fail. However, the delete operation will attempt to
      * delete all nested children despite any failures on particular
      * children.
      *
-     * @param remoteFile The remote file providing the path which is to
-     *     be deleted.
+     * @param  remoteFile The remote file providing the path which is to
+     *                        be deleted.
      *
-     * @return True or false telling if the file was successfully deleted.
-     *     True if the file does not exist.
-     * 
-     * @throws Exception Thrown in case of an error deleting the file.
-     *     Not currently thrown.
+     * @return            True or false telling if the file was successfully deleted.
+     *                    True if the file does not exist.
+     *
+     * @throws Exception  Thrown in case of an error deleting the file.
+     *                        Not currently thrown.
      */
     public static boolean delete(RemoteFile remoteFile) throws Exception {
-        return delete( new File( remoteFile.getAbsolutePath() ) );
+        return delete(new File(remoteFile.getAbsolutePath()));
     }
 
     /**
@@ -107,17 +110,17 @@ public class LocalProvider {
      * If a directory, recursively delete the contents of the directory
      * before deleting the directory itself.
      *
-     * @param file The file which is to be deleted.
+     * @param  file The file which is to be deleted.
      *
-     * @return True or false telling if the file was deleted.
+     * @return      True or false telling if the file was deleted.
      */
     private static boolean delete(File file) {
-        if ( !file.exists() ) {
+        if (!file.exists()) {
             return true;
         }
 
-        if ( file.isDirectory() ) {
-            for ( File childFile : file.listFiles() ) {
+        if (file.isDirectory()) {
+            for (File childFile : file.listFiles()) {
                 // Ignore any child delete failure: The parent
                 // delete will subsequently fail.
                 @SuppressWarnings("unused")
@@ -128,26 +131,36 @@ public class LocalProvider {
         return file.delete();
     }
 
-    //
+    public static ProgramOutput executeCommand(Machine machine, String cmd,
+                                               String[] parameters, String workDir, Properties envVars, int timeout) throws Exception {
+        return executeCommand(machine, cmd, parameters, workDir, envVars, timeout, false);
+    }
 
     public static ProgramOutput executeCommand(Machine machine, String cmd,
-                                               String[] parameters, String workDir, Properties envVars) throws Exception {
+                                               String[] parameters, String workDir, Properties envVars, int timeout, boolean preserveSpaces) throws Exception {
         ByteArrayOutputStream bufferOut = new ByteArrayOutputStream();
         ByteArrayOutputStream bufferErr = new ByteArrayOutputStream();
         int rc = execute(machine, cmd, parameters, envVars, workDir, bufferOut,
-                         bufferErr, false);
+                         bufferErr, false, timeout, preserveSpaces);
         ProgramOutput ret = new ProgramOutput(cmd, rc, bufferOut.toString(), bufferErr.toString());
         return ret;
     }
 
     public static void executeCommandAsync(Machine machine, String cmd, String[] parameters, String workDir, Properties envVars, OutputStream redirect) throws Exception {
-        execute(machine, cmd, parameters, envVars, workDir, redirect, null, true);
+        execute(machine, cmd, parameters, envVars, workDir, redirect, null, true, 0);
     }
 
     private static final int execute(Machine machine, final String command,
                                      final String[] parameterArray, Properties envp,
                                      final String workDir, final OutputStream stdOutStream,
-                                     final OutputStream stdErrStream, boolean async) throws Exception {
+                                     final OutputStream stdErrStream, boolean async, int timeout) throws Exception {
+        return execute(machine, command, parameterArray, envp, workDir, stdOutStream, stdErrStream, async, timeout, false);
+    }
+
+    private static final int execute(Machine machine, final String command,
+                                     final String[] parameterArray, Properties envp,
+                                     final String workDir, final OutputStream stdOutStream,
+                                     final OutputStream stdErrStream, boolean async, int timeout, boolean preserveSpaces) throws Exception {
         final String method = "execute";
         Log.entering(CLASS, method, "async is " + async);
 
@@ -171,7 +184,7 @@ public class LocalProvider {
          * to "cmd /c".
          */
         if (machine.getOperatingSystem() == OperatingSystem.WINDOWS && WLP_CYGWIN_HOME == null) {
-            if (!cmd[0].startsWith("cmd /c")) {
+            if (!cmd[0].startsWith("cmd")) {
                 String[] tmp = new String[cmd.length + 2];
                 tmp[0] = "cmd";
                 tmp[1] = "/c";
@@ -180,10 +193,22 @@ public class LocalProvider {
                 cmd = tmp;
             }
         } else {
-            if (!cmd[0].startsWith("sh -c")) {
+            String shellCmd = "sh";
+
+            // On iSeries, we should be adding the qsh -c flag to the start of any command.
+            // This means commands are executed in a native-like shell, rather than a
+            // PASE environment.
+            //
+            // This doesn't currently work and needs additional work to make it work.
+            /*
+             * if (OperatingSystem.ISERIES.compareTo(machine.getOperatingSystem()) == 0) {
+             * shellCmd = "qsh";
+             * }
+             */
+            if (!cmd[0].startsWith(shellCmd) && !cmd[0].endsWith(shellCmd)) {
                 String[] tmp = new String[3];
-                String parsedCommand = shArrayTransform(cmd);
-                tmp[0] = WLP_CYGWIN_HOME == null ? "sh" : WLP_CYGWIN_HOME + "/bin/sh";
+                String parsedCommand = shArrayTransform(cmd, preserveSpaces);
+                tmp[0] = WLP_CYGWIN_HOME == null ? shellCmd : WLP_CYGWIN_HOME + "/bin/sh";
                 tmp[1] = "-c";
                 tmp[2] = parsedCommand;
                 cmd = tmp;
@@ -261,27 +286,67 @@ public class LocalProvider {
         }
 
         // wait till completion
-        proc.waitFor();
+        // A timeout value of zero or less means to wait indefinitely for the process to complete
+        int exitValue;
+        if (timeout <= 0) {
+            exitValue = proc.waitFor();
+        } else {
+            if (!proc.waitFor(timeout, TimeUnit.SECONDS)) {
+                Log.error(CLASS, method, null, "Process didn't complete within " + timeout + " seconds");
+                proc.destroyForcibly();
+
+                int count = 0;
+                while (proc.isAlive()) {
+                    if (count++ >= 5) {
+                        break;
+                    }
+                    Thread.sleep(1000);
+                }
+            }
+            exitValue = proc.exitValue();
+        }
         // let the streams catch up (critical step)
         outputGobbler.doJoin();
         Log.exiting(CLASS, method);
-        return proc.exitValue();
+        return exitValue;
     }
 
     /**
      * This method takes the parameter array and turns it into one long string for
      * use by the sh -c part of running the command locally on linux
      *
-     * @param cmd
+     * @param  cmd
      * @return
      */
     private static String shArrayTransform(String[] cmd) {
-        String returned = "";
+        return shArrayTransform(cmd, false);
+    }
+
+    /**
+     * This method takes the parameter array and turns it into one long string for
+     * use by the sh -c part of running the command locally on linux
+     *
+     * @param  cmd
+     * @param  preserveSpaces if true, arguments containing spaces will be quoted
+     * @return
+     */
+    private static String shArrayTransform(String[] cmd, boolean preserveSpaces) {
+        StringBuilder returned = new StringBuilder();
         for (int i = 0; i < cmd.length; i++) {
-            returned += cmd[i] + " ";
+            if (i > 0) {
+                returned.append(" ");
+            }
+            String arg = cmd[i];
+            // If preserveSpaces is true and the argument contains spaces, quote it
+            if (preserveSpaces && arg.contains(" ")) {
+                // Use single quotes to preserve the argument literally
+                // Escape any single quotes within the argument
+                returned.append("'").append(arg.replace("'", "'\\''")).append("'");
+            } else {
+                returned.append(arg);
+            }
         }
-        returned = returned.substring(0, (returned.length() - 1)); //should remove the space at the end;
-        return returned;
+        return returned.toString();
     }
 
     public static synchronized AsyncProgramOutput executeCommandAsync(Machine machine,
@@ -335,7 +400,7 @@ public class LocalProvider {
             File child = new File(f, children[i]);
             list.add(child.getAbsolutePath());
             if (recursive && child.isDirectory()) {
-                RemoteFile childKey = new RemoteFile(file.getMachine(), child.getAbsolutePath());
+                RemoteFile childKey = file.getMachine().getFile(child.getAbsolutePath());
                 String[] grandchildren = list(childKey, recursive);
                 for (int k = 0; k < grandchildren.length; ++k) {
                     list.add(grandchildren[k]);
@@ -397,7 +462,7 @@ public class LocalProvider {
             parameters = new String[] { "/F", "/PID", "" + processId };
         }
         Log.finer(CLASS, method, cmd, parameters);
-        return executeCommand(machine, cmd, parameters, null, null);
+        return executeCommand(machine, cmd, parameters, null, null, 0);
     }
 
     public static RemoteFile ensureFileIsOnMachine(Machine target,
@@ -438,11 +503,11 @@ class InputCopier implements Runnable {
 
     /**
      * @param serverOut
-     *            the output from the Orca process, ownership is passed and this
-     *            stream is closed at the end of the thread
+     *                      the output from the Orca process, ownership is passed and this
+     *                      stream is closed at the end of the thread
      * @param writer
-     *            the file to write to, ownership is passed and this stream is
-     *            closed at the end of the thread
+     *                      the file to write to, ownership is passed and this stream is
+     *                      closed at the end of the thread
      */
     public InputCopier(InputStream serverOut, OutputStream writer) {
         input = serverOut;

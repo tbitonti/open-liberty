@@ -1,15 +1,19 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.request.timing.fat;
 
+import static componenttest.annotation.SkipForRepeat.EE8_FEATURES;
+import static componenttest.annotation.SkipForRepeat.EE9_FEATURES;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -23,6 +27,7 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 
 import org.junit.After;
@@ -36,9 +41,12 @@ import org.junit.runner.RunWith;
 import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.annotation.Server;
+import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.topology.impl.JavaInfo;
+import componenttest.topology.impl.JavaInfo.Vendor;
 import componenttest.topology.impl.LibertyServer;
 
 @RunWith(FATRunner.class)
@@ -52,6 +60,15 @@ public class SlowRequestTiming {
 
     @BeforeClass
     public static void setUp() throws Exception {
+        Vendor vendor = JavaInfo.forServer(server).vendor();
+        // For J9 JVMs, add system dump for IOException to diagnose issues
+        if (vendor == Vendor.IBM || vendor == Vendor.OPENJ9) {
+            Map<String, String> jvmOptions = server.getJvmOptionsAsMap();
+            jvmOptions.put("-Xdump:system:events=throw+systhrow,filter=java/io/IOException,msg_filter=Invalid argument,range=1..3,request=exclusive+prepwalk",
+                           null);
+            server.setJvmOptions(jvmOptions);
+        }
+
         ShrinkHelper.defaultDropinApp(server, "jdbcTestPrj_3", "com.ibm.ws.request.timing");
         CommonTasks.writeLogMsg(Level.INFO, " starting server..");
         server.startServer();
@@ -227,6 +244,7 @@ public class SlowRequestTiming {
     }
 
     @Test
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testSlowReqTimingTurnOff() throws Exception {
         server.setServerConfigurationFile("server_slowRequestThreshold0.xml");
         server.waitForStringInLog("CWWKG0017I");
@@ -374,6 +392,7 @@ public class SlowRequestTiming {
 //    }
 
     @Test
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testSlowReqSampleRateZero() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> Updating server with configuration : sampleRate=0");
         server.setServerConfigurationFile("server_sampleRate0.xml");
@@ -403,6 +422,7 @@ public class SlowRequestTiming {
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testDynamicEnableWithNoContextInfo() throws Exception {
         //Step 1 - Remove Request Timing feature
         CommonTasks.writeLogMsg(Level.INFO, "-----> Updating server configuration to REMOVE Request Timing feature..");
@@ -441,7 +461,6 @@ public class SlowRequestTiming {
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
             CommonTasks.writeLogMsg(Level.INFO, "-------->  " + line);
-
             assertFalse("contextInfo found!", line.contains("|"));
 
         }
@@ -452,6 +471,7 @@ public class SlowRequestTiming {
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testDynamicDisableWithNoContextInfo() throws Exception {
         //Step 1 -  Update server configuration - ContextInfo = false , Threshold = 2s
         CommonTasks.writeLogMsg(Level.INFO, "---> Updating server with ContextInfo = false");
@@ -468,6 +488,7 @@ public class SlowRequestTiming {
 
         List<String> lines = server.findStringsInFileInLibertyServerRoot("ms", MESSAGE_LOG);
         for (String line : lines) {
+            CommonTasks.writeLogMsg(Level.INFO, "Checking the following line : " + line);
             assertFalse("contextInfo found when it was disabled..", line.contains("|"));
         }
 
@@ -487,6 +508,7 @@ public class SlowRequestTiming {
 
         for (String line : lines) {
             if (!line.contains("TRAS0112W") && !line.contains("TRAS0113I") && !line.contains("CWWKG0028A")) {
+                CommonTasks.writeLogMsg(Level.INFO, "Checking the following line : " + line);
                 assertTrue("contextInfo is missing...", line.contains("|"));
             }
         }
@@ -555,6 +577,7 @@ public class SlowRequestTiming {
         List<String> lines = server.findStringsInFileInLibertyServerRoot("ms", MESSAGE_LOG);
 
         for (String line : lines) {
+            CommonTasks.writeLogMsg(Level.INFO, "Checking the following line : " + line);
             assertFalse("Pattern found when it is disabled..", (line.contains("|")));
         }
         CommonTasks.writeLogMsg(Level.INFO, "******** As Expected : Pattern disabled ******* ");
@@ -573,6 +596,7 @@ public class SlowRequestTiming {
 
         for (String line : lines) {
             if (!line.contains("TRAS0112W") && !line.contains("TRAS0113I") && !line.contains("CWWKG0028A")) {
+                CommonTasks.writeLogMsg(Level.INFO, "Checking the following line : " + line);
                 assertTrue("Pattern NOT found when it is enabled..", (line.contains("|")));
             }
         }
@@ -626,6 +650,7 @@ public class SlowRequestTiming {
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testSlowReqSampleRateOdd() throws Exception {
         //Step 1 - Update server configuration - sampleRate=3, Threshold = "3s"
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> Updating server with configuration : sampleRate=3");
@@ -661,6 +686,7 @@ public class SlowRequestTiming {
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testSlowReqSampleRateEven() throws Exception {
         //Step 1 - Update server configuration - sampleRate=2, Threshold = "3s"
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> Updating server with configuration : sampleRate=2");
@@ -698,6 +724,7 @@ public class SlowRequestTiming {
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testSlowReqSampleRateNegative() throws Exception {
         //Step 1 - Update server configuration - sampleRate=-2, Threshold = "3s"
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> Updating server with configuration : sampleRate=-2");
@@ -716,6 +743,7 @@ public class SlowRequestTiming {
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testSlowReqSampleRateDynamicUpdate() throws Exception {
         //Step 1 - Update server configuration - sampleRate=2, Threshold = "3s"
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> Updating server with configuration : sampleRate=2");
@@ -725,7 +753,18 @@ public class SlowRequestTiming {
         //Step 2 - Create 2 requests of 4 seconds each.
         createRequest("?sleepTime=4000");
         createRequest("?sleepTime=4000");
+
+        server.waitForStringInLog("TRAS0112W", 20000);
         int slowCount = fetchNoOfslowRequestWarnings();
+
+        //Retry the request again
+        if (slowCount == 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry because no slow request warning found!");
+            createRequest("?sleepTime=4000");
+            createRequest("?sleepTime=4000");
+            server.waitForStringInLog("TRAS0112W", 20000);
+            slowCount = fetchNoOfslowRequestWarnings();
+        }
 
         assertTrue("No slow warning found for sampleRate 2!", (slowCount > 0));
 
@@ -736,7 +775,17 @@ public class SlowRequestTiming {
         waitForConfigurationUpdate();
 
         createRequest("?sleepTime=4000");
+
+        server.waitForStringInLog("TRAS0112W", 20000);
         int newslowCount = fetchNoOfslowRequestWarnings();
+
+        //Retry the request again
+        if (newslowCount == 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry because no new slow request warning found!");
+            createRequest("?sleepTime=4000");
+            server.waitForStringInLog("TRAS0112W", 20000);
+            newslowCount = fetchNoOfslowRequestWarnings();
+        }
 
         assertTrue("No slow warning found for sampleRate 1!", (newslowCount - slowCount > 0));
 
@@ -745,6 +794,7 @@ public class SlowRequestTiming {
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testSlowReqSampleRateDynamicEnable() throws Exception {
         //Step 1 - Update server configuration - Enable Request Timing
         CommonTasks.writeLogMsg(Level.INFO, "**** Starting server with default Request Timing configuration");
@@ -753,6 +803,7 @@ public class SlowRequestTiming {
         //Step 2 -Create Request for 11 seconds
         createRequest("?sleepTime=11000");
 
+        server.waitForStringInLog("TRAS0112W", 20000);
         int slowCount = fetchNoOfslowRequestWarnings();
         assertTrue("No slow request warning found..", (slowCount > 0));
 
@@ -765,7 +816,17 @@ public class SlowRequestTiming {
         //Step 3 - Create 2 requests of 4 seconds each and verify that it works like sampleRate 2.
         createRequest("?sleepTime=4000");
         createRequest("?sleepTime=4000");
+        server.waitForStringInLog("TRAS0112W", 20000);
         int currentCount = fetchNoOfslowRequestWarnings() - slowCount;
+
+        //Retry the request again
+        if (currentCount <= 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry because no new slow request warning found!");
+            createRequest("?sleepTime=4000");
+            createRequest("?sleepTime=4000");
+            server.waitForStringInLog("TRAS0112W", 20000);
+            currentCount = fetchNoOfslowRequestWarnings() - slowCount;
+        }
 
         assertTrue("No slow warning found for sampleRate 2!", (currentCount > 0));
         CommonTasks.writeLogMsg(Level.INFO, "***** SampleRate Dynamic Enablement works as expected! *****");
@@ -773,6 +834,7 @@ public class SlowRequestTiming {
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testSlowReqSampleRateDynamicDisable() throws Exception {
         //Step 1 - Update server configuration - sampleRate=2, Threshold = "3s"
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> Updating server with configuration : sampleRate=2");

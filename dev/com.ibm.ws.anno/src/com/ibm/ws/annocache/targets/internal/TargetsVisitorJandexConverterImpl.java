@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019,2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -69,13 +71,9 @@ public class TargetsVisitorJandexConverterImpl {
         return (className.substring(0, className.length() - (PACKAGE_INFO_CLASS_NAME.length() + 1)));
     }
 
-    //
-    
-    protected final String hashText;
-
     @Trivial
     public String getHashText() {
-        return hashText;
+        return CLASS_NAME + "@" + Integer.toHexString(hashCode());
     }
 
     public TargetsVisitorJandexConverterImpl(TargetsTableImpl targetsTable) {
@@ -83,8 +81,6 @@ public class TargetsVisitorJandexConverterImpl {
         this.classesTable = targetsTable.getClassTable();
         this.annotationsTable = targetsTable.getAnnotationTable();
         // this.detailsTable = targetsTable.getDetailsTable();
-
-        this.hashText = CLASS_NAME + "@" + Integer.toHexString(hashCode());
     }
 
     //
@@ -129,6 +125,7 @@ public class TargetsVisitorJandexConverterImpl {
 
     //
 
+    @SuppressWarnings("deprecation")
     public boolean convertClassInfo(String classSourceName, Object classInfoObj) {
         String methodName = "convertClassInfo";
 
@@ -168,7 +165,7 @@ public class TargetsVisitorJandexConverterImpl {
 
             classesTable.jandex_i_setModifiers(i_packageName, modifiers);
 
-            for ( Map.Entry<DotName, List<AnnotationInstance>> annoEntry : classInfo.annotations().entrySet() ) {
+            for ( Map.Entry<DotName, List<AnnotationInstance>> annoEntry : classInfo.annotationsMap().entrySet() ) {
                 String annotationClassName = annoEntry.getKey().toString();
                 String i_annotationClassName = internClassName(annotationClassName);
 
@@ -235,7 +232,7 @@ public class TargetsVisitorJandexConverterImpl {
         // Jandex places all annotations of a class in a single table which is held
         // by the class information.
 
-        for ( Map.Entry<DotName, List<AnnotationInstance>> annoEntry : classInfo.annotations().entrySet() ) {
+        for ( Map.Entry<DotName, List<AnnotationInstance>> annoEntry : classInfo.annotationsMap().entrySet() ) {
             String annotationClassName = annoEntry.getKey().toString();
             String i_annotationClassName = internClassName(annotationClassName);
 

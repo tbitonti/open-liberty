@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,8 +15,7 @@ package com.ibm.ws.sip.container.was.servlet31.converged;
 import com.ibm.ws.session.SessionApplicationParameters;
 import com.ibm.ws.session.SessionManagerConfig;
 import com.ibm.ws.webcontainer.httpsession.SessionManager;
-import com.ibm.ws.webcontainer.session.IHttpSessionContext;
-import com.ibm.wsspi.sip.converge.ConvergedHttpSessionContextImpl;
+import com.ibm.ws.webcontainer31.session.IHttpSessionContext31;
 import com.ibm.wsspi.sip.converge.SessionContextRegistryConvergedImpl;
 
 /**
@@ -36,8 +37,8 @@ public class SessionContextRegistryConverged31Impl extends SessionContextRegistr
     *
     * @see com.ibm.ws.webcontainer.session.impl.SessionContextRegistryImpl#createSessionContextObject(com.ibm.ws.session.SessionManagerConfig, com.ibm.ws.session.SessionApplicationParameters)
     */
-   protected IHttpSessionContext createSessionContextObject(SessionManagerConfig smc, SessionApplicationParameters sap)
-   {
-       return new ConvergedHttpSessionContextImpl(smc, sap, this.smgr.getSessionStoreService());
-   } 
+    protected IHttpSessionContext31 createSessionContextObject(SessionManagerConfig smc, SessionApplicationParameters sap)
+    {
+        return new ConvergedHttpSessionContext31Impl(smc, sap, this.smgr.getSessionStoreService());
+    }
 }

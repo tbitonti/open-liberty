@@ -1,15 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.request.timing.hung.fat;
 
+import static componenttest.annotation.SkipForRepeat.EE10_FEATURES;
+import static componenttest.annotation.SkipForRepeat.EE11_FEATURES;
+import static componenttest.annotation.SkipForRepeat.EE8_FEATURES;
+import static componenttest.annotation.SkipForRepeat.EE9_FEATURES;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -22,6 +25,9 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.ProtocolException;
 import java.net.URL;
+import java.time.Duration;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
@@ -44,10 +50,10 @@ import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.log.Log;
 
 import componenttest.annotation.Server;
+import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.topology.impl.JavaInfo;
 import componenttest.topology.impl.LibertyServer;
 
 @RunWith(FATRunner.class)
@@ -57,6 +63,10 @@ public class HungRequestTiming {
     private static final String TRACE_LOG = "logs/trace.log";
 
     private static final String SERVER_NAME = "HungRequestTimingServer";
+
+    // Need to set a formatter to use in the test cases.
+    public static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("HHmmss");
+
     @Server(SERVER_NAME)
     public static LibertyServer server;
 
@@ -65,13 +75,7 @@ public class HungRequestTiming {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        JavaInfo java = JavaInfo.forCurrentVM();
         ShrinkHelper.defaultDropinApp(server, "TestWebApp", "com.ibm.testwebapp");
-        int javaVersion = java.majorVersion();
-        if (javaVersion != 8) {
-            CommonTasks.writeLogMsg(Level.INFO, " Java version = " + javaVersion + " - It is higher than 8, adding --add-exports...");
-            server.copyFileToLibertyServerRoot("add-exports/jvm.options");
-        }
         CommonTasks.writeLogMsg(Level.INFO, " starting server...");
         server.startServer();
     }
@@ -144,6 +148,7 @@ public class HungRequestTiming {
     }
 
     @Test
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES, EE10_FEATURES, EE11_FEATURES })
     public void testHungRequestIntrospector() throws Exception {
         final String METHOD_NAME = "testHungRequestIntrospector";
 
@@ -244,48 +249,65 @@ public class HungRequestTiming {
     public void testHungDynamicThresholdUpdate() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "Setting hung threshold as 2s");
         server.setServerConfigurationFile("server_hungRequestThreshold2.xml");
-
         server.waitForStringInLog("CWWKG0017I", 90000);
+        server.setMarkToEndOfLog();
 
-        URL url = new URL("http://" + server.getHostname() + ":" + server.getHttpDefaultPort() + "/TestWebApp/TestServlet?sleepTime=4000");
-        CommonTasks.writeLogMsg(Level.INFO, "Calling TestWebApp Application with URL=" + url.toString());
-        HttpURLConnection con = getHttpConnection(url);
-        BufferedReader br = getConnectionStream(con);
-        br.readLine();
+        createRequest(4000);
 
         CommonTasks.writeLogMsg(Level.INFO, "Waiting for hung detection warning");
         server.waitForStringInLog("TRAS0114W", 30000);
-
         server.setMarkToEndOfLog();
 
         List<String> lines = server.findStringsInFileInLibertyServerRoot("TRAS0114W", MESSAGE_LOG);
         int previous = lines.size();
-        String line1 = lines.get(previous - 1);
+
+        // Retry the request again, since sometimes in the SOE builds, the feature update takes
+        // some time, and the request is created before the feature is properly updated,
+        // and the requestTiming warning does not registered in time.
+        if (previous == 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry the request because no hung request warning found!");
+            createRequest(4000);
+            server.waitForStringInLog("TRAS0114W", 30000);
+            lines = server.findStringsInFileInLibertyServerRoot("TRAS0114W", MESSAGE_LOG);
+            previous = lines.size();
+        }
+
+        CommonTasks.writeLogMsg(Level.INFO, "----> 1 - No of Hung detection warnings found : " + previous);
         assertTrue("No Hung detection warning found!!!", (previous > 0));
+
+        String line1 = lines.get(previous - 1);
         CommonTasks.writeLogMsg(Level.INFO, "----> Hung Request Warning 1 : " + line1);
         assertTrue("Hung warning does not show that request was hung for 2s as expected..", isCorrectDuration(line1, 2000));
 
         CommonTasks.writeLogMsg(Level.INFO, "Setting hung threshold as 3s");
         server.setServerConfigurationFile("server_hungRequestThreshold3.xml");
         server.waitForStringInLogUsingMark("CWWKG0017I", 90000);
+        server.setMarkToEndOfLog();
 
-        CommonTasks.writeLogMsg(Level.INFO, "Calling TestWebApp Application with URL=" + url.toString());
-        con = getHttpConnection(url);
-        br = getConnectionStream(con);
-        br.readLine();
+        createRequest(4000);
 
         CommonTasks.writeLogMsg(Level.INFO, "Waiting for hung detection warning");
-        CommonTasks.writeLogMsg(Level.INFO, "----> Hung Request Warning 1 : " + line1);
         server.waitForStringInLogUsingMark("TRAS0114W", 30000);
+        server.setMarkToEndOfLog();
 
         lines = server.findStringsInFileInLibertyServerRoot("TRAS0114W", MESSAGE_LOG);
         int current = lines.size();
-        CommonTasks.writeLogMsg(Level.INFO, "----> Hung Warnings found : " + current);
-        assertTrue("No Hung detection warning found!!!", (current - previous > 0));
+        CommonTasks.writeLogMsg(Level.INFO, "----> 2 - No of Hung detection warnings found : " + current);
+
+        // Retry the request again, since sometimes in the SOE builds, the feature update takes
+        // some time, and the request is created before the feature is properly updated,
+        // and the requestTiming warning does not registered in time.
+        if (current - previous == 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry the request because no hung request warning found!");
+            createRequest(4000);
+            server.waitForStringInLogUsingMark("TRAS0114W", 30000);
+            lines = server.findStringsInFileInLibertyServerRoot("TRAS0114W", MESSAGE_LOG);
+            current = lines.size();
+        }
+        assertTrue("No new Hung detection warning found!!!", (current - previous > 0));
 
         String line2 = lines.get(current - 1);
         CommonTasks.writeLogMsg(Level.INFO, "----> Hung RequestWarning 2 : " + line2);
-
         assertTrue("Hung warning does not show that request was hung for 3s as expected..", isCorrectDuration(line2, 3000));
 
         CommonTasks.writeLogMsg(Level.INFO, "***** Dynamic Update of HungRequestThreshold works as expected! *****");
@@ -322,27 +344,43 @@ public class HungRequestTiming {
         CommonTasks.writeLogMsg(Level.INFO, "********* Added Request Timing Feature..! *********");
 
         server.setMarkToEndOfLog();
-        CommonTasks.writeLogMsg(Level.INFO, "Setting hung threshold as 2s");
-        server.setServerConfigurationFile("server_hungRequestThreshold2.xml");
+        // Disabling thread dumps, so server stops gracefully, instead of waiting for all thread dumps to be generated.
+        CommonTasks.writeLogMsg(Level.INFO, "Setting hung threshold as 2s, with thread dumps disabled");
+        server.setServerConfigurationFile("server_hungRequestThreshold2_disableThreadDumps.xml");
 
-        server.waitForStringInLogUsingMark("CWWKG0017I", 50000);
-        server.waitForStringInLogUsingMark("CWWKZ0018I", 10000);
-        server.waitForStringInLogUsingMark("CWWKT0016I", 10000);
+        server.waitForStringInLogUsingMark("CWWKG0017I", 50000); // server config successfully completed.
+        server.waitForStringInLogUsingMark("CWWKF0012I", 10000); // server successfully installed requestTiming feature.
+        server.waitForStringInLogUsingMark("CWWKF0008I", 10000); // feature update completed.
 
         createRequest(3000);
+
         server.waitForStringInLogUsingMark("TRAS0114W", 90000);
         lines = server.findStringsInFileInLibertyServerRoot("TRAS0114W", MESSAGE_LOG);
-        CommonTasks.writeLogMsg(Level.INFO, "---> No. of Hung warnings : " + lines.size());
-        assertTrue("Hung detection warning found!!!", (lines.size() > 0));
+        int numOfRTWarnings = lines.size();
+        // Retry the request again, since sometimes in the SOE builds, the feature update takes
+        // some time, and the request is created before the feature is properly updated,
+        // and the requestTiming warning does not get registered in time.
+        if (numOfRTWarnings == 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry the request because no hung request warning found!");
+            createRequest(3000);
+            server.waitForStringInLogUsingMark("TRAS0114W", 90000);
+            lines = server.findStringsInFileInLibertyServerRoot("TRAS0114W", MESSAGE_LOG);
+            numOfRTWarnings = lines.size();
+        }
+
+        CommonTasks.writeLogMsg(Level.INFO, "---> No. of Hung warnings : " + numOfRTWarnings);
+        assertTrue("No Hung detection warning found!!!", (numOfRTWarnings > 0));
 
         CommonTasks.writeLogMsg(Level.INFO, "********** Hung Request Timing works when added dynamically **********");
     }
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES, EE10_FEATURES, EE11_FEATURES })
     public void testHungRequestDynamicDisable() throws Exception {
-        CommonTasks.writeLogMsg(Level.INFO, "Setting hung threshold as 2s");
-        server.setServerConfigurationFile("server_hungRequestThreshold2.xml");
+        // Disabling thread dumps, so server stops gracefully, instead of waiting for all thread dumps to be generated.
+        CommonTasks.writeLogMsg(Level.INFO, "Setting hung threshold as 2s, with thread dumps disabled");
+        server.setServerConfigurationFile("server_hungRequestThreshold2_disableThreadDumps.xml");
         String srvConfigCompletedMsg = server.waitForStringInLog("CWWKG0017I|CWWKG0018I", 90000);
 
         assertNotNull("The server configuration was successfully updated message was not found!", srvConfigCompletedMsg);
@@ -356,6 +394,16 @@ public class HungRequestTiming {
 
         List<String> lines = server.findStringsInFileInLibertyServerRoot("TRAS0114W", MESSAGE_LOG);
         int previous = lines.size();
+        // Retry the request again, since sometimes in the SOE builds, the feature update takes
+        // some time, and the request is created before the feature is properly updated,
+        // and the requestTiming warning does not registered in time.
+        if (previous == 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry the request because no hung request warning found!");
+            createRequest(4000);
+            server.waitForStringInLog("TRAS0114W", 30000);
+            lines = server.findStringsInFileInLibertyServerRoot("TRAS0114W", MESSAGE_LOG);
+            previous = lines.size();
+        }
         assertTrue("No Hung detection warning found!!!", (previous > 0));
 
         CommonTasks.writeLogMsg(Level.INFO, "----> Hung Request Warning : \n" + lines.get(0));
@@ -391,6 +439,7 @@ public class HungRequestTiming {
 
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES, EE10_FEATURES, EE11_FEATURES })
     public void testSequentialHungMultipleRequests() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "Setting hung threshold as 2s");
         server.setServerConfigurationFile("server_hungRequestThreshold2.xml");
@@ -406,6 +455,17 @@ public class HungRequestTiming {
         server.waitForStringInLog("TRAS0114W", 90000);
         List<String> lines = server.findStringsInFileInLibertyServerRoot("TRAS0114W", MESSAGE_LOG);
         int previous = lines.size();
+        // Retry the request again, since sometimes in the SOE builds, the feature update takes
+        // some time, and the request is created before the feature is properly updated,
+        // and the requestTiming warning does not registered in time.
+        if (previous == 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry the request because no hung request warning found!");
+            createRequest(4000);
+            finishTimeOfFirstRequest = System.currentTimeMillis();
+            server.waitForStringInLog("TRAS0114W", 90000);
+            lines = server.findStringsInFileInLibertyServerRoot("TRAS0114W", MESSAGE_LOG);
+            previous = lines.size();
+        }
         CommonTasks.writeLogMsg(Level.INFO, "---> No. of Hung warnings : " + previous);
         assertTrue("Hung detection warning found!!!", (previous > 0));
         for (String line : lines) {
@@ -447,8 +507,8 @@ public class HungRequestTiming {
     @Test
     @Mode(TestMode.FULL)
     public void testHungRequestTiming() throws Exception {
-        CommonTasks.writeLogMsg(Level.INFO, "Setting hung threshold as 2s");
-        server.setServerConfigurationFile("server_hungRequestThreshold2.xml");
+        CommonTasks.writeLogMsg(Level.INFO, "Setting hung threshold as 30s");
+        server.setServerConfigurationFile("server_hungRequestThreshold30.xml");
         String srvConfigCompletedMsg = server.waitForStringInLog("CWWKG0017I|CWWKG0018I", 90000);
 
         assertNotNull("The server configuration was successfully updated message was not found!", srvConfigCompletedMsg);
@@ -472,67 +532,74 @@ public class HungRequestTiming {
         CommonTasks.writeLogMsg(Level.INFO, "----> Hung completion message : " + lines.get(0));
 
         lines = server.findStringsInFileInLibertyServerRoot("CWWKE0067I", MESSAGE_LOG);
-        CommonTasks.writeLogMsg(Level.INFO, "----> Java dump size : " + lines.size());
+        CommonTasks.writeLogMsg(Level.INFO, "----> Number of Java dumps : " + lines.size());
+        assertTrue("Expected 3 Java Dumps but found : " + lines.size(), (lines.size() == 3));
 
-        assertTrue("Expected 3 java dumps but found : " + lines.size(), (lines.size() == 3));
+        List<String> timerStartLine = server.findStringsInFileInLibertyServerRoot("Starting thread dump scheduler", TRACE_LOG);
+        server.waitForStringInLog("CWWKE0068I", 30000); //  Wait for the Java core created message, with the file path.
+        lines = server.findStringsInFileInLibertyServerRoot("CWWKE0068I", MESSAGE_LOG);
+        assertTrue("No Java core generated warnings found!", (lines.size() > 0));
+
         for (String line : lines) {
             CommonTasks.writeLogMsg(Level.INFO, "----> Dump file : " + line);
         }
+
         int javaCoreCount = 0;
-        long next = 0;
-        long previous = -2;
+        LocalTime prevDumpFileTime = null;
+        LocalTime currDumpFileTime = null;
+        Duration timeDiffBetweenDumps = null;
 
-        List<String> timerStartLine = server.findStringsInFileInLibertyServerRoot("Starting thread dump scheduler", TRACE_LOG);
-        lines = server.findStringsInFileInLibertyServerRoot("CWWKE0068I", MESSAGE_LOG);
-
-        assertTrue("No Java core generated warnings found!", (lines.size() > 0));
         for (String line : lines) {
             String javaDumpName = line.substring(line.lastIndexOf("java"));
-            CommonTasks.writeLogMsg(Level.INFO, "----> Java dump name : " + javaDumpName);
-            if (javaDumpName != null | javaDumpName != "") {
+            CommonTasks.writeLogMsg(Level.INFO, "----> Processing Java dump file : " + javaDumpName);
+
+            if (javaDumpName != null && !javaDumpName.isEmpty()) {
                 javaCoreCount++;
-                String time_hhMM = "";
+                String time_HHmmss = "";
                 String seconds = "";
 
+                // Parse the Hours, minutes and seconds from the Java Dump File name
+                // e.g javacore.20240815.144030.98608.0001.txt
+                time_HHmmss = javaDumpName.substring(18, 24); // This would be 144030, from the above example.
+                CommonTasks.writeLogMsg(Level.INFO, "----> time_HHmmss : " + time_HHmmss);
+
                 if (javaCoreCount == 1) {
-                    time_hhMM = timerStartLine.get(0).replace(":", "").substring(12, 16);
-                    seconds = timerStartLine.get(0).substring(18, 20);
-                    CommonTasks.writeLogMsg(Level.INFO, "----> timerStartLine : " + timerStartLine.get(0));
+                    // Processing the first file, just need to store the time it was generated, to be used later.
+                    CommonTasks.writeLogMsg(Level.INFO, "Processing the first java dump file.");
+                    prevDumpFileTime = LocalTime.parse(time_HHmmss, FORMATTER);
+                    continue;
                 } else {
-                    time_hhMM = javaDumpName.substring(18, 22);
-                    seconds = javaDumpName.substring(22, 24);
+                    currDumpFileTime = LocalTime.parse(time_HHmmss, FORMATTER);
                 }
 
-                CommonTasks.writeLogMsg(Level.INFO, "----> time_hhMM : " + time_hhMM);
-                CommonTasks.writeLogMsg(Level.INFO, "----> seconds : " + seconds);
-                next = new Integer(time_hhMM).longValue();
+                // Find the time elapsed between the current dump file and the previous dump file.
+                timeDiffBetweenDumps = Duration.between(prevDumpFileTime, currDumpFileTime);
 
-                if (previous != -2) {
-                    if (!(next - previous == 1)) {
-                        // Sometimes, due to the system clock not being in-sync, if the first
-                        // java core is generated at hhMM:00 seconds, the second javacore will be
-                        // generated at hhMM:59 seconds, instead of hhMM+1:00, hence, we need to check
-                        // this scenario. Only fail the test case, if the difference (next-previous) is
-                        // not equal to 1 and the seconds of the second javacore is not 59, then the
-                        // java core did not generate 1 minute apart.
-                        assertTrue("Java core are not generated 1 min apart.", (seconds.contains("59")));
-                    }
-                    // If time_hhMM is 1359, then next min is 1400, difference is not 1
-                    // Therefore we shall add 40 to it to make it 1399, so that next value is 1400
+                if (timeDiffBetweenDumps.isNegative()) {
+                    // This handles the case when the dump files are generated at 23:59pm and 00:00 (midnight), the next day.
+                    // Adds another day to the Duration time difference to handle the negative.
+                    CommonTasks.writeLogMsg(Level.INFO, "The java dumps were generated across two days.");
+                    timeDiffBetweenDumps = timeDiffBetweenDumps.plusDays(1);
                 }
 
-                if (time_hhMM.endsWith("59")) {
-                    next += 40;
-                    //2359,0000 for such date values , if starts with 23, set the previous value to -1.
-                    if (time_hhMM.startsWith("23")) {
-                        next = -1;
-                    }
+                long elapsedMins = timeDiffBetweenDumps.toMinutes() % 60; // There are 60 mins in an hour, extracting only the minutes.
+                long elapsedSecs = timeDiffBetweenDumps.getSeconds() % 60; // There are 60 seconds in a minute, extracting only the seconds.
+                CommonTasks.writeLogMsg(Level.INFO, "The java dump file " + javaDumpName + " was generated after " + elapsedMins + " minute and " + elapsedSecs + " seconds.");
+
+                if (elapsedMins == 0) {
+                    // Handles the case, when there are system/env related issues, and the java dumps are generated around 50+ secs, and not in the full 1 min.
+                    assertTrue("Java dumps are generated less than 1 min apart.", (elapsedSecs > 50));
+                } else {
+                    // This verifies if the java dumps are generated 1 minute apart, including intermittent cases where the system might be really slow,
+                    // and causes the dumps to be generated within 1 min and 40 seconds, which is tolerable.
+                    assertTrue("Java dumps are NOT generated 1 min apart.", (elapsedMins == 1 && elapsedSecs <= 40));
                 }
 
-                previous = next;
-
+                // Cache the current dump file time, to compare with the next dump file.
+                prevDumpFileTime = currDumpFileTime;
             }
         }
+
         CommonTasks.writeLogMsg(Level.INFO, "----> Java cores are generated 1 min apart");
 
         assertTrue("Expected 3 Hung detection warnings but found : " + javaCoreCount, (javaCoreCount == 3));

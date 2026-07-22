@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package com.ibm.ws.annocache.util.internal;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 import com.ibm.websphere.ras.annotation.Trivial;
 
@@ -53,17 +56,16 @@ public final class UtilImpl_WriteBuffer {
 
     private int totalWritten;
 
-    private final String encoding;
     private final Charset charset;
 
     @Trivial
     public String getEncoding() {
-        return encoding;
+        return charset.name();
     }
 
     //
 
-    public static final String UTF_8 = "UTF-8";
+    public static final Charset UTF_8 = StandardCharsets.UTF_8;;
 
     public UtilImpl_WriteBuffer(
             String path, OutputStream outputStream, int bufferSize)
@@ -75,7 +77,7 @@ public final class UtilImpl_WriteBuffer {
     @SuppressWarnings("unused") // Allow this to be thrown in the future.
     public UtilImpl_WriteBuffer(
         String path, OutputStream outputStream, int bufferSize,
-        String encoding)
+        Charset charset)
         throws IOException {
 
         this.path = path;
@@ -89,8 +91,7 @@ public final class UtilImpl_WriteBuffer {
 
         this.totalWritten = 0;
 
-        this.encoding = encoding;
-        this.charset = Charset.forName(encoding);
+        this.charset = charset;
     }
 
     /**

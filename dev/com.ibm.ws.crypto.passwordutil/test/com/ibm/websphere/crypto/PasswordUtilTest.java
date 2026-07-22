@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,13 +17,29 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.times;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.HashMap;
+import java.util.Map;
 
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+
 import org.junit.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+
+import com.ibm.ws.common.crypto.CryptoUtils;
+import com.ibm.ws.crypto.util.AESKeyManager;
+import com.ibm.ws.crypto.util.AESKeyManager.KeyVersion;
+import com.ibm.ws.crypto.util.AesConfigFileParser;
+import com.ibm.wsspi.security.crypto.PasswordEncryptException;
 
 import test.common.SharedOutputManager;
 
@@ -33,10 +51,10 @@ public class PasswordUtilTest {
 
     /**
      * Capture stdout/stderr output to the manager.
-     * 
+     *
      * @throws Exception
      */
-    @BeforeClass
+    //@BeforeClass
     public static void setUpBeforeClass() throws Exception {
         outputMgr = SharedOutputManager.getInstance();
         outputMgr.captureStreams();
@@ -44,10 +62,10 @@ public class PasswordUtilTest {
 
     /**
      * Final teardown work when class is exiting.
-     * 
+     *
      * @throws Exception
      */
-    @AfterClass
+    //@AfterClass
     public static void tearDownAfterClass() throws Exception {
         // Make stdout and stderr "normal"
         outputMgr.restoreStreams();
@@ -55,10 +73,10 @@ public class PasswordUtilTest {
 
     /**
      * Individual teardown after each test.
-     * 
+     *
      * @throws Exception
      */
-    @After
+    //@After
     public void tearDown() throws Exception {
         // Clear the output generated after each method invocation
         outputMgr.resetStreams();
@@ -102,6 +120,9 @@ public class PasswordUtilTest {
             }
             assertEquals("WebAS", PasswordUtil.decode("{xor}CDo9Hgw="));
 
+            assertEquals("{xor}Lz4sLCgwLTsINis3exYxFis=", PasswordUtil.encode("passwordWith$InIt"));
+            assertEquals("passwordWith$InIt", PasswordUtil.decode("{xor}Lz4sLCgwLTsINis3exYxFis="));
+
             try {
                 PasswordUtil.encode(null);
                 fail();
@@ -119,15 +140,83 @@ public class PasswordUtilTest {
             assertNull(PasswordUtil.removeCryptoAlgorithmTag(""));
             assertEquals("test", PasswordUtil.removeCryptoAlgorithmTag("{xor}test"));
             assertEquals("", PasswordUtil.removeCryptoAlgorithmTag("{xor}"));
+            assertNull(PasswordUtil.passwordEncode("{test}teststring{/test}", "aes"));
 
         } catch (Throwable t) {
             outputMgr.failWithThrowable("testUtil", t);
         }
     }
 
+    /**
+     * TS022437211 - Passwords that begin with a {something} pattern (e.g. vault/PIM-generated
+     * passphrases like "{abc}def" or "{redacted}***{/redacted}") must be treated as literal
+     * plaintext and encoded successfully rather than misinterpreted as pre-encoded ciphertext.
+     *
+     * Before the fix, encode() would either:
+     *   (a) silently return a truncated/empty result (XOR case observed by Keith), or
+     *   (b) throw NullPointerException from decoded_string.trim() after passwordDecode() returned null.
+     */
+    @Test
+    public void testEncodePasswordStartingWithCurlyBracePattern() throws Exception {
+        // Simple {something}value pattern — must encode to a valid {xor}... string and round-trip correctly
+        String plain1 = "{abc}def";
+        String encoded1 = PasswordUtil.encode(plain1, "xor");
+        assertTrue("Encoded password should start with {xor}: " + encoded1, encoded1.startsWith("{xor}"));
+        assertEquals("Round-trip decode must return the original plaintext", plain1, PasswordUtil.decode(encoded1));
+
+        // Pattern that triggered NPE in the customer's environment: {redacted}...{/redacted}
+        String plain2 = "{redacted}************{/redacted}";
+        String encoded2 = PasswordUtil.encode(plain2, "xor");
+        assertTrue("Encoded password should start with {xor}: " + encoded2, encoded2.startsWith("{xor}"));
+        assertEquals("Round-trip decode must return the original plaintext", plain2, PasswordUtil.decode(encoded2));
+
+        // Same patterns encoded with AES
+        String encoded3 = PasswordUtil.encode(plain1, "aes");
+        assertTrue("Encoded password should start with {aes}: " + encoded3, encoded3.startsWith("{aes}"));
+        assertEquals("Round-trip AES decode must return the original plaintext", plain1, PasswordUtil.decode(encoded3));
+
+        // Verify that a genuinely already-encoded password still correctly throws InvalidPasswordEncodingException
+        try {
+            PasswordUtil.encode("{xor}CDo9Hgw=", "xor");
+            fail("Should have thrown InvalidPasswordEncodingException for an already-xor-encoded password");
+        } catch (InvalidPasswordEncodingException e) {
+            // expected
+        }
+
+        // Reviewer-suggested patterns — all 5 must encode and round-trip correctly as literal plaintext.
+        //
+        // "{}"   — getCryptoAlgorithm returns "" → isEmpty() guard → isValidCurrentAlgorithm=false → plaintext
+        // "{}a"  — same as above
+        // "{a}"  — getCryptoAlgorithm returns "a" → not a valid algorithm → plaintext
+        // "{a}b" — getCryptoAlgorithm returns "a" → not a valid algorithm → plaintext
+        // "a{}"  — does not start with '{' → getCryptoAlgorithm returns null → plaintext
+        String[] reviewerPatterns = new String[] { "{}", "{}a", "{a}", "{a}b", "a{}" };
+        for (String plain : reviewerPatterns) {
+            String encoded = PasswordUtil.encode(plain, "xor");
+            assertTrue("Pattern '" + plain + "' should encode to {xor}...: " + encoded, encoded.startsWith("{xor}"));
+            assertEquals("Pattern '" + plain + "' must round-trip correctly", plain, PasswordUtil.decode(encoded));
+        }
+    }
+
+    /**
+     * TS022437211 - Verify that encode() with an explicit crypto key also handles passwords
+     * starting with {something} correctly (three-argument overload used by the customer).
+     */
+    @Test
+    public void testEncodeWithKeyPasswordStartingWithCurlyBracePattern() throws Exception {
+        String cryptoKey = "MyCustomEncryptionKey123!";
+
+        // Reproduces the exact customer scenario from the support case
+        String plain = "{mySecretPassword123}";
+        String encoded = PasswordUtil.encode(plain, "xor", cryptoKey);
+        assertFalse("Encoded result must not be just {xor} with empty payload: " + encoded, "{xor}".equals(encoded));
+        assertTrue("Encoded password should start with {xor}: " + encoded, encoded.startsWith("{xor}"));
+        assertEquals("Round-trip decode must return the original plaintext", plain, PasswordUtil.decode(encoded));
+    }
+
     @Test
     public void testAESEncoding() throws Exception {
-        assertEquals("The password was not decoded correctly", "alternatepwd", PasswordUtil.decode("{aes}AEmVKa+jOeA7pos+sSfpHNmH1MVfwg8ZoV29iDi6I0ZGcov6hSZsAxMhFr91jTSBYQ=="));
+
         String encoding = PasswordUtil.encode("WebAS", "aes");
         assertTrue("The encoded password should start with {aes} " + encoding, encoding.startsWith("{aes}"));
         String encoding2 = PasswordUtil.encode("WebAS", "aes");
@@ -136,6 +225,12 @@ public class PasswordUtilTest {
         assertEquals("The password was not decoded correctly", "WebAS", PasswordUtil.decode(encoding));
         assertEquals("The password was not decoded correctly", "WebAS", PasswordUtil.decode(encoding2));
         assertEquals("The password was not decoded correctly", "WebAS", PasswordUtil.decode("{aes}AGTpzRDW//VE3Jshg1fd89rxw/JMjHfFM9UdYdVNIUt2"));
+
+        assertEquals("Did not decode password encoded with AES_V0 (AES-128) encoded password", "alternatepwd",
+                     PasswordUtil.decode("{aes}AEmVKa+jOeA7pos+sSfpHNmH1MVfwg8ZoV29iDi6I0ZGcov6hSZsAxMhFr91jTSBYQ=="));
+        assertEquals("Did not decode password encoded with AES_V1 (AES-256) encoded password", "alternatepwd",
+                     PasswordUtil.decode("{aes}ARABGAM7S4HrIRtZWJ229TnxuKZrrPN3dsKrrQzCQE/3U5F4zp3UrDQ+Czmnvz1kaQyN7JktDzieJxelwu077ZYET2V+7/1Gi37iztr7lY0i+j4dlHOFIi5PESnZ7V8XOmdSbH9DSgkuJaXNoEqb"));
+
     }
 
     @Test
@@ -169,6 +264,206 @@ public class PasswordUtilTest {
         } catch (InvalidPasswordDecodingException e) {
             fail();
         }
+    }
 
+    /**
+     * Test bringing your own AES key for encoding and decoding.
+     */
+    @Test
+    public void testBYOAesKey() throws Exception {
+        byte[] keyBytes = generateRandomAes256Key();
+        String keyString = Base64.getEncoder().encodeToString(keyBytes);
+        String decoded_string = "pass1233";
+        Map<String, String> props = new HashMap<>();
+        props.put(PasswordUtil.PROPERTY_AES_KEY, keyString);
+
+        try (MockedStatic<AESKeyManager> mock = Mockito.mockStatic(AESKeyManager.class, Mockito.CALLS_REAL_METHODS)) {
+
+            mock.when(() -> AESKeyManager.getKeyCharsUsingResolver(KeyVersion.AES_V2, null)).thenReturn(keyString.toCharArray());
+
+            String encodedPassword = PasswordUtil.encode(decoded_string, "aes", props);
+            assertEquals("AES_V2 byte marker not set", getAesVersionFromEncodedPassword(encodedPassword), 2);
+            assertEquals("Decoded value does not match original value", decoded_string, PasswordUtil.decode(encodedPassword));
+
+            mock.verify(() -> AESKeyManager.getKeyCharsUsingResolver(KeyVersion.AES_V2, null), times(1));
+
+        }
+    }
+
+    /**
+     * Test wlp.aes.encryption.key not set with v2 password.
+     */
+    @Test
+    public void testBase64KeyPropertyNotSet() throws Exception {
+
+        try (MockedStatic<AESKeyManager> mock = Mockito.mockStatic(AESKeyManager.class, Mockito.CALLS_REAL_METHODS)) {
+            mock.when(() -> AESKeyManager.getKeyCharsUsingResolver(KeyVersion.AES_V2, null)).thenReturn(AESKeyManager.PROPERTY_WLP_BASE64_AES_ENCRYPTION_KEY.toCharArray());
+            String v2Password = "{aes}AhBGFEeJlillfrTtgxuEL8rV+U0wtouKfmrDj0oYeoFaD4HWATqpJdEmXVacQtxJpWgMTrzBGOzwnsUZLKqmgRmrs9MPpMF4fY5vPrK1N/jOyCxyl3OzqQMwxXopecmoQIxL+lsUmw==";
+            try {
+                PasswordUtil.decode(v2Password);
+                fail("Exception should be thrown when decoding with out the wlp.aes.encryption.key set");
+            } catch (InvalidPasswordDecodingException e) {
+                //intentionally empty, test should pass if exception is caught
+            }
+            mock.verify(() -> AESKeyManager.getKeyCharsUsingResolver(KeyVersion.AES_V2, null), times(1));
+        }
+    }
+
+    /**
+     * @param encodedPassword
+     * @return
+     */
+    private byte getAesVersionFromEncodedPassword(String encodedPassword) {
+        return Base64.getDecoder().decode(encodedPassword.substring(5))[0];
+    }
+
+    /**
+     * Helper method to generate a random AES-256 key.
+     *
+     * @return A byte array containing a random 256-bit AES key
+     */
+    private byte[] generateRandomAes256Key() {
+        byte[] keyBytes;
+        SecureRandom secureRandom = new SecureRandom();
+
+        try {
+            KeyGenerator keyGenerator = KeyGenerator.getInstance(CryptoUtils.ENCRYPT_ALGORITHM_AES);
+            keyGenerator.init(CryptoUtils.AES_256_KEY_LENGTH_BITS, secureRandom);
+            SecretKey secretKey = keyGenerator.generateKey();
+            keyBytes = secretKey.getEncoded();
+        } catch (NoSuchAlgorithmException e) {
+            // Fallback to SecureRandom if KeyGenerator is not available
+            keyBytes = new byte[CryptoUtils.AES_256_KEY_LENGTH_BYTES];
+            secureRandom.nextBytes(keyBytes);
+        }
+
+        return keyBytes;
+    }
+
+    /**
+     * Test that providing an invalid Base64 string as an AES key fails appropriately.
+     */
+    @Test
+    public void testInvalidBase64KeyFails() {
+
+        Map<String, String> props = new HashMap<>();
+        // Invalid base64 string: contains characters not valid in Base64 encoding
+        String invalidKey = "Not@Valid*Base64==";
+        props.put(PasswordUtil.PROPERTY_AES_KEY, invalidKey);
+
+        String testPassword = "badKeyTest";
+
+        try {
+            PasswordUtil.encode(testPassword, "aes", props);
+            fail("Encoding with an invalid Base64 key should have failed");
+        } catch (Exception e) {
+            // Verify we get the expected exception type
+            assertTrue("Exception should be InvalidPasswordEncodingException",
+                       e instanceof InvalidPasswordEncodingException);
+        }
+    }
+
+    /**
+     * Test that attempting to parse an AES encryption file with a non-existent path
+     * results in an appropriate exception.
+     */
+    @Test
+    public void testParseAesEncryptionaesConfigFileWithInvalidPath() {
+
+        // Use a path that definitely doesn't exist
+        String invalidPath = "/non/existent/path/to/aeskey.xml";
+
+        try {
+            AesConfigFileParser.parseAesEncryptionFile(invalidPath);
+            fail("Expected IOException for non-existent XML file path");
+        } catch (Exception e) {
+            // We expect some kind of IOException or parsing failure
+            assertTrue(
+                       "Unexpected exception type: " + e,
+                       e instanceof PasswordEncryptException);
+        }
+    }
+
+    /**
+     * Test that attempting to parse an AES encryption XML file which is malformed
+     * results in an appropriate exception.
+     */
+    @Test
+    public void testParseAesEncryptionaesConfigFileWithMalformedXml() throws IOException {
+
+        // Create a temporary file with invalid XML content
+        File badXml = File.createTempFile("bad-xml", ".xml");
+        try (FileWriter writer = new FileWriter(badXml)) {
+            // Write intentionally malformed XML content
+            writer.write("<variable name=\"wlp.aes.encryption.key\" value=\"someValue\" >"); // Missing closing tag
+        }
+
+        try {
+            AesConfigFileParser.parseAesEncryptionFile(badXml.getAbsolutePath());
+            fail("Expected UnsupportedConfigurationException for malformed XML content");
+        } catch (Exception e) {
+            assertTrue(
+                       "Unexpected exception type: " + e,
+                       e instanceof UnsupportedCryptoAlgorithmException);
+        } finally {
+            // Clean up the temporary file
+            badXml.delete();
+        }
+    }
+
+    /**
+     * Test that attempting to parse an AES encryption XML file which has both
+     * wlp.aes.encryption.key and wlp.password.encryption.key specified
+     */
+    @Test
+    public void testParseAesEncryptionaesConfigFileWithBothPropertiesSpecified() throws IOException {
+
+        // Create a temporary file with invalid XML content
+        File badXml = File.createTempFile("bad-xml", ".xml");
+        try (FileWriter writer = new FileWriter(badXml)) {
+            // Write intentionally malformed XML content
+            writer.write("<variable name=\"wlp.aes.encryption.key\" value=\"someValue\" />");
+            writer.write("<variable name=\"wlp.password.encryption.key\" value=\"someValue\" />");
+
+        }
+
+        try {
+            AesConfigFileParser.parseAesEncryptionFile(badXml.getAbsolutePath());
+            fail("Expected UnsupportedConfigurationException for malformed XML content");
+        } catch (Exception e) {
+            assertTrue(
+                       "Unexpected exception type: " + e,
+                       e instanceof UnsupportedCryptoAlgorithmException);
+        } finally {
+            // Clean up the temporary file
+            badXml.delete();
+        }
+    }
+
+    /**
+     * Test that attempting to parse an AES encryption XML file which has both
+     * wlp.aes.encryption.key and wlp.password.encryption.key specified
+     */
+    @Test
+    public void testParseAesEncryptionaesConfigFileWithNoPropertiesSpecified() throws IOException {
+
+        // Create a temporary file with invalid XML content
+        File badXml = File.createTempFile("bad-xml", ".xml");
+        try (FileWriter writer = new FileWriter(badXml)) {
+            // Write intentionally malformed XML content
+            writer.write("<variable name=\"name1\" value=\"someValue\" />");
+        }
+
+        try {
+            AesConfigFileParser.parseAesEncryptionFile(badXml.getAbsolutePath());
+            fail("Expected UnsupportedCryptoAlgorithmException for malformed XML content");
+        } catch (Exception e) {
+            assertTrue(
+                       "Unexpected exception type: " + e,
+                       e instanceof UnsupportedCryptoAlgorithmException);
+        } finally {
+            // Clean up the temporary file
+            badXml.delete();
+        }
     }
 }

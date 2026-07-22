@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2011, 2019 IBM Corporation and others.
+ * Copyright (c) 2004, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,7 +13,7 @@
 package com.ibm.ws.security.token.ltpa.internal;
 
 import java.io.Serializable;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Date;
@@ -25,7 +27,8 @@ import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
 import com.ibm.websphere.security.auth.InvalidTokenException;
 import com.ibm.websphere.security.auth.TokenExpiredException;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.crypto.CryptoUtils;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.crypto.ltpakeyutil.LTPAKeyUtil;
 import com.ibm.ws.crypto.ltpakeyutil.LTPAPrivateKey;
 import com.ibm.ws.crypto.ltpakeyutil.LTPAPublicKey;
@@ -39,10 +42,9 @@ import com.ibm.wsspi.security.token.AttributeNameConstants;
  */
 public class LTPAToken2 implements Token, Serializable {
 
-    private static final TraceComponent tc = Tr.register(LTPAToken2.class);
+    private static final boolean fipsEnabled = CryptoUtils.isFips140_3Enabled();
 
-    private static final String MESSAGE_DIGEST_ALGORITHM = "SHA";
-    private static final String AES_CBC_CIPHER = "AES/CBC/PKCS5Padding";
+    private static final TraceComponent tc = Tr.register(LTPAToken2.class);
 
     private static final long serialVersionUID = 1L;
     private static final String DELIM = "%";
@@ -60,23 +62,14 @@ public class LTPAToken2 implements Token, Serializable {
     private final LTPAPrivateKey privateKey;
     private final LTPAPublicKey publicKey;
     private String cipher = null;
-    private static final String IBMJCE_NAME = "IBMJCE";
+    private long expirationDifferenceAllowed;
 
     static {
         MessageDigest m1 = null, m2 = null;
-        try {
-            if (LTPAKeyUtil.isIBMJCEAvailable()) {
-                m1 = MessageDigest.getInstance(MESSAGE_DIGEST_ALGORITHM, IBMJCE_NAME);
-                m2 = MessageDigest.getInstance(MESSAGE_DIGEST_ALGORITHM, IBMJCE_NAME);
-            } else {
-                m1 = MessageDigest.getInstance(MESSAGE_DIGEST_ALGORITHM);
-                m2 = MessageDigest.getInstance(MESSAGE_DIGEST_ALGORITHM);
-            }
-        } catch (Exception e) {
-            if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
-                Tr.event(tc, "Error creating digest; " + e);
-            }
-        }
+
+        m1 = CryptoUtils.getMessageDigestForLTPA();
+        m2 = CryptoUtils.getMessageDigestForLTPA();
+
         md1JCE = m1;
         md2JCE = m2;
         lockObj1 = new Object();
@@ -87,11 +80,11 @@ public class LTPAToken2 implements Token, Serializable {
      * An LTPA2 token constructor.
      *
      * @param tokenBytes The byte representation of the LTPA2 token
-     * @param sharedKey The LTPA shared key
+     * @param sharedKey  The LTPA shared key
      * @param privateKey The LTPA private key
-     * @param publicKey The LTPA public key
+     * @param publicKey  The LTPA public key
      */
-    public LTPAToken2(byte[] tokenBytes, @Sensitive byte[] sharedKey, LTPAPrivateKey privateKey, LTPAPublicKey publicKey) throws InvalidTokenException {
+    public LTPAToken2(byte[] tokenBytes, @Sensitive byte[] sharedKey, LTPAPrivateKey privateKey, LTPAPublicKey publicKey, long expDiffAllowed) throws InvalidTokenException {
         checkTokenBytes(tokenBytes);
         this.signature = null;
         this.encryptedBytes = tokenBytes.clone();
@@ -99,7 +92,8 @@ public class LTPAToken2 implements Token, Serializable {
         this.privateKey = privateKey;
         this.publicKey = publicKey;
         this.expirationInMilliseconds = 0;
-        this.cipher = AES_CBC_CIPHER;
+        this.cipher = CryptoUtils.AES_CBC_CIPHER;
+        this.expirationDifferenceAllowed = expDiffAllowed;
         decrypt();
     }
 
@@ -107,12 +101,12 @@ public class LTPAToken2 implements Token, Serializable {
      * An LTPA2 token constructor.
      *
      * @param tokenBytes The byte representation of the LTPA2 token
-     * @param sharedKey The LTPA shared key
+     * @param sharedKey  The LTPA shared key
      * @param privateKey The LTPA private key
-     * @param publicKey The LTPA public key
+     * @param publicKey  The LTPA public key
      * @param attributes The list of attributes will be removed from the LTPA2 token
      */
-    public LTPAToken2(byte[] tokenBytes, @Sensitive byte[] sharedKey, LTPAPrivateKey privateKey, LTPAPublicKey publicKey,
+    public LTPAToken2(byte[] tokenBytes, @Sensitive byte[] sharedKey, LTPAPrivateKey privateKey, LTPAPublicKey publicKey, long expDiffAllowed,
                       String... attributes) throws InvalidTokenException, TokenExpiredException {
         checkTokenBytes(tokenBytes);
         this.signature = null;
@@ -121,26 +115,26 @@ public class LTPAToken2 implements Token, Serializable {
         this.privateKey = privateKey;
         this.publicKey = publicKey;
         this.expirationInMilliseconds = 0;
-        this.cipher = AES_CBC_CIPHER;
+        this.cipher = CryptoUtils.AES_CBC_CIPHER;
+        this.expirationDifferenceAllowed = expDiffAllowed;
         decrypt();
-
         isValid();
-
-        //Reset signature, encryptedBytes and remove attributes
-        this.signature = null;
-        this.encryptedBytes = null;
-        userData.removeAttributes(attributes);
-
+        if (attributes != null) {
+            //Reset signature, encryptedBytes and remove attributes
+            this.signature = null;
+            this.encryptedBytes = null;
+            userData.removeAttributes(attributes);
+        }
     }
 
     /**
      * An LTPA2 token constructor.
      *
-     * @param accessID The unique user identifier
+     * @param accessID            The unique user identifier
      * @param expirationInMinutes Expiration limit of the LTPA2 token in minutes
-     * @param sharedKey The LTPA shared key
-     * @param privateKey The LTPA private key
-     * @param publicKey The LTPA public key
+     * @param sharedKey           The LTPA shared key
+     * @param privateKey          The LTPA private key
+     * @param publicKey           The LTPA public key
      */
     protected LTPAToken2(String accessID, long expirationInMinutes, @Sensitive byte[] sharedKey, LTPAPrivateKey privateKey, LTPAPublicKey publicKey) {
         this.signature = null;
@@ -150,17 +144,17 @@ public class LTPAToken2 implements Token, Serializable {
         this.publicKey = publicKey;
         this.userData = new UserData(accessID);
         setExpiration(expirationInMinutes);
-        this.cipher = AES_CBC_CIPHER;
+        this.cipher = CryptoUtils.AES_CBC_CIPHER;
     }
 
     /**
      * An LTPA2 token constructor (Used for the clone).
      *
      * @param expirationInMinutes Expiration limit of the LTPA2 token in minutes
-     * @param sharedKey The LTPA shared key
-     * @param privateKey The LTPA private key
-     * @param publicKey The LTPA public key
-     * @param userdata The UserData
+     * @param sharedKey           The LTPA shared key
+     * @param privateKey          The LTPA private key
+     * @param publicKey           The LTPA public key
+     * @param userdata            The UserData
      */
     protected LTPAToken2(long expirationInMinutes, @Sensitive byte[] sharedKey, LTPAPrivateKey privateKey, LTPAPublicKey publicKey, UserData userdata) {
         this.signature = null;
@@ -170,7 +164,7 @@ public class LTPAToken2 implements Token, Serializable {
         this.publicKey = publicKey;
         this.userData = userdata;
         setExpiration(expirationInMinutes);
-        this.cipher = AES_CBC_CIPHER;
+        this.cipher = CryptoUtils.AES_CBC_CIPHER;
     }
 
     /**
@@ -230,14 +224,33 @@ public class LTPAToken2 implements Token, Serializable {
             String[] fields = LTPATokenizer.parseToken(tokenString);
             String[] expirationArray = userData.getAttributes(AttributeNameConstants.WSTOKEN_EXPIRATION);
             if (expirationArray != null && expirationArray[expirationArray.length - 1] != null) {
-                // the new expiration value inside the signature
+                // the new expiration value inside the signature for LTPAToken2
                 expirationInMilliseconds = Long.parseLong(expirationArray[expirationArray.length - 1]);
+
+                // Liberty and Traditional WebSphere both create LTPA Tokens with 3 fields. (userData % expiration % sign)
+                // Normally, the expiration value is read from the first field of the token, the userData field.
+                // The expiration value may be read from the second field of the token instead, to maintain legacy support in Traditional WebSphere.
+
+                // If the LTPAToken contains both expiration formats, Compare the values to ensure they are within the expiration difference allowed.
+                // If the difference between the two expiration values is greater than expirationDifferenceAllowed, then an InvalidTokenException will be thrown.
+                // If expirationDifferenceAllowed is 0, then the two expiration values must match.
+                // If expirationDifferenceAllowed is less than 0, then the two expiration values are not compared.
+                // expirationDifferenceAllowed is 3 seconds (3000ms) by default.
+                if (fields.length == 3 && expirationDifferenceAllowed >= 0 && (Math.abs(expirationInMilliseconds - Long.parseLong(fields[1])) > expirationDifferenceAllowed)) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(this, tc, "Token validation failed due to the expiration fields having a difference greater than: "
+                                           + expirationDifferenceAllowed + " milliseconds\n"
+                                           + "first field expiration: " + expirationInMilliseconds + " milliseconds\n"
+                                           + "second field expiration: " + fields[1] + " milliseconds");
+                    }
+                    throw new InvalidTokenException("Token Validation Failed");
+                }
             } else {
-                // the old expiration value outside of the signature
+                // the old expiration value outside of the signature for LTPAToken
                 expirationInMilliseconds = Long.parseLong(fields[1]);
             }
-
-            byte[] signature = Base64Coder.base64Decode(Base64Coder.getBytes(fields[2]));
+            // the signature will always be the last field, but the fields array length may be 2 or 3.
+            byte[] signature = Base64Coder.base64Decode(Base64Coder.getBytes(fields[fields.length - 1]));
             setSignature(signature);
         } catch (BadPaddingException e) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
@@ -305,8 +318,6 @@ public class LTPAToken2 implements Token, Serializable {
     public final boolean isValid() throws InvalidTokenException, TokenExpiredException {
         boolean verified = false;
 
-        validateExpiration();
-
         try {
             verified = verify();
         } catch (Exception e) {
@@ -318,7 +329,10 @@ public class LTPAToken2 implements Token, Serializable {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                 Tr.debug(this, tc, "Invalid signature of the token " + this);
             }
+            throw new InvalidTokenException("Token Validation Failed");
         }
+
+        validateExpiration();
 
         return verified;
     }
@@ -459,15 +473,7 @@ public class LTPAToken2 implements Token, Serializable {
      * @return The UTF-8 String form
      */
     private static final String toUTF8String(byte[] b) {
-        String ns = null;
-        try {
-            ns = new String(b, "UTF8");
-        } catch (UnsupportedEncodingException e) {
-            if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
-                Tr.event(tc, "Error converting to string; " + e);
-            }
-        }
-        return ns;
+        return new String(b, StandardCharsets.UTF_8);
     }
 
     /**

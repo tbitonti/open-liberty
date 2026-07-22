@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2020 IBM Corporation and others.
+ * Copyright (c) 2010, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.ejbcontainer.cdi.fat;
 
@@ -20,6 +19,7 @@ import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.ejbcontainer.cdi.jcdi.web.BeanManagerInjectionServlet;
 import com.ibm.ws.ejbcontainer.cdi.jcdi.web.InjectMultiLocalEJBServlet;
 import com.ibm.ws.ejbcontainer.cdi.jcdi.web.InterceptorIntegrationServlet;
@@ -30,7 +30,6 @@ import componenttest.annotation.TestServlet;
 import componenttest.annotation.TestServlets;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.rules.repeater.FeatureReplacementAction;
-import componenttest.rules.repeater.JakartaEE9Action;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
@@ -45,8 +44,22 @@ public class EJBxCDITest extends FATServletClient {
                     @TestServlet(servlet = ResourceServlet.class, contextRoot = "EJB31JCDIWeb") })
     public static LibertyServer server;
 
+    /*@formatter:off*/
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().forServers("com.ibm.ws.ejbcontainer.cdi.fat.EJB-CDI-Server")).andWith(FeatureReplacementAction.EE8_FEATURES().fullFATOnly().forServers("com.ibm.ws.ejbcontainer.cdi.fat.EJB-CDI-Server")).andWith(new JakartaEE9Action().forServers("com.ibm.ws.ejbcontainer.cdi.fat.EJB-CDI-Server"));
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.cdi.fat.EJB-CDI-Server"))
+                                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.cdi.fat.EJB-CDI-Server"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11)
+                                                    .forServers("com.ibm.ws.ejbcontainer.cdi.fat.EJB-CDI-Server"))
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17)
+                                                    .forServers("com.ibm.ws.ejbcontainer.cdi.fat.EJB-CDI-Server"))
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.cdi.fat.EJB-CDI-Server"));
+    /*@formatter:on*/
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -60,7 +73,7 @@ public class EJBxCDITest extends FATServletClient {
         EJB31JCDITestApp.addAsModule(EJB31JCDIBeanjar).addAsModule(EJB31InterceptorJCDIBean).addAsModule(EJB31NonJCDIBean).addAsModule(EJB31JCDIWeb);
         ShrinkHelper.addDirectory(EJB31JCDITestApp, "test-applications/EJB31JCDITestApp.ear/resources");
 
-        ShrinkHelper.exportDropinAppToServer(server, EJB31JCDITestApp);
+        ShrinkHelper.exportDropinAppToServer(server, EJB31JCDITestApp, DeployOptions.SERVER_ONLY);
 
         server.startServer();
 

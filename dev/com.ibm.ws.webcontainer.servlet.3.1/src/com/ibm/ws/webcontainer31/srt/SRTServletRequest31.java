@@ -1,18 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2014 IBM Corporation and others.
+ * Copyright (c) 2014, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer31.srt;
 
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
@@ -36,7 +35,6 @@ import com.ibm.ws.managedobject.ManagedObject;
 import com.ibm.ws.webcontainer.servlet.RequestUtils;
 import com.ibm.ws.webcontainer.srt.SRTInputStream;
 import com.ibm.ws.webcontainer.srt.SRTServletRequest;
-import com.ibm.ws.webcontainer.srt.SRTServletRequestThreadData;
 import com.ibm.ws.webcontainer.webapp.WebApp;
 import com.ibm.ws.webcontainer.webapp.WebAppDispatcherContext;
 import com.ibm.ws.webcontainer31.async.ThreadContextManager;
@@ -63,14 +61,14 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
     
     public SRTServletRequest31(SRTConnectionContext31 context)
     {
-        this._connContext = context;
-        this._requestContext = new SRTRequestContext31(this);
-        this._in = createInputStream();
-            if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
-                logger.logp(Level.FINE, CLASS_NAME,"SRTServletRequest", "this->"+this+": " + "inputStream is of type --> " + this._in);
-        }
+        super(context);
     }
 
+    @Override
+    protected SRTRequestContext31 createRequestContext() {
+        return new SRTRequestContext31(this);
+    }
+    
     @Override
     public Object clone() throws CloneNotSupportedException {
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
@@ -121,7 +119,9 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
 
             this._request = req;
             _srtRequestHelper = getRequestHelper();
-            SRTServletRequestThreadData.getInstance().init(null);
+
+            initRequestThreadData();
+            
             _in.init(_request.getInputStream());
             // begin 280584.1    SVT: StackOverflowError when installing app larger than 2GB    WAS.webcontainer    
             if( this.getContentLengthLong() > 0 ){            
@@ -149,15 +149,16 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
         
         // if cdi is enabled and there was an upgrade handler, then remove it from the cdi mapping
         // webapp is null if a request is accepted into WC but fail before any application is located for the request.
-        WebApp31 webapp = (WebApp31) ((WebAppDispatcherContext) this.getDispatchContext()).getWebApp();
-        if (webapp != null && webapp.isCDIEnabled() && httpUpgradeHandlerObject != null) {
-            Map<Object, ManagedObject> contexts = webapp.getCdiContexts();
-            if (contexts != null) {
-                contexts.remove(httpUpgradeHandlerObject);
-            }    
+        if (httpUpgradeHandlerObject != null) {
+            WebApp31 webapp = (WebApp31) ((WebAppDispatcherContext) this.getDispatchContext()).getWebApp();
+            if (webapp != null && webapp.isCDIEnabled()) {
+                Map<Object, ManagedObject> contexts = webapp.getCdiContexts();
+                if (contexts != null) {
+                    contexts.remove(httpUpgradeHandlerObject);
+                }
+            }
+            this.httpUpgradeHandlerObject = null;
         }
-
-        this.httpUpgradeHandlerObject = null;
     }
 
 
@@ -288,21 +289,21 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
 
     @Override
     protected Hashtable parsePostData() throws IOException {
-
         if(((SRTInputStream31) _in).getReadListener() != null) {
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  
-                logger.logp(Level.FINE, CLASS_NAME,"prepareMultipart", "Non-Blocking read already started on this InputStream , cannot parse again->" + _in);
+                logger.logp(Level.FINE, CLASS_NAME,"parsePostData", "Non-Blocking read already started on this InputStream , cannot parse again->" + _in);
             return null;
         }
-
-        if( getContentLengthLong() > 0){
-
+        
+        //Go chunk if compressed. The content-length here is of the compressed data.  It will not be read correctly inside the RequestUtils.getPostBody
+        if(getContentLengthLong() > 0 && !isCompressedData()){
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  
-                logger.logp(Level.FINE, CLASS_NAME,"parseParameters", "parsing post data based upon content length long");
+                logger.logp(Level.FINE, CLASS_NAME,"parsePostData", "parsing post data based upon content length long");
             return  RequestUtils.parsePostDataLong(getContentLengthLong(), getInputStream(), getReaderEncoding(), this.multiReadPropertyEnabled);  // MultiRead
         } 
+        
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))  
-            logger.logp(Level.FINE, CLASS_NAME,"parseParameters", "parsing post data based upon input stream (possibly chunked)");
+            logger.logp(Level.FINE, CLASS_NAME,"parsePostData", "parsing post data based upon input stream (possibly chunked)");
         return RequestUtils.parsePostData(getInputStream(), getReaderEncoding(), this.multiReadPropertyEnabled);   // MultiRead
     }
 
@@ -369,9 +370,15 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
 
     public HashMap getInputStreamData() throws IOException
     {
+        return getInputStreamData(-1);
+    }
+
+    public HashMap getInputStreamData(long maxAllowedLength) throws IOException
+    {
+        String methodName = "getInputStreamData";
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)){
-            logger.entering(CLASS_NAME, "getInputStreamData");
-            logger.logp(Level.FINE, CLASS_NAME,"getInputStreamData","[" + this + "]");
+            logger.entering(CLASS_NAME, methodName);
+            logger.logp(Level.FINE, CLASS_NAME,methodName,"[" + this + "]");
         }
         if (WCCustomProperties.CHECK_REQUEST_OBJECT_IN_USE){
             checkRequestObjectInUse();
@@ -393,7 +400,7 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
 
         inStreamInfo.put(INPUT_STREAM_CONTENT_DATA_LENGTH, len);
 
-        if (len>0) {        
+        if (len>0 && (maxAllowedLength > 0 && len <= maxAllowedLength)) {
             int bufferLen=0, MaxBufferSize = WCCustomProperties.SERVLET31_PRIVATE_BUFFERSIZE_FOR_LARGE_POST_DATA;
             long arraySize = len/MaxBufferSize;
             if (len%MaxBufferSize>0) arraySize++;
@@ -404,7 +411,7 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
 
             byte[][] bytes = new byte[(int)arraySize][];
             if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))
-                logger.logp(Level.FINE, CLASS_NAME, "getInputStreamData","data length = " + Long.toString(len) + ", MaxBufferSize = " + MaxBufferSize + ", Array size = " + arraySize);
+                logger.logp(Level.FINE, CLASS_NAME, methodName,"data length = " + Long.toString(len) + ", MaxBufferSize = " + MaxBufferSize + ", Array size = " + arraySize);
 
             for (int i= 0; len > lenRead ; i++)
             {
@@ -417,7 +424,7 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
                 bytes[i]  = new byte[bufferLen];
 
                 if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))
-                    logger.logp(Level.FINE, CLASS_NAME, "getInputStreamData","buffer " + i + " of length " + bufferLen + ", left to read = " + Long.toString(len-lenRead));
+                    logger.logp(Level.FINE, CLASS_NAME, methodName,"buffer " + i + " of length " + bufferLen + ", left to read = " + Long.toString(len-lenRead));
                 offset = 0;
                 do {
                     inputLen = in.read(bytes[i], offset, bufferLen - offset);
@@ -425,7 +432,7 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
                         String msg = nls.getString("post.body.contains.less.bytes.than.specified", "post body contains less bytes than specified by content-length");
                         throw new IOException(msg);
                     }
-                    logger.logp(Level.FINE, CLASS_NAME, "getInputStreamData","read of " +  inputLen + " bytes.");
+                    logger.logp(Level.FINE, CLASS_NAME, methodName,"read of " +  inputLen + " bytes.");
                     offset += inputLen;
                 }
                 while ((bufferLen - offset) > 0);  
@@ -433,6 +440,7 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
             }     
             inStreamInfo.put(INPUT_STREAM_CONTENT_DATA, bytes);
         } else {
+            logger.logp(Level.FINE, CLASS_NAME, methodName, "Content length (" + len + ") was either <= 0 or > " + maxAllowedLength + ", so no bytes were read");
             inStreamInfo.put(INPUT_STREAM_CONTENT_DATA, null);
         }
 
@@ -441,8 +449,8 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
         }
 
         if (TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)){
-            logger.logp(Level.FINE, CLASS_NAME,"getInputStreamData","ContentType = " + this.getContentType() + ", data length = " + len);
-            logger.exiting(CLASS_NAME, "getInputStreamData");
+            logger.logp(Level.FINE, CLASS_NAME,methodName,"ContentType = " + this.getContentType() + ", data length = " + len);
+            logger.exiting(CLASS_NAME, methodName);
         }
 
         return inStreamInfo;
@@ -458,7 +466,7 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
      * byte[3...] : byte array of INPUT_STREAM_CONTENT_DATA (it could be multiple for servlet31 on Liberty) byte[3] doesn't exist if the length is zero.
      */
     @SuppressWarnings("rawtypes")
-    public byte[][] serializeInputStreamData(Map isd) throws IOException, UnsupportedEncodingException, IllegalStateException {
+    public byte[][] serializeInputStreamData(Map isd) throws IOException, IllegalStateException {
         validateInputStreamData(isd);
 
         String type = (String)isd.get(INPUT_STREAM_CONTENT_TYPE);
@@ -473,7 +481,7 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
         output[OFFSET_CONTENT_DATA_LENGTH] = longToBytes((long)length.intValue());
         if (type != null) {
             output[OFFSET_CONTENT_TYPE_LEN] = intToBytes(type.length());
-            output[OFFSET_CONTENT_TYPE_DATA] = type.getBytes("UTF-8"); 
+            output[OFFSET_CONTENT_TYPE_DATA] = type.getBytes(StandardCharsets.UTF_8);
         } else {
             output[OFFSET_CONTENT_TYPE_LEN] = intToBytes(0);
             output[OFFSET_CONTENT_TYPE_DATA] = new byte[1];
@@ -492,7 +500,7 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public HashMap deserializeInputStreamData(byte[][] input) throws UnsupportedEncodingException, IllegalStateException {
+    public HashMap deserializeInputStreamData(byte[][] input) throws IllegalStateException {
         if (input == null || input.length < 2) {
             if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE))
                 logger.logp(Level.FINE, CLASS_NAME,"deseriallizeInputStreamData", "The input data is null or fewer items than the expected. ");
@@ -503,7 +511,7 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
         output.put(INPUT_STREAM_CONTENT_DATA_LENGTH, Long.valueOf(length));
         int typeLen = bytesToInt(input[OFFSET_CONTENT_TYPE_LEN]);
         if (typeLen > 0) {
-            output.put(INPUT_STREAM_CONTENT_TYPE, new String(input[OFFSET_CONTENT_TYPE_DATA], "UTF-8"));
+            output.put(INPUT_STREAM_CONTENT_TYPE, new String(input[OFFSET_CONTENT_TYPE_DATA], StandardCharsets.UTF_8));
         } else {
             output.put(INPUT_STREAM_CONTENT_TYPE, null);
         }
@@ -525,13 +533,13 @@ public class SRTServletRequest31 extends SRTServletRequest implements HttpServle
      * this code does not consider that the length in long overwraps. 
      */
     @SuppressWarnings("rawtypes")
-    public long sizeInputStreamData(Map isd) throws UnsupportedEncodingException, IllegalStateException {
+    public long sizeInputStreamData(Map isd) throws IllegalStateException {
         validateInputStreamData(isd);
         // The length of IMPUT_STREAM_CONTENT_TYPE won't exceed Integer.MAX_VALUE
         long size = LENGTH_INT + LENGTH_LONG;
         String type = (String)isd.get(INPUT_STREAM_CONTENT_TYPE);
         if (type != null) {
-            size += type.getBytes("UTF-8").length;
+            size += type.getBytes(StandardCharsets.UTF_8).length;
         } else {
             size +=1; // if the size is zero, one byte data will be used for placeholder.
         }

@@ -1,3 +1,15 @@
+/*******************************************************************************
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
 package com.ibm.ws.annocache.test.jandex;
 
 import java.util.ArrayList;
@@ -20,7 +32,8 @@ public class JandexTestData {
         "com.ibm.websphere.appserver.api.basics-jar.idx", // V2
 
         "petclinic.idx",
-        "hibernate.idx"
+        "hibernate.idx",
+        "typeannotation-test-1.8-jar-v10.idx" // v10
       };
 
     public static final int[] INDEX_SIZES = {
@@ -31,7 +44,8 @@ public class JandexTestData {
         158,
         38,
         47,
-        456
+        456,
+        113
     };
 
     public static Collection<Object[]> data() {

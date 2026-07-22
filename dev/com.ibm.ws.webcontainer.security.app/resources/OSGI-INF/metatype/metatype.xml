@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    Copyright (c) 2011, 2018, 2020 IBM Corporation and others.
+    Copyright (c) 2011, 2026 IBM Corporation and others.
     All rights reserved. This program and the accompanying materials
-    are made available under the terms of the Eclipse Public License v1.0
+    are made available under the terms of the Eclipse Public License 2.0
     which accompanies this distribution, and is available at
-    http://www.eclipse.org/legal/epl-v10.html
-   
-    Contributors:
-        IBM Corporation - initial API and implementation
+    http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0
  -->
 <metatype:MetaData xmlns:metatype="http://www.osgi.org/xmlns/metatype/v1.1.0" 
                    xmlns:ibm="http://www.ibm.com/xmlns/appservers/osgi/metatype/v1.0.0" 
@@ -44,6 +43,10 @@
         <AD id="postParamCookieSize" name="%postParamCookieSize" description="%postParamCookieSize.desc"
             required="false" type="Integer"
             default="16384" />
+
+        <AD id="postParamMaxRequestBodySize" name="%postParamMaxRequestBodySize" description="%postParamMaxRequestBodySize.desc"
+            required="false" type="Long"
+            default="134217728" />
 
         <AD id="postParamSaveMethod" name="%postParamSaveMethod" description="%postParamSaveMethod.desc"
             required="false" type="String"
@@ -104,16 +107,16 @@
         
         <AD id="allowAuthenticationFailOverToAuthMethod" name="%allowAuthenticationFailOverToAuthMethod" description="%allowAuthenticationFailOverToAuthMethod.desc"
             required="false" type="String" > 
- 				<Option label="%allowAuthenticationFailOverToAuthMethod.BASIC" value="BASIC" />
-            	<Option label="%allowAuthenticationFailOverToAuthMethod.FORM" value="FORM" />
-            	<Option label="%allowAuthenticationFailOverToAuthMethod.APP_DEFINED" value="APP_DEFINED" />
+ 				<Option label="BASIC" value="BASIC" />
+            	<Option label="FORM" value="FORM" />
+            	<Option label="APP_DEFINED" value="APP_DEFINED" />
         </AD> 
 		<AD id="includePathInWASReqURL" name="%includePathInWASReqURL" description="%includePathInWASReqURL.desc"
             required="false" type="Boolean"
             default="false" />
         <AD id="trackLoggedOutSSOCookies" name="%trackLoggedOutSSOCookies" description="%trackLoggedOutSSOCookies.desc"
             required="false" type="Boolean"
-            default="false" />
+            default="true" />
 
         <AD id="overrideHttpAuthMethod" name="%overrideHttpAuthMethod" description="%overrideHttpAuthMethod.desc"
             required="false" type="String">
@@ -134,7 +137,31 @@
      			<Option label="%sameSiteCookieLax" value="Lax"/>
      			<Option label="%sameSiteCookieNone" value="None"/>
      			<Option label="%sameSiteCookieStrict" value="Strict"/>
- </AD>    
+        </AD>    
+        
+        <AD id="partitionedCookie" name="%partitionedCookie" description="%partitionedCookie.desc"
+            required="false" type="String" default="defer">
+            <Option label="%partitionedCookieTrue"  value="true"/>
+            <Option label="%partitionedCookieFalse" value="false"/>
+            <Option label="%partitionedCookieDefer" value="defer"/>
+        </AD>
+
+        <AD id="useContextRootForSSOCookiePath" name="%useContextRootForSSOCookiePath" description="%useContextRootForSSOCookiePath.desc" 
+            required="false" type="Boolean" default="false"/>
+     			
+        <!-- 
+              JCache configuration.
+        -->
+        <AD id="loggedOutCookieCacheRef" type="String" required="false" ibm:type="pid"
+            ibm:reference="io.openliberty.jcache.cache" name="%loggedOutCookieCacheCacheRef" 
+            description="%loggedOutCookieCacheCacheRef.desc" />
+        <AD id="loggedOutCookieCacheService.target" type="String" default="(service.pid=${loggedOutCookieCacheRef})"
+            ibm:final="true" name="internal" description="internal use only" />
+        <AD id="loggedOutCookieCacheService.cardinality.minimum" type="String"  default="${count(loggedOutCookieCacheRef)}" 
+            ibm:final="true" name="internal" description="internal use only"/>
+
+        <AD id="allowInMemoryIdentityStores" name="%allowInMemoryIdentityStores" description="%allowInMemoryIdentityStores.desc"
+            required="false" type="Boolean" default="false"/>
             
     </OCD>
     <Designate pid="com.ibm.ws.webcontainer.security.WebAppSecurityCollaboratorImpl">

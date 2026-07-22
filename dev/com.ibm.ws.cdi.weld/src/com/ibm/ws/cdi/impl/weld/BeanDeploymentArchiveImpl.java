@@ -1,37 +1,44 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+ * Copyright (c) 2015, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.cdi.impl.weld;
 
+import java.io.PrintWriter;
 import java.net.URL;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import javax.enterprise.inject.spi.AnnotatedField;
 import javax.enterprise.inject.spi.AnnotatedType;
 import javax.enterprise.inject.spi.DefinitionException;
+import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.InjectionTarget;
 import javax.inject.Inject;
 
 import org.jboss.weld.annotated.enhanced.EnhancedAnnotatedField;
-import org.jboss.weld.bootstrap.api.Bootstrap;
 import org.jboss.weld.bootstrap.api.ServiceRegistry;
 import org.jboss.weld.bootstrap.api.helpers.SimpleServiceRegistry;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
@@ -72,8 +79,6 @@ import com.ibm.wsspi.injectionengine.ReferenceContext;
 /**
  * The implementation of Weld spi BeanDeploymentArchive to represent a CDI bean
  * archive.
- *
- *
  */
 public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive {
 
@@ -97,7 +102,7 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
     private final Set<String> additionalBeanDefiningAnnotations = new HashSet<String>();
 
     private final Set<String> extensionClassNames = new HashSet<String>();
-    private final Set<String> spiExtensionClassNames = new HashSet<String>();
+    private final Set<Supplier<Extension>> spiExtensionSuppliers = new HashSet<>();
 
     private final ServiceRegistry weldServiceRegistry;
     private final String id;
@@ -105,8 +110,6 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
 
     private final Set<WebSphereBeanDeploymentArchive> accessibleBDAs = new HashSet<WebSphereBeanDeploymentArchive>();
     private final Set<WebSphereBeanDeploymentArchive> descendantBDAs = new HashSet<WebSphereBeanDeploymentArchive>();
-
-    private final Bootstrap bootstrap;
 
     private final WebSphereCDIDeployment cdiDeployment;
     private final Set<EjbDescriptor<?>> ejbDescriptors = new HashSet<EjbDescriptor<?>>();
@@ -144,7 +147,7 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
                               CDIArchive archive,
                               CDIRuntime cdiRuntime,
                               Set<String> archiveClassNames, //the classes directly in this archive
-                              Set<String> additionalClasses, //additional classes not actually in this archive
+                              Set<String> additionalClasses, //additional classes. These can be classes not actually in this archive or classes explicitly marked to be beans via the extension SPI
                               Set<String> additionalBeanDefiningAnnotations,
                               boolean extensionCanSeeApplicationBDAs,
                               Set<String> extensionClassNames,
@@ -155,8 +158,6 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
         this.classloader = archive.getClassLoader();
         this.cdiDeployment = cdiDeployment;
         this.extensionCanSeeApplicationBDAs = extensionCanSeeApplicationBDAs;
-
-        this.bootstrap = cdiDeployment.getBootstrap();
 
         //archive classes only
         this.archiveClassNames.addAll(archiveClassNames);
@@ -192,6 +193,10 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
     @Override
     public Set<String> scanForBeanDefiningAnnotations(boolean includeAccessible) throws CDIException {
 
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.entry(tc, "scanForBeanDefiningAnnotations [ " + getHumanReadableName() + " ] includeAccessible: " + includeAccessible);
+        }
+
         Set<String> beanDefiningAnnotations = new HashSet<String>(this.additionalBeanDefiningAnnotations);
 
         //these are the annotations directly in this BDA
@@ -219,6 +224,10 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
             beanDefiningAnnotations.addAll(this.accessibleBeanDefiningAnnotations);
         }
 
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.exit(tc, "scanForBeanDefiningAnnotations [ " + getHumanReadableName() + " ] { " + beanDefiningAnnotations + " }");
+        }
+
         return beanDefiningAnnotations;
     }
 
@@ -241,6 +250,10 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
             } else if ((cdiRuntime.isImplicitBeanArchivesScanningDisabled(this.archive) || isExtension())) {
                 // If the server.xml has the configuration of enableImplicitBeanArchives sets to false, we will not scan the implicit bean archives
                 beanDiscoveryMode = BeanDiscoveryMode.NONE;
+            } else if (archive.getType() == ArchiveType.RUNTIME_EXTENSION) {
+                // Runtime extensions default to none as they are extension archives (and this means that only classes explicitly returned by getBeans() will be a bean.
+                // But if another component has added a beans.xml we will honour their request.
+                beanDiscoveryMode = BeanDiscoveryMode.NONE;
             }
         }
         return beanDiscoveryMode;
@@ -250,14 +263,25 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
     @Override
     public void scan() throws CDIException {
         if (!this.scanned) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "scan [ " + getHumanReadableName() + " ] BEGIN SCAN");
+            }
             //mark as scanned up front to prevent loops
             this.scanned = true;
 
-            //scan the children
-            for (WebSphereBeanDeploymentArchive child : accessibleBDAs) {
-                if (!child.hasBeenScanned()) {
-                    child.scan();
+            // Scan any accessible BDAs first to ensure we scan more visible things (shared libs, ear libs) before less visible things (war classes, war libs)
+            // This helps to make sure that the later call to isAccessibleBean works
+            // Don't scan accessible BDAs of runtime extensions because they sit outside the hierarchy and some of them need to see everything
+            if (getType() != ArchiveType.RUNTIME_EXTENSION) {
+                for (WebSphereBeanDeploymentArchive child : accessibleBDAs) {
+                    if (!child.hasBeenScanned()) {
+                        child.scan();
+                    }
                 }
+            }
+
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "scan [ " + getHumanReadableName() + " ] AFTER SCANNING CHILDREN");
             }
 
             //find the names of all potential bean classes in this archive
@@ -273,9 +297,21 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
                 Class<?> loadedClass = classEntry.getValue();
                 ClassLoader actualClassLoader = loadedClass.getClassLoader();
                 if (actualClassLoader == classLoader || !isAccessibleBean(loadedClass)) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled() && this.beanClasses.containsKey(className)) {
+                        Tr.debug(tc, "beanClasses key collision for " + className);
+                        Tr.debug(tc, "Old class " + beanClasses.get(className).getCanonicalName() + beanClasses.get(className).getClassLoader().toString());
+                        Tr.debug(tc, "New class " + loadedClass.getCanonicalName() + loadedClass.getClassLoader().toString());
+                    }
                     this.beanClasses.put(className, loadedClass);
                 }
             }
+        }
+
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            String debugClassesString = this.beanClasses.entrySet().stream().filter(Objects::nonNull).map(entry -> entry.getKey() + " = "
+                                                                                                                   + entry.getValue().toString())
+                                                        .collect(Collectors.joining(", "));
+            Tr.debug(tc, "scan [ " + getHumanReadableName() + " ] AFTER SCAN. Bean classes: { " + debugClassesString + "}");
         }
 
         this.hasBeans = this.beanClasses.size() > 0;
@@ -303,6 +339,9 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
     }
 
     private Set<String> scanForBeanClassNames() throws CDIException {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.entry(tc, "scanForBeanClassNames [ " + getHumanReadableName() + " ]");
+        }
         Set<String> classNames = new HashSet<String>();
 
         BeanDiscoveryMode mode = getBeanDiscoveryMode();
@@ -328,10 +367,18 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
             classNames.remove(appMainClassName);
         }
 
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            String beanNames = String.join(", ", classNames);
+            Tr.exit(tc, "scanForBeanClassNames [ " + getHumanReadableName() + " ] { " + classNames + " }");
+        }
         return classNames;
     }
 
     private void initializeInjectionClasses(Collection<Class<?>> beanClasses) throws CDIException {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            String beanNames = beanClasses.stream().filter(Objects::nonNull).map(Object::toString).collect(Collectors.joining(", "));
+            Tr.entry(tc, "initializeInjectionClasses [ " + getHumanReadableName() + " ] {" + beanNames + "}");
+        }
         Set<Class<?>> classes = new HashSet<Class<?>>();
 
         classes.addAll(beanClasses);
@@ -349,9 +396,17 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
         classes.removeAll(getManagedBeanClasses());
 
         this.injectionClasses.addAll(classes);
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            String beanNames = this.injectionClasses.stream().filter(Objects::nonNull).map(Object::toString).collect(Collectors.joining(", "));
+            Tr.exit(tc, "initializeInjectionClasses [ " + getHumanReadableName() + " ] {" + beanNames + "}");
+        }
     }
 
     private void initializeJEEComponentClasses(Set<String> allClassNames) throws CDIException {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            String classNames = String.join(", ", allClassNames);
+            Tr.entry(tc, "initializeJEEComponentClasses [ " + getHumanReadableName() + " ] {" + classNames + "}");
+        }
         Set<Class<?>> classes = new HashSet<Class<?>>();
 
         //the class names from the InjectionClassList interface covers all of the Web Components
@@ -366,7 +421,7 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
                     Class<?> clazz = CDIUtils.loadClass(classLoader, className);
                     if (clazz != null) {
                         classes.add(clazz);
-                    } else { 
+                    } else {
                         Tr.debug(tc, "jee Component Class was null", className);
                     }
                 }
@@ -378,7 +433,7 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
         for (EjbDescriptor<?> ejb : ejbs) {
             if (ejb.isMessageDriven()) {
                 classes.add(ejb.getBeanClass());
-                if (ejb.getBeanClass() == null) { 
+                if (ejb.getBeanClass() == null) {
                     Tr.debug(tc, "Message Bean's bean class was null", ejb);
                 }
             }
@@ -399,9 +454,16 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
 
         classes.addAll(nonCDIInterceptors);
         this.jeeComponentClasses.addAll(classes);
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            String names = this.jeeComponentClasses.stream().filter(Objects::nonNull).map(Object::toString).collect(Collectors.joining(", "));
+            Tr.exit(tc, "initializeJEEComponentClasses [ " + getHumanReadableName() + " ] {" + names + "}");
+        }
     }
 
     private void scanForEndpoints() throws CDIException {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.entry(tc, "scanForEndpoints [ " + getHumanReadableName() + " ]");
+        }
 
         if (!endpointsScanned) {
             endpointsScanned = true;
@@ -464,6 +526,9 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
                 }
             }
         }
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.exit(tc, "scanForEndpoints [ " + getHumanReadableName() + " ]");
+        }
     }
 
     /**
@@ -515,6 +580,11 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
      * @param classes
      */
     private void removeVetoedClasses(Set<Class<?>> classes) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            String vetoedClassNames = classes.stream().filter(Objects::nonNull).map(Object::toString).collect(Collectors.joining(", "));
+            Tr.entry(tc, "removeVetoedClasses [ " + getHumanReadableName() + " ] {" + vetoedClassNames + "}");
+        }
+
         //get hold of classnames
         Set<String> classNames = new HashSet<String>();
         for (Class<?> clazz : classes) {
@@ -531,6 +601,9 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
                 iterator.remove();
             }
 
+        }
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.exit(tc, "removeVetoedClasses [ " + getHumanReadableName() + " ]");
         }
     }
 
@@ -574,13 +647,21 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
 
     @Override
     public boolean containsBeanClass(Class<?> beanClass) {
+        Tr.entry(tc, "containsBeanClass. BDA=" + getHumanReadableName() + " beanClass=" + beanClass.getCanonicalName());
         //check to see whether it contains this class
         boolean containsBeanClass = false;
         Class<?> localBeanClass = this.beanClasses.get(beanClass.getName());
-        if (localBeanClass != null && beanClass.equals(localBeanClass)) {
-            containsBeanClass = true;
+        if (localBeanClass != null) {
+            if (beanClass.equals(localBeanClass)) {
+                containsBeanClass = true;
+            } else if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "containsBeanClass. The class names matched but the classes were not equal");
+            }
         }
 
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.exit(tc, "containsBeanClass " + containsBeanClass);
+        }
         return containsBeanClass;
 
     }
@@ -599,8 +680,8 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
 
     @Override
     public void addBeanDeploymentArchive(WebSphereBeanDeploymentArchive accessibleBDA) {
-        if ( TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled() ) {        
-            Tr.debug(tc, "addBeanDeploymentArchive: [ " + accessibleBDA + " ] will be visible to [ " + getHumanReadableName() + " ]");            
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "addBeanDeploymentArchive: [ " + accessibleBDA + " ] will be visible to [ " + getHumanReadableName() + " ]");
         }
         this.accessibleBDAs.add(accessibleBDA);
     }
@@ -618,23 +699,32 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
     @Override
     public BeansXml getBeansXml() {
         if (this.beansXml == null) {
-            Resource beansXmlResource = archive.getBeansXml();
-            if (beansXmlResource != null) {
-                URL beansXmlUrl = beansXmlResource.getURL();
-                Bootstrap bootstrap = getCDIDeployment().getBootstrap();
+            URL beansXmlUrl = getBeansXmlResourceURL();
+            if (beansXmlUrl != null) {
                 final ClassLoader origTCCL = getContextClassLoader();
                 try {
                     // Must use this class's loader as the context classloader to ensure
                     // that we load Liberty's XML parser rather than any parser defined
                     // in the application.
                     setContextClassLoader(BeanDeploymentArchiveImpl.class.getClassLoader());
-                    beansXml = bootstrap.parse(beansXmlUrl);
+                    beansXml = getCDIRuntime().getBeansXmlParser().parse(getCDIDeployment(), beansXmlUrl);
                 } finally {
                     setContextClassLoader(origTCCL);
                 }
             }
         }
         return this.beansXml;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public URL getBeansXmlResourceURL() {
+        URL beansXmlResourceURL = null;
+        Resource beansXmlResource = archive.getBeansXml();
+        if (beansXmlResource != null) {
+            beansXmlResourceURL = beansXmlResource.getURL();
+        }
+        return beansXmlResourceURL;
     }
 
     /**
@@ -649,7 +739,8 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
                 isExtension = false;
             } else {
                 Set<String> extensionClazz = archive.getExtensionClasses();
-                isExtension = extensionClazz.isEmpty() ? false : true;
+                Set<String> bceClazz = getBuildCompatibleExtensionClassNames();
+                isExtension = extensionClazz.isEmpty() && bceClazz.isEmpty() ? false : true;
             }
         }
         return isExtension;
@@ -662,7 +753,16 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
      */
     @Override
     public Collection<EjbDescriptor<?>> getEjbs() {
-        return ejbDescriptors;
+        if (beanDiscoveryMode == BeanDiscoveryMode.NONE) {
+            // Don't tell Weld about any EJBs if bean discovery mode is none, otherwise it will turn them into beans
+            // which we don't want.
+
+            // We still need to store the EJB Descriptors so that we can find which BDA contains a given EJB, even if
+            // it has bean discovery mode none.
+            return Collections.emptySet();
+        } else {
+            return ejbDescriptors;
+        }
     }
 
     private Set<Class<?>> getEJBClasses() {
@@ -727,10 +827,9 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
     /**
      * @return the beanManager
      */
-
     @Override
     public WeldManager getBeanManager() {
-        return bootstrap.getManager(this);
+        return getCDIDeployment().getBootstrap().getManager(this);
     }
 
     @Override
@@ -789,17 +888,18 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
     public void addEjbDescriptor(EjbDescriptor<?> ejbDescriptor) {
         Tr.entry(tc, "addEjbDescriptor. Adding EjbDescriptor: " + ejbDescriptor + " with ejbName: " + ejbDescriptor.getEjbName() + " to bda: " + getHumanReadableName());
 
+        this.ejbDescriptors.add(ejbDescriptor);
+        Class<?> beanClass = ejbDescriptor.getBeanClass();
+        Set<EjbDescriptor<?>> ejbDescriptors = ejbDescriptorMap.get(beanClass);
+        if (ejbDescriptors == null) {
+            ejbDescriptors = new HashSet<EjbDescriptor<?>>();
+        }
+        ejbDescriptors.add(ejbDescriptor);
+        this.ejbDescriptorMap.put(beanClass, ejbDescriptors);
+
         if (getBeanDiscoveryMode() != BeanDiscoveryMode.NONE) {
-            this.ejbDescriptors.add(ejbDescriptor);
-            Class<?> beanClass = ejbDescriptor.getBeanClass();
             this.beanClasses.put(beanClass.getName(), beanClass);
             this.ejbClasses.add(beanClass);
-            Set<EjbDescriptor<?>> ejbDescriptors = ejbDescriptorMap.get(beanClass);
-            if (ejbDescriptors == null) {
-                ejbDescriptors = new HashSet<EjbDescriptor<?>>();
-            }
-            ejbDescriptors.add(ejbDescriptor);
-            this.ejbDescriptorMap.put(beanClass, ejbDescriptors);
             this.hasBeans = true;
         }
     }
@@ -808,7 +908,7 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
     public void addManagedBeanDescriptor(ManagedBeanDescriptor<?> managedBeanDescriptor) {
         if (getBeanDiscoveryMode() != BeanDiscoveryMode.NONE) {
             this.managedBeanClasses.add(managedBeanDescriptor.getBeanClass());
-            if (managedBeanDescriptor.getBeanClass() == null) { 
+            if (managedBeanDescriptor.getBeanClass() == null) {
                 Tr.debug(tc, "Managed bean descriptor's bean class was null", managedBeanDescriptor);
             }
         }
@@ -1017,14 +1117,19 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
     }
 
     @Override
-    public Set<String> getSPIExtensionClassNames() {
-        return spiExtensionClassNames;
+    public Set<Supplier<Extension>> getSPIExtensionSuppliers() {
+        return spiExtensionSuppliers;
     }
 
     @Override
-    public void setSPIExtensionClassNames(Set<String> spiExtensionsClassNames) {
-        this.spiExtensionClassNames.clear();
-        this.spiExtensionClassNames.addAll(spiExtensionsClassNames);
+    public void setSPIExtensionSuppliers(Set<Supplier<Extension>> spiExtensionSuppliers) {
+        this.spiExtensionSuppliers.clear();
+        this.spiExtensionSuppliers.addAll(spiExtensionSuppliers);
+    }
+
+    @Override
+    public Set<String> getBuildCompatibleExtensionClassNames() {
+        return archive.getBuildCompatibleExtensionClasses();
     }
 
     private static ClassLoader getContextClassLoader() {
@@ -1047,4 +1152,162 @@ public class BeanDeploymentArchiveImpl implements WebSphereBeanDeploymentArchive
             }
         });
     }
+
+    @Override
+    public void introspect(PrintWriter out) {
+        try {
+            out.println("=========== Beginning Introspection of " + getHumanReadableName() + " =================");
+
+            out.println("++++ id:" + id + "++++");
+            out.println("++++ scanned:" + scanned + "++++");
+            out.println("++++ hasBeans:" + hasBeans + "++++");
+            out.println("++++ endpointsScanned:" + endpointsScanned + "++++");
+            out.println("++++ isExtension:" + isExtension + "++++");
+            out.println("++++ extensionCanSeeApplicationBDAs:" + extensionCanSeeApplicationBDAs + "++++");
+
+            introsepectorHelperBeansXMLToString(beansXml, out);
+            out.println("++++ beanDiscoveryMode:" + beanDiscoveryMode + "++++");
+
+            out.println("++++ archiveClassNames ++++");
+            if (archiveClassNames != null)
+                archiveClassNames.stream().forEach(e -> out.println("archiveClassName: " + e));
+
+            out.println("++++ allClasses ++++");
+            if (allClasses != null)
+                allClasses.stream().forEach(e -> out.println("class: " + e));
+
+            out.println("++++ beanClasses ++++");
+            if (beanClasses != null)
+                beanClasses.entrySet().stream().forEach(e -> out.println("beanClass: " + e.getKey() + " : " + e.getValue().getName()));
+
+            out.println("++++ classloader:" + classloader + " ++++");
+
+            out.println("++++ ejbClasses ++++");
+            if (ejbClasses != null)
+                ejbClasses.stream().forEach(c -> out.println("ejbClasses: " + c.getName()));
+
+            out.println("++++ managedBeanClasses ++++");
+            if (managedBeanClasses != null)
+                managedBeanClasses.stream().forEach(c -> out.println("managedBeanClass: " + c.getName()));
+
+            out.println("++++ injectionClasses ++++");
+            if (injectionClasses != null)
+                injectionClasses.stream().forEach(c -> out.println("injectionClass: " + c.getName()));
+
+            out.println("++++ jeeComponentClasses ++++");
+            if (jeeComponentClasses != null)
+                jeeComponentClasses.stream().forEach(c -> out.println("jeeComponentClasses: " + c.getName()));
+
+            out.println("++++ additionalClasses ++++");
+            if (additionalClasses != null)
+                out.println("additionalClasses: " + additionalClasses.stream().collect(Collectors.joining(", ")));
+
+            out.println("++++ additionalBeanDefiningAnnotations ++++");
+            if (additionalBeanDefiningAnnotations != null)
+                out.println("additionalBeanDefinngAnnotations: " + additionalBeanDefiningAnnotations.stream().collect(Collectors.joining(", ")));
+
+            out.println("++++ extensionClassNames ++++");
+            if (extensionClassNames != null)
+                out.println("extensionClassNames: " + extensionClassNames.stream().collect(Collectors.joining(", ")));
+
+            //not needed spiExtensionSuppliers
+
+            //not needed out.println("++++ weldServiceRegistry:" + weldServiceRegistry + "++++");
+            if (eeModuleDescriptor != null)
+                out.println("++++ eeModuleDescriptor:" + eeModuleDescriptor.toString() + "++++");
+
+            out.println("++++ accessibleBDAs ++++");
+            if (accessibleBDAs != null)
+                accessibleBDAs.stream().forEach(bda -> out.println("accessibleBDA: " + bda.toString()));
+            out.println("++++ descendantBDAs ++++");
+            if (descendantBDAs != null)
+                descendantBDAs.stream().forEach(bda -> out.println("descendantBDA: " + bda.toString()));
+
+            out.println("++++ ejbDescriptors ++++");
+            if (ejbDescriptors != null)
+                out.println("ejbDescriptor: " + introsepectorHelperEjbDescritorsToString(ejbDescriptors));
+
+            out.println("++++ ejbDescriptorMap ++++");
+            if (ejbDescriptorMap != null)
+                ejbDescriptorMap.entrySet().stream().forEach(e -> out.println("ejbDescriptorMapEntry: " + e.getKey().getName() + " : [" +
+                                                                              e.getValue().getClass() + " , " + introsepectorHelperEjbDescritorsToString(e.getValue())));
+
+            out.println("++++ nonCDIInterceptors ++++");
+            if (nonCDIInterceptors != null)
+                nonCDIInterceptors.stream().forEach(e -> out.println("nonCDIInterceptors: " + e.getName()));
+
+            out.println("++++ directBeanDefiningAnnotations ++++");
+            if (directBeanDefiningAnnotations != null) {
+                directBeanDefiningAnnotations.stream().forEach(e -> out.println("directBeanDefiningAnnotations: " + e));
+            }
+
+            out.println("++++ accessibleBeanDefiningAnnotations ++++");
+            if (accessibleBeanDefiningAnnotations != null)
+                accessibleBeanDefiningAnnotations.stream().forEach(e -> out.println("accessibleBeanDefiningAnnotation: " + e));
+
+            out.println("++++ injectionTargets ++++");
+            if (injectionTargets != null)
+                injectionTargets.entrySet().stream().forEach(e -> out.println("injectionTarget: " + e.getKey().getName() + " : " + e.getValue()));
+
+            out.println("++++ staticInjectionPoints ++++");
+            if (staticInjectionPoints != null)
+                staticInjectionPoints.entrySet().stream().forEach(e -> out.println("staticInjectionPoint: " + e.getKey().getName() + " : " + e.getValue()));
+
+            out.println("=========== Ending Introspection of " + getHumanReadableName() + " =================");
+        } catch (Exception e) {
+            out.println("While introspecting, caught exception " + e.toString());
+            e.printStackTrace(out);
+        } finally {
+            out.flush();
+        }
+    }
+
+    private String introsepectorHelperEjbDescritorsToString(Set<EjbDescriptor<?>> descriptors) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (EjbDescriptor<?> descriptor : descriptors) {
+            sb.append(descriptor.getEjbName() + " ," + descriptor.getBeanClass());
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    private void introsepectorHelperBeansXMLToString(BeansXml beansXml, PrintWriter out) {
+
+        out.println("++++ beans.xml ++++");
+
+        if (beansXml == null) {
+            out.println("beans xml file was null");
+            return;
+        }
+
+        out.println("bean discovery mode: " + beansXml.getBeanDiscoveryMode());
+
+        out.println("enabled alternatives: " + beansXml.getEnabledAlternativeClasses().stream().filter(Objects::nonNull)
+                                                       .map(m -> m.getValue())
+                                                       .collect(Collectors.joining(", ")));
+
+        out.println("enabled alternative sterotypes: " + beansXml.getEnabledAlternativeStereotypes().stream().filter(Objects::nonNull)
+                                                                 .map(m -> m.getValue())
+                                                                 .collect(Collectors.joining(", ")));
+
+        out.println("enabled decorators: " + beansXml.getEnabledDecorators().stream().filter(Objects::nonNull)
+                                                     .map(m -> m.getValue())
+                                                     .collect(Collectors.joining(", ")));
+
+        out.println("enabled interceptors: " + beansXml.getEnabledInterceptors().stream().filter(Objects::nonNull)
+                                                       .map(m -> m.getValue())
+                                                       .collect(Collectors.joining(", ")));
+
+        //We have a useful toString on the filters here: https://github.com/weld/core/blob/6.0/impl/src/main/java/org/jboss/weld/metadata/WeldFilterImpl.java
+        out.println("scanning excludes: " + beansXml.getScanning().getExcludes().stream().filter(Objects::nonNull)
+                                                    .map(m -> m.getValue()).map(f -> f.toString()).collect(Collectors.joining(", ")));
+
+        out.println("scanning includes: " + beansXml.getScanning().getIncludes().stream().filter(Objects::nonNull)
+                                                    .map(m -> m.getValue()).map(f -> f.toString()).collect(Collectors.joining(", ")));
+
+        out.println("beansXML URL: " + beansXml.getUrl());
+
+    }
+
 }

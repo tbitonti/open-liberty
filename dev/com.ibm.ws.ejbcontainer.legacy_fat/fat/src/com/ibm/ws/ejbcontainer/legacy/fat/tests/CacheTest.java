@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2002, 2021 IBM Corporation and others.
+ * Copyright (c) 2002, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.ejbcontainer.legacy.fat.tests;
 
@@ -22,6 +21,7 @@ import org.junit.runner.RunWith;
 import com.ibm.ejb2x.base.cache.web.StatefulOnceServlet;
 import com.ibm.ejb2x.base.cache.web.StatefulTranServlet;
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 
 import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
@@ -45,8 +45,19 @@ public class CacheTest {
                     @TestServlet(servlet = StatefulTranServlet.class, contextRoot = "StatefulCacheWeb") })
     public static LibertyServer server;
 
+    /*@formatter:off*/
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().forServers("com.ibm.ws.ejbcontainer.legacy.server.notrace")).andWith(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.ejbcontainer.legacy.server.notrace"));
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server.notrace"))
+                                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server.notrace"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server.notrace"))
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server.notrace"))
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.legacy.server.notrace"));
+    /*@formatter:on*/
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -65,7 +76,7 @@ public class CacheTest {
         StatefulCacheApp.addAsModules(StatefulCacheEJB, StatefulCacheWeb);
         ShrinkHelper.addDirectory(StatefulCacheApp, "test-applications/StatefulCacheApp.ear/resources");
 
-        ShrinkHelper.exportDropinAppToServer(server, StatefulCacheApp);
+        ShrinkHelper.exportDropinAppToServer(server, StatefulCacheApp, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }

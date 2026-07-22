@@ -1,0 +1,73 @@
+#*******************************************************************************
+# Copyright (c) 2022, 2024 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+#*******************************************************************************
+-include= ~../cnf/resources/bnd/bundle.props
+bVersion=1.0
+
+javac.source: 11
+javac.target: 11
+
+Require-Capability: osgi.ee; filter:="(&(osgi.ee=JavaSE)(version=11))"
+Bundle-Name: io.openliberty.restfulWS.mpMetrics.filter
+Bundle-SymbolicName: io.openliberty.restfulWS.mpMetrics.filter
+Bundle-Description: io.openliberty.restfulWS.mpMetrics.filter; version=${bVersion}
+
+src: src
+
+-dsannotations:  \
+ 	io.openliberty.restfulws.mpmetrics.MonitorAppStateListener,\
+ 	io.openliberty.restfulws.mpmetrics.MetricsRestfulWsEMCallbackImpl,\
+ 	io.openliberty.restfulws.mpmetrics.RestMetricsCallbackImpl
+
+WS-TraceGroup: JAXRS
+
+Import-Package: \
+	com.ibm.websphere.servlet.container, \
+	jakarta.servlet; version="[6.0,7)", \
+	jakarta.ws.rs.container; version="[3.0.0,5.0.0)", \
+	org.eclipse.microprofile.metrics;version="[5.0,6)",\
+	org.eclipse.microprofile.metrics.*;version="[5.0,6)",\
+	io.openliberty.microprofile.metrics50,\
+	io.openliberty.microprofile.metrics.internal.monitor,\
+	io.openliberty.microprofile.metrics.internal.monitor.computed.internal,\
+    !*.internal.*,*
+
+Private-Package: \
+   com.ibm.ws.microprofile.metrics.monitor.resources
+
+Export-Package: \
+	io.openliberty.restfulws.mpmetrics; thread-context="true"
+
+DynamicImport-Package: com.ibm.websphere.monitor.meters;version="1.0.0", \
+ com.ibm.websphere.monitor.annotation;version="1.0.0", \
+ com.ibm.websphere.monitor.jmx;version="1.0.0"
+
+-buildpath: \
+	com.ibm.ws.classloading,\
+	io.openliberty.org.eclipse.microprofile.config.3.0;version=latest,\
+	io.openliberty.jakarta.annotation.2.1;version=latest,\
+	com.ibm.ws.monitor,\
+	io.openliberty.jakarta.servlet.6.0;version=latest,\
+	io.openliberty.jakarta.restfulWS.3.1, \
+	com.ibm.websphere.org.osgi.core;version=latest,\
+	com.ibm.websphere.org.osgi.service.component;version=latest,\
+	com.ibm.ws.container.service;version=latest,\
+	com.ibm.ws.org.osgi.annotation.versioning;version=latest, \
+	com.ibm.wsspi.org.osgi.service.component.annotations,\
+	com.ibm.ws.logging.core,\
+	io.openliberty.microprofile.metrics.5.0.internal,\
+	io.openliberty.microprofile.metrics.5.0.monitor.internal,\
+	io.openliberty.org.eclipse.microprofile.metrics.5.0;version=latest,\
+	com.ibm.ws.jaxrs.defaultexceptionmapper.jakarta;version=latest, \
+	com.ibm.ws.microprofile.metrics.common;version=latest,\
+	com.ibm.ws.jaxrs.2.x.monitor,\
+	io.openliberty.org.jboss.resteasy.common.ee10

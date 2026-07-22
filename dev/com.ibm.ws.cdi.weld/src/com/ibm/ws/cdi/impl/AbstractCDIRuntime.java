@@ -1,36 +1,64 @@
 /*******************************************************************************
- * Copyright (c) 2016 IBM Corporation and others.
+ * Copyright (c) 2016, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.cdi.impl;
 
+import java.lang.annotation.Annotation;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Collection;
+import java.util.Optional;
+import java.util.Set;
+
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.CDI;
 import javax.enterprise.inject.spi.CDIProvider;
+import javax.interceptor.InvocationContext;
 
+import org.jboss.weld.bootstrap.spi.EEModuleDescriptor;
+import org.jboss.weld.bootstrap.spi.EEModuleDescriptor.ModuleType;
+
+import com.ibm.websphere.csi.J2EEName;
 import com.ibm.ws.cdi.CDIException;
 import com.ibm.ws.cdi.CDIService;
+import com.ibm.ws.cdi.impl.weld.WebSphereEEModuleDescriptor;
+import com.ibm.ws.cdi.internal.archive.liberty.RuntimeFactory;
+import com.ibm.ws.cdi.internal.interfaces.Application;
 import com.ibm.ws.cdi.internal.interfaces.ArchiveType;
 import com.ibm.ws.cdi.internal.interfaces.CDIArchive;
 import com.ibm.ws.cdi.internal.interfaces.CDIRuntime;
+import com.ibm.ws.cdi.internal.interfaces.CDIUtils;
 import com.ibm.ws.cdi.internal.interfaces.WebSphereBeanDeploymentArchive;
 import com.ibm.ws.cdi.internal.interfaces.WebSphereCDIDeployment;
+import com.ibm.ws.classloading.LibertyClassLoadingService;
+import com.ibm.ws.kernel.service.util.ServiceCaller;
 import com.ibm.ws.runtime.metadata.ApplicationMetaData;
 import com.ibm.ws.runtime.metadata.ModuleMetaData;
-import com.ibm.ws.threadContext.ComponentMetaDataAccessorImpl;
+import com.ibm.ws.util.ThreadContextAccessor;
 
 /**
  * This abstract class generally holds methods which simply pass through to the CDIContainerImpl
  */
 public abstract class AbstractCDIRuntime implements CDIService, CDIRuntime, CDIProvider {
 
+    private final static ThreadContextAccessor THREAD_CONTEXT_ACCESSOR = ThreadContextAccessor.getThreadContextAccessor();
+
+    //Using this because it should have better performance than the getServiceWithException paradigm on CDIRuntimeImpl
+    @SuppressWarnings("rawtypes")
+    private static final ServiceCaller<LibertyClassLoadingService> classLoadingServiceCaller = new ServiceCaller<LibertyClassLoadingService>(AbstractCDIRuntime.class,
+                                                                                                                                             LibertyClassLoadingService.class);
+
     private CDIContainerImpl cdiContainer;
+    protected RuntimeFactory runtimeFactory;
 
     protected void start() {
         this.cdiContainer = new CDIContainerImpl(this);
@@ -95,7 +123,7 @@ public abstract class AbstractCDIRuntime implements CDIService, CDIRuntime, CDIP
      * in the server.xml, implicit bean archive scanning is disabled.
      *
      * @param moduleContainer the module container
-     * @param type            the module type
+     * @param type the module type
      * @return whether the jar will be ignored by CDI
      */
     @Override
@@ -144,6 +172,7 @@ public abstract class AbstractCDIRuntime implements CDIService, CDIRuntime, CDIP
     }
 
     /** {@inheritDoc} */
+    @SuppressWarnings({ "removal", "deprecation" })
     @Override
     public CDI<Object> getCDI() {
         CDI<Object> cdi = null;
@@ -152,22 +181,61 @@ public abstract class AbstractCDIRuntime implements CDIService, CDIRuntime, CDIP
             cdi = deployment.getCDI();
         }
 
-        if (cdi == null) {
+        //If we can't get CDI from the thread context metadata, fallback to matching the TCCL against apps.
+        if (runtimeFactory != null && cdi == null) {
+            Collection<Application> applications = runtimeFactory.getApplications();
+
+            ClassLoader tccl = AccessController.doPrivileged((PrivilegedAction<ClassLoader>) () -> {
+                return THREAD_CONTEXT_ACCESSOR.getContextClassLoader(Thread.currentThread());
+            });
+
+            //Doing it this way for performance reasons. Saves us spinning up a lambda every loop iteration
+            LibertyClassLoadingService<?> classLoadingService = classLoadingServiceCaller.current().get();
+            for (Application application : applications) {
+                if (application.getClassLoader().equals(tccl)
+                    || classLoadingService.isThreadContextClassLoaderForAppClassLoader(tccl, application.getClassLoader())) {
+                    deployment = cdiContainer.getDeployment(application);
+                    //We found the correct app but it has no deployment, this happens if CDI is disabled.
+                    if (deployment != null) {
+                        cdi = deployment.getCDI();
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (deployment == null) {
             throw new IllegalStateException("Could not find deployment");
+        }
+
+        if (cdi == null) {
+            throw new IllegalStateException("Could not find CDI");
         }
 
         return cdi;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void endContext() {
-        ComponentMetaDataAccessorImpl accessor = ComponentMetaDataAccessorImpl.getComponentMetaDataAccessor();
-        accessor.endContext();
-    }
-
     @Override
     public CDIContainerImpl getCDIContainer() {
         return this.cdiContainer;
+    }
+
+    @Override
+    public Set<Annotation> getInterceptorBindingsFromInvocationContext(InvocationContext ic) throws IllegalArgumentException {
+        return CDIUtils.getInterceptorBindingsFromInvocationContext(ic);
+    }
+
+    @Override
+    public Optional<J2EEName> getModuleNameForClass(Class<?> clazz) {
+        return Optional.ofNullable(getClassBeanDeploymentArchive(clazz))
+                       .map(bda -> bda.getServices().get(EEModuleDescriptor.class))
+                       .filter(desc -> desc.getType() == ModuleType.WEB || desc.getType() == ModuleType.EJB_JAR)
+                       .filter(WebSphereEEModuleDescriptor.class::isInstance)
+                       .map(WebSphereEEModuleDescriptor.class::cast)
+                       .map(desc -> desc.getJ2eeName());
+    }
+
+    public RuntimeFactory getRuntimeFactory() {
+        return this.runtimeFactory;
     }
 }

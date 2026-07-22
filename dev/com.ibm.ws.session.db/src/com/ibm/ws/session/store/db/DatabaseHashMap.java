@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2013 IBM Corporation and others.
+ * Copyright (c) 1997, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -28,6 +30,7 @@ import java.sql.Statement;
 import java.util.ConcurrentModificationException;
 import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 
@@ -48,6 +51,8 @@ import com.ibm.ws.session.store.common.BackedSession;
 import com.ibm.ws.threadContext.ComponentMetaDataAccessorImpl;
 import com.ibm.wsspi.resource.ResourceConfig;
 import com.ibm.wsspi.session.IStore;
+
+import io.openliberty.checkpoint.spi.CheckpointPhase;
 
 //PK78174 BEGIN
 //import com.ibm.wsspi.runtime.service.WsServiceRegistry;
@@ -94,7 +99,6 @@ public class DatabaseHashMap extends BackedHashMap {
 
     static final int SMALLCOL_SIZE_ORACLE = 2000;
     static final int MEDIUMCOL_SIZE_ORACLE = 2097152; /* 2M long raw */
-    static final int MEDIUMCOL_SIZE_ORACLE_MR = 10485760; /* 10M long raw */
     static final int LARGECOL_SIZE_ORACLE = 1; /* This shouldn't be used, maybe change this to a BLOB */
 
     static final int SMALLCOL_SIZE_SYBASE = 10485760; /* set to 10M since to force use of small column since no size is associated with a column */
@@ -241,8 +245,14 @@ public class DatabaseHashMap extends BackedHashMap {
             tableName = smc.getTableNameValue();
         }
         suspendedTransactions = new Hashtable();
-        getDataSource();
-        initDBSettings();
+        if (CheckpointPhase.getPhase().restored()) {
+            // Only do this if we are restored (not during checkpoint).
+            // This is the "normal" case.
+            // In the checkpoint case we will lazily get it on the restore side.
+            getDataSource();
+            initDBSettings();
+        }
+
     }
 
     /*
@@ -310,15 +320,15 @@ public class DatabaseHashMap extends BackedHashMap {
                 int dbCode = DBPortability.getDBCode(dmd);
                 if (dbCode == DBPortability.ORACLE) {
                     smallColSize = SMALLCOL_SIZE_ORACLE;
-                    
-                    if (_smc.isUsingMultirow())
-                        mediumColSize = MEDIUMCOL_SIZE_ORACLE_MR;
-                    else
-                        mediumColSize = MEDIUMCOL_SIZE_ORACLE;
-                    
+                    mediumColSize = MEDIUMCOL_SIZE_ORACLE;                 
+                    if (_smc.isUsingMultirow() && _smc.getRowSizeLimit()*1048576 > mediumColSize) {
+                        mediumColSize = _smc.getRowSizeLimit()*1048576;
+                        if (com.ibm.websphere.ras.TraceComponent.isAnyTracingEnabled() && LoggingUtil.SESSION_LOGGER_WAS.isLoggable(Level.FINE)) {
+                            LoggingUtil.SESSION_LOGGER_WAS.logp(Level.FINE, methodClassName, methodNames[INIT_DB_SETTINGS], "Oracle row size limit : " + mediumColSize);
+                        }
+                    }                    
                     largeColSize = LARGECOL_SIZE_ORACLE;
                     usingOracle = true;
-
                 } else if (dbCode == DBPortability.SYBASE) {
                     smallColSize = SMALLCOL_SIZE_SYBASE;
                     mediumColSize = MEDIUMCOL_SIZE_SYBASE;
@@ -365,6 +375,12 @@ public class DatabaseHashMap extends BackedHashMap {
                     }
                     mediumColSize = MEDIUMCOL_SIZE_DB2;
                     largeColSize = LARGECOL_SIZE_DB2;
+                    if (_smc.isUsingMultirow() && _smc.getRowSizeLimit()*1048576 > largeColSize) {
+                        largeColSize = _smc.getRowSizeLimit()*1048576;
+                        if (com.ibm.websphere.ras.TraceComponent.isAnyTracingEnabled() && LoggingUtil.SESSION_LOGGER_WAS.isLoggable(Level.FINE)) {
+                            LoggingUtil.SESSION_LOGGER_WAS.logp(Level.FINE, methodClassName, methodNames[INIT_DB_SETTINGS], "DB2 row size limit : " + largeColSize);
+                        }
+                    }
                     usingDB2 = true;
 
                     //For SolidDB, which is a subset of DB2
@@ -474,16 +490,16 @@ public class DatabaseHashMap extends BackedHashMap {
             //tbName = TABLE_NAME.toUpperCase();
             int index = tableName.indexOf(".");
             if (index != -1) {
-                tbName = tableName.substring(index + 1).toUpperCase();
+                tbName = tableName.substring(index + 1).toUpperCase(Locale.ENGLISH);
             } else {
-                tbName = tableName.toUpperCase();
+                tbName = tableName.toUpperCase(Locale.ENGLISH);
             }
             if (collectionName != null)
                 qualifierName = collectionName;
         } else if (usingDB2 || usingDerby || usingOracle) { // cmd 162172
-            tbName = tbName.toUpperCase();
+            tbName = tbName.toUpperCase(Locale.ENGLISH);
             if (dbid != null) {
-                qualifierName = dbid.toUpperCase(); // cmd PQ81615
+                qualifierName = dbid.toUpperCase(Locale.ENGLISH); // cmd PQ81615
             }
 
             if (_smc.isUsingCustomSchemaName()) { //PM27191
@@ -507,7 +523,7 @@ public class DatabaseHashMap extends BackedHashMap {
                     }
                 } // Oracle case to be handled later
             } //PM27191 END
-        } else if (usingPostgreSQL) {
+        } else if (usingPostgreSQL && _smc.isUsingCustomSchemaName()) {
             qualifierName = dmd.getUserName();
         }
         
@@ -623,16 +639,21 @@ public class DatabaseHashMap extends BackedHashMap {
                         String configTableSpaceName = _smc.getTableSpaceName();
                         if (configTableSpaceName != null && !configTableSpaceName.equals("") && configTableSpaceName.length() != 0)
                             tableSpaceName = " in " + configTableSpaceName;
-                        if (usingSolidDB)
+                        if (usingSolidDB) {
                             s.executeUpdate("create table "
                                         + tableName
                                         + " (id varchar(128) not null, propid varchar(128) not null, appname varchar(128) not null, listenercnt smallint, lastaccess bigint, creationtime bigint, maxinactivetime integer, username varchar(256), small varchar("
                                         + smallColSize + "), medium long varchar, large BLOB(2M)) " + tableSpaceName);
-                        else
+                        } else {
+                            int rowSize = 2;
+                            if (_smc.isUsingMultirow() && _smc.getRowSizeLimit() > rowSize) {
+                                rowSize = _smc.getRowSizeLimit();
+                            }
                             s.executeUpdate("create table "
                                         + tableName
                                         + " (id varchar(128) not null, propid varchar(128) not null, appname varchar(128) not null, listenercnt smallint, lastaccess bigint, creationtime bigint, maxinactivetime integer, username varchar(256), small varchar("
-                                        + smallColSize + ") for bit data, medium long varchar for bit data, large BLOB(2M)) " + tableSpaceName);
+                                        + smallColSize + ") for bit data, medium long varchar for bit data, large BLOB(" + rowSize + "M)) " + tableSpaceName);
+                        }
                     }
                 }
                 //            } catch (com.ibm.ejs.cm.portability.TableAlreadyExistsException eee) {
@@ -2854,6 +2875,12 @@ public class DatabaseHashMap extends BackedHashMap {
             LoggingUtil.SESSION_LOGGER_WAS.entering(methodClassName, methodNames[PERFORM_INVALIDATION]);
         }
 
+        synchronized (this) {
+            if (!initialized) {
+                return;
+            }
+        }
+
         long now = System.currentTimeMillis();
         PreparedStatement ps1 = null;
         ResultSet rs1 = null;
@@ -3244,15 +3271,15 @@ public class DatabaseHashMap extends BackedHashMap {
         PreparedStatement ps = null;
         ResultSet rs = null;
 
-        tblName = tblName.toUpperCase();
+        tblName = tblName.toUpperCase(Locale.ENGLISH);
         if (_smc.isUsingCustomSchemaName()) { //PM27191
             qualifierName = qualifierNameWhenCustomSchemaIsSet;
         } else if (dbid != null) {
-            qualifierName = dbid.toUpperCase();
+            qualifierName = dbid.toUpperCase(Locale.ENGLISH);
         }
 
         sqlQueryCol = "select ColNames from syscat.indexes " +
-                      "where IndName = '" + indexName.toUpperCase() + "' and " +
+                      "where IndName = '" + indexName.toUpperCase(Locale.ENGLISH) + "' and " +
                       "TabName = '" + tblName + "' and UniqueRule = 'U'";
         if (qualifierName != null)
             sqlQueryCol += " and tabschema = '" + qualifierName + "'";
@@ -3274,9 +3301,9 @@ public class DatabaseHashMap extends BackedHashMap {
                     if (com.ibm.websphere.ras.TraceComponent.isAnyTracingEnabled() && LoggingUtil.SESSION_LOGGER_WAS.isLoggable(Level.FINE)) {
                         LoggingUtil.SESSION_LOGGER_WAS.logp(Level.FINE, methodClassName, methodNames[DOES_INDEX_EXISTS_DISTRIBUTED], colNames);
                     }
-                    if (colNames.indexOf(idCol.toUpperCase()) != -1) {
-                        if (colNames.indexOf(propCol.toUpperCase()) != -1) {
-                            if (colNames.indexOf(appCol.toUpperCase()) != -1) {
+                    if (colNames.indexOf(idCol.toUpperCase(Locale.ENGLISH)) != -1) {
+                        if (colNames.indexOf(propCol.toUpperCase(Locale.ENGLISH)) != -1) {
+                            if (colNames.indexOf(appCol.toUpperCase(Locale.ENGLISH)) != -1) {
                                 if (com.ibm.websphere.ras.TraceComponent.isAnyTracingEnabled() && LoggingUtil.SESSION_LOGGER_WAS.isLoggable(Level.FINE)) {
                                     LoggingUtil.SESSION_LOGGER_WAS.logp(Level.FINE, methodClassName, methodNames[DOES_INDEX_EXISTS_DISTRIBUTED],
                                                                         "Index Column Definition is correct");
@@ -3351,17 +3378,17 @@ public class DatabaseHashMap extends BackedHashMap {
         //SELECT INDEX_NAME FROM QSYS2.SYSINDEXES  WHERE INDEX_NAME='SESS_INDEX' AND TABLE_NAME='SESSIONS'
         //AND IS_UNIQUE='U' AND TABLE_SCHEMA='KPW51BSSSN'FOR READ ONLY
         sqlQueryIndex = "select index_name from " + sysIndexes + " where Index_Name = '"
-                        + indexName.toUpperCase() + "' and " + "Table_Name = '" + noQualifiertblName
+                        + indexName.toUpperCase(Locale.ENGLISH) + "' and " + "Table_Name = '" + noQualifiertblName
                         + "' and IS_UNIQUE = 'U'";
 
         //Keep the following line for future reference
         //SELECT COLUMN_NAME FROM qsys2.SYSKEYS  WHERE INDEX_NAME='SESS_INDEX' AND INDEX_SCHEMA='KPW51BSSSN'
         sqlQueryCol = "select COLUMN_NAME from " + sysKeys +
-                      " where INDEX_NAME = '" + indexName.toUpperCase() + "'";
+                      " where INDEX_NAME = '" + indexName.toUpperCase(Locale.ENGLISH) + "'";
 
         if (collectionName != null) {
-            sqlQueryIndex += " and table_schema = '" + collectionName.toUpperCase() + "'";
-            sqlQueryCol += " and index_schema = '" + collectionName.toUpperCase() + "'";
+            sqlQueryIndex += " and table_schema = '" + collectionName.toUpperCase(Locale.ENGLISH) + "'";
+            sqlQueryCol += " and index_schema = '" + collectionName.toUpperCase(Locale.ENGLISH) + "'";
         }
         sqlQueryIndex += " for read only";
         sqlQueryCol += " for read only";
@@ -3379,7 +3406,7 @@ public class DatabaseHashMap extends BackedHashMap {
             if (rs.next()) { //ResultSet returning the possible SESS_INDEX
                 returnIndexName = rs.getString(1);
                 if (returnIndexName != null) {
-                    if (returnIndexName.indexOf(indexName.toUpperCase()) != -1) {
+                    if (returnIndexName.indexOf(indexName.toUpperCase(Locale.ENGLISH)) != -1) {
                         if (com.ibm.websphere.ras.TraceComponent.isAnyTracingEnabled() && LoggingUtil.SESSION_LOGGER_WAS.isLoggable(Level.FINE)) {
                             LoggingUtil.SESSION_LOGGER_WAS.logp(Level.FINE, methodClassName, methodNames[DOES_INDEX_EXISTS_ISERIES], "index: " + returnIndexName + " exists");
                         }
@@ -3415,9 +3442,9 @@ public class DatabaseHashMap extends BackedHashMap {
                         if (com.ibm.websphere.ras.TraceComponent.isAnyTracingEnabled() && LoggingUtil.SESSION_LOGGER_WAS.isLoggable(Level.FINE)) {
                             LoggingUtil.SESSION_LOGGER_WAS.logp(Level.FINE, methodClassName, methodNames[DOES_INDEX_EXISTS_ISERIES], "extractedColumn : " + extractedColumn);
                         }
-                        if ((extractedColumn.indexOf(idCol.toUpperCase()) != -1) ||
-                                (extractedColumn.indexOf(propCol.toUpperCase()) != -1) ||
-                                   (extractedColumn.indexOf(appCol.toUpperCase()) != -1)) {
+                        if ((extractedColumn.indexOf(idCol.toUpperCase(Locale.ENGLISH)) != -1) ||
+                                (extractedColumn.indexOf(propCol.toUpperCase(Locale.ENGLISH)) != -1) ||
+                                   (extractedColumn.indexOf(appCol.toUpperCase(Locale.ENGLISH)) != -1)) {
 
                             if (com.ibm.websphere.ras.TraceComponent.isAnyTracingEnabled() && LoggingUtil.SESSION_LOGGER_WAS.isLoggable(Level.FINE)) {
                                 LoggingUtil.SESSION_LOGGER_WAS.logp(Level.FINE, methodClassName, methodNames[DOES_INDEX_EXISTS_ISERIES], "column is found : " + extractedColumn);
@@ -3468,12 +3495,12 @@ public class DatabaseHashMap extends BackedHashMap {
         String tblName = tableName, qualifierName = null, sqlQuery = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        tblName = tblName.toUpperCase();
+        tblName = tblName.toUpperCase(Locale.ENGLISH);
 
         if (_smc.isUsingCustomSchemaName()) { //PM27191
             qualifierName = qualifierNameWhenCustomSchemaIsSet;
         } else if (dbid != null) {
-            qualifierName = dbid.toUpperCase();
+            qualifierName = dbid.toUpperCase(Locale.ENGLISH);
         }
         sqlQuery = "select 1 from syscat.tables " +
                    "where TabName = '" + tblName + "' and Volatile = 'C' ";

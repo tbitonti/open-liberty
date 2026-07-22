@@ -1,12 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2018, 2020 IBM Corporation and others.
+# Copyright (c) 2018, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
 bVersion=1.0
@@ -16,17 +15,14 @@ src: \
 	test-applications/hibernateApp/src
 
 fat.project: true
-fat.minimum.java.level: 1.8
 
 tested.features:\
-   servlet-4.0,\
-   servlet-5.0,\
-   jdbc-4.2,\
-   jdbc-4.3
+   jdbc-4.2, jdbc-4.3,\
+   servlet-4.0, servlet-5.0, servlet-6.0, servlet-6.1
 
 -buildpath: \
 	com.ibm.websphere.javaee.annotation.1.1;version=latest,\
 	com.ibm.websphere.javaee.persistence.2.1;version=latest,\
 	com.ibm.websphere.javaee.servlet.3.1;version=latest,\
 	com.ibm.websphere.javaee.transaction.1.1;version=latest,\
-	org.hibernate:hibernate-core;version=5.2.17.Final
+	org.hibernate:hibernate-core;version=5.3.20.Final

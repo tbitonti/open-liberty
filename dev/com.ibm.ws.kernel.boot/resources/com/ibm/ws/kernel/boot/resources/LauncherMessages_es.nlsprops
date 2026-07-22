@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2010, 2020 IBM Corporation and others.
+# Copyright (c) 2010, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -76,10 +78,7 @@ error.archiveTarget=CWWKE0011E: El par\u00e1metro --archive necesita un argument
 error.archiveTarget.explanation=No se ha proporcionado un argumento necesario.
 error.archiveTarget.useraction=Proporcione el argumento correcto y vuelva a intentar el mandato. Intente utilizar --help para obtener una descripci\u00f3n de los argumentos para la opci\u00f3n proporcionada.
 
-error.serverNameCharacter=CWWKE0012E: El nombre de servidor especificado contiene un car\u00e1cter que no es v\u00e1lido (nombre={0}). \
-Los caracteres v\u00e1lidos son: alfanum\u00e9ricos Unicode (por ejemplo, \
-0-9, a-z, A-Z), signo de subrayado (_), gui\u00f3n (-), signo m\u00e1s (+) y punto (.). \
-Un nombre de servidor no puede empezar por un gui\u00f3n (-) o un punto (.).
+error.serverNameCharacter=CWWKE0012E: El nombre de servidor especificado contiene un car\u00e1cter que no es v\u00e1lido (nombre={0}). Los caracteres v\u00e1lidos son: alfanum\u00e9ricos Unicode (por ejemplo, 0-9, a-z, A-Z), signo de subrayado (_), gui\u00f3n (-), signo m\u00e1s (+) y punto (.). Un nombre de servidor no puede empezar por un gui\u00f3n (-) o un punto (.).
 error.serverNameCharacter.explanation=Un car\u00e1cter que no es v\u00e1lido se ha utilizado en el nombre de servidor.
 error.serverNameCharacter.useraction=Cambie el nombre del servidor utilizando s\u00f3lo caracteres v\u00e1lidos: alfanum\u00e9ricos Unicode (por ejemplo, 0-9, a-z, A-Z), signo de subrayado (_), gui\u00f3n (-), signo m\u00e1s (+) y punto (.).
 
@@ -99,7 +98,9 @@ error.secPermission=CWWKE0016E: El archivo JAR de programa de arranque requiere 
 error.secPermission.explanation=Los permisos de seguridad de Java 2 no son suficientes para que el archivo JAR de programa de arranque inicie el entorno de ejecuci\u00f3n y la infraestructura OSGi.
 error.secPermission.useraction=Aseg\u00farese de que se haya otorgado al archivo JAR de programa de arranque privilegios AllPermission en el archivo de pol\u00edtica de seguridad de Java 2.
 
-# CWWKE0017E removed because it's only used in com.ibm.ws.kernel.boot.cmdline. Do not reuse.
+error.badBitmode=CWWKE0017E: El proceso ha detectado una JVM de 31 bits que no est\u00e1 soportada. El entorno de ejecuci\u00f3n requiere una versi\u00f3n de Java 8 de 64 bits o superior.
+error.badBitmode.explanation=La variable de sistema JAVA_HOME est\u00e1 establecida para apuntar a una versi\u00f3n de Java que es de 31 bits.
+error.badBitmode.useraction=Ajuste la variable del sistema JAVA_HOME para que apunte a una versi\u00f3n de Java 8 de 64 bits o superior.
 
 error.unknownException=CWWKE0018E: Se ha producido una excepci\u00f3n al iniciar el entorno de ejecuci\u00f3n: {0}
 error.unknownException.explanation=La excepci\u00f3n ha impedido que se inicie el servidor.
@@ -125,9 +126,11 @@ error.kernelDefFile=CWWKE0023E: La definici\u00f3n de kernel especificada ({0}) 
 error.kernelDefFile.explanation=No se ha podido encontrar la definici\u00f3n de kernel especificada.
 error.kernelDefFile.useraction=Aseg\u00farese de que el recurso de definici\u00f3n de kernel existe y de que el usuario actual puede leerlo.
 
-error.specifiedLocation=CWWKE0025E: El valor de {0} debe hacer referencia a un directorio. \
-El valor especificado hace referencia a un recurso de archivo existente. \
-Valor: {1}
+error.badOptionValue=CWWKE0024E: El valor ({0}) de la opci\u00f3n ({1}) no es v\u00e1lido.
+error.badOptionValue.explanation=El valor especificado no es adecuado para la opci\u00f3n especificada.
+error.badOptionValue.useraction=Ejecute el comando `server help` para obtener una descripci\u00f3n de las opciones.  Si el valor es un n\u00famero, aseg\u00farese de que est\u00e1 en el rango v\u00e1lido.
+
+error.specifiedLocation=CWWKE0025E: El valor de {0} debe hacer referencia a un directorio. El valor especificado hace referencia a un recurso de archivo existente. Valor: {1}
 error.specifiedLocation.explanation=La ubicaci\u00f3n proporcionada hace referencia a un archivo existente en vez de a un directorio.
 error.specifiedLocation.useraction=Cambie la ubicaci\u00f3n especificada a un directorio y vuelva a intentar la acci\u00f3n.
 
@@ -138,6 +141,10 @@ warning.noPlatformCache.useraction=Compruebe y resuelva la excepci\u00f3n, y rep
 warning.singleServer=CWWKE0027W: En la l\u00ednea de mandatos s\u00f3lo se puede especificar un servidor; los nombres posteriores se ignorar\u00e1n (servidor={0}, ignorados={1}).
 warning.singleServer.explanation=En la l\u00ednea de mandatos s\u00f3lo puede especificar un servidor. El primer nombre de servidor se ha procesado; los nombres restantes se han ignorado.
 warning.singleServer.useraction=No se requiere ninguna acci\u00f3n. Especifique \u00fanicamente un servidor para evitar este aviso.
+
+error.optionNotApplicableToCommand=CWWKE0028E: La opci\u00f3n ({0}) no es aplicable al comando.
+error.optionNotApplicableToCommand.explanation=La opci\u00f3n especificada no est\u00e1 permitida en el comando especificado.
+error.optionNotApplicableToCommand.useraction=Ejecute el comando `server <command> help` para obtener informaci\u00f3n sobre las opciones v\u00e1lidas del comando.
   
 error.serverAlreadyRunning=CWWKE0029E: Ya se est\u00e1 ejecutando una instancia del servidor {0}.
 error.serverAlreadyRunning.explanation=Est\u00e1 intentando iniciar un servidor que ya se est\u00e1 ejecutando.
@@ -385,6 +392,10 @@ audit.jvm.shutdown=CWWKE0085I: El servidor {0} se detiene porque la JVM est\u00e
 audit.jvm.shutdown.explanation=El servidor ha interceptado una petici\u00f3n para detener la JVM e intentar\u00e1 la detenci\u00f3n de forma ordenada. Es posible que la JVM concluya debido a que el sistema operativo ha enviado una se\u00f1al de terminaci\u00f3n al proceso de servidor.
 audit.jvm.shutdown.useraction=Si no se esperaba la detenci\u00f3n del servidor, determine si se ha enviado una se\u00f1al de terminaci\u00f3n al proceso de servidor.
 
+error.optionRequiresEquals=CWWKE0086E: La opci\u00f3n {0} tiene que incluir el signo igual (=) delante del valor especificado. 
+error.optionRequiresEquals.explanation=La opci\u00f3n especificada tiene que ir seguida del signo igual (=) y un valor.
+error.optionRequiresEquals.useraction=La opci\u00f3n se especifica en el formato siguiente: --opci\u00f3n=valor.
+
 warning.serverStartedCommandPortDisabled=CWWKE0087W: Se ha iniciado el arranque del servidor {0}, pero no es posible saber si se ha completado el arranque porque el puerto de mandatos del servidor est\u00e1 inhabilitado.
 warning.serverStartedCommandPortDisabled.explanation=Se necesita el puerto de mandatos del servidor para comunicarse con un servidor en ejecuci\u00f3n.  El puerto de mandatos se ha inhabilitado expl\u00edcitamente para este servidor, por lo tanto no es posible saber si se ha completado el arranque del servidor.
 warning.serverStartedCommandPortDisabled.useraction=Compruebe manualmente los registros del servidor para verificar si el servidor se ha iniciado satisfactoriamente.
@@ -420,6 +431,14 @@ warning.unableToPackageLooseConfigFileCannotResolveLocSymbol.useraction=Cambie l
 warning.unableToPackageLooseConfigFileMissingPath=CWWKE0095W: El servidor no puede empaquetar los archivos de la aplicaci\u00f3n especificada en el el archivo XML  {0} de la aplicaci\u00f3n de configuraci\u00f3n flexible porque no se encuentra.
 warning.unableToPackageLooseConfigFileMissingPath.explanation=El archivo XML de la aplicaci\u00f3n de configuraci\u00f3n flexible contiene informaci\u00f3n no v\u00e1lida acerca de la ubicaci\u00f3n de los archivos. Por ejemplo, puede especificar un directorio que no se puede encontrar. Las v\u00edas de acceso de este archivo XML deben ser relativas al directorio de configuraci\u00f3n del servidor. El archivador representado por este archivo no se incluir\u00e1 en la salida de servidor empaquetado.
 warning.unableToPackageLooseConfigFileMissingPath.useraction=Modifique las v\u00edas de acceso en el archivo XML de la aplicaci\u00f3n de configuraci\u00f3n flexible para que apunte a la ubicaci\u00f3n correcta que contiene los archivos de la aplicaci\u00f3n. 
+
+warning.tooManySymbolicLinks=CWWKE0096W: Se han encontrado demasiados enlaces simb\u00f3licos cuando el sistema ha intentado resolver la siguiente v\u00eda de acceso: {0}.
+warning.tooManySymbolicLinks.explanation=Los enlaces simb\u00f3licos son accesos directos que apuntan a otros archivos o directorios. Este error se produce cuando el sistema encuentra demasiados enlaces simb\u00f3licos en una cadena y no puede resolver la v\u00eda de acceso.
+warning.tooManySymbolicLinks.useraction=Para resolver este problema, compruebe los enlaces simb\u00f3licos en la v\u00eda de acceso y aseg\u00farese de que no crean referencias circulares. Tambi\u00e9n puede utilizar el mandato 'readlink' para inspeccionar los enlaces individuales de la cadena.
+
+warning.javaHomeNotSet=CWWKE0097W: La variable de entorno JAVA_HOME no est\u00e1 configurada.
+warning.javaHomeNotSet.explanation=El script del servidor no puede determinar la ubicaci\u00f3n de la instalaci\u00f3n de Java. Este problema no se produce si la variable de entorno JAVA_HOME est\u00e1 configurada correctamente o si el ejecutable \u00abjava\u00bb, que se encuentra buscando en la ruta PATH, est\u00e1 ubicado en una instalaci\u00f3n completa de Java. La ubicaci\u00f3n de instalaci\u00f3n de Java es necesaria para encontrar archivos de configuraci\u00f3n espec\u00edficos de la versi\u00f3n, como la versi\u00f3n y las opciones de Java. Si no se encuentra la instalaci\u00f3n de Java, estos archivos no se cargan y es posible que las aplicaciones que dependen de ellos no funcionen como se espera.
+warning.javaHomeNotSet.useraction=Establezca la variable de entorno JAVA_HOME.
 
 warn.packageRuntime.include.unknownOption=CWWKE0099W: No se puede utilizar la opci\u00f3n --include={0}, se utilizar\u00e1 --include=wlp en su lugar.
 warn.packageRuntime.include.unknownOption.explanation=La opci\u00f3n se ha ignorado porque no se ha reconocido.
@@ -469,10 +488,7 @@ info.addProductExtension.useraction=No se requiere ninguna acci\u00f3n.
 # Too Late for CWWKE0101 - CWWKE0107 they have dual use currently and CWWKE0108 and CWWKE0109 are only used here.
 #
 
-error.clientNameCharacter=CWWKE0900E: El nombre de cliente especificado contiene un car\u00e1cter que no es v\u00e1lido (nombre={0}). \
-Los caracteres v\u00e1lidos son: alfanum\u00e9ricos Unicode (por ejemplo, \
-0-9, a-z, A-Z), subrayado (_), gui\u00f3n (-), signo m\u00e1s (+) y punto (.). \
-Un nombre de cliente no puede empezar por un gui\u00f3n (-) o un punto (.).
+error.clientNameCharacter=CWWKE0900E: El nombre de cliente especificado contiene un car\u00e1cter que no es v\u00e1lido (nombre={0}). Los caracteres v\u00e1lidos son: alfanum\u00e9ricos Unicode (por ejemplo, 0-9, a-z, A-Z), subrayado (_), gui\u00f3n (-), signo m\u00e1s (+) y punto (.). Un nombre de cliente no puede empezar por un gui\u00f3n (-) o un punto (.).
 error.clientNameCharacter.explanation=Se ha utilizado un car\u00e1cter que no es v\u00e1lido en el nombre de cliente.
 error.clientNameCharacter.useraction=Renombre el cliente utilizando s\u00f3lo caracteres v\u00e1lidos: alfanum\u00e9ricos Unicode (por ejemplo, 0-9, a-z, A-Z), signo de subrayado (_), gui\u00f3n (-), signo m\u00e1s (+) y punto (.).
 
@@ -523,14 +539,12 @@ info.java2security.started.useraction=No se requiere ninguna acci\u00f3n.
 #{0} Cause of exception
 error.set.securitymanager=CWWKE0910E: Error al establecer el gestor de seguridad predeterminado debido a la excepci\u00f3n: {0}.  Esto sucede si el gestor de seguridad ya se ha establecido y su m\u00e9todo checkPermission no permite que sea sustituido.
 error.set.securitymanager.explanation=La seguridad de Java 2 est\u00e1 habilitada, pero se ha producido una anomal\u00eda al establecer el gestor de seguridad predeterminado.
-error.set.securitymanager.useraction=Aseg\u00farese de que el gestor de seguridad no se haya establecido iniciando el servidor con la opci\u00f3n -Djava.security.manager.  \
-Si ya se ha establecido, elimine la opci\u00f3n -Djava.security.manager y reinicie el servidor con la seguridad de Java 2 habilitada, especificando la propiedad websphere.java.security en el archivo bootstrap.properties. 
+error.set.securitymanager.useraction=Aseg\u00farese de que el gestor de seguridad no se haya establecido iniciando el servidor con la opci\u00f3n -Djava.security.manager.  Si ya se ha establecido, elimine la opci\u00f3n -Djava.security.manager y reinicie el servidor con la seguridad de Java 2 habilitada, especificando la propiedad websphere.java.security en el archivo bootstrap.properties. 
 
 #{0} Cause of exception
 error.set.trace.securitymanager=CWWKE0911E: Error al establecer el gestor de seguridad NoRethrow debido a la excepci\u00f3n: {0}.  Esto sucede si el gestor de seguridad ya se ha establecido y su m\u00e9todo checkPermission no permite que sea sustituido.
 error.set.trace.securitymanager.explanation=La seguridad de Java 2 est\u00e1 habilitada, pero se ha producido una anomal\u00eda al establecer el gestor de seguridad NoRethrow.
-error.set.trace.securitymanager.useraction=Aseg\u00farese de que el gestor de seguridad no se haya establecido iniciando el servidor con la opci\u00f3n -Djava.security.manager.  \
-Si ya se ha establecido, elimine la opci\u00f3n -Djava.security.manager y reinicie el servidor con la seguridad de Java 2 habilitada, especificando la propiedad websphere.java.security en el archivo bootstrap.properties. 
+error.set.trace.securitymanager.useraction=Aseg\u00farese de que el gestor de seguridad no se haya establecido iniciando el servidor con la opci\u00f3n -Djava.security.manager.  Si ya se ha establecido, elimine la opci\u00f3n -Djava.security.manager y reinicie el servidor con la seguridad de Java 2 habilitada, especificando la propiedad websphere.java.security en el archivo bootstrap.properties. 
 
 warning.java.security.permdenied=CWWKE0912W: La pol\u00edtica de seguridad actual de Java 2 ha informado de una violaci\u00f3n potencial del permiso de seguridad de Java 2. {0}Permiso:{1}C\u00f3digo:{2}{3}Rastreo de pila:{4}Ubicaci\u00f3n de base de c\u00f3digo:{5}
 warning.java.security.permdenied.explanation=checkPermission() del gestor de seguridad de Java ha generado una excepci\u00f3n SecurityException en el sujeto Permission.
@@ -538,9 +552,7 @@ warning.java.security.permdenied.useraction=Compruebe que la operaci\u00f3n que 
 
 error.java.security.exception.codebase=CWWKE0913E: Se ha captado una excepci\u00f3n inesperada al intentar determinar la ubicaci\u00f3n de la base de c\u00f3digo.  Excepci\u00f3n: {0}.  
 error.java.security.exception.codebase.explanation=Se ha producido un error al determinar la ubicaci\u00f3n de base de c\u00f3digo del c\u00f3digo que ha generado una excepci\u00f3n de control de acceso de permisos de seguridad Java 2.
-error.java.security.exception.codebase.useraction=Consulte los registros de excepciones y del servidor para obtener m\u00e1s detalles. \
-\  Aseg\u00farese de que el gestor de seguridad no se haya establecido iniciando el servidor con la opci\u00f3n -Djava.security.manager y especificando una opci\u00f3n -Djava.security.policy.  \
-Si ya se ha establecido una o ambas, elimine los valores y reinicie el servidor con la seguridad de Java 2 habilitada, especificando la propiedad websphere.java.security en el archivo bootstrap.properties.
+error.java.security.exception.codebase.useraction=Consulte los registros de excepciones y del servidor para obtener m\u00e1s detalles.   Aseg\u00farese de que el gestor de seguridad no se haya establecido iniciando el servidor con la opci\u00f3n -Djava.security.manager y especificando una opci\u00f3n -Djava.security.policy.  Si ya se ha establecido una o ambas, elimine los valores y reinicie el servidor con la seguridad de Java 2 habilitada, especificando la propiedad websphere.java.security en el archivo bootstrap.properties.
 
 warning.zOS.java.security.permdenied1=CWWKE0914W: La pol\u00edtica de seguridad actual de Java 2 ha informado de una violaci\u00f3n potencial de un permiso de seguridad de Java 2. Consulte el Knowledge Center si desea informaci\u00f3n adicional. {0}Permiso:{1}C\u00f3digo:{2}Ubicaci\u00f3n de base de c\u00f3digo:{3}
 warning.zOS.java.security.permdenied1.explanation=checkPermission() del gestor de seguridad de Java ha generado una excepci\u00f3n SecurityException en el sujeto Permission. Un emisor de la pila de llamadas no tiene el permiso necesario.  Puede que esto no sea ning\u00fan problema si el emisor maneja correctamente la excepci\u00f3n.
@@ -562,7 +574,7 @@ error.client.runner.useraction=Consulte los mensajes de error para obtener detal
 # {1} host name
 # {2} logs location
 # {3} unique request id
-error.mbean.operation.failure=CWWKE0918E:  No se ha podido realizar la operaci\u00f3n solicitada. Consulte los registros del servidor de perfil Liberty {0} en el host {1} en la ubicaci\u00f3n {2} para la solicitud {3} para obtener m\u00e1s detalles.
+error.mbean.operation.failure=CWWKE0918E: \ No se ha podido realizar la operaci\u00f3n solicitada. Consulte los registros del servidor de perfil Liberty {0} en el host {1} en la ubicaci\u00f3n {2} para la solicitud {3} para obtener m\u00e1s detalles.
 error.mbean.operation.failure.explanation=Se ha producido un error al intentar realizar la operaci\u00f3n solicitada.
 error.mbean.operation.failure.useraction=Compruebe los registros del servidor para obtener m\u00e1s detalles sobre el error de la operaci\u00f3n.
 
@@ -579,10 +591,8 @@ warning.java.security.permdenied.quickmsg.explanation=checkPermission() del gest
 warning.java.security.permdenied.quickmsg.useraction=Compruebe que la operaci\u00f3n que se ha intentado y actualice el archivo de pol\u00edtica de permisos para el paquete o aplicaci\u00f3n seg\u00fan sea necesario.
 
 error.package.missingLibExtractDir=CWWKE0922E: El mandato de paquete no se puede completar porque falta el directorio lib/extract en la instalaci\u00f3n.
-error.package.missingLibExtractDir.explanation=El directorio lib/extract contiene metadatos y clases de autoextracci\u00f3n necesarias para que se \
-complete el mandato de paquete.  Si falta este directorio, podr\u00eda indicar que la instalaci\u00f3n de WebSphere Liberty Profile era incompleta o que se suprimi\u00f3 el directorio.
-error.package.missingLibExtractDir.useraction=Vuelva a instalar WebSphere Liberty Profile y aseg\u00farese de que el directorio lib/extract exista en el \
-directorio WLP_HOME.
+error.package.missingLibExtractDir.explanation=El directorio lib/extract contiene metadatos y clases de autoextracci\u00f3n necesarias para que se complete el mandato de paquete.  Si falta este directorio, podr\u00eda indicar que la instalaci\u00f3n de WebSphere Liberty Profile era incompleta o que se suprimi\u00f3 el directorio.
+error.package.missingLibExtractDir.useraction=Vuelva a instalar WebSphere Liberty Profile y aseg\u00farese de que el directorio lib/extract exista en el directorio WLP_HOME.
 
 
 
@@ -708,6 +718,82 @@ warning.earlyRelease=CWWKE0953W: Esta versi\u00f3n de {0} es una primera versi\u
 warning.earlyRelease.explanation=En este primer release se incluyen caracter\u00edsticas que no est\u00e1n totalmente probadas para extraer conclusiones antes de incluirlas en un release soportado.
 warning.earlyRelease.useraction=No utilice una primera versi\u00f3n de release en un sistema de producci\u00f3n, ya que estas versiones no est\u00e1n soportadas.
 
+error.invalidPhaseName=CWWKE0954E: La fase de punto de comprobaci\u00f3n especificada ({0}) est\u00e1 vac\u00eda o es desconocida.
+error.invalidPhaseName.explanation=Se ha especificado una fase desconocida como valor de la opci\u00f3n checkpoint.
+error.invalidPhaseName.useraction=Revise la documentaci\u00f3n para determinar los nombres de fase v\u00e1lidos. Vuelva a emitir el mandato utilizando una fase de punto de comprobaci\u00f3n v\u00e1lida.
+
+error.set.securitymanager.jdk18=CWWKE0955E: La propiedad websphere.java.security se ha establecido en el archivo bootstrap.properties, pero la versi\u00f3n de Java es {0}.  Esta propiedad habilita Java Security Manager y no es v\u00e1lida con Java 18 o posteriores.
+error.set.securitymanager.jdk18.explanation= Desde que Java Security Manager est\u00e1 en desuso, tal como especifica JEP 411, Liberty no da soporte a Java Security Manager con Java 18 o posteriores.
+error.set.securitymanager.jdk18.useraction=Elimine la propiedad websphere.java.security del archivo bootstrap.properties o utilice una versi\u00f3n Java anterior a Java 18.
+
+error.cannotset.securitymanager.jdk18=CWWKE0956E: No se ha podido establecer Java Security Manager debido a la excepci\u00f3n: {0}.  Esto ocurre si el servidor utiliza Java 18 o posterior y la propiedad del sistema Java "java.security.manager" no se ha establecido en "allow".
+error.cannotset.securitymanager.jdk18.explanation=Java Security Manager no se ha podido habilitar porque el sistema est\u00e1 utilizando Java 18, que de forma predeterminada no permite el uso de un gestor de seguridad de Java.
+error.cannotset.securitymanager.jdk18.useraction=Inicie el servidor con el argumento de JVM -Djava.security.manager=allow.
+
+error.checkpoint.workarea.restore=CWWKE0957E: El directorio del \u00e1rea de trabajo del servidor de punto de comprobaci\u00f3n no se puede restaurar desde el directorio {0}.
+error.checkpoint.workarea.restore.explanation=Se ha producido un error al restaurar el directorio de \u00e1rea de trabajo del punto de comprobaci\u00f3n.
+error.checkpoint.workarea.restore.useraction=Aseg\u00farese de que el usuario tiene permisos suficientes para restaurar el \u00e1rea de trabajo de punto de comprobaci\u00f3n. Vuelva a emitir el mandato con un usuario que tenga permisos suficientes.
+
+error.checkpoint.securitymanager.not.supported=CWWKE0958E: La solicitud de punto de comprobaci\u00f3n del servidor ha fallado porque la propiedad websphere.java.security se ha establecido en el archivo bootstrap.properties. Esta propiedad habilita Java Security Manager y no es v\u00e1lida cuando existe un punto de comprobaci\u00f3n del servidor.
+error.checkpoint.securitymanager.not.supported.explanation=Liberty no es compatible con Java Security Manager cuando se solicita un punto de comprobaci\u00f3n del servidor. Java Security Manager est\u00e1 en desuso, tal como especifica en JEP 411.
+error.checkpoint.securitymanager.not.supported.useraction=Elimine la propiedad websphere.java.security del archivo bootstrap.properties.
+
+error.checkpoint.delete=CWWKE0959E: La solicitud de punto de comprobaci\u00f3n del servidor ha fallado porque la imagen de punto de comprobaci\u00f3n existente no se puede suprimir del directorio {0}.
+error.checkpoint.delete.explanation=Una solicitud de punto de comprobaci\u00f3n para el servidor ha fallado porque no se puede suprimir una imagen de punto de comprobaci\u00f3n existente.
+error.checkpoint.delete.useraction=Aseg\u00farese de que el usuario tiene permiso para suprimir el directorio existente. Vuelva a emitir el mandato con un usuario que tenga permisos suficientes.
+
+error.checkpoint.workarea.backup=CWWKE0960E: La solicitud de punto de comprobaci\u00f3n del servidor ha fallado porque no se puede hacer copia de seguridad del directorio {0}.
+error.checkpoint.workarea.backup.explanation=Se ha producido un error al realizar una copia de seguridad del directorio de \u00e1rea de trabajo del servidor.
+error.checkpoint.workarea.backup.useraction=Aseg\u00farese de que el usuario tiene permisos suficientes para realizar una copia de seguridad del directorio de \u00e1rea de trabajo de punto de comprobaci\u00f3n. Vuelva a emitir el mandato con un usuario que tenga permisos suficientes.
+
+info.checkpoint.restore.failed=CWWKE0961I: La restauraci\u00f3n del proceso del servidor de punto de comprobaci\u00f3n ha fallado. Compruebe el registro de {0} para determinar por qu\u00e9 no se ha restaurado el proceso de punto de comprobaci\u00f3n. Se inicia el servidor sin utilizar la imagen de punto de comprobaci\u00f3n.
+info.checkpoint.restore.failed.explanation=Se ha producido un error al restaurar un proceso de servidor de punto de comprobaci\u00f3n.  El servidor se ha iniciado sin utilizar la imagen de punto de comprobaci\u00f3n.
+info.checkpoint.restore.failed.useraction=Consulte los registros para determinar por qu\u00e9 no se ha restaurado el proceso de punto de comprobaci\u00f3n.
+
+error.checkpoint.failed=CWWKE0962E: La solicitud de punto de comprobaci\u00f3n del servidor ha fallado. La salida siguiente es del archivo {0} de CRIU que contiene detalles sobre por qu\u00e9 ha fallado el punto de comprobaci\u00f3n.
+error.checkpoint.failed.explanation=Ha fallado una solicitud de punto de comprobaci\u00f3n para el servidor. No se ha creado ninguna imagen de proceso de punto de comprobaci\u00f3n v\u00e1lida para el servidor.
+error.checkpoint.failed.useraction=Para determinar por qu\u00e9 ha fallado el punto de comprobaci\u00f3n, inspeccione los archivos de registro en el directorio de punto de comprobaci\u00f3n que se encuentra en el directorio de registros del servidor.
+
+error.checkpoint.failed.selinux.netdiag=CWWKE0963E: La solicitud de punto de comprobaci\u00f3n del servidor ha fallado porque las llamadas al sistema de enlace de red no han sido satisfactorias. Si SELinux est\u00e1 habilitado en modalidad de imposici\u00f3n, el valor de pol\u00edtica "virt_sandbox_use_netlink" de SELinux podr\u00eda bloquear las llamadas al sistema de enlace de red. Inhabilite SELinux o habilite las llamadas al sistema de enlace de red con el mandato "setsebool virt_sandbox_use_netlink 1".
+error.checkpoint.failed.selinux.netdiag.explanation=Una solicitud de punto de comprobaci\u00f3n para el servidor ha fallado porque las llamadas al sistema de enlace de red no han sido satisfactorias.
+error.checkpoint.failed.selinux.netdiag.useraction=Si SELinux est\u00e1 habilitado en modalidad de imposici\u00f3n, el valor de pol\u00edtica "virt_sandbox_use_netlink" de SELinux podr\u00eda bloquear las llamadas al sistema de enlace de red. Inhabilite SELinux o habilite las llamadas al sistema de enlace de red con el mandato "setsebool virt_sandbox_use_netlink 1".
+
+error.checkpoint.restore.failed.no.recovery=CWWKE0964E: La restauraci\u00f3n del proceso del servidor de punto de comprobaci\u00f3n ha fallado. Compruebe el registro de {0} para determinar por qu\u00e9 no se ha restaurado el proceso de punto de comprobaci\u00f3n. El servidor no se ha iniciado porque la recuperaci\u00f3n de restauraci\u00f3n de punto de comprobaci\u00f3n est\u00e1 inhabilitada.
+error.checkpoint.restore.failed.no.recovery.explanation=Se ha producido un error al restaurar un proceso de servidor de punto de comprobaci\u00f3n. El servidor no se ha iniciado porque la recuperaci\u00f3n de restauraci\u00f3n de punto de comprobaci\u00f3n est\u00e1 inhabilitada.
+error.checkpoint.restore.failed.no.recovery.useraction=Consulte los registros para determinar por qu\u00e9 no se ha restaurado el proceso de punto de comprobaci\u00f3n. Para habilitar la recuperaci\u00f3n de errores de restauraci\u00f3n, establezca la variable de entorno CRIU_RESTORE_DISABLE_RECOVERY en true.
+
+warning.serverLockFileNotExist=CWWKE0965W: El archivo de bloqueo del servidor {0} no existe.
+warning.serverLockFileNotExist.explanation=El aviso puede indicar que el servidor no se est\u00e1 ejecutando o que el archivo de bloqueo se ha suprimido de forma inesperada.
+warning.serverLockFileNotExist.useraction=Compruebe si el servidor se est\u00e1 ejecutando utilizando las herramientas de supervisi\u00f3n del sistema adecuadas. En Windows, puede utilizar el Administrador de tareas. En sistemas similares a UNIX, utilice el mandato 'ps -ef'.
+
+warning.serverCommandFileNotExist=CWWKE0966W: El archivo de mandatos del servidor {0} no existe.
+warning.serverCommandFileNotExist.explanation=El aviso sugiere que falta el archivo de mandatos del servidor, que contiene informaci\u00f3n esencial para establecer una conexi\u00f3n de socket con el servidor. Es posible que el servidor no est\u00e9 en ejecuci\u00f3n o que el archivo se haya suprimido de forma inesperada.
+warning.serverCommandFileNotExist.useraction=Compruebe si el servidor se est\u00e1 ejecutando utilizando las herramientas de supervisi\u00f3n del sistema adecuadas. En Windows, puede utilizar el Administrador de tareas. En sistemas similares a UNIX, utilice el mandato 'ps -ef'. Si el servidor se est\u00e1 ejecutando, debe reiniciarlo, lo que implica detener el proceso. Utilice el Administrador de tareas en Windows para detener el proceso. En sistemas similares a UNIX, utilice el mandato 'kill'.
+
+warning.timeoutWaitingForServerToReleaseLock=CWWKE0967W: Se ha excedido el tiempo de espera mientras se esperaba que el servidor liberara el archivo de bloqueo del servidor {0} .
+warning.timeoutWaitingForServerToReleaseLock.explanation=El aviso indica que se ha excedido el tiempo de espera. El tiempo de espera puede deberse a una conclusi\u00f3n lenta del servidor, a un bloqueo del servidor o a un bloqueo de archivos por parte de otro programa.
+warning.timeoutWaitingForServerToReleaseLock.useraction=Si el servidor sigue en ejecuci\u00f3n, considere la posibilidad de aumentar el valor de tiempo de espera para el mandato 'server stop'. Si el servidor est\u00e1 detenido, utilice las herramientas de supervisi\u00f3n de archivos para comprobar si otro programa ha bloqueado el archivo.
+
+warning.timeoutWaitingForServerProcessToStop=CWWKE0968W: Se ha excedido el tiempo de espera mientras se esperaba a que se detuviera el proceso del servidor.
+warning.timeoutWaitingForServerProcessToStop.explanation=El servidor no se ha detenido dentro del tiempo permitido por el valor de tiempo de espera. Esto puede deberse a una conclusi\u00f3n lenta del servidor o a un bloqueo del servidor.   
+warning.timeoutWaitingForServerProcessToStop.useraction=Si el servidor sigue en ejecuci\u00f3n, considere la posibilidad de aumentar el valor de tiempo de espera para el mandato 'server stop'. En sistemas similares a UNIX, el mandato de detenci\u00f3n del servidor espera a que se detenga el proceso del servidor. En Windows, el mandato espera para obtener un bloqueo en el archivo console.log . Utilice las herramientas de supervisi\u00f3n de archivos para comprobar si otro programa, como un editor, ha bloqueado el archivo console.log .
+
+warning.manual.PPV.env.var=CWWKE0969W: Se ha especificado una variable de entorno PREFERRED_PLATFORM_VERSION manual durante el empaquetado del servidor.
+warning.manual.PPV.env.var.explanation=Se ha establecido una variable de entorno PREFERRED_PLATFORM_VERSION manual en el entorno, pero no se incluir\u00e1 en el paquete de servidor.
+warning.manual.PPV.env.var.useraction=Para conservar la variable de entorno PREFERRED_PLATFORM_VERSION, especif\u00edquela en el archivo de configuraci\u00f3n server.env .
+
+error.read.server.env=CWWKE0970E: No se puede leer el archivo server.env en la ubicaci\u00f3n {}.
+error.read.server.env.explanation=No se ha podido leer el archivo server.env .
+error.read.server.env.useraction=No se puede leer el archivo \u00ab server.env \u00bb. Comprueba los permisos del archivo y vuelve a intentar la operaci\u00f3n.
+
+warning.java2security.stopped=CWWKE0971W: La seguridad de Java 2 est\u00e1 desactivada porque Jakarta EE 11 no la admite.
+warning.java2security.stopped.explanation=En Jakarta EE 11 se ha eliminado la compatibilidad con Java 2 Security.
+warning.java2security.stopped.useraction=Desactive la seguridad de Java 2 en la configuraci\u00f3n del servidor cuando utilice las funciones de Jakarta EE 11.
+
+info.java2security.restarted=CWWKE0972I: Se ha vuelto a habilitar la seguridad de Java 2 debido a que se han eliminado las funciones de Jakarta EE 11.
+info.java2security.restarted.explanation=Este mensaje es s\u00f3lo de car\u00e1cter informativo.
+info.java2security.restarted.useraction=No se requiere ninguna acci\u00f3n.
+
 info.serverStarting=Se est\u00e1 iniciando el servidor {0}.
 info.serverStarted=Servidor {0} iniciado.
 info.serverStartedWithPID=Servidor {0} iniciado con ID de proceso {1}.
@@ -791,3 +877,7 @@ info.list.of.defined.servers=Los servidores siguientes se definen en relaci\u00f
 info.communicate.server=Se ha producido un error de comunicaciones entre el mandato {0} y el servidor {1}.
 
 info.serialFilterLoaded=Se ha cargado el agente de filtro serie.
+
+# {0} The full path to a configured logs directory.
+# Displayed when creating a server dump, if an alternate server logs directory has been configured.
+info.dump.server.alt.logs=Detectado el directorio de registros del servidor configurado en {0}.

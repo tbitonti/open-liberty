@@ -1,9 +1,11 @@
 /* ============================================================================
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial implementation
@@ -12,6 +14,7 @@
 package com.ibm.ws.messaging.open_clientcontainer.fat;
 
 import java.util.Properties;
+import java.util.logging.Level;
 import java.util.Enumeration;
 import javax.jms.BytesMessage;
 import javax.jms.ConnectionFactory;
@@ -318,9 +321,11 @@ public class JMS2AsyncSend extends ClientMain {
 
   @ClientTest
   public void testJMS2MessageOrderingMultipleContexts() throws JMSException, InterruptedException {
+    Util.setLevel(Level.FINEST);
     clearQueue(queueOne_);
     completionListener_.reset();
     int outOfOrderCount = 0;
+    int failedReceiveCount = 0;
 
     try (JMSContext context  = queueConnectionFactory_.createContext();
          JMSContext context1 = queueConnectionFactory_.createContext();
@@ -347,14 +352,16 @@ public class JMS2AsyncSend extends ClientMain {
         producer[i%3].send(queueOne_, message);
       }
 
-      boolean conditionMet = completionListener_.waitFor(11, 0);
+      // We've had an instance where the completionListener returned false after the default wait, but the later test showed that the messages were correctly delivered.
+      // Presumably there was a resource issue that meant the original sends took longer than expected so increase the wait time here slightly to make the test a bit more tolerant.
+      boolean conditionMet = completionListener_.waitFor(15000, 11, 0);
 
       for(int i=0;11>i;++i) {
         Message message = consumer.receive(WAIT_TIME);
         if (null==message) {
           Util.TRACE("Failed to receive message "+i);
-          ++outOfOrderCount;      // force failure
-          break;
+          ++failedReceiveCount;
+          continue; // Keep going to see whether the other messages were delivered and received correctly. 
         }
         int sessionNumber = message.getIntProperty("Session_Number");
         int messageOrder = message.getIntProperty("Message_Order");
@@ -363,18 +370,24 @@ public class JMS2AsyncSend extends ClientMain {
         order[sessionNumber] = messageOrder;
       }
 
+      // It's possible that the completionListener wasn't informed of the original message sends before we started receiving. Check again, if required, to see whether any callback has been invoked late.
+      // We're using hardcoded values here just to match those used before.
+      if (!conditionMet) conditionMet = (completionListener_.completionCount_ == 11 && completionListener_.exceptionCount_ == 0);
+      
       Util.TRACE("outOfOrderCount="+outOfOrderCount
-                +",completionCount="+completionListener_.completionCount_
-                +",exceptionCount="+completionListener_.exceptionCount_
+    		    + ", failedReceiveCount=" + failedReceiveCount
+                +", completionCount="+completionListener_.completionCount_
+                +", exceptionCount="+completionListener_.exceptionCount_
                 );
-      if (outOfOrderCount == 0 && conditionMet == true ) {
+      if (outOfOrderCount == 0 && failedReceiveCount == 0 && conditionMet == true ) {
         reportSuccess();
       } else {
-        reportFailure("Failed to receive messages in order.");
+        reportFailure("Failed to receive all messages in order. (outOfOrderCount=" + outOfOrderCount + ",failedReceiveCount=" + failedReceiveCount + ",conditionMet=" + conditionMet + ")");
       }
     }
     clearQueue(queueOne_);
     completionListener_.reset();
+    Util.setLevel(Level.INFO);
   }
 
   @ClientTest
@@ -436,50 +449,56 @@ public class JMS2AsyncSend extends ClientMain {
   public void testJMS2TransactionAndListener() throws JMSException, InterruptedException, Exception {
     clearQueue(depthLimitedQueue_);
 
-    JMSContext context = queueConnectionFactory_.createContext(Session.SESSION_TRANSACTED);
-    JMSProducer producer = context.createProducer();
-    producer.setAsync(completionListener_);
-    TextMessage textMessage = context.createTextMessage("testJMS2TransactionAndListener");
+    try (JMSContext context = queueConnectionFactory_.createContext(Session.SESSION_TRANSACTED)) {
+    	JMSProducer producer = context.createProducer();
+    	producer.setAsync(completionListener_);
+    	TextMessage textMessage = context.createTextMessage("testJMS2TransactionAndListener");
 
-    for (int i=0;5>i;++i) producer.send(depthLimitedQueue_, textMessage);
-    completionListener_.waitFor(5, 0);
-    context.commit();
-    Util.CODEPATH();
+    	for (int i=0;5>i;++i) producer.send(depthLimitedQueue_, textMessage);
+    	completionListener_.waitFor(5, 0);
+    	context.commit();
+    	Util.CODEPATH();
 
-    // Because this is a locally transacted session this send will succeed and the exception will be raised on the subsequent
-    // commit (onException must NOT be called)
-    producer.send(depthLimitedQueue_, textMessage);
+    	// Because this is a locally transacted session this send will succeed and the exception will be raised on the subsequent
+    	// commit (onException must NOT be called)
+    	producer.send(depthLimitedQueue_, textMessage);
 
-    boolean conditionMet = completionListener_.waitFor(6, 0);
+     long expectedCompletionCount = 6;
+     long expectedExceptionCount = 0;
 
-    boolean exceptionOnCommit = false;
-    try {
-      context.commit();
-    } catch (javax.jms.JMSRuntimeException e) {
-      if (null!=e.getCause()
-          &&"com.ibm.wsspi.sib.core.exception.SIRollbackException".equals(e.getCause().getClass().getName())
-         ) {
-        Throwable t = e.getCause();
-        if (null!=t.getCause()
-            &&"com.ibm.wsspi.sib.core.exception.SILimitExceededException".equals(t.getCause().getClass().getName())
-           ) {
-          Util.TRACE("commit failed with expected exception: "+t.getCause().getClass().getName());
-          exceptionOnCommit = true;
-        } else {
-          throw e;
-        }
-      } else {
-        throw e;
-      }
-    }
+    	boolean conditionMet = completionListener_.waitFor(expectedCompletionCount, expectedExceptionCount);
 
-    Util.TRACE("completionCount="+completionListener_.completionCount_
-              +",exceptionCount="+completionListener_.exceptionCount_
-              );
-    if (conditionMet == true && exceptionOnCommit == true ) {
-      reportSuccess();
-    } else {
-      reportFailure();
+    	boolean exceptionOnCommit = false;
+    	try {
+    		context.commit();
+    	} catch (javax.jms.JMSRuntimeException e) {
+    		if (null!=e.getCause()
+    				&&"com.ibm.wsspi.sib.core.exception.SIRollbackException".equals(e.getCause().getClass().getName())
+    				) {
+    			Throwable t = e.getCause();
+    			if (null!=t.getCause()
+    					&&"com.ibm.wsspi.sib.core.exception.SILimitExceededException".equals(t.getCause().getClass().getName())
+    					) {
+    				Util.TRACE("commit failed with expected exception: "+t.getCause().getClass().getName());
+    				exceptionOnCommit = true;
+    			} else {
+    				throw e;
+    			}
+    		} else {
+    			throw e;
+    		}
+    	}
+
+    	Util.TRACE("expectedCompletionCount="+ expectedCompletionCount + ", completionCount="+completionListener_.completionCount_
+    			+ ", expectedExceptionCount=" + expectedExceptionCount + ", exceptionCount=" + completionListener_.exceptionCount_);
+
+      Util.TRACE("conditionMet=" + conditionMet + ", exceptionOnCommit=" + exceptionOnCommit);
+
+    	if (conditionMet == true && exceptionOnCommit == true ) {
+    		reportSuccess();
+    	} else {
+    		reportFailure();
+    	}	
     }
     clearQueue(depthLimitedQueue_);
   }

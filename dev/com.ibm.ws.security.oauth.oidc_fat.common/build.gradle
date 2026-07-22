@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,10 +24,12 @@ dependencies {
      * for eash of retrieval by other projects.
      */
     collectedDeps 'org.mongodb:mongo-java-driver:2.13.3',
+                  'de.flapdoodle.embed:de.flapdoodle.embed.mongo:3.0.0',
+                  project(':com.ibm.ws.org.apache.commons.compress'),
                   project(':io.openliberty.org.apache.commons.codec'),
                   project(':io.openliberty.org.apache.commons.logging'),
                   project(':com.ibm.json4j'),
-                  project(':com.ibm.ws.com.google.gson'),
+                  project(':io.openliberty.com.google.gson'),
                   project(':com.ibm.ws.com.google.guava'),
                   project(':com.ibm.ws.com.meterware.httpunit.1.7'),
                   project(':com.ibm.ws.net.oauth.jsontoken'),
@@ -35,10 +39,11 @@ dependencies {
                   project(':com.ibm.ws.security.openidconnect.clients.common')
 
                   
-   requiredLibs project(':com.ibm.ws.security.fat.common')            
+   requiredLibs project(':com.ibm.ws.security.fat.common'),  
+   				project(':com.ibm.ws.security.fat.common.jwt')            
 }
 
-
+addRequiredLibraries.dependsOn addJakartaTransformer
 
 /*
  * This is where all application ZIP and WARs will be built.
@@ -85,7 +90,8 @@ task formlogin_ZIP (type: Zip, dependsOn: classes) {
   from (new File(projectDir, 'build/classes/java/main')) {
     include 'web/BaseServlet.class', 'web/FlexibleBaseServlet*.class'
     include 'web/FormLoginServlet.class', 'web/FormLoginServlet2.class', 'web/Base64.class',
-            'web/manual_IntrospectRequester*.class', 'web/manual_IntrospectServlet.class'
+            'web/manual_IntrospectRequester*.class', 'web/manual_IntrospectServlet.class',
+            'web/LogoutServlet.class'
     into 'WEB-INF/classes'
   }
 }
@@ -288,23 +294,73 @@ task testTokenEndpoint_ZIP (type: Zip, dependsOn: classes) {
   /* start of jose4j copy */
   /* copy contents of the jose4j jar into our test app - we don't have another way to get to the jar */
   from(zipTree("../com.ibm.ws.org.jose4j/build/libs/com.ibm.ws.org.jose4j.jar")) {
+    exclude("META-INF/MANIFEST.MF")
+    into "WEB-INF/classes"
+  }
+  /* end of jose4j copy */
+  
+  /* start of slf4j copy */
+  /* copy contents of the slf4j jar into our test app - we don't have another way to get to the jar */
+  from(zipTree("../com.ibm.ws.org.slf4j.api/build/libs/com.ibm.ws.org.slf4j.api.jar")) {
+    exclude("META-INF/MANIFEST.MF")
+    into "WEB-INF/classes"
+  }
+  /* end of slf4j copy */
+
+  /* start of common security fat copy */
+  /* copy contents of the common security fat jar into our test app - we don't have another way to get to the jar */
+  from(zipTree("../com.ibm.ws.security.fat.common/build/libs/com.ibm.ws.security.fat.common.jar")) {
+    exclude("META-INF/MANIFEST.MF")
+    into "WEB-INF/classes"
+  }
+  /* end of common security copy */  
+}
+
+/******************************************************************
+ ******************************************************************
+ **
+ ** testUserinfoEndpoint.zip
+ **
+ ******************************************************************
+ ******************************************************************/
+task testUserinfoEndpoint_ZIP (type: Zip, dependsOn: classes) { 
+  destinationDirectory = new File(appBuildDir)
+  archiveFileName = 'testUserinfoEndpoint.zip'
+
+  from (new File(projectDir, 'test-applications/testUserinfoEndpoint/resources')) {
+    include 'META-INF/**', 'WEB-INF/**', '*.jsp', '*.html'
+  }
+  from (new File(projectDir, 'build/classes/java/main')) {
+    include 'com/ibm/ws/security/fat/testUserinfoEndpoint/UserinfoEndpointServlet.class'
+    into 'WEB-INF/classes'
+  }
+  
+  /* start of jose4j copy */
+  /* copy contents of the jose4j jar into our test app - we don't have another way to get to the jar */
+  from(zipTree("../com.ibm.ws.org.jose4j/build/libs/com.ibm.ws.org.jose4j.jar")) {
+    exclude("META-INF/MANIFEST.MF")
     into "WEB-INF/classes"
   }
   /* end of jose4j copy */
   /* start of slf4j copy */
   /* copy contents of the slf4j jar into our test app - we don't have another way to get to the jar */
-  from(zipTree("../com.ibm.ws.org.slf4j.api/build/libs/com.ibm.ws.org.slf4j.api.1.7.7.jar")) {
+  from(zipTree("../com.ibm.ws.org.slf4j.api/build/libs/com.ibm.ws.org.slf4j.api.jar")) {
+    exclude("META-INF/MANIFEST.MF")
     into "WEB-INF/classes"
   }
-  /* end of jose4j copy */
   /* start of common security fat copy */
   /* copy contents of the common security fat jar into our test app - we don't have another way to get to the jar */
   from(zipTree("../com.ibm.ws.security.fat.common/build/libs/com.ibm.ws.security.fat.common.jar")) {
+    exclude("META-INF/MANIFEST.MF")
     into "WEB-INF/classes"
   }
-  /* end of jose4j copy */  
+    /* start of common security jwt fat copy */
+  /* copy contents of the common security fat jar into our test app - we don't have another way to get to the jar */
+  from(zipTree("../com.ibm.ws.security.fat.common.jwt/build/libs/com.ibm.ws.security.fat.common.jwt.jar")) {
+    exclude("META-INF/MANIFEST.MF")
+    into "WEB-INF/classes"
+  }
 }
-
 /******************************************************************
  ******************************************************************
  **
@@ -334,8 +390,8 @@ task oauthtaidemo_ZIP (type: Zip, dependsOn: classes) {
  ******************************************************************
  ******************************************************************/
 task oauthtaidemo_EAR(type: Zip, dependsOn: oauthtaidemo_ZIP) {
-  destinationDir file(appBuildDir)
-  archiveName "oauthtaidemo.ear"
+  destinationDirectory = file(appBuildDir)
+  archiveFileName = "oauthtaidemo.ear"
   
   from (new File(projectDir, 'test-applications/oauthtaidemoear')) {
     include 'META-INF/**'
@@ -365,6 +421,7 @@ assemble.dependsOn oauthclientcert_ZIP
 assemble.dependsOn testMediator_ZIP
 assemble.dependsOn oauthtaidemo_EAR
 assemble.dependsOn testTokenEndpoint_ZIP
+assemble.dependsOn testUserinfoEndpoint_ZIP
 
 
 /******************************************************************
@@ -374,15 +431,19 @@ assemble.dependsOn testTokenEndpoint_ZIP
  **
  ******************************************************************
  ******************************************************************/
-assemble { 
-  /* 
+assemble.doLast {
+  /*
    * Collect all the required jars and put them in one uniform place
    * so that we don't need to keep adding them in each external
    * project.
    */
   println "in assemble"
-  copy { 
+  copy {
     from configurations.collectedDeps
     into "${buildDir}/collectedJars"
   }
+}
+
+test {
+   jvmArgs = ["--add-opens", "java.base/java.lang=ALL-UNNAMED"]
 }

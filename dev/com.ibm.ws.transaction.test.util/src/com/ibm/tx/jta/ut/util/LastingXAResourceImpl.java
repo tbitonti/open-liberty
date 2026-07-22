@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -26,9 +28,6 @@ import javax.sql.DataSource;
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.Xid;
 
-/**
- *
- */
 public class LastingXAResourceImpl extends XAResourceImpl {
 
     /**  */
@@ -42,17 +41,57 @@ public class LastingXAResourceImpl extends XAResourceImpl {
     protected static boolean _attemptedFileInit;
 
     public static boolean STORE_STATE_IN_DATABASE = true;
-    public static boolean INTERRUPT_IN_RECOVERY = false;
-    private static dbStore _dbStore = null;
+    public static boolean INTERRUPT_IN_RECOVERY;
+    private static dbStore _dbStore;
 
     static {
         stateKeeper = new LastingStateKeeperImpl();
     }
   
-    public static LastingXAResourceImpl getLastingXAResourceImpl() {
-        return new LastingXAResourceImpl();
+    public static LastingXAResourceImpl getLastingXAResourceImpl(int i) {
+        return new LastingXAResourceImpl(i);
     }
     
+    public LastingXAResourceImpl(int i) {
+        super(i);
+
+        if (STORE_STATE_IN_DATABASE) {
+            if (_dbStore == null) {
+                try {
+					_dbStore = new dbStore();
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+            }
+        } else if (!_attemptedFileInit) {
+            // Storing state data in a file
+            _attemptedFileInit = true;
+
+            resetFile();
+        }
+    }
+
+    /**
+     *
+     */
+    private void resetFile() {}
+
+    public LastingXAResourceImpl(String i) throws Exception {
+        super(i);
+        if (STORE_STATE_IN_DATABASE) {
+            if (_dbStore == null) {
+                _dbStore = new dbStore();
+                _dbStore.clear();
+            }
+        } else if (!_attemptedFileInit) {
+            // Storing state data in a file
+            _attemptedFileInit = true;
+
+            resetFile();
+        }
+    }
+
     public LastingXAResourceImpl() {
         super();
 
@@ -74,27 +113,7 @@ public class LastingXAResourceImpl extends XAResourceImpl {
         }
     }
 
-    /**
-     *
-     */
-    private void resetFile() {}
-
-    public LastingXAResourceImpl(int i) throws Exception {
-        super(i);
-        if (STORE_STATE_IN_DATABASE) {
-            if (_dbStore == null) {
-                _dbStore = new dbStore();
-                _dbStore.clear();
-            }
-        } else if (!_attemptedFileInit) {
-            // Storing state data in a file
-            _attemptedFileInit = true;
-
-            resetFile();
-        }
-    }
-
-    @Override
+	@Override
     public Xid[] recover(int flag) throws XAException {
         Xid[] theXids = null;
         try {
@@ -178,8 +197,9 @@ public class LastingXAResourceImpl extends XAResourceImpl {
 
     static class LastingStateKeeperImpl implements StateKeeper {
 
-        @Override
-        public void dumpState() {
+    	@Override
+        public void dumpState(boolean quietly) {
+        	dumped = !quietly; // For some tests (e.g. XAFlow) we need to continue after dumping state.
             if (STORE_STATE_IN_DATABASE) {
                 System.out.println("Dumping state to database");
                 // Defect 168553 - this string needs to be written in order for the test infrastructure to see that the
@@ -238,7 +258,7 @@ public class LastingXAResourceImpl extends XAResourceImpl {
                         System.out.println("Execute a query to determine if we need to create a table");
                     stmtBasic.executeQuery("SELECT RESOURCE_ID, DATA" +
                                            " FROM WAS_XA_RESOURCES" +
-                                           " WHERE RESOURCE_ID=1");
+                                           " WHERE RESOURCE_ID='1'");
                 } catch (Exception e) {
                     if (DEBUG_OUTPUT)
                         System.out.println("couldn't find the table ... so create it");
@@ -246,7 +266,7 @@ public class LastingXAResourceImpl extends XAResourceImpl {
                     Statement stmt2 = con1.createStatement();
 
                     stmt2.executeUpdate("CREATE TABLE WAS_XA_RESOURCES( " +
-                                        "RESOURCE_ID SMALLINT, " +
+                                        "RESOURCE_ID VARCHAR(60), " +
                                         "DATA LONG VARCHAR FOR BIT DATA) ");
                     if (DEBUG_OUTPUT)
                         System.out.println("Have created the table");
@@ -291,7 +311,7 @@ public class LastingXAResourceImpl extends XAResourceImpl {
                                                  " FROM WAS_XA_RESOURCES");
                 // Now process through the rows we need to handle
                 while (rsBasic.next()) {
-                    final int resId = rsBasic.getInt(1);
+                    final String resId = rsBasic.getString(1);
                     final byte[] data = rsBasic.getBytes(2);
                     if (DEBUG_OUTPUT) {
                         System.out.println("Resource Table: read rid: " + resId);
@@ -299,7 +319,7 @@ public class LastingXAResourceImpl extends XAResourceImpl {
                     }
                     
                     // Test for presence of special key
-                    if(resId == -99) {
+                    if(resId.equals("-99")) {
                         if (DEBUG_OUTPUT)
                         	System.out.println("getXAResources found special interrupt key");
                     	INTERRUPT_IN_RECOVERY = true;
@@ -309,11 +329,8 @@ public class LastingXAResourceImpl extends XAResourceImpl {
                     	if (data != null)
                     		objectIn = new ObjectInputStream(new ByteArrayInputStream(data));
                     	final XAResourceData xares = (XAResourceData) objectIn.readObject();
-
+                    	System.out.println("_resources.put(\""+resId+"\", "+xares+")");
                     	_resources.put(resId, xares);
-                    	if (resId >= _nextKey.get()) {
-                    		_nextKey.set(resId + 1);
-                    	}
                     	resourceCount++;
                     }
                 }
@@ -470,30 +487,18 @@ public class LastingXAResourceImpl extends XAResourceImpl {
                 if (DEBUG_OUTPUT)
                     System.out.println("putXAResources prepare to insert " + _resources.size() + " resources");
                 for (XAResourceData xares : _resources.values()) {
-                    int resKey = xares.key;
+                    String resKey = xares.key;
                     if (DEBUG_OUTPUT) {
                         System.out.println("putXAResources Insert row for key: " + resKey);
-                        System.out.println("And data with XID: " + xares.getXid());
+                        System.out.println("And data with XID: " + xares.getXids());
                     }
-
-                    // By storing an object of type XID (a local implementation of the standard xid interface and in the same package as this class)
-                    // we can later get recovery to work. This almost seems like black magic but relies on the ability of the current recovery code
-                    // to be able to (a) see the XID implementation of the xid interface and (b) to convert the XID into an XidImpl.
-                    // If I leave the stored Xid as an XidImpl, the user feature gets a ClassDefNotFound exc when deserializing an XidImpl. It cannot
-                    // see the appropriate system feature's classes.
-                    Xid oldXID = xares.getXid();
-                    int newFormatId = oldXID.getFormatId();
-                    byte[] newGid = oldXID.getGlobalTransactionId();
-                    byte[] newBranchQualifier = oldXID.getBranchQualifier();
-                    XID newXID = new XID(newFormatId, newGid, newBranchQualifier);
-                    xares.setXid(newXID);
 
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
                     ObjectOutputStream oos = new ObjectOutputStream(baos);
                     oos.writeObject(xares);
                     byte[] data = baos.toByteArray();
 
-                    insertStatement.setInt(1, resKey);
+                    insertStatement.setString(1, resKey);
                     insertStatement.setBytes(2, data);
 
                     int ret = insertStatement.executeUpdate();
@@ -568,5 +573,16 @@ public class LastingXAResourceImpl extends XAResourceImpl {
 
             return ds;
         }
+    }
+
+	public static LastingXAResourceImpl getLastingXAResourceImpl() {
+        return new LastingXAResourceImpl();
+	}
+
+    public synchronized static int loadState() {
+        final int numResources = stateKeeper.loadState();
+        _stateLoaded = true;
+        printState();
+        return numResources;
     }
 }

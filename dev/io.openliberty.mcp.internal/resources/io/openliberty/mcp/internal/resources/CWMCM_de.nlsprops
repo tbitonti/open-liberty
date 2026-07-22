@@ -1,0 +1,287 @@
+###############################################################################
+# Copyright (c) 2025, 2026 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+###############################################################################
+#CMVCPATHNAME N/A
+#COMPONENTPREFIX CWMCM
+#COMPONENTNAMEFOR CWMCM MCP Server
+#NLS_ENCODING=UNICODE
+#NLS_MESSAGEFORMAT_NONE
+#ISMESSAGEFILE true
+
+# Used for server logging
+# do not translate MCP
+# {0} = The qualified name of the tool
+CWMCM0001E.blank.arguments=CWMCM0001E: Die {0} MCP-Tool-Methode hat ein oder mehrere Argumente mit leeren Namen.
+CWMCM0001E.blank.arguments.explanation=MCP-Tool-Argumente wurden angegeben, aber es fehlten Namen. Jedes Argument einer Werkzeugmethode muss einen Namen haben.
+CWMCM0001E.blank.arguments.useraction=Geben Sie f\u00fcr alle erforderlichen Argumente nicht leere Werte an.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The  qualified name of the tool
+# {1} = corresponding argument name
+CWMCM0002E.duplicate.arguments=CWMCM0002E: Die {0} MCP-Tool-Methode hat mehr als ein Argument namens {1}.
+CWMCM0002E.duplicate.arguments.explanation=Ein oder mehrere Argumente haben denselben Namen. Jedes Argument einer MCP-Tool-Methode muss einen anderen Namen haben.
+CWMCM0002E.duplicate.arguments.useraction=Geben Sie jedem Tool-Argument einen anderen Namen.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The qualified name of the tool
+CWMCM0003E.missing.tool.argument.name=CWMCM0003E: Die {0} MCP-Tool-Methode hat ein oder mehrere Argumente, f\u00fcr die kein Name angegeben ist.
+CWMCM0003E.missing.tool.argument.name.explanation=F\u00fcr MCP Tools wurden ein oder mehrere Tool-Argumentnamen nicht angegeben.
+CWMCM0003E.missing.tool.argument.name.useraction=F\u00fcgen Sie entweder einen Namen zur @ToolArg Anmerkung hinzu oder f\u00fcgen Sie die Compiler-Option -parameters hinzu, um den Parameternamen zu verwenden.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The list of qualified names of the tool
+# {1} = The list of duplicate methods
+CWMCM0004E.duplicate.tools=CWMCM0004E: Es gibt mehrere MCP-Tool-Methoden mit dem Namen {0}. Die Methoden sind {1}.
+CWMCM0004E.duplicate.tools.explanation=Ein oder mehrere MCP-Tool-Namen sind mehrfach aufgetreten. Der Server erwartet einen Namen pro Tool, um die Eindeutigkeit zu gew\u00e4hrleisten.
+CWMCM0004E.duplicate.tools.useraction=Geben Sie nur einen eindeutigen Namen f\u00fcr jedes MCP-Tool an.
+
+# Used for server logging
+# do not translate MCP
+CWMCM0005E.validation.error=CWMCM0005E: Es gibt einen oder mehrere MCP-Validierungsfehler. Weitere Details k\u00f6nnen Sie den Protokollen entnehmen.
+CWMCM0005E.validation.error.explanation=Die Anwendung kann aufgrund von MCP-Validierungsfehlern nicht gestartet werden.
+CWMCM0005E.validation.error.useraction=Weitere Details k\u00f6nnen Sie den Protokollen entnehmen.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The fully qualified method name
+# {1} = The parameter type simple name
+CWMCM0006E.duplicate.special.arguments=CWMCM0006E: Das {0} MCP-Tool hat mehr als einen Parameter vom {1} Typ. Verwenden Sie nur einen {1} Parameter in jeder Tool-Methode.
+CWMCM0006E.duplicate.special.arguments.explanation=Ein oder mehrere Sonderargumente sind mehrfach aufgetreten, es wird jedoch nur eines erwartet.
+CWMCM0006E.duplicate.special.arguments.useraction=Entfernen Sie die zus\u00e4tzlichen Instanzen.
+
+# Used for server logging
+# {0} = The fully qualified method name
+# {1} = The parameter type simple name
+CWMCM0007E.invalid.arguments=CWMCM0007E: Das {0} MCP-Tool hat einen Parameter vom Typ {1}, der kein anerkannter spezieller Argumenttyp ist und keine `@ToolArg` Anmerkung hat.
+CWMCM0007E.invalid.arguments.explanation=Ein oder mehrere Parameter wurden nicht als Werkzeugargumente kommentiert und werden nicht als spezielle Argumenttypen erkannt.
+CWMCM0007E.invalid.arguments.useraction=\u00dcberpr\u00fcfen Sie, ob Sie die richtige Klasse f\u00fcr Ihr Argument importiert haben oder ob Sie. einf\u00fcgen wollten @ToolArg.
+
+# Used as part of a response to a client
+# {0} = Request id
+invalid.request.params=Eine Anfrage mit der ID \u201e {0} \u201c wird derzeit bearbeitet.
+
+# Used as part of a response to a client
+# do not translate GET
+get.disallowed=GET-Anfragen werden nicht unterst\u00fctzt.
+
+# Used for server logging
+# {0} = tool name
+# {1} = exception details
+CWMCM0010E.internal.server.error.detailed=CWMCM0010E: Die {0} Tool-Methode hat eine unerwartete Ausnahme ausgel\u00f6st. Ausnahme: {1}
+CWMCM0010E.internal.server.error.detailed.explanation=Die Tool-Methode hat eine unerwartete Ausnahme ausgel\u00f6st.
+CWMCM0010E.internal.server.error.detailed.useraction=Ermitteln Sie das Problem anhand der Protokolldatei f\u00fcr die Servernachrichten (message.log) und der FFDC-Protokolldateien.
+
+# Used as part of a response to a client
+internal.server.error=Beim Ausf\u00fchren des Tools ist ein interner Serverfehler aufgetreten.
+
+# Used for server logging
+# do not translate bean
+# {0} = bean error details
+# {1} = tool name
+CWMCM0012E.bean.release.fail=CWMCM0012E: Beim Freigeben der CDI-Bean nach dem Aufruf des {1} Tools ist ein Fehler aufgetreten. Der Fehler: {0}
+CWMCM0012E.bean.release.fail.explanation=Beim Aufruf einer Tool-Methode wird eine Instanz des CDI-Beans, der die Methode deklariert, vor dem Aufruf der Methode abgerufen und anschlie\u00dfend wieder freigegeben. Beim Freigeben der Bean-Instanz ist ein Fehler aufgetreten.
+CWMCM0012E.bean.release.fail.useraction=Ermitteln Sie das Problem anhand der Protokolldatei f\u00fcr die Servernachrichten (message.log) und der FFDC-Protokolldateien.
+
+# Used for client response
+# do not translate MCP-Protocol-Version, MCP
+# {0} = List of supported MCP-Protocol-Version values
+unsupported.mcp.http.version=Es wurde ein nicht unterst\u00fctzter MCP-Protocol-Version-Header bereitgestellt. Unterst\u00fctzte Werte: {0}
+
+# Used as part of a response to a client
+# {0} = Method
+# {1} = RequestURI
+# {2} = RequestQuery
+unexpected.server.error=Unerwarteter Serverfehler. Methode= {0} RequestURI={1 } RequestQuery={2 }
+
+# Used for server logging
+# {0} = Method
+# {1} = RequestURI
+# {2} = RequestQuery
+# {3} = ExceptionMessage
+CWMCM0015E.unexpected.server.error.exception=CWMCM0015E: Unerwarteter Serverfehler. Methode= {0} RequestURI={1 } RequestQuery={2 }, Ausnahme: {3}
+CWMCM0015E.unexpected.server.error.exception.explanation=Bei der Bearbeitung der Anfrage ist ein unerwarteter Serverfehler aufgetreten. Die Anforderung kann nicht ausgef\u00fchrt werden.
+CWMCM0015E.unexpected.server.error.exception.useraction=Ermitteln Sie das Problem anhand der Protokolldatei f\u00fcr die Servernachrichten (message.log) und der FFDC-Protokolldateien.
+
+# Used for server logging
+# {0} = ExceptionMessage
+CWMCM0016E.error.sending.response.exception=CWMCM0016E: Unerwarteter Serverfehler. Ausnahme: {0}
+CWMCM0016E.error.sending.response.exception.explanation=Beim Versuch, die Antwort zu senden, ist ein Fehler aufgetreten.
+CWMCM0016E.error.sending.response.exception.useraction=Es ist keine Aktion erforderlich.
+
+# Used as part of a response to a client
+# do not translate jsonrpc
+# {0} = jsonrpc value
+jsonrpc.exception.validation.invalid.version=Das Feld \u201ejsonrpc\u201d muss vorhanden sein. Derzeit wird nur 2.0 JSONRPC unterst\u00fctzt.
+
+# Used as part of a response to a client
+jsonrpc.validation.empty.method=Das Feld \u201eMethode\u201c ist leer.
+
+# Used as part of a response to a client
+# {0} = id value
+jsonrpc.exception.validation.empty.string.id=Das Feld \u201eid\u201c ist ung\u00fcltig. Die ID darf nicht leer sein, wenn eine Zeichenfolge angegeben wird.
+
+# Used as part of a response to a client
+jsonrpc.exception.validation.invalid.id.type=Der Typ \u201eid\u201c ist kein zul\u00e4ssiger Typ. Die ID muss eine Zeichenfolge oder eine Ganzzahl sein.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The  qualified name of the tool
+# {1} = corresponding argument name
+# {2} = corresponding argument type
+CWMCM0017E.missing.toolarg.defaultvalue.converter=CWMCM0017E: Das Argument \u201e {1} \u201c der MCP-Tool-Methode \u201e {0} \u201c verf\u00fcgt \u00fcber keinen Konverter, um seinen Standardwert in ein Objekt vom Typ \u201e {2} \u201c umzuwandeln.
+CWMCM0017E.missing.toolarg.defaultvalue.converter.explanation=Ein oder mehrere Argumente haben Standardwerte ohne einen passenden Konverter, um den Standardwert in den Typ des Arguments zu konvertieren.
+CWMCM0017E.missing.toolarg.defaultvalue.converter.useraction=Erstellen Sie eine benutzerdefinierte Konverterimplementierung f\u00fcr den Typ des Werkzeugarguments.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The qualified name of the tool
+# {1} = Parameter name
+CWMCM0018E.generic.arguments=CWMCM0018E: Das Argument \u201e {1} \u201c der Methode \u201e {0} \u201c des MCP-Tools enth\u00e4lt nicht unterst\u00fctzte Komponenten wie \u201e TypeVariable, Wildcard\u201c und \u201e GenericArrayType \u201c.
+CWMCM0018E.generic.arguments.explanation=MCP-Tool-Argumente wurden angegeben, werden jedoch nicht unterst\u00fctzt. 
+CWMCM0018E.generic.arguments.useraction=Geben Sie Argumente an, die keine generischen Komponenten enthalten.
+
+# Used for encoder logging
+# {0} = The encoder class name
+# {1} = The tool name
+# {2} = The exception
+CWMCM0019E.error.encoding.element=CWMCM0019E: Der Encoder \u201e {0} \u201c hat beim Kodieren des Ergebnisses des Tools \u201e {1} \u201c eine Ausnahme ausgel\u00f6st. Ausnahme: {2}
+CWMCM0019E.error.encoding.element.explanation=Der Encoder hat beim Kodieren des Ergebnisses des Tools eine Ausnahme ausgel\u00f6st. Die Ausnahme k\u00f6nnte auf ein Problem mit dem Encoder zur\u00fcckzuf\u00fchren sein oder darauf, dass das Tool ein unerwartetes Ergebnis zur\u00fcckgegeben hat.
+CWMCM0019E.error.encoding.element.useraction=Ermitteln Sie das Problem anhand der Protokolldatei f\u00fcr die Servernachrichten (message.log) und der FFDC-Protokolldateien.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The qualified name of the tool method, or the tool name
+# {1} = corresponding argument name
+# {2} = corresponding argument type
+# {3} = corresponding default value
+# {4} = ExceptionMessage
+CWMCM0020E.defaultvalue.conversion.error=CWMCM0020E: Der Standardwert des Arguments \u201e {1} \u201d des MCP-Tools \u201e {0} \u201d kann nicht in den Typ \u201e {2} \u201d konvertiert werden. Der Wert lautet \u201e {3} \u201c. Der Fehler lautet \u201e {4} \u201c.
+CWMCM0020E.defaultvalue.conversion.error.explanation=Ein Argument hat einen Standardwert, der nicht in den Typ des Arguments konvertiert werden kann. Dieses Problem kann auftreten, wenn der Standardwert null ist, ein ung\u00fcltiges Format hat oder au\u00dferhalb des Bereichs f\u00fcr den Zieltyp liegt.
+CWMCM0020E.defaultvalue.conversion.error.useraction=Stellen Sie sicher, dass der Standardwert f\u00fcr den Typ des Arguments g\u00fcltig ist. Stellen Sie sicher, dass der Standardwert nicht null ist. Geben Sie f\u00fcr Zeichentypen genau ein Zeichen an. Geben Sie f\u00fcr numerische Typen eine g\u00fcltige Zahl innerhalb des Bereichs des Typs an.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The default value string
+CWMCM0021E.defaultvalue.character.invalid.length=CWMCM0021E: Ein Zeichen-Standardwert muss genau ein Zeichen sein, war jedoch {0}
+CWMCM0021E.defaultvalue.character.invalid.length.explanation=Es wurde ein Standardwert f\u00fcr ein Argument vom Typ \u201eZeichen\u201c angegeben, dieser enth\u00e4lt jedoch nicht genau ein Zeichen. Zeichenargumente m\u00fcssen eine einzelne Zeichenfolge enthalten.
+CWMCM0021E.defaultvalue.character.invalid.length.useraction=Stellen Sie sicher, dass der Standardwert f\u00fcr ein Argument vom Typ \u201eZeichen\u201c eine Zeichenfolge mit genau einem Zeichen ist.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The cursor value string
+CWMCM0022E.invalid.cursor.value=CWMCM0022E: Der Cursorwert \u201e "{0}" \u201c ist ung\u00fcltig.
+CWMCM0022E.invalid.cursor.value.explanation=Ein Cursorwert wurde als Parameter f\u00fcr den Befehl \u201etool/list\u201c angegeben, aber der Wert ist ung\u00fcltig.
+CWMCM0022E.invalid.cursor.value.useraction=Stellen Sie sicher, dass der Cursorwert genau so angegeben wird, wie er vom vorherigen Tool-/Listenaufruf zur\u00fcckgegeben wurde.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The name of the tool 
+# {1} = The qualified name of the tool
+CWMCM0023E.invalid.length.tool.name=CWMCM0023E: Der Name des Tools \u201e {0} \u201c f\u00fcr die MCP-Tool-Methode \u201e {1} \u201c ist ung\u00fcltig. Werkzeugnamen m\u00fcssen zwischen 1 und 128 Zeichen lang sein.
+CWMCM0023E.invalid.length.tool.name.explanation=Der Name des Tools entspricht nicht der MCP-Spezifikation f\u00fcr Namen. Namen m\u00fcssen zwischen 1 und 128 Zeichen lang sein.
+CWMCM0023E.invalid.length.tool.name.useraction=Stellen Sie sicher, dass die Namen der Werkzeuge zwischen 1 und 128 Zeichen lang sind.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The name of the tool
+# {1} = The qualified name of the tool
+CWMCM0024E.invalid.character.tool.name=CWMCM0024E: Der Name des Tools \u201e {0} \u201c f\u00fcr die MCP-Tool-Methode \u201e {1} \u201c ist ung\u00fcltig. Werkzeugnamen d\u00fcrfen nur ASCII-Buchstaben, Ziffern, Unterstriche oder Bindestriche enthalten.
+CWMCM0024E.invalid.character.tool.name.explanation=Der Name des Tools entspricht nicht der MCP-Spezifikation f\u00fcr Namen. Namen d\u00fcrfen nur ASCII-Buchstaben, Ziffern, Unterstriche und Bindestriche enthalten, keine anderen Sonderzeichen.
+CWMCM0024E.invalid.character.tool.name.useraction=Stellen Sie sicher, dass die Namen der Werkzeuge nur ASCII-Buchstaben, Ziffern, Unterstriche oder Bindestriche enthalten.
+
+#Used as part of a response to a client
+# do not translate MCP
+argument.conversion.failed=Das Argument \u201e {0} \u201c kann nicht in den Typ \u201e {1} \u201c konvertiert werden.
+extra.arguments=Die folgenden Argumente wurden \u00fcbergeben, wurden jedoch in der Methode nicht gefunden: {0}.
+missing.arguments=Die Methode erwartete die folgenden Argumente, hat diese jedoch nicht erhalten: {0}.
+unauthorized.cancellation=Das Tool kann nicht abgebrochen werden, da der aufrufende Benutzer nicht autorisiert ist.
+
+# Used for server logging
+# {0} = Parameter name
+# {1} = The qualified name of the tool
+CWMCM0025E.unsupported.output=CWMCM0025E: Der R\u00fcckgabetyp \u201e {0} \u201c der MCP-Tool-Methode \u201e {1} \u201c muss ein Objekt sein.
+CWMCM0025E.unsupported.output.explanation=Der angegebene R\u00fcckgabetyp des MCP-Tools wird nicht unterst\u00fctzt. Da der Wert f\u00fcr \u201estructured content\u201c auf \u201etrue\u201c gesetzt ist, muss der Schematyp der Ausgabe ein Objekt sein.
+CWMCM0025E.unsupported.output.useraction=Geben Sie einen R\u00fcckgabetyp an, der ein Objekt ist.
+
+# Used as exception message
+# {0} = The name of the tool
+CWMCM0026E.duplicate.tool.name=CWMCM0026E: Ein MCP-Tool mit dem Namen \u201e {0} \u201c existiert bereits.
+CWMCM0026E.duplicate.tool.name.explanation=Jedes Werkzeug muss einen eindeutigen Namen haben. Sie k\u00f6nnen kein neues Werkzeug registrieren, das denselben Namen wie ein bereits vorhandenes Werkzeug hat.
+CWMCM0026E.duplicate.tool.name.useraction=Geben Sie jedem MCP-Tool einen eindeutigen Namen.
+
+# Used as exception message
+# Do not translate handler, setHandler, asyncHandler, setAsyncHandler, ToolManager, or ToolDefinition
+# {0} = The name of the tool
+CWMCM0027E.provide.one.handler=CWMCM0027E: F\u00fcr das MCP-Tool \u201e {0} \u201c muss entweder die Methode \u201e setHandler \u201c oder die Methode \u201e setAsyncHandler \u201c aufgerufen werden.
+CWMCM0027E.provide.one.handler.explanation=Wenn Sie ein neues Tool \u00fcber \u201e ToolManager, \u201c registrieren, m\u00fcssen Sie entweder einen synchronen Handler durch Aufruf der Methode \u201e setHandler \u201c oder einen asynchronen Handler durch Aufruf der Methode \u201e setAsyncHandler \u201c bereitstellen. Geben Sie nicht beides an.
+CWMCM0027E.provide.one.handler.useraction=Rufen Sie entweder die Methode \u201e ToolDefinition.setHandler \u201c oder die Methode \u201e ToolDefinition.setAsyncHandler \u201c auf, wenn Sie ein Tool mit \u201e ToolManager \u201c registrieren.
+
+# Used as exception message
+# Do not translate MCP
+# {0} = The name of the tool
+CWMCM0028E.invalid.character.tool.name=CWMCM0028E: {0} Der Name des MCP-Tools ist ung\u00fcltig. Werkzeugnamen d\u00fcrfen nur ASCII-Buchstaben, Ziffern, Unterstriche oder Bindestriche enthalten.
+CWMCM0028E.invalid.character.tool.name.explanation=Der Name des Tools entspricht nicht der MCP-Spezifikation f\u00fcr Namen. Namen d\u00fcrfen nur ASCII-Buchstaben, Ziffern, Unterstriche und Bindestriche enthalten, keine anderen Sonderzeichen.
+CWMCM0028E.invalid.character.tool.name.useraction=Stellen Sie sicher, dass die Namen der Werkzeuge nur ASCII-Buchstaben, Ziffern, Unterstriche oder Bindestriche enthalten.
+
+# Used as exception message
+# Do not translate MCP
+# {0} = The name of the tool
+CWMCM0029E.invalid.length.tool.name=CWMCM0029E: {0} Der Name des MCP-Tools ist ung\u00fcltig. Werkzeugnamen m\u00fcssen zwischen 1 und 128 Zeichen lang sein.
+CWMCM0029E.invalid.length.tool.name.explanation=Der Name des Tools entspricht nicht der MCP-Spezifikation f\u00fcr Namen. Namen m\u00fcssen zwischen 1 und 128 Zeichen lang sein.
+CWMCM0029E.invalid.length.tool.name.useraction=Stellen Sie sicher, dass die Namen der Werkzeuge zwischen 1 und 128 Zeichen lang sind.
+
+# Used as exception message
+# Do not translate MCP
+# {0} = The name of the tool
+CWMCM0030E.blank.arguments=CWMCM0030E: Es kann kein Argument mit einem leeren Namen zum MCP-Tool \u201e {0} \u201c hinzugef\u00fcgt werden.
+CWMCM0030E.blank.arguments.explanation=Jedes MCP-Tool-Argument muss einen Namen haben, der nicht leer ist. 
+CWMCM0030E.blank.arguments.useraction=Geben Sie f\u00fcr alle Werkzeugargumente nicht leere Namen an.
+
+# Used as exception message
+# Do not translate MCP
+# {0} = The name of the tool
+# {1} = The name of the argument
+# {2} = The type of the argument
+CWMCM0031E.missing.toolarg.defaultvalue.converter=CWMCM0031E: Das Argument \u201e {1} \u201d des MCP-Tools \u201e {0} \u201d verf\u00fcgt nicht \u00fcber einen Konverter, um seinen Standardwert in ein Objekt vom Typ \u201e {2} \u201d umzuwandeln.
+CWMCM0031E.missing.toolarg.defaultvalue.converter.explanation=Ein oder mehrere Argumente haben Standardwerte ohne einen passenden Konverter, um den Standardwert in den Typ des Arguments zu konvertieren.
+CWMCM0031E.missing.toolarg.defaultvalue.converter.useraction=Erstellen Sie eine benutzerdefinierte Konverterimplementierung f\u00fcr den Typ des Werkzeugarguments.
+
+# Used as exception message
+# Do not translate MCP
+# {0} = The name of the tool
+# {1} = The name of the argument
+CWMCM0032E.duplicate.argument.name=CWMCM0032E: Es kann kein zweites Argument mit dem Namen \u201e {1} \u201c zum MCP-Tool \u201e {0} \u201c hinzugef\u00fcgt werden.
+CWMCM0032E.duplicate.argument.name.explanation=Jedes Argument eines MCP-Tools muss einen anderen Namen haben.
+CWMCM0032E.duplicate.argument.name.useraction=Geben Sie jedem Tool-Argument einen anderen Namen.
+
+# Used for server logging
+# {0} = Method
+# {1} = RequestURI
+# {2} = RequestQuery
+# {3} = ExceptionMessage
+CWMCM0033A.forbidden.error=CWMCM0033A: Unzul\u00e4ssige Anfrage. Methode= {0} RequestURI={1 } RequestQuery={2 }, Ausnahme: {3}
+CWMCM0033A.forbidden.error.explanation=Eine Anfrage wurde gestellt, aber der Benutzer ist nicht dazu berechtigt.
+CWMCM0033A.forbidden.error.useraction=Stellen Sie sicher, dass ein autorisierter Benutzer die Anfrage stellt.
+
+# Used for server logging
+# do not translate MCP
+# {0} = The DefaultValueConverter implementation class
+CWMCM0034W.converter.missing.type.parameter=CWMCM0034W: Bei der Implementierung von ` {0} ` DefaultValueConverter muss ein Typparameter angegeben werden.
+CWMCM0034W.converter.missing.type.parameter.explanation=Eine Implementierungsklasse von ` DefaultValueConverter ` wurde registriert, es fehlt jedoch ein Typparameter, weshalb der Typ, in den sie konvertiert wird, nicht ermittelt werden kann.
+CWMCM0034W.converter.missing.type.parameter.useraction=\u00c4ndern Sie die Klassendeklaration so, dass die Schnittstelle \u201e DefaultValueConverter \u201c mit einem konkreten Typparameter implementiert wird. Beispiel: ` MyConverterClass ` implementiert ` DefaultValueConverter<MyType> `.
+
+# Used for server logging
+# do not translate MCP, DefaultValueConverter, TypeVariable
+# {0} = The DefaultValueConverter implementation class
+CWMCM0035W.converter.generic.type=CWMCM0035W: Die Implementierung von \u201e {0} \u201c unter DefaultValueConverter konvertiert in einen generischen Typparameter anstelle eines konkreten Typs.
+CWMCM0035W.converter.generic.type.explanation=Eine Implementierungsklasse von \u201e DefaultValueConverter \u201c wurde mit einem generischen Typparameter wie T anstelle eines konkreten Typs registriert.
+CWMCM0035W.converter.generic.type.useraction=\u00c4ndern Sie die Klassendeklaration so, dass die Schnittstelle \u201e DefaultValueConverter \u201c mit einem konkreten Typparameter implementiert wird. Beispiel: ` MyConverterClass ` implementiert ` DefaultValueConverter<MyType> `.

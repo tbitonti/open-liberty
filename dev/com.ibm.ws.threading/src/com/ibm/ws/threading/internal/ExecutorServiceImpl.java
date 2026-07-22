@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2015 IBM Corporation and others.
+ * Copyright (c) 2010, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,6 +13,8 @@
 
 package com.ibm.ws.threading.internal;
 
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -20,15 +24,16 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.Phaser;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -39,8 +44,12 @@ import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
 
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Trivial;
-import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+import com.ibm.ws.kernel.boot.internal.KernelUtils;
+import com.ibm.ws.kernel.feature.ServerStarted;
+import com.ibm.ws.kernel.service.util.AvailableProcessorsListener;
 import com.ibm.ws.kernel.service.util.CpuInfo;
 import com.ibm.ws.threading.ThreadQuiesce;
 import com.ibm.wsspi.threading.ExecutorServiceTaskInterceptor;
@@ -53,7 +62,9 @@ import com.ibm.wsspi.threading.WSExecutorService;
            configurationPolicy = ConfigurationPolicy.REQUIRE,
            property = "service.vendor=IBM",
            service = { java.util.concurrent.ExecutorService.class, com.ibm.wsspi.threading.WSExecutorService.class })
-public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuiesce {
+public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuiesce, AvailableProcessorsListener {
+
+    private static final TraceComponent tc = Tr.register(ExecutorServiceImpl.class);
 
     /**
      * The target ExecutorService.
@@ -68,6 +79,23 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
     ThreadPoolController threadPoolController = null;
 
     /**
+     * Receive notification when server start completes
+     */
+
+    @Reference(policy = ReferencePolicy.DYNAMIC, cardinality = ReferenceCardinality.OPTIONAL)
+    protected synchronized void setServerStarted(ServerStarted serverStarted) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
+            Tr.event(tc, ": server start complete.");
+        }
+        threadPoolController.startupCompleted();
+    }
+
+    @Trivial
+    protected void unsetServerStarted(ServerStarted serverStarted) {
+        // No action required.
+    }
+
+    /**
      * The thread pool name.
      */
     String poolName = null;
@@ -77,6 +105,20 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
      * are replaced with this value.
      */
     final static int MINIMUM_POOL_SIZE = 4;
+
+    /**
+     * Amount of time to wait for quiesce work to complete before continuing with shutdown.
+     */
+    final static int MINIMUM_QUIESCE_TIMEOUT = 30;
+    protected int quiesceTimeout = MINIMUM_QUIESCE_TIMEOUT;
+
+    /**
+     * @return the quiesceTimeout
+     */
+    @Override
+    public int getQuiesceTimeout() {
+        return quiesceTimeout;
+    }
 
     /**
      * The most recently provided component config for the executor.
@@ -114,7 +156,7 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
      */
     ThreadFactory threadFactory = null;
 
-    private Boolean serverStopping = false;
+    private volatile boolean serverStopping = false;
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL,
                policy = ReferencePolicy.DYNAMIC,
@@ -136,6 +178,7 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
      */
     @Activate
     protected void activate(Map<String, Object> componentConfig) {
+        CpuInfo.addAvailableProcessorsListener(this);
         this.componentConfig = componentConfig;
         createExecutor();
     }
@@ -154,6 +197,7 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
      */
     @Deactivate
     protected void deactivate(int reason) {
+        CpuInfo.removeAvailableProcessorsListener(this);
         threadPoolController.deactivate();
 
         // Shutdown the thread pool and let users finish using it
@@ -170,6 +214,11 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
         return threadPool;
     }
 
+    public static boolean isBeta = Boolean.valueOf(System.getProperty("com.ibm.ws.beta.edition"));
+
+    // Default to use ConcurrentPriorityBlockingQueue, but make it possible to easily switch to using BoundedBuffer
+    public static final boolean useBoundedBuffer = Boolean.valueOf(System.getProperty("io.openliberty.threading.useBoundedBuffer", "false"));
+
     /**
      * Create a thread pool executor with the configured attributes from this
      * component config.
@@ -181,8 +230,9 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
             return;
         }
 
-        if (threadPoolController != null)
+        if (threadPoolController != null) {
             threadPoolController.deactivate();
+        }
 
         ThreadPoolExecutor oldPool = threadPool;
 
@@ -191,13 +241,25 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
 
         int coreThreads = Integer.parseInt(String.valueOf(componentConfig.get("coreThreads")));
         int maxThreads = Integer.parseInt(String.valueOf(componentConfig.get("maxThreads")));
+        if (isBeta) {
+            String quiesceTimeoutString = (String) (componentConfig.get("quiesceTimeout"));
+            try {
+                quiesceTimeout = Integer.valueOf(KernelUtils.parseDuration(quiesceTimeoutString, TimeUnit.SECONDS));
+            } catch (NumberFormatException nfe) {
+                Tr.warning(tc, "CWWKE1206.quiesce.timeout.not.valid", quiesceTimeoutString);
+            }
+        }
 
         if (maxThreads <= 0) {
             maxThreads = Integer.MAX_VALUE;
         }
 
         if (coreThreads < 0) {
-            coreThreads = 2 * CpuInfo.getAvailableProcessors();
+            coreThreads = 2 * CpuInfo.getAvailableProcessors().get();
+        }
+
+        if (quiesceTimeout < MINIMUM_QUIESCE_TIMEOUT) {
+            quiesceTimeout = MINIMUM_QUIESCE_TIMEOUT;
         }
 
         // Make sure coreThreads is not bigger than maxThreads, subject to MINIMUM_POOL_SIZE limit
@@ -205,16 +267,58 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
         // ... and then make sure maxThreads is not smaller than coreThreads ...
         maxThreads = Math.max(coreThreads, maxThreads);
 
-        BlockingQueue<Runnable> workQueue = new BoundedBuffer<Runnable>(java.lang.Runnable.class, 1000, 1000);
+        BlockingQueue<Runnable> workQueue = useBoundedBuffer ? new BoundedBuffer<Runnable>(Runnable.class, 1000, 1000) : new ConcurrentPriorityBlockingQueue<Runnable>();
 
         RejectedExecutionHandler rejectedExecutionHandler = new ExpandPolicy(workQueue, this);
 
+        if (threadPool != null) {
+            BlockingQueue<Runnable> queue = threadPool.getQueue();
+            if (queue instanceof ProcessorAwareQueue) {
+                ((ProcessorAwareQueue) queue).removeFromAvailableProcessors();
+            }
+        }
         threadPool = new ThreadPoolExecutor(coreThreads, maxThreads, 0, TimeUnit.MILLISECONDS, workQueue, threadFactory != null ? threadFactory : new ThreadFactoryImpl(poolName, threadGroupName), rejectedExecutionHandler);
 
-        threadPoolController = new ThreadPoolController(this, threadPool);
+        threadPoolController = new ThreadPoolController(threadPool);
 
         if (oldPool != null) {
             softShutdown(oldPool);
+        }
+    }
+
+    @Trivial
+    private static ClassLoader getContextClassLoader(Thread thread) {
+        if (System.getSecurityManager() == null) {
+            return thread.getContextClassLoader();
+        }
+        return AccessController.doPrivileged((PrivilegedAction<ClassLoader>) () -> thread.getContextClassLoader());
+    }
+
+    @Trivial
+    private static void setContextClassLoaderIfChanged(Thread thread, ClassLoader beforeContextCL) {
+        if (System.getSecurityManager() == null) {
+            ClassLoader afterContextCL = thread.getContextClassLoader();
+            if (beforeContextCL != afterContextCL) {
+                thread.setContextClassLoader(beforeContextCL);
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Reset leaked context class loader " + afterContextCL + " on thread " + thread.getName());
+                }
+            }
+        } else {
+            AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                @Override
+                @Trivial
+                public Void run() {
+                    ClassLoader afterContextCL = thread.getContextClassLoader();
+                    if (beforeContextCL != afterContextCL) {
+                        thread.setContextClassLoader(beforeContextCL);
+                        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                            Tr.debug(tc, "Reset leaked context class loader " + afterContextCL + " on thread " + thread.getName());
+                        }
+                    }
+                    return null;
+                }
+            });
         }
     }
 
@@ -233,19 +337,32 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
          */
         @Override
         public void run() {
-            phaser.register();
+            activeThreadCount.incrementAndGet();
+            Thread currentThread = Thread.currentThread();
+            ClassLoader beforeContextCL = getContextClassLoader(currentThread);
             try {
                 this.wrappedTask.run();
             } finally {
+                setContextClassLoaderIfChanged(currentThread, beforeContextCL);
 
-                phaser.arriveAndDeregister();
+                // Decrement and check if quiescing
+                // Order matters here.  Need to decrement first and then
+                // check for quiesceLatch to avoid race condition
+                if (activeThreadCount.decrementAndGet() == 0) {
+                    // If we are quiescing and this is the last active thread,
+                    // call the quiesceLatch
+                    CountDownLatch latch = quiesceLatch;
+                    if (latch != null) {
+                        latch.countDown();
+                    }
+                }
             }
         }
-
     }
 
     // Used to keep track of the number of threads that are not finished
-    protected final Phaser phaser = new Phaser(1);
+    protected final AtomicInteger activeThreadCount = new AtomicInteger(0);
+    volatile CountDownLatch quiesceLatch = null;
 
     private class CallableWrapper<T> implements Callable<T> {
         private final Callable<T> callable;
@@ -261,11 +378,25 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
          */
         @Override
         public T call() throws Exception {
-            phaser.register();
+            activeThreadCount.incrementAndGet();
+            Thread currentThread = Thread.currentThread();
+            ClassLoader beforeContextCL = getContextClassLoader(currentThread);
             try {
                 return this.callable.call();
             } finally {
-                phaser.arriveAndDeregister();
+                setContextClassLoaderIfChanged(currentThread, beforeContextCL);
+
+                // Decrement and check if quiescing
+                // Order matters here.  Need to decrement first and then
+                // check for quiesceLatch to avoid race condition
+                if (activeThreadCount.decrementAndGet() == 0) {
+                    // If we are quiescing and this is the last active thread,
+                    // call the quiesceLatch
+                    CountDownLatch latch = quiesceLatch;
+                    if (latch != null) {
+                        latch.countDown();
+                    }
+                }
             }
         }
     }
@@ -326,6 +457,11 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
     /** {@inheritDoc} */
     @Override
     public List<Runnable> shutdownNow() {
+        throw new UnsupportedOperationException();
+    }
+
+    // Java 19 Method
+    public void close() {
         throw new UnsupportedOperationException();
     }
 
@@ -414,14 +550,14 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
      */
     public static class ExpandPolicy implements RejectedExecutionHandler {
 
-        public BoundedBuffer<Runnable> workQueue;
+        public BlockingQueue<Runnable> workQueue;
         public WSExecutorService exService;
 
         /**
          * Creates an {@code ExpandPolicy}.
          */
         public ExpandPolicy(BlockingQueue<Runnable> workQueue2, WSExecutorService exService) {
-            this.workQueue = (BoundedBuffer<Runnable>) workQueue2;
+            this.workQueue = workQueue2;
             this.exService = exService;
         }
 
@@ -439,10 +575,12 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
                                                      " rejected from " +
                                                      e.toString());
             } else {
-                if (r instanceof QueueItem && ((QueueItem) r).isExpedited())
-                    workQueue.expandExpedited(1000);
-                else
-                    workQueue.expand(1000);
+                if (workQueue instanceof BoundedBuffer) {
+                    if (r instanceof QueueItem && ((QueueItem) r).isExpedited())
+                        ((BoundedBuffer<Runnable>) workQueue).expandExpedited(1000);
+                    else
+                        ((BoundedBuffer<Runnable>) workQueue).expand(1000);
+                }
 
                 //Resubmit rejected task
                 exService.execute(r);
@@ -498,26 +636,41 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
         return wrappedTasks;
     }
 
+    @Override
+    public boolean quiesceThreads() {
+        throw new UnsupportedOperationException();
+    }
     /*
      * (non-Javadoc)
      *
      * @see com.ibm.ws.threading.ThreadQuiesce#quiesceThreads()
      */
     @Override
-    @FFDCIgnore(TimeoutException.class)
-    public boolean quiesceThreads() {
+    public boolean quiesceThreads(long startTime) {
         this.serverStopping = true;
 
-        try {
-            // Wait 30 seconds for all pre-quiesce work to complete
-            phaser.arriveAndDeregister();
-            phaser.awaitAdvanceInterruptibly(0, 30, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            //FFDC and fail quiesce notification
-            return false;
-        } catch (TimeoutException e) {
-            // If we time out, quiesce has failed. This is normal, so no FFDC.
-            return false;
+        // Wait for all pre-quiesce work to complete.
+        // Order matters: Set latch BEFORE checking count to ensure
+        // any task that decrements to 0 after this point will see the latch
+        // and signal it. If count is already 0, we return immediately.
+        quiesceLatch = new CountDownLatch(1);
+        if (activeThreadCount.get() != 0) {
+            long endTime = startTime + (quiesceTimeout * 1000);
+            long waitTime = endTime - System.currentTimeMillis();
+            if (waitTime <= 0) {
+                return false;
+            }
+            try {
+                // Wait for all active threads to finish.  The last thread that finishes
+                // will call the latch.
+                if (!quiesceLatch.await(waitTime, TimeUnit.MILLISECONDS)) {
+                    // If we time out, quiesce has failed.
+                    return false;
+                }
+            } catch (InterruptedException e) {
+                //FFDC and fail quiesce notification
+                return false;
+            }
         }
 
         return true;
@@ -525,15 +678,23 @@ public final class ExecutorServiceImpl implements WSExecutorService, ThreadQuies
 
     @Override
     public int getActiveThreads() {
-        int count = phaser.getUnarrivedParties();
-        if (this.serverStopping)
-            return count;
-
-        return count - 1;
+        return activeThreadCount.get();
     }
 
     @Override
     public boolean quiesceStarted() {
         return this.serverStopping;
+    }
+
+    @Override
+    public void setAvailableProcessors(int availableProcessors) {
+        if (componentConfig != null) {
+            int coreThreads = Integer.parseInt(String.valueOf(componentConfig.get("coreThreads")));
+            if (coreThreads < 0) {
+                // Create a new executor; the number of cpus available to the process has changed
+                // which causes the algorithms used by ThreadPoolExecutor to change
+                createExecutor();
+            }
+        }
     }
 }

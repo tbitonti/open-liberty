@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -1397,8 +1399,8 @@ public class SipRouter {
     }
     
 	/**
-     * Send the Error respone to the UAC if the incommng Request cannot be
-     * handled by the Container
+     * Send the Error response to the UAC if the incoming Request 
+	 * cannot be handled by the Container
      * 
      * @param request
      *            Original request
@@ -1411,8 +1413,8 @@ public class SipRouter {
 	
 	
 	/**
-     * Send the Error respone to the UAC if the incommng Request cannot be
-     * handled by the Container
+     * Send the Error response to the UAC if the incoming Request 
+	 * cannot be handled by the Container
      * 
      * @param request
      *            Original request
@@ -2084,7 +2086,7 @@ public class SipRouter {
 	}
 
 	/**
-	 * Notify the SipApplicationRouter about all the deployed applications and load thier configuration
+	 * Notify the SipApplicationRouter about all the deployed applications and load their configuration
 	 * This should be called only when the SipApplicationRouter is initialized and not on later applications
 	 */
 	public void notifyRouterOnDeployedApps() {

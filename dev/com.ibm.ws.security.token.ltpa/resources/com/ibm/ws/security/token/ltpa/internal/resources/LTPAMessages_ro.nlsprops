@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2011 IBM Corporation and others.
+# Copyright (c) 2011, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -46,12 +48,62 @@ LTPA_CONFIG_ERROR=CWWKS4106E: Eroare de configurare LTPA. Nu se poate crea sau c
 LTPA_CONFIG_ERROR.explanation=Cheile LTPA nu au putut fi citite sau create la loca\u0163ia specificat\u0103.
 LTPA_CONFIG_ERROR.useraction=Asigura\u0163i-v\u0103 c\u0103 loca\u0163ie este accesibil\u0103 procesului de server. Orice FFDC-uri pot indica o eroare fatal\u0103 \u00een generarea sau \u00eenc\u0103rcarea cheilor.
 
-LTPA_KEYS_TO_LOAD=CWWKS4107A: Fi\u015fierul de chei LTPA sau configura\u0163ia au fost modificate. Cheile LTPA vor fi re\u00eenc\u0103rcate din fi\u015fierul: {0}
-LTPA_KEYS_TO_LOAD.explanation=Cheile LTPA trebuiesc re\u00eenc\u0103rcate deoarece a existat o modificare la fi\u015fierul cheilor LTPA sau a configura\u0163iei.
-LTPA_KEYS_TO_LOAD.useraction=Asigura\u0163i-v\u0103 c\u0103 toate serverele care particip\u0103 \u00een semnarea unic\u0103 (Single-Sign-On) folosesc acelea\u015fi chei LTPA \u015fi parole.
+LTPA_KEYS_TO_LOAD=CWWKS4107A: Configura\u021bia LTPA este modificat\u0103. Urm\u0103toarele fi\u0219iere sunt modificate: {0 {0} Toate tastele LTPA din configura\u021bia LTPA sunt re\u00eenc\u0103rcate.
+LTPA_KEYS_TO_LOAD.explanation=Fi\u0219ierele cu chei LTPA trebuie s\u0103 fie re\u00eenc\u0103rcate ca urmare a modific\u0103rii fi\u0219ierelor cu chei LTPA sau a configura\u021biei.
+LTPA_KEYS_TO_LOAD.useraction=Asigura\u021bi-v\u0103 c\u0103 toate serverele care particip\u0103 la semnare unic\u0103 folosesc acelea\u0219i chei LTPA \u0219i aceea\u0219i parol\u0103.
 
 LTPA_KEY_CREATE_ERROR=CWWKS4108E: Sistemul nu poate crea cheia LTPA.
 LTPA_KEY_CREATE_ERROR.explanation=Cheia LTPA nu poate fi creat\u0103.
 LTPA_KEY_CREATE_ERROR.useraction=Orice FFDC ar putea indica o eroare fatal\u0103 \u00een generarea cheilor.
 
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST=CWWKS4109W: The {0} pentru validvalidP\u00e2n\u0103 validUntila atributului de validare a {1} Cheile de validare LTPA nu pot fi utilizate.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST.explanation=Tastele de validare LTPA sunt utilizate numai \u00een cazul \u00een care valoarea atributului " validUntil\u00een viitor.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST.useraction=Actualiza\u021bi validUntil, dac\u0103 trebuie utilizate tastele LTPA. \u00cen caz contrar, \u0219terge\u021bi fi\u0219ierul cu chei LTPA.
 
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT=CWWKS4110E: The {0} pentru validvalidP\u00e2n\u0103 validUntila atributului de validare a {1} Cheile de validare LTPA nu pot fi utilizate.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT.explanation=Valoarea atributului " validUntils\u0103 fie formatat\u0103 \u00een formatul ISO al datei, orei \u0219i zonei. Urmatorul exemplu arata formatul datei ISO: "2023-11-18T18:08:35Z".
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT.useraction=Actualiza\u021bi valoarea atributului validUntilla data, ora \u0219i formatul ISO (de exemplu, "2023-11-18T18:08:35Z")
+
+LTPA_VALIDATION_KEYS_MISSING_ATTR=CWWKS4111E: Din elementul {0} LTPA validationKeys specificat \u00een fi\u0219ierul server.xml lipsesc numele de fi\u0219ier, parola sau ambele: {1}.
+LTPA_VALIDATION_KEYS_MISSING_ATTR.explanation=Elementul LTPA validationKeys necesit\u0103 atribute nume de fi\u0219ier \u0219i parol\u0103.
+LTPA_VALIDATION_KEYS_MISSING_ATTR.useraction=Ad\u0103uga\u021bi atributele lips\u0103.
+
+LTPA_KEYS_FILE_DOES_NOT_EXIST=CWWKS4112E: Fi\u0219ierul cu chei de validare LTPA {0} nu exist\u0103.
+LTPA_KEYS_FILE_DOES_NOT_EXIST.explanation=Fi\u0219ierul cu chei de validare nu exist\u0103.
+LTPA_KEYS_FILE_DOES_NOT_EXIST.useraction=Asigura\u021bi-v\u0103 c\u0103 fi\u0219ierul cu chei de validare exist\u0103 \u00een loca\u021bia specificat\u0103 de elementul validationKeys.
+
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED=CWWKS4113W: The LTPA updateTrigger is set to polled, monitorValidationKeysDir is set to true, but monitorInterval is set to {0}. Nu are loc o re\u00eenc\u0103rcare dinamic\u0103 atunci c\u00e2nd fi\u0219ierele cheie LTPA sunt modificate.
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED.explanation=Valoarea pentru atributul monitorInterval este zero sau mai mic\u0103 dec\u00e2t zero. Directorul nu poate fi monitorizat pentru orice modific\u0103ri asupra fi\u0219ierelor cu sufixul .keys \u0219i re\u00eenc\u0103rcarea dinamic\u0103 nu poate avea loc.
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED.useraction=Seta\u021bi atributul monitorInterval la un interval care este mai mare dec\u00e2t zero.
+
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE=CWWKS4114W: Atributul updateTrigger este setat la dezactivat \u0219i atributul monitorValidationKeysDir este setat la adev\u0103rat. Nu are loc o re\u00eenc\u0103rcare dinamic\u0103 atunci c\u00e2nd fi\u0219ierele cheie LTPA sunt modificate \u00een director.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE.explanation=Atunci c\u00e2nd atributul updateTrigger este setat la dezactivat, directorul nu este monitorizat pentru orice modific\u0103ri ale fi\u0219ierelor cu sufixul .keys \u0219i re\u00eenc\u0103rcarea dinamic\u0103 nu are loc. Chiar dac\u0103 atributul " monitorValidationKeysDir este setat la realitate, atributul este ignorat, iar directorul nu este monitorizat.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE.useraction=Seta\u021bi valoarea atributului updateTrigger polled sau mbean.
+
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO=CWWKS4115W: Atributul updateTrigger este setat pe dezactivat, iar intervalul monitorului este mai mare dec\u00e2t {0}. Nu are loc o re\u00eenc\u0103rcare dinamic\u0103 atunci c\u00e2nd fi\u0219ierele cheie LTPA sunt modificate.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO.explanation=Atunci c\u00e2nd atributul updateTrigger este setat la dezactivat, fi\u0219ierele nu sunt monitorizate pentru orice modific\u0103ri cu privire la fi\u0219ierele cu sufixul .keys \u0219i re\u00eenc\u0103rcarea dinamic\u0103 nu are loc. Chiar dac\u0103 atributul monitorInterval este setat la un interval care este mai mare dec\u00e2t zero, atributul este ignorat, iar fi\u0219ierele nu sunt monitorizate.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO.useraction=Seta\u021bi valoarea atributului updateTrigger polled sau mbean.
+
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE=CWWKS4116W: Cheile de validare {0} trebuie regenerate utiliz\u00e2nd algoritmi criptografici care sunt certifica\u021bi FIPS 140-3.
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE.explanation=Cheile de validare LTPA care sunt create f\u0103r\u0103 activarea FIPS 140-3 e\u0219ueaz\u0103 atunci c\u00e2nd FIPS 140-3 este activat.
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE.useraction=Utiliza\u021bi comanda securityUtility createLTPAKeys pentru a crea cheile de validare aprobate de FIPS atunci c\u00e2nd FIPS 140-3 este configurat.
+
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE=CWWKS4117W: Cheile de validare {0} trebuie regenerate folosind algoritmi criptografici care nu sunt certifica\u021bi FIPS 140-3.
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE.explanation=Cheile de validare LTPA care sunt create cu FIPS 140-3 activat e\u0219ueaz\u0103 atunci c\u00e2nd FIPS 140-3 este dezactivat.
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE.useraction=Utiliza\u021bi comanda securityUtility createLTPAKeys pentru a crea chei de validare neaprobate de FIPS atunci c\u00e2nd FIPS 140-3 este dezactivat.
+
+LTPA_KEYS_PASSWORD_ERROR=CWWKS4118E: Eroare de configurare LTPA. Atributul \u201e keysPassword \u201d nu este configurat pentru elementul <ltpa /> respectiv, variabila de mediu \u201eltpa_keys_password\u201d nu este setat\u0103, iar variabila de mediu \u201ekeystore_password\u201d nu este setat\u0103.
+LTPA_KEYS_PASSWORD_ERROR.explanation=Configura\u021bia LTPA necesit\u0103 o parol\u0103 pentru stocarea \u0219i citirea cheilor LTPA.
+LTPA_KEYS_PASSWORD_ERROR.useraction=Configura\u021bi atributul keysPassword \u00een elementul <ltpa /> , sau seta\u021bi variabilele de mediu \u201eltpa_keys_password\u201d sau \u201ekeystore_password\u201d pentru a introduce o parol\u0103.
+
+LTPA_KEYS_REENCRYPT=CWWKS4119I: Cheile LTPA ale serviciului \u201e {0} \u201d sunt recriptate utiliz\u00e2nd variabila de mediu \u201ekeystore_password\u201d.
+LTPA_KEYS_REENCRYPT.explanation=Cheile LTPA sunt recriptate folosind \u201ekeystore_password\u201d, deoarece valoarea implicit\u0103 a atributului LTPA \u201e keysPassword \u201d a fost eliminat\u0103 pentru a spori securitatea.
+LTPA_KEYS_REENCRYPT.useraction=Nu este necesar\u0103 nicio ac\u0163iune.
+
+LTPA_KEYS_REENCRYPT_SUCCESS=CWWKS4120I: Cheile LTPA ale {0} au fost recriptate cu succes folosind variabila de mediu \u201ekeystore_password\u201d.
+LTPA_KEYS_REENCRYPT_SUCCESS.explanation=Cheile LTPA sunt recriptate folosind variabila de mediu \u201ekeystore_password\u201d.
+LTPA_KEYS_REENCRYPT_SUCCESS.useraction=Dac\u0103 partaja\u021bi cheile LTPA \u00eentre serverele aflate \u00eentr-o loca\u021bie comun\u0103, celelalte servere trebuie actualizate pentru a putea citi \u00een continuare aceste chei LTPA. Seta\u021bi atributul \u201e keysPassword \u201d din elementul <ltpa /> corespunz\u0103tor sau atributul \u201epassword\u201d din elementul <validationKeys /> corespunz\u0103tor la valoarea variabilei de mediu \u201ekeystore_password\u201d de pe acest server. Variabila de mediu \u201ekeystore_password\u201d este de obicei definit\u0103 \u00een fi\u0219ierul \u201e server.env \u201d.
+
+LTPA_KEYS_REENCRYPT_ERROR=CWWKS4121E: Nu s-a reu\u0219it recriptarea cheilor LTPA ale {0}. Excep\u0163ie: {1}
+LTPA_KEYS_REENCRYPT_ERROR.explanation=Cheile LTPA nu au putut fi recriptate. Pentru informa\u0163ii suplimentare, vede\u0163i excep\u0163ia din mesaj.
+LTPA_KEYS_REENCRYPT_ERROR.useraction=Asigura\u021bi-v\u0103 c\u0103 fi\u0219ierul cu cheile LTPA \u0219i directorul acestuia nu sunt setate ca fiind numai pentru citire. Dac\u0103 fi\u0219ierul cu cheile LTPA \u0219i directorul acestuia nu sunt doar pentru citire, consulta\u021bi excep\u021bia din mesaj pentru mai multe informa\u021bii.

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 Contributors to the Eclipse Foundation
+ * Copyright (c) 2017, 2025 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -21,7 +21,10 @@
  *******************************************************************************/
 package com.ibm.ws.microprofile.health.internal;
 
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.nio.file.Paths;
+import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -33,11 +36,15 @@ import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import org.osgi.framework.InvalidSyntaxException;
+import org.osgi.service.cm.Configuration;
+import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
@@ -62,21 +69,25 @@ import com.ibm.wsspi.webcontainer.metadata.WebModuleMetaData;
 public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
 
     private static final TraceComponent tc = Tr.register(AppTrackerImpl.class);
-    private static final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+    protected static final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
 
-    private final HashMap<String, Set<String>> appModules = new HashMap<String, Set<String>>();
+    protected ConfigurationAdmin configAdmin;
+
+    protected final HashMap<String, Set<String>> appModules = new HashMap<String, Set<String>>();
 
     /**
      * Lock for accessing application/deferred task information.
      */
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    protected final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     /**
      * Tracks the state of starting/started applications.
      */
-    private final Map<String, ApplicationState> appStateMap = new HashMap<String, ApplicationState>();
+    protected final Map<String, ApplicationState> appStateMap = new HashMap<String, ApplicationState>();
 
-    private HealthCheckService healthCheckService;
+    protected final Map<String, ApplicationState> configAdminMap = new HashMap<String, ApplicationState>();
+
+    protected HealthCheckService healthCheckService;
 
     @Activate
     protected void activate(ComponentContext cc, Map<String, Object> properties) {
@@ -90,6 +101,53 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
             Tr.debug(tc, "AppTrackerImpl is deactivated");
     }
 
+    @Reference(name = "configAdmin")
+    protected void setConfigAdmin(ConfigurationAdmin configAdmin) {
+        this.configAdmin = configAdmin;
+
+        try {
+            Configuration[] configuredApps = configAdmin.listConfigurations("(service.factoryPid=com.ibm.ws.app.manager)");
+            if (configuredApps != null) {
+                for (Configuration c : configuredApps) {
+                    Dictionary<String, Object> properties = c.getProperties();
+
+                    String appName;
+
+                    String[] appNameSplit = Paths.get((String) properties.get("location")).toString().split("\\\\|/");
+
+                    if (properties.get("name") != null) {
+                        appName = (String) properties.get("name");
+                    } else {
+                        appName = appNameSplit[appNameSplit.length - 1].replace(".war", "");
+                        appName = appName.replace(".ear", "");
+                    }
+
+                    if (tc.isDebugEnabled())
+                        Tr.debug(tc, "Adding app found by configAdmin: " + appName);
+
+                    configAdminMap.put(appName, ApplicationState.INSTALLED);
+                }
+            } else {
+                if (tc.isDebugEnabled())
+                    Tr.debug(tc, "configAdmin could not find any configured apps");
+            }
+
+        } catch (IOException e) {
+            if (tc.isDebugEnabled())
+                Tr.debug(tc, "configadmin had an issue collecting configured applications due to an IO exception.");
+            e.printStackTrace();
+        } catch (InvalidSyntaxException e) {
+            if (tc.isDebugEnabled())
+                Tr.debug(tc, "configadmin had an issue collecting configured applications due to invalid syntax.");
+            e.printStackTrace();
+        }
+
+    }
+
+    protected void unsetConfigAdmin(ConfigurationAdmin configAdmin) {
+        this.configAdmin = null;
+    }
+
     /** {@inheritDoc} */
     @Override
     public Set<String> getAppNames() {
@@ -100,6 +158,22 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
     @Override
     public Set<String> getAllAppNames() {
         return appStateMap.keySet();
+    }
+
+    @Override
+    public Set<String> getAllConfigAppNames() {
+        lock.readLock().lock();
+        try {
+            return configAdminMap.keySet();
+        } finally {
+            lock.readLock().unlock();
+        }
+
+    }
+
+    @Override
+    public void addAppName(String appName) {
+        appStateMap.put(appName, ApplicationState.INSTALLED);
     }
 
     /** {@inheritDoc} */
@@ -116,6 +190,7 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
     @FFDCIgnore(UnableToAdaptException.class)
     public void applicationStarting(ApplicationInfo appInfo) throws StateChangeException {
         String appName = appInfo.getDeploymentName();
+
         if (tc.isDebugEnabled())
             Tr.debug(tc, "applicationStarting() : appName = " + appName);
 
@@ -163,7 +238,7 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
      *
      * @param webModuleMetaData
      */
-    private String getAppModuleNameFromMetaData(WebModuleMetaData webModuleMetaData) {
+    protected String getAppModuleNameFromMetaData(WebModuleMetaData webModuleMetaData) {
         String appModuleName = null;
         appModuleName = webModuleMetaData.getJ2EEName().toString();
         if (tc.isDebugEnabled())
@@ -173,7 +248,7 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
     }
 
     @FFDCIgnore(UnableToAdaptException.class)
-    private WebModuleMetaData getWebModuleMetaData(Container container) {
+    protected WebModuleMetaData getWebModuleMetaData(Container container) {
         WebModuleMetaData wmmd = null;
         NonPersistentCache overlayCache = null;
 
@@ -198,7 +273,7 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
      * @param appName
      * @param moduleAndAppName
      */
-    private synchronized void addAppModuleNames(String appName, String moduleAndAppName) {
+    protected synchronized void addAppModuleNames(String appName, String moduleAndAppName) {
         HashSet<String> moduleNames = null;
         if (moduleAndAppName == null) {
             if (tc.isDebugEnabled())
@@ -224,6 +299,7 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
     /** {@inheritDoc} */
     @Override
     public void applicationStarted(ApplicationInfo appInfo) throws StateChangeException {
+
         String appName = appInfo.getDeploymentName();
         lock.writeLock().lock();
         try {
@@ -298,7 +374,7 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
      *
      * @return the MBeanInfo of appName if the ApplicationMBean exists, otherwise null.
      */
-    private String getApplicationMBean(String appName) {
+    protected String getApplicationMBean(String appName) {
         MBeanInfo bean = null;
         String state = "";
         try {
@@ -315,7 +391,8 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
 
     /** {@inheritDoc} */
     @Override
-    public void applicationStopping(ApplicationInfo appInfo) {}
+    public void applicationStopping(ApplicationInfo appInfo) {
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -338,10 +415,16 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
         lock.writeLock().lock();
         try {
             String state = getApplicationMBean(appName);
-            if (state.equals("STARTING")) {
+            /*
+             * Application can be stopped due to failure whilst starting. This would result in a "STARTING" state.
+             * Or it could already be started (thanks to deferServletLoad defaulting to true), but when the module is trying
+             * to complete it's initialization, it still fails.
+             */
+            if (state != null && (state.equals("STARTING") || state.equals("INSTALLED"))) {
                 appStateMap.replace(appName, ApplicationState.INSTALLED);
             } else {
                 appStateMap.remove(appName);
+                configAdminMap.remove(appName);
             }
             if (tc.isDebugEnabled())
                 Tr.debug(tc, "applicationStopped(): stopped app removed from appStateMap = " + appStateMap.toString() + " for app: " + appName);
@@ -359,7 +442,7 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
      * @param appName
      * @param isAppStopped
      */
-    private void processApplication(Container appContainer, ApplicationInfo appInfo, String appName, boolean isAppStopped) {
+    protected void processApplication(Container appContainer, ApplicationInfo appInfo, String appName, boolean isAppStopped) {
         //Check if the deployed application is an EAR or WAR file
         if (appInfo instanceof EARApplicationInfo) {
             if (tc.isDebugEnabled())
@@ -390,7 +473,7 @@ public class AppTrackerImpl implements AppTracker, ApplicationStateListener {
      * @param isAppStopped
      */
     @FFDCIgnore(UnableToAdaptException.class)
-    private void processEARApplication(Container appContainer, EARApplicationInfo earAppInfo, boolean isAppStopped) {
+    protected void processEARApplication(Container appContainer, EARApplicationInfo earAppInfo, boolean isAppStopped) {
         for (Entry entry : appContainer) {
             try {
                 Container c = entry.adapt(Container.class);

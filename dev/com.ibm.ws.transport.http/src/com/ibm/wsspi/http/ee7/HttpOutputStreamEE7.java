@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -42,8 +44,10 @@ public class HttpOutputStreamEE7 extends HttpOutputStreamImpl {
     private int _bytesRemainingWhenAsync = 0;
     private byte[] _remValue = null;
     private boolean _dataSaved = false;
-    private final Object _lockObj = new Object() {}; /* The braces indicate we want to create and use an anonymous inner class as the actual object instance */
-    public Object _writeReadyLockObj = new Object() {};
+    private final Object _lockObj = new Object() {
+    }; /* The braces indicate we want to create and use an anonymous inner class as the actual object instance */
+    public Object _writeReadyLockObj = new Object() {
+    };
     public boolean status_not_ready_checked = false;
     public boolean write_crlf_pending = false;
     private boolean exceptionDuringOnWP = false;
@@ -55,7 +59,6 @@ public class HttpOutputStreamEE7 extends HttpOutputStreamImpl {
      */
     public HttpOutputStreamEE7(HttpInboundServiceContext context) {
         super(context);
-        // TODO Auto-generated constructor stub
     }
 
     /**
@@ -78,8 +81,7 @@ public class HttpOutputStreamEE7 extends HttpOutputStreamImpl {
             }
             this.set_internalReady(true);
             this.writeToBuffers(this._remValue, 0, this._bytesRemainingWhenAsync);
-        }
-        else {
+        } else {
             this.set_internalReady(true);
         }
     }
@@ -88,10 +90,10 @@ public class HttpOutputStreamEE7 extends HttpOutputStreamImpl {
      * Write the given information to the output buffers.
      * If it went async during flush , save the remaining data and stop.
      * When callback on complete, write the remaining data.
-     * 
+     *
      * @param value
      * @param start - offset into value
-     * @param len - length from that offset to write
+     * @param len   - length from that offset to write
      * @throws IOException
      */
     private void writeToBuffers(byte[] value, int start, int len) throws IOException {
@@ -107,7 +109,7 @@ public class HttpOutputStreamEE7 extends HttpOutputStreamImpl {
         while (0 < remaining) {
             // if async write required
             if ((_callback != null) && (!this.get_internalReady())) {
-                // remaining is yet to write. 
+                // remaining is yet to write.
                 //save of the data and amount to write
 
                 _remValue = new byte[remaining];
@@ -160,8 +162,7 @@ public class HttpOutputStreamEE7 extends HttpOutputStreamImpl {
                 this.ignoreFlush = false;
                 if (_callback == null) {
                     flushBuffers();
-                }
-                else {
+                } else {
                     _bytesRemainingWhenAsync = remaining;
                     flushAsyncBuffers();
                 }
@@ -171,7 +172,7 @@ public class HttpOutputStreamEE7 extends HttpOutputStreamImpl {
 
     /**
      * Flush the output array of buffers to the network below.
-     * 
+     *
      * @throws IOException
      */
     @FFDCIgnore({ IOException.class })
@@ -215,7 +216,7 @@ public class HttpOutputStreamEE7 extends HttpOutputStreamImpl {
                 }
             } else {
                 // else use the partial body api
-                // Add the async option.               
+                // Add the async option.
                 vc = this.isc.sendResponseBody(content, _callback, false);
                 if (vc == null) { // then we will have to wait for data to be written, async write in progress
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
@@ -225,8 +226,7 @@ public class HttpOutputStreamEE7 extends HttpOutputStreamImpl {
                         this.setWriteReady(false);
                         this.set_internalReady(false);
                     }
-                }
-                else {
+                } else {
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                         Tr.debug(tc, "able to write out, no callback required, vc -->" + vc);
                     }
@@ -289,13 +289,11 @@ public class HttpOutputStreamEE7 extends HttpOutputStreamImpl {
                     Tr.debug(tc, "Cannot flush stream , output not ready: " + this);
                 }
                 return;
-            }
-            else {
+            } else {
                 validate();
                 flushBuffers();
             }
-        }
-        else {
+        } else {
             super.flush();
         }
 

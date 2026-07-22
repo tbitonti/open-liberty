@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,24 +13,20 @@
 package com.ibm.ws.container.service.annocache.internal;
 
 import java.net.URL;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeSet;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Trivial;
-
-import com.ibm.wsspi.artifact.ArtifactContainer;
-import com.ibm.wsspi.artifact.ArtifactEntry;
-import com.ibm.wsspi.artifact.overlay.OverlayContainer;
-
+import com.ibm.ws.container.service.annocache.Annotations;
+import com.ibm.ws.container.service.annocache.SpecificAnnotations;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
 import com.ibm.wsspi.adaptable.module.UnableToAdaptException;
-
 import com.ibm.wsspi.annocache.classsource.ClassSource_Aggregate;
 import com.ibm.wsspi.annocache.classsource.ClassSource_Aggregate.ScanPolicy;
 import com.ibm.wsspi.annocache.classsource.ClassSource_ClassLoader;
@@ -44,9 +42,9 @@ import com.ibm.wsspi.annocache.service.AnnotationCacheService_Service;
 import com.ibm.wsspi.annocache.targets.AnnotationTargets_Exception;
 import com.ibm.wsspi.annocache.targets.AnnotationTargets_Factory;
 import com.ibm.wsspi.annocache.targets.AnnotationTargets_Targets;
-
-import com.ibm.ws.container.service.annocache.Annotations;
-import com.ibm.ws.container.service.annocache.SpecificAnnotations;
+import com.ibm.wsspi.artifact.ArtifactContainer;
+import com.ibm.wsspi.artifact.ArtifactEntry;
+import com.ibm.wsspi.artifact.overlay.OverlayContainer;
 
 /**
  * Common annotations code.
@@ -55,14 +53,14 @@ public abstract class AnnotationsImpl implements Annotations {
     public static final TraceComponent tc = Tr.register(AnnotationsImpl.class);
     // private static final String CLASS_NAME = AnnotationsImpl.class.getSimpleName();
 
-    //
-
+    // TODO: This path data seems to be obsolete.
+    
     /**
      * Data from a path lookup.
-     * 
+     *
      * When finding the full path above a specified container, tell where
      * a given parent container is relative to the initial container.
-     * 
+     *
      * Set the span values to -1 if the parent container is not a parent
      * of the specified container.
      */
@@ -90,17 +88,9 @@ public abstract class AnnotationsImpl implements Annotations {
         }
     }
 
-    public static ArtifactContainer getRootOfRoots(ArtifactContainer container) {
-        ArtifactEntry entry;
-        while ( (entry = container.getRoot().getEntryInEnclosingContainer()) != null ) {
-            container = entry.getEnclosingContainer();
-        }
-        return container;
-    }
-
     /**
      * Obtain the full path to a specified container.
-     * 
+     *
      * Return data which indicates whether the path reaches above
      * a specified parent container.
      *
@@ -109,7 +99,7 @@ public abstract class AnnotationsImpl implements Annotations {
      *
      * @return Path data for the container.
      *
-     * @throws UnableToAdaptException Thrown if traversal from the containre
+     * @throws UnableToAdaptException Thrown if traversal from the container
      *     to its parents fails.
      */
     public static PathData getPathData(
@@ -162,6 +152,54 @@ public abstract class AnnotationsImpl implements Annotations {
         }
     }
 
+    //
+
+    /**
+     * Answer the root of roots container of a container.
+     * 
+     * The root of roots container is found by walking upwards from the
+     * target container.  The entry of the target container is obtained,
+     * then the local root of the entry is obtained, then processing shifts
+     * to the local root container.
+     * 
+     * The root of roots container does not have an entry.  Processing halts
+     * when no entry is obtained for a container.
+     * 
+     * The target container is returned when it is the root of roots container.
+     * 
+     * @param container A container.
+     * 
+     * @return The root of roots container of the container.
+     */
+    public static ArtifactContainer getRootOfRoots(ArtifactContainer container) {
+        ArtifactEntry entry;
+        while ( (entry = container.getRoot().getEntryInEnclosingContainer()) != null ) {
+            container = entry.getEnclosingContainer();
+        }
+        return container;
+    }
+    
+    /**
+     * Answer the path to a container from the root of roots container.  This is
+     * contrasted with the path to a container from the local root of the container.
+     * 
+     * The path is computed by obtaining the entry of the container, appending
+     * the path to that entry, then shifting to the root container of that entry.
+     * 
+     * A container which is a root of roots has no entry.  Obtaining the
+     * path of a root-of-roots container obtains an empty string.
+     * 
+     * The entry of a container is never a root container.  The path of a non-root
+     * entry is the path to that entry relative to the local root container.
+     * 
+     * @param container A container.
+     * 
+     * @return The path to the container from the root of roots container.
+     * 
+     * @throws UnableToAdaptException Thrown if a container fails to adapt to
+     *     an entry.  (This is not the same as a container not having an associated
+     *     entry, for which the adapt call will answer null.)
+     */
     public static String getPath(Container container) throws UnableToAdaptException {
         if ( tc.isDebugEnabled() ) {
             Tr.debug(tc, "getPath Initial [ " + container + " ]");
@@ -180,9 +218,22 @@ public abstract class AnnotationsImpl implements Annotations {
         return pathBuilder.toString();
     }
 
+    /**
+     * Obtain a path to a container.  Answer the path to the container from the root of roots
+     * container, if possible.  If the container is a root of roots container, answer the module
+     * name or the application name.  If the container is not relative to the module root container,
+     * answer the module name or the application name plus the container path.
+     * 
+     * Answer null if a failure occurs while retrieving container information.
+     * 
+     * @param targetContainer A container.
+     * 
+     * @return A path to a container.
+     */
     protected String getContainerPath(Container targetContainer) {
         String useAppName = getAppName();
         String useModName = getModName();
+
         Container modContainer = rootAdaptableContainer;
 
         if ( tc.isDebugEnabled() ) {
@@ -209,24 +260,24 @@ public abstract class AnnotationsImpl implements Annotations {
             return null; // FFDC
         }
         if ( tc.isDebugEnabled() ) {
-        	Tr.debug(tc, "Module Delegate [ " + modDelegate + " ]");
+                Tr.debug(tc, "Module Delegate [ " + modDelegate + " ]");
         }
 
         ArtifactContainer targetDelegate;
         try {
             targetDelegate = targetContainer.adapt(ArtifactContainer.class);
         } catch ( UnableToAdaptException e ) {
-            return null;
+            return null; // FFDC
         }
         if ( tc.isDebugEnabled() ) {
             Tr.debug(tc, "Target Delegate [ " + targetDelegate + " ]");
         }
 
         ArtifactContainer rootOfRootsModDelegate = getRootOfRoots(modDelegate);
-    	ArtifactContainer rootOfRootsTargetDelegate = getRootOfRoots(targetDelegate);
+        ArtifactContainer rootOfRootsTargetDelegate = getRootOfRoots(targetDelegate);
         if ( tc.isDebugEnabled() ) {
-        	Tr.debug(tc, "Module Delegate Root-of-roots [ " + rootOfRootsModDelegate + " ]");
-        	Tr.debug(tc, "Target Delegate Root-of-roots[ " + rootOfRootsTargetDelegate + " ]");
+                Tr.debug(tc, "Module Delegate Root-of-roots [ " + rootOfRootsModDelegate + " ]");
+                Tr.debug(tc, "Target Delegate Root-of-roots[ " + rootOfRootsTargetDelegate + " ]");
         }
 
         String targetPathCase;
@@ -256,7 +307,8 @@ public abstract class AnnotationsImpl implements Annotations {
                     targetPath = useModName;
                     targetPathCase = "Mod name replaces empty target path";
                 } else {
-                    targetPath = useModName + "_" + targetPath;
+                    StringBuilder targetPathBuilder = new StringBuilder(useModName.length() + targetPath.length() + 1);
+                    targetPath = targetPathBuilder.append(useModName).append('_').append(targetPath).toString();
                     targetPathCase = "Mod name prefix to non-local target path";
                 }
             }
@@ -265,16 +317,18 @@ public abstract class AnnotationsImpl implements Annotations {
             targetPathCase = "Full local path";
         }
 
-        String message = getClass().getSimpleName() + ".getContainerPath:" +
-            " Container [ " + targetContainer + " ]" +
-            " Path [ " + targetPath + " ]: " + targetPathCase;
-        Tr.debug(tc, message);
+        if (tc.isDebugEnabled()) {
+            String message = getClass().getSimpleName() + ".getContainerPath:" +
+                " Container [ " + targetContainer + " ]" +
+                " Path [ " + targetPath + " ]: " + targetPathCase;
+            Tr.debug(tc, message);
+        }
 
         return targetPath;
     }
 
     //
-    
+
     @SuppressWarnings("unchecked")
     protected static <T> T cacheGet(
         OverlayContainer container,
@@ -320,7 +374,7 @@ public abstract class AnnotationsImpl implements Annotations {
      *     naming from occurring. 
      * @param modName The name of the enclosing module.  Null if there is no enclosing module.
      * @param modCatName A category name for the module.  Used to enable multiple results for
-     *     ths same module.
+     *     the same module.
      */
     public AnnotationsImpl(
         AnnotationsAdapterImpl annotationsAdapter,
@@ -370,6 +424,10 @@ public abstract class AnnotationsImpl implements Annotations {
 
     private final AnnotationsAdapterImpl annotationsAdapter;
 
+    protected AnnotationsAdapterImpl getAnnotationsAdapter() {
+        return annotationsAdapter;
+    }
+    
     public AnnotationCacheService_Service getAnnoCacheService() {
         try {
             return annotationsAdapter.getAnnoCacheService();
@@ -396,9 +454,12 @@ public abstract class AnnotationsImpl implements Annotations {
 
     //
 
-    @SuppressWarnings("unused")
     private final Container rootContainer;
 
+    protected Container getRootContainer() {
+        return rootContainer;
+    }
+    
     //
 
     private final ArtifactContainer rootDelegateContainer;
@@ -414,6 +475,8 @@ public abstract class AnnotationsImpl implements Annotations {
     public OverlayContainer getRootOverlayContainer() {
         return rootOverlayContainer;
     }
+    
+    // TODO: These appear to be obsolete ...
 
     protected <T> T cacheGet(Class<T> targetClass) {
         return cacheGet(getRootOverlayContainer(), getContainerPath(), targetClass);
@@ -423,14 +486,57 @@ public abstract class AnnotationsImpl implements Annotations {
         cachePut( getRootOverlayContainer(), getContainerPath(), targetClass, targetObject);
     }
 
+    // TODO: ... except, this is used in:
+    //
+    // AnnotationsImpl.releaseInfoStore()
+    // AnnotationsImpl.releaseTargets()
+
     protected <T> void cacheRemove(Class<T> targetClass) {
         cacheRemove( getRootOverlayContainer(), getContainerPath(), targetClass);
     }
 
+    /**
+     * Adapt a target container to a target type.
+     * 
+     * While the target container is often the root overlay container, the target
+     * may be a parent container, for example, the parent application container of
+     * a web module.
+     * 
+     * Adapting a container usually means looking in the cache of the container and
+     * returning a previously created object of the target type.  If no target yet
+     * exists, one will be created by a registered adapter, stored in the cache,
+     * then returned.
+     * 
+     * @param <T> The target type.
+     * 
+     * @param container The container that is to be adapted to the target type.
+     * @param targetClass The class of the target type.
+     * 
+     * @return The result of adapting the container to the target type.  Null if the
+     *     adapt was not successful.
+     */
+    protected <T> T adapt(Container container, Class<T> targetClass) {
+        try {
+            return container.adapt(targetClass);
+        } catch (UnableToAdaptException e) {
+            return null; // FFDC
+        }
+    }
+    
     //
 
     private final Container rootAdaptableContainer;
 
+    /**
+     * Answer the version of the target container which has adapt function.
+     * 
+     * Caution: The target container is not the correct container for all
+     * adapt calls.  For example, when setting up scanning for a module,
+     * the container of the enclosing application must be used when retrieving
+     * application information.
+     * 
+     * @return The target container.
+     */
     @Override
     public Container getContainer() {
         return rootAdaptableContainer;
@@ -546,7 +652,7 @@ public abstract class AnnotationsImpl implements Annotations {
     }
 
     private final String modCatName;
-    
+
     @Override
     public String getModCategoryName() {
         return modCatName;
@@ -699,7 +805,7 @@ public abstract class AnnotationsImpl implements Annotations {
             Tr.debug(tc, message1);
             Tr.debug(tc, message2);
         }
-        
+
         try {
             return classSourceFactory.createAggregateClassSource(
                 useAppName, useModName, useModCatName,
@@ -733,7 +839,66 @@ public abstract class AnnotationsImpl implements Annotations {
         rootClassSource.addClassLoaderClassSource(classLoaderClassSource);
     }
 
-    //
+    private static final String JAVAX_RESOURCE = "javax.annotation.Resource";
+    private static final String JAVAX_RESOURCES = "javax.annotation.Resources";
+    private static final String JAVAX_POST_CONSTRUCT = "javax.annotation.PostConstruct";
+    private static final String JAVAX_PRE_DESTROY = "javax.annotation.PreDestroy";
+    private static final String JAKARTA_RESOURCE = "jakarta.annotation.Resource";
+    private static final String JAKARTA_POST_CONSTRUCT = "jakarta.annotation.PostConstruct";
+    private static final String JAKARTA_PRE_DESTROY = "jakarta.annotation.PreDestroy";
+
+    /**
+     * Check for use of the wrong package (javax.annotation instead of jakarta.annotation)
+     * for the Jakarta Common Annotation APIs where the "javax" version of the annotations
+     * were previously included in the JDK. An informational message will be logged to
+     * the console for each annotation type found.
+     *
+     * @param targets      the scanned annotation targets for the current container
+     * @param scanPolicies The policies for which to select annotated classes, as bitwise
+     *                         OR of scan policy values.
+     */
+    private void checkForWrongPackageCommonAnnotations(AnnotationTargets_Targets targets, int scanPolicies) {
+        // Only check EJB and Web modules (non-null module name and classloader)
+        if (classLoader == null || modName == null) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "Skip wrong package check - not an EJB or Web module");
+            }
+            return;
+        }
+        // Only check when EE 9+ (jakarta package) features are enabled
+        if (annotationsAdapter.eeVersion < 9) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "Skip wrong package check - Jakarta features not enabled : eeVersion = " + annotationsAdapter.eeVersion);
+            }
+            return;
+        }
+
+        Set<String> foundClasses = new TreeSet<String>(); // provides natural ordering
+
+        // Look for @Resource at class, field, and method level and nested in @Resources at class level
+        foundClasses.addAll(targets.getAnnotatedClasses(JAVAX_RESOURCE, scanPolicies));
+        foundClasses.addAll(targets.getAnnotatedClasses(JAVAX_RESOURCES, scanPolicies));
+        foundClasses.addAll(targets.getClassesWithFieldAnnotation(JAVAX_RESOURCE, scanPolicies));
+        foundClasses.addAll(targets.getClassesWithMethodAnnotation(JAVAX_RESOURCE, scanPolicies));
+        if (!foundClasses.isEmpty()) {
+            Tr.audit(tc, "wrong.annotation.package.CWWKM0483I", JAVAX_RESOURCE, modName, appName, JAKARTA_RESOURCE, String.join(", ", foundClasses));
+            foundClasses.clear();
+        }
+
+        // Look for @PostConstruct at method level
+        foundClasses.addAll(targets.getClassesWithMethodAnnotation(JAVAX_POST_CONSTRUCT, scanPolicies));
+        if (!foundClasses.isEmpty()) {
+            Tr.audit(tc, "wrong.annotation.package.CWWKM0483I", JAVAX_POST_CONSTRUCT, modName, appName, JAKARTA_POST_CONSTRUCT, String.join(", ", foundClasses));
+            foundClasses.clear();
+        }
+
+        // Look for @PreDestroy at method level
+        foundClasses.addAll(targets.getClassesWithMethodAnnotation(JAVAX_PRE_DESTROY, scanPolicies));
+        if (!foundClasses.isEmpty()) {
+            Tr.audit(tc, "wrong.annotation.package.CWWKM0483I", JAVAX_PRE_DESTROY, modName, appName, JAKARTA_PRE_DESTROY, String.join(", ", foundClasses));
+            foundClasses.clear();
+        }
+    }
 
     public class TargetsLock {
         // EMPTY
@@ -745,13 +910,24 @@ public abstract class AnnotationsImpl implements Annotations {
 
     @Override
     public AnnotationTargets_Targets getTargets() {
+        boolean checkWrongPackage = false;
         synchronized( targetsLock ) {
             if ( !isSetTargets ) {
                 isSetTargets = true;
+                checkWrongPackage = true;
                 annotationTargets = createTargets();
             }
-            return annotationTargets;
         }
+
+        // If this is the first request to obtain the targets and this is for either a WEB or EJB
+        // module (module name and classloader set), then check for the presence of the Java EE common
+        // annotations when the Jakarta EE features are enabled. If found, then log one informational
+        // message per annotation type for the module.
+        if (checkWrongPackage) {
+            checkForWrongPackageCommonAnnotations(annotationTargets, AnnotationTargets_Targets.POLICY_SEED);
+        }
+
+        return annotationTargets;
     }
 
     @Override

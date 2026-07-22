@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,7 +22,6 @@ import org.jboss.weld.el.WeldELContextListener;
 import org.jboss.weld.el.WeldExpressionFactory;
 import org.jboss.weld.manager.BeanManagerImpl;
 import org.jboss.weld.servlet.ConversationFilter;
-import org.jboss.weld.servlet.WeldInitialListener;
 import org.jboss.weld.servlet.WeldTerminalListener;
 
 /**
@@ -33,7 +34,7 @@ public class WeldListenerFactory {
     }
 
     public static EventListener newWeldInitialListener(BeanManagerImpl beanManagerImpl) {
-        return new WeldInitialListener(beanManagerImpl);
+        return new Weld24InitialListener(beanManagerImpl);
     }
 
     public static ExpressionFactory newWeldExpressionFactory(ExpressionFactory expressionFactory) {

@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jsf.container.fat.tests;
 
@@ -79,7 +78,7 @@ public class JSF22CDIGeneralTests extends FATServletClient {
         WebArchive mojarraApp = ShrinkHelper.buildDefaultApp(appName, "jsf.container.viewhandlertest");
         mojarraApp = (WebArchive) ShrinkHelper.addDirectory(mojarraApp, "test-applications/" + appName + "/resources");
         mojarraApp = FATSuite.addMojarra(mojarraApp);
-        ShrinkHelper.exportToServer(server, "dropins", mojarraApp);
+        ShrinkHelper.exportDropinAppToServer(server, mojarraApp);
         testViewHandler(appName);
     }
 
@@ -101,7 +100,7 @@ public class JSF22CDIGeneralTests extends FATServletClient {
         WebArchive myfacesApp = ShrinkHelper.buildDefaultApp(appName + "_MyFaces", "jsf.container.viewhandlertest");
         ShrinkHelper.addDirectory(myfacesApp, "test-applications/" + appName + "/resources");
         myfacesApp = FATSuite.addMyFaces(myfacesApp);
-        ShrinkHelper.exportToServer(server, "dropins", myfacesApp);
+        ShrinkHelper.exportDropinAppToServer(server, myfacesApp);
         testViewHandler(appName + "_MyFaces");
     }
 
@@ -112,27 +111,28 @@ public class JSF22CDIGeneralTests extends FATServletClient {
         // Construct the URL for the test
         URL url = JSFUtils.createHttpUrl(server, contextRoot, "index.xhtml");
 
-        WebClient webClient = new WebClient();
-        HtmlPage page = (HtmlPage) webClient.getPage(url);
+        try (WebClient webClient = new WebClient()) {
+            HtmlPage page = (HtmlPage) webClient.getPage(url);
 
-        String responseText = page.asText();
+            String responseText = page.asText();
 
-        // Log the page for debugging if necessary in the future.
-        Log.info(c, name.getMethodName(), responseText);
-        Log.info(c, name.getMethodName(), page.asXml());
+            // Log the page for debugging if necessary in the future.
+            Log.info(c, name.getMethodName(), responseText);
+            Log.info(c, name.getMethodName(), page.asXml());
 
-        assertTrue("Page does not contain expected response.", responseText.contains("CDI Integration Test"));
+            assertTrue("Page does not contain expected response.", responseText.contains("CDI Integration Test"));
 
-        assertTrue("The Custom ApplicationFactory was not invoked.",
-                   !server.findStringsInTrace("CustomApplicationFactory was invoked!").isEmpty());
+            assertTrue("The Custom ApplicationFactory was not invoked.",
+                       !server.findStringsInTrace("CustomApplicationFactory was invoked!").isEmpty());
 
-        assertTrue("The Custom Application was not invoked.",
-                   !server.findStringsInTrace("CustomApplication was invoked!").isEmpty());
+            assertTrue("The Custom Application was not invoked.",
+                       !server.findStringsInTrace("CustomApplication was invoked!").isEmpty());
 
-        assertTrue("The Custom ViewHandler was not invoked.",
-                   !server.findStringsInTrace("CustomViewHandler was invoked!").isEmpty());
+            assertTrue("The Custom ViewHandler was not invoked.",
+                       !server.findStringsInTrace("CustomViewHandler was invoked!").isEmpty());
 
-        assertTrue("The IBMViewHandler was not used.",
-                   !server.findStringsInTrace("setViewHandler Setting IBM View Handler").isEmpty());
+            assertTrue("The IBMViewHandler was not used.",
+                       !server.findStringsInTrace("setViewHandler Setting IBM View Handler").isEmpty());
+        }
     }
 }

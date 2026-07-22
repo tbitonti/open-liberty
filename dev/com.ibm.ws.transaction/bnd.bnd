@@ -1,19 +1,20 @@
 #*******************************************************************************
-# Copyright (c) 2017,2020 IBM Corporation and others.
+# Copyright (c) 2017, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
-bVersion=1.0
 
-Bundle-Name: Transaction
-Bundle-SymbolicName: com.ibm.ws.transaction
-Bundle-Description: Transaction support, version ${bVersion}
+-sub: *.bnd
+
+bVersion=1.0
 
 WS-TraceGroup: Transaction
 
@@ -22,19 +23,18 @@ Service-Component: com.ibm.ws.transaction; \
       implementation:=com.ibm.ws.transaction.services.JTMConfigurationProvider; \
       locationService=com.ibm.wsspi.kernel.service.location.WsLocationAdmin; \
       dataSourceFactory=com.ibm.wsspi.resource.ResourceFactory; \
+      resourceConfigFactory=com.ibm.wsspi.resource.ResourceConfigFactory; \
+      authData=com.ibm.websphere.security.auth.data.AuthData; \
       transactionSettingsProvider=com.ibm.tx.jta.embeddable.TransactionSettingsProvider ;\
-      optional:='dataSourceFactory,transactionSettingsProvider';\
-      dynamic:='dataSourceFactory,transactionSettingsProvider';\
+      runningCondition='org.osgi.service.condition.Condition';\
+      optional:='dataSourceFactory,transactionSettingsProvider,runningCondition,authData,resourceConfigFactory';\
+      dynamic:='dataSourceFactory,transactionSettingsProvider,runningCondition,authData,resourceConfigFactory';\
+	  multiple:='authData';\
       configuration-policy:=require;\
-      properties:='service.vendor=IBM,dataSourceFactory.target=(id=unbound)', \
-   TransactionManager; \
-      implementation:=com.ibm.ws.transaction.services.TransactionManagerService; \
-      provide:='javax.transaction.TransactionManager,com.ibm.ws.tx.embeddable.EmbeddableWebSphereTransactionManager,com.ibm.ws.Transaction.UOWCurrent'; \
-      immediate:=true; \
-      tmService=com.ibm.tx.util.TMService ;\
-      uOWEventListener=com.ibm.wsspi.tx.UOWEventListener ;\
-      optional:='uOWEventListener' ;\
-      dynamic:='uOWEventListener', \
+      properties:='\
+         service.vendor=IBM,\
+         dataSourceFactory.target=(id=unbound),\
+         runningCondition.target=(osgi.condition.id=io.openliberty.process.running)',\
    TMRecoveryService; \
       implementation:=com.ibm.ws.transaction.services.TMRecoveryService; \
       provide:='com.ibm.ws.transaction.services.TMRecoveryService'; \
@@ -64,14 +64,15 @@ Service-Component: com.ibm.ws.transaction; \
 # from Java after Java 8.  Doing this keeps the import like before Java 11 support. It will get the 
 # packages from Java when using Java 8 or earlier and from the new shipped bundles for Java 9 and later.
 Import-Package: \
-    !com.ibm.ws.transaction.services, \
-    !com.ibm.wsspi.webcontainer.collaborator, \
+ com.ibm.ws.kernel.launch.service, \
+  !com.ibm.ws.transaction.services, \
+  !com.ibm.wsspi.webcontainer.collaborator, \
  	javax.transaction; version=1.1.0, \
  	javax.transaction.xa; version=1.1.0, \
  	javax.servlet; resolution:=optional, \
  	javax.servlet.http; resolution:=optional, \
  	com.ibm.ws.recoverylog.spi, \
-    javax.annotation;version=!,\
+  javax.annotation;version=!,\
  	*
 
 # Allow use of the collaborator package even if the webcontainer bundle turns up 
@@ -100,33 +101,40 @@ Export-Package: \
  com.ibm.ws.transaction.services.TransactionObjectFactoryInfo,\
  com.ibm.ws.transaction.services.LTCUOWCallbackService,\
  com.ibm.ws.transaction.services.TransactionInflowManagerService,\
+ com.ibm.ws.transaction.services.TransactionManagerService,\
  com.ibm.ws.transaction.services.RemoteTransactionControllerService,\
  com.ibm.ws.transaction.services.TransactionSynchronizationRegistryService
 
-instrument.classesExcludes: com/ibm/ws/transaction/services/TransactionMessages*.class
+instrument.classesExcludes: com/ibm/ws/transaction/services/TransactionMessages*.class,\
+ com.ibm.ws.transaction.services.JTM*.class
 
 -buildpath: \
-    com.ibm.websphere.appserver.spi.logging;version=latest,\
-	com.ibm.websphere.javaee.annotation.1.1;version=latest,\
-	com.ibm.tx.jta;version=latest,\
-	com.ibm.tx.ltc;version=latest,\
-	com.ibm.tx.util;version=latest,\
-	com.ibm.ws.tx.embeddable;version=latest,\
-	com.ibm.ws.tx.jta.extensions;version=latest,\
-	com.ibm.ws.resource;version=latest,\
-	com.ibm.ws.logging,\
-	com.ibm.websphere.javaee.transaction.1.1;version=latest,\
-	com.ibm.websphere.javaee.connector.1.6;version=latest,\
-	com.ibm.websphere.org.osgi.core,\
-	com.ibm.websphere.org.osgi.service.component,\
-	com.ibm.wsspi.org.osgi.service.component.annotations,\
-	com.ibm.ws.kernel.service,\
-	com.ibm.ws.container.service;version=latest,\
-	com.ibm.ws.injection;version=latest,\
-	com.ibm.ws.transaction.cdi;version=latest, \
-	com.ibm.websphere.javaee.servlet.3.0;version=latest,\
-	com.ibm.ws.webcontainer;version=latest, \
-	com.ibm.ws.org.osgi.annotation.versioning;version=latest
+  com.ibm.tx.jta;version=latest,\
+  com.ibm.tx.util;version=latest,\
+  com.ibm.websphere.appserver.spi.logging;version=latest,\
+  com.ibm.websphere.javaee.annotation.1.1;version=latest,\
+  com.ibm.websphere.javaee.connector.1.6;version=latest,\
+  com.ibm.websphere.javaee.servlet.3.0;version=latest,\
+  com.ibm.websphere.javaee.transaction.1.1;version=latest,\
+  com.ibm.websphere.org.osgi.core,\
+  com.ibm.websphere.org.osgi.service.component,\
+  com.ibm.ws.container.service;version=latest,\
+  com.ibm.ws.injection;version=latest,\
+  com.ibm.ws.kernel.boot,\
+  com.ibm.ws.kernel.boot.common;version=latest,\
+  com.ibm.ws.kernel.service,\
+  com.ibm.ws.logging,\
+  com.ibm.ws.logging.core;version=latest,\
+  com.ibm.ws.org.osgi.annotation.versioning;version=latest,\
+  com.ibm.ws.recoverylog;version=latest,\
+  com.ibm.ws.resource;version=latest,\
+  com.ibm.ws.transaction.cdi;version=latest, \
+  com.ibm.ws.tx.embeddable;version=latest,\
+  com.ibm.ws.tx.jta.extensions;version=latest,\
+  com.ibm.ws.webcontainer;version=latest, \
+  com.ibm.ws.security.auth.data.common;version=latest,\
+  com.ibm.ws.security.jca;version=latest,\
+  com.ibm.wsspi.org.osgi.service.component.annotations
 
 -testpath: \
 	org.hamcrest:hamcrest-all;version=1.3, \
@@ -134,14 +142,13 @@ instrument.classesExcludes: com/ibm/ws/transaction/services/TransactionMessages*
 	org.jmock:jmock-junit4;strategy=exact;version=2.5.1, \
 	../build.sharedResources/lib/junit/old/junit.jar;version=file, \
 	com.ibm.ws.junit.extensions;version=latest, \
-	cglib:cglib-nodep;version=3.3.0, \
+	cglib:cglib;version=3.3.0, \
+	com.ibm.ws.org.objectweb.asm;version=latest, \
 	org.jmock:jmock-legacy;version=2.5.0, \
 	com.ibm.ws.org.objenesis:objenesis;version=1.0, \
 	com.ibm.websphere.javaee.transaction.1.2;version=latest,\
 	com.ibm.websphere.javaee.cdi.1.2;version=latest,\
 	com.ibm.websphere.javaee.interceptor.1.2;version=latest,\
-	com.ibm.ws.kernel.boot;version=latest, \
-	com.ibm.ws.recoverylog;version=latest,\
+	com.ibm.ws.cdi.interfaces;version=latest,\
 	com.ibm.ws.classloading;version=latest
 
-jakartaeeMe: true

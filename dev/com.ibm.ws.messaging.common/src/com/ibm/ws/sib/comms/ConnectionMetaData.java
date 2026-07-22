@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -26,29 +28,11 @@ public interface ConnectionMetaData
    String getChainName();
    
    /**
-    * @return Returns true if the connection passed through a SSL channel.  False otherwise.
-    */
-   boolean containsSSLChannel();
-   
-   /**
-    * @return Returns true if the connection passed through a HTTP tunnel channel.  False otherwise.
-    */
-   boolean containsHTTPTunnelChannel();
-   
-   /**
     * @return Returns true if the connection is inbound (ie. was established by our peer).  False if
     * the connection is outbound (ie. we established the connection with our peer).
     */
    boolean isInbound();
 
-   /**
-    * @return Returns true if user information passed over this connection can be trusted.
-    * The implication of this trust is that we assume our peer has verified security
-    * credentials passed over the connection.  Clearly this method should never return true
-    * unless the underlying transport is secured.
-    */
-   boolean isTrusted();                                           // D224759.1
-   
    /**
     * @return Returns true if the peer cannot tolerate the use of Java specific features
     * (for example Java serialisation of objects) as part of the bootstrap process.

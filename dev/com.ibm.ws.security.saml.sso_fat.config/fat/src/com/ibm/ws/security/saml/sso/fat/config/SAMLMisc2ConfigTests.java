@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -35,7 +37,7 @@ import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.topology.impl.LibertyServerWrapper;
-
+import com.ibm.ws.common.crypto.CryptoUtils;
 @LibertyServerWrapper
 @Mode(TestMode.FULL)
 @RunWith(FATRunner.class)
@@ -513,6 +515,7 @@ public class SAMLMisc2ConfigTests extends SAMLConfigCommonTests {
         SAMLProviderSettings updatedSamlProviderSettings = updatedSamlConfigSettings.getDefaultSamlProviderSettings();
         updatedSamlProviderSettings.setHttpsRequired("true");
         updatedSamlProviderSettings.setNameIDFormat("unspecified");
+        updatedSamlProviderSettings.setSignatureMethodAlgorithm(CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA256);
 
         updateConfigFile(testSAMLServer, baseSamlServerConfig, updatedSamlConfigSettings, testServerConfigFile);
 
@@ -542,6 +545,7 @@ public class SAMLMisc2ConfigTests extends SAMLConfigCommonTests {
         SAMLProviderSettings updatedSamlProviderSettings = updatedSamlConfigSettings.getDefaultSamlProviderSettings();
         updatedSamlProviderSettings.setHttpsRequired("true");
         updatedSamlProviderSettings.setNameIDFormat("unspecified");
+        updatedSamlProviderSettings.setSignatureMethodAlgorithm(CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA256);
 
         updateConfigFile(testSAMLServer, baseSamlServerConfig, updatedSamlConfigSettings, testServerConfigFile);
 
@@ -680,6 +684,7 @@ public class SAMLMisc2ConfigTests extends SAMLConfigCommonTests {
         SAMLProviderSettings updatedSamlProviderSettings = updatedSamlConfigSettings.getDefaultSamlProviderSettings();
         updatedSamlProviderSettings.setHttpsRequired("false");
         updatedSamlProviderSettings.setNameIDFormat("unspecified");
+        updatedSamlProviderSettings.setSignatureMethodAlgorithm(CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA256);
 
         updateConfigFile(testSAMLServer, baseSamlServerConfig, updatedSamlConfigSettings, testServerConfigFile);
 
@@ -709,6 +714,7 @@ public class SAMLMisc2ConfigTests extends SAMLConfigCommonTests {
         SAMLProviderSettings updatedSamlProviderSettings = updatedSamlConfigSettings.getDefaultSamlProviderSettings();
         updatedSamlProviderSettings.setHttpsRequired("false");
         updatedSamlProviderSettings.setNameIDFormat("unspecified");
+        updatedSamlProviderSettings.setSignatureMethodAlgorithm(CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA256);
 
         updateConfigFile(testSAMLServer, baseSamlServerConfig, updatedSamlConfigSettings, testServerConfigFile);
 

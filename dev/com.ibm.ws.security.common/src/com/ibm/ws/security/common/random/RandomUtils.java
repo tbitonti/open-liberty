@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2016 IBM Corporation and others.
+ * Copyright (c) 2016,2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -19,6 +21,7 @@ import java.util.UUID;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.security.common.TraceConstants;
 
 public class RandomUtils {
@@ -35,9 +38,6 @@ public class RandomUtils {
             'u', 'v', 'w', 'x', 'y', 'z'
     };
 
-    static final String JCEPROVIDER_IBM = "IBMJCE";
-    static final String SECRANDOM_IBM = "IBMSecureRandom";
-    static final String SECRANDOM_SHA1PRNG = "SHA1PRNG";
 
     /**
      * Generates a random alphanumeric string of length n.
@@ -63,17 +63,7 @@ public class RandomUtils {
     }
 
     public static Random getRandom() {
-        Random result = null;
-        try {
-            if (Security.getProvider(JCEPROVIDER_IBM) != null) {
-                result = SecureRandom.getInstance(SECRANDOM_IBM);
-            } else {
-                result = SecureRandom.getInstance(SECRANDOM_SHA1PRNG);
-            }
-        } catch (Exception e) {
-            result = new Random();
-        }
-        return result;
+        return new SecureRandom();
     }
 
     public static String generateUUID() {

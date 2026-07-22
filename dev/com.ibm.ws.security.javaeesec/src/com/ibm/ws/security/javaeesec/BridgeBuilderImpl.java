@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -29,7 +31,9 @@ import org.osgi.service.component.annotations.Deactivate;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.security.jaspi.BridgeBuilderService;
+import com.ibm.ws.security.jaspi.JaspiRequest;
 import com.ibm.ws.security.javaeesec.properties.ModulePropertiesUtils;
+import com.ibm.wsspi.webcontainer.webapp.WebAppConfig;
 
 @Component(service = { BridgeBuilderService.class },
            name = "com.ibm.ws.security.javaeesec",
@@ -43,28 +47,34 @@ public class BridgeBuilderImpl implements BridgeBuilderService {
     private static final String JASPIC_LAYER_HTTP_SERVLET = "HttpServlet";
 
     @Activate
-    protected void activate(ComponentContext cc) {}
+    protected void activate(ComponentContext cc) {
+    }
 
     @Deactivate
-    protected void deactivate(ComponentContext cc) {}
+    protected void deactivate(ComponentContext cc) {
+    }
 
-    // Synchronized since checking if there is a provider and registering one need to be done as a single atomic operation.
     @Override
-    public synchronized void buildBridgeIfNeeded(String appContext, AuthConfigFactory providerFactory) {
-        AuthConfigProvider authConfigProvider = providerFactory.getConfigProvider(JASPIC_LAYER_HTTP_SERVLET, appContext, (RegistrationListener) null);
-        if (authConfigProvider != null) {
-            // A provider was registered already for this application context.
-            return;
-        }
+    public void buildBridgeIfNeeded(WebAppConfig wac, AuthConfigFactory providerFactory) {
 
-        if (getModulePropertiesUtils().isHttpAuthenticationMechanism()) {
-            // Create AuthConfigProvider, AuthConfig, AuthContext, and ServerAuthModule bridge.
-            Map<String, String> props = new ConcurrentHashMap<String, String>();
-            authConfigProvider = new AuthProvider(props, providerFactory);
-            providerFactory.registerConfigProvider(authConfigProvider, JASPIC_LAYER_HTTP_SERVLET, appContext, PROVIDER_DESCRIPTION);
-        } else {
+        if (!getModulePropertiesUtils().isHttpAuthenticationMechanism()) {
             if (tc.isDebugEnabled()) {
                 Tr.debug(tc, "HttpAuthenticationMechanism bean is not identified. JSR375 BridgeProvider is not enabled.");
+            }
+        } else {
+            String appContext = JaspiRequest.getAppContext(wac);
+            AuthConfigProvider authConfigProvider = providerFactory.getConfigProvider(JASPIC_LAYER_HTTP_SERVLET, appContext, (RegistrationListener) null);
+            if (authConfigProvider == null) {
+                // Synchronized since checking if there is a provider and registering one need to be done as a single atomic operation.
+                synchronized (this) {
+                    authConfigProvider = providerFactory.getConfigProvider(JASPIC_LAYER_HTTP_SERVLET, appContext, (RegistrationListener) null);
+                    if (authConfigProvider == null) {
+                        // Create AuthConfigProvider, AuthConfig, AuthContext, and ServerAuthModule bridge.
+                        Map<String, String> props = new ConcurrentHashMap<String, String>();
+                        authConfigProvider = new AuthProvider(props, providerFactory);
+                        providerFactory.registerConfigProvider(authConfigProvider, JASPIC_LAYER_HTTP_SERVLET, appContext, PROVIDER_DESCRIPTION);
+                    }
+                }
             }
         }
     }

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -114,7 +116,7 @@ public enum BootstrapProperty {
     PROPERTY_SEP("."),
 
     // Database properties
-    // Values needed for each type of database can be found in prereq.dbtest 
+    // Values needed for each type of database can be found in prereq.dbtest
     // properties files for databases and jdbc drivers
     LIBERTY_DBJARS("liberty.db_jars"),
     // location of the jdbc jars.  this is set by run-fat-bucket.xml
@@ -169,6 +171,7 @@ public enum BootstrapProperty {
     DB_DB2("DB2"),
     DB_DB2_ISERIES("DB2iSeries"),
     DB_DB2_ZOS("DB2zOS"),
+    DB_H2("H2"),
     DB_INFORMIX("Informix"),
     DB_ORACLE("Oracle"),
     DB_SQLSERVER("SQLServer"),
@@ -184,6 +187,7 @@ public enum BootstrapProperty {
     DB_DB2_JCC_DRIVER("DB2"),
     DB_DB2_INATIVE_DRIVER("DB2_iNative"),
     DB_DB2_ITOOLBOX_DRIVER("DB2_iToolbox"),
+    DB_H2_DRIVER("H2"),
     DB_INFORMIX_DRIVER("Informix"),
     DB_ORACLE_DRIVER("Oracle"),
     DB_SQLSERVER_DRIVER("Microsoft_SQL_Server_JDBC_Driver"),
@@ -208,7 +212,7 @@ public enum BootstrapProperty {
     /**
      * Get the String value of the property that is read from and written to the bootstrapping
      * properties file.
-     * 
+     *
      * @return The String value of the property
      */
     public String getPropertyName() {

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2021 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -23,10 +25,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 
@@ -35,6 +38,7 @@ public class LoginModuleInStandaloneResourceAdapterTest extends FATServletClient
 
     private static final String APP = "derbyRAApp";
     private static final String WAR_NAME = "fvtweb";
+    private static final String RAR_NAME = "DerbyLMRA";
     private static final String DerbyRAServlet = "fvtweb/DerbyRAServlet";
     private static final String DerbyRAAnnoServlet = "fvtweb/DerbyRAAnnoServlet";
 
@@ -52,9 +56,9 @@ public class LoginModuleInStandaloneResourceAdapterTest extends FATServletClient
         EnterpriseArchive ear = ShrinkWrap.create(EnterpriseArchive.class, APP + ".ear");
         ear.addAsModule(war);
         ShrinkHelper.addDirectory(ear, "lib/LibertyFATTestFiles/derbyRAApp");
-        ShrinkHelper.exportToServer(server, "apps", ear);
+        ShrinkHelper.exportAppToServer(server, ear, DeployOptions.SERVER_ONLY);
 
-        ResourceAdapterArchive rar = ShrinkWrap.create(ResourceAdapterArchive.class, "DerbyLMRA.rar");
+        ResourceAdapterArchive rar = ShrinkWrap.create(ResourceAdapterArchive.class, RAR_NAME + ".rar");
         rar.as(JavaArchive.class).addPackage("fat.derbyra.resourceadapter");
         rar.addAsManifestResource(new File("test-resourceadapters/fvt-resourceadapter/resources/META-INF/ra.xml"));
         rar.addAsManifestResource(new File("test-resourceadapters/fvt-resourceadapter/resources/META-INF/permissions.xml"));
@@ -67,15 +71,16 @@ public class LoginModuleInStandaloneResourceAdapterTest extends FATServletClient
 
         ShrinkHelper.exportToServer(server, "connectors", rar);
 
-        server.addEnvVar("PERMISSION", JakartaEE9Action.isActive() ? "jakarta.resource.spi.security.PasswordCredential" : "javax.resource.spi.security.PasswordCredential");
-        server.addInstalledAppForValidation(APP);
+        server.addEnvVar("PERMISSION",
+                         (JakartaEEAction.isEE9OrLaterActive()) ? "jakarta.resource.spi.security.PasswordCredential" : "javax.resource.spi.security.PasswordCredential");
         server.startServer();
     }
 
     @AfterClass
     public static void tearDown() throws Exception {
-        server.stopServer("SRVE9967W"); // The manifest class path derbyLocale_cs.jar can not be found in jar file wsjar:file:/C:/Users/IBM_ADMIN/Documents/workspace/build.image/wlp/usr/servers/com.ibm.ws.jca.fat.derbyra/connectors/DerbyRA.rar!/derby.jar or its parent.
-                                        // This may just be because we don't care about including manifest files in our test buckets, if that's the case, we can ignore this.
+        server.stopServer("SRVE9967W", // The manifest class path derbyLocale_cs.jar can not be found in jar file wsjar:file:/C:/Users/IBM_ADMIN/Documents/workspace/build.image/wlp/usr/servers/com.ibm.ws.jca.fat.derbyra/connectors/DerbyRA.rar!/derby.jar or its parent.
+                          // This may just be because we don't care about including manifest files in our test buckets, if that's the case, we can ignore this.
+                          "CWWKS1865W"); // Warning for AES passwords without key
     }
 
     @Test

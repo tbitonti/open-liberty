@@ -14,20 +14,21 @@ IBM-API-Package: \
   javax.batch.operations; type="spec", \
   javax.batch.runtime; type="spec", \
   javax.batch.runtime.context; type="spec", \
-  javax.inject;  type="spec"
+  javax.inject;  type="spec", \
+  com.ibm.websphere.persistence.mbean; type="ibm-api"
 IBM-ShortName: batch-1.0
 Subsystem-Name: Batch API 1.0
--features=\
-  com.ibm.websphere.appserver.internal.optional.jaxb-2.2; ibm.tolerates:=2.3, \
-  com.ibm.websphere.appserver.javax.cdi-1.2; ibm.tolerates:=2.0,\
-  com.ibm.websphere.appserver.jndi-1.0, \
-  com.ibm.websphere.appserver.servlet-3.1; ibm.tolerates:=4.0, \
-  com.ibm.websphere.appserver.javax.annotation-1.2; ibm.tolerates:=1.3, \
+-features=com.ibm.websphere.appserver.internal.optional.jaxb-2.2, \
+  com.ibm.websphere.appserver.transaction-1.2, \
+  com.ibm.websphere.appserver.javax.annotation-1.2; ibm.tolerates:="1.3", \
+  com.ibm.websphere.appserver.servlet-3.1; ibm.tolerates:="4.0", \
+  io.openliberty.servlet.internal-3.1; ibm.tolerates:="4.0", \
   com.ibm.ws.persistence-1.0, \
   com.ibm.websphere.appserver.contextService-1.0, \
-  com.ibm.websphere.appserver.jdbc-4.1; ibm.tolerates:="4.0, 4.2, 4.3", \
-  com.ibm.websphere.appserver.transaction-1.2, \
-  com.ibm.websphere.appserver.eeCompatible-7.0; ibm.tolerates:=8.0
+  com.ibm.websphere.appserver.jdbc-4.1; ibm.tolerates:="4.0,4.2,4.3", \
+  com.ibm.websphere.appserver.javax.cdi-1.2; ibm.tolerates:="2.0", \
+  com.ibm.websphere.appserver.eeCompatible-7.0; ibm.tolerates:="8.0", \
+  com.ibm.websphere.appserver.jndi-1.0
 -bundles=\
   com.ibm.jbatch.spi, \
   com.ibm.ws.security.credentials, \
@@ -37,3 +38,5 @@ Subsystem-Name: Batch API 1.0
 kind=ga
 edition=base
 WLP-Activation-Type: parallel
+WLP-Platform: javaee-7.0,javaee-8.0,jakartaee-8.0
+WLP-InstantOn-Enabled: true

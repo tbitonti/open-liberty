@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -57,6 +59,8 @@ import com.ibm.ws.jpa.diagnostics.class_scanner.ano.jaxb.classinfo10.ValueType;
 import com.ibm.ws.jpa.diagnostics.ormparser.EntityMappingsDefinition;
 import com.ibm.ws.jpa.diagnostics.utils.encapsulation.EncapsulatedData;
 import com.ibm.ws.jpa.diagnostics.utils.encapsulation.EncapsulatedDataGroup;
+
+import io.openliberty.checkpoint.spi.CheckpointPhase;
 
 /**
  *
@@ -140,6 +144,12 @@ public class PersistenceUnitScannerResults {
     }
 
     public void generateORMDump(PrintWriter out) {
+        if (CheckpointPhase.getPhase() != CheckpointPhase.INACTIVE && !CheckpointPhase.getPhase().restored()) {
+            out.print("[JPA ORM diagnostics are unavailable during server checkpoint]\n");
+            out.flush();
+            return;
+        }
+
         // Map Persistence Unit Root URLs to PersistenceUnitInfo instances
         final Map<URL, List<PersistenceUnitInfo>> commonPuRootMap = new HashMap<URL, List<PersistenceUnitInfo>>();
         for (PersistenceUnitInfo pui : puiList) {

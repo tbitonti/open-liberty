@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
 package com.ibm.ws.webcontainer.security.jacc15.fat;
@@ -30,6 +29,7 @@ import com.ibm.ws.webcontainer.security.test.servlets.SSLBasicAuthClient;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.custom.junit.runner.RepeatTestFilter;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
 
@@ -96,14 +96,17 @@ public class StaticAnnotationsTest {
         JACCFatUtils.installJaccUserFeature(server);
         JACCFatUtils.transformApps(server, "loginmethod.ear");
 
-        server.addInstalledAppForValidation("loginmethod");
         server.startServer(true);
         assertNotNull("FeatureManager did not report update was complete",
                       server.waitForStringInLog("CWWKF0008I"));
         assertNotNull("Security service did not report it was ready",
                       server.waitForStringInLog("CWWKS0008I"));
-        assertNotNull("The application did not report is was started",
-                      server.waitForStringInLog("CWWKZ0001I"));
+        /*
+         * Max wait time based on Windows test failure sample: CWWKZ0001I: Application loginmethod started in 290.026 seconds.
+         */
+        Log.info(thisClass, "setup", "Waiting for loginmethod to start: CWWKZ0001I: Application loginmethod started");
+        assertNotNull("The applicaiton loginmethod did not report as started, if this is a Windows run, may need more time to complete",
+                      server.waitForStringInLog("CWWKZ0001I: Application loginmethod started", 300000));
 
         if (server.getValidateApps()) { // If this build is Java 7 or above
             verifyServerStartedWithJaccFeature(server);
@@ -115,6 +118,12 @@ public class StaticAnnotationsTest {
         mixedBasicAuthClient = new BasicAuthClient(server, BasicAuthClient.DEFAULT_REALM, STATIC_ANNOTATIONS_MIXED_SERVLET, STATIC_ANNOTATIONS_MIXED_CONTEXT_ROOT);
         metadataWebXMLBasicAuthClient = new BasicAuthClient(server, BasicAuthClient.DEFAULT_REALM, METADATA_COMPLETE_TRUE_WEBXML_SERVLET, METADATA_COMPLETE_TRUE_WEBXML_CONTEXT_ROOT);
         metadataWebFragmentBasicAuthClient = new BasicAuthClient(server, BasicAuthClient.DEFAULT_REALM, METADATA_COMPLETE_TRUE_WEBFRAGMENT_SERVLET, METADATA_COMPLETE_TRUE_WEBFRAGMENT_CONTEXT_ROOT);
+        basicAuthClient.setJaccValidation(true);
+        secureBasicAuthClient.setJaccValidation(true);
+        webXMLBasicAuthClient.setJaccValidation(true);
+        mixedBasicAuthClient.setJaccValidation(true);
+        metadataWebXMLBasicAuthClient.setJaccValidation(true);
+        metadataWebFragmentBasicAuthClient.setJaccValidation(true);
 
         assertNotNull("The default http port should open: " + httpDefault,
                       server.waitForStringInLog("CWWKO0219I.* " + httpDefault));
@@ -125,6 +134,11 @@ public class StaticAnnotationsTest {
     protected static void verifyServerStartedWithJaccFeature(LibertyServer server) {
         assertNotNull("JACC feature did not report it was starting", server.waitForStringInLog("CWWKS2850I")); //Hiroko-Kristen
         assertNotNull("JACC feature did not report it was ready", server.waitForStringInLog("CWWKS2851I")); //Hiroko-Kristen
+        String currentRepeatAction = RepeatTestFilter.getRepeatActionsAsString();
+        if (currentRepeatAction != null && currentRepeatAction.contains("_spec")) {
+            assertNotNull("spec user feature WAB did not start the PolicyFactory", server.waitForStringInLog("CWWKS2866I.*PolicyFactory"));
+            assertNotNull("spec user feature WAB did not start the PolicyConfigurationFactory", server.waitForStringInLog("CWWKS2866I.*PolicyConfigurationFactory"));
+        }
     }
 
     @AfterClass

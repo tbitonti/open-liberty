@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2006 IBM Corporation and others.
+ * Copyright (c) 2005, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.channelfw.internal;
 
@@ -44,9 +43,13 @@ public class VirtualConnectionImpl implements VirtualConnection {
 
     /**
      * re-initialize this VirtualConnection
-     * 
+     *
      */
     protected void init() {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "init, this [" + this + "]");
+        }
+
         // CONN_RUNTIME: set the top channel in the VC outbound
         this.stateStore = new HashMap<Object, Object>();
         this.fileChannelCapable = FILE_CHANNEL_CAPABLE_NOT_SET;
@@ -65,7 +68,10 @@ public class VirtualConnectionImpl implements VirtualConnection {
      */
     @Override
     public Map<Object, Object> getStateMap() {
-        // CONN_RUNTIME: get stateMap from VC
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Map<Object, Object> stateStoreSnapshot = new HashMap<>(this.stateStore);
+            Tr.debug(tc, "getStateMap, currentState [" + this.currentState + "], stateMap [" + stateStoreSnapshot + "]");
+        }
         return this.stateStore;
     }
 
@@ -128,7 +134,7 @@ public class VirtualConnectionImpl implements VirtualConnection {
             }
         }
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-            Tr.debug(tc, "requestPermissionToRead returning " + rc);
+            Tr.debug(tc, "requestPermissionToRead returning " + rc + " , currentState [" + currentState + "]");
         }
         return rc;
     }
@@ -146,7 +152,7 @@ public class VirtualConnectionImpl implements VirtualConnection {
             }
         }
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-            Tr.debug(tc, "requestPermissionToWrite returning " + rc);
+            Tr.debug(tc, "requestPermissionToWrite returning " + rc + " , currentState [" + currentState + "]");
         }
         return rc;
     }
@@ -189,6 +195,10 @@ public class VirtualConnectionImpl implements VirtualConnection {
      */
     @Override
     public boolean requestPermissionToClose(long waitForPermission) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "requestPermissionToClose");
+        }
+
         synchronized (this) {
             if ((currentState & CLOSE_NOT_ALLOWED_MASK) == 0) {
 
@@ -206,14 +216,14 @@ public class VirtualConnectionImpl implements VirtualConnection {
                 currentState = CLOSE_PENDING;
 
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "requestPermissionToClose returning true");
+                    Tr.debug(tc, "requestPermissionToClose returning true , currentState [" + currentState + "]");
                 }
                 return true;
             }
 
             if (waitForPermission <= 0) {
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "requestPermissionToClose returning false");
+                    Tr.debug(tc, "requestPermissionToClose returning false, currentState [" + currentState + "]");
                 }
                 return false;
             }
@@ -243,7 +253,7 @@ public class VirtualConnectionImpl implements VirtualConnection {
                         currentState = CLOSE_PENDING;
 
                         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                            Tr.debug(tc, "requestPermissionToClose returning(2) true");
+                            Tr.debug(tc, "requestPermissionToClose returning(2) true , currentState [" + currentState + "]");
                         }
                         return true;
                     }
@@ -272,12 +282,12 @@ public class VirtualConnectionImpl implements VirtualConnection {
                         currentState = CLOSE_PENDING;
 
                         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                            Tr.debug(tc, "requestPermissionToClose returning(3) true");
+                            Tr.debug(tc, "requestPermissionToClose returning(3) true , currentState [" + currentState + "]");
                         }
                         return true;
                     }
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                        Tr.debug(tc, "requestPermissionToClose returning(3) false");
+                        Tr.debug(tc, "requestPermissionToClose returning(3) false , currentState [" + currentState + "]");
                     }
                     return false;
                 }
@@ -296,7 +306,7 @@ public class VirtualConnectionImpl implements VirtualConnection {
                 this.notify();
             }
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                Tr.debug(tc, "setReadStateToDone");
+                Tr.debug(tc, "setReadStateToDone, currentState [" + currentState + "]");
             }
         }
     }
@@ -312,7 +322,7 @@ public class VirtualConnectionImpl implements VirtualConnection {
                 this.notify();
             }
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                Tr.debug(tc, "setWriteStateToDone");
+                Tr.debug(tc, "setWriteStateToDone, currentState [" + currentState + "]");
             }
         }
     }
@@ -400,6 +410,9 @@ public class VirtualConnectionImpl implements VirtualConnection {
      */
     @Override
     public void setInetAddressingValid(boolean _newValue) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "setInetAddressingValid");
+        }
         this.inetAddressingValid = _newValue;
     }
 
@@ -416,6 +429,9 @@ public class VirtualConnectionImpl implements VirtualConnection {
      */
     @Override
     public void setConnectionDescriptor(ConnectionDescriptor _newObject) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "setConnectionDescriptor, contains the local and remote endpoints");
+        }
         this.connDesc = _newObject;
     }
 
@@ -447,7 +463,7 @@ public class VirtualConnectionImpl implements VirtualConnection {
         // let the user know what the current value is, since it might not be
         // what the caller attempted to set it to.
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-            Tr.debug(tc, "set file channel capable: " + this.fileChannelCapable);
+            Tr.debug(tc, "attemptToSetFileChannelCapable, set file channel capable: " + this.fileChannelCapable);
         }
         return this.fileChannelCapable;
     }

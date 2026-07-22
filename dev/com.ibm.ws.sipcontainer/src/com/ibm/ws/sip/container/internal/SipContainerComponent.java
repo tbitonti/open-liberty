@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -29,6 +31,7 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 
 import com.ibm.sip.util.log.Log;
 import com.ibm.sip.util.log.LogMgr;
+import com.ibm.ws.kernel.productinfo.ProductInfo;
 import com.ibm.ws.sip.container.SipContainer;
 import com.ibm.ws.sip.container.appqueue.MessageDispatchingHandler;
 import com.ibm.ws.sip.container.pmi.PerformanceMgr;
@@ -39,10 +42,10 @@ import com.ibm.ws.sip.container.router.SipRouter;
 import com.ibm.ws.sip.container.timer.BaseTimerService;
 import com.ibm.ws.sip.container.was.WebsphereLauncherImpl;
 import com.ibm.ws.sip.container.was.message.SipMessageFactory;
-import com.ibm.ws.sip.stack.transport.chfw.GenericEndpointImpl;
+import com.ibm.ws.sip.stack.transport.GenericEndpointImpl;
+import com.ibm.ws.sip.stack.transport.GenericServiceConstants;
 import com.ibm.ws.webcontainer.osgi.DynamicVirtualHostManager;
-import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
-import com.ibm.wsspi.kernel.service.utils.ConcurrentServiceReferenceSet;
+import com.ibm.wsspi.kernel.service.utils.*;
 
 /**
  * A declarative services component.
@@ -98,6 +101,9 @@ public class SipContainerComponent {
     /** Indicates whether the SIP router is initialized  */
 	private static boolean s_initialized = false;
 
+	private static final String USE_NETTY = "useNettyTransport";
+
+	private static boolean useNetty = false;
 
 	/**SIP Container OSGi bundle context*/
 	public static ComponentContext getContext() {
@@ -122,6 +128,15 @@ public class SipContainerComponent {
 		} catch (ParserConfigurationException e) {
 			if (c_logger.isErrorEnabled())
 				c_logger.error("error.initialize.sip.container");
+		}
+		useNetty = (!ProductInfo.getBetaEdition())?false:MetatypeUtils.parseBoolean(
+			"sipContainer", USE_NETTY, properties.get(USE_NETTY), true);
+		if (c_logger.isTraceDebugEnabled() && useNetty) {
+			c_logger.traceDebug("SipContainerComponent activate: useNetty=true");
+		}
+		if (c_logger.isTraceDebugEnabled() && ProductInfo.getBetaEdition() && !useNetty) {
+			//log when beta=true but useNetty=false
+			c_logger.traceDebug("SipContainerComponent activate: useNetty=false");
 		}
 		
 		genericEndpointRef.activate(context);
@@ -166,6 +181,15 @@ public class SipContainerComponent {
 		if (c_logger.isTraceDebugEnabled())
 			c_logger.traceDebug("SipContainerComponent modified", properties);
 		PropertiesStore.getInstance().getProperties().updateProperties(properties);
+		useNetty = (!ProductInfo.getBetaEdition())?false:MetatypeUtils.parseBoolean(
+			"sipContainer", USE_NETTY, properties.get(USE_NETTY), true);
+		if (c_logger.isTraceDebugEnabled() && useNetty) {
+			c_logger.traceDebug("SipContainerComponent modified: useNetty=true");
+		}
+		if (c_logger.isTraceDebugEnabled() && ProductInfo.getBetaEdition() && !useNetty) {
+			//log when beta=true but useNetty=false
+			c_logger.traceDebug("SipContainerComponent activate: useNetty=false");
+		}
 	}
 	
 	/**
@@ -526,5 +550,12 @@ public class SipContainerComponent {
     
     }
 
+    /**
+     * Query if Netty has been enabled for this container
+     * @return true if Netty should be used (instead of the channel framework)
+     */
+    public static boolean useNetty() {
+        return useNetty;
+    }
 
 }

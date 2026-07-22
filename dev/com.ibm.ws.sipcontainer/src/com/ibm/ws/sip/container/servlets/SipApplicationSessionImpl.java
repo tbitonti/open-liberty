@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -514,7 +516,9 @@ implements SipApplicationSession {
 	 * @see javax.servlet.sip.SipApplicationSession#invalidate()
 	 */
 	public void invalidate() {
-		synchronized (getSynchronizer()) {
+		//remove synchronized as it has caused deadlocks
+		//see open-liberty issue #27282
+		//synchronized (getSynchronizer()) {
 			if(m_duringInvalidate) {
 				checkIsSessionValid();
 				return;
@@ -601,7 +605,7 @@ implements SipApplicationSession {
 			if (c_logger.isTraceEntryExitEnabled()) {
 				c_logger.traceExit(this, "invalidate", "AppSessionId: " + getId());
 			}
-		}
+		//}
 	}
 
 	/**
@@ -669,23 +673,27 @@ implements SipApplicationSession {
 				}
 				return Collections.EMPTY_LIST;
 			}
-			int size = m_transactionUsers.size();
+			
+			else {
+				int size = m_transactionUsers.size();
 
 			//Moti: we create new ArrayList to prevent later any modification
 			// to the iterator on that list.
-			List<IBMSipSession> result = new ArrayList<IBMSipSession>(size); //approximation only.
-			synchronized (m_transactionUsers) {
-				TransactionUserWrapper tu = null;
-				for (int i = 0 ; i < size ; i++) {
-					tu = m_transactionUsers.get(i);
-					result.addAll(tu.getAllSipSessions(create));
+				List<IBMSipSession> result = new ArrayList<IBMSipSession>(size); //approximation only.
+				synchronized (m_transactionUsers) {
+						TransactionUserWrapper tu = null;
+						for (int i = 0 ; i < size ; i++) {
+							tu = m_transactionUsers.get(i);
+							result.addAll(tu.getAllSipSessions(create));
+						}
 				}
-			}
-			if (c_logger.isTraceDebugEnabled()) {
-				c_logger.traceDebug(this, "getAllSIPSessions", "found SIP sessions. count:"+result.size());
-			}
+				if (c_logger.isTraceDebugEnabled()) {
+						c_logger.traceDebug(this, "getAllSIPSessions", "found SIP sessions. count:"+result.size());
+				}	
+				return result;
 
-			return result;
+			}
+			
 		}
 	}
 
@@ -699,9 +707,6 @@ implements SipApplicationSession {
 		}
 		checkIsSessionValid();
 		if (protocol.equalsIgnoreCase("SIP")) {
-			if (c_logger.isTraceDebugEnabled()) {
-				c_logger.traceDebug("SipApplicationSessionImpl","getSessions", "getSessions(SIP) detected");
-			}
 			//Moti 24/Sep: here is a bug in PMR 46156,033,00 : should call getAllSipSessions
 			// if we call  return getSessions() here we might accidently activate derived class' method
 			// defect PK54754
@@ -721,6 +726,7 @@ implements SipApplicationSession {
 		}
 
 	}
+	
 
 	/**
 	 * @see javax.servlet.sip.SipApplicationSession#getSipSession(java.lang.String)
@@ -1800,4 +1806,29 @@ implements SipApplicationSession {
 		}
 		m_sessionKeyBaseKey = skbt;
 	}
+	
+	public Iterator getSessions(String protocol, boolean create){
+		if (protocol.equalsIgnoreCase("SIP"))  {  //get SIP application sessions  
+			if (create) {  //boolean is true	
+					return (Iterator)getAllSIPSessions(true).iterator();
+			} 
+			else {  //boolean is false
+					return (Iterator)getAllSIPSessions(false).iterator();
+			}
+		}
+		
+		else if (protocol.equalsIgnoreCase("HTTP")){ //protocol is HTTP
+			return Collections.EMPTY_MAP.keySet().iterator();
+		}
+			
+		else { //protocol is not SIP and not HTTP, we don't handle it
+			SipAppDesc sipAppDesc = getAppDescriptor();
+			if(sipAppDesc != null && !sipAppDesc.isJSR289Application()){
+				return Collections.EMPTY_MAP.keySet().iterator();				
+			}
+			throw new IllegalArgumentException("Unsupported protocol type " + protocol);
+		}
+	}
+
+		
 }

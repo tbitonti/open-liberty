@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2020 IBM Corporation and others.
+ * Copyright (c) 2009, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -117,9 +119,23 @@ public class EmbeddableTransactionImpl extends com.ibm.tx.jta.impl.TransactionIm
         _globalId = globalID;
 
         final TxPrimaryKey pk = initializeTran(timeout);
-        _xid = new XidImpl(pk);
+
+        byte[] gtridbytes = null;
+
+        if (globalID != null && globalID.length() == (2 * XidImpl.GTRID_JTA_GTRID_LENGTH)) {
+            gtridbytes = Util.fromHexString(globalID);
+        }
+
+        if (gtridbytes != null) {
+            if (traceOn && tc.isDebugEnabled())
+                Tr.debug(tc, "Using gtrid from parent"); // This string is used in a test
+            _xid = new XidImpl(gtridbytes, pk, 1);
+        } else {
+            _xid = new XidImpl(pk);
+        }
 
         if (traceOn) {
+            traceCreate();
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "EmbeddableTransactionImpl", this);
         }
@@ -303,7 +319,7 @@ public class EmbeddableTransactionImpl extends com.ibm.tx.jta.impl.TransactionIm
     @Override
     protected void distributeAfter(int status) throws SystemException {
         if (tc.isEntryEnabled())
-            Tr.entry(tc, "distributeAfter", status);
+            Tr.entry(tc, "distributeAfter", Util.printStatus(status));
 
         // Take the transaction off the thread to allow container
         // mediated dispatches on components requiring a tx from
@@ -603,14 +619,14 @@ public class EmbeddableTransactionImpl extends com.ibm.tx.jta.impl.TransactionIm
     public void enlistAsyncResource(String xaResFactoryFilter, Serializable xaResInfo, Xid xid) throws SystemException // @LIDB1922-5C
     {
         if (tc.isEntryEnabled())
-            Tr.entry(tc, "enlistAsyncResource", new Object[] { "(SPI): args: ", xaResFactoryFilter, xaResInfo, xid });
+            Tr.entry(tc, "enlistAsyncResource (SPI)", xaResFactoryFilter, xaResInfo, xid);
         try {
             final WSATAsyncResource res = new WSATAsyncResource(xaResFactoryFilter, xaResInfo, xid);
             final WSATParticipantWrapper wrapper = new WSATParticipantWrapper(res);
             getResources().addAsyncResource(wrapper);
         } finally {
             if (tc.isEntryEnabled())
-                Tr.exit(tc, "enlistAsyncResource", "(SPI)");
+                Tr.exit(tc, "enlistAsyncResource (SPI)");
         }
     }
 
@@ -628,6 +644,12 @@ public class EmbeddableTransactionImpl extends com.ibm.tx.jta.impl.TransactionIm
 
         if (traceOn && tc.isEventEnabled())
             Tr.event(tc, "(SPI) Transaction TIMEOUT occurred for TX: " + getLocalTID());
+
+        if (_alarmsCancelled) {
+            if (traceOn && tc.isEntryEnabled())
+                Tr.exit(tc, "timeoutTransaction", "Transaction already completing.");
+            return;
+        }
 
         _rollbackOnly = true;
         _timedOut = true; // mark
@@ -932,7 +954,7 @@ public class EmbeddableTransactionImpl extends com.ibm.tx.jta.impl.TransactionIm
      * Stop all active timers associated with this transaction.
      */
     @Override
-    protected void cancelAlarms() {
+    protected synchronized void cancelAlarms() {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "cancelAlarms");
 
@@ -944,6 +966,9 @@ public class EmbeddableTransactionImpl extends com.ibm.tx.jta.impl.TransactionIm
         if (_inactivityTimerActive) {
             stopInactivityTimer();
         }
+
+        // Tell any queued up abort processing not to bother
+        _alarmsCancelled = true;
 
         if (tc.isEntryEnabled())
             Tr.exit(tc, "cancelAlarms");
@@ -1013,7 +1038,8 @@ public class EmbeddableTransactionImpl extends com.ibm.tx.jta.impl.TransactionIm
         if (traceOn && tc.isEntryEnabled())
             Tr.entry(tc, "retryCompletion", new Object[] { this, _configProvider.getHeuristicRetryLimit(), _retryAttempts });
 
-        if (_configProvider.getHeuristicRetryLimit() <= 0 || _retryAttempts < _configProvider.getHeuristicRetryLimit()) {
+        int retryLimit = _configProvider.getHeuristicRetryLimit();
+        if (retryLimit <= 0 || _retryAttempts < retryLimit) {
             _retryAttempts++;
 
             // Issue replay_completion for either IIOP or WSAT
@@ -1164,7 +1190,11 @@ public class EmbeddableTransactionImpl extends com.ibm.tx.jta.impl.TransactionIm
         // Use a local copy of _thread so that it can't change under this code after the not-null test and thus avoid a possible
         // NullPointerException when getId() is called
         Thread local_thread = _thread;
-        return super.toString() + ",active=" + _activeAssociations + ",suspended=" + _suspendedAssociations + ","
-               + (local_thread != null ? "thread=" + String.format("%08X", local_thread.getId()) : "Not on a thread, globalId=" + _globalId);
+        return super.toString()
+               + ",active=" + _activeAssociations
+               + ",suspended=" + _suspendedAssociations
+               + (local_thread == null ? ",Not on a thread" : ("thread=" + String.format("%08X", local_thread.getId())))
+               + (_globalId == null ? "" : (",globalId=" + _globalId))
+               + (_xid == null ? "" : (",gtrid=" + Util.toHexString(_xid.getGlobalTransactionId())));
     }
 }

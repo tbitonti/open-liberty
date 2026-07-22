@@ -10,6 +10,7 @@ import com.ibm.ws.jbatch.test.BatchAppUtils;
 
 import batch.fat.util.BatchFATHelper;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.topology.impl.LibertyServerFactory;
 
 /**
  *
@@ -22,12 +23,11 @@ public class CDITest extends BatchFATHelper {
     @BeforeClass
     public static void setup() throws Exception {
 
+        server = LibertyServerFactory.getLibertyServer("batchFAT");
         // Just happens to be a config that works we could reuse.  Could rename.
-        BatchFATHelper.setConfig("BonusPayoutViaJobOperator/server.xml", testClass);
+        BatchFATHelper.setConfig("CDITest/server.xml", testClass);
 
         BatchAppUtils.addDropinsBatchFATWar(server);
-        BatchAppUtils.addDropinsBonusPayoutWar(server);
-        BatchAppUtils.addDropinsDbServletAppWar(server);
 
         BatchFATHelper.startServer(server, testClass);
         FatUtils.waitForSmarterPlanet(server);

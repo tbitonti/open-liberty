@@ -1,12 +1,11 @@
 ###############################################################################
-# Copyright (c) 2016, 2021 IBM Corporation and others.
+# Copyright (c) 2016, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 #CMVCPATHNAME com.ibm.ws.security/resources/com/ibm/ws/security/jwt/resources/JWTMessages.nlsprops
 #COMPONENTPREFIX CWWKS
@@ -17,11 +16,11 @@
 # -------------------------------------------------------------------------------------------------
 # Message prefix block: CWWKS6000 - CWWKS6100
 JWT_BUILDER_CONFIG_PROCESSED=CWWKS6000I: La configuraci\u00f3n de JWT {0} se ha procesado correctamente.
-JWT_BUILDER_CONFIG_PROCESSED.explanation=La configuraci\u00f3n de JWT (creador de se\u00f1al web de json) se ha procesado correctamente.
+JWT_BUILDER_CONFIG_PROCESSED.explanation=La configuraci\u00f3n del constructor JWT (JSON Web Token) se ha procesado correctamente.
 JWT_BUILDER_CONFIG_PROCESSED.useraction=Ninguna
 
 JWT_BUILDER_CONFIG_MODIFIED=CWWKS6001I: El cambio de la configuraci\u00f3n de JWT {0} se ha procesado correctamente.
-JWT_BUILDER_CONFIG_MODIFIED.explanation=La configuraci\u00f3n de JWT (creador de se\u00f1al web de json) se ha modificado correctamente.
+JWT_BUILDER_CONFIG_MODIFIED.explanation=La configuraci\u00f3n del constructor de JSON Web Token (JWT) se ha modificado correctamente.
 JWT_BUILDER_CONFIG_MODIFIED.useraction=Ninguna.
 
 # Do not translate "JSON Web Token", "JWT"
@@ -42,7 +41,7 @@ JWT_ENDPOINT_FILTER_MATCH_NOT_FOUND.useraction=Compruebe que la v\u00eda de acce
 
 # Do not translate "JSON Web Token", "JWT"
 # 0=Config ID of JWT provider
-JWT_CONFIG_SERVICE_NOT_AVAILABLE=CWWKS6005E: El servicio de configuraci\u00f3n de se\u00f1al web de JSON (JWT) no est\u00e1 disponible para el proveedor [{0}].
+JWT_CONFIG_SERVICE_NOT_AVAILABLE=CWWKS6005E: El servicio de configuraci\u00f3n de JSON Web Token no est\u00e1 disponible para el proveedor [{0}].
 JWT_CONFIG_SERVICE_NOT_AVAILABLE.explanation=El proveedor especificado en el mensaje no existe en la configuraci\u00f3n del servidor, o bien la configuraci\u00f3n del proveedor especificado no ha sido procesada por el servicio de configuraci\u00f3n.
 JWT_CONFIG_SERVICE_NOT_AVAILABLE.useraction=Compruebe la configuraci\u00f3n del servidor para asegurarse de que se ha configurado el proveedor especificado.
 
@@ -63,7 +62,7 @@ JWT_BUILDER_INVALID.explanation=El ID de constructor de JWT (JSON Web Token) con
 JWT_BUILDER_INVALID.useraction=En el archivo server.xml, configure un elemento jwtBuilder con el ID especificado.
 
 # Do not translate "JSON Web Token", "JWT"
-JWT_INVALID_CLAIM_VALUE_ERR=CWWKS6009E: El valor [{1}] en la reclamaci\u00f3n JWT (JSON Web Token) [{0}] no es v\u00e1lido.
+JWT_INVALID_CLAIM_VALUE_ERR=CWWKS6009E: El valor [{1}] de la reclamaci\u00f3n [{0}] JSON Web Token (JWT) no es v\u00e1lido.
 JWT_INVALID_CLAIM_VALUE_ERR.explanation=El valor especificado en la reclamaci\u00f3n JWT (JSON Web Token) no cumple con la especificaci\u00f3n de JWT.
 JWT_INVALID_CLAIM_VALUE_ERR.useraction=Proporcione un valor v\u00e1lido para la reclamaci\u00f3n especificada. Para obtener informaci\u00f3n adicional, consulte la especificaci\u00f3n JWT.
 
@@ -129,13 +128,13 @@ JWT_INVALID_CLAIMS_ERR.useraction=Aseg\u00farese de que se proporciona el conjun
 
 # Do not translate "JSON Web Token", "JWT"
 # 0=Issuer claim of the token, 1=JWT configuration ID, 2=Trusted issuers specified in server configuration
-JWT_ISSUER_NOT_TRUSTED=CWWKS6022E: El emisor [{0}de la JWT (JSON Web Token) proporcionada no figura como un emisor de confianza en la configuraci\u00f3n de JWT [{1}]. Los emisores de confianza son [{2}].
+JWT_ISSUER_NOT_TRUSTED=CWWKS6022E: El emisor [{0}] de la se\u00f1al web JSON (JWT) proporcionada no se lista como emisor de confianza en la configuraci\u00f3n JWT de [{1}]. Los emisores de confianza son [{2}].
 JWT_ISSUER_NOT_TRUSTED.explanation=La configuraci\u00f3n del servidor especifica los emisores de confianza durante la validaci\u00f3n de JWT. La se\u00f1al proporcionada no procede de un emisor de confianza, por lo tanto, no se puede validar la se\u00f1al.
 JWT_ISSUER_NOT_TRUSTED.useraction=Obtenga una nueva se\u00f1al de uno de los emisores de confianza especificados en su configuraci\u00f3n de JWT, o a\u00f1ada a su configuraci\u00f3n de JWT el emisor especificado en el mensaje como un emisor de confianza.
 
 # Do not translate "JSON Web Token", "JWT"
 # 0=Audience claim of the token, 1=JWT configuration ID, 2=Trusted audiences specified in server configuration
-JWT_AUDIENCE_NOT_TRUSTED=CWWKS6023E: La audiencia [{0}] de la JWT (JSON Web Token) proporcionada no figura como audiencia de confianza en la configuraci\u00f3n de JWT [{1}]. Las audiencias de confianza son [{2}].
+JWT_AUDIENCE_NOT_TRUSTED=CWWKS6023E: La audiencia [{0}] de la se\u00f1al web JSON proporcionada (JWT) no se lista como audiencia de confianza en la configuraci\u00f3n de JWT [{1}]. Las audiencias de confianza son [{2}].
 JWT_AUDIENCE_NOT_TRUSTED.explanation=La configuraci\u00f3n del servidor especifica los emisores de confianza durante la validaci\u00f3n de JWT. La se\u00f1al proporcionada no est\u00e1 pensada para una audiencia de confianza, por lo tanto, no se puede validar la se\u00f1al.
 JWT_AUDIENCE_NOT_TRUSTED.useraction=Obtenga una nueva se\u00f1al pensada para una de las audiencias de confianza especificadas en su configuraci\u00f3n de JWT.
 
@@ -310,7 +309,7 @@ JWT_TRUSTED_ISSUERS_NULL=CWWKS6052E: El emisor [{0}] del JSON Web Token (JWT) pr
 JWT_TRUSTED_ISSUERS_NULL.explanation=La configuraci\u00f3n del servidor especifica los emisores de confianza con la validaci\u00f3n de JWT. La configuraci\u00f3n de JWT no especifica ning\u00fan emisor de confianza, por lo tanto, no se puede validar la se\u00f1al.
 JWT_TRUSTED_ISSUERS_NULL.useraction=Asegurese que la configuraci\u00f3n JWT que se especifica en el mensaje, define como m\u00ednimo un emisor de confianza. Aseg\u00farese que el emisor de JWT coincide con un emisor especificado en la configuraci\u00f3n JWT.
 
-SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME=CWWKS6053E: Se utiliza un esquema HTTP en el punto final especificado: {0}, se necesita HTTPS.
+SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME=CWWKS6052E: Se utiliza un esquema HTTP en el punto final especificado: {0}, se necesita HTTPS.
 SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME.explanation=El punto final especificado requiere HTTPS, pero se ha utilizado HTTP en el URL de solicitud.
 SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME.useraction=Compruebe el URL de solicitud y aseg\u00farese de que utiliza HTTPS o cambie la configuraci\u00f3n para que no sea necesario HTTPS.
 
@@ -321,7 +320,7 @@ MP_CONFIG_PUBLIC_KEY_ALG_NOT_SUPPORTED.useraction=Especifique un algoritmo de fi
 
 # Do not translate "JSON Web Token", "AMR", "JWT"
 # 0=AMR claim of the token, 1=JWT configuration ID, 2=AMR specified in server configuration
-JWT_AMR_CLAIM_NOT_VALID=CWWKS6054E: El AMR [{0}] de la JWT (JSON Web Token) proporcionada no figura como AMR de confianza en la configuraci\u00f3n de JWT [{1}]. Los AMR de confianza son [{2}].
+JWT_AMR_CLAIM_NOT_VALID=CWWKS6054E: El AMR [{0}] de la se\u00f1al web JSON proporcionada (JWT) no se lista como un AMR de confianza en la configuraci\u00f3n de JWT [{1}]. Los AMR de confianza son [{2}].
 JWT_AMR_CLAIM_NOT_VALID.explanation=La configuraci\u00f3n del servidor especifica los AMR de confianza durante la validaci\u00f3n de JWT. La se\u00f1al proporcionada no est\u00e1 pensada para un AMR de confianza, por lo tanto, no se puede validar la se\u00f1al.
 JWT_AMR_CLAIM_NOT_VALID.useraction=Obtenga una nueva se\u00f1al para uno de los AMR de confianza especificados en su configuraci\u00f3n de JWT, o a\u00f1ada a su configuraci\u00f3n de JWT el AMR especificado en el mensaje como un AMR de confianza.
 
@@ -382,3 +381,32 @@ JWE_REQUIRED_BUT_TOKEN_NOT_JWE.useraction=Para aceptar se\u00f1ales JWS en lugar
 NESTED_JWS_REQUIRED_BUT_NOT_FOUND=CWWKS6065E: La carga \u00fatil de la se\u00f1al JWE (JSON Web Encryption) que se incluye en la solicitud no es una se\u00f1al JWS (JSON Web Signature).
 NESTED_JWS_REQUIRED_BUT_NOT_FOUND.explanation=La carga \u00fatil de una se\u00f1al JWE debe ser una JWT (JSON Web Token) v\u00e1lida en formato JWS.
 NESTED_JWS_REQUIRED_BUT_NOT_FOUND.useraction=Aseg\u00farese de que la carga \u00fatil de la se\u00f1al JWE sea una JWT v\u00e1lida en formato JWS.
+
+JWE_DECRYPTION_KEY_MISSING=CWWKS6066E: La se\u00f1al JWE (JSON Web Encryption) no se puede descifrar porque no se puede encontrar una clave de descifrado. El atributo de configuraci\u00f3n del servidor {0} est\u00e1 establecido en [{1}].
+JWE_DECRYPTION_KEY_MISSING.explanation=Es necesaria una clave de descifrado para descifrar la se\u00f1al JWE. La clave de descifrado debe estar presente en el almac\u00e9n de claves de consumidor de JWT o la clave debe especificarse en las propiedades de configuraci\u00f3n de MicroProfile.
+JWE_DECRYPTION_KEY_MISSING.useraction=Verifique que el alias de clave especificado en el mensaje exista en el almac\u00e9n de claves de consumidor de JWT. Si el alias no est\u00e1 configurado, la clave de descifrado debe especificarse en las propiedades de configuraci\u00f3n de MicroProfile.
+
+# Do not translate "JSON Web Token", "JWT", "iat"
+# 0=iat claim time value (date), 1=Current time, 2=Clock skew configuration value, 3=Token age configuration value
+JWT_TOKEN_AGED=CWWKS6067E: El token web JSON (JWT) no es v\u00e1lido porque su antig\u00fcedad ha vencido desde la emisi\u00f3n de la reclamaci\u00f3n at (iat). La hora de la reclamaci\u00f3n iat es {0}. La hora actual menos el desfase horario es {1}. El desfase horario configurado es de {2} segundos. La antig\u00fcedad de token configurada es de {3} segundos.
+JWT_TOKEN_AGED.explanation=Los tokens caducados no son v\u00e1lidos.
+JWT_TOKEN_AGED.useraction=Obtenga un token nuevo que no est\u00e9 caducado. Sincronice las horas de reloj del emisor y del consumidor del token, o aumente el desfase horario o la antig\u00fcedad del token en la configuraci\u00f3n de JWT.
+
+# Do not translate "JSON Web Encryption", "JWE", "alg"
+# 0=Key management key algorithm configuration value
+JWE_MISSING_ALG_HEADER=CWWKS6068E: El token web de cifrado de JSON (JWE) no es v\u00e1lido porque le falta la cabecera alg. El algoritmo de clave de gesti\u00f3n de claves configurado es {0}.
+JWE_MISSING_ALG_HEADER.explanation=El token tiene un formato incorrecto, no est\u00e1 cifrado o le falta informaci\u00f3n de cifrado.
+JWE_MISSING_ALG_HEADER.useraction=Aseg\u00farese de que la cabecera de algoritmo del token JWE tenga configurado el valor correcto.
+
+# Do not translate "JSON Web Encryption", "JWE", "JWT", "Content Encryption Key", "CEK"
+# 0=Cryptographic algorithm used to encrypt the Content Encryption Key (e.g. RSA-OAEP), 1=Cryptographic algorithm required for decrypting the Content Encryption Key (e.g. RSA-OAEP)
+JWE_ALGORITHM_MISMATCH=CWWKS6069E: El cifrado web JSON (JWE) no es v\u00e1lido porque su clave de cifrado de contenido (CEK) se ha cifrado con el algoritmo {0}. Las claves de cifrado de contenido tienen que cifrarse con el algoritmo {1}.
+JWE_ALGORITHM_MISMATCH.explanation=Las claves de cifrado de contenido tienen que estar cifradas con el algoritmo especificado en el mensaje. Las claves de cifrado de contenido cifradas con cualquier otro algoritmo de cifrado no se pueden validar.
+JWE_ALGORITHM_MISMATCH.useraction=Obtenga un token nuevo con una clave de cifrado de contenido que est\u00e9 cifrada con el algoritmo especificado en el mensaje. De forma alternativa, actualice la configuraci\u00f3n de JWT para permitir tokens con claves de cifrado de contenido cifradas con el otro algoritmo.
+
+# 0=Truststore reference, 1=Exception message
+JWT_ERROR_GETTING_CERT_ENTRIES=CWWKS6070E: No se pueden cargar las entradas de certificados de confianza del almac\u00e9n de confianza [ {0} ]. {1}
+JWT_ERROR_GETTING_CERT_ENTRIES.explanation=Se ha producido un error mientras el sistema intentaba recuperar la lista de entradas de certificados de confianza del almac\u00e9n de confianza especificado. Es posible que el almac\u00e9n de certificados no figure en la configuraci\u00f3n, o que haya alg\u00fan problema que impida el acceso al mismo.
+JWT_ERROR_GETTING_CERT_ENTRIES.useraction=Comprueba que el almac\u00e9n de certificados est\u00e9 correctamente configurado en la configuraci\u00f3n del servidor y que sea accesible. Consulte el mensaje de error para obtener m\u00e1s informaci\u00f3n sobre el fallo.
+
+

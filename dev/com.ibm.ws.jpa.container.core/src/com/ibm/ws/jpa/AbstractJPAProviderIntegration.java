@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2017 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -152,6 +154,16 @@ public abstract class AbstractJPAProviderIntegration implements JPAProviderInteg
             }
 
             Properties properties = puInfo.getProperties();
+
+            /**
+             * Instead of using the EclipseLink provided ASM implementation, use the one that liberty already has
+             * to remove ASM classes being loaded twice into memory.
+             */
+            if (!properties.containsKey("eclipselink.asm.service") &&
+                JPAAccessor.getJPAComponent().getJPAVersion().greaterThanOrEquals(JPAVersion.JPA32)) {
+                props.put("eclipselink.asm.service", "ow2");
+            }
+
             /*
              * Section 4.8.5 of the JPA Specification:
              * If SUM, AVG, MAX, or MIN is used, and there are no values
@@ -187,22 +199,6 @@ public abstract class AbstractJPAProviderIntegration implements JPAProviderInteg
                 JPAAccessor.getJPAComponent().getJPAVersion().equals(JPAVersion.JPA21)) {
                 props.put("eclipselink.allow-result-type-conversion", "false");
             }
-
-            /*
-             * EclipseLink Bug 559307: EclipseLink on all versions can dead-lock forever.
-             * This property was added as a new feature in EclipseLink 3.0. However, the property
-             * currently defaults to `true` and causes performance regression.
-             *
-             * Set this property to `false` so that EclipseLink will disable the debug/trace which
-             * reduces performance.
-             *
-             * NOTE: This property is only applicable for JPA 30. TODO: Setting this property can be
-             * removed from here after updating JPA 3.0 to >= EclipseLink 3.0.1
-             */
-            if (!properties.containsKey("eclipselink.concurrency.manager.allow.readlockstacktrace") &&
-                JPAAccessor.getJPAComponent().getJPAVersion().equals(JPAVersion.JPA30)) {
-                props.put("eclipselink.concurrency.manager.allow.readlockstacktrace", "false");
-            }
         } else if (PROVIDER_HIBERNATE.equals(providerName)) {
             // Hibernate had vastly outdated built-in knowledge of WebSphere API, until version 5.2.13+ and 5.3+.
             // If the version of Hibernate has the Liberty JtaPlatform, use it
@@ -219,6 +215,22 @@ public abstract class AbstractJPAProviderIntegration implements JPAProviderInteg
                 } catch (ClassNotFoundException x) {
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                         Tr.debug(this, tc, "Unable to provide JtaPlatform for Liberty TransactionManager to Hibernate", x);
+                }
+            }
+            /*
+             * Disable Hibernate's dirty tracking enhancement for versions greater than
+             * or equal to JPA 3.2 so that it make use of snapshot comparison.
+             * Only set this property if not already configured by the user in persistence.xml or server.xml.
+             */
+            JPAVersion jpaVersion = JPAAccessor.getJPAComponent().getJPAVersion();
+            if (jpaVersion.greaterThanOrEquals(JPAVersion.JPA32)) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(this, tc, "Current JPA version is: " + jpaVersion.toString());
+                Properties properties = puInfo.getProperties();
+                if (null != properties && !properties.containsKey("hibernate.enhancer.enableDirtyTracking")) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                        Tr.debug(this, tc, "Setting hibernate.enhancer.enableDirtyTracking to false.");
+                    props.put("hibernate.enhancer.enableDirtyTracking", "false");
                 }
             }
         }

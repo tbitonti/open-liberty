@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,20 +15,24 @@ package com.ibm.ws.logstash.collector.tests;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
+
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.testcontainers.containers.GenericContainer;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.log.Log;
 
-import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
+import componenttest.topology.impl.LibertyServerFactory;
 
 /**
  *
@@ -34,24 +40,38 @@ import componenttest.topology.impl.LibertyServer;
 @RunWith(FATRunner.class)
 public class ContainerEnvVarTest extends LogstashCollectorTest {
 
-    @Server("ContainerEnvServer")
-    public static LibertyServer server;
+    /*
+     * Current model must acquire server this way, we need server "early" so that the static initialization of the generic container can resolve
+     */
+    private static LibertyServer server = LibertyServerFactory.getLibertyServer("ContainerEnvServer");
 
     private String testName = "";
     private static Class<?> c = ContainerEnvVarTest.class;
 
     protected static boolean runTest = true;
 
+    @ClassRule
+    public static GenericContainer<?> logstashContainer = createExpLogstashContainer();
+
+    private static GenericContainer<?> createExpLogstashContainer() {
+        try {
+            return prepareServerSSLAndConstructContainer(server);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to setup server and/or container", e);
+        }
+    }
+
     @BeforeClass
     public static void setUp() throws Exception {
 
+        server.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         Log.info(c, "setUp", "runTest = " + runTest);
         if (!runTest) {
             return;
         }
 
         clearContainerOutput();
-        String host = logstashContainer.getContainerIpAddress();
+        String host = logstashContainer.getHost();
         String port = String.valueOf(logstashContainer.getMappedPort(5043));
         Log.info(c, "setUp", "Logstash container: host=" + host + "  port=" + port);
         server.addEnvVar("LOGSTASH_HOST", host);
@@ -77,7 +97,8 @@ public class ContainerEnvVarTest extends LogstashCollectorTest {
     }
 
     @After
-    public void tearDown() {}
+    public void tearDown() {
+    }
 
     @AfterClass
     public static void completeTest() throws Exception {
@@ -123,9 +144,10 @@ public class ContainerEnvVarTest extends LogstashCollectorTest {
         // CWWKZ0001I: Application LogstashApp started in x seconds.
         assertNotNull("Cannot find CWWKZ0001I from messages.log", server.waitForStringInLogUsingMark("CWWKZ0001I", 15000));
 
-        Log.info(c, "serverStart", "---> Wait for application to start ");
-        // CWWKT0016I: Web application available (default_host): http://localhost:8010/LogstashApp/
-        assertNotNull("Cannot find CWWKT0016I from messages.log", server.waitForStringInLogUsingMark("CWWKT0016I", 10000));
+        // Comment this to debug a build break.  This check might be redundant as we check the same message ID in the container output in the next step.
+        // Log.info(c, "serverStart", "---> Wait for application to start ");
+        // // CWWKT0016I: Web application available (default_host): http://localhost:8010/LogstashApp/
+        // assertNotNull("Cannot find CWWKT0016I from messages.log", server.waitForStringInLogUsingMark("CWWKT0016I", 10000));
 
         // Wait for CWWKT0016I in Logstash container output
         waitForStringInContainerOutput("CWWKT0016I");

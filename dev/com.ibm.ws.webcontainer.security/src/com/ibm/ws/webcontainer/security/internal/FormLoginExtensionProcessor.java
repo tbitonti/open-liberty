@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2018 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -211,22 +213,41 @@ public class FormLoginExtensionProcessor extends WebExtensionProcessor {
      */
     protected void postFormLoginProcess(HttpServletRequest req, HttpServletResponse res, Subject subject) throws IOException, RuntimeException {
         String storedReq = null;
-        subjectManager.setCallerSubject(subject);
-        subjectManager.setInvocationSubject(subject);
+        try {
+            subjectManager.setCallerSubject(subject);
+            subjectManager.setInvocationSubject(subject);
 
-        boolean isPostLoginProcessDone = isJaspiEnabled() && isPostLoginProcessDone(req);
+            boolean isPostLoginProcessDone = isJaspiEnabled() && isPostLoginProcessDone(req);
 
-        if (!isPostLoginProcessDone) {
-            storedReq = getStoredReq(req, referrerURLHandler);
-            // If storedReq(WASReqURL) is bad, RuntimeExceptions are thrown in isReferrerHostValid. These exceptions are not caught here. If we return here, WASReqURL is good.
-            if (storedReq != null && storedReq.length() > 0) {
-                ReferrerURLCookieHandler.isReferrerHostValid(PasswordNullifier.nullifyParams(req.getRequestURL().toString()), PasswordNullifier.nullifyParams(storedReq),
-                                                             webAppSecConfig.getWASReqURLRedirectDomainNames());
+            if (!isPostLoginProcessDone) {
+                storedReq = getStoredReq(req, referrerURLHandler);
+                // If storedReq(WASReqURL) is bad, RuntimeExceptions are thrown in isReferrerHostValid. These exceptions are not caught here. If we return here, WASReqURL is good.
+                if (storedReq != null && storedReq.length() > 0) {
+                    ReferrerURLCookieHandler.isReferrerHostValid(PasswordNullifier.nullifyParams(req.getRequestURL().toString()), PasswordNullifier.nullifyParams(storedReq),
+                                                                 webAppSecConfig.getWASReqURLRedirectDomainNames());
+                }
+                ssoCookieHelper.addSSOCookiesToResponse(subject, req, res, wac.getContextRoot());
+                referrerURLHandler.invalidateReferrerURLCookie(req, res, ReferrerURLCookieHandler.REFERRER_URL_COOKIENAME);
+                if (!res.isCommitted()) {
+                    res.sendRedirect(res.encodeURL(storedReq));
+                }
             }
-            ssoCookieHelper.addSSOCookiesToResponse(subject, req, res);
-            referrerURLHandler.invalidateReferrerURLCookie(req, res, ReferrerURLCookieHandler.REFERRER_URL_COOKIENAME);
-            if (!res.isCommitted()) {
-                res.sendRedirect(res.encodeURL(storedReq));
+        } catch (IOException e) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "IOException during postFormLoginProcess", e);
+            }
+            throw e;
+        } catch (RuntimeException e) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "RuntimeException during postFormLoginProcess", e);
+            }
+            throw e;
+        } finally {
+            // Clear the subject from the thread after SSO cookies are created and redirect is sent
+            // The redirect will create a new request that will re-authenticate using the LTPA/SSO cookies
+            subjectManager.clearSubjects();
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "Cleared subjects from thread after postFormLoginProcess");
             }
         }
     }
@@ -368,7 +389,7 @@ public class FormLoginExtensionProcessor extends WebExtensionProcessor {
     }
 
     private boolean isPostLoginProcessDone(HttpServletRequest req) {
-        Boolean result = (Boolean)req.getAttribute("com.ibm.ws.security.javaeesec.donePostLoginProcess");
+        Boolean result = (Boolean) req.getAttribute("com.ibm.ws.security.javaeesec.donePostLoginProcess");
         if (result != null && result) {
             return true;
         }

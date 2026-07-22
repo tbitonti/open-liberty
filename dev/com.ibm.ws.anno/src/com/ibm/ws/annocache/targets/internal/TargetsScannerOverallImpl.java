@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2019 IBM Corporation and others.
+ * Copyright (c) 2014, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -309,6 +311,7 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
         return targetsControl;
     }
 
+    @Override
     @Trivial
     public TargetsTableImpl getTargetsTable(String classSourceName) {
         synchronized ( getTargetsControl() ) {
@@ -727,9 +730,11 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
      */
     protected boolean validContainerTable() {
         String methodName = "validContainerTable";
-
+        boolean doDetail = logger.isLoggable(Level.FINER);
+        
+        
         if ( containerTable != null ) {
-            if ( logger.isLoggable(Level.FINER) ) {
+            if ( doDetail ) {
                 String resultMsg = priorResult("container table",
                     changedContainerTableReason, !changedContainerTable);
                 logger.logp(Level.FINER, CLASS_NAME, methodName, resultMsg);
@@ -737,7 +742,7 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
             return !changedContainerTable;
         }
 
-        if ( logger.isLoggable(Level.FINER) ) {
+        if( doDetail ) {
             logger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ] ENTER", getHashText());
         }
 
@@ -773,13 +778,18 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
 
                 } else {
                     TargetsTableContainersImpl newContainerTable = createContainerTable(rootClassSource);
-                    if ( newContainerTable.sameAs(useContainerTable) ) {
+                    String changeDetail = newContainerTable.sameAs(useContainerTable, doDetail);
+                    if ( changeDetail == null ) {
                         isChanged = false;
                         isChangedReason = "Cache hit (valid)";
                     } else {
                         useContainerTable = newContainerTable;
                         isChanged = true;
-                        isChangedReason = "Cache hit (invalid)";
+                        if ( doDetail ) {
+                            isChangedReason = "Cache hit (invalid: " + changeDetail + ")";
+                        } else {
+                            isChangedReason = "Cache hit (invalid)";
+                        }
                     }
                 }
             }
@@ -793,7 +803,7 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
 
         setContainerTable(useContainerTable, isChangedReason, isChanged);
 
-        if ( logger.isLoggable(Level.FINER) ) {
+        if ( doDetail ) {
             String resultMsg = newResult("container table", isChangedReason, !isChanged);
             logger.logp(Level.FINER, CLASS_NAME, methodName, resultMsg);
         }
@@ -876,26 +886,26 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
                 TargetsVisitorClassImpl.DONT_RECORD_UNRESOLVED,
                 newTargets);
 
-            String isValidReason;
+            String invalidReason;
             if ( !conData.hasCoreDataFile() ) {
-                isValidReason = "New data";
+                invalidReason = "New data";
             } else {
                 TargetsTableImpl priorTargets = createIsolatedTargetsTable(classSourceName, currentStamp);
                 if ( !conData.readCoreData(priorTargets) ) {
-                    isValidReason = "Read failure";
+                    invalidReason = "Read failure";
                 } else if ( !newTargets.getClassTable().sameAs( priorTargets.getClassTable(), HAVE_DIFFERENT_INTERN_MAPS ) ) {
-                    isValidReason = "Change to classes";
+                    invalidReason = "Change to classes";
                 } else if ( !newTargets.getAnnotationTable().sameAs( priorTargets.getAnnotationTable(), HAVE_DIFFERENT_INTERN_MAPS ) ) {
-                    isValidReason = "Change to annotations";
+                    invalidReason = "Change to annotations";
                 } else {
-                    isValidReason = null;
+                    invalidReason = null;
                 }
             }
 
             boolean isValid;
 
-            if ( isValidReason == null ) {
-                isValidReason = "Only the stamp changed";
+            if ( invalidReason == null ) {
+                invalidReason = "Only the stamp changed";
                 isValid = true;
             } else {
                 isValid = false;
@@ -904,7 +914,7 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
             if ( useHash != null ) {
                 logger.logp(Level.FINER, CLASS_NAME, methodName,
                     "[ {0} ] [ {1} ]: Is valid [ {2} ]: {3}",
-                    new Object[] { useHash, classSourceName, isValid, isValidReason });
+                    new Object[] { useHash, classSourceName, isValid, invalidReason });
             }
 
             conData.writeStamp(modData, newTargets);
@@ -916,11 +926,11 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
             putTargetsTable(
                 classSourceName,
                 internTargetsTable(newTargets),
-                isValidReason, !isValid);
+                invalidReason, !isValid);
 
             if ( useHash != null ) {
                 logger.logp(Level.FINER, CLASS_NAME, methodName,
-                    newResult("Internal class source " + classSourceName, isValidReason, isValid));
+                    newResult("Internal class source " + classSourceName, invalidReason, isValid));
             }
             return isValid;
         }
@@ -1431,7 +1441,7 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
 
         changedAnyTargetsReason = changedReason;
         changedAnyTargets = changed;
-
+        
         //
 
         if ( !changedAnyTargets ) {
@@ -1965,10 +1975,10 @@ public class TargetsScannerOverallImpl extends TargetsScannerBaseImpl {
     // The result data is thread local when read: No synchronization is necessary
     // between reads.
     //
-    // In single threaded mode, the targets data is processed using the master
+    // In single threaded mode, the targets data is processed using the main
     // intern maps.  In multi-threaded mode, each targets data has its own intern
     // maps, and a final step is added to recreate the targets data using the
-    // master intern maps.  Intern maps are placed by 'getTargetsTable'.  The
+    // main intern maps.  Intern maps are placed by 'getTargetsTable'.  The
     // recreation of the targets data, when necessary, is done by
     // 'internTargetsTable'.
 

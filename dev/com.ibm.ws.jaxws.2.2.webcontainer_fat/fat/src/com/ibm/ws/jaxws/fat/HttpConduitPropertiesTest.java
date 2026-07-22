@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,26 +16,23 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.jboss.shrinkwrap.api.exporter.ExplodedExporter;
-import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import com.ibm.ws.jaxws.fat.util.ExplodedShrinkHelper;
-import com.ibm.ws.jaxws.fat.util.TestUtils;
+import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.custom.junit.runner.Mode;
+import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.topology.impl.LibertyFileManager;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.HttpUtils;
 
@@ -41,6 +40,11 @@ import componenttest.topology.utils.HttpUtils;
  * This test is responsible for testing whether or not HTTPConduit configuration set in the ibm-ws-bnd.xml file
  * is picked up and applied to CXF via our integration layer. The test application requires access to CXF internals
  * so a jaxwsTest-2.3 feature is added to the Liberty image in order to expose those APIs.
+ *
+ * Lite mode - Runs matching serviceRef, port, and serviceRef + port configurations
+ *
+ * @TJJ: If changes don't resolve the timeout issue then setting marks at begining of test method
+ * and using server.findStringInLogUsingMark() should work but it will impact performance by about 100%
  *
  */
 @RunWith(FATRunner.class)
@@ -50,6 +54,11 @@ public class HttpConduitPropertiesTest {
 
     @Server("HttpConduitPropertiesTestServer")
     public static LibertyServer server;
+
+    // WAIT TIME to be used to wait for copying ibm-ws-bnd.xml to complete before invoking Web Service
+    private static int BND_FILE_COPY_WAITTIME = 1000;
+
+    private static int CONFIG_REFRESH_COUNT = 0;
 
     private static String defaultSimpleEchoServiceEndpointAddr;
     private static String defaultSimpleEchoServiceEndpointAddr2;
@@ -61,78 +70,51 @@ public class HttpConduitPropertiesTest {
 
     @BeforeClass
     public static void setup() throws Exception {
-
-        WebArchive app = ExplodedShrinkHelper.explodedDropinApp(server, "httpConduitProperties", "com.ibm.jaxws.properties.echo",
-                                                                "com.ibm.jaxws.properties.echo.client",
-                                                                "com.ibm.jaxws.properties.hello",
-                                                                "com.ibm.jaxws.properties.hello.client",
-                                                                "com.ibm.jaxws.properties.interceptor",
-                                                                "com.ibm.jaxws.properties.servlet");
+        ShrinkHelper.defaultApp(server, "httpConduitProperties", "com.ibm.jaxws.properties.echo",
+                                "com.ibm.jaxws.properties.echo.client",
+                                "com.ibm.jaxws.properties.hello",
+                                "com.ibm.jaxws.properties.hello.client",
+                                "com.ibm.jaxws.properties.interceptor",
+                                "com.ibm.jaxws.properties.servlet");
 
         // copy httpConduitProperties and make httpConduitProperties2
-        String localLocation = "publish/servers/" + server.getServerName() + "/dropins/";
-        File outputFile = new File(localLocation);
-        outputFile.mkdirs();
-        File explodedFile = app.as(ExplodedExporter.class).exportExploded(outputFile, "httpConduitProperties2.war");
-        if (JakartaEE9Action.isActive()) {
-            JakartaEE9Action.transformApp(explodedFile.toPath());
-        }
-        ExplodedShrinkHelper.copyFileToDirectory(server, outputFile, "dropins");
+        LibertyFileManager.copyFileIntoLiberty(server.getMachine(), server.getServerRoot() + "/apps", "httpConduitProperties2.war",
+                                               server.getServerRoot() + "/apps/httpConduitProperties.war");
 
         server.copyFileToLibertyInstallRoot("lib/features", "HttpConduitPropertiesTest/jaxwsTest-2.2.mf");
-
         server.copyFileToLibertyInstallRoot("lib/features", "HttpConduitPropertiesTest/jaxwsTest-2.3.mf");
-
         server.copyFileToLibertyInstallRoot("lib/features", "HttpConduitPropertiesTest/xmlwsTest-3.0.mf");
-
-        defaultSimpleEchoServiceEndpointAddr = new StringBuilder().append("http://").append(server.getHostname()).append(":").append(server.getHttpDefaultPort()).append("/httpConduitProperties/SimpleEchoService").toString();
-
-        defaultSimpleEchoServiceEndpointAddr2 = new StringBuilder().append("http://").append(server.getHostname()).append(":").append(server.getHttpDefaultPort()).append("/httpConduitProperties2/SimpleEchoService").toString();
-
-        defaultHelloServiceEndpointAddr = new StringBuilder().append("http://").append(server.getHostname()).append(":").append(server.getHttpDefaultPort()).append("/httpConduitProperties/HelloService").toString();
+        server.copyFileToLibertyInstallRoot("lib/features", "HttpConduitPropertiesTest/xmlwsTest-4.0.mf");
 
         testServletURL = new StringBuilder().append("http://").append(server.getHostname()).append(":").append(server.getHttpDefaultPort()).append("/httpConduitProperties/TestServlet?target=SimpleEchoService").toString();
-
         testServletURL2 = new StringBuilder().append("http://").append(server.getHostname()).append(":").append(server.getHttpDefaultPort()).append("/httpConduitProperties2/TestServlet?target=SimpleEchoService").toString();
-
         testServletURLForHelloService = new StringBuilder().append("http://").append(server.getHostname()).append(":").append(server.getHttpDefaultPort()).append("/httpConduitProperties/TestServlet?target=HelloService").toString();
-
         receiveTimeoutTestServletURL = new StringBuilder().append("http://").append(server.getHostname()).append(":").append(server.getHttpDefaultPort()).append("/httpConduitProperties/ReceiveTimeoutTestServlet").toString();
+
+        // Start server once, rather than force server start stop on every test execution
+        server.startServer();
     }
 
     @AfterClass
     public static void cleanup() throws Exception {
         server.deleteFileFromLibertyInstallRoot("lib/features/jaxwsTest-2.2.mf");
-
         server.deleteFileFromLibertyInstallRoot("lib/features/jaxwsTest-2.3.mf");
-
         server.deleteFileFromLibertyInstallRoot("lib/features/xmlwsTest-3.0.mf");
-    }
+        server.deleteFileFromLibertyInstallRoot("lib/features/xmlwsTest-4.0.mf");
 
-    @After
-    public void tearDown() throws Exception {
-        if (server == null) {
-            return;
-        }
-
-        if (server.isStarted()) {
+        if (server.isStarted())
             server.stopServer();
-        }
-
-        server.deleteFileFromLibertyServerRoot("dropins/httpConduitProperties.war/WEB-INF/ibm-ws-bnd.xml");
-
     }
 
     @Test
     public void testPropertiesForMatchedServiceRef() throws Exception {
-        TestUtils.publishFileToServer(server, "HttpConduitPropertiesTest", "ibm-ws-bnd_testPropertiesForMatchedServiceRef.xml", "dropins/httpConduitProperties.war/WEB-INF",
-                                      "ibm-ws-bnd.xml");
-        TestUtils.replaceServerFileString(server, "dropins/httpConduitProperties.war/WEB-INF/ibm-ws-bnd.xml", "#SIMPLE_ECHO_ENDPOINT_ADDRESS#",
-                                          defaultSimpleEchoServiceEndpointAddr);
 
-        server.startServer();
-        server.waitForStringInLog("CWWKZ0001I.*httpConduitProperties");
+        waitForServerConfigChange("testPropertiesForMatchedServiceRef.xml");
+
         Map<String, String> propertyMap = getServletResponse(testServletURL);
+
+        // Wait for MBean to start after invoking servlet.
+        server.waitForStringInLog("registered org.apache.cxf:bus.id=httpConduitProperties");
 
         String clientConnectionTimeOut = propertyMap.get("client.ConnectionTimeout");
         String clientChunkingThreshold = propertyMap.get("client.ChunkingThreshold");
@@ -155,16 +137,16 @@ public class HttpConduitPropertiesTest {
                    "ProxyABCD".equals(proxyAuthorizationAuthorization));
     }
 
+    @Mode(TestMode.FULL)
     @Test
     public void testPropertiesForNoMatchedServiceRef() throws Exception {
-        TestUtils.publishFileToServer(server, "HttpConduitPropertiesTest", "ibm-ws-bnd_testPropertiesForNoMatchedServiceRef.xml", "dropins/httpConduitProperties.war/WEB-INF",
-                                      "ibm-ws-bnd.xml");
-        TestUtils.replaceServerFileString(server, "dropins/httpConduitProperties.war/WEB-INF/ibm-ws-bnd.xml", "#SIMPLE_ECHO_ENDPOINT_ADDRESS#",
-                                          defaultSimpleEchoServiceEndpointAddr);
 
-        server.startServer();
-        server.waitForStringInLog("CWWKZ0001I.*httpConduitProperties");
+        waitForServerConfigChange("testPropertiesForNoMatchedServiceRef.xml");
+
         Map<String, String> propertyMap = getServletResponse(testServletURL);
+
+        // Wait for MBean to start after invoking servlet.
+        server.waitForStringInLog("registered org.apache.cxf:bus.id=httpConduitProperties");
 
         String clientConnectionTimeOut = propertyMap.get("client.ConnectionTimeout");
         String clientChunkingThreshold = propertyMap.get("client.ChunkingThreshold");
@@ -189,14 +171,13 @@ public class HttpConduitPropertiesTest {
 
     @Test
     public void testPropertiesForMatchedPort() throws Exception {
-        TestUtils.publishFileToServer(server, "HttpConduitPropertiesTest", "ibm-ws-bnd_testPropertiesForMatchedPort.xml", "dropins/httpConduitProperties.war/WEB-INF",
-                                      "ibm-ws-bnd.xml");
-        TestUtils.replaceServerFileString(server, "dropins/httpConduitProperties.war/WEB-INF/ibm-ws-bnd.xml", "#SIMPLE_ECHO_ENDPOINT_ADDRESS#",
-                                          defaultSimpleEchoServiceEndpointAddr);
 
-        server.startServer();
-        server.waitForStringInLog("CWWKZ0001I.*httpConduitProperties");
+        waitForServerConfigChange("testPropertiesForMatchedPort.xml");
+
         Map<String, String> propertyMap = getServletResponse(testServletURL);
+
+        // Wait for MBean to start after invoking servlet.
+        server.waitForStringInLog("registered org.apache.cxf:bus.id=httpConduitProperties");
 
         String clientConnectionTimeOut = propertyMap.get("client.ConnectionTimeout");
         String clientChunkingThreshold = propertyMap.get("client.ChunkingThreshold");
@@ -219,16 +200,16 @@ public class HttpConduitPropertiesTest {
                    "ProxyABCD".equals(proxyAuthorizationAuthorization));
     }
 
+    @Mode(TestMode.FULL)
     @Test
     public void testPropertiesForNoMatchedPort() throws Exception {
-        TestUtils.publishFileToServer(server, "HttpConduitPropertiesTest", "ibm-ws-bnd_testPropertiesForNoMatchedPort.xml", "dropins/httpConduitProperties.war/WEB-INF",
-                                      "ibm-ws-bnd.xml");
-        TestUtils.replaceServerFileString(server, "dropins/httpConduitProperties.war/WEB-INF/ibm-ws-bnd.xml", "#SIMPLE_ECHO_ENDPOINT_ADDRESS#",
-                                          defaultSimpleEchoServiceEndpointAddr);
 
-        server.startServer();
-        server.waitForStringInLog("CWWKZ0001I.*httpConduitProperties");
+        waitForServerConfigChange("testPropertiesForNoMatchedPort.xml");
+
         Map<String, String> propertyMap = getServletResponse(testServletURL);
+
+        // Wait for MBean to start after invoking servlet.
+        server.waitForStringInLog("registered org.apache.cxf:bus.id=httpConduitProperties");
 
         String clientConnectionTimeOut = propertyMap.get("client.ConnectionTimeout");
         String clientChunkingThreshold = propertyMap.get("client.ChunkingThreshold");
@@ -253,14 +234,13 @@ public class HttpConduitPropertiesTest {
 
     @Test
     public void testPropertiesForMatchedServiceRefAndPort() throws Exception {
-        TestUtils.publishFileToServer(server, "HttpConduitPropertiesTest", "ibm-ws-bnd_testPropertiesForMatchedServiceRefAndPort.xml", "dropins/httpConduitProperties.war/WEB-INF",
-                                      "ibm-ws-bnd.xml");
-        TestUtils.replaceServerFileString(server, "dropins/httpConduitProperties.war/WEB-INF/ibm-ws-bnd.xml", "#SIMPLE_ECHO_ENDPOINT_ADDRESS#",
-                                          defaultSimpleEchoServiceEndpointAddr);
 
-        server.startServer();
-        server.waitForStringInLog("CWWKZ0001I.*httpConduitProperties");
+        waitForServerConfigChange("testPropertiesForMatchedServiceRefAndPort.xml");
+
         Map<String, String> propertyMap = getServletResponse(testServletURL);
+
+        // Wait for MBean to start after invoking servlet.
+        server.waitForStringInLog("registered org.apache.cxf:bus.id=httpConduitProperties");
 
         String clientConnectionTimeOut = propertyMap.get("client.ConnectionTimeout");
         String clientChunkingThreshold = propertyMap.get("client.ChunkingThreshold");
@@ -284,25 +264,20 @@ public class HttpConduitPropertiesTest {
                    "ProxyPortAbc".equals(proxyAuthorizationAuthorization));
     }
 
+    @Mode(TestMode.FULL)
     @Test
     public void testPropertiesForMultipleSampleApp() throws Exception {
-        TestUtils.publishFileToServer(server, "HttpConduitPropertiesTest", "ibm-ws-bnd_testPropertiesForMatchedPort.xml", "dropins/httpConduitProperties.war/WEB-INF",
-                                      "ibm-ws-bnd.xml");
-        TestUtils.replaceServerFileString(server, "dropins/httpConduitProperties.war/WEB-INF/ibm-ws-bnd.xml", "#SIMPLE_ECHO_ENDPOINT_ADDRESS#",
-                                          defaultSimpleEchoServiceEndpointAddr);
 
-        TestUtils.publishFileToServer(server, "HttpConduitPropertiesTest", "ibm-ws-bnd_testPropertiesForMultipleSampleApp.xml", "dropins/httpConduitProperties2.war/WEB-INF",
-                                      "ibm-ws-bnd.xml");
-        TestUtils.replaceServerFileString(server, "dropins/httpConduitProperties2.war/WEB-INF/ibm-ws-bnd.xml", "#SIMPLE_ECHO_ENDPOINT_ADDRESS#",
-                                          defaultSimpleEchoServiceEndpointAddr2);
-
-        server.startServer();
-        server.waitForStringInLog("CWWKZ0001I.*httpConduitProperties");
+        waitForServerConfigChange("testPropertiesForMultipleSampleApp.xml");
+        // Checks for httpConduitProperties2 restart
         server.waitForStringInLog("CWWKZ0001I.*httpConduitProperties2");
 
         Map<String, String> propertyMap1 = getServletResponse(testServletURL);
 
         Map<String, String> propertyMap2 = getServletResponse(testServletURL2);
+
+        // Wait for MBean to start after invoking servlet.
+        server.waitForStringInLog("registered org.apache.cxf:bus.id=httpConduitProperties");
 
         String clientConnectionTimeOut1 = propertyMap1.get("client.ConnectionTimeout");
         String clientChunkingThreshold1 = propertyMap1.get("client.ChunkingThreshold");
@@ -354,19 +329,17 @@ public class HttpConduitPropertiesTest {
 
     }
 
+    @Mode(TestMode.FULL)
     @Test
     public void testPropertiesForTwoServiceRefInOneApp() throws Exception {
-        TestUtils.publishFileToServer(server, "HttpConduitPropertiesTest", "ibm-ws-bnd_testPropertiesForTwoServiceRefInOneApp.xml", "dropins/httpConduitProperties.war/WEB-INF",
-                                      "ibm-ws-bnd.xml");
-        TestUtils.replaceServerFileString(server, "dropins/httpConduitProperties.war/WEB-INF/ibm-ws-bnd.xml", "#SIMPLE_ECHO_ENDPOINT_ADDRESS#",
-                                          defaultSimpleEchoServiceEndpointAddr);
-        TestUtils.replaceServerFileString(server, "dropins/httpConduitProperties.war/WEB-INF/ibm-ws-bnd.xml", "#HELLO_ENDPOINT_ADDRESS#",
-                                          defaultHelloServiceEndpointAddr);
 
-        server.startServer();
-        server.waitForStringInLog("CWWKZ0001I.*httpConduitProperties");
+        waitForServerConfigChange("testPropertiesForTwoServiceRefInOneApp.xml");
+
         Map<String, String> echoServiceProperties = getServletResponse(testServletURL);
         Map<String, String> helloServiceProperties = getServletResponse(testServletURLForHelloService);
+
+        // Wait for MBean to start after invoking servlet.
+        server.waitForStringInLog("registered org.apache.cxf:bus.id=httpConduitProperties");
 
         String clientConnectionTimeOut = echoServiceProperties.get("client.ConnectionTimeout");
         String clientChunkingThreshold = echoServiceProperties.get("client.ChunkingThreshold");
@@ -399,12 +372,12 @@ public class HttpConduitPropertiesTest {
 
     @Test
     public void testReceiveTimeout() throws Exception {
-        TestUtils.publishFileToServer(server, "HttpConduitPropertiesTest", "ibm-ws-bnd_testReceiveTimeout.xml", "dropins/httpConduitProperties.war/WEB-INF", "ibm-ws-bnd.xml");
-        TestUtils.replaceServerFileString(server, "dropins/httpConduitProperties.war/WEB-INF/ibm-ws-bnd.xml", "#HELLO_ENDPOINT_ADDRESS#", defaultHelloServiceEndpointAddr);
 
-        server.startServer();
-        server.waitForStringInLog("CWWKZ0001I.*httpConduitProperties");
+        waitForServerConfigChange("testReceiveTimeout.xml");
+
         String msg = getServletResponseMessage(receiveTimeoutTestServletURL);
+        // Wait for MBean to start after invoking servlet.
+        server.waitForStringInLog("registered org.apache.cxf:bus.id=httpConduitProperties");
         assertTrue("The Read time out exception should be thrown, but the actual is '" + msg + "'",
                    msg.contains("SocketTimeoutException"));
     }
@@ -433,7 +406,16 @@ public class HttpConduitPropertiesTest {
         BufferedReader br = HttpUtils.getConnectionStream(con);
         String result = br.readLine();
 
+        if (result == null) // Prevent null return
+            result = "";
+
         return result;
     }
 
+    // Replace server configuration and wait for update to finish
+    private void waitForServerConfigChange(String serverXMLName) throws Exception {
+        server.setMarkToEndOfLog();
+        server.setServerConfigurationFile("HttpConduitPropertiesTest/configFiles/" + serverXMLName);
+        server.waitForConfigUpdateInLogUsingMark(null, false, new String[0]);
+    }
 }

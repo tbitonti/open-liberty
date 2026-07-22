@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012,2017 IBM Corporation and others.
+ * Copyright (c) 2012,2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -21,6 +23,7 @@ import com.ibm.websphere.monitor.annotation.This;
 import com.ibm.websphere.monitor.meters.MeterCollection;
 import com.ibm.websphere.servlet.container.WebContainer;
 import com.ibm.ws.pmi.server.PmiRegistry;
+import com.ibm.ws.webcontainer.servlet.ServletWrapper;
 
 /**
  * Monitor Class for WebContainer.
@@ -86,8 +89,7 @@ public class WebContainerMonitor {
      *            This method gets called only at first request.
      * 
      */
-    public synchronized ServletStats initServletStats(String _app, String _ser) {
-        String _key = _app + "." + _ser;
+    public synchronized ServletStats initServletStats(String _key, String _app, String _ser) {
         ServletStats nStats = this.servletCountByName.get(_key);
         if (nStats == null) {
              nStats = new ServletStats(_app, _ser);
@@ -98,15 +100,15 @@ public class WebContainerMonitor {
 
     @ProbeAtReturn
     @ProbeSite(clazz = "com.ibm.ws.webcontainer.servlet.ServletWrapper", method = "service", args = "javax.servlet.ServletRequest,javax.servlet.ServletResponse,com.ibm.ws.webcontainer.webapp.WebAppServletInvocationEvent")
-    public void atServletEnd(@This GenericServlet s) {        
-        String servletName = s.getServletConfig().getServletName();
-        String appName = (String) s.getServletContext().getAttribute(APP_NAME_FROM_CONTEXT);
-        String sName = appName + "." + servletName;        
-        ServletStats stats = servletCountByName.get(sName);
+    public void atServletEnd(@This GenericServlet s) {
+        String metricsKey = ((ServletWrapper) s).getMetricsKey();
+        ServletStats stats = servletCountByName.get(metricsKey);
         if (stats == null) {
-             stats =initServletStats(appName, servletName);
-        }                       
-        stats.incrementCountBy(1);        
+            String servletName = s.getServletConfig().getServletName();
+            String appName = (String) s.getServletContext().getAttribute(APP_NAME_FROM_CONTEXT);
+            stats =initServletStats(metricsKey, appName, servletName);
+        }
+        stats.incrementCountBy(1);
         Long times = startTimes.get();
         if (times!=null) {
             long elapsed = System.nanoTime() - times;
@@ -119,10 +121,8 @@ public class WebContainerMonitor {
     @ProbeAtEntry
     @ProbeSite(clazz = "com.ibm.ws.webcontainer.servlet.ServletWrapper", method = "destroy")
     public void atServletDestroy(@This GenericServlet s) {
-        String servletName = s.getServletConfig().getServletName();
-        String appName = (String) s.getServletContext().getAttribute(APP_NAME_FROM_CONTEXT);
-        String sName = appName + "." + servletName;
-        servletCountByName.remove(sName);
+        String metricsKey = ((ServletWrapper) s).getMetricsKey();
+        servletCountByName.remove(metricsKey);
     }
 
 }

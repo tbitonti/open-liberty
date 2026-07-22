@@ -1,21 +1,25 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
+ *
  *******************************************************************************/
 package com.ibm.ws.transaction.context.internal;
 
 import java.io.IOException;
+import java.io.ObjectInputStream.GetField;
 import java.io.ObjectOutputStream;
+import java.io.ObjectOutputStream.PutField;
 import java.io.ObjectStreamField;
 import java.util.concurrent.RejectedExecutionException;
 
 import com.ibm.tx.jta.embeddable.EmbeddableTransactionManagerFactory;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.LocalTransaction.LocalTransactionCoordinator;
 import com.ibm.ws.LocalTransaction.LocalTransactionCurrent;
@@ -30,6 +34,7 @@ import com.ibm.wsspi.threadcontext.ThreadContext;
  * Transaction context implementation.
  */
 public class TransactionContextImpl implements ThreadContext {
+    private static final TraceComponent tc = Tr.register(TransactionContextImpl.class);
 
     /**
      * Serialization UID.
@@ -37,15 +42,30 @@ public class TransactionContextImpl implements ThreadContext {
     private static final long serialVersionUID = -6094017242267061944L;
 
     /**
-     * Fields to serialize
+     * Values for serializable fields.
+     * A single character is used for each to reduce the space required.
      */
+    private static final String CLEARED = "C",
+                    UNCHANGED = "U";
+
+    /**
+     * Names for serializable fields.
+     * A single character is used for each to reduce the space required.
+     */
+    private static final String TYPE = "T";
+
+    /**
+     * Fields to serialize.
+     */
+
     private static final ObjectStreamField[] serialPersistentFields = new ObjectStreamField[] {
+                                                                                                new ObjectStreamField(TYPE, String.class)
     };
 
     /**
      * Unit of work that was on the thread of execution prior to invoking the contextual task.
      */
-    private transient UOWToken suspendedUOW;
+    private transient ThreadLocal<UOWToken> suspendedUOW = new ThreadLocal<UOWToken>();
 
     /**
      * Indicates that prior to invoking a task, any transaction that is present on the thread of execution
@@ -53,7 +73,7 @@ public class TransactionContextImpl implements ThreadContext {
      * by default an LTC is put in place for the task to run under.
      * In the future, we leave open the possibility that some other action could be taken in place of the LTC.
      */
-    transient boolean suspendTranOfExecutionThread;
+    transient Boolean suspendTranOfExecutionThread;
 
     TransactionContextImpl(boolean suspendTranOfExecuctionThread) {
         this.suspendTranOfExecutionThread = suspendTranOfExecuctionThread;
@@ -61,9 +81,16 @@ public class TransactionContextImpl implements ThreadContext {
 
     /** {@inheritDoc} */
     @Override
+    @Trivial
     public ThreadContext clone() {
         try {
             TransactionContextImpl copy = (TransactionContextImpl) super.clone();
+            // Copy the ThreadLocal value to the cloned instance
+            copy.suspendedUOW = new ThreadLocal<UOWToken>();
+            UOWToken currentValue = this.suspendedUOW.get();
+            if (currentValue != null) {
+                copy.suspendedUOW.set(currentValue);
+            }
             return copy;
         } catch (CloneNotSupportedException x) {
             throw new RuntimeException(x);
@@ -72,12 +99,17 @@ public class TransactionContextImpl implements ThreadContext {
 
     /** {@inheritDoc} */
     @Override
+    @Trivial // method name is misleading in trace
     public void taskStarting() throws RejectedExecutionException {
         if (suspendTranOfExecutionThread) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(this, tc, "clear");
+
             // Suspend whatever is currently on the thread.
             try {
                 UOWManager uowManager = UOWManagerFactory.getUOWManager();
-                suspendedUOW = uowManager.suspend();
+                UOWToken localuSpendedUOW = uowManager.suspend();
+                suspendedUOW.set(localuSpendedUOW);
             } catch (com.ibm.ws.uow.embeddable.SystemException e) {
             }
 
@@ -89,6 +121,7 @@ public class TransactionContextImpl implements ThreadContext {
 
     /** {@inheritDoc} */
     @Override
+    @Trivial // method name is misleading in trace
     public void taskStopping() {
         if (suspendTranOfExecutionThread) {
             Throwable exception = null;
@@ -123,12 +156,16 @@ public class TransactionContextImpl implements ThreadContext {
                     break;
             }
 
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(this, tc, "restore   " + suspendedUOW);
+
             // Resume the original transaction.
             try {
-                if (suspendedUOW != null) {
+                UOWToken localSuspendedUOW = suspendedUOW.get();
+                if (localSuspendedUOW != null) {
                     UOWManager uowManager = UOWManagerFactory.getUOWManager();
-                    uowManager.resume(suspendedUOW);
-                    suspendedUOW = null;
+                    uowManager.resume(localSuspendedUOW);
+                    suspendedUOW.remove();
                 }
             } catch (Throwable e) {
                 exception = e;
@@ -150,13 +187,26 @@ public class TransactionContextImpl implements ThreadContext {
      * @throws ClassNotFoundException
      */
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
-        in.readFields();
+        suspendedUOW = new ThreadLocal<UOWToken>();//Reinitialize transient field.
+
+        GetField fields = in.readFields();
+
+        Object type = fields.get(TYPE, null);
+        if (CLEARED.equals(type))
+            suspendTranOfExecutionThread = true;
+        else if (UNCHANGED.equals(type))
+            suspendTranOfExecutionThread = false;
+        // else null value will cause TransactionContextProviderImpl to recompute from the execution property
     }
 
     @Override
     @Trivial
     public String toString() {
-        StringBuilder sb = new StringBuilder(100).append(getClass().getSimpleName()).append('@').append(Integer.toHexString(hashCode())).append(" suspend=").append(suspendTranOfExecutionThread);
+        StringBuilder sb = new StringBuilder(100).append(getClass().getSimpleName()).append('@').append(Integer.toHexString(hashCode()));
+        if (suspendTranOfExecutionThread)
+            sb.append(" suspend=true");
+        else
+            sb.append(" unchanged");
         return sb.toString();
     }
 
@@ -168,7 +218,8 @@ public class TransactionContextImpl implements ThreadContext {
      * @throws IOException
      */
     private void writeObject(ObjectOutputStream outStream) throws IOException {
-        outStream.putFields();
+        PutField fields = outStream.putFields();
+        fields.put(TYPE, suspendTranOfExecutionThread ? CLEARED : UNCHANGED);
         outStream.writeFields();
     }
 }

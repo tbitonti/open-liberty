@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2019 IBM Corporation and others.
+ * Copyright (c) 2011, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -186,7 +188,7 @@ public class WebAppSecurityCollaboratorImplTest {
 
         /** {@inheritDoc} */
         @Override
-        public boolean unsupportedAuthMech() {
+        public boolean unsupportedAuthMech(SecurityMetadata securityMetadata) {
             if (setUnsupportedAuthMech)
                 return true;
             else
@@ -259,6 +261,7 @@ public class WebAppSecurityCollaboratorImplTest {
         subjectManager.clearSubjects();
         configProps.put(WebAppSecurityConfigImpl.CFG_KEY_FAIL_OVER_TO_BASICAUTH, false);
         configProps.put(WebAppSecurityConfigImpl.CFG_KEY_USE_AUTH_DATA_FOR_UNPROTECTED, true);
+        configProps.put(WebAppSecurityConfigImpl.CFG_KEY_MAX_CONTENT_LENGTH_TO_SAVE_POST_PARAMETERS, 1024 * 1024 * 128L);
 
         setSecurityServicesExpectations();
         setupCollaborator(new WebAppSecurityCollaboratorImpl(), cc, configProps);
@@ -793,6 +796,8 @@ public class WebAppSecurityCollaboratorImplTest {
                 will(returnValue(accessPrecluded));
                 allowing(webRequest).getApplicationName();
                 will(returnValue(APP_NAME));
+                allowing(webRequest).isSSLRequired();
+                will(returnValue(true));
             }
         });
 
@@ -1382,6 +1387,7 @@ public class WebAppSecurityCollaboratorImplTest {
         });
 
         configProps.put(WebAppSecurityConfigImpl.CFG_KEY_SINGLE_SIGN_ON_ENABLED, false);
+        configProps.put(WebAppSecurityConfigImpl.CFG_KEY_USE_CONTEXT_ROOT_FOR_SSO_COOKIE_PATH, false);
 
         setupCollaborator(new WebAppSecurityCollaboratorImplTestDouble2(), cc, configProps);
 
@@ -1745,7 +1751,7 @@ public class WebAppSecurityCollaboratorImplTest {
         secColl = new WebAppSecurityCollaboratorImplTestDouble3(null);
 
         assertFalse("When SecurityMetadata is null, unsupportedAuthMech should return false",
-                    secColl.unsupportedAuthMech());
+                    secColl.unsupportedAuthMech(null));
     }
 
     @Test
@@ -1759,7 +1765,7 @@ public class WebAppSecurityCollaboratorImplTest {
         });
 
         assertFalse("When LoginConfig is null, unsupportedAuthMech should return false",
-                    secColl.unsupportedAuthMech());
+                    secColl.unsupportedAuthMech(commonSecurityMetadata));
     }
 
     @Test
@@ -1775,7 +1781,7 @@ public class WebAppSecurityCollaboratorImplTest {
         });
 
         assertFalse("When AuthenticationMethod is null, unsupportedAuthMech should return false",
-                    secColl.unsupportedAuthMech());
+                    secColl.unsupportedAuthMech(commonSecurityMetadata));
     }
 
     @Test
@@ -1791,7 +1797,7 @@ public class WebAppSecurityCollaboratorImplTest {
         });
 
         assertTrue("When AuthenticationMethod is DIGEST, unsupportedAuthMech should return true",
-                   secColl.unsupportedAuthMech());
+                   secColl.unsupportedAuthMech(commonSecurityMetadata));
     }
 
     @Test
@@ -1807,7 +1813,7 @@ public class WebAppSecurityCollaboratorImplTest {
         });
 
         assertFalse("When AuthenticationMethod is BASIC, unsupportedAuthMech should return false",
-                    secColl.unsupportedAuthMech());
+                    secColl.unsupportedAuthMech(commonSecurityMetadata));
     }
 
     /**

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2014 IBM Corporation and others.
+ * Copyright (c) 2010, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,6 +14,7 @@ package com.ibm.ws.classloading.internal;
 
 import java.io.IOException;
 import java.net.URL;
+import java.security.ProtectionDomain;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Enumeration;
@@ -19,11 +22,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 
+import org.eclipse.osgi.internal.loader.BundleLoader;
+import org.eclipse.osgi.internal.loader.ModuleClassLoader;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleReference;
 import org.osgi.framework.wiring.BundleWiring;
 
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.classloading.configuration.GlobalClassloadingConfiguration.JVMPackages;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.wsspi.classloading.ApiType;
 import com.ibm.wsspi.classloading.ClassLoadingConfigurationException;
@@ -35,28 +43,37 @@ import com.ibm.wsspi.kernel.service.utils.CompositeEnumeration;
  * This is particularly necessary for the OSGi JNDI implementation which walks
  *  the classloader hierarchy looking for the Bundle classloader.
  */
-class GatewayClassLoader extends ClassLoader implements DeclaredApiAccess, BundleReference {
+class GatewayClassLoader extends ClassLoader implements DeclaredApiAccess, BundleReference, NoClassNotFoundLoader {
+    private static final TraceComponent tc = Tr.register(GatewayClassLoader.class);
+
     private static class Delegation {
         // This is only used to place a non-class loader class on the call stack which is loaded from a bundle.
         // This is needed as a workaround for defect 89337.
         @Trivial
         static Class<?> loadClass(String className, ClassLoader loader) throws ClassNotFoundException {
-            return loader.loadClass(className);
+            return loader == null ? null : loader.loadClass(className);
+        }
+        @Trivial
+        static Class<?> loadClass(String className, BundleLoader loader) {
+            return loader == null ? null : loader.findClassNoException(className);
         }
     }
 
     private final GatewayConfiguration config;
+    private final JVMPackages jvmPackages;
     private final Object wiringMonitor = new Object() {};
     private final Bundle bundle;
     private BundleWiring wiring = null;
-    private ClassLoader bundleLoader;
+    private final ClassLoader cl;
+    private volatile BundleLoader bLoader;
     private final CompositeResourceProvider resourceProviders;
 
     static GatewayClassLoader createGatewayClassLoader(Map<Bundle, Set<GatewayClassLoader>> classloaders,
                                                        GatewayConfiguration config,
                                                        ClassLoader bundleLoader,
-                                                       CompositeResourceProvider resourceProviders) {
-        GatewayClassLoader result = new GatewayClassLoader(config, bundleLoader, resourceProviders);
+                                                       CompositeResourceProvider resourceProviders,
+                                                       JVMPackages jvmPackages) {
+        GatewayClassLoader result = new GatewayClassLoader(config, bundleLoader, resourceProviders, jvmPackages);
         if (classloaders != null) {
             Bundle b = result.getBundle();
             if (b != null) {
@@ -73,25 +90,29 @@ class GatewayClassLoader extends ClassLoader implements DeclaredApiAccess, Bundl
         return result;
     }
 
-    private GatewayClassLoader(GatewayConfiguration config, ClassLoader bundleLoader, CompositeResourceProvider resourceProviders) {
-        // call the no-args super constructor so the parent methods delegate to the system classloader
-        super();
+    private GatewayClassLoader(GatewayConfiguration config, ClassLoader bundleLoader, CompositeResourceProvider resourceProviders, JVMPackages jvmPackages) {
+        super(jvmPackages.delegate());
         this.config = config;
+        this.jvmPackages = jvmPackages;
         // stash the bundle revision to delegate to its class loader
         if (bundleLoader instanceof BundleReference) {
+            this.cl = null;
             this.bundle = ((BundleReference) bundleLoader).getBundle();
             this.wiring = bundle.adapt(BundleWiring.class);
             if (this.wiring == null) {
                 throw new IllegalStateException("Gateway bundle is not resolved.");
             }
-            // just getting the loader again to make sure it is the latest
-            this.bundleLoader = wiring.getClassLoader();
-            if (this.bundleLoader == null) {
+            // Just getting the loader again to make sure it is the latest.
+            // This is Equinox specific stuff to avoid CNFE if possible
+            ModuleClassLoader moduleLoader = (ModuleClassLoader) wiring.getClassLoader();
+            if (moduleLoader == null) {
                 throw new IllegalStateException("Gateway bundle does not have a class loader.");
             }
+            this.bLoader = moduleLoader.getBundleLoader();
         } else {
+            // not really a bundle class loader!!
             this.bundle = null;
-            this.bundleLoader = bundleLoader;
+            this.cl = bundleLoader;
         }
         this.resourceProviders = resourceProviders;
     }
@@ -115,7 +136,7 @@ class GatewayClassLoader extends ClassLoader implements DeclaredApiAccess, Bundl
         // Do bundle first resource loading
         URL result = this.findResource(resName);
         // second check the system loader
-        return result == null ? getSystemResource(resName) : result;
+        return result == null ? jvmPackages.getResource(resName) : result;
     }
 
     /**
@@ -131,7 +152,12 @@ class GatewayClassLoader extends ClassLoader implements DeclaredApiAccess, Bundl
         // Only check the parent bundle loader if the request is outside of "" or "/"
         if (!!!"".equals(name) && !!!"/".equals(name)) {
             // First try the bundleLoader
-            result = bundleLoader.getResource(name);
+            if (cl != null) {
+                result = cl.getResource(name);
+            } else {
+                BundleLoader current = bLoader;
+                result = current == null ? null : current.findResource(name);
+            }
         }
         // This doesn't have access to ALL split packages (it just gets one) so it's augmented with a resource provider  
         return result == null ? resourceProviders.findResource(name) : result;
@@ -141,7 +167,7 @@ class GatewayClassLoader extends ClassLoader implements DeclaredApiAccess, Bundl
     @Trivial
     public Enumeration<URL> getResources(String resName) throws IOException {
         // First check for the bundles' resources then check the system loader
-        return findResources(resName).add(getSystemResources(resName));
+        return findResources(resName).add(jvmPackages.getResources(resName));
     }
 
     @Override
@@ -151,7 +177,13 @@ class GatewayClassLoader extends ClassLoader implements DeclaredApiAccess, Bundl
         // Only check the parent bundle loader if the request is outside of "" or "/"
         if (!!!"".equals(name) && !!!"/".equals(name)) {
             // First try the bundleLoader
-            Enumeration<URL> urls = bundleLoader.getResources(name);
+            Enumeration<URL> urls;
+            if (cl != null) {
+                urls = cl.getResources(name);
+            } else {
+                BundleLoader current = bLoader;
+                urls = current == null ? Collections.emptyEnumeration() : current.findResources(name);
+            }
             result.add(urls);
         }
 
@@ -159,28 +191,70 @@ class GatewayClassLoader extends ClassLoader implements DeclaredApiAccess, Bundl
         return result;
     }
 
-    @FFDCIgnore(ClassNotFoundException.class)
     @Override
     @Trivial
     protected Class<?> loadClass(String className, boolean resolve) throws ClassNotFoundException {
+        return loadClassImpl(className, true);
+    }
+
+    @FFDCIgnore(ClassNotFoundException.class)
+    private Class<?> loadClassImpl(String className, boolean throwException) throws ClassNotFoundException {
         // The resolve parameter is a legacy parameter that is effectively
         // never used as of JDK 1.1 (see footnote 1 of section 5.3.2 of the 2nd
         // edition of the JVM specification).  The only caller of this method
         // is java.lang.ClassLoader.loadClass(String), and that method always
         // passes false, so we ignore the parameter.
 
-        if (config.getDelegateToSystem()) {
-            try {
-                // first check the bundle loader
-                return Delegation.loadClass(className, bundleLoader);
-            } catch (ClassNotFoundException perfectlyNormal) {
-                // second check the system classloader
-                return findSystemClass(className);
+        Class<?> result = null;
+        if (cl != null) {
+            if (config.getDelegateToSystem()) {
+                try {
+                    // first check the bundle loader
+                    result = Delegation.loadClass(className, cl);
+                } catch (ClassNotFoundException perfectlyNormal) {
+                    // second check the system classloader
+                    result = jvmPackages.loadClass(className, throwException);
+                }
+            } else {
+                result = Delegation.loadClass(className, cl);
             }
         } else {
-            return Delegation.loadClass(className, bundleLoader);
+            result = Delegation.loadClass(className, bLoader);
+            if (result == null) {
+                if (config.getDelegateToSystem()) {
+                    result = jvmPackages.loadClass(className, throwException);
+                } else if (throwException) {
+                    throw new ClassNotFoundException(className);
+                }
+            }
         }
 
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled() && result != null) {
+            ClassLoader classLoader = result.getClassLoader();
+            Tr.debug(tc, String.format("CLASS LOAD: class=[%s]; classloader=[%s]; codeSource=[%s]",
+                                       className,
+                                       classLoader != null ? classLoader.toString() : "bootstrap",
+                                       getCodeSourceString(result)));
+        }
+        return result;
+    }
+
+    @Trivial
+    private static String getCodeSourceString(Class<?> clazz) {
+        ProtectionDomain pd = clazz.getProtectionDomain();
+        return (pd.getCodeSource() != null)
+                ? String.valueOf(pd.getCodeSource().getLocation()) : "unknown";
+    }
+
+
+    @Override
+    @FFDCIgnore(ClassNotFoundException.class)
+    public Class<?> loadClassNoException(String name) {
+        try {
+            return loadClassImpl(name, false);
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
     }
 
     void populateNewLoader() throws ClassLoadingConfigurationException {
@@ -189,11 +263,12 @@ class GatewayClassLoader extends ClassLoader implements DeclaredApiAccess, Bundl
                 if (wiring == null || !wiring.isCurrent()) {
                     wiring = bundle.adapt(BundleWiring.class);
                     if (wiring != null) {
-                        ClassLoader newLoader = wiring.getClassLoader();
+                        ModuleClassLoader newLoader = (ModuleClassLoader) wiring.getClassLoader();
                         if (newLoader == null) {
                             throw new ClassLoadingConfigurationException("No class loader available for the gateway bundle.");
                         }
-                        bundleLoader = newLoader;
+                        // This is Equinox specific stuff to avoid CNFE if possible
+                        this.bLoader = newLoader.getBundleLoader();
                     }
                 }
             }
@@ -204,4 +279,27 @@ class GatewayClassLoader extends ClassLoader implements DeclaredApiAccess, Bundl
     public Bundle getBundle() {
         return bundle;
     }
+
+    @Override
+    @Trivial
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("GatewayClassLoader@");
+        sb.append(Integer.toHexString(this.hashCode()));
+        
+        if (config.getApiTypeVisibility() != null) {
+            sb.append(":apis=").append(config.getApiTypeVisibility());
+        }
+        if (config.getDelegateToSystem()) {
+            sb.append(":delegateToSystem=true");
+        }
+        
+        if (bundle != null) {
+            sb.append(":bundle=[").append(bundle.getSymbolicName());
+            sb.append(":").append(bundle.getVersion()).append("]");
+        }
+        
+        return sb.toString();
+    }
+
 }

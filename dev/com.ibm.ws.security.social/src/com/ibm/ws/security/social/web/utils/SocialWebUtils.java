@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -34,6 +36,7 @@ import com.ibm.ws.webcontainer.security.PostParameterHelper;
 import com.ibm.ws.webcontainer.security.ReferrerURLCookieHandler;
 import com.ibm.ws.webcontainer.security.WebAppSecurityCollaboratorImpl;
 import com.ibm.ws.webcontainer.security.WebAppSecurityConfig;
+import io.openliberty.security.oidcclientcore.storage.OidcClientStorageConstants;
 
 public class SocialWebUtils {
 
@@ -86,7 +89,7 @@ public class SocialWebUtils {
 
         sb.append("<script type=\"text/javascript\" language=\"javascript\">")
                 .append("var loc=window.location.href;")
-                .append("document.cookie=\"").append(reqUrlCookieName).append("=\"").append("+encodeURI(loc)+").append("\"; path=/;");
+                .append("document.cookie=\"").append(reqUrlCookieName).append("=\"").append("+encodeURI(loc)+").append("\"; path=/;").append(" max-age=" + OidcClientStorageConstants.DEFAULT_REQ_URL_STORAGE_LIFETIME_SECONDS + ";");
 
         JavaScriptUtils jsUtils = new JavaScriptUtils();
         String cookieProps = jsUtils.createHtmlCookiePropertiesString(jsUtils.getWebAppSecurityConfigCookieProperties());

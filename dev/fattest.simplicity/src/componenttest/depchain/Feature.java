@@ -1,3 +1,15 @@
+/*******************************************************************************
+ * Copyright (c) 2017, 2021 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
 package componenttest.depchain;
 
 import java.util.ArrayList;
@@ -10,8 +22,11 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import com.ibm.websphere.simplicity.log.Log;
+
 public class Feature {
     private static final Class<?> c = Feature.class;
+    public static final boolean DEBUG = false;
     private String shortName;
     private String symbolicName;
     private final List<String> enables = new ArrayList<String>();
@@ -56,7 +71,7 @@ public class Feature {
                 } else if ("include".equals(nodeName)) {
                     includes.add(child.getAttribute("symbolicName"));
                 } else if ("autoProvision".equals(nodeName)) {
-                    autoProvision.add(child.getAttribute("autoProvision"));
+                    autoProvision.add(content);
                 }
             }
         }
@@ -88,6 +103,9 @@ public class Feature {
             return isProvisioned;
         }
 
+        if (DEBUG)
+            Log.info(c, "isProvisioned", "autoProvision=" + autoProvision);
+
         // Must be an auto feature, check if required features are enabled
         for (String conditionFeature : autoProvision) {
             boolean anyOf = conditionFeature.contains("|");
@@ -98,11 +116,16 @@ public class Feature {
                     continue;
                 identity = identity.substring(0, trimAt);
                 if (Pattern.matches("[\\-\\w\\.]+", identity)) {
+                    if (DEBUG)
+                        Log.info(c, "isProvisioned", "Pattern Matched : " + identity);
                     boolean installed = installedFeatures.contains(identity.toLowerCase());
                     if (anyOf)
                         isProvisioned |= installed;
                     else
                         isProvisioned &= installed;
+                } else {
+                    if (DEBUG)
+                        Log.info(c, "isProvisioned", "Pattern Not Matched : " + identity);
                 }
             }
             if (!isProvisioned)

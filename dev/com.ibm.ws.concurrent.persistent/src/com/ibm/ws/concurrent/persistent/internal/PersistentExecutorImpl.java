@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -34,6 +36,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -47,9 +51,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 
+import javax.enterprise.concurrent.ContextService;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.enterprise.concurrent.ManagedScheduledExecutorService;
 import javax.enterprise.concurrent.ManagedTask;
@@ -303,6 +309,12 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
     private final AtomicBoolean pollingStartSignalReceived = new AtomicBoolean();
 
     /**
+     * Indicates if the polling task is currently executing.
+     * Used to prevent race condition during deactivation.
+     */
+    private final AtomicBoolean pollingTaskRunning = new AtomicBoolean(false);
+
+    /**
      * Liberty scheduled executor.
      */
     @Reference(target = "(deferrable=false)")
@@ -427,6 +439,37 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
         return updateCount;
     }
 
+    @Trivial
+    public void close() {
+        // Section 3.1.6.1 of the Concurrency Utilities spec requires IllegalStateException
+        // for ManagedExecutorService and ManagedScheduledExecutorService
+        throw new IllegalStateException(new UnsupportedOperationException("close"));
+    }
+
+    public <U> CompletableFuture<U> completedFuture(U value) {
+        // Concurrency 3.0 reactive operations cannot be used on
+        // persistent executor implementation that spans multiple servers
+        throw new UnsupportedOperationException();
+    }
+
+    public <U> CompletionStage<U> completedStage(U value) {
+        // Concurrency 3.0 reactive operations cannot be used on
+        // persistent executor implementation that spans multiple servers
+        throw new UnsupportedOperationException();
+    }
+
+    public <T> CompletableFuture<T> copy(CompletableFuture<T> stage) {
+        // Concurrency 3.0 reactive operations cannot be used on
+        // persistent executor implementation that spans multiple servers
+        throw new UnsupportedOperationException();
+    }
+
+    public <T> CompletionStage<T> copy(CompletionStage<T> stage) {
+        // Concurrency 3.0 reactive operations cannot be used on
+        // persistent executor implementation that spans multiple servers
+        throw new UnsupportedOperationException();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean createProperty(String name, String value) {
@@ -470,6 +513,25 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
      */
     protected void deactivate(ComponentContext context) throws Exception {
         deactivated = true;
+        
+        // Cancel the polling future to stop background tasks before closing resources 
+        // product bug fix 308877
+        ScheduledFuture<?> pollingFuture = pollingFutureRef.get();
+        if (pollingFuture != null) {
+            pollingFuture.cancel(false);
+            // Wait for the polling task to actually finish to avoid race condition with resource cleanup
+            // Cannot use get() or isDone() on cancelled future, so check our own flag
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (pollingTaskRunning.get() && System.nanoTime() < deadline) {
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        
         if (mbean != null) {
             mbean.unregister();
             mbean = null;
@@ -513,6 +575,18 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
         taskInfo.initForOneShotTask(0l); // run immediately
 
         newTask(runnable, taskInfo, null, null);
+    }
+
+    public <U> CompletableFuture<U> failedFuture(Throwable ex) {
+        // Concurrency 3.0 reactive operations cannot be used on
+        // persistent executor implementation that spans multiple servers
+        throw new UnsupportedOperationException();
+    }
+
+    public <U> CompletionStage<U> failedStage(Throwable ex) {
+        // Concurrency 3.0 reactive operations cannot be used on
+        // persistent executor implementation that spans multiple servers
+        throw new UnsupportedOperationException();
     }
 
     /**
@@ -712,6 +786,11 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
     @Override
     public ApplicationRecycleContext getContext() {
         return null;
+    }
+
+    public ContextService getContextService() {
+        // There are no known scenarios that would require this Concurrency 3.0 method for persistent executor
+        throw new UnsupportedOperationException();
     }
 
     /**
@@ -1209,6 +1288,12 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
             Tr.exit(this, tc, "modified");
     }
 
+    public <U> CompletableFuture<U> newIncompleteFuture() {
+        // Concurrency 3.0 reactive operations cannot be used on
+        // persistent executor implementation that spans multiple servers
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * Create and persist a new task to the persistent store.
      *
@@ -1609,6 +1694,12 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
         return updateCount;
     }
 
+    public CompletableFuture<Void> runAsync(Runnable runnable) {
+        // Concurrency 3.0 reactive operations cannot be used on
+        // persistent executor implementation that spans multiple servers
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public <V> TaskStatus<V> schedule(Callable<V> callable, long delay, TimeUnit unit) {
         int compare = unit.compareTo(TimeUnit.MILLISECONDS);
@@ -1941,6 +2032,12 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
         taskInfo.initForOneShotTask(0l); // run immediately
 
         return newTask(runnable, taskInfo, null, null);
+    }
+
+    public <U> CompletableFuture<U> supplyAsync(Supplier<U> supplier) {
+        // Concurrency 3.0 reactive operations cannot be used on
+        // persistent executor implementation that spans multiple servers
+        throw new UnsupportedOperationException();
     }
 
     /**
@@ -2466,27 +2563,38 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
                 tranMgr.commit();
             }
 
+            ApplicationTracker appTracker = appTrackerRef.getServiceWithException();
+
             for (Object[] result : results) {
                 long taskId = (Long) result[0];
+                String owner = (String) result[1];
+
+                if (owner != null && !appTracker.isStarted(owner)) {
+                    if (trace && tc.isDebugEnabled())
+                        Tr.debug(this, tc, "Unable to claim task " + taskId + " because " + owner + " is unavailable.");
+                    continue; // Ignore, we are deferring the task because the application or module is unavailable
+                }
+
                 boolean claimed = false;
                 Boolean previous = inMemoryTaskIds.put(taskId, Boolean.TRUE);
                 if (previous == null)
                     try {
-                        long nextExecTime = (Long) result[2];
-                        int version = (Integer) result[4];
+                        long nextExecTime = (Long) result[3];
+                        int version = (Integer) result[5];
                         now = System.currentTimeMillis();
                         long claimUntilTime = (now > nextExecTime ? now : nextExecTime) + config.missedTaskThreshold * 1000;
 
+                        boolean claimedPendingCommit = false;
                         tranMgr.begin();
                         try {
-                            claimed = taskStore.claimIfNotLocked(taskId, version, claimUntilTime);
+                            claimedPendingCommit = taskStore.claimIfNotLocked(taskId, version, claimUntilTime);
                         } finally {
                             tranMgr.commit();
                         }
 
-                        if (claimed) {
-                            short mbits = (Short) result[1];
-                            int txTimeout = (Integer) result[3];
+                        if (claimed = claimedPendingCommit) {
+                            short mbits = (Short) result[2];
+                            int txTimeout = (Integer) result[4];
                             InvokerTask task = new InvokerTask(PersistentExecutorImpl.this, taskId, nextExecTime, mbits, txTimeout);
                             long delay = nextExecTime - new Date().getTime();
                             if (trace && tc.isDebugEnabled())
@@ -2510,7 +2618,10 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
             if (trace && tc.isEntryEnabled())
                 Tr.entry(PersistentExecutorImpl.this, tc, "run[poll]");
 
-            Config config = configRef.get();
+            // Claim execution state BEFORE checking deactivated to prevent race condition
+            pollingTaskRunning.set(true);
+            try {
+                Config config = configRef.get();
 
             if (deactivated || !config.enableTaskExecution || config != initialConfig) {
                 if (trace && tc.isEntryEnabled())
@@ -2555,6 +2666,9 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
 
             if (trace && tc.isEntryEnabled())
                 Tr.exit(PersistentExecutorImpl.this, tc, "run[poll]", failure);
+            } finally {
+                pollingTaskRunning.set(false);
+            }
         }
     }
 
@@ -2633,6 +2747,7 @@ public class PersistentExecutorImpl implements ApplicationRecycleComponent, DDLG
                 if (exceptionClass.isInstance(failure))
                     return exceptionClass.cast(failure);
 
+                @SuppressWarnings("deprecation")
                 T result = exceptionClass.newInstance();
                 result.initCause(failure);
                 return result;

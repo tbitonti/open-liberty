@@ -19,12 +19,13 @@
 
 package org.apache.cxf.common.logging;
 
+// import java.io.BufferedReader; Liberty Change
+// import java.io.InputStream; Liberty Change
+// import java.io.InputStreamReader; Liberty Change
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
 import java.text.MessageFormat;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
@@ -34,7 +35,12 @@ import java.util.logging.Logger;
 
 import org.apache.cxf.common.i18n.BundleUtils;
 
-import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
+// import org.apache.cxf.common.util.StringUtils; Liberty Change
+import com.ibm.ws.ffdc.annotation.FFDCIgnore; // Liberty Change
+
+import io.openliberty.cxf.logging.CXFLogger;
 
 /**
  * A container for static utility methods related to logging.
@@ -51,11 +57,17 @@ import com.ibm.ws.ffdc.annotation.FFDCIgnore;
  */
 
 public final class LogUtils {
-    public static final String KEY = "org.apache.cxf.Logger";
+    //    private static final String KEY = "org.apache.cxf.Logger";  Liberty Change
 
     private static final Object[] NO_PARAMETERS = new Object[0];
 
-    private static Class<?> loggerClass = null;
+    private static Class<?> loggerClass;
+    private static String loggerClassbackup;
+    private static boolean loggerBackedUp = false;
+    private static boolean loggerRestored = false;
+    private static final String CXFLOGGERFAILED = "CXFLogger failed!";
+
+    private static final TraceComponent tc = Tr.register(LogUtils.class);
 
     /**
      * Prevents instantiation.
@@ -162,9 +174,8 @@ public final class LogUtils {
      * @return an appropriate Logger
      */
     public static Logger getLogger(Class<?> cls) {
-        //Liberty Change for CXF Begain
-        return createLogger(cls, null, cls.getName() + getClassLoader(cls));
-        //Liberty Change for CXF End
+	Logger logger = createLogger(cls, null, cls.getName() + getClassLoader(cls));
+	return logger;
     }
 
     /**
@@ -175,9 +186,8 @@ public final class LogUtils {
      * @return an appropriate Logger
      */
     public static Logger getLogger(Class<?> cls, String resourcename) {
-        //Liberty Change for CXF Begain
-        return createLogger(cls, resourcename, cls.getName() + getClassLoader(cls));
-        //Liberty Change for CXF End
+        Logger logger = createLogger(cls, resourcename, cls.getName() + getClassLoader(cls));
+	return logger;
     }
 
     /**
@@ -191,7 +201,8 @@ public final class LogUtils {
     public static Logger getLogger(Class<?> cls,
                                    String resourcename,
                                    String loggerName) {
-        return createLogger(cls, resourcename, loggerName);
+        Logger logger =  createLogger(cls, resourcename, loggerName);
+	return logger;
     }
 
     /**
@@ -201,9 +212,8 @@ public final class LogUtils {
      * @return an appropriate Logger
      */
     public static Logger getL7dLogger(Class<?> cls) {
-        //Liberty Change for CXF Begin
-        return createLogger(cls, null, cls.getName() + getClassLoader(cls));
-        //Liberty Change for CXF End
+        Logger logger = createLogger(cls, null, cls.getName() + getClassLoader(cls));
+	return logger;
     }
 
     /**
@@ -214,9 +224,8 @@ public final class LogUtils {
      * @return an appropriate Logger
      */
     public static Logger getL7dLogger(Class<?> cls, String resourcename) {
-        //Liberty Change for CXF Begain
-        return createLogger(cls, resourcename, cls.getName() + getClassLoader(cls));
-        //Liberty Change for CXF End
+	Logger logger = createLogger(cls, resourcename, cls.getName() + getClassLoader(cls));
+	return logger;
     }
 
     /**
@@ -230,13 +239,14 @@ public final class LogUtils {
     public static Logger getL7dLogger(Class<?> cls,
                                       String resourcename,
                                       String loggerName) {
-        return createLogger(cls, resourcename, loggerName);
+        Logger logger =  createLogger(cls, resourcename, loggerName);
+	return logger;
     }
 
     /**
      * Create a logger
      */
-    @FFDCIgnore({ MissingResourceException.class, IllegalArgumentException.class })
+    @FFDCIgnore({ MissingResourceException.class, IllegalArgumentException.class }) // Liberty Change
     protected static Logger createLogger(final Class<?> cls,
                                          String name,
                                          String loggerName) {
@@ -247,7 +257,6 @@ public final class LogUtils {
         }
         String bundleName = name;
         try {
-            Logger logger = null;
             ResourceBundle b = null;
             if (bundleName == null) {
                 //grab the bundle prior to the call to Logger.getLogger(...) so the
@@ -263,27 +272,80 @@ public final class LogUtils {
                 try {
                     b = BundleUtils.getBundle(cls, bundleName);
                 } catch (MissingResourceException rex) {
-                    //ignore
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {  // Liberty change begin
+                        Tr.debug(tc, "Exception occured finding the bundle: " + rex.getMessage());
+                    }   // Liberty change end
                 }
             }
             if (b != null) {
                 b.getLocale();
             }
 
-            if (loggerClass != null) {
+            // Liberty change begin: Replace WsLogger with CXFLogger
+            Class<?> wsLoggerClass = null;
+            try {
+                wsLoggerClass = Class.forName("com.ibm.ws.logging.internal.WsLogger");
+            } catch (ClassNotFoundException e) {
+                // ignore class not found
+                // it won't match loggerClass anyway
+            }
+            // Default logger of Liberty is WsLogger. 
+            // CXFLogger is inherited from this WsLogger class to preserve same behavior
+            // except adding class name to log records
+           // If there is a problem with CXFLogger and original logger is restored, 
+            // or logger class is null skip the if block below
+            if (!isLoggerRestored() && getLoggerClass() != null) {
+                Constructor<?> cns = null;
                 try {
-                    Constructor<?> cns = loggerClass.getConstructor(String.class, String.class);
-                    if (name == null) {
+                    // Switch to CXFLogger if the logger class is WsLogger if it's not switched already.
+                    if (getLoggerClass().equals(wsLoggerClass) || getLoggerClass().equals(CXFLogger.class)) {
+                        backupLoggerClass(getLoggerClass(), CXFLogger.class);
                         try {
-                            return (Logger) cns.newInstance(loggerName, bundleName);
+                            cns = CXFLogger.class.getConstructor(String.class, String.class, Class.class);
+                            return (CXFLogger) cns.newInstance(loggerName, bundleName, cls);
                         } catch (InvocationTargetException ite) {
                             if (ite.getTargetException() instanceof MissingResourceException) {
-                                return (Logger) cns.newInstance(loggerName, null);
+                                try {
+                                    return (CXFLogger) cns.newInstance(loggerName, null, cls);
+                                } catch (Exception e) {
+                                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                                        Tr.debug(tc, "MissingResourceException occured initializing CXFLogger: " + e.getMessage() + "\n We'll fallback to original logger class.");
+                                    }
+                                }
                             }
-                            throw ite;
+                            // Ignore exception let it fall into original logger class;
+                            setLoggerRestored(restoreLoggerClass());
+                            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                                // In case of CXFLogger failure both exception messages will be printed out. 
+                                Tr.debug(tc, "InvocationTargetException occured initializing CXFLogger: " + ite.getMessage() + "\n We'll fallback to original logger class.");
+                            }
+                            throwFallBackToOriginalLoggerException();
+                        } catch(RuntimeException e)    {
+                            // Need to fall back to original logger no matter is the exception
+                            setLoggerRestored(restoreLoggerClass());
+                            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                                // In case of CXFLogger failure both exception messages will be printed out. 
+                                Tr.debug(tc, "RuntimeException occured initializing CXFLogger: " + e.getMessage() + "\n We'll fallback to original logger class.");
+                            }
+                            throwFallBackToOriginalLoggerException();
+                        } catch(Exception e)    {
+                            // Need to fall back to original logger no matter is the exception
+                            setLoggerRestored(restoreLoggerClass());
+                            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                                // In case of CXFLogger failure both exception messages will be printed out. 
+                                Tr.debug(tc, "Exception occured initializing CXFLogger: " + e.getMessage() + "\n We'll fallback to original logger class.");
+                            }
+                            throwFallBackToOriginalLoggerException();
                         }
-                    }
+                    }   // Liberty change end: Replace WsLogger with CXFLogger
+                    // Skip obtaining constructor by reflection since WsLogger doesn't have a constructor:
+                    // WsLogger.<init>(java.lang.String,java.lang.String). We need to drop to line
+                    // logger = Logger.getLogger(loggerName, bundleName);
                     try {
+                        // Liberty change begin: Use common logger class constructor 
+                        // to fall back to original logger in case CXFLogger fails
+                        cns = getLoggerClass().getConstructor(String.class, String.class);
+                        // Liberty change end
                         return (Logger) cns.newInstance(loggerName, bundleName);
                     } catch (InvocationTargetException ite) {
                         if (ite.getTargetException() instanceof MissingResourceException) {
@@ -292,21 +354,39 @@ public final class LogUtils {
                         throw ite;
                     }
                 } catch (Exception e) {
-                    throw new RuntimeException(e);
+                    if (e.getMessage().equals(CXFLOGGERFAILED)) { // Liberty change begin
+                        // Ignore the exception. Logger will be created with the code below
+                        // This is the exception created to skip execution till this point
+                    } else { // Liberty change end
+                        throw new RuntimeException(e);
+                    }   // Liberty change 
                 }
             }
 
+            Logger logger;
             try {
                 logger = Logger.getLogger(loggerName, bundleName); //NOPMD
-            } catch (IllegalArgumentException iae) {
+            } catch (IllegalArgumentException | MissingResourceException ex) {
                 //likely a mismatch on the bundle name, just return the default
                 logger = Logger.getLogger(loggerName); //NOPMD
-            } catch (MissingResourceException rex) {
-                logger = Logger.getLogger(loggerName); //NOPMD
-            } finally {
-                b = null;
             }
-            return logger;
+             // Liberty change begin: Skip trying to use CXFlogger if it's failed once
+             if (!isLoggerRestored() && logger.getClass().equals(wsLoggerClass)) {
+                 // Swap WsLogger with CXFLogger if no logger class name provided
+                 try {
+                     backupLoggerClass(logger.getClass(), CXFLogger.class);
+                     return CXFLogger.getLogger(logger, cls);
+                 } catch (Exception e) {
+                     // Let system return the logger that is already created
+                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                         Tr.debug(tc, "Exception occured at CXFLogger.getlogger method: " + e.getMessage() + "\n We'll fallback to original logger class.");
+                    }
+                    // If we can't create CXFLogger for any reason restore back the original logger
+                    setLoggerRestored(restoreLoggerClass());
+                 }
+             } 
+             // Liberty change end:
+             return logger;
         } finally {
             if (n != orig) {
                 setContextClassLoader(orig);
@@ -318,7 +398,6 @@ public final class LogUtils {
         final SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             AccessController.doPrivileged(new PrivilegedAction<Object>() {
-               @Override
                 public Object run() {
                     Thread.currentThread().setContextClassLoader(classLoader);
                     return null;
@@ -334,11 +413,13 @@ public final class LogUtils {
         if (sm != null) {
             return AccessController.doPrivileged(new PrivilegedAction<ClassLoader>() {
                 public ClassLoader run() {
-                    return Thread.currentThread().getContextClassLoader();
+		    ClassLoader  cl = Thread.currentThread().getContextClassLoader();
+                    return cl;
                 }
             });
         }
-        return Thread.currentThread().getContextClassLoader();
+        ClassLoader  cl = Thread.currentThread().getContextClassLoader();
+        return cl;
     }
 
     private static ClassLoader getClassLoader(final Class<?> clazz) {
@@ -473,7 +554,7 @@ public final class LogUtils {
 
         //try to get the right class name/method name - just trace
         //back the stack till we get out of this class
-        StackTraceElement stack[] = (new Throwable()).getStackTrace();
+        StackTraceElement[] stack = (new Throwable()).getStackTrace();
         String cname = LogUtils.class.getName();
         for (int x = 0; x < stack.length; x++) {
             StackTraceElement frame = stack[x];
@@ -494,13 +575,121 @@ public final class LogUtils {
      * @param message the message to be localized
      */
     private static String localize(Logger logger, String message) {
+	String newMsg = "";
         ResourceBundle bundle = logger.getResourceBundle();
         try {
-            return bundle != null ? bundle.getString(message) : message;
+            newMsg = bundle != null ? bundle.getString(message) : message;
         } catch (MissingResourceException ex) {
             //string not in the bundle
-            return message;
+            newMsg = message;
+        }
+	return newMsg;
+    }
+    // Liberty change begin
+    /**
+    * a boolean value will be returned to be used as a flag to skip CXFLogger code
+    *
+    * @param Class<?> originalCls       the logger class set by the system that needs to be replaced
+    * @param Class<?> newCls            the Logger that's aimed to be assign to loggerClass 
+    * */
+    private static void backupLoggerClass(Class<?> originalCls, Class<?> newCls) {
+        // Backup only once, swapping logger class does not need to be dynamic 
+        if (!isLoggerBackedUp()) {
+            setLoggerClassbackup(getLoggerClass() != null ? getLoggerClass().getName() : null);
+            loggerClass = newCls;       // We can't use setLoggerClass because 
+            setLoggerBackedUp(true);
         }
     }
+    
+   /**
+    * If original logger class needs to be restored, it means CXFLogger failed somewhere
+    * In order to not check if CXFLogger fails or not each time, 
+    * a boolean value will be returned to be used as a flag to skip CXFLogger code
+    *
+    * @return boolean   Value showing if restoration is successful
+    */
+    private static boolean restoreLoggerClass() {
+       if(isLoggerRestored())    {
+           if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+               Tr.debug(tc, "Logger is restored once already. Returning.");
+           }
+           return true;
+       }
+       if (getLoggerClassbackup() == null) {
+           if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+               Tr.debug(tc, "loggerClassbackup is not found. Returning.");
+           }
+           return false;
+       }
+       if (!isLoggerBackedUp()) {
+           if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+               Tr.debug(tc, "loggerClass is not backed up. Returning.");
+              }
+           return false;
+       }
+       // If CXFLogger fails, restore back the backup logger class
+       try {
+           loggerClass = Class.forName(getLoggerClassbackup());
+           setLoggerClassbackup(null);
+           return true;
+       } catch (ClassNotFoundException e) {
+          if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+               Tr.debug(tc, "Exception restoring backup logger class: " + e.getMessage());
+           }
+           return false;
+       }
+   }
+    private static void throwFallBackToOriginalLoggerException() throws Exception       {
+        throw new Exception(CXFLOGGERFAILED);
+    }
 
+    /**
+     * @return the loggerClassbackup
+     */
+    private static String getLoggerClassbackup() {
+        return loggerClassbackup;
+    }
+
+    /**
+     * @param loggerClassbackup the loggerClassbackup to set
+     */
+    private static void setLoggerClassbackup(String loggerClassbackup) {
+        LogUtils.loggerClassbackup = loggerClassbackup;
+    }
+
+    /**
+     * @return the isLoggerBackedUp
+     */
+    private static boolean isLoggerBackedUp() {
+        return loggerBackedUp;
+    }
+
+    /**
+     * @param isLoggerBackedUp the isLoggerBackedUp to set
+     */
+    private static void setLoggerBackedUp(boolean isLoggerBackedUp) {
+        LogUtils.loggerBackedUp = isLoggerBackedUp;
+    }
+
+    /**
+     * @return the isLoggerRestored
+     */
+    private static boolean isLoggerRestored() {
+        return loggerRestored;
+    }
+
+    /**
+     * @param isLoggerRestored the isLoggerRestored to set
+     */
+    private static void setLoggerRestored(boolean isLoggerRestored) {
+        LogUtils.loggerRestored = isLoggerRestored;
+    }
+
+    /**
+     * @return the loggerClass
+     */
+    private static Class<?> getLoggerClass() {
+        return loggerClass;
+    }
+    // Liberty change end
 }

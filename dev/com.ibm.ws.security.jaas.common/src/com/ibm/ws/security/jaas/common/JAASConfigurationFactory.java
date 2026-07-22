@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -36,9 +38,7 @@ import com.ibm.wsspi.kernel.service.utils.ConcurrentServiceReferenceMap;
 /**
  *
  */
-@Component(service = JAASConfigurationFactory.class,
-                configurationPolicy = ConfigurationPolicy.IGNORE,
-                property = "service.vendor=IBM")
+@Component(service = JAASConfigurationFactory.class, configurationPolicy = ConfigurationPolicy.IGNORE, property = "service.vendor=IBM")
 public class JAASConfigurationFactory {
 
     private static TraceComponent tc = Tr.register(JAASConfigurationFactory.class);
@@ -47,19 +47,16 @@ public class JAASConfigurationFactory {
 
     public static final String KEY_JAAS_LOGIN_CONFIG = "JAASLoginConfig";
 
-    private static final AtomicServiceReference<JAASConfiguration> jaasConfigurationRef = new AtomicServiceReference<JAASConfiguration>(KEY_JAAS_CONFIGURATION);
+    private final AtomicServiceReference<JAASConfiguration> jaasConfigurationRef = new AtomicServiceReference<JAASConfiguration>(KEY_JAAS_CONFIGURATION);
 
-    // jaas.conf file 
-    private static final AtomicServiceReference<JAASLoginConfig> jaasLoginConfigRef = new AtomicServiceReference<JAASLoginConfig>(KEY_JAAS_LOGIN_CONFIG);
+    // jaas.conf file
+    private final AtomicServiceReference<JAASLoginConfig> jaasLoginConfigRef = new AtomicServiceReference<JAASLoginConfig>(KEY_JAAS_LOGIN_CONFIG);
 
     private JAASSecurityConfiguration jaasSecurityConfiguration = null;
-    private JAASConfiguration jaasConfiguration = null;
 
-    Map<String, List<AppConfigurationEntry>> jaasConfigurationEntriesFromJaasConfig = null;
+    private Map<String, List<AppConfigurationEntry>> jaasConfigurationEntriesFromJaasConfig = null;
 
-    @Reference(service = JAASLoginConfig.class,
-                    name = KEY_JAAS_LOGIN_CONFIG,
-                    cardinality = ReferenceCardinality.MANDATORY)
+    @Reference(service = JAASLoginConfig.class, name = KEY_JAAS_LOGIN_CONFIG, cardinality = ReferenceCardinality.MANDATORY)
     public void setJAASLoginConfig(ServiceReference<JAASLoginConfig> ref) {
         jaasLoginConfigRef.setReference(ref);
     }
@@ -68,8 +65,7 @@ public class JAASConfigurationFactory {
         jaasLoginConfigRef.unsetReference(ref);
     }
 
-    @Reference(service = JAASConfiguration.class,
-                    name = KEY_JAAS_CONFIGURATION)
+    @Reference(service = JAASConfiguration.class, name = KEY_JAAS_CONFIGURATION)
     public void setJAASConfiguration(ServiceReference<JAASConfiguration> ref) {
         jaasConfigurationRef.setReference(ref);
     }
@@ -88,15 +84,19 @@ public class JAASConfigurationFactory {
     @Deactivate
     protected void deactivate(ComponentContext cc) {
         jaasConfigurationRef.deactivate(cc);
+        jaasLoginConfigRef.deactivate(cc);
+        jaasSecurityConfiguration = null;
+        jaasConfigurationEntriesFromJaasConfig = null;
     }
 
-    public JAASConfigurationFactory() {}
+    public JAASConfigurationFactory() {
+    }
 
     /**
      * This method install the JAAS configuration that specified in the server.xml/client.xml file
      */
     public synchronized void installJAASConfiguration(ConcurrentServiceReferenceMap<String, JAASLoginContextEntry> jaasLoginContextEntries) {
-        jaasConfiguration = jaasConfigurationRef.getServiceWithException();
+        JAASConfiguration jaasConfiguration = jaasConfigurationRef.getServiceWithException();
         jaasConfiguration.setJaasLoginContextEntries(jaasLoginContextEntries);
         Map<String, List<AppConfigurationEntry>> jaasConfigurationEntries = jaasConfiguration.getEntries();
 

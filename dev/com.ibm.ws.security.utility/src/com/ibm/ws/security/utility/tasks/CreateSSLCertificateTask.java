@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -19,7 +21,12 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.FilenameUtils;
 
@@ -40,11 +47,8 @@ public class CreateSSLCertificateTask extends BaseCommandTask {
 
     static final String ARG_SERVER = "--server";
     static final String ARG_CLIENT = "--client";
-    static final String ARG_PASSWORD = "--password";
     static final String ARG_VALIDITY = "--validity";
     static final String ARG_SUBJECT = "--subject";
-    static final String ARG_ENCODING = "--passwordEncoding";
-    static final String ARG_KEY = "--passwordKey";
     static final String ARG_CREATE_CONFIG_FILE = "--createConfigFile";
     static final String ARG_KEYSIZE = "--keySize";
     static final String ARG_SIGALG = "--sigAlg";
@@ -57,11 +61,19 @@ public class CreateSSLCertificateTask extends BaseCommandTask {
     static final String JKS = "jks";
     static final String PKCS12 = "pkcs12";
 
+    private static final List<String> BETA_ARG_TABLE = new ArrayList<>();
+    private static final List<String> BETA_OPTS = BETA_ARG_TABLE.stream().map(s -> s.startsWith("--") ? s.substring(2) : s).collect(Collectors.toList());
+
     private final DefaultSSLCertificateCreator creator;
     private final IFileUtility fileUtility;
     protected ConsoleWrapper stdin;
     protected PrintStream stdout;
     protected PrintStream stderr;
+    private static final List<Set<String>> EXCLUSIVE_ARGUMENTS = Arrays.asList(
+                                                                               new HashSet<String>(Arrays.asList(BaseCommandTask.ARG_PASSWORD_KEY,
+                                                                                                                 BaseCommandTask.ARG_PASSWORD_BASE64_KEY,
+                                                                                                                 BaseCommandTask.ARG_AES_CONFIG_FILE)),
+                                                                               new HashSet<String>(Arrays.asList(ARG_SERVER, ARG_CLIENT)));
 
     public CreateSSLCertificateTask(DefaultSSLCertificateCreator creator,
                                     IFileUtility fileUtility, String scriptName) {
@@ -142,7 +154,7 @@ public class CreateSSLCertificateTask extends BaseCommandTask {
             if (!fileUtility.exists(clientDir)) {
                 usrClients = fileUtility.resolvePath(usrClients);
                 stdout.println(getMessage("sslCert.abort"));
-                stdout.println(getMessage("sslCert.clientNotFound", clientName, usrClients));
+                stdout.println(getMessage("clientNotFound", clientName, usrClients));
                 return SecurityUtilityReturnCodes.ERR_CLIENT_NOT_FOUND;
             }
             dir = clientDir;
@@ -184,16 +196,21 @@ public class CreateSSLCertificateTask extends BaseCommandTask {
         List<String> extInfo = getExtInfoArgumentValues(ARG_EXT, args);
 
         try {
-            String encoding = getArgumentValue(ARG_ENCODING, args, PasswordUtil.getDefaultEncoding());
-            String key = getArgumentValue(ARG_KEY, args, null);
+            Map<String, String> argProps = new HashMap<>();
+            String encoding = getArgumentValue(BaseCommandTask.ARG_PASSWORD_ENCODING, args, PasswordUtil.getDefaultEncoding());
+            argProps.put(BaseCommandTask.ARG_PASSWORD_KEY, getArgumentValue(BaseCommandTask.ARG_PASSWORD_KEY, args, null));
+            argProps.put(BaseCommandTask.ARG_AES_CONFIG_FILE, getArgumentValue(BaseCommandTask.ARG_AES_CONFIG_FILE, args, null));
+            argProps.put(BaseCommandTask.ARG_PASSWORD_BASE64_KEY, getArgumentValue(BaseCommandTask.ARG_PASSWORD_BASE64_KEY, args, null));
+
+            Map<String, String> props = BaseCommandTask.convertToProperties(argProps, stdout);
             stdout.println(getMessage("sslCert.createKeyStore", location));
-            String encodedPassword = PasswordUtil.encode(password, encoding, key);
+            String encodedPassword = PasswordUtil.encode(password, encoding, props);
             creator.createDefaultSSLCertificate(location, password, keyType, null, validity, subjectDN, keySize, sigAlg, extInfo);
             String xmlSnippet = null;
             if (serverName != null) {
                 stdout.println(getMessage("sslCert.serverXML", serverName, subjectDN));
                 xmlSnippet = "    <featureManager>" + NL +
-                             "        <feature>ssl-1.0</feature>" + NL +
+                             "        <feature>transportSecurity-1.0</feature>" + NL +
                              "    </featureManager>" + NL +
                              "    <keyStore id=\"defaultKeyStore\" password=\"" + encodedPassword + "\" />" + NL;
 
@@ -223,12 +240,14 @@ public class CreateSSLCertificateTask extends BaseCommandTask {
     /** {@inheritDoc} */
     @Override
     boolean isKnownArgument(String arg) {
-        return arg.equals(ARG_SERVER) || arg.equals(ARG_PASSWORD) ||
-               arg.equals(ARG_VALIDITY) || arg.equals(ARG_SUBJECT) ||
-               arg.equals(ARG_ENCODING) || arg.equals(ARG_KEY) ||
-               arg.equals(ARG_CREATE_CONFIG_FILE) || arg.equals(ARG_KEYSIZE) ||
-               arg.equals(ARG_CLIENT) || arg.equals(ARG_SIGALG) ||
-               arg.equals(ARG_KEY_TYPE) || arg.equals(ARG_EXT);
+        boolean isKnown = arg.equals(ARG_SERVER) || arg.equals(ARG_PASSWORD) ||
+                          arg.equals(ARG_VALIDITY) || arg.equals(ARG_SUBJECT) ||
+                          arg.equals(ARG_PASSWORD_ENCODING) || arg.equals(ARG_PASSWORD_KEY) ||
+                          arg.equals(ARG_CREATE_CONFIG_FILE) || arg.equals(ARG_KEYSIZE) ||
+                          arg.equals(ARG_CLIENT) || arg.equals(ARG_SIGALG) ||
+                          arg.equals(ARG_KEY_TYPE) || arg.equals(ARG_EXT) || arg.equals(ARG_PASSWORD_BASE64_KEY) ||
+                          arg.equals(ARG_AES_CONFIG_FILE);
+        return isKnown;
     }
 
     /** {@inheritDoc} */
@@ -258,10 +277,7 @@ public class CreateSSLCertificateTask extends BaseCommandTask {
             //missingArg need either --server or --client
             message += " " + getMessage("missingArg2", ARG_SERVER, ARG_CLIENT);
         }
-        if (serverFound && clientFound) {
-            //both --server and --client can not be specified
-            message += " " + getMessage("exclusiveArg", ARG_SERVER, ARG_CLIENT);
-        }
+
         if (!passwordFound) {
             message += " " + getMessage("missingArg", ARG_PASSWORD);
         }
@@ -312,13 +328,15 @@ public class CreateSSLCertificateTask extends BaseCommandTask {
         InetAddress addr;
         try {
             addr = InetAddress.getByName(hostname);
+            ext = "SAN=";
             if (addr != null && addr.toString().startsWith("/"))
-                ext = "SAN=ip:" + hostname;
+                ext += "ip:" + hostname;
             else {
-                // If the hostname start with a digit keytool will not create a SAN with the value
-                if (!Character.isDigit(hostname.charAt(0)))
-                    ext = "SAN=dns:" + hostname;
+                ext += "dns:" + hostname;
             }
+            String ipAddresses = DefaultSubjectDN.buildSanIpStringFromNetworkInterface();
+            if (ipAddresses != null)
+                ext = ext + "," + ipAddresses;
         } catch (UnknownHostException e) {
             // use return null and not set SAN if there is an exception here
         }
@@ -342,9 +360,9 @@ public class CreateSSLCertificateTask extends BaseCommandTask {
      * This method acts like a filter for xml snippets. If the user provides the {@link #ARG_OPT_CREATE_CONFIG_FILE} option, then we will write it to a file and
      * provide an include snippet. Otherwise, we just return the provided xml snippet.
      *
-     * @param serverDir Path to the root of the server. e.g. /path/to/wlp/usr/servers/myServer/
+     * @param serverDir   Path to the root of the server. e.g. /path/to/wlp/usr/servers/myServer/
      * @param commandLine The command-line arguments.
-     * @param xmlSnippet The xml configuration the task produced.
+     * @param xmlSnippet  The xml configuration the task produced.
      * @return An include snippet or the given xmlSnippet.
      */
     protected String createConfigFileIfNeeded(String serverDir, String[] commandLine, String xmlSnippet) {
@@ -410,4 +428,13 @@ public class CreateSSLCertificateTask extends BaseCommandTask {
         return outputFile;
     }
 
+    @Override
+    protected List<String> getBetaOptions() {
+        return BETA_OPTS;
+    }
+
+    @Override
+    protected List<Set<String>> getExclusiveArguments() {
+        return EXCLUSIVE_ARGUMENTS;
+    }
 }

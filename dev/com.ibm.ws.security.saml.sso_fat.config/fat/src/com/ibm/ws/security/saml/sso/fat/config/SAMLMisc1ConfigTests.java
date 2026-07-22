@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -28,6 +30,9 @@ import componenttest.annotation.ExpectedFFDC;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.repeater.EmptyAction;
+import componenttest.rules.repeater.JakartaEE10Action;
+import componenttest.rules.repeater.JakartaEE9Action;
 import componenttest.topology.impl.LibertyServerWrapper;
 
 @LibertyServerWrapper
@@ -900,16 +905,17 @@ public class SAMLMisc1ConfigTests extends SAMLConfigCommonTests {
      * time (not having to reconfig multiple times) we'll do all of this in one
      * test)
      */
-    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.security.SecurityPolicyException", "org.opensaml.xml.signature.SignatureException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.handler.MessageHandlerException", "org.opensaml.xmlsec.signature.support.SignatureException"  }, repeatAction = {EmptyAction.ID,JakartaEE9Action.ID,JakartaEE10Action.ID})
     // @Mode(TestMode.LITE)
     @Test
     public void test_config_errorPageURL() throws Exception {
 
         testSAMLServer.reconfigServer("server_errorPageURL.xml", _testName, commonAddtlMsgs, SAMLConstants.JUNIT_REPORTING);
-
-        // SP1 requires SHA256, but the IDP's SP1 returns SHA1
+        
+        // following two tests are same, since IDP configuration is updated to use SHA256 to meet with fips140-3 requirements
         SAMLTestSettings updatedTestSettings1 = testSettings.copyTestSettings();
         updatedTestSettings1.updatePartnerInSettings("sp1", true);
+        updatedTestSettings1.setRemoveTagInResponse("ds:Signature");
         List<validationData> expectations1 = vData.addSuccessStatusCodes();
         expectations1 = vData.addExpectation(expectations1, SAMLConstants.INVOKE_ACS_WITH_SAML_RESPONSE, SAMLConstants.RESPONSE_TITLE, SAMLConstants.STRING_CONTAINS, "Did not Land on the SP1 error page.", null, SAMLConstants.SP1_ERROR_PAGE_TITLE);
 
@@ -969,8 +975,9 @@ public class SAMLMisc1ConfigTests extends SAMLConfigCommonTests {
      * Config attribute: errorPageURL This test will test specifying some bad
      * value (non existant url) Test shows that we get a decent
      */
-    @ExpectedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.security.SecurityPolicyException" })
-    @AllowedFFDC(value = { "com.ibm.ws.jsp.webcontainerext.JSPErrorReport" })
+    @ExpectedFFDC(value = {"com.ibm.ws.security.saml.error.SamlException"})
+    //@ExpectedFFDC(value = {"org.opensaml.messaging.handler.MessageHandlerException"}, repeatAction = {EmptyAction.ID,JakartaEE9Action.ID,JakartaEE10Action.ID})
+    @AllowedFFDC(value = {"com.ibm.ws.jsp.webcontainerext.JSPErrorReport"})
     // @Mode(TestMode.LITE)
     @Test
     public void test_config_errorPageURL_invalid() throws Exception {
@@ -981,6 +988,7 @@ public class SAMLMisc1ConfigTests extends SAMLConfigCommonTests {
 
         SAMLTestSettings updatedTestSettings1 = testSettings.copyTestSettings();
         updatedTestSettings1.updatePartnerInSettings("sp1", true);
+        updatedTestSettings1.setRemoveTagInResponse("ds:Signature");
         List<validationData> expectations = vData.addSuccessStatusCodes(null, SAMLConstants.INVOKE_ACS_WITH_SAML_RESPONSE);
         expectations = vData.addResponseStatusExpectation(expectations, SAMLConstants.INVOKE_ACS_WITH_SAML_RESPONSE, SAMLConstants.NOT_FOUND_STATUS);
         expectations = vData.addExpectation(expectations, SAMLConstants.INVOKE_ACS_WITH_SAML_RESPONSE, SAMLConstants.RESPONSE_FULL, SAMLConstants.STRING_CONTAINS, "Did not fail to find the specified error page. (full)", null, "Failed to find resource");

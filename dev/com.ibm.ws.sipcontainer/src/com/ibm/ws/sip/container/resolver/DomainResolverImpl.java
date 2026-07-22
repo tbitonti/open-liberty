@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2003 IBM Corporation and others.
+ * Copyright (c) 2003, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -34,6 +36,8 @@ import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.sip.resolver.DomainResolver;
 import com.ibm.websphere.sip.resolver.DomainResolverListener;
 import com.ibm.websphere.sip.resolver.exception.SipURIResolveException;
+import com.ibm.ws.kernel.productinfo.ProductInfo;
+import com.ibm.ws.sip.container.internal.SipContainerComponent;
 import com.ibm.ws.sip.container.properties.PropertiesStore;
 import com.ibm.ws.sip.container.util.SipUtil;
 import com.ibm.ws.sip.container.was.ThreadLocalStorage;
@@ -42,17 +46,18 @@ import com.ibm.ws.sip.properties.SipPropertiesMap;
 import com.ibm.ws.sip.stack.internalapi.NaptrRequestListener;
 import com.ibm.ws.sip.stack.internalapi.SipStackDomainResolver;
 import com.ibm.ws.sip.stack.transaction.SIPTransactionConstants;
-//TODO Liberty change to Liberty channel framework classes
-import com.ibm.ws.sip.channel.resolver.impl.SipResolverService;
+import com.ibm.wsspi.kernel.service.utils.MetatypeUtils;
 import com.ibm.wsspi.sip.channel.resolver.SIPUri;
 import com.ibm.wsspi.sip.channel.resolver.SipURILookup;
 import com.ibm.wsspi.sip.channel.resolver.SipURILookupException;
 
+import io.openliberty.netty.internal.NettyFramework;
+
 @Component(service = DomainResolverImpl.class,
-configurationPolicy = ConfigurationPolicy.OPTIONAL,
-configurationPid = "com.ibm.ws.sip.container.resolver.DomainResolverImpl",
-name = "com.ibm.ws.sip.container.resolver.DomainResolverImpl",
-property = {"service.vendor=IBM"} )
+   configurationPolicy = ConfigurationPolicy.OPTIONAL,
+   configurationPid = "com.ibm.ws.sip.container.resolver.DomainResolverImpl",
+   name = "com.ibm.ws.sip.container.resolver.DomainResolverImpl",
+   property = {"service.vendor=IBM"} )
 public class DomainResolverImpl implements DomainResolver, SipStackDomainResolver {
 	
 	/** trace variable */
@@ -65,8 +70,12 @@ public class DomainResolverImpl implements DomainResolver, SipStackDomainResolve
 	private boolean _initialized = false;
 	
 	private boolean _naptrAutoResolve = false;
+	private NettyFramework m_nettyfw;
 	private CHFWBundle m_chfw;
-	
+	private boolean useNetty = false;
+
+	private static final String USE_NETTY = "useNettyTransport";
+
 	/**
 	 * DS method to activate this component.
 	 * 
@@ -78,41 +87,81 @@ public class DomainResolverImpl implements DomainResolver, SipStackDomainResolve
 		if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
 			Tr.debug(tc, "DomainResolverImpl activated", properties);
 		PropertiesStore.getInstance().getProperties().updateProperties(properties);
+		useNetty = (!ProductInfo.getBetaEdition())?false:MetatypeUtils.parseBoolean(
+			"domainResolver", USE_NETTY, properties.get(USE_NETTY), true);
+		if (c_logger.isTraceDebugEnabled() && useNetty) {
+			c_logger.traceDebug("DomainResolverImpl activate: useNetty=true");
+		}
+		if (c_logger.isTraceDebugEnabled() && ProductInfo.getBetaEdition() && !useNetty) {
+			//log when beta=true but useNetty=false
+			c_logger.traceDebug("DomainResolverImpl activate: useNetty=false");
+		}
 		init();
 	}
-	
-	
 
 	/**
-	 * This is a required static reference, this won't be called until the
+	 * This is an optional static reference, this won't be called until the
 	 * component has been deactivated
 	 * 
 	 * @param bundle
-	 *            CHFWBundle instance to unset
+	 *            NettyFramework instance to unset
 	 */
-	protected void unsetChfwBundle(CHFWBundle bundle) {
+	protected void unsetNettyBundle(NettyFramework bundle) {
 		if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
-			Tr.event(tc, "unsetChfwBundle");
+			Tr.event(tc, "unsetNettyBundle");
 		}
-		m_chfw = null;
+		m_nettyfw = null;
 		
 	}   
 
 	/**
-	 * This is a required static reference, this won't be called until the
-	 * component has been deactivated
+	 * This is an optional static reference, this won't be called until the
+	 * component has been activated. We expect at least one of NettyFramework 
+	 * or CHFWBundle to be active.
 	 * 
 	 * @param bundle
-	 *            CHFWBundle instance to unset
+	 *            NettyFramework instance to set
 	 */
-	@Reference( policy = ReferencePolicy.STATIC, cardinality = ReferenceCardinality.MANDATORY)
-	protected void setChfwBundle(CHFWBundle bundle) {
+	@Reference( policy = ReferencePolicy.STATIC, cardinality = ReferenceCardinality.OPTIONAL)
+	protected void setNettyBundle(NettyFramework bundle) {
 		if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
-			Tr.event(tc, "setChfwBundle");
+			Tr.event(tc, "setNettyBundle");
 		}
-		m_chfw = bundle;
+		m_nettyfw = bundle;
 		
 	}
+	
+   /**
+     * This is an optional static reference, this won't be called until the
+     * component has been deactivated
+     * 
+     * @param bundle
+     *            CHFWBundle instance to unset
+     */
+    protected void unsetChfwBundle(CHFWBundle bundle) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
+            Tr.event(tc, "unsetChfwBundle");
+        }
+        m_chfw = null;
+        
+    }   
+
+    /**
+     * This is an optional static reference, this won't be called until the
+     * component has been activated. We expect at least one of NettyFramework 
+     * or CHFWBundle to be active.
+     * 
+     * @param bundle
+     *            CHFWBundle instance to set
+     */
+    @Reference( policy = ReferencePolicy.STATIC, cardinality = ReferenceCardinality.OPTIONAL)
+    protected void setChfwBundle(CHFWBundle bundle) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
+            Tr.event(tc, "setChfwBundle");
+        }
+        m_chfw = bundle;
+        
+    }
 
 	
 	/**
@@ -196,15 +245,25 @@ public class DomainResolverImpl implements DomainResolver, SipStackDomainResolve
 			dsProps.put(CoreProperties.SIP_RFC3263_DNS_FAILURE_DETECTION_WINDOW_SIZE_INTERVAL_SEC, interval);
 			dsProps.put(CoreProperties.SIP_RFC3263_ADD_TTL, addTTL);
 			dsProps.put(CoreProperties.SIP_DNS_QUERY_TIMEOUT, queryTimeoutDuration);
-		
-			SipResolverService.initialize(dsProps,m_chfw);
+
+		    if (useNetty) {
+		        if (m_nettyfw == null) {
+		            throw new RuntimeException("NettyFramework service was null!");
+		        }
+	            com.ibm.ws.sip.channel.resolver.impl.netty.SipResolverService.initialize(dsProps, m_nettyfw);
+
+		    } else {
+	            if (m_chfw == null) {
+	                throw new RuntimeException("ChannelFramework service was null!");
+	            }
+                com.ibm.ws.sip.channel.resolver.impl.chfw.SipResolverService.initialize(dsProps, m_chfw);
+		    }
 			
 			if (c_logger.isTraceDebugEnabled()) {
 				c_logger.traceDebug(this, "DomainResolverImpl", "SipResolverService initialized.");
 			}
 			
 			_naptrAutoResolve = sipProp.getBoolean(CoreProperties.DNS_SERVER_AUTO_RESOLVE);
-			
 			_initialized = true;
 		} else {
 			if (c_logger.isTraceDebugEnabled()) {
@@ -306,7 +365,7 @@ public class DomainResolverImpl implements DomainResolver, SipStackDomainResolve
 	 * @param callback
 	 */
 	private void lookupDestination(SIPUri sipUri, SipURILookupCallbackImpl callback) throws SipURIResolveException{
-		SipURILookup request = SipResolverService.getInstance(callback, sipUri);
+	    SipURILookup request = getSipURILookup(callback, sipUri);
 		
 		try {
 			if (request.lookup()){
@@ -334,7 +393,7 @@ public class DomainResolverImpl implements DomainResolver, SipStackDomainResolve
 		SipURILookupCallbackImpl callback = new SipURILookupCallbackImpl(listener, fix);
 
 		// create the SipURILookup object //
-		SipURILookup request = SipResolverService.getInstance(callback, suri);
+		SipURILookup request = getSipURILookup(callback, suri);
 		
 		if (c_logger.isTraceDebugEnabled()) {
 			StringBuilder buff = new StringBuilder();
@@ -405,4 +464,12 @@ public class DomainResolverImpl implements DomainResolver, SipStackDomainResolve
 		return _naptrAutoResolve;
 	}	
 	
+	
+    private SipURILookup getSipURILookup(SipURILookupCallbackImpl callback, SIPUri uri) {
+        if (useNetty) {
+            return com.ibm.ws.sip.channel.resolver.impl.netty.SipResolverService.getInstance(callback, uri);
+        } else {
+            return com.ibm.ws.sip.channel.resolver.impl.chfw.SipResolverService.getInstance(callback, uri);
+        }
+    }
 }

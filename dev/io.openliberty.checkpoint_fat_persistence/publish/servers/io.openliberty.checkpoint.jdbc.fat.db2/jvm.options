@@ -1,0 +1,2 @@
+-Djavax.net.debug=all
+-Xdump:java:events=throw+systhrow,filter=org/eclipse/openj9/criu/JVMCheckpointException,request=exclusive+preempt

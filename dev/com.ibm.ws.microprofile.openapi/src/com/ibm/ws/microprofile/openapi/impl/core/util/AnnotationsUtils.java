@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017, 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -692,13 +694,17 @@ public abstract class AnnotationsUtils {
     }
 
     public static Optional<Map<String, Header>> getHeaders(org.eclipse.microprofile.openapi.annotations.headers.Header[] annotationHeaders) {
+        return getHeaders(annotationHeaders, null);
+    }
+
+    public static Optional<Map<String, Header>> getHeaders(org.eclipse.microprofile.openapi.annotations.headers.Header[] annotationHeaders, Components components) {
         if (annotationHeaders == null) {
             return Optional.empty();
         }
 
         Map<String, Header> headers = new HashMap<>();
         for (org.eclipse.microprofile.openapi.annotations.headers.Header header : annotationHeaders) {
-            getHeader(header).ifPresent(headerResult -> headers.put(getNameOfReferenceableItem(header), headerResult));
+            getHeader(header, components).ifPresent(headerResult -> headers.put(getNameOfReferenceableItem(header), headerResult));
         }
 
         if (headers.size() == 0) {
@@ -707,7 +713,7 @@ public abstract class AnnotationsUtils {
         return Optional.of(headers);
     }
 
-    public static Optional<Header> getHeader(org.eclipse.microprofile.openapi.annotations.headers.Header header) {
+    public static Optional<Header> getHeader(org.eclipse.microprofile.openapi.annotations.headers.Header header, Components components) {
 
         if (header == null) {
             return Optional.empty();
@@ -749,6 +755,13 @@ public abstract class AnnotationsUtils {
                         //components.addSchemas(schema.getType(), schema);
                     }
                 });
+            } else {
+                if (components != null) {
+                    AnnotationsUtils.getSchema(header.schema(), components).ifPresent(schema -> {
+                        headerObject.setSchema(schema);
+                    });
+                }
+
             }
         }
 
@@ -893,7 +906,7 @@ public abstract class AnnotationsUtils {
             }
             OperationParser.getContent(response.content(), classProduces == null ? new String[0] : classProduces.value(),
                                        methodProduces == null ? new String[0] : methodProduces.value(), components).ifPresent(apiResponseObject::content);
-            AnnotationsUtils.getHeaders(response.headers()).ifPresent(apiResponseObject::headers);
+            AnnotationsUtils.getHeaders(response.headers(), components).ifPresent(apiResponseObject::headers);
 
             Map<String, Link> links = AnnotationsUtils.getLinks(response.links());
             if (links.size() > 0) {

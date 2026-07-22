@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2021 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,38 +16,26 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
-import org.testcontainers.containers.MSSQLServerContainer;
-import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.containers.JdbcDatabaseContainer;
 
 import com.ibm.websphere.simplicity.log.Log;
 
-import componenttest.containers.ExternalTestServiceDockerClientStrategy;
-import componenttest.containers.SimpleLogConsumer;
+import componenttest.containers.TestContainerSuite;
+import componenttest.custom.junit.runner.AlwaysPassesTest;
 
 @RunWith(Suite.class)
-@SuiteClasses(SQLServerTest.class)
-public class FATSuite {
+@SuiteClasses({
+                AlwaysPassesTest.class,
+                SQLServerTest.class,
+                SQLServerSSLTest.class
+})
+public class FATSuite extends TestContainerSuite {
 
     public static final String DB_NAME = "test";
-
-    //Required to ensure we calculate the correct strategy each run even when
-    //switching between local and remote docker hosts.
-    static {
-        ExternalTestServiceDockerClientStrategy.setupTestcontainers();
-    }
-
-    private static final DockerImageName sqlserverImage = DockerImageName.parse("kyleaure/sqlserver-ssl:2019-CU10-ubuntu-16.04")//
-                    .asCompatibleSubstituteFor("mcr.microsoft.com/mssql/server");
-
-    @ClassRule
-    public static MSSQLServerContainer<?> sqlserver = new MSSQLServerContainer<>(sqlserverImage) //
-                    .withLogConsumer(new SimpleLogConsumer(FATSuite.class, "sqlserver")) //
-                    .acceptLicense();
+    public static final String TABLE_NAME = "MYTABLE";
 
     /**
      * Create database and tables needed by test servlet.
@@ -54,23 +44,12 @@ public class FATSuite {
      *
      * @throws SQLException
      */
-    @BeforeClass
-    public static void setup() throws SQLException {
-        final String TABLE_NAME = "MYTABLE";
-
-        //Setup database and settings
-        Log.info(FATSuite.class, "setup", "Attempting to setup database with name: " + DB_NAME + "."
-                                          + " With connection URL: " + sqlserver.getJdbcUrl());
-        try (Connection conn = sqlserver.createConnection(""); Statement stmt = conn.createStatement()) {
-            stmt.execute("CREATE DATABASE [" + DB_NAME + "];");
-            stmt.execute("EXEC sp_sqljdbc_xa_install");
-            stmt.execute("ALTER DATABASE " + DB_NAME + " SET ALLOW_SNAPSHOT_ISOLATION ON");
-        }
+    public static void setupDatabase(JdbcDatabaseContainer<?> sqlserver) throws SQLException {
 
         //Create test table
         sqlserver.withUrlParam("databaseName", DB_NAME);
-        Log.info(FATSuite.class, "setup", "Attempting to setup database table with name: " + TABLE_NAME + "."
-                                          + " With connection URL: " + sqlserver.getJdbcUrl());
+        Log.info(FATSuite.class, "setupDatabase", "Attempting to setup database table with name: " + TABLE_NAME + "."
+                                                  + " With connection URL: " + sqlserver.getJdbcUrl());
         try (Connection conn = sqlserver.createConnection(""); Statement stmt = conn.createStatement()) {
             // Create tables
             int version = conn.getMetaData().getDatabaseMajorVersion();

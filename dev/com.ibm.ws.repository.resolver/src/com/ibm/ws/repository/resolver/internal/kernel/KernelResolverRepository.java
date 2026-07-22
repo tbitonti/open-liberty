@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2019 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,14 +24,15 @@ import java.util.Map.Entry;
 import org.osgi.framework.Version;
 
 import com.ibm.ws.kernel.feature.Visibility;
+import com.ibm.ws.kernel.feature.provisioning.FeatureResource;
 import com.ibm.ws.kernel.feature.provisioning.ProvisioningFeatureDefinition;
+import com.ibm.ws.kernel.feature.provisioning.SubsystemContentType;
 import com.ibm.ws.kernel.feature.resolver.FeatureResolver;
 import com.ibm.ws.repository.common.enums.FilterableAttribute;
 import com.ibm.ws.repository.common.enums.ResourceType;
 import com.ibm.ws.repository.connections.ProductDefinition;
 import com.ibm.ws.repository.connections.RepositoryConnectionList;
 import com.ibm.ws.repository.exceptions.RepositoryBackendException;
-import com.ibm.ws.repository.resolver.internal.ResolutionMode;
 import com.ibm.ws.repository.resources.ApplicableToProduct;
 import com.ibm.ws.repository.resources.EsaResource;
 import com.ibm.ws.repository.resources.RepositoryResource;
@@ -38,6 +41,7 @@ import com.ibm.ws.repository.resources.internal.RepositoryResourceImpl;
 /**
  * Implementation of {@link FeatureResolver.Repository} which is backed by a collection of {@link EsaResource}s.
  */
+@SuppressWarnings("restriction") // Ignore restricted use of RepositoryResourceImpl, it's ok here because the resolver doesn't run inside OSGi
 public class KernelResolverRepository implements FeatureResolver.Repository {
 
     /**
@@ -56,9 +60,9 @@ public class KernelResolverRepository implements FeatureResolver.Repository {
     private final Collection<ProductDefinition> productDefinitions;
     private final RepositoryConnectionList repositoryConnection;
 
-    private final ResolutionMode resolutionMode;
+    private Collection<ProvisioningFeatureDefinition> allFeatureCache = null;
 
-    public KernelResolverRepository(Collection<ProductDefinition> productDefinitions, RepositoryConnectionList repositoryConnection, ResolutionMode resolutionMode) {
+    public KernelResolverRepository(Collection<ProductDefinition> productDefinitions, RepositoryConnectionList repositoryConnection) {
         this.repositoryConnection = repositoryConnection;
 
         if (productDefinitions == null) {
@@ -66,8 +70,6 @@ public class KernelResolverRepository implements FeatureResolver.Repository {
         } else {
             this.productDefinitions = productDefinitions;
         }
-
-        this.resolutionMode = resolutionMode;
     }
 
     public void addFeatures(Collection<? extends EsaResource> esas) {
@@ -77,7 +79,7 @@ public class KernelResolverRepository implements FeatureResolver.Repository {
     }
 
     public void addFeature(EsaResource esa) {
-        KernelResolverEsa resolverEsa = new KernelResolverEsa(esa, resolutionMode);
+        KernelResolverEsa resolverEsa = new KernelResolverEsa(esa);
         addFeature(resolverEsa);
     }
 
@@ -100,14 +102,14 @@ public class KernelResolverRepository implements FeatureResolver.Repository {
             return;
         }
 
-        // If we already have a feature with this symbolic name and version, ignore the duplicate
-        if (listContainsDuplicate(featureList, feature)) {
-            return;
-        }
-
         // If this is an installed feature, wipe out any repository features added earlier
         if (!(feature instanceof KernelResolverEsa)) {
             featureList.clear();
+        }
+
+        // If we already have a feature with this symbolic name and version, ignore the duplicate
+        if (listContainsDuplicate(featureList, feature)) {
+            return;
         }
 
         featureList.add(feature);
@@ -126,6 +128,8 @@ public class KernelResolverRepository implements FeatureResolver.Repository {
         if (feature.isAutoFeature()) {
             autoFeatures.add(feature);
         }
+
+        allFeatureCache = null;
     }
 
     /**
@@ -173,6 +177,63 @@ public class KernelResolverRepository implements FeatureResolver.Repository {
         return Collections.emptyList();
     }
 
+    /**
+     * Answer all features of this repository.
+     *
+     * Answer the features in the order as provided by {@link #getAllFeatures()}.
+     *
+     * A new result collection is obtained on each invocation.
+     *
+     * What meaning the result collection has depends on whether there are
+     * any ESA features present. Multiple ESA features can be present with
+     * the same
+     *
+     * @return All of the features of this repository.
+     */
+    @Override
+    public List<ProvisioningFeatureDefinition> getFeatures() {
+        int numFeatures = 0;
+        for (List<ProvisioningFeatureDefinition> features : symbolicNameToFeature.values()) {
+            numFeatures += features.size();
+        }
+        List<ProvisioningFeatureDefinition> allFeatures = new ArrayList<>(numFeatures);
+        for (List<ProvisioningFeatureDefinition> features : symbolicNameToFeature.values()) {
+            allFeatures.addAll(features);
+        }
+        return allFeatures;
+    }
+
+    /**
+     * Select features of this repository.
+     *
+     * Answer the features in the order as provided by {@link #getAllFeatures()}.
+     *
+     * A new result collection is obtained on each invocation, even when obtaining
+     * the entire collection of features.
+     *
+     * @param selector The selector of features. If null, select all features.
+     *
+     * @return The selected features.
+     */
+    // @Override
+    public List<ProvisioningFeatureDefinition> select(FeatureResolver.Selector<ProvisioningFeatureDefinition> selector) {
+        // DO NOT USE 'getAllFeatures': That selects the preferred version of each feature.
+
+        if (selector == null) {
+            return getFeatures();
+        }
+
+        List<ProvisioningFeatureDefinition> selected = new ArrayList<>();
+        for (List<ProvisioningFeatureDefinition> features : symbolicNameToFeature.values()) {
+            for (ProvisioningFeatureDefinition feature : features) {
+                if (selector.test(feature)) {
+                    selected.add(feature);
+                }
+            }
+        }
+        return selected;
+    }
+
     @Override
     public ProvisioningFeatureDefinition getFeature(String featureName) {
         ProvisioningFeatureDefinition feature = getCachedFeature(featureName);
@@ -186,9 +247,80 @@ public class KernelResolverRepository implements FeatureResolver.Repository {
     }
 
     /**
+     * Answer the list of public versioned features derived from the passed versionless feature or empty List if doesn't exist.
+     *
+     * @return List<ProvisioningFeatureDefinition>
+     */
+    public List<ProvisioningFeatureDefinition> findAllPossibleVersions(ProvisioningFeatureDefinition versionlessFeature) {
+        ProvisioningFeatureDefinition publicFeature = null;
+        List<ProvisioningFeatureDefinition> result = new ArrayList<>();
+        for (FeatureResource dependency : versionlessFeature.getConstituents(SubsystemContentType.FEATURE_TYPE)) {
+            publicFeature = getVersionedFeature(dependency.getSymbolicName());
+            if (publicFeature != null)
+                result.add(publicFeature);
+
+            String baseName = getFeatureBaseName(dependency.getSymbolicName());
+            List<String> tolerates = dependency.getTolerates();
+            if (tolerates != null) {
+                for (String toleratedVersion : tolerates) {
+                    String featureName = baseName + toleratedVersion;
+                    publicFeature = getVersionedFeature(featureName);
+                    if (publicFeature != null)
+                        result.add(publicFeature);
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     *
+     * Answer the public versioned feature based on the internal versionless linking feature, or null if can't be found
+     *
+     * @param versionlessLinkingFeatureName
+     * @return ProvisioningFeatureDefinition
+     */
+    private ProvisioningFeatureDefinition getVersionedFeature(String versionlessLinkingFeatureName) {
+
+        ProvisioningFeatureDefinition feature = getFeature(versionlessLinkingFeatureName);
+        if (feature != null) {
+            //This is the versionless linking feature pointing to a public versioned feature
+            for (FeatureResource versionedFeature : feature.getConstituents(SubsystemContentType.FEATURE_TYPE)) {
+                //Find the right public feature (should only be one) - set the result
+                ProvisioningFeatureDefinition versionedFeatureDef = getFeature(versionedFeature.getSymbolicName());
+                if (versionedFeatureDef.getVisibility() == Visibility.PUBLIC) {
+                    return versionedFeatureDef;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Removes the version from the end of a feature symbolic name
+     * <p>
+     * The version is presumed to start after the last dash character in the name.
+     * <p>
+     * E.g. {@code getFeatureBaseName("com.example.featureA-1.0")} returns {@code "com.example.featureA-"}
+     *
+     * @param nameAndVersion the feature symbolic name
+     * @return the feature symbolic name with any version stripped
+     */
+    public String getFeatureBaseName(String nameAndVersion) {
+        int dashPosition = nameAndVersion.lastIndexOf('-');
+        if (dashPosition != -1) {
+            return nameAndVersion.substring(0, dashPosition + 1);
+        } else {
+            return nameAndVersion;
+        }
+    }
+
+    /**
      * Get a feature by name, but without going and checking the remote repository if we don't know about it
      *
      * @see #getFeature(String)
+     * @param featureName the feature name
+     * @return the feature with the given name, or {@code null} if we don't know about it
      */
     private ProvisioningFeatureDefinition getCachedFeature(String featureName) {
         List<ProvisioningFeatureDefinition> featureList = symbolicNameToFeature.get(featureName);
@@ -302,9 +434,13 @@ public class KernelResolverRepository implements FeatureResolver.Repository {
      * @return a collection features
      */
     public Collection<ProvisioningFeatureDefinition> getAllFeatures() {
-        List<ProvisioningFeatureDefinition> result = new ArrayList<>();
-        for (Entry<String, List<ProvisioningFeatureDefinition>> entry : symbolicNameToFeature.entrySet()) {
-            result.add(getPreferredVersion(entry.getKey(), entry.getValue()));
+        Collection<ProvisioningFeatureDefinition> result = allFeatureCache;
+        if (result == null) {
+            result = new ArrayList<>();
+            for (Entry<String, List<ProvisioningFeatureDefinition>> entry : symbolicNameToFeature.entrySet()) {
+                result.add(getPreferredVersion(entry.getKey(), entry.getValue()));
+            }
+            allFeatureCache = result;
         }
         return result;
     }

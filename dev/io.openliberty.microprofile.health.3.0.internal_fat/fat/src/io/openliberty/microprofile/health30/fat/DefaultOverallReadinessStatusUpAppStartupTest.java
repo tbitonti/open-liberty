@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -33,6 +35,8 @@ import com.ibm.websphere.simplicity.log.Log;
 
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.custom.junit.runner.Mode;
+import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.HttpUtils;
 
@@ -68,8 +72,6 @@ public class DefaultOverallReadinessStatusUpAppStartupTest {
 
         if (!server.isStarted())
             server.startServer(false, false);
-
-        server.waitForStringInLog("CWWKT0016I: Web application available.*DelayedHealthCheckApp*");
     }
 
     @After
@@ -83,10 +85,30 @@ public class DefaultOverallReadinessStatusUpAppStartupTest {
             server2.stopServer(EXPECTED_FAILURES);
     }
 
+    /**
+     * This dummy test is used to ensure test server starts and waits for the application to start before running
+     * subsequent tests, preventing immediate test failures due to timing issues.
+     * 
+     * When running FAT tests, the FAT infrastructure may need to generate the FAT feature list
+     * during server startup. This generation introduces a delay on the test process causing a delay from when the test logic is invoked.
+     * However, the test server continues to start-up as usual. This can cause issues for tests that test against early/start-up behaviour 
+     * as this delay can lead to the test logic to execute after the server has passed the startup-phase.
+     */
+    @Test
+    public void dummyTestStartServer() throws Exception {
+        setupClass(server1, "dummyTestStartServer");
+        log("dummyTestStartServer", "Dummy test to start server1 and wait for application to start.");
+        
+        String line = server1.waitForStringInLog("CWWKZ0001I: Application DelayedHealthCheckApp", 90000);
+        log("dummyTestStartServer", "Application Started message found: " + line);
+        assertNotNull("The CWWKZ0001I Application started message did not appear in messages.log", line);
+    }
+
     @Test
     public void testDefaultReadinessOverallStatusUpAtStartUpSingleApp() throws Exception {
         setupClass(server1, "testDefaultReadinessOverallStatusUpAtStartUpSingleApp");
         log("testDefaultReadinessOverallStatusUpAtStartUpSingleApp", "Testing the /health/ready endpoint, before application has started.");
+        
         HttpURLConnection conReady = HttpUtils.getHttpConnectionWithAnyResponseCode(server1, READY_ENDPOINT);
         assertEquals("The Response Code was not 200 for the following endpoint: " + conReady.getURL().toString(), SUCCESS_RESPONSE_CODE, conReady.getResponseCode());
 
@@ -104,7 +126,7 @@ public class DefaultOverallReadinessStatusUpAppStartupTest {
         List<String> lines = server1.findStringsInFileInLibertyServerRoot("CWMMH0053W:", MESSAGE_LOG);
         assertEquals("The CWMMH0053W warning should not appear in messages.log", 0, lines.size());
 
-        String line = server1.waitForStringInLogUsingMark("(CWWKZ0001I: Application DelayedHealthCheckApp started)+", 60000);
+        String line = server1.waitForStringInLogUsingMark("(CWWKZ0001I: Application DelayedHealthCheckApp started)+", 90000);
         log("testDefaultReadinessOverallStatusUpAtStartUpSingleApp", "Application Started message found: " + line);
         assertNotNull("The CWWKZ0001I Application started message did not appear in messages.log", line);
 
@@ -120,10 +142,12 @@ public class DefaultOverallReadinessStatusUpAppStartupTest {
     }
 
     @Test
+    @Mode(TestMode.FULL)
     public void testInvalidDefaultReadinessOverallStatusProperty() throws Exception {
         // Set the invalid value for the MpConfig property. e.g. "mp.health.default.readiness.empty.response=UPs", it should be default behaviour (DOWN)
         setupClass(server2, "testInvalidDefaultReadinessOverallStatusProperty");
         log("testInvalidDefaultReadinessOverallStatusProperty", "Testing the /health/ready endpoint, before application has started.");
+        
         HttpURLConnection conReady = HttpUtils.getHttpConnectionWithAnyResponseCode(server2, READY_ENDPOINT);
         assertEquals("The Response Code was not 503 for the following endpoint: " + conReady.getURL().toString(), FAILED_RESPONSE_CODE, conReady.getResponseCode());
 
@@ -141,7 +165,7 @@ public class DefaultOverallReadinessStatusUpAppStartupTest {
         List<String> lines = server2.findStringsInFileInLibertyServerRoot("CWMMH0053W:", MESSAGE_LOG);
         assertEquals("The CWMMH0053W warning did not appear in messages.log", 1, lines.size());
 
-        String line = server2.waitForStringInLogUsingMark("(CWWKZ0001I: Application DelayedHealthCheckApp started)+", 60000);
+        String line = server2.waitForStringInLogUsingMark("(CWWKZ0001I: Application DelayedHealthCheckApp started)+", 90000);
         log("testInvalidDefaultReadinessOverallStatusProperty", "Application Started message found: " + line);
         assertNotNull("The CWWKZ0001I Application started message did not appear in messages.log", line);
 

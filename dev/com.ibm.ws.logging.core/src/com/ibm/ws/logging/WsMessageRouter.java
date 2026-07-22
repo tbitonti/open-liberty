@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -29,12 +31,13 @@ public interface WsMessageRouter extends MessageRouter {
      * Route the given message.
      * 
      * @param routedMessage Contains the LogRecord and various message formats.
+     * @param messageHidden Flag indicating if the message should be hidden or not.
      * 
      * @return true if the message may be logged normally by the caller,
      *         (in addition to whatever logging was performed under this
      *         method), if desired.
      */
-    public boolean route(RoutedMessage routedMessage);
+    public boolean route(RoutedMessage routedMessage, boolean messageHidden);
 
     /**
      * TODO

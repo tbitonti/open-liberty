@@ -1,9 +1,11 @@
 ###############################################################################
 # Copyright (c) 2012 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -299,3 +301,6 @@ LICENSE_replace_invalidInstallType=The license cannot be applied because the spe
 LICENSE_replace_invalidEditonFeatures=The following features do not apply to the {0} edition and must be uninstalled before applying the license: {1}\n\nUse the following command to uninstall these features before applying the license for {2} edition: {3}
 
 LICENSE_downgrade_block_8557_low=This license can only be applied to installation at {0} or above. The current installation is at {1}. Download and update to the latest level and re-apply the license.
+
+#message for applying interim fix
+INTERIM_FIX_replace_invalidVersion=The interim fix cannot be applied because the specified product installation is at version {0}, but the interim fix can only be applied to version {1}.

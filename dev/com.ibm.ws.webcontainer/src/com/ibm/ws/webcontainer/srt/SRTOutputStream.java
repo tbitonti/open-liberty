@@ -1,12 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 1997, 2006 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.srt;
 
@@ -119,13 +118,13 @@ public class SRTOutputStream extends javax.servlet.ServletOutputStream implement
    */
   public void write(byte[] b, int off, int len) throws IOException
   {
-                if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
-                        logger.logp(Level.FINE, CLASS_NAME,"write", "Writing");
-        }
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  //306998.15
+          logger.logp(Level.FINE, CLASS_NAME,"write(byte[], int, int)", "len [" + len + "]");
+      }
 
-    if (_observer != null)
-      _observer.alertFirstWrite();
-    _conn.write(b, off, len);
+      if (_observer != null)
+          _observer.alertFirstWrite();
+      _conn.write(b, off, len);
   }
 
   @Override

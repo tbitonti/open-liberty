@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,6 +19,8 @@ import static org.junit.Assert.assertNotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Map.Entry;
 
@@ -25,6 +29,8 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.images.builder.ImageFromDockerfile;
+import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.ImageNameSubstitutor;
 
 import com.github.dockerjava.api.exception.DockerException;
 import com.github.dockerjava.api.model.ContainerNetwork;
@@ -52,10 +58,27 @@ public class PebbleContainer extends CAContainer {
 
 	private Network network = Network.newNetwork();
 
-	public final GenericContainer<?> challtestsrv = new GenericContainer<>("letsencrypt/pebble-challtestsrv")
+	public final GenericContainer<?> challtestsrv = new GenericContainer<>(DockerImageName.parse("letsencrypt/pebble-challtestsrv:v2.3.1"))
 			.withCommand("pebble-challtestsrv").withExposedPorts(DNS_PORT, CHALL_MANAGEMENT_PORT).withNetwork(network)
 			.withLogConsumer(o -> System.out.print("[CHL] " + o.getUtf8String()));
 
+	/*
+	 * Local JSON file that contains the Pebble configuration. The location of this file is dependent on whether
+	 * you're running stand-alone through the 'runPebble' Gradle task or you are running Pebble via FVT.
+	 */
+	private static final File PEBBLE_CONFIG_JSON_FILE;
+	
+	static {
+		/*
+		 * Support running in FVT and running stand-alone.
+		 */
+		if (Files.exists(Paths.get("lib/LibertyFATTestFiles/pebble-config.json"))) {
+			PEBBLE_CONFIG_JSON_FILE = new File("lib/LibertyFATTestFiles/pebble-config.json");
+		} else {
+			PEBBLE_CONFIG_JSON_FILE = new File("com.ibm.ws.security.acme_fat/publish/files/pebble-config.json");
+		}
+	}
+	
 	/**
 	 * Log the output from this testcontainer.
 	 * 
@@ -76,12 +99,14 @@ public class PebbleContainer extends CAContainer {
 	 *            Address of the DNS server to use to make DNS lookups for
 	 *            domains.
 	 */
+	    //TODO switch to use ghcr.io/letsencrypt/pebble:2.6.0
+	    //TODO remove withDockerfileFromBuilder and instead create a dockerfile
 	public PebbleContainer() {
 		super(new ImageFromDockerfile()
-				.withDockerfileFromBuilder(builder -> builder.from("letsencrypt/pebble")
+				.withDockerfileFromBuilder(builder -> builder.from(
+						ImageNameSubstitutor.instance().apply(DockerImageName.parse("letsencrypt/pebble:v2.3.1")).asCanonicalNameString())
 						.copy("pebble-config.json", "/test/config/pebble-config.json").build())
-				.withFileFromFile("pebble-config.json", new File("lib/LibertyFATTestFiles/pebble-config.json")), 5002,
-				14000, 15000);
+				.withFileFromFile("pebble-config.json", PEBBLE_CONFIG_JSON_FILE), 5002, 14000, 15000);
 		challtestsrv.withStartupAttempts(20);
 		challtestsrv.withStartupTimeout(Duration.ofSeconds(60));
 
@@ -187,7 +212,7 @@ public class PebbleContainer extends CAContainer {
 			throw new IllegalStateException("Failed to set default mock DNS A and AAAA record IP addresses.", e);
 		}
 
-		Log.info(PebbleContainer.class, "PebbleContainer", "ContainerIpAddress: " + getContainerIpAddress());
+		Log.info(PebbleContainer.class, "PebbleContainer", "ContainerIpAddress: " + getHost());
 		Log.info(PebbleContainer.class, "PebbleContainer", "DockerImageName:    " + getDockerImageName());
 		assertNotNull("getContainerInfo()", getContainerInfo());
 		Log.info(PebbleContainer.class, "PebbleContainer", "ContainerInfo:      " + getContainerInfo());
@@ -208,12 +233,12 @@ public class PebbleContainer extends CAContainer {
 			 * PebbleAcmeProvider and PebbleHttpConnector, which will trust
 			 * Pebble's static self-signed certificate.
 			 */
-			return "acme://pebble/" + this.getContainerIpAddress() + ":" + this.getMappedPort(getAcmeListenPort());
+			return "acme://pebble/" + this.getHost() + ":" + this.getMappedPort(getAcmeListenPort());
 		} else {
 			/*
 			 * This will cause acme4j to use the GenericAcmeProvider.
 			 */
-			return "https://" + this.getContainerIpAddress() + ":" + this.getMappedPort(getAcmeListenPort()) + "/dir";
+			return "https://" + this.getHost() + ":" + this.getMappedPort(getAcmeListenPort()) + "/dir";
 		}
 	}
 
@@ -238,7 +263,7 @@ public class PebbleContainer extends CAContainer {
 
 	@Override
 	protected String getDnsManagementAddress() {
-		return "http://" + challtestsrv.getContainerIpAddress() + ":"
+		return "http://" + challtestsrv.getHost() + ":"
 				+ challtestsrv.getMappedPort(CHALL_MANAGEMENT_PORT);
 	}
 

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2019 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -50,15 +52,6 @@ public class ArrayClassInfoImpl extends ClassInfoImpl {
                          "[ {0} ] Created on element [ {1} ]",
                          new Object[] { getHashText(), getElementClass().getHashText() });
         }
-    }
-
-    // Changed to pass in the type class name.  That centralizes
-    // the calls to obtain the name for a particular class info to
-    // the ClassInfoCache.
-
-    @Deprecated
-    public ArrayClassInfoImpl(ClassInfoImpl elementClass) {
-        this(elementClass.getName() + "[]", elementClass);
     }
 
     //

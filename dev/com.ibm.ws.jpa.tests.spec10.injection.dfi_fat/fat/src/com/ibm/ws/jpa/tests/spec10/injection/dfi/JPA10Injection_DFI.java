@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -82,8 +84,8 @@ import com.ibm.ws.jpa.fvt.injection.tests.web.dfi.noinh.DFIPkgNoInhTestServlet;
 import com.ibm.ws.jpa.fvt.injection.tests.web.dfi.noinh.DFIPriNoInhTestServlet;
 import com.ibm.ws.jpa.fvt.injection.tests.web.dfi.noinh.DFIProNoInhTestServlet;
 import com.ibm.ws.jpa.fvt.injection.tests.web.dfi.noinh.DFIPubNoInhTestServlet;
-import com.ibm.ws.jpa.tests.spec10.injection.common.JPAFATServletClient;
 import com.ibm.ws.jpa.tests.spec10.injection.common.RepeaterInfo;
+import com.ibm.ws.testtooling.vehicle.web.JPAFATServletClient;
 
 import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
@@ -404,6 +406,11 @@ public class JPA10Injection_DFI extends JPAFATServletClient {
             ClassloaderElement loader = new ClassloaderElement();
             loader.getCommonLibraryRefs().add("HibernateLib");
             cel.add(loader);
+        } else if (RepeaterInfo.repeatPhase != null && RepeaterInfo.repeatPhase.contains("openjpa")) {
+            ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
+            ClassloaderElement loader = new ClassloaderElement();
+            loader.getCommonLibraryRefs().add("OpenJPALib");
+            cel.add(loader);
         }
 
         server1.setMarkToEndOfLog();
@@ -478,6 +485,11 @@ public class JPA10Injection_DFI extends JPAFATServletClient {
             ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
             ClassloaderElement loader = new ClassloaderElement();
             loader.getCommonLibraryRefs().add("HibernateLib");
+            cel.add(loader);
+        } else if (RepeaterInfo.repeatPhase != null && RepeaterInfo.repeatPhase.contains("openjpa")) {
+            ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
+            ClassloaderElement loader = new ClassloaderElement();
+            loader.getCommonLibraryRefs().add("OpenJPALib");
             cel.add(loader);
         }
 
@@ -558,6 +570,11 @@ public class JPA10Injection_DFI extends JPAFATServletClient {
             ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
             ClassloaderElement loader = new ClassloaderElement();
             loader.getCommonLibraryRefs().add("HibernateLib");
+            cel.add(loader);
+        } else if (RepeaterInfo.repeatPhase != null && RepeaterInfo.repeatPhase.contains("openjpa")) {
+            ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
+            ClassloaderElement loader = new ClassloaderElement();
+            loader.getCommonLibraryRefs().add("OpenJPALib");
             cel.add(loader);
         }
 
@@ -648,6 +665,11 @@ public class JPA10Injection_DFI extends JPAFATServletClient {
             ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
             ClassloaderElement loader = new ClassloaderElement();
             loader.getCommonLibraryRefs().add("HibernateLib");
+            cel.add(loader);
+        } else if (RepeaterInfo.repeatPhase != null && RepeaterInfo.repeatPhase.contains("openjpa")) {
+            ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
+            ClassloaderElement loader = new ClassloaderElement();
+            loader.getCommonLibraryRefs().add("OpenJPALib");
             cel.add(loader);
         }
 
@@ -743,6 +765,11 @@ public class JPA10Injection_DFI extends JPAFATServletClient {
             ClassloaderElement loader = new ClassloaderElement();
             loader.getCommonLibraryRefs().add("HibernateLib");
             cel.add(loader);
+        } else if (RepeaterInfo.repeatPhase != null && RepeaterInfo.repeatPhase.contains("openjpa")) {
+            ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
+            ClassloaderElement loader = new ClassloaderElement();
+            loader.getCommonLibraryRefs().add("OpenJPALib");
+            cel.add(loader);
         }
 
         server1.setMarkToEndOfLog();
@@ -825,6 +852,11 @@ public class JPA10Injection_DFI extends JPAFATServletClient {
             ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
             ClassloaderElement loader = new ClassloaderElement();
             loader.getCommonLibraryRefs().add("HibernateLib");
+            cel.add(loader);
+        } else if (RepeaterInfo.repeatPhase != null && RepeaterInfo.repeatPhase.contains("openjpa")) {
+            ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
+            ClassloaderElement loader = new ClassloaderElement();
+            loader.getCommonLibraryRefs().add("OpenJPALib");
             cel.add(loader);
         }
 
@@ -918,6 +950,11 @@ public class JPA10Injection_DFI extends JPAFATServletClient {
             ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
             ClassloaderElement loader = new ClassloaderElement();
             loader.getCommonLibraryRefs().add("HibernateLib");
+            cel.add(loader);
+        } else if (RepeaterInfo.repeatPhase != null && RepeaterInfo.repeatPhase.contains("openjpa")) {
+            ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
+            ClassloaderElement loader = new ClassloaderElement();
+            loader.getCommonLibraryRefs().add("OpenJPALib");
             cel.add(loader);
         }
 

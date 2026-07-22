@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2021 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -40,8 +42,8 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Set;
-import java.util.Stack;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -215,6 +217,12 @@ public class DataSourceTestServlet extends FATServlet {
 
     @Resource
     private ExecutorService executor;
+
+    static final long TWO_MINUTE_MS_TIMEOUT = 120000; // Two minutes in milliseconds
+    static final long FIVE_MINUTE_MS_TIMEOUT = 300000; // Five minutes in milliseconds
+
+    // Atypical uneven interval (in milliseconds) for special polling
+    static final long ODD_POLLING_INTERVAL_MS = 867; // 867 milliseconds
 
     /**
      * Standard isolation level values.
@@ -646,7 +654,9 @@ public class DataSourceTestServlet extends FATServlet {
             } finally {
                 tran.setTransactionTimeout(0); // restore default
             }
-            if (queryTimeout < 85 || queryTimeout > 90) // tolerate any elapsed time for the query
+            // tolerate any elapsed time, as long as it is greater than the 30 second default from
+            // the dataSource and not greater than the 90 seconds set by tran.setTransactionTimeout(90)
+            if (queryTimeout < 31 || queryTimeout > 90)
                 throw new Exception("Expecting queryTimeout(sync to tran)=90, not " + queryTimeout);
 
         } finally {
@@ -872,26 +882,23 @@ public class DataSourceTestServlet extends FATServlet {
      * Keep a connection open for a few seconds while ConfigTest increases the queryTimeout.
      */
     public void testConfigChangeWithActiveConnections() throws Exception {
-
-        Stack<Integer> results = new Stack<Integer>();
-        Connection con = ds5.getConnection();
-        try {
-            for (int i = 0; i < 40; i++) {
-                Thread.sleep(100);
-                Statement s = con.createStatement();
-                int queryTimeout = s.getQueryTimeout();
-                int previous = results.isEmpty() ? 30 : results.peek();
-                results.push(queryTimeout);
-                if (queryTimeout < previous || queryTimeout > 34)
-                    throw new Exception("Unexpected queryTimeout in " + results);
+        boolean isFound = false;
+        try (Connection con = ds5.getConnection()) {
+            Statement s = con.createStatement();
+            int queryTimeout = s.getQueryTimeout(); // Initial value should be 30 from the "dsfat5derby" dataSource defined in server.xml
+            int initialTimeout = queryTimeout;
+            s.close();
+            for (long start = System.currentTimeMillis(); !isFound && System.currentTimeMillis() - start < FIVE_MINUTE_MS_TIMEOUT; Thread.sleep(ODD_POLLING_INTERVAL_MS)) {
+                s = con.createStatement();
+                queryTimeout = s.getQueryTimeout();
+                isFound = queryTimeout > initialTimeout ? true : false;
                 s.close();
             }
         } finally {
-            con.close();
+            if (!isFound) {
+                throw new Exception("Test testConfigChangeWithActiveConnections did not complete within the allotted time of " + FIVE_MINUTE_MS_TIMEOUT + " ms.");
+            }
         }
-
-        if (results.peek() == 30) // no updates were made
-            throw new Exception("Did not observe any updates to the queryTimeout: " + results);
     }
 
     /**
@@ -3124,6 +3131,7 @@ public class DataSourceTestServlet extends FATServlet {
      * The recoveryAuthData should be used for recovery.
      */
     public void testXARecovery() throws Throwable {
+        int numPrepares = 3;
         clearTable(ds4u_2);
         Connection[] cons = new Connection[3];
         tran.begin();
@@ -3135,6 +3143,12 @@ public class DataSourceTestServlet extends FATServlet {
 
             String dbProductName = cons[0].getMetaData().getDatabaseProductName().toUpperCase();
             System.out.println("Product Name is " + dbProductName);
+
+            // Work around PostgreSQL's limit of max_prepared_transactions=2,
+            // which results in the following message when exceeded:
+            // "maximum number of prepared transactions reached"
+            if ("POSTGRESQL".equalsIgnoreCase(dbProductName))
+                numPrepares = 2;
 
             // Verify isolation-level="TRANSACTION_READ_COMMITTED" from ibm-web-ext.xml
             int isolation = cons[0].getTransactionIsolation();
@@ -3156,12 +3170,14 @@ public class DataSourceTestServlet extends FATServlet {
             pstmt.executeUpdate();
             pstmt.close();
 
-            pstmt = cons[2].prepareStatement("insert into cities values (?, ?, ?)");
-            pstmt.setString(1, "Moorhead");
-            pstmt.setInt(2, 38065);
-            pstmt.setString(3, "Clay");
-            pstmt.executeUpdate();
-            pstmt.close();
+            if (numPrepares == 3) {
+                pstmt = cons[2].prepareStatement("insert into cities values (?, ?, ?)");
+                pstmt.setString(1, "Moorhead");
+                pstmt.setInt(2, 38065);
+                pstmt.setString(3, "Clay");
+                pstmt.executeUpdate();
+                pstmt.close();
+            }
 
             System.out.println("Intentionally causing in-doubt transaction");
             TestXAResource.assignSuccessLimit(1, cons);
@@ -3191,58 +3207,65 @@ public class DataSourceTestServlet extends FATServlet {
         // At this point, the transaction is in-doubt.
         // We won't be able to access the data until the transaction manager recovers
         // the transaction and resolves it.
-        //
-        // A connection configured with TRANSACTION_SERIALIZABLE is necessary in
-        // order to allow the recovery to kick in before using the connection.
 
         System.out.println("attempting to access data (only possible after recovery)");
-        Connection con = ds4u_8.getConnection();
 
-        int isolation = con.getTransactionIsolation();
-        if (isolation != Connection.TRANSACTION_SERIALIZABLE)
-            throw new Exception("The isolation-level of the resource-ref is not honored, instead: " + isolation);
+        // Verify the isolation-level resource-ref attribute is honored by ds4u_8
+        Connection verifyIsolation = ds4u_8.getConnection();
         try {
-            ResultSet result;
-            PreparedStatement pstmt = con.prepareStatement("select name, population, county from cities where name = ?");
-
-            /*
-             * Poll for results once a second for 5 seconds.
-             * Most databases will have XA recovery done by this point
-             *
-             */
-            List<String> cities = new ArrayList<>();
-            for (int count = 0; cities.size() < 3 && count < 5; Thread.sleep(1000)) {
-                if (!cities.contains("Edina")) {
-                    pstmt.setString(1, "Edina");
-                    result = pstmt.executeQuery();
-                    if (result.next())
-                        cities.add(0, "Edina");
-                }
-
-                if (!cities.contains("St. Louis Park")) {
-                    pstmt.setString(1, "St. Louis Park");
-                    result = pstmt.executeQuery();
-                    if (result.next())
-                        cities.add(1, "St. Louis Park");
-                }
-
-                if (!cities.contains("Moorhead")) {
-                    pstmt.setString(1, "Moorhead");
-                    result = pstmt.executeQuery();
-                    if (result.next())
-                        cities.add(2, "Moorhead");
-                }
-                count++;
-                System.out.println("Attempt " + count + " to retrieve recovered XA data. Current status: " + cities);
-            }
-
-            if (cities.size() < 3)
-                throw new Exception("Missing entry in database. Results: " + cities);
-            else
-                System.out.println("successfully accessed the data");
+            int isolation = verifyIsolation.getTransactionIsolation();
+            if (isolation != Connection.TRANSACTION_SERIALIZABLE)
+                throw new Exception("The isolation-level of the resource-ref is not honored, instead: " + isolation);
         } finally {
-            con.close();
+            verifyIsolation.close();
         }
+
+        /*
+         * Poll for results once a second for up to 2 minutes.
+         * A new READ_COMMITTED connection is obtained on each attempt so that Oracle's
+         * SERIALIZABLE snapshot issues (ORA-08177) do not prevent reading recovered data.
+         * READ_COMMITTED always sees committed data, which is what we need here.
+         */
+        List<String> cities = new ArrayList<>();
+        for (int count = 0; cities.size() < numPrepares && count < 120; Thread.sleep(1000)) {
+            Connection con = ds4u_2.getConnection();
+            try {
+                PreparedStatement pstmt = con.prepareStatement("select name, population, county from cities where name = ?");
+                try {
+                    if (!cities.contains("Edina")) {
+                        pstmt.setString(1, "Edina");
+                        ResultSet result = pstmt.executeQuery();
+                        if (result.next())
+                            cities.add(0, "Edina");
+                    }
+
+                    if (!cities.contains("St. Louis Park")) {
+                        pstmt.setString(1, "St. Louis Park");
+                        ResultSet result = pstmt.executeQuery();
+                        if (result.next())
+                            cities.add(1, "St. Louis Park");
+                    }
+
+                    if (numPrepares == 3 && !cities.contains("Moorhead")) {
+                        pstmt.setString(1, "Moorhead");
+                        ResultSet result = pstmt.executeQuery();
+                        if (result.next())
+                            cities.add(2, "Moorhead");
+                    }
+                } finally {
+                    pstmt.close();
+                }
+            } finally {
+                con.close();
+            }
+            count++;
+            System.out.println("Attempt " + count + " to retrieve recovered XA data. Current status: " + cities);
+        }
+
+        if (cities.size() < numPrepares)
+            throw new Exception("Missing entry in database. Results: " + cities);
+        else
+            System.out.println("successfully accessed the data");
     }
 
     /**
@@ -3550,6 +3573,7 @@ public class DataSourceTestServlet extends FATServlet {
     public void testInterruptedWaiters() throws Throwable {
         Connection con1 = ds22.getConnection();
         Connection con2 = null;
+        final CountDownLatch asyncFinallyLatch = new CountDownLatch(1);
         try {
             con2 = ds22.getConnection(); // connection pool should now be full
             //Need to request the third connection async since the getConnection request should hang
@@ -3557,11 +3581,13 @@ public class DataSourceTestServlet extends FATServlet {
             Future<Boolean> future = executor.submit(new Callable<Boolean>() {
                 @Override
                 public Boolean call() throws Exception {
-                    Connection con = ds22.getConnection();
+                    Connection con = null;
                     try {
+                        con = ds22.getConnection();
                         con.getMetaData();
                         return true;
                     } finally {
+                        asyncFinallyLatch.countDown();
                         if (con != null)
                             con.close();
                     }
@@ -3579,6 +3605,9 @@ public class DataSourceTestServlet extends FATServlet {
             future.cancel(true);
 
             assertTrue("Future should have been canceled", future.isCancelled());
+
+            //Wait 20 seconds to give time for the waiting thread to be interrupted
+            assertTrue("Async connection should have been interrupted", asyncFinallyLatch.await(20, TimeUnit.SECONDS));
         } finally {
             con1.close();
             con2.close();

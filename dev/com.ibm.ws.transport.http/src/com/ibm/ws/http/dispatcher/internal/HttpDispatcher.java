@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2021 IBM Corporation and others.
+ * Copyright (c) 2009, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.http.dispatcher.internal;
 
@@ -44,10 +43,9 @@ import com.ibm.wsspi.http.HttpDateFormat;
 import com.ibm.wsspi.http.VirtualHostListener;
 import com.ibm.wsspi.http.WorkClassifier;
 import com.ibm.wsspi.http.channel.values.HttpHeaderKeys;
+import com.ibm.wsspi.http.ee.behaviors.HttpBehavior;
 import com.ibm.wsspi.http.ee7.HttpTransportBehavior;
 import com.ibm.wsspi.kernel.service.utils.MetatypeUtils;
-import com.ibm.wsspi.timer.ApproximateTime;
-import com.ibm.wsspi.timer.QuickApproxTime;
 
 /**
  * Component that handles configuration for the dispatching of inbound
@@ -75,6 +73,13 @@ public class HttpDispatcher {
 
     private static volatile boolean useEE7Streams = false;
     private static volatile Boolean useIOExceptionBehavior = null;
+
+    //Servlet 6.0
+    private volatile ServiceReference<HttpBehavior> cookieBehaviorRef;
+    private static volatile boolean useEE10Cookies = false;
+
+    //Servlet 6.1 (EE11)
+    private static volatile boolean isEE11 = false;
 
     static final String CONFIG_ALIAS = "httpDispatcher";
 
@@ -140,7 +145,8 @@ public class HttpDispatcher {
     /**
      * Constructor.
      */
-    public HttpDispatcher() {}
+    public HttpDispatcher() {
+    }
 
     /**
      * DS method to activate this component.
@@ -274,7 +280,7 @@ public class HttpDispatcher {
      *
      * The helper class TrustedHeaderOriginLists is used to maintain lists of trusted hosts, and to perform lookups.
      *
-     * @param trustedPrivateHeaderHosts String[] of hosts to trust for non-sensitive private headers
+     * @param trustedPrivateHeaderHosts   String[] of hosts to trust for non-sensitive private headers
      * @param trustedSensitiveHeaderHosts String[] of hosts to trust for sensitive private headers
      */
     private synchronized void parseTrustedPrivateHeaderOrigin(String[] trustedPrivateHeaderHosts, String[] trustedSensitiveHeaderHosts) {
@@ -324,7 +330,7 @@ public class HttpDispatcher {
     }
 
     /**
-     * @param addr the remote address to check
+     * @param addr     the remote address to check
      * @param HostName the remote host to check
      * @return true if private headers should be used (the default is true)
      */
@@ -333,7 +339,7 @@ public class HttpDispatcher {
     }
 
     /**
-     * @param hostAddr the remote address to check
+     * @param hostAddr   the remote address to check
      * @param headerName the name of the header to check
      * @return true if private headers should be used (the default is true when headerName is not sensitive)
      */
@@ -343,8 +349,8 @@ public class HttpDispatcher {
     }
 
     /**
-     * @param hostAddr the remote address to check
-     * @param hostName the remote host to check
+     * @param hostAddr   the remote address to check
+     * @param hostName   the remote host to check
      * @param headerName the name of the header to check
      * @return true if private headers should be used (the default is true when headerName is not sensitive)
      */
@@ -393,7 +399,7 @@ public class HttpDispatcher {
      * trustedSensitiveHeaderOrigin takes precedence over trustedHeaderOrigin; so if trustedHeaderOrigin="none"
      * while trustedSensitiveHeaderOrigin="*", non-sensitive headers will still be trusted for all hosts.
      *
-     * @param addr the remote address to check
+     * @param addr       the remote address to check
      * @param headerName the name of the header to check
      * @return true if hostAddr is a trusted source of private headers
      */
@@ -548,29 +554,7 @@ public class HttpDispatcher {
      * @return the approximate time service instance to use within the channel framework
      */
     public static long getApproxTime() {
-        return QuickApproxTime.getApproxTime();
-    }
-
-    /**
-     * Set the approximate time service reference.
-     * This is a required reference: will be called before activation.
-     * It is also dynamic: it may be replaced-- but we will always have one.
-     *
-     * @param ref new ApproximateTime service instance/provider
-     */
-    @Reference(name = "approxTime", policy = ReferencePolicy.DYNAMIC)
-    protected void setApproxTime(ApproximateTime ref) {
-        // do nothing: need the ref for activation of service
-    }
-
-    /**
-     * Remove the reference to the approximate time service.
-     * This is a required reference, will be called after deactivate.
-     *
-     * @param ref ApproximateTime service instance/provider to remove
-     */
-    protected void unsetApproxTime(ApproximateTime ref) {
-        // do nothing: need the ref for activation of service
+        return System.currentTimeMillis();
     }
 
     /**
@@ -711,7 +695,8 @@ public class HttpDispatcher {
         return result;
     }
 
-    protected void unsetWebContainer(ServiceReference<VirtualHostListener> ref) {}
+    protected void unsetWebContainer(ServiceReference<VirtualHostListener> ref) {
+    }
 
     /**
      * DS method for setting the Work Classification service reference.
@@ -775,6 +760,39 @@ public class HttpDispatcher {
 
     public static Boolean useIOEForInboundConnectionsBehavior() {
         return useIOExceptionBehavior;
+    }
+
+    /*
+     * Since Servlet 6.0 (EE10):
+     * Follows RFC 6265.
+     * Attributes are no longer accepted from the request Cookie header (section 4.2.2)
+     * $ is used only for $Versions in the request Cookie; prefix any other will be treated as new cookie ($ is part of a cookie name)
+     */
+    @Reference(service = HttpBehavior.class, cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY)
+    protected synchronized void setCookiesBehavior(ServiceReference<HttpBehavior> reference) {
+        cookieBehaviorRef = reference;
+        useEE10Cookies = (Boolean) reference.getProperty(HttpBehavior.USE_EE10_COOKIES);
+        isEE11 = reference.getProperty(HttpBehavior.IS_EE11) == null ? false : true;
+
+        Tr.debug(tc, "setCookiesBehavior , useEE10Cookies [" + useEE10Cookies + "] , isEE11 [" + isEE11 + "]");
+    }
+
+    protected synchronized void unsetCookiesBehavior(ServiceReference<HttpBehavior> reference) {
+        if (reference == this.cookieBehaviorRef) {
+            cookieBehaviorRef = null;
+            useEE10Cookies = false;
+            isEE11 = false;
+
+            Tr.debug(tc, "unsetCookiesBehavior , useEE10Cookies [" + useEE10Cookies + "] , isEE11 [" + isEE11 + "]");
+        }
+    }
+
+    public static boolean useEE10Cookies() {
+        return useEE10Cookies;
+    }
+
+    public static boolean isEE11() {
+        return isEE11;
     }
 
     /**

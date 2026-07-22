@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,6 +13,7 @@
 package com.ibm.ws.kernel.service;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -202,6 +205,8 @@ public class ServerEndpointControlMBeanTest {
             fail("Got unexpected exception from attempting to pause a endpoint with a valid target 'defaultHttpEndpoint':" + e.getCause());
         }
         assertNotNull("Expected CWWKE0938I log message wasn't found", server.waitForStringInLog("CWWKE0938I"));
+
+        mbean.resume();
 
         Log.exiting(c, METHOD_NAME);
     }
@@ -411,6 +416,79 @@ public class ServerEndpointControlMBeanTest {
         server.setMarkToEndOfLog();
         List<String> eps = mbean.listEndpoints();
         assertTrue("Expected " + numInstances + " endpoints from " + METHOD_NAME + ", got " + eps.size(), eps.size() == numInstances);
+
+        Log.exiting(c, METHOD_NAME);
+    }
+
+    @Test
+    public void testIsActiveInvalidTarget() throws Exception {
+        final String METHOD_NAME = "testIsActiveInvalidTarget";
+        Log.entering(c, METHOD_NAME);
+        restoreSavedConfig = false;
+
+        assertFalse("false should be returned when an invalid endpoint is passed to isActive",
+                    mbean.isActive("inValidTargetName!"));
+
+        Log.exiting(c, METHOD_NAME);
+    }
+
+    @Test
+    public void testIsActiveValidTargets() throws Exception {
+        final String METHOD_NAME = "testIsActiveValidTargets";
+        Log.entering(c, METHOD_NAME);
+        restoreSavedConfig = true;
+
+        String targets = createHttpEndpoints(8);
+        Log.info(c, METHOD_NAME, "targets:" + targets);
+
+        // check request completed
+        int numMessages = server.waitForMultipleStringsInLog(8, "CWWKO0219I: TCP Channel httpEndpoint[0-7]*");
+        assertEquals("Expected 8 CWWKO0219I (endpoint start) log messages, got " + numMessages, 8, numMessages);
+
+        // check the specified targets are active
+        assertTrue("isActive should return true because all endpoints are active", mbean.isActive(targets));
+
+        Log.exiting(c, METHOD_NAME);
+    }
+
+    @Test
+    public void testIsActiveInvalidTargets() throws Exception {
+        final String METHOD_NAME = "testIsActiveInvalidTargets";
+        Log.entering(c, METHOD_NAME);
+        restoreSavedConfig = true;
+
+        String targets = createHttpEndpoints(4);
+        Log.info(c, METHOD_NAME, "targets:" + targets);
+
+        // check request completed
+        int numMessages = server.waitForMultipleStringsInLog(4, "CWWKO0219I: TCP Channel httpEndpoint[0-3]*");
+        assertEquals("Expected 4 CWWKO0219I (endpoint start) log messages, got " + numMessages, 4, numMessages);
+
+        targets += ",invalidEndpoint";
+        // check the specified targets are active
+        assertFalse("isActive should return false because one endpoint is invalid", mbean.isActive(targets));
+
+        Log.exiting(c, METHOD_NAME);
+    }
+
+    @Test
+    public void testIsActivePausedTarget() throws Exception {
+        final String METHOD_NAME = "testIsActiveInvalidTarget";
+        Log.entering(c, METHOD_NAME);
+        restoreSavedConfig = false;
+
+        try {
+            server.setMarkToEndOfLog();
+            mbean.pause("defaultHttpEndpoint");
+        } catch (MBeanException e) {
+            fail("Got unexpected exception from attempting to pause a endpoint with a valid target 'defaultHttpEndpoint':" + e.getCause());
+        }
+        assertNotNull("Expected CWWKE0938I log message wasn't found", server.waitForStringInLog("CWWKE0938I"));
+
+        assertFalse("false should be returned when a paused endpoint is passed to isActive", mbean.isActive("defaultHttpEndpoint"));
+
+        // Resume all targets
+        mbean.resume();
 
         Log.exiting(c, METHOD_NAME);
     }

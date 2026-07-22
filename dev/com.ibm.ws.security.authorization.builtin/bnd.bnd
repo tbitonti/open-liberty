@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2017 IBM Corporation and others.
+# Copyright (c) 2017, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -28,25 +30,10 @@ Private-Package: \
 Include-Resource: \
     OSGI-INF=resources/OSGI-INF
 
-Service-Component: \
-  com.ibm.ws.security.authorization.builtin; \
-    implementation:=com.ibm.ws.security.authorization.builtin.internal.BuiltinAuthorizationService; \
-    provide:=com.ibm.ws.security.authorization.AuthorizationService; \
-    accessDecisionService=com.ibm.ws.security.authorization.AccessDecisionService; \
-    authorizationTableService=com.ibm.ws.security.authorization.AuthorizationTableService; \
-    featureAuthzTableService=com.ibm.ws.security.authorization.FeatureAuthorizationTableService; \
-    configuration-policy:=optional; \
-    optional:='authorizationTableService,featureAuthzTableService'; \
-    dynamic:='authorizationTableService,featureAuthzTableService'; \
-    multiple:='authorizationTableService'; \
-    properties:="service.vendor=IBM,com.ibm.ws.security.authorization.type=Builtin", \
-  accessDecisionService; \
-    implementation:=com.ibm.ws.security.authorization.builtin.internal.BuiltinAccessDecisionService; \
-    provide:=com.ibm.ws.security.authorization.AccessDecisionService; \
-    version=com.ibm.ws.javaee.version.JavaEEVersion?; \
-    greedy:=version; \
-    properties:="service.vendor=IBM"
-    
+-dsannotations: \
+  com.ibm.ws.security.authorization.builtin.internal.BuiltinAuthorizationService, \
+  com.ibm.ws.security.authorization.builtin.internal.BuiltinAccessDecisionService
+
 IBM-Default-Config: OSGI-INF/wlp/defaultInstances.xml
 
 instrument.classesExcludes: com/ibm/ws/security/authorization/builtin/internal/resources/*.class
@@ -73,6 +60,7 @@ instrument.classesExcludes: com/ibm/ws/security/authorization/builtin/internal/r
 	org.jmock:jmock;strategy=exact;version=2.5.1, \
 	org.jmock:jmock-legacy;version=2.5.0, \
 	com.ibm.ws.org.objenesis:objenesis;version=1.0, \
-	cglib:cglib-nodep;version=3.3.0, \
+	cglib:cglib;version=3.3.0, \
+	com.ibm.ws.org.objectweb.asm;version=latest, \
 	com.ibm.ws.kernel.boot;version=latest, \
 	com.ibm.ws.security.credentials;version=latest

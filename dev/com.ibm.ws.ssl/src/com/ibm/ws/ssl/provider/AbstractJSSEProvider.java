@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -23,6 +25,8 @@ import java.security.NoSuchProviderException;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
+import java.security.Provider;
+import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,6 +47,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509KeyManager;
 import javax.net.ssl.X509TrustManager;
+import com.ibm.ws.kernel.productinfo.ProductInfo;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
@@ -50,9 +55,14 @@ import com.ibm.websphere.ssl.Constants;
 import com.ibm.websphere.ssl.JSSEProvider;
 import com.ibm.websphere.ssl.SSLConfig;
 import com.ibm.websphere.ssl.SSLException;
+import com.ibm.ws.common.crypto.CryptoUtils;
 import com.ibm.ws.ffdc.FFDCFilter;
+import com.ibm.ws.kernel.service.util.JavaInfo;
 import com.ibm.ws.runtime.util.StreamHandlerUtils;
 import com.ibm.ws.ssl.JSSEProviderFactory;
+import com.ibm.ws.ssl.LibertySSLContext;
+import com.ibm.ws.ssl.LibertySSLContextSpi;
+import com.ibm.ws.ssl.LibertySSLSocketFactoryWrapper;
 import com.ibm.ws.ssl.config.KeyStoreManager;
 import com.ibm.ws.ssl.config.SSLConfigManager;
 import com.ibm.ws.ssl.config.ThreadManager;
@@ -79,7 +89,6 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
 
     private static final WSPKCSInKeyStoreList pkcsStoreList = new WSPKCSInKeyStoreList();
     private static final Map<SSLConfig, SSLContext> sslContextCacheJAVAX = new HashMap<SSLConfig, SSLContext>();
-//    protected static final String URL_HANDLER_PROP = "java.protocol.handler.pkgs";
     private static final String PKGNAME_DELIMITER = "|";
 
     private static boolean handlersInitialized = false;
@@ -96,7 +105,8 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
     /**
      * Constructor.
      */
-    public AbstractJSSEProvider() {}
+    public AbstractJSSEProvider() {
+    }
 
     protected void initialize(String keyMgr, String trustMgr, String cxtProvider, String keyProvider, String factory, String packageHandler, String protocolType) {
         this.keyManager = keyMgr;
@@ -105,8 +115,36 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
         this.keyStoreProvider = keyProvider;
         this.socketFactory = factory;
         this.defaultProtocol = protocolType;
+        if (tc.isEntryEnabled()) {
+            Tr.entry(tc, "initialize ", keyMgr, trustMgr, cxtProvider, keyProvider);
+        }
 
-        if (!handlersInitialized && System.getProperty("os.name").equalsIgnoreCase("z/OS"))
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            String javaSecurityFile = AccessController.doPrivileged(new PrivilegedAction<String>() {
+                @Override
+                public String run() {
+                    return Security.getProperty("java.security.policy");
+                }
+            });
+
+            Tr.debug(tc, "java security policy file: " + javaSecurityFile);
+            Provider[] provider_list = Security.getProviders();
+            for (int i = 0; i < provider_list.length; i++) {
+                Tr.debug(tc, "Provider[" + i + "]: " + provider_list[i].getName() + ", info: " + provider_list[i].getInfo());
+            }
+        }
+
+        if (CryptoUtils.isFips140_2Enabled() || CryptoUtils.isFips140_3Enabled()) {
+            try {
+                com.ibm.ws.ssl.JSSEProviderFactory.initializeFips();
+            } catch (Exception e) {
+                if (tc.isDebugEnabled())
+                    Tr.debug(tc, "Exception caught initializing FIPS.", new Object[] { e });
+            }
+        }
+
+        if (!handlersInitialized && System.getProperty("os.name").equalsIgnoreCase("z/OS")
+            && JavaInfo.majorVersion() < 11)
             addHandlers();
         else {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
@@ -173,11 +211,14 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
     /*
      * @see com.ibm.websphere.ssl.JSSEProvider#getCiphersForSecurityLevel(boolean,
      * java.lang.String)
+     * The security level will be ignored. It will default to the effective JDK cipher list.
      */
     @Override
     public String[] getCiphersForSecurityLevel(boolean isClient, String securityLevel) {
+
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
-            Tr.debug(tc, "getCiphersForSecurityLevel: ", new Object[] { Boolean.valueOf(isClient), securityLevel });
+            Tr.debug(tc, "getCiphersForSecurityLevel: Security Level is no longer in use and will be ignored. Will be defaulting to the effective JDK cipher list.", new Object[] { Boolean.valueOf(isClient), securityLevel });
+        
 
         String[] supportedCiphers = null;
 
@@ -188,8 +229,7 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
             SSLServerSocketFactory factory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
             supportedCiphers = factory.getSupportedCipherSuites();
         }
-
-        return Constants.adjustSupportedCiphersToSecurityLevel(supportedCiphers, securityLevel);
+    return Constants.adjustSupportedCiphers(supportedCiphers, null);
     }
 
     /*
@@ -212,6 +252,11 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
             return sslContext;
         }
 
+        String direction = Constants.DIRECTION_OUTBOUND;
+        if (connectionInfo != null) {
+            direction = (String) connectionInfo.get(Constants.CONNECTION_INFO_DIRECTION);
+        }
+
         // Create the SSL context needed by the JSSE.
         sslContext = getSSLContextInstance(sslConfig);
 
@@ -227,12 +272,18 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
             TrustManager[] trustManagers = trustMgrs.toArray(new TrustManager[trustMgrs.size()]);
             // use default SecureRandom
             sslContext.init(keyManagers, trustManagers, null);
+        } else if (keyMgrs.isEmpty() && (direction != null && direction.equals(Constants.DIRECTION_INBOUND))) {
+            String message = TraceNLSHelper.getInstance().getString("ssl.config.error.CWPKI0835E",
+                                                                    "An SSL/TLS configuration cannot be created for inbound connection due to no key manager being created.");
+            throw new SSLException(message);
         } else if (keyMgrs.isEmpty() && !trustMgrs.isEmpty()) {
             TrustManager[] trustManagers = trustMgrs.toArray(new TrustManager[trustMgrs.size()]);
             // use default SecureRandom
             sslContext.init(null, trustManagers, null);
         } else {
-            throw new SSLException("Null trust and key managers.");
+            String message = TraceNLSHelper.getInstance().getString("ssl.config.error.CWPKI0836E",
+                                                                    "An SSL/TLS configuration cannot created due to no key and trust managers being created.");
+            throw new SSLException(message);
         }
 
         // this may need to be made configurable at some point.
@@ -246,13 +297,19 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
             }
         }
 
-        sslContextCacheJAVAX.put(sslConfig, sslContext);
+        // wrap the SSLContext with LibertySSLContext to bind our SSL config on the resulting socket
+        // alias will be null if it hasn't been configured
+        LibertySSLContextSpi libertySSLContextSpi = new LibertySSLContextSpi(sslContext, sslConfig.getProperty(Constants.SSLPROP_ALIAS));
+        LibertySSLContext libertySSLContext = new LibertySSLContext(libertySSLContextSpi, sslContext.getProvider(), sslContext.getProtocol());
+
+        sslContextCacheJAVAX.put(sslConfig, libertySSLContext);
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
             Tr.debug(tc, "SSLContext cache size: " + sslContextCacheJAVAX.size());
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
             Tr.exit(tc, "getSSLContext -> (new)");
-        return sslContext;
+
+        return libertySSLContext;
     }
 
     /**
@@ -264,10 +321,13 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
     private void getWSTrustmanager(List<TrustManager> tmHolder, Map<String, Object> connectionInfo, SSLConfig sslConfig) throws Exception {
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
-            Tr.entry(tc, "getSSLContext", new Object[] { tmHolder, connectionInfo, sslConfig });
+            Tr.entry(tc, "getWSTrustmanager", new Object[] { tmHolder, connectionInfo, sslConfig });
 
         String direction = Constants.DIRECTION_UNKNOWN;
         String ctxtProvider = getSSLContextProperty(Constants.SSLPROP_CONTEXT_PROVIDER, sslConfig);
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "ctxtProvider: " + ctxtProvider);
+        }
         String clientAuthentication = getSSLContextProperty(Constants.SSLPROP_CLIENT_AUTHENTICATION, sslConfig);
         String trustStoreName = getSSLContextProperty(Constants.SSLPROP_TRUST_STORE_NAME, sslConfig);
         String trustStoreLocation = getSSLContextProperty(Constants.SSLPROP_TRUST_STORE, sslConfig);
@@ -441,10 +501,9 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
             }
 
             keyManagerFactory = getKeyManagerFactoryInstance(keyMgr, ctxtProvider);
-            String kspass = wsks.getPassword();
-            if (!kspass.isEmpty()) {
+            SerializableProtectedString keypass = wsks.getKeyPassword();
+            if (keypass != null && !keypass.isEmpty()) {
                 try {
-                    SerializableProtectedString keypass = wsks.getKeyPassword();
                     String decodedPass = WSKeyStore.decodePassword(new String(keypass.getChars()));
                     synchronized (_lockObj) {
                         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
@@ -464,7 +523,7 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
                 }
 
                 // Initialize the SSL context with the key and trust manager factories.
-                WSX509KeyManager wsKeyManager = new WSX509KeyManager(keyStore, kspass.toCharArray(), keyManagerFactory, sslConfig, null);
+                WSX509KeyManager wsKeyManager = new WSX509KeyManager(keyStore, null, keyManagerFactory, sslConfig, null);
 
                 if (serverAliasName != null && serverAliasName.length() > 0)
                     wsKeyManager.setServerAlias(serverAliasName);
@@ -555,7 +614,6 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
 
         try {
             SSLContext context = getSSLContext(null, config);
-
             if (context != null) {
                 if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
                     Tr.exit(tc, "getSSLServerSocketFactory");
@@ -585,9 +643,15 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
         SSLContext context = getSSLContext(connectionInfo, config);
         if (context != null) {
             SSLSocketFactory factory = context.getSocketFactory();
+
+            // wrap the SSLSocketFactory to apply Liberty's config to its sockets
+            // alias will be null if it hasn't been configured
+            LibertySSLSocketFactoryWrapper wrapper = new LibertySSLSocketFactoryWrapper(factory, config.getProperty(Constants.SSLPROP_ALIAS));
+
             if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
                 Tr.exit(tc, "getSSLSocketFactory -> " + factory.getClass().getName());
-            return factory;
+
+            return wrapper;
         }
 
         throw new SSLException("SSLContext could not be created to return an SSLSocketFactory.");
@@ -608,15 +672,27 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
         }
 
         // now generate a new SSLContext
+        //final String ctxtProvider = Constants.IBMJCEPlusFIPS_NAME;
         final String ctxtProvider = config.getProperty(Constants.SSLPROP_CONTEXT_PROVIDER);
-        final String protocol = config.getProperty(Constants.SSLPROP_PROTOCOL);
         final String alias = config.getProperty(Constants.SSLPROP_ALIAS);
         final String configURL = config.getProperty(Constants.SSLPROP_CONFIGURL_LOADED_FROM);
+        String protocolVal = config.getProperty(Constants.SSLPROP_PROTOCOL);
 
         SSLContext sslContext = null;
 
-        if (protocol == null) {
+        if (protocolVal == null) {
             throw new IllegalArgumentException("Protocol is not specified.");
+        } else {
+            String[] protocols = protocolVal.split(",");
+            if (protocols.length > 1)
+                protocolVal = defaultProtocol;
+        }
+
+        final String protocol = protocolVal;
+
+        if (tc.isDebugEnabled()) {
+            Tr.debug(tc, "protocol:  " + protocolVal);
+            Tr.debug(tc, "ctxtProvider:  " + ctxtProvider);
         }
 
         try {
@@ -663,6 +739,11 @@ public abstract class AbstractJSSEProvider implements JSSEProvider {
             } else {
                 throw new SSLException(ex);
             }
+        } catch (Throwable t) {
+            Throwable cause = t.getCause();
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "Throwable occurred getting SSL context.", new Object[] { cause });
+            throw new SSLException(cause.getMessage());
         }
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())

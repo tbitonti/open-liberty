@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -18,7 +20,9 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import com.ibm.websphere.simplicity.log.Log;
@@ -35,7 +39,7 @@ public class JAXRS21AbstractTest {
 
     protected LibertyServer serverRef;
 
-    protected void runTestOnServer(String target, String testMethod, Map<String, String> params, String expectedResponse) throws ProtocolException, MalformedURLException, IOException {
+    protected void runTestOnServer(String target, String testMethod, Map<String, String> params, String... expectedResponse) throws ProtocolException, MalformedURLException, IOException {
 
         // build basic URI
         StringBuilder sBuilder = new StringBuilder("http://").append(serverRef.getHostname())
@@ -78,7 +82,9 @@ public class JAXRS21AbstractTest {
             Log.info(this.getClass(), testMethod, line);
         }
 
-        assertTrue("Real response is " + firstLine + " and the expected response is " + expectedResponse, firstLine.contains(expectedResponse));
+        List<String> expectedResponseLines = Arrays.asList(expectedResponse);
+        assertTrue("Real response is " + firstLine + " and the expected response is one of " + expectedResponseLines,
+                   expectedResponseLines.stream().anyMatch(firstLine::contains));
 
     }
 }

@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2008 IBM Corporation and others.
+ * Copyright (c) 1997, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.osgi.collaborator;
 
@@ -36,6 +35,7 @@ import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.runtime.metadata.ComponentMetaData;
 import com.ibm.ws.threadContext.ComponentMetaDataAccessorImpl;
 import com.ibm.ws.webcontainer.collaborator.WebAppSecurityCollaborator;
+import com.ibm.ws.webcontainer.collaborator.WebAppTransactionCollaborator;
 import com.ibm.ws.webcontainer.webapp.WebAppDispatcherContext;
 import com.ibm.ws.webcontainer.spiadapter.collaborator.IInvocationCollaborator;
 import com.ibm.ws.webcontainer.webapp.WebApp;
@@ -47,6 +47,7 @@ import com.ibm.wsspi.webcontainer.collaborator.CollaboratorInvocationEnum;
 import com.ibm.wsspi.webcontainer.collaborator.ICollaboratorHelper;
 import com.ibm.wsspi.webcontainer.collaborator.ICollaboratorMetaData;
 import com.ibm.wsspi.webcontainer.collaborator.IWebAppSecurityCollaborator;
+import com.ibm.wsspi.webcontainer.collaborator.IWebAppTransactionCollaborator;
 import com.ibm.wsspi.webcontainer.collaborator.WebAppInvocationCollaborator;
 import com.ibm.wsspi.webcontainer.logging.LoggerFactory;
 import com.ibm.wsspi.webcontainer.metadata.WebComponentMetaData;
@@ -55,6 +56,8 @@ import com.ibm.wsspi.webcontainer.security.SecurityViolationException;
 
 public class CollaboratorHelperImpl extends CollaboratorHelper
 {
+  private static final String CLASS_NAME = CollaboratorHelperImpl.class.getName();
+
   private Set<WebAppInvocationCollaborator> webAppInvCollabs;
   private String securityDomainForApp = null;
   protected static final Logger logger = LoggerFactory.getInstance().getLogger("com.ibm.ws.webcontainer.collaborator");
@@ -73,6 +76,10 @@ public class CollaboratorHelperImpl extends CollaboratorHelper
       connectionCollaborator = CollaboratorServiceImpl.getWebAppConnectionCollaborator();
       webAppInvCollabs = CollaboratorServiceImpl.getWebAppInvocationCollaborators();
     }
+    
+    if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+        logger.logp(Level.FINE, CLASS_NAME, "constructor ", " webApp ["+ webApp + "] , deployedMod [" + deployedMod + "] webAppInvCollabs [" + webAppInvCollabs + "] connectionCollaborator [" + connectionCollaborator + "]");
+    }
   }
   
   /*
@@ -80,8 +87,9 @@ public class CollaboratorHelperImpl extends CollaboratorHelper
    * SecurityDomain specified by the application.  If no collaborator has been registered for
    * that domain then the super class provides a default security collaborator implementation.
    */
-  
-  private static WebAppSecurityCollaborator staticDefaultSecurityCollaborator = new WebAppSecurityCollaborator();
+
+  private static final WebAppSecurityCollaborator staticDefaultSecurityCollaborator = new WebAppSecurityCollaborator();
+
   @Override
   public IWebAppSecurityCollaborator getSecurityCollaborator() {
       // Security service may have been added or removed since app was installed so get 'live' collab service
@@ -100,7 +108,21 @@ public class CollaboratorHelperImpl extends CollaboratorHelper
       }
   }
 
- 
+  /*
+   * Return the registered instance of the IWebAppTransactionCollaborator service as the
+   * WebAppTransactionService component may update after the application has installed.
+   */
+
+  private static final WebAppTransactionCollaborator staticDefaultWebAppTransactionCollaborator = new WebAppTransactionCollaborator();
+
+  @Override
+  public IWebAppTransactionCollaborator getWebAppTransactionCollaborator() {
+      IWebAppTransactionCollaborator service = CollaboratorServiceImpl.getWebAppTransactionCollaborator();
+      return transactionCollaborator = (service != null)
+                     ? service // Set for use by super class on pre/postInvoke calls
+                     : staticDefaultWebAppTransactionCollaborator; // Reset to static stub with no-op methods
+  }
+
   /*
    * LIBERTY: collaborators are not passed through each web app but are managed within this class
    * (so ignore the null arg and use the local list)
@@ -108,47 +130,95 @@ public class CollaboratorHelperImpl extends CollaboratorHelper
   public void doInvocationCollaboratorsPreInvoke(IInvocationCollaborator[] webAppInvocationCollaborators, WebComponentMetaData cmd,
                                                  ServletRequest request, ServletResponse response)
   {
-    if (webAppInvCollabs != null && !webAppInvCollabs.isEmpty())
-    {
-      for (WebAppInvocationCollaborator inv : webAppInvCollabs)
-      {
-        inv.preInvoke(cmd,request,response);
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.entering(CLASS_NAME, "doInvocationCollaboratorsPreInvoke(webAppInv,cmd, req, resp)");
       }
-    }
+
+      if (webAppInvCollabs != null && !webAppInvCollabs.isEmpty())
+      {
+          for (WebAppInvocationCollaborator inv : webAppInvCollabs)
+          {
+              if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+                  logger.logp(Level.FINE, CLASS_NAME, "doInvocationCollaboratorsPreInvoke", " preInvoke WebAppInvocationCollaborator [" + inv + "]");
+              }
+
+              inv.preInvoke(cmd,request,response);
+          }
+      }
+
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.exiting(CLASS_NAME, "doInvocationCollaboratorsPreInvoke(webAppInv,cmd, req, resp)");
+      }
   }
 
   public void doInvocationCollaboratorsPostInvoke(IInvocationCollaborator[] webAppInvocationCollaborators, WebComponentMetaData cmd,
                                                   ServletRequest request, ServletResponse response)
   {
-    if (webAppInvCollabs != null && !webAppInvCollabs.isEmpty())
-    {
-      for (WebAppInvocationCollaborator inv : webAppInvCollabs)
-      {
-        inv.postInvoke(cmd,request,response);
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.entering(CLASS_NAME, "doInvocationCollaboratorsPostInvoke(webAppInv,cmd, req, resp)");
       }
-    }
+
+      if (webAppInvCollabs != null && !webAppInvCollabs.isEmpty())
+      {
+         for (WebAppInvocationCollaborator inv : webAppInvCollabs)
+          {
+              if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+                  logger.logp(Level.FINE, CLASS_NAME, "doInvocationCollaboratorsPostInvoke", " postInvoke WebAppInvocationCollaborator [" + inv + "]");
+              }
+
+              inv.postInvoke(cmd,request,response);
+          }
+      }
+
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.exiting(CLASS_NAME, "doInvocationCollaboratorsPostInvoke(webAppInv,cmd, req, resp)");
+      }
   }
 
   public void doInvocationCollaboratorsPreInvoke(IInvocationCollaborator[] webAppInvocationCollaborators, com.ibm.wsspi.webcontainer.metadata.WebComponentMetaData cmd)
   {
-    if (webAppInvCollabs != null && !webAppInvCollabs.isEmpty())
-    {
-      for (WebAppInvocationCollaborator inv : webAppInvCollabs)
-      {
-        inv.preInvoke(cmd);
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.entering(CLASS_NAME, "doInvocationCollaboratorsPreInvoke(webAppInv,cmd)");
       }
-    }
+
+      if (webAppInvCollabs != null && !webAppInvCollabs.isEmpty())
+      {
+          for (WebAppInvocationCollaborator inv : webAppInvCollabs)
+          {
+              if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+                  logger.logp(Level.FINE, CLASS_NAME, "doInvocationCollaboratorsPreInvoke", " preInvoke WebAppInvocationCollaborator [" + inv + "]");
+              }
+
+              inv.preInvoke(cmd);
+          }
+      }
+
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.exiting(CLASS_NAME, "doInvocationCollaboratorsPreInvoke(webAppInv,cmd)");
+      }
   }
 
   public void doInvocationCollaboratorsPostInvoke(IInvocationCollaborator[] webAppInvocationCollaborators, com.ibm.wsspi.webcontainer.metadata.WebComponentMetaData cmd)
   {
-    if (webAppInvCollabs != null && !webAppInvCollabs.isEmpty())
-    {
-      for (WebAppInvocationCollaborator inv : webAppInvCollabs)
-      {
-        inv.postInvoke(cmd);
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.entering(CLASS_NAME, "doInvocationCollaboratorsPostInvoke(webAppInv,cmd)");
       }
-    }
+
+      if (webAppInvCollabs != null && !webAppInvCollabs.isEmpty())
+      {
+          for (WebAppInvocationCollaborator inv : webAppInvCollabs)
+          {
+              if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+                  logger.logp(Level.FINE, CLASS_NAME, "doInvocationCollaboratorsPostInvoke", " postInvoke WebAppInvocationCollaborator [" + inv + "]");
+              }
+
+              inv.postInvoke(cmd);
+          }
+      }
+
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.exiting(CLASS_NAME, "doInvocationCollaboratorsPostInvoke(webAppInv,cmd)");
+      }
   }
 
   // The following 3 methods are concrete implementations of the abstract ones in
@@ -190,28 +260,32 @@ public class CollaboratorHelperImpl extends CollaboratorHelper
    * com.ibm.ws.webcontainer.webapp.WebApp, java.lang.String)
    */
   public Object processSecurityPreInvokeException(SecurityViolationException sve, RequestProcessor requestProcessor, HttpServletRequest request,
-          HttpServletResponse response, WebAppDispatcherContext dispatchContext, WebApp context, String name) throws ServletErrorReport {
+                                                  HttpServletResponse response, WebAppDispatcherContext dispatchContext, WebApp context, String name) throws ServletErrorReport {
+
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.entering(CLASS_NAME, "processSecurityPreInvokeException");
+      }
 
       Object secObject = null;
 
-     
+
       secObject = sve.getWebSecurityContext();
       int sc = sve.getStatusCode(); 
       Throwable cause = sve.getCause();
 
-            if (sc == HttpServletResponse.SC_FORBIDDEN) {
+      if (sc == HttpServletResponse.SC_FORBIDDEN) {
           // If the user has defined a custom error page for
           // SC_FORBIDDEN (HTTP status code 403) then send
           // it to the client ...
           if (context.isErrorPageDefined(sc) == true) {
-      
+
               WebAppErrorReport wErrorReport = new WebAppErrorReport(cause);
               wErrorReport.setErrorCode(sc);
               context.sendError(request, response, wErrorReport);
           } else {
               // ... otherwise, use the one provided by the
               // SecurityCollaborator
-                            try {
+              try {
                   securityCollaborator.handleException(request, response, cause);
               } catch (Exception ex) {
                   if (requestProcessor != null) {
@@ -239,7 +313,7 @@ public class CollaboratorHelperImpl extends CollaboratorHelper
           // SC_UNAUTHORIZED (HTTP status code 401) then
           // send it to the client
           if (context.isErrorPageDefined(sc) == true) {
-              
+
               WebAppErrorReport wErrorReport = new WebAppErrorReport(cause);
               wErrorReport.setErrorCode(sc);
               context.sendError(request, response, wErrorReport);
@@ -259,22 +333,35 @@ public class CollaboratorHelperImpl extends CollaboratorHelper
               }
           }
       }
+
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.exiting(CLASS_NAME, "processSecurityPreInvokeException");
+      }
+
       return secObject;
   }
 
   @Override
   public void preInvokeCollaborators(ICollaboratorMetaData collabMetaData, EnumSet<CollaboratorInvocationEnum> colEnum) throws ServletException,
   IOException, Exception {
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.logp(Level.FINE, CLASS_NAME, "preInvokeCollaborators", " ");
+      }
       // refresh dynamic collaborators before using
       getSecurityCollaborator();
+      getWebAppTransactionCollaborator();
       super.preInvokeCollaborators(collabMetaData, colEnum);
   }
   
   @Override
   public void postInvokeCollaborators(ICollaboratorMetaData collabMetaData, EnumSet<CollaboratorInvocationEnum> colEnum) throws ServletException,
   IOException, Exception {
+      if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+          logger.logp(Level.FINE, CLASS_NAME, "postInvokeCollaborators", " ");
+      }
    // refresh dynamic collaborators before using
       getSecurityCollaborator();
+      getWebAppTransactionCollaborator();
       super.postInvokeCollaborators(collabMetaData, colEnum);
   }
   
@@ -286,7 +373,7 @@ public class CollaboratorHelperImpl extends CollaboratorHelper
           instance = ((WebApp)sc).getCollaboratorHelper();
       } catch (ClassCastException cce) {
           if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
-              logger.logp(Level.FINE, "CollaboratorHelperImpl", "getCurrentSecurityCollaborator", "ClassCastException on ServletContext - returning null");
+              logger.logp(Level.FINE, CLASS_NAME, "getCurrentSecurityCollaborator", "ClassCastException on ServletContext - returning null");
           }
           //check if the security information was added during preInvoke
           return CollaboratorHelperImpl.getCurrentSecurityCollaborator();

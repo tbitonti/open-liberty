@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2019 IBM Corporation and others.
+ * Copyright (c) 2016, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,6 +22,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -48,13 +51,13 @@ import oracle.ucp.jdbc.PoolXADataSource;
                                  @DataSourceDefinition(
                                                        name = "java:comp/env/jdbc/dsdUCPDS",
                                                        className = "oracle.ucp.jdbc.PoolDataSourceImpl",
-                                                       url = "${env.URL}",
+                                                       url = "${env.ORACLE_URL}",
                                                        isolationLevel = Connection.TRANSACTION_SERIALIZABLE,
                                                        maxIdleTime = 30,
                                                        minPoolSize = 1,
                                                        initialPoolSize = 1, //This property should be allowed when using UCP
-                                                       user = "${env.USER}",
-                                                       password = "${env.PASSWORD}",
+                                                       user = "${env.ORACLE_USER}",
+                                                       password = "${env.ORACLE_PASSWORD}",
                                                        maxPoolSize = 3,
                                                        maxStatements = 9,
                                                        properties = {
@@ -66,10 +69,21 @@ import oracle.ucp.jdbc.PoolXADataSource;
                                  @DataSourceDefinition(
                                                        name = "java:comp/env/jdbc/dsdXAUCPDS",
                                                        className = "oracle.ucp.jdbc.PoolXADataSourceImpl",
-                                                       url = "${env.URL}",
+                                                       url = "${env.ORACLE_URL}",
                                                        initialPoolSize = 1,
-                                                       user = "${env.USER}",
-                                                       password = "${env.PASSWORD}",
+                                                       user = "${env.ORACLE_USER}",
+                                                       password = "${env.ORACLE_PASSWORD}",
+                                                       maxStatements = 10,
+                                                       properties = {
+                                                                      "validationTimeout=30"
+                                                       }),
+                                 @DataSourceDefinition(
+                                                       name = "java:comp/env/jdbc/dsdXAUCPDS2",
+                                                       className = "oracle.ucp.jdbc.PoolXADataSourceImpl",
+                                                       url = "${env.ORACLE_URL}",
+                                                       initialPoolSize = 1,
+                                                       user = "${env.ORACLE_USER}",
+                                                       password = "${env.ORACLE_PASSWORD}",
                                                        maxStatements = 10,
                                                        properties = {
                                                                       "validationTimeout=30"
@@ -89,6 +103,9 @@ public class OracleUCPTestServlet extends FATServlet {
     @Resource(lookup = "jdbc/ucpXADS", shareable = false)
     private DataSource ucpXADS;
 
+    @Resource(lookup = "jdbc/ucpXADS2", shareable = false)
+    private DataSource ucpXADS2;
+
     @Resource(lookup = "jdbc/ucpDS", shareable = true)
     private DataSource sharedUCPDS;
 
@@ -101,13 +118,48 @@ public class OracleUCPTestServlet extends FATServlet {
     @Resource(lookup = "java:comp/env/jdbc/dsdXAUCPDS", shareable = false)
     private DataSource dsdXAUCPDS;
 
+    @Resource(lookup = "java:comp/env/jdbc/dsdXAUCPDS2", shareable = false)
+    private DataSource dsdXAUCPDS2;
+
     @Resource(lookup = "jdbc/ucpDSAuthData")
     private DataSource ucpDSAuthData;
+
+    @Resource(lookup = "jdbc/ds-replay")
+    private DataSource ucpDSReplay;
+
+    @Resource(lookup = "jdbc/ds-replay-xa")
+    private DataSource ucpDSReplayXA;
+
+    @Resource(lookup = "jdbc/ds-autocommit-ltc")
+    private DataSource ucpDSAutoCommitLTC;
+
+    @Resource(lookup = "jdbc/ds-autocommit-global")
+    private DataSource ucpDSAutoCommitGlobal;
 
     private final ExecutorService executor = Executors.newFixedThreadPool(5);
 
     @Resource
     private UserTransaction tran;
+
+    /**
+     * Checks to see if an ExecutionException was caused by a ConnectionWaitTimeoutException.
+     * If it was a ConnectionWaitTimeoutException, a junit failure is produced with a meaningful debug message for future serviceability.
+     *
+     * @param exception - ExecutionException from an async getConnection request.
+     * @param jndiName  - jndiName of datasource involved in getConnectionRequest
+     * @throws ExecutionException - If not caused by ConnectionWaitTimeoutException original ExecutionException is thrown
+     */
+    private static void checkForConnectionWaitTimeoutException(ExecutionException exception, String jndiName) throws ExecutionException {
+        Throwable cause = exception.getCause();
+        if (cause.getClass().getCanonicalName().equals("com.ibm.websphere.ce.cm.ConnectionWaitTimeoutException")) {
+            cause.printStackTrace(System.out);
+            fail("The task returned a ConnectionWaitTimeoutException. "
+                 + "Meaning that slow infrastructure caused the async getConnection call to run longer than the connectionTimeout. "
+                 + "Consider increasing the connectionTimeout for " + jndiName);
+        } else {
+            throw exception;
+        }
+    }
 
     /**
      * Basic test that we can get and use a connection when using Oracle UCP
@@ -196,7 +248,7 @@ public class OracleUCPTestServlet extends FATServlet {
         Connection con2 = null;
 
         try {
-            con2 = ucpXADS.getConnection();
+            con2 = ucpXADS2.getConnection();
             tran.begin();
 
             //Add a new row to the db
@@ -344,6 +396,8 @@ public class OracleUCPTestServlet extends FATServlet {
                 fail("The task should not have completed, instead returned " + future.get(10, TimeUnit.SECONDS));
             } catch (TimeoutException ex) {
                 //expected
+            } catch (ExecutionException ee) {
+                checkForConnectionWaitTimeoutException(ee, "jdbc/ucpDS");
             }
 
             //Now try to close one of the connections, which should allow the other task to complete
@@ -352,7 +406,8 @@ public class OracleUCPTestServlet extends FATServlet {
 
         } finally {
             con1.close();
-            con2.close();
+            if (con2 != null)
+                con2.close();
         }
     }
 
@@ -398,6 +453,8 @@ public class OracleUCPTestServlet extends FATServlet {
                 fail("The task should not have completed, instead returned " + future.get(10, TimeUnit.SECONDS));
             } catch (TimeoutException ex) {
                 //expected
+            } catch (ExecutionException ee) {
+                checkForConnectionWaitTimeoutException(ee, "jdbc/ucpDSEmbeddedConMgr");
             }
 
             //Now try to close one of the connections, which should allow the other task to complete
@@ -406,7 +463,8 @@ public class OracleUCPTestServlet extends FATServlet {
 
         } finally {
             con1.close();
-            con2.close();
+            if (con2 != null)
+                con2.close();
         }
     }
 
@@ -435,6 +493,8 @@ public class OracleUCPTestServlet extends FATServlet {
                 fail("The task should not have completed, instead returned " + future.get(10, TimeUnit.SECONDS));
             } catch (TimeoutException ex) {
                 //expected
+            } catch (ExecutionException ee) {
+                checkForConnectionWaitTimeoutException(ee, "jdbc/oracleDS");
             }
 
             //Now try to close one of the connections, which should allow the other task to complete
@@ -470,7 +530,7 @@ public class OracleUCPTestServlet extends FATServlet {
         Connection con2 = null;
 
         try {
-            con2 = dsdXAUCPDS.getConnection();
+            con2 = dsdXAUCPDS2.getConnection();
             tran.begin();
 
             //Add a new row to the db
@@ -538,16 +598,7 @@ public class OracleUCPTestServlet extends FATServlet {
     @Test
     public void testUCPMaxStatements() throws Exception {
         //TODO remove this restriction once Oracle release a JDBC 4.3 compliant driver
-        boolean atLeastJava9 = false;
-        //Oracle driver and UCP for JDBC 4.2 is not compatible with Java 9+
-        try {
-            Class.forName("java.lang.Runtime$Version"); // added in Java 9
-            atLeastJava9 = true;
-        } catch (ClassNotFoundException x) {
-            atLeastJava9 = false;
-        }
-
-        if (atLeastJava9) {
+        if (isJava9orHigher()) {
             System.out.println("Skipping testUCPMaxStatements because we are running on java 9 or greater");
             return;
         }
@@ -568,19 +619,11 @@ public class OracleUCPTestServlet extends FATServlet {
     @Test
     public void testDataSourceDefProps() throws Exception {
         //TODO remove this restriction once Oracle release a JDBC 4.3 compliant driver
-        boolean atLeastJava9 = false;
-        //Oracle driver and UCP for JDBC 4.2 is not compatible with Java 9+
-        try {
-            Class.forName("java.lang.Runtime$Version"); // added in Java 9
-            atLeastJava9 = true;
-        } catch (ClassNotFoundException x) {
-            atLeastJava9 = false;
-        }
-
-        if (atLeastJava9) {
+        if (isJava9orHigher()) {
             System.out.println("Skipping testDataSourceDefProps because we are running on java 9 or greater");
             return;
         }
+
         PoolDataSource pds = dsdUCPDS.unwrap(PoolDataSource.class);
 
         assertEquals("maxIdleTime not set on UCP", 30, pds.getMaxIdleTime());
@@ -659,6 +702,87 @@ public class OracleUCPTestServlet extends FATServlet {
         }
     }
 
+    @Test
+    public void testReplayDataSource() throws Exception {
+        // Verify wrappers from UCP
+        assertTrue(ucpDSReplay.isWrapperFor(PoolDataSource.class));
+        assertTrue(ucpDSReplayXA.isWrapperFor(PoolXADataSource.class));
+
+        // Verify connection behavior
+        try (Connection con = ucpDSReplay.getConnection()) {
+            //Do not use just close
+        }
+
+        try (Connection con = ucpDSReplayXA.getConnection()) {
+            //Do not use just close
+        }
+
+        //TODO remove this restriction once Oracle releases a JDBC 4.3 compliant driver
+        if (isJava9orHigher()) {
+            System.out.println("Skipping testReplayDataSource because we are running on java 9 or greater");
+            return;
+        }
+
+        //Verify configuration
+
+        //Java 9+ results in IllegalArgumentException because createShardingKeyBuilder
+        // returns oracle.jdbc.OracleShardingKeyBuilder
+        // which does not extend java.sql.ShardingKeyBuilder (added in Java 9+)
+        PoolDataSource unwrappedDS = ucpDSReplay.unwrap(PoolDataSource.class);
+        assertEquals("oracle.jdbc.replay.OracleDataSourceImpl", unwrappedDS.getConnectionFactoryClassName());
+
+        //Java 9+ results in IllegalArgumentException because createXAConnectionBuilder
+        // returns oracle.ucp.jdbc.UCPXAConnectionBuilder
+        // which does not extend java.sql.ConnectionBuilder (added in Java 9+)
+        PoolXADataSource unwrappedXADS = ucpDSReplayXA.unwrap(PoolXADataSource.class);
+        assertEquals("oracle.jdbc.replay.OracleXADataSourceImpl", unwrappedXADS.getConnectionFactoryClassName());
+
+    }
+
+    /**
+     * Verify that when a connection gets returned to the Liberty shared pool with autoCommit set to false.
+     * It comes back out with the default autoCommit set to true.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testAutoCommitLTC() throws Exception {
+        try (Connection con = ucpDSAutoCommitLTC.getConnection()) {
+            assertTrue("New connection from UCP should have had autoCommit set to true.", con.getAutoCommit());
+            con.setAutoCommit(false);
+        }
+        // connection returned to Liberty shared connection pool
+        try (Connection con = ucpDSAutoCommitLTC.getConnection()) {
+            assertTrue("Shared connection from Liberty shared pool should have had autoCommit set to true.", con.getAutoCommit());
+        }
+    }
+
+    /**
+     * Exploit implementation bug with Oracle's UCP (universal connection pool) where connections returned to the UCP
+     * with autoCommit set to false, come back out with the default autoCommit setting ignored.
+     * The autoCommit state of the connection is persisted.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testAutoCommitGlobal() throws Exception {
+        tran.begin();
+        try (Connection con = ucpDSAutoCommitGlobal.getConnection()) {
+            assertTrue("New connection from UCP should have had autoCommit set to true.", con.getAutoCommit());
+            con.setAutoCommit(false);
+        }
+        tran.commit();
+        // connection purged from Liberty connection pool and returned to UCP
+        tran.begin();
+        try (Connection con = ucpDSAutoCommitGlobal.getConnection()) {
+            assertFalse("Cached connection from UCP should have persisted the autoCommit state. "
+                        + "If this test failed, it is likely that Oracle has patched this bug. "
+                        + "Update this test to assertTrue and make a note of what version of the driver fixed this bug.",
+                        con.getAutoCommit());
+        }
+        tran.commit();
+    }
+
     //Used by config update tests to verify we are using a UCP datasource and
     //using the UCP rather than Liberty connection manager config
     public void testUsingUCP() throws Exception {
@@ -683,6 +807,8 @@ public class OracleUCPTestServlet extends FATServlet {
                 fail("The task should not have completed, instead returned " + future.get(10, TimeUnit.SECONDS));
             } catch (TimeoutException ex) {
                 //expected
+            } catch (ExecutionException ee) {
+                checkForConnectionWaitTimeoutException(ee, "jdbc/oracleDS");
             }
 
             //Now try to close one of the connections, which should allow the other task to complete
@@ -691,7 +817,8 @@ public class OracleUCPTestServlet extends FATServlet {
 
         } finally {
             con1.close();
-            con2.close();
+            if (con2 != null)
+                con2.close();
         }
     }
 
@@ -715,6 +842,8 @@ public class OracleUCPTestServlet extends FATServlet {
                 fail("The task should not have completed, instead returned " + future.get(10, TimeUnit.SECONDS));
             } catch (TimeoutException ex) {
                 //expected
+            } catch (ExecutionException ee) {
+                checkForConnectionWaitTimeoutException(ee, "jdbc/oracleDS");
             }
 
             //Now try to close one of the connections, which should allow the other task to complete
@@ -753,5 +882,14 @@ public class OracleUCPTestServlet extends FATServlet {
         System.out.println("   " + contents.replace("\n", "\n   "));
 
         return Integer.parseInt((String) mbs.getAttribute(bean.getObjectName(), "size"));
+    }
+
+    private boolean isJava9orHigher() {
+        try {
+            Class.forName("java.lang.Runtime$Version"); // added in Java 9
+            return true;
+        } catch (ClassNotFoundException x) {
+            return false;
+        }
     }
 }

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1998, 2020 IBM Corporation and others.
+ * Copyright (c) 1998, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -293,6 +295,13 @@ public class BeanMetaData extends com.ibm.ws.runtime.metadata.MetaDataImpl imple
     public Class<?> pKeyClass;
 
     public boolean m_syncToOSThreadValue; // LI2775-107.2 WS18354.02
+
+    /**
+     * Destroy or deactivate the bean during quiesce phase of server shutdown.
+     * Applicable to singleton and message-driven beans. Null if not specified
+     * in ibm-*-bnd.xml or server.xml. If set, overrides env-entry in ejb-jar.xml.
+     */
+    public Boolean quiesce;
 
     /**
      * The set of persistence reference names on which this bean has declared a
@@ -1614,11 +1623,12 @@ public class BeanMetaData extends com.ibm.ws.runtime.metadata.MetaDataImpl imple
                                               "ExPC Ids                    = " + Arrays.toString(ivExPcPuIds), // F743-30682
                                               "WebService Endpoint Created = " + ivWebServiceEndpointCreated, // d497921
                                               "Component NameSpace :  nsid = " + getJavaNameSpaceID(), // d508455
-                                              "Has aysnchronous method(s)  = " + ivHasAsynchMethod,
+                                              "Has asynchronous method(s)  = " + ivHasAsynchMethod,
                                               "Singleton Concurrency Type  = " + singletonConcurrency, //F743-1752CodRev
                                               "Synch AfterBegin            = " + ivAfterBegin, // F743-25855
                                               "Synch BeforeCompletion      = " + ivBeforeCompletion, // F743-25855
                                               "Synch AfterCompletion       = " + ivAfterCompletion, // F743-25855
+                                              "Quiesce                     = " + quiesce,
                                               "Application Classloader     = " + classLoader,
                                               "Context class loader        = " + (classLoader == ivContextClassLoader ? "(same)" : ivContextClassLoader)
             };
@@ -2616,6 +2626,57 @@ public class BeanMetaData extends com.ibm.ws.runtime.metadata.MetaDataImpl imple
             constructor = ivEnterpriseBeanFactory.getConstructor();
         }
         return constructor;
+    }
+
+    @Override
+    public boolean isSyncToOSThreadEnabled() {
+        return m_syncToOSThreadValue;
+    }
+
+    /**
+     * Determines if a message-driven bean should be deactivated during server quiesce. <p>
+     *
+     * Based on env-entry property: io.openliberty.ejb.deactivateOnQuiesce.
+     * The value may be specified in ejb-jar.xml, ibm-ejb-jar-bnd.xml, or server.xml; all
+     * using the env-entry element. ibm-ejb-jar-bnd.xml overrides ejb-jar.xml, and server.xml
+     * overrides both. <p>
+     *
+     * Default is true.
+     *
+     * @return true if the bean should be deactivated during quiesce, false otherwise
+     */
+    public boolean isDeactivateOnQuiesce() {
+        if (quiesce != null) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "isDeactivateOnQuiesce = " + quiesce + "(configured)");
+            return quiesce;
+        }
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+            Tr.debug(tc, "isDeactivateOnQuiesce = true (default)");
+        return true;
+    }
+
+    /**
+     * Determines if a singleton bean should be destroyed during server quiesce. <p>
+     *
+     * Based on env-entry property: io.openliberty.ejb.destroyOnQuiesce.
+     * The value may be specified in ejb-jar.xml, ibm-ejb-jar-bnd.xml, or server.xml; all
+     * using the env-entry element. ibm-ejb-jar-bnd.xml overrides ejb-jar.xml, and server.xml
+     * overrides both. <p>
+     *
+     * Default is false.
+     *
+     * @return true if the bean should be destroyed during quiesce, false otherwise
+     */
+    public boolean isDestroyOnQuiesce() {
+        if (quiesce != null) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "isDestroyOnQuiesce = " + quiesce + "(configured)");
+            return quiesce;
+        }
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+            Tr.debug(tc, "isDeactivateOnQuiesce = false (default)");
+        return false;
     }
 
 } // BeanMetaData

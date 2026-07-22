@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -21,7 +23,7 @@ import javax.security.enterprise.credential.BasicAuthenticationCredential;
 import javax.security.enterprise.credential.UsernamePasswordCredential;
 import javax.security.enterprise.identitystore.CredentialValidationResult;
 import javax.security.enterprise.identitystore.IdentityStore;
-import javax.security.enterprise.identitystore.IdentityStorePermission;
+import io.openliberty.security.jakartasec.identitystore.permissions.IdentityStorePermissionService;
 
 @Named("web.DummyIdentityStore")
 @ApplicationScoped
@@ -53,10 +55,8 @@ public class DummyIdentityStore implements IdentityStore {
 
     @Override
     public Set<String> getCallerGroups(CredentialValidationResult validationResult) {
-        SecurityManager security = System.getSecurityManager();
-        if (security != null) {
-            security.checkPermission(new IdentityStorePermission("getGroups"));
-        }
+        // Use Service to check permissions with EE11 removing the IdentityStorePermission
+        IdentityStorePermissionService.checkPermission("getGroups");
         Set<String> groups = new HashSet<String>();
         groups.add("group1");
         return groups;

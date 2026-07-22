@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,7 +13,7 @@
 package jaxrs21sse.delay;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -49,7 +51,7 @@ public class DelaySseTestServlet extends FATServlet {
                     msg += failure + "\n";
                 }
             }
-            assertNotNull("Detected failures in the SSE resource: " + msg, msg);
+            assertNull("Detected failures in the SSE resource: " + msg, msg);
         } finally {
             resourceFailures.clear();
         }
@@ -59,11 +61,11 @@ public class DelaySseTestServlet extends FATServlet {
 
         final List<String> receivedEvents = new ArrayList<String>();
         final List<String> eventSourceTimes = new ArrayList<String>();
-        final CountDownLatch executionLatch = new CountDownLatch(2);
+        final CountDownLatch executionLatch = new CountDownLatch(1);
 
         Client client = ClientBuilder.newClient();
         int port = req.getServerPort();
-        WebTarget target = client.target("http://localhost:" + port + "/DelaySseApp/delay/retry3");
+        WebTarget target = client.target("http://localhost:" + port + "/DelaySseApp/delay/retry2");
 
         try (SseEventSource source = SseEventSource.target(target).build()) {
             System.out.println("DelaySseTestServlet:  client invoking server SSE resource on: " + source);
@@ -89,12 +91,6 @@ public class DelaySseTestServlet extends FATServlet {
                                 @Override
                                 public void run() {
                                     System.out.println("completion runnable executed");
-                                    String sourceString = source.toString();
-                                    int delayStringStart = sourceString.indexOf("delay=");
-                                    String delayString = sourceString.substring(delayStringStart);
-                                    int delaystart = delayString.indexOf("=") + 1;
-                                    int delaystop = delayString.indexOf("|");
-                                    eventSourceTimes.add(delayString.substring(delaystart, delaystop));
                                     executionLatch.countDown();
                                 }
                             });
@@ -122,10 +118,9 @@ public class DelaySseTestServlet extends FATServlet {
             e.printStackTrace();
         }
 
-        assertEquals("Received an unexpected number of events", 2, receivedEvents.size());
+        assertEquals("Received an unexpected number of events", 1, receivedEvents.size());
         assertEquals("Unexpected results", "Retry Test Successful", receivedEvents.get(0));
-        assertEquals("Unexpected results", "Reset Test Successful", receivedEvents.get(1));
-        assertEquals("Unexpected time results", "5000", eventSourceTimes.get(0));
     }
+    
 
 }

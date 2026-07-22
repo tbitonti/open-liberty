@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -27,6 +29,7 @@ import com.ibm.ws.sip.parser.util.InetAddressCache;
 import com.ibm.ws.sip.properties.StackProperties;
 import com.ibm.ws.sip.stack.transaction.SIPTransactionConstants;
 import com.ibm.ws.sip.stack.transaction.transport.connections.SIPConnection;
+import com.ibm.ws.sip.stack.util.SipStackUtil;
 
 import jain.protocol.ip.sip.ListeningPoint;
 import jain.protocol.ip.sip.SipParseException;
@@ -394,7 +397,7 @@ public class SIPStackUtil
 			if( transport!=null )
 			{
 				// Assaf: TODO: do this properly.
-				if (transport.equalsIgnoreCase("tls"))
+				if (transport.equalsIgnoreCase(SipStackUtil.TLS_TRANSPORT))
 				{
 					retVal.setScheme("sips");
 				}
@@ -442,7 +445,7 @@ public class SIPStackUtil
 							//host or transport 
 							if( nameAdress.equalsIgnoreCase(ListeningPointImpl.TRANSPORT_UDP) || 
 								nameAdress.equalsIgnoreCase(ListeningPointImpl.TRANSPORT_TCP) ||
-								nameAdress.equalsIgnoreCase(ListeningPointImpl.TRANSPORT_TLS) )
+								nameAdress.equalsIgnoreCase(SipStackUtil.TLS_TRANSPORT) )
 								{
 									host = getLocalHost();
 									port = "5060";

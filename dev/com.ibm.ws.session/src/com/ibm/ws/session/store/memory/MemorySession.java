@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2010 IBM Corporation and others.
+ * Copyright (c) 1997, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
 package com.ibm.ws.session.store.memory;
@@ -115,6 +114,8 @@ public class MemorySession implements ISession {
         _removeAttrOnInvalidate = removeAttrOnInvalidate;
         if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && LoggingUtil.SESSION_LOGGER_CORE.isLoggable(Level.FINE)) {
             appNameAndIdString = getAppNameAndID() + " , _removeAttrOnInvalidate -->" + _removeAttrOnInvalidate;
+
+            LoggingUtil.SESSION_LOGGER_CORE.logp(Level.FINE, methodClassName, "Constructor", "App name and ID ["+ appNameAndIdString + "");
         }
     }
 
@@ -720,6 +721,7 @@ public class MemorySession implements ISession {
         } else {
             _lastAccessedTime = _currentAccessTime;
         }
+
         _currentAccessTime = accessTime;
         if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && LoggingUtil.SESSION_LOGGER_CORE.isLoggable(Level.FINE)) {
             LoggingUtil.SESSION_LOGGER_CORE.logp(Level.FINE, methodClassName, methodNames[UPDATE_LAST_ACCESS_TIME], "" + accessTime);
@@ -741,7 +743,7 @@ public class MemorySession implements ISession {
      * If HideSessionValues is set, we will only show the attribute names, otherwise we will show the key/value pairs
      */
     @Override
-    public synchronized String toString() {
+    public String toString() {
         StringBuffer sb = new StringBuffer();
         //sb.append("# MemorySession # \n { ").
         sb.append("# ").append(this.getClass().getName()).append(" # \n { ")
@@ -985,5 +987,4 @@ public class MemorySession implements ISession {
     public void setId(String id) {
         _sessionId = id;
     }
-
 }

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -26,8 +28,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
-import org.junit.After;
-import org.junit.Before;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,6 +60,7 @@ public class ConsoleFormatTest {
     private static final String DEV_FORMAT = "dev";
     private static final String SIMPLE_FORMAT = "simple";
     private static final String DEPRECATED_BASIC_FORMAT = "basic";
+    private static final String TBASIC_FORMAT = "tbasic";
     private static final String INVALID_CONSOLE_FORMAT = "simples";
 
     private static final String SERVER_NAME = "com.ibm.ws.logging.consoleformat";
@@ -66,6 +68,8 @@ public class ConsoleFormatTest {
 
     private static final String DEV_FORMAT_REGEX_PATTERN = "([A-Z]{3,}   )"; // Matches with line that has [<LOG_LEVEL>   ] in the beginning. e.g. [AUDIT   ]
     private static final String SIMPLE_FORMAT_REGEX_PATTERN = "(\\[\\d{1,4}.*)"; // Matches with line that [23/02/20 ... ] in the beginning.
+    private static final String TBASIC_FORMAT_REGEX_PATTERN = "([a-zA-Z0-9- ]{8} [aA-zZ ]{13} [aA-zZ]{1}\\s{3})";
+    private static final String TBASIC_FORMAT_REGEX_PATTERN_CLASS = "([a-zA-Z0-9- ]{8} [aA-zZ ]{13} [aA-zZ]{1}\\s{1}[a-zA-Z0-9-]{1})";
     private static final String ISO_8601_REGEX_PATTERN = "(\\d{4})\\-(\\d{2})\\-(\\d{2})T(\\d{2})\\:(\\d{2})\\:(\\d{2})\\.(\\d{3})[+-](\\d{4})"; //ISO 8601 Format : yyyy-MM-dd'T'HH:mm:ss.SSSZ
     private static final String INTERNAL_CLASSES_REGEXP = "at \\[internal classes\\]";
 
@@ -83,14 +87,17 @@ public class ConsoleFormatTest {
     public static void setUp() throws Exception {
         ShrinkHelper.defaultDropinApp(server, "logger-servlet", "com.ibm.ws.logging.fat.logger.servlet");
         ShrinkHelper.defaultDropinApp(server, "broken-servlet", "com.ibm.ws.logging.fat.broken.servlet");
+        ShrinkHelper.defaultDropinApp(server, "tbasic-servlet", "com.ibm.ws.logging.fat.tbasic.servlet");
         server.startServer();
 
         // Preserve the original server configuration
         server.saveServerConfiguration();
     }
 
-    @Before
-    public void setupTestStart() throws Exception {
+    public void restoreServer() throws Exception {
+        if (server != null && server.isStarted()) {
+            server.stopServer(EXPECTED_FAILURES);
+        }
         if (server != null && !server.isStarted()) {
             // Restore the original server configuration, with the default settings
             server.restoreServerConfiguration();
@@ -98,8 +105,8 @@ public class ConsoleFormatTest {
         }
     }
 
-    @After
-    public void tearDown() throws Exception {
+    @AfterClass
+    public static void tearDown() throws Exception {
         if (server != null && server.isStarted()) {
             server.stopServer(EXPECTED_FAILURES);
         }
@@ -112,6 +119,9 @@ public class ConsoleFormatTest {
     public void testDynamicSimpleFormat() throws Exception {
         // Retrieve the consoleLogFile RemoteFile
         RemoteFile consoleLogFile = server.getConsoleLogFile();
+
+        // Set to dev format first to ensure the change occurs.
+        setServerConfiguration(server, DEV_FORMAT, false, false, consoleLogFile);
 
         // Verify if the console logging format is in the default dev format
         List<String> lines = server.findStringsInLogs(DEV_FORMAT_REGEX_PATTERN, consoleLogFile);
@@ -187,7 +197,31 @@ public class ConsoleFormatTest {
         Log.info(c, "testDeprecatedBasicConsoleFormat", "The default dev console formatted line : " + line);
 
         // Verify if the console log is back to the default dev format, by getting the latest message.
-        assertTrue("The console.log file was not formatted to the default dev format.", isStringinDevFormat(line));
+        assertTrue("The console.log file was not formatted to the default dev format." + line, isStringinDevFormat(line));
+    }
+
+    /*
+     * This test sets the "consoleFormat" attribute to the deprecated basic console format and verifies if the appropriate warning message is displayed
+     * and checks that the default format is applied.
+     */
+    @Test
+    public void testTBasicConsoleFormat() throws Exception {
+        // Retrieve the consoleLogFile RemoteFile
+        RemoteFile consoleLogFile = server.getConsoleLogFile();
+
+        // Set to dev format first to ensure the change occurs.
+        setServerConfiguration(server, SIMPLE_FORMAT, false, false, consoleLogFile);
+
+        // Set the consoleFormat="tbasic" and traceSpec=off in server.xml
+        setServerConfiguration(server, TBASIC_FORMAT, false, false, consoleLogFile);
+
+        // Verify if the server was successfully updated again.
+        String line = server.waitForStringInLogUsingMark("CWWKG0017I", consoleLogFile);
+        Log.info(c, "testTBasicConsoleFormat", "The tbasic console formatted line : " + line);
+        assertNotNull("Message CWWKG0017I not appeared or appeared more than once ", line);
+        
+        // Verify if the console log is using the tbasic format, by getting the latest message.
+        assertTrue("The console.log file was not formatted to the tbasic format.", isStringinTBasicFormat(line, TBASIC_FORMAT_REGEX_PATTERN));
     }
 
     /*
@@ -195,6 +229,7 @@ public class ConsoleFormatTest {
      */
     @Test
     public void testSimpleFormatSetInBootstrapProperties() throws Exception {
+        restoreServer();
         // Get the bootstrap.properties file and store the original content
         RemoteFile bootstrapFile = server.getServerBootstrapPropertiesFile();
         FileInputStream in = getFileInputStreamForRemoteFile(bootstrapFile);
@@ -216,6 +251,10 @@ public class ConsoleFormatTest {
             // Restore the initial contents of bootstrap.properties
             FileOutputStream out = getFileOutputStreamForRemoteFile(bootstrapFile, false);
             writeProperties(initialBootstrapProps, out);
+
+            // Restart the default server so the bootstrap properties is restored, to ensure other tests are run correctly.
+            Log.info(c, "testSimpleFormatSetInBootstrapProperties", "Restarting the server...");
+            restoreServer();
         }
     }
 
@@ -225,6 +264,7 @@ public class ConsoleFormatTest {
      */
     @Test
     public void testInvalidConsoleFormatSetInBootstrapProperties() throws Exception {
+        restoreServer();
         // Get the bootstrap.properties file and store the original content
         RemoteFile bootstrapFile = server.getServerBootstrapPropertiesFile();
         FileInputStream in = getFileInputStreamForRemoteFile(bootstrapFile);
@@ -250,6 +290,10 @@ public class ConsoleFormatTest {
             // Restore the initial contents of bootstrap.properties
             FileOutputStream out = getFileOutputStreamForRemoteFile(bootstrapFile, false);
             writeProperties(initialBootstrapProps, out);
+
+            // Restart the default server so the bootstrap properties is restored, to ensure other tests are run correctly.
+            Log.info(c, "testSimpleFormatSetInBootstrapProperties", "Restarting the server...");
+            restoreServer();
         }
     }
 
@@ -280,6 +324,7 @@ public class ConsoleFormatTest {
      */
     @Test
     public void testSimpleConsoleFormatWithSysOutSysErrMsgs() throws Exception {
+        restoreServer();
         // Retrieve the consoleLogFile RemoteFile
         RemoteFile consoleLogFile = server.getConsoleLogFile();
 
@@ -308,6 +353,30 @@ public class ConsoleFormatTest {
     }
 
     /*
+     * This test sets consoleFormat=tbasic and verifies if the method and class names are included.
+     */
+    @Test
+    public void testTBasicFormatWithClassMessage() throws Exception {
+        restoreServer();
+        // Retrieve the consoleLogFile RemoteFile
+        RemoteFile consoleLogFile = server.getConsoleLogFile();
+
+        // Set the consoleFormat="tbasic", traceSpec=off, isoDateFormat=false in server.xml
+        setServerConfiguration(server, TBASIC_FORMAT, false, false, consoleLogFile);
+
+        // Run application to generate Audit messages including the method and class name using logger.logp
+        hitWebPage("tbasic-servlet", "TBasicServlet", false, null);
+
+        // Verify the Audit message
+        String line = server.waitForStringInLog(" helloMethod ", consoleLogFile);
+        Log.info(c, "testTBasicFormatWithClassMessage", "The SystemOut message in tBasic format : " + line);
+        assertNotNull("Message HELLO0001W did not appear in console.log", line);
+        assertTrue("The message is not in the TBASIC console format.", isStringinTBasicFormat(line, TBASIC_FORMAT_REGEX_PATTERN_CLASS));
+        assertTrue("The message is not in the TBASIC console format.", line.contains("com.ibm.ws.logging.fat.tbasic.servlet.TBasicServlet"));
+
+    }
+
+    /*
      * This test sets consoleFormat=simple and generates an exception and verifies if the exception is not trimmed/suppressed are formatted correctly.
      */
     @Test
@@ -316,25 +385,36 @@ public class ConsoleFormatTest {
         // Retrieve the consoleLogFile RemoteFile
         RemoteFile consoleLogFile = server.getConsoleLogFile();
 
+        // Get the console log format before updating.
+        String initialConsoleFormat = server.getServerConfiguration().getLogging().getConsoleFormat();
+        if (initialConsoleFormat == null) {
+            initialConsoleFormat = "";
+        }
+
         // Set the consoleFormat="simple", traceSpec=off, isoDateFormat=false in server.xml
         setServerConfiguration(server, SIMPLE_FORMAT, false, false, consoleLogFile);
 
-        // Verify if the server was successfully updated
-        String line = server.waitForStringInLogUsingMark("CWWKG0017I", consoleLogFile);
-        assertNotNull("Message CWWKG0017I did not appear.", line);
+        // If the initial format is already SIMPLE_FORMAT, then look for the message CWWKG0017I, otherwise look for the message CWWKG0018I.
+        if(!initialConsoleFormat.equals(SIMPLE_FORMAT)) {
+            String line = server.waitForStringInLogUsingMark("CWWKG0017I", consoleLogFile);
+            assertNotNull("Message CWWKG0017I did not appear.", line);
+        } else {
+            String line = server.waitForStringInLogUsingMark("CWWKG0018I", consoleLogFile);
+            assertNotNull("Message CWWKG0018I did not appear.", line);
+        }
 
         // Run application to generate SystemOut and SystemErr messages
         hitWebPage("broken-servlet", "BrokenWithABadlyWrittenThrowableServlet", true, null);
 
         // Verify if the exception appeared and is in the simple format
-        line = server.waitForStringInLog("An exception occurred: java.lang.Throwable:", consoleLogFile);
+        String line = server.waitForStringInLog("An exception occurred: java.lang.Throwable:", consoleLogFile);
         Log.info(c, "testSimpleConsoleFormatWithException", "The exception message in simple format : " + line);
         assertNotNull("The exception message did not appear in the console.log file", line);
         assertTrue("The exception message is not in the simple console format.", isStringinSimpleFormat(line));
 
         // Verify if the exception is complete, and not trimmed and/or suppressed
         List<String> lines = server.findStringsInLogs(INTERNAL_CLASSES_REGEXP, consoleLogFile);
-        assertTrue("The SystemErr message is not in the  simple console format.", lines.isEmpty());
+        assertTrue("The SystemErr message is not in the simple console format.", lines.isEmpty());
     }
 
     /*
@@ -350,16 +430,22 @@ public class ConsoleFormatTest {
         // Start the server with the server.env file configured with the consoleFormat=simple
         serverEnv.startServer();
 
-        // Retrieve the consoleLogFile RemoteFile
-        RemoteFile consoleLogFile = serverEnv.getConsoleLogFile();
+        try {
+            // Retrieve the consoleLogFile RemoteFile
+            RemoteFile consoleLogFile = serverEnv.getConsoleLogFile();
 
-        // Verify if the console logging format is not in the default dev format, and is in the simple format
-        List<String> lines = serverEnv.findStringsInLogs(SIMPLE_FORMAT_REGEX_PATTERN, consoleLogFile);
-        assertTrue("The console log is not in simple format.", lines.size() > 0);
+            // Verify if the console logging format is not in the default dev format, and is in the simple format
+            List<String> lines = serverEnv.findStringsInLogs(SIMPLE_FORMAT_REGEX_PATTERN, consoleLogFile);
+            assertTrue("The console log is not in simple format.", lines.size() > 0);
 
-        // Stop the serverEnv
-        if (serverEnv != null && serverEnv.isStarted()) {
-            serverEnv.stopServer(EXPECTED_FAILURES);
+        } finally {
+            // Stop the serverEnv here, to ensure proper clean up when failures occur.
+            if (serverEnv != null && serverEnv.isStarted()) {
+                serverEnv.stopServer(EXPECTED_FAILURES);
+            }
+
+            // Start the default server, to ensure other tests are run correctly.
+            restoreServer();
         }
     }
 
@@ -410,11 +496,14 @@ public class ConsoleFormatTest {
             // Restore the initial contents of bootstrap.properties
             FileOutputStream out = getFileOutputStreamForRemoteFile(bootstrapFile, false);
             writeProperties(initialBootstrapProps, out);
-        }
 
-        // Stop the serverEnv
-        if (serverEnv != null && serverEnv.isStarted()) {
-            serverEnv.stopServer(EXPECTED_FAILURES);
+            // Stop the serverEnv here, to ensure proper clean up when failures occur.
+            if (serverEnv != null && serverEnv.isStarted()) {
+                serverEnv.stopServer(EXPECTED_FAILURES);
+            }
+
+            // Start the default server, to ensure other tests are run correctly.
+            restoreServer();
         }
     }
 
@@ -485,6 +574,7 @@ public class ConsoleFormatTest {
         loggingObj.setConsoleFormat(consoleFormat);
         libertyServer.setMarkToEndOfLog(consoleLogFile);
         libertyServer.updateServerConfiguration(serverConfig);
+        Thread.sleep(1000);
         libertyServer.waitForConfigUpdateInLogUsingMark(null);
     }
 
@@ -494,6 +584,10 @@ public class ConsoleFormatTest {
 
     private static boolean isStringinSimpleFormat(String text) {
         return Pattern.compile(SIMPLE_FORMAT_REGEX_PATTERN).matcher(text).find();
+    }
+
+    private static boolean isStringinTBasicFormat(String text, String regex) {
+        return Pattern.compile(regex).matcher(text).find();
     }
 
     private void setInBootstrapPropertiesFile(LibertyServer libertyServer, RemoteFile bootstrapFile, String key, String value) throws Exception {

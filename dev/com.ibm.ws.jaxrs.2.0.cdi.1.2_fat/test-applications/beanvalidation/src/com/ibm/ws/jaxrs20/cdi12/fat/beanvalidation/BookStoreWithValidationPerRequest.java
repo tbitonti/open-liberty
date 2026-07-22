@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,17 +22,6 @@ import javax.ws.rs.core.MediaType;
 
 @Path("/perrequest/")
 public class BookStoreWithValidationPerRequest {
-    @NotNull
-    private String id;
-
-    @QueryParam("id")
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getId() {
-        return this.id;
-    }
 
     Person person;
 
@@ -44,7 +35,7 @@ public class BookStoreWithValidationPerRequest {
     @Path("book")
     @NotNull
     @Produces(MediaType.TEXT_PLAIN)
-    public String book() {
-        return person.talk();
+    public String book(@NotNull @QueryParam("id") String id) {
+        return person.talk() + " " + id;
     }
 }

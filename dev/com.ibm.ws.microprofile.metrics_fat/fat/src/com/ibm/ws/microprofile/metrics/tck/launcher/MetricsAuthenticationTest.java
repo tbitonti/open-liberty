@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018, 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -72,19 +74,19 @@ public class MetricsAuthenticationTest {
         waitForMetricsEndpoint(server);
     }
 
-    private void waitForMetricsEndpoint(LibertyServer server) throws Exception {
+    private void waitForMetricsEndpoint(LibertyServer server) {
         // by default waitForStringInLogUsingMark will look at the default log when a log is not specified
         assertNotNull("Web application is not available at */metrics/", server.waitForStringInLogUsingMark("CWWKT0016I.*/metrics/"));
     }
 
-    private void waitForMetricsFeature(LibertyServer server) throws Exception {
+    private void waitForMetricsFeature(LibertyServer server){
         assertNotNull("[/metrics] failed to initialize", server.waitForStringInLogUsingMark("SRVE0242I.*/metrics.*"));
     }
 
     private void waitForSecurityPrerequisites(LibertyServer server) throws Exception {
-        assertNotNull("LTPA keys are not created/ready within timeout period of " + TIMEOUT + "ms.", server.waitForStringInLog("CWWKS4104A.*|CWWKS4105I.*", TIMEOUT));
-        assertNotNull("TCP Channel defaultHttpEndpoint has not started", server.waitForStringInLog("CWWKO0219I.*defaultHttpEndpoint"));
-        assertNotNull("TCP Channel defaultHttpEndpoint-ssl has not started", server.waitForStringInLog("CWWKO0219I.*defaultHttpEndpoint-ssl"));
+        server.waitForLTPAConfigReady(TIMEOUT);
+        server.waitForDefaultHTTPEndpointStart(TIMEOUT);
+        server.waitForDefaultHTTPEndpointSSLStart(TIMEOUT);
     }
 
     private static void setMetricsAuthConfig(LibertyServer server, Boolean authentication) throws Exception {

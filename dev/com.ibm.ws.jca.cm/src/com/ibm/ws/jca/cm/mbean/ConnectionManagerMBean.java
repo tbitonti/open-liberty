@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -21,12 +23,12 @@ import javax.management.MBeanException;
  *
  * <p>Important: the mbean instance is not available until the connection factory or data source is first used.</p>
  *
- * <p>The object name has the form <code>WebSphere:service=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,*</code>
+ * <p>The object name has the form <code>WebSphere:type=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,*</code>
  * where additional attributes can be included to narrow down the connection manager instance.</p>
  *
  * Object name examples:
  * <ul>
- * <li><code>WebSphere:service=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,jndiName=jdbc/db2,*</code>
+ * <li><code>WebSphere:type=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,jndiName=jdbc/db2,*</code>
  * <br>corresponds to a connection manager instance used by a data source with a server configuration-defined JNDI name. For example,
  * <code>
  * <br>&#60;dataSource jndiName="jdbc/db2">
@@ -35,7 +37,7 @@ import javax.management.MBeanException;
  * <br>&#60;/dataSource>
  * </code>
  * </li>
- * <li><code>WebSphere:service=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,jndiName=eis/cf2,*</code>
+ * <li><code>WebSphere:type=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,jndiName=eis/cf2,*</code>
  * <br>corresponds to a connection manager instance used by a connection factory with a server configuration-defined JNDI name. For example,
  * <code>
  * <br>&#60;connectionFactory jndiName="eis/cf2">
@@ -44,7 +46,7 @@ import javax.management.MBeanException;
  * <br>&#60;/connectionFactory>
  * </code>
  * </li>
- * <li><code>WebSphere:service=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,name=jmsConnectionFactory[cf1]/connectionManager[default-0],*</code>
+ * <li><code>WebSphere:type=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,name=jmsConnectionFactory[cf1]/connectionManager[default-0],*</code>
  * <br>corresponds to a connection manager instance explicitly configured in server configuration as a nested element. For example,
  * <code>
  * <br>&#60;jmsConnectionFactory id="cf1">
@@ -53,7 +55,7 @@ import javax.management.MBeanException;
  * <br>&#60;/jmsConnectionFactory>
  * </code>
  * </li>
- * <li><code>WebSphere:service=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,name=databaseStore[dbstore1]/dataSource[default-0]/connectionManager[default-0],*</code>
+ * <li><code>WebSphere:type=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,name=databaseStore[dbstore1]/dataSource[default-0]/connectionManager[default-0],*</code>
  * <br>corresponds to a connection manager instance explicitly configured in server configuration as a nested element. For example,
  * <code>
  * <br>&#60;databaseStore id="dbstore1">
@@ -64,7 +66,7 @@ import javax.management.MBeanException;
  * <br>&#60;/databaseStore>
  * </code>
  * </li>
- * <li><code>WebSphere:service=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,name=dataSource[ds1]/connectionManager,*</code>
+ * <li><code>WebSphere:type=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,name=dataSource[ds1]/connectionManager,*</code>
  * <br>corresponds to a connection manager instance implicit from configuration of dataSource in server configuration. For example,
  * <code>
  * <br>&#60;dataSource id="ds1">
@@ -72,11 +74,11 @@ import javax.management.MBeanException;
  * <br>&#60;/dataSource>
  * </code>
  * </li>
- * <li><code>WebSphere:service=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,jndiName=java.comp/env/jdbc/ds3,application=MyApp,module=myweb,component=MyTestServlet,*</code>
+ * <li><code>WebSphere:type=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,jndiName=java.comp/env/jdbc/ds3,application=MyApp,module=myweb,component=MyTestServlet,*</code>
  * <br>corresponds to a connection manager instance implicitly created for data source java:comp/env/jdbc/ds3, which is defined in MyTestServlet in web module myweb in application
  * MyApp. It should be noted that the : character from the JNDI name is replaced by the . character because : is not valid in an object name.
  * </li>
- * <li><code>WebSphere:service=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,jndiName=java.app/env/jdbc/ds4,application=MyApp,*</code>
+ * <li><code>WebSphere:type=com.ibm.ws.jca.cm.mbean.ConnectionManagerMBean,jndiName=java.app/env/jdbc/ds4,application=MyApp,*</code>
  * <br>corresponds to a connection manager instance implicitly created for data source java:app/env/jdbc/ds4, which is defined in application MyApp.
  * It should be noted that the : character from the JNDI name is replaced by the . character because : is not valid in an object name.
  * </li>
@@ -84,6 +86,24 @@ import javax.management.MBeanException;
  *
  */
 public interface ConnectionManagerMBean {
+    /**
+     * Abort contents of the connection pool associated with
+     * this Connection Manager.
+     *
+     * @param type The type of abort to be used aborting connections from connection pool.
+     *                 Type <code>"inuse"</code>, will abort connection that are in use based
+     *                 on the time provided. In use connections in the shared and unshared pools
+     *                 will be aborted if the in use time for the connections exceeds the time
+     *                 provided.
+     *
+     * @param time The time to be used for aborting connections from connection pool based on type.
+     *                 Parameter time is a Long and in milliseconds.
+     *
+     * @throws MBeanException
+     */
+    @Deprecated
+    public String abortConnections(String type, Long time) throws MBeanException;
+
     /**
      * Purge the contents of the connection pool associated with
      * this Connection Manager.

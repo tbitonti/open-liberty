@@ -1,15 +1,18 @@
-package com.ibm.ws.sib.msgstore;
-
-/*******************************************************************************
- * Copyright (c) 2012, 2014 IBM Corporation and others.
+/* ==============================================================================
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *******************************************************************************/
+ * ==============================================================================
+ */
+package com.ibm.ws.sib.msgstore;
+
 
 import com.ibm.ws.sib.utils.RuntimeInfo;
 
@@ -389,7 +392,7 @@ public interface MessageStoreConstants
     /* Persistence Layer Constants */
     /*************************************************************************/
     public static final String START_MODE = "STARTMODE"; // F008622--start
-    public static final String DEAFULT_START_MODE = "NORMAL"; //F008622-end
+    public static final String DEFAULT_START_MODE = "NORMAL"; //F008622-end
     public static final String DEFAULT_DATABASE_NAME = "SIBDB";
     public static final String DEFAULT_STOGROUP_NAME = "SIBSG";
     public static final String DEFAULT_BUFPOOL_NAME = "BP1";

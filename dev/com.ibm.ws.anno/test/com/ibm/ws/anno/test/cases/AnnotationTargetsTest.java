@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,8 +15,8 @@ package com.ibm.ws.anno.test.cases;
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.annotation.Resource;
-import javax.persistence.Id;
+// import javax.annotation.Resource;
+// import javax.persistence.Id;
 
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -79,7 +81,8 @@ public class AnnotationTargetsTest {
     @Test
     public void testOverrideWithAnnotation() {
         String bClassName = getClassName(BClass.class);
-        String annoName = Resource.class.getName();
+        String annoName = "javax.annotation.Resource";
+        // String annoName = Resource.class.getName(); // Remove Resource import; access annotations by name.
 
         Set<String> classes = filter( targets.getClassesWithMethodAnnotation(annoName) );
         Assert.assertEquals(1, classes.size());
@@ -134,7 +137,8 @@ public class AnnotationTargetsTest {
         String subClassName = getClassName(SubBase.class);
         String bClassName = getClassName(BClass.class);
         String testAnno = Test.class.getName();
-        String resourceAnno = Resource.class.getName();
+        String resourceAnno = "javax.annotation.Resource";
+        // String resourceAnno = Resource.class.getName(); // Remove Resource import; access annotations by name.
 
         Set<String> classes = filter( targets.getClassesWithMethodAnnotation(testAnno) );
         Assert.assertEquals(toString(classes), 31, classes.size());
@@ -148,8 +152,8 @@ public class AnnotationTargetsTest {
     @Test
     public void testFieldAnnotations() {
         String subClassName = getClassName(SubBase.class);
-
-        String idAnno = Id.class.getName();
+        String idAnno = "javax.persistence.Id";
+        // String idAnno = Id.class.getName(); // Remove Id import; access annotations by name.
 
         Set<String> classes = filter( targets.getClassesWithFieldAnnotation(idAnno) );
         Assert.assertEquals(1, classes.size());
@@ -159,7 +163,9 @@ public class AnnotationTargetsTest {
     @Test
     public void testNoInheritAnnos() {
         String derivedNoInherit = getClassName(DerivedNoInherit.class);
-        String resourceAnno = Resource.class.getName();
+        String resourceAnno = "javax.annotation.Resource";        
+        // String resourceAnno = Resource.class.getName(); // Remove Resource import; access annotations by name.
+
         Set<String> classes = filter( targets.getAllInheritedAnnotatedClasses(resourceAnno) );
         Assert.assertEquals(toString(classes), 3, classes.size());
         Assert.assertTrue(toString(classes), classes.contains(derivedNoInherit));

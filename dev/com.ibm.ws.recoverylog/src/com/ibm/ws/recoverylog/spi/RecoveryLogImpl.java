@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2016 IBM Corporation and others.
+ * Copyright (c) 2003, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,12 +13,12 @@
 
 package com.ibm.ws.recoverylog.spi;
 
-import com.ibm.tx.util.logging.Tr;
-import com.ibm.tx.util.logging.TraceComponent;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
 
-public class RecoveryLogImpl implements DistributedRecoveryLog
-{
-    private static final TraceComponent tc = Tr.register(RecoveryLogImpl.class, TraceConstants.TRACE_GROUP, null);
+public class RecoveryLogImpl implements DistributedRecoveryLog {
+    private static final TraceComponent tc = Tr.register(RecoveryLogImpl.class, TraceConstants.TRACE_GROUP, TraceConstants.NLS_FILE);
 
     private final MultiScopeLog _recoveryLog;
     private final FailureScope _failureScope;
@@ -28,14 +30,13 @@ public class RecoveryLogImpl implements DistributedRecoveryLog
      * server node (ie in each FailureScope). Because of this, the caller must
      * specify the FailureScope for recovery log being created.
      * </p>
-     * 
-     * @param recoveryLog MultiScopeLog delegate
+     *
+     * @param recoveryLog  MultiScopeLog delegate
      * @param failureScope FailureScope criteria used to filter the delegates
      */
-    public RecoveryLogImpl(MultiScopeLog recoveryLog, FailureScope failureScope)
-    {
+    public RecoveryLogImpl(MultiScopeLog recoveryLog, FailureScope failureScope) {
         if (tc.isEntryEnabled())
-            Tr.entry(tc, "RecoveryLogImpl", new Object[] { recoveryLog, failureScope });
+            Tr.entry(tc, "RecoveryLogImpl", recoveryLog, failureScope);
 
         _recoveryLog = recoveryLog;
         _failureScope = failureScope;
@@ -48,201 +49,117 @@ public class RecoveryLogImpl implements DistributedRecoveryLog
     // Method: RecoveryLog.openLog
     //------------------------------------------------------------------------------
     @Override
-    public void openLog() throws LogCorruptedException, LogAllocationException, InternalLogException,
-                    LogIncompatibleException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "openLog", this);
-
-        _recoveryLog.openLog();
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "openLog");
+    @Trivial
+    public void openLog(boolean localRecovery) throws LogCorruptedException, LogAllocationException, InternalLogException, LogIncompatibleException, PeerLogsMissingException {
+        _recoveryLog.openLog(localRecovery);
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.closeLog
     //------------------------------------------------------------------------------
     @Override
-    public void closeLog() throws InternalLogException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "closeLog", this);
-
+    @Trivial
+    public void closeLog() throws InternalLogException {
         _recoveryLog.closeLog();
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "closeLog");
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.closeLog
     //------------------------------------------------------------------------------
     @Override
-    public void closeLog(byte[] serviceData) throws InternalLogException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "closeLog", new Object[] { serviceData, this });
-
+    @Trivial
+    public void closeLog(byte[] serviceData) throws InternalLogException {
         _recoveryLog.closeLog(serviceData);
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "closeLog");
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.closeLogImmediate
     //------------------------------------------------------------------------------
     @Override
-    public void closeLogImmediate() throws InternalLogException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "closeLogImmediate", this);
-
+    @Trivial
+    public void closeLogImmediate() throws InternalLogException {
         _recoveryLog.closeLogImmediate();
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "closeLogImmediate");
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.recoveryCompelte
     //------------------------------------------------------------------------------
     @Override
-    public void recoveryComplete() throws LogClosedException, InternalLogException, LogIncompatibleException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "recoveryComplete", this);
-
+    @Trivial
+    public void recoveryComplete() throws LogClosedException, InternalLogException, LogIncompatibleException {
         _recoveryLog.recoveryComplete();
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "recoveryComplete");
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.recoveryComplete
     //------------------------------------------------------------------------------
     @Override
-    public void recoveryComplete(byte[] serviceData) throws LogClosedException, InternalLogException, LogIncompatibleException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "recoveryComplete", new Object[] { serviceData, this });
-
+    @Trivial
+    public void recoveryComplete(byte[] serviceData) throws LogClosedException, InternalLogException, LogIncompatibleException {
         _recoveryLog.recoveryComplete(serviceData);
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "recoveryComplete");
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.keypoint
     //------------------------------------------------------------------------------
     @Override
-    public void keypoint() throws LogClosedException, InternalLogException, LogIncompatibleException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "keypoint", this);
-
+    @Trivial
+    public void keypoint() throws LogClosedException, InternalLogException, LogIncompatibleException {
         _recoveryLog.keypoint();
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "keypoint");
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.serviceData
     //------------------------------------------------------------------------------
     @Override
-    public byte[] serviceData() throws LogClosedException, InternalLogException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "serviceData", this);
-
-        byte[] serviceData = _recoveryLog.serviceData();
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "serviceData", RLSUtils.toHexString(serviceData, RLSUtils.MAX_DISPLAY_BYTES));
-        return serviceData;
+    @Trivial
+    public byte[] serviceData() throws LogClosedException, InternalLogException {
+        return _recoveryLog.serviceData();
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.createRecoverableUnit
     //------------------------------------------------------------------------------
     @Override
-    public RecoverableUnit createRecoverableUnit() throws LogClosedException, InternalLogException, LogIncompatibleException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "createRecoverableUnit", this);
-
-        final RecoverableUnit runit = _recoveryLog.createRecoverableUnit(_failureScope);
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "createRecoverableUnit", runit);
-        return runit;
+    @Trivial
+    public RecoverableUnit createRecoverableUnit() throws LogClosedException, InternalLogException, LogIncompatibleException {
+        return _recoveryLog.createRecoverableUnit(_failureScope);
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.removeRecoverableUnit
     //------------------------------------------------------------------------------
     @Override
-    public void removeRecoverableUnit(long identity) throws LogClosedException, InvalidRecoverableUnitException, InternalLogException, LogIncompatibleException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "removeRecoverableUnit", new Object[] { new Long(identity), this });
-
+    @Trivial
+    public void removeRecoverableUnit(long identity) throws LogClosedException, InvalidRecoverableUnitException, InternalLogException, LogIncompatibleException {
         _recoveryLog.removeRecoverableUnit(identity);
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "removeRecoverableUnit");
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.lookupRecoverableUnit
     //------------------------------------------------------------------------------
     @Override
-    public RecoverableUnit lookupRecoverableUnit(long identity) throws LogClosedException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "lookupRecoverableUnit", new Object[] { new Long(identity), this });
-
-        RecoverableUnit runit = _recoveryLog.lookupRecoverableUnit(identity);
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "lookupRecoverableUnit", runit);
-        return runit;
+    @Trivial
+    public RecoverableUnit lookupRecoverableUnit(long identity) throws LogClosedException {
+        return _recoveryLog.lookupRecoverableUnit(identity);
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.recoverableUnits
     //------------------------------------------------------------------------------
     @Override
-    public LogCursor recoverableUnits() throws LogClosedException
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "recoverableUnits", this);
-
-        final LogCursor cursor = _recoveryLog.recoverableUnits(_failureScope);
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "recoverableUnits", cursor);
-        return cursor;
+    @Trivial
+    public LogCursor recoverableUnits() throws LogClosedException {
+        return _recoveryLog.recoverableUnits(_failureScope);
     }
 
     //------------------------------------------------------------------------------
     // Method: RecoveryLog.logProperties
     //------------------------------------------------------------------------------
     @Override
-    public LogProperties logProperties()
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "logProperties", this);
-
-        final LogProperties lprops = _recoveryLog.logProperties();
-
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "logProperties", lprops);
-        return lprops;
+    @Trivial
+    public LogProperties logProperties() {
+        return _recoveryLog.logProperties();
     }
 
     //------------------------------------------------------------------------------
@@ -250,12 +167,11 @@ public class RecoveryLogImpl implements DistributedRecoveryLog
     //------------------------------------------------------------------------------
     /**
      * Returns the string representation of this object instance.
-     * 
+     *
      * @return String The string representation of this object instance.
      */
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "" + _recoveryLog + " [" + _failureScope + "]";
     }
 
@@ -264,11 +180,11 @@ public class RecoveryLogImpl implements DistributedRecoveryLog
     //------------------------------------------------------------------------------
     /**
      * Returns the MultiScopeLog wrappered by this object.
-     * 
+     *
      * @return MultiScopeLog MultiScopeLog wrappered by this object instance.
      */
-    private MultiScopeLog getMultiScopeLog()
-    {
+    @Trivial
+    private MultiScopeLog getMultiScopeLog() {
         return _recoveryLog;
     }
 
@@ -279,16 +195,32 @@ public class RecoveryLogImpl implements DistributedRecoveryLog
      * Associates another log with this one.
      */
     @Override
-    public void associateLog(DistributedRecoveryLog otherLog, boolean failAssociatedLog)
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "associateLog", new Object[] { otherLog, failAssociatedLog, this });
+    @Trivial
+    public void associateLog(DistributedRecoveryLog otherLog, boolean failAssociatedLog) {
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "associateLog {0} {1} {2}", otherLog, failAssociatedLog, this);
 
         if (otherLog instanceof RecoveryLogImpl)
             _recoveryLog.associateLog(((RecoveryLogImpl) otherLog).getMultiScopeLog(), failAssociatedLog);
         else
             _recoveryLog.associateLog(otherLog, failAssociatedLog);
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "associateLog");
+    }
+
+    @Override
+    @Trivial
+    public boolean delete() {
+        return _recoveryLog.delete();
+    }
+
+    @Override
+    @Trivial
+    public void retainLogsInPeerRecoveryEnv(boolean retainLogs) {
+        _recoveryLog.retainLogsInPeerRecoveryEnv(retainLogs);
+    }
+
+    @Override
+    @Trivial
+    public boolean failed() {
+        return _recoveryLog.failed();
     }
 }

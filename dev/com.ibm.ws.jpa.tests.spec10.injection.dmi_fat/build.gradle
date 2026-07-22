@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,7 +13,13 @@
 
 configurations {
   hibernateJPA22
-  jpaFatTools
+  openjpaJPA22
+  jpaFatTools {
+    transitive = false
+  }
+  requiredLibs {
+    transitive = false
+  }
 }
 
 dependencies {
@@ -26,9 +34,17 @@ dependencies {
   
   hibernateJPA22 'org.dom4j:dom4j:2.1.1'
   hibernateJPA22 'org.hibernate.common:hibernate-commons-annotations:5.1.0.Final'
+    
+  openjpaJPA22	 'org.apache.openjpa:openjpa:3.1.2'
+  openjpaJPA22	 'org.apache.commons:commons-collections4:4.4'
+  openjpaJPA22	 'org.apache.commons:commons-dbcp2:2.7.0'
+  openjpaJPA22	 'commons-logging:commons-logging:1.2'
+  openjpaJPA22	 'org.apache.commons:commons-pool2:2.6.0'
+  openjpaJPA22	 'net.sourceforge.serp:serp:1.15.1'
+  openjpaJPA22	 'org.apache.xbean:xbean-asm8-shaded:4.17'
   
   jpaFatTools project(':com.ibm.ws.jpa_testframework')
-  requiredLibs project(":com.ibm.ws.jpa.tests.spec10.injection.common")
+  requiredLibs project(":com.ibm.ws.jpa.tests.spec10.injection_fat.common")
 }
 
 task addhibernateJPA22(type: Copy) {
@@ -45,34 +61,38 @@ task addhibernateJPA22(type: Copy) {
   rename 'jboss-logging-.*.jar', 'jboss-logging.jar'
 }
 
+task addOpenJPA_JPA22(type: Copy) {
+  shouldRunAfter jar
+  from configurations.openjpaJPA22
+  into new File(autoFvtDir, 'publish/shared/resources/jpa22_openjpa')
+}
+
 task addJPAFATTools (type: Copy) {
   mustRunAfter jar
   from configurations.jpaFatTools
-  include "**/com.ibm.ws.jpa_testframework*.jar"
-  into new File(autoFvtDir, 'lib')      
-  rename 'com.ibm.ws.jpa_testframework-(.*).jar', 'com.ibm.ws.jpa_testframework.jar'
+  include "**/com.ibm.ws.jpa_testframework.jar"
+  into new File(autoFvtDir, 'lib')
 }
 
-task copyFAT {
-    dependsOn ':com.ibm.ws.jpa.tests.spec10.injection.common:build'
-    copy {
-      from project(':com.ibm.ws.jpa.tests.spec10.injection.common').file('fat/src/com/ibm/ws/jpa/tests/spec10/injection/common')
-      into new File('fat/src/com/ibm/ws/jpa/tests/spec10/injection/common')
-    }
+task copyFAT(type: Copy) {
+    dependsOn ':com.ibm.ws.jpa.tests.spec10.injection_fat.common:build'
+    from project(':com.ibm.ws.jpa.tests.spec10.injection_fat.common').file('fat/src/com/ibm/ws/jpa/tests/spec10/injection/common')
+    into new File('fat/src/com/ibm/ws/jpa/tests/spec10/injection/common')
 }
 
 task copyCommonFiles {
-  dependsOn ':com.ibm.ws.jpa.tests.spec10.injection.common:build'
+  def commonProject = project(':com.ibm.ws.jpa.tests.spec10.injection_fat.common')
+  dependsOn ':com.ibm.ws.jpa.tests.spec10.injection_fat.common:build'
   doLast {
     /*
      * Copy test application resources.
      */
     copy {
-      from project(':com.ibm.ws.jpa.tests.spec10.injection.common').file('test-applications')
+      from commonProject.file('test-applications')
       into new File('test-applications')
     }
     copy {
-      from project(':com.ibm.ws.jpa.tests.spec10.injection.common').file('test-bundles')
+      from commonProject.file('test-bundles')
       into new File('test-bundles')
     }
 
@@ -80,7 +100,7 @@ task copyCommonFiles {
      * Copy common publish files.
      */
     copy {
-      from project(':com.ibm.ws.jpa.tests.spec10.injection.common').file('publish')
+      from commonProject.file('publish')
       into new File('publish')
     }
   }
@@ -88,15 +108,22 @@ task copyCommonFiles {
 
 addRequiredLibraries {
   dependsOn copyJdbcDrivers
-  dependsOn copyDatabaseRotationDrivers
   dependsOn addhibernateJPA22
+  dependsOn addOpenJPA_JPA22
   dependsOn addJakartaTransformer
   dependsOn addJPAFATTools
   dependsOn copyFAT
+  dependsOn copyTestContainers
 }
 
-jar {
+compileJava {
   dependsOn copyCommonFiles
+  dependsOn copyFAT
+}
+
+processResources {
+  dependsOn copyCommonFiles
+  dependsOn copyFAT
 }
 
 autoFVT.dependsOn copyCommonFiles

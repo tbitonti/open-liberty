@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017,2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,25 +18,24 @@ configurations {
   hibernateSearchLibs {
     transitive = false
   }
+  hibernateJakartaSearchLibs {
+    transitive = false
+  }
 }
 
 dependencies {
-  requiredLibs project(':io.openliberty.org.apache.commons.logging'),
-    project(':io.openliberty.org.apache.commons.codec')
+  requiredLibs project(':io.openliberty.org.apache.commons.codec')
   deltaspikeWarLibs 'org.apache.deltaspike.core:deltaspike-core-api:1.5.0',
     'org.apache.deltaspike.core:deltaspike-core-impl:1.5.0',
     'org.apache.deltaspike.cdictrl:deltaspike-cdictrl-api:1.5.0',
     'org.apache.deltaspike.cdictrl:deltaspike-cdictrl-weld:1.5.0',
     'org.apache.deltaspike.modules:deltaspike-scheduler-module-api:1.5.0',
     'org.apache.deltaspike.modules:deltaspike-scheduler-module-impl:1.5.0',
-    'org.quartz-scheduler:quartz:2.2.1',
-    'org.slf4j:slf4j-jdk14:1.7.7',
-    'org.slf4j:slf4j-api:1.7.7', 
-    'net.sf.jtidy:jtidy:r938'
+    'org.quartz-scheduler:quartz:2.3.2',
+    project(':com.ibm.ws.org.slf4j.jdk14')
   hibernateSearchLibs 'org.antlr:antlr:3.5.2',
-    'com.google.code.gson:gson:2.8.5',
+    project(':io.openliberty.com.google.gson'),
     project(':io.openliberty.org.apache.commons.codec'),
-    project(':io.openliberty.org.apache.commons.logging'),
     project(':com.ibm.ws.org.apache.httpcomponents'),
     'org.apache.lucene:lucene-analyzers-common:5.5.5',
     'org.apache.lucene:lucene-core:5.5.5',
@@ -55,23 +56,56 @@ dependencies {
     'com.fasterxml:classmate:1.5.0',
     'javassist:javassist:3.12.1.GA',
     'antlr:antlr:2.7.7'
+  hibernateJakartaSearchLibs 'org.antlr:antlr:3.5.2',
+    project(':io.openliberty.com.google.gson'),
+    project(':io.openliberty.org.apache.commons.codec'),
+    project(':com.ibm.ws.org.apache.httpcomponents'),
+    'org.apache.lucene:lucene-analyzers-common:5.5.5',
+    'org.apache.lucene:lucene-core:5.5.5',
+    'org.apache.lucene:lucene-facet:5.5.5',
+    'org.apache.lucene:lucene-misc:5.5.5',
+    'org.apache.lucene:lucene-queries:5.5.5',
+    'org.apache.lucene:lucene-queryparser:5.5.5',
+    'org.dom4j:dom4j:2.1.1',
+    'org.elasticsearch.client:elasticsearch-rest-client:5.6.8',
+    'org.elasticsearch.client:elasticsearch-rest-client-sniffer:5.6.8',
+    'org.hibernate.common:hibernate-commons-annotations:5.1.0.Final',
+    'org.hibernate.orm:hibernate-core:7.0.9.Final',
+    'org.hibernate:hibernate-search-elasticsearch:5.11.2.Final',
+    'org.hibernate:hibernate-search-engine:5.11.2.Final',
+    'org.hibernate:hibernate-search-orm:5.11.2.Final',
+    'org.jboss.logging:jboss-logging:3.6.0.Final',
+    'org.hibernate.orm:hibernate-community-dialects:7.0.9.Final',
+    'org.hibernate.models:hibernate-models:1.0.1',
+    'net.bytebuddy:byte-buddy:1.18.10',
+    'com.fasterxml:classmate:1.5.0',
+    'javassist:javassist:3.12.1.GA',
+    'org.antlr:antlr4-runtime:4.13.2'
 }
 
 task downloadHibernateSearchLibs(type: Copy) {
   from configurations.hibernateSearchLibs
-  into new File(autoFvtDir, 'publish/shared/resources/hibernate')
+  into new File(autoFvtDir, 'publish/shared/resources/hibernatejavax')
   rename 'jboss-logging-.*.jar', 'jboss-logging.jar'
   rename 'hibernate-core-.*.jar', 'hibernate-core.jar'
 }
 
-task addToDeltaspikeWar(type: Copy) {
+task downloadHibernateJakartaSearchLibs(type: Copy) {
+  from configurations.hibernateJakartaSearchLibs
+  into new File(autoFvtDir, 'publish/shared/resources/hibernate6Untransformed')
+  rename 'jboss-logging-.*.jar', 'jboss-logging.jar'
+  rename 'hibernate-core-.*.jar', 'hibernate-core.jar'
+}
+
+task addDeltaspikeLibs(type: Copy) {
   from configurations.deltaspikeWarLibs
-  into new File(autoFvtDir, 'test-applications/deltaspikeTest.war/resources/WEB-INF/lib')
+  into new File(autoFvtDir, 'lib/deltaspike')
 }
 
 addRequiredLibraries {
   dependsOn addDerby
-  dependsOn addToDeltaspikeWar
+  dependsOn addDeltaspikeLibs
   dependsOn downloadHibernateSearchLibs	
+  dependsOn downloadHibernateJakartaSearchLibs	
   dependsOn addJakartaTransformer
 }

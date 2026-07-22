@@ -39,6 +39,6 @@
         <tag>-</tag>
     </logstashCollector>
 
-    <keyStore id="defaultKeyStore" password="{xor}Lz4sLChvLTs=" />
+    <ssl id="defaultSSLConfig" verifyHostname="false" />
 
 </server>

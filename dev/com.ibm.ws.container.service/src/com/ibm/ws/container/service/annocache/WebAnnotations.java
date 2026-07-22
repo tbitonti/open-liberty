@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2012, 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,6 +16,7 @@ import java.util.List;
 
 import com.ibm.ws.container.service.annocache.FragmentAnnotations;
 import com.ibm.ws.container.service.annocache.ModuleAnnotations;
+import com.ibm.ws.container.service.annocache.internal.WebAnnotationsImpl;
 import com.ibm.ws.container.service.app.deploy.WebModuleInfo;
 import com.ibm.ws.container.service.config.WebFragmentInfo;
 import com.ibm.ws.container.service.config.WebFragmentsInfo;
@@ -160,4 +163,20 @@ public interface WebAnnotations extends ModuleAnnotations, com.ibm.ws.container.
      * @throws UnableToAdaptException Thrown by an error processing fragment paths.
      */
     FragmentAnnotations getFragmentAnnotations(WebFragmentInfo fragment) throws UnableToAdaptException;
+    
+    //
+    
+    /**
+     * Answer annotations targets generated from this web annotations, modified
+     * to remove locations not scanned by EJB.
+     * 
+     * Extra locations, if enabled, will be removed from the targets.
+     * 
+     * If extra locations are not enabled, answer these web annotations.
+     * 
+     * @return EJB annotation targets for this web module.
+     * 
+     * @throws UnableToAdaptException Thrown in case of an error.
+     */
+    WebAnnotations asEJBAnnotations() throws UnableToAdaptException;    
 }

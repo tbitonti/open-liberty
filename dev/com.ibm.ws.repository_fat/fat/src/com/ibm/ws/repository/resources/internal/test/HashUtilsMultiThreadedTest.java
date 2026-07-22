@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2015 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,14 +24,15 @@ import java.util.Hashtable;
 import org.junit.Test;
 
 import com.ibm.ws.repository.common.utils.internal.HashUtils;
+import com.ibm.ws.common.crypto.CryptoUtils;
 
 /**
  *
  */
 public class HashUtilsMultiThreadedTest {
 
-    private static final String SHA256 = "SHA-256";
-    private static final String MD5 = "MD5";
+    private static final String SHA256 = CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA_256;
+    private static final String MD5 = CryptoUtils.MESSAGE_DIGEST_ALGORITHM_MD5;
 
     /**
      * Calculate the SHA256 hash of all files in a directory using multithreading

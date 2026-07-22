@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -30,14 +32,13 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import test.common.SharedOutputManager;
-
 import com.ibm.websphere.security.cred.WSCredential;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.security.authentication.cache.AuthCacheConfig;
 import com.ibm.ws.security.authentication.cache.CacheContext;
 import com.ibm.ws.security.authentication.cache.CacheKeyProvider;
-import com.ibm.ws.security.authentication.cache.CacheObject;
+
+import test.common.SharedOutputManager;
 
 /**
  *
@@ -47,7 +48,7 @@ public class BasicAuthCacheKeyProviderTest {
     private static SharedOutputManager outputMgr;
     private static Mockery mockery = new JUnit4Mockery();
     private static CacheContext cacheContext;
-    private static CacheObject cacheObject;
+    private static Subject testSubject;
     private static String testRealm = "BasicRealm";
     private static String testUser = "user1";
     private static String testUserSecurityName = "user1SecurityName";
@@ -65,20 +66,14 @@ public class BasicAuthCacheKeyProviderTest {
         outputMgr = SharedOutputManager.getInstance();
         outputMgr.captureStreams();
 
-        createCacheObject();
+        createTestSubject();
         createCacheContext();
         createExpectedKeys();
     }
 
-    private static void createCacheObject() throws Exception {
-        Subject testSubject = createTestSubject();
-        cacheObject = new CacheObject(testSubject);
-    }
-
-    private static Subject createTestSubject() throws Exception {
-        Subject subject = new Subject();
-        addCredentialToSubject(subject);
-        return subject;
+    private static void createTestSubject() throws Exception {
+        testSubject = new Subject();
+        addCredentialToSubject(testSubject);
     }
 
     private static void addCredentialToSubject(Subject subject) throws Exception {
@@ -109,7 +104,7 @@ public class BasicAuthCacheKeyProviderTest {
                 will(returnValue(true));
             }
         });
-        cacheContext = new CacheContext(config, cacheObject, testUser, testPassword);
+        cacheContext = new CacheContext(config, testSubject, testUser, testPassword);
     }
 
     private static void createExpectedKeys() throws NoSuchAlgorithmException {
@@ -123,13 +118,13 @@ public class BasicAuthCacheKeyProviderTest {
     }
 
     private static String getHashedPassword(String password) throws NoSuchAlgorithmException {
-        MessageDigest messageDigest = MessageDigest.getInstance("SHA");
+        MessageDigest messageDigest = MessageDigest.getInstance("SHA-512");
         return Base64Coder.base64EncodeToString(messageDigest.digest(Base64Coder.getBytes(password)));
     }
 
     /**
      * Final teardown work when class is exiting.
-     * 
+     *
      * @throws Exception
      */
     @AfterClass
@@ -140,7 +135,7 @@ public class BasicAuthCacheKeyProviderTest {
 
     /**
      * Individual teardown after each test.
-     * 
+     *
      * @throws Exception
      */
     @After
@@ -171,9 +166,12 @@ public class BasicAuthCacheKeyProviderTest {
             assertTrue("The key must be the <realm>:<userid>:<hashedPassword>.", keys.contains(realmUseridAndHashedPassword));
             assertTrue("The key must be the <realm>:<securityName>:<hashedPassword>.", keys.contains(realmSecurityNameAndHashedPassword));
             assertTrue("The key must be the <realm>:<uniqueSecurityName>:<hashedPassword>.", keys.contains(realmUniqueSecurityNameAndHashedPassword));
-            assertTrue("The key must be the <realm>:<userid>.", keys.contains(realmAndUserid));
-            assertTrue("The key must be the <realm>:<securityName>.", keys.contains(realmAndSecurityName));
-            assertTrue("The key must be the <realm>:<uniqueSecurityName>.", keys.contains(realmAndUniqueSecurityName));
+
+            // If the CacheContext has the userid and password, there should not be a key with just the userid.
+            // This is a change that was done because we cannot treat providing only the userid as the same as providing both the userid and password.
+            assertFalse("The key must be the <realm>:<userid>.", keys.contains(realmAndUserid));
+            assertFalse("The key must be the <realm>:<securityName>.", keys.contains(realmAndSecurityName));
+            assertFalse("The key must be the <realm>:<uniqueSecurityName>.", keys.contains(realmAndUniqueSecurityName));
         } catch (Throwable t) {
             outputMgr.failWithThrowable(methodName, t);
         }
@@ -206,7 +204,7 @@ public class BasicAuthCacheKeyProviderTest {
                 will(returnValue(false));
             }
         });
-        CacheContext contextWithConfigBasicAuthLookupFalse = new CacheContext(config, cacheObject, testUser, testPassword);
+        CacheContext contextWithConfigBasicAuthLookupFalse = new CacheContext(config, testSubject, testUser, testPassword);
         return contextWithConfigBasicAuthLookupFalse;
     }
 

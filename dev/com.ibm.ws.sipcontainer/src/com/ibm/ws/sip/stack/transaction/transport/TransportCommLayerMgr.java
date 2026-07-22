@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -497,7 +499,7 @@ public class TransportCommLayerMgr
 		int lpPort = lp.getPort();
 		int viaPort = via.getPort();
 		if (viaPort == -1) {
-			viaPort = viaTransport.equalsIgnoreCase(ListeningPointImpl.TRANSPORT_TLS)
+			viaPort = viaTransport.equalsIgnoreCase(SipStackUtil.TLS_TRANSPORT)
 				? 5061
 				: 5060;
 		}
@@ -530,7 +532,7 @@ public class TransportCommLayerMgr
 		int lpPort = lp.getPort();
 		int viaPort = via.getPort();
 		if (viaPort == -1) {
-			viaPort = viaTransport.equalsIgnoreCase(ListeningPointImpl.TRANSPORT_TLS)
+			viaPort = viaTransport.equalsIgnoreCase(SipStackUtil.TLS_TRANSPORT)
 				? 5061
 				: 5060;
 		}
@@ -1271,7 +1273,7 @@ public class TransportCommLayerMgr
 					}
 				} catch (Throwable t) {
 					if (c_logger.isTraceFailureEnabled()) {
-						c_logger.traceFailure(this, "onRead", "exception occured " + t.getLocalizedMessage());
+						c_logger.traceFailure(this, "onRead", "exception occurred " + t.getLocalizedMessage());
 						t.printStackTrace();
 					}
 				} finally {
@@ -1543,7 +1545,7 @@ public class TransportCommLayerMgr
 			ListeningPointImpl lpImpl = (ListeningPointImpl)listenningConnection.getListeningPoint();
 			
 			//forward to the stack
-			SIPTransactionStack.instance().prossesTransportSipMessage( msg , lpImpl.getProvider() , connection );
+			SIPTransactionStack.instance().processTransportSipMessage( msg , lpImpl.getProvider() , connection );
 		}
 		catch (Exception e) {
 			// catch generic exceptions to keep this thread running
@@ -1951,8 +1953,9 @@ public class TransportCommLayerMgr
 		}
 		
 		/** 
-		 * keep wait for messages and send them to the network
-		 * untill error occurs 
+		 * wait for messages 
+		 * and send them to the network
+		 * until error occurs 
 		 **/
 		private void readLoopBackMessages()
 		{
@@ -1990,7 +1993,7 @@ public class TransportCommLayerMgr
 					msg.getMsg().removeHeader(SipStackUtil.DESTINATION_URI, true);
 					//forward to the stack			
 					try {
-						SIPTransactionStack.instance().prossesTransportSipMessage( msg.getMsg() , msg.getProvider() , msg.getConnection() );
+						SIPTransactionStack.instance().processTransportSipMessage( msg.getMsg() , msg.getProvider() , msg.getConnection() );
 					}
 					catch (Exception e) {
 						if (c_logger.isTraceDebugEnabled()) {

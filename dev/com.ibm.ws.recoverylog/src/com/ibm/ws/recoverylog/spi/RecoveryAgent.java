@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -65,9 +67,6 @@ import java.util.ArrayList;
  * </p>
  */
 public interface RecoveryAgent {
-    boolean checkingLeases();
-
-    void setCheckingLeases(boolean b);
 
     void terminateServer();
 
@@ -195,15 +194,23 @@ public interface RecoveryAgent {
 
     public boolean claimPeerLeaseForRecovery(String recoveryIdentityToRecover, String myRecoveryIdentity, LeaseInfo leaseInfo) throws Exception;
 
+    public void releasePeerLeaseForRecovery(String recoveryIdentityToRecover) throws Exception;
+
     /**
-     * Returns a flag to indicate if the HADB peer server locking
-     * scheme is enabled.
+     * Returns a flag to indicate if peer server locking is enabled where transaction logs are stored in a database.
      *
-     * by default, HADB locking is DISABLED.
+     * by default, peer server locking is ENABLED.
      *
      * @return boolean
      */
-    public boolean isDBTXLogPeerLocking();
+    public boolean isLogLockingEnabled();
+
+    /**
+     * Returns a flag to indicate whether recovery logs are to be written to an RDBMS or a FileSystem.
+     *
+     * @return boolean
+     */
+    public boolean isSQLRecoveryLog();
 
     /**
      * Retrieve reference to a Recovery Log that is stored in an
@@ -222,4 +229,19 @@ public interface RecoveryAgent {
      * @return boolean
      */
     public boolean isReplayThread();
+
+    /**
+     * Is the server stopping.
+     *
+     * @return the _serverStopping
+     */
+    public boolean isServerStopping();
+
+    /**
+     * Delete the lease associated with a specific recoveryIdentity
+     *
+     * @param recoveryIdentity
+     * @param isPeerServer
+     */
+    public void deleteServerLease(String recoveryIdentity, boolean isPeerServer);
 }

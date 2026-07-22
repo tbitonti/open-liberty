@@ -1,12 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.sip.container.parser;
 
@@ -583,7 +582,7 @@ public class SipAppDesc extends GenericAppDesc {
 				getApplicationName(), listenerClass);
 		if (c_logger.isTraceDebugEnabled()) {
 			c_logger.traceDebug(this, "addListener",
-					"searched Listener existance from web container for ["
+					"searched Listener existence from web container for ["
 							+ getApplicationName() + "][" + listenerClass
 							+ "][" + listener + "]");
 		}
@@ -1794,7 +1793,6 @@ public class SipAppDesc extends GenericAppDesc {
 	 * @param wasInitialized
 	 */
 	public boolean wasInitialized() {
-		// TODO Auto-generated method stub
 		return m_wasInitialized;
 	}
 	

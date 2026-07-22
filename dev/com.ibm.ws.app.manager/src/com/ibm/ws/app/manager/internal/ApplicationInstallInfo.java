@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2014 IBM Corporation and others.
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,8 @@ package com.ibm.ws.app.manager.internal;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.management.NotificationBroadcasterSupport;
+
+import org.osgi.service.component.annotations.Component;
 
 import com.ibm.ws.app.manager.internal.monitor.ApplicationMonitor;
 import com.ibm.ws.container.service.app.deploy.extended.ApplicationInfoForContainer;
@@ -28,6 +32,7 @@ import com.ibm.wsspi.kernel.service.location.WsResource;
 /**
  *
  */
+@Component(service = { ApplicationInfoForContainer.class }, immediate = true)
 public class ApplicationInstallInfo implements ApplicationInformation<Object>, ApplicationInfoForContainer {
     private final ApplicationConfig _config;
     private final AtomicReference<Object> _handlerInfo = new AtomicReference<Object>();
@@ -77,6 +82,18 @@ public class ApplicationInstallInfo implements ApplicationInformation<Object>, A
     @Override
     public boolean getUseJandex() {
         return _config.getUseJandex();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getAnnotationScanLibrary() {
+        Object result = _config.getConfigProperty(AppManagerConstants.ANNOTATION_SCAN_LIBRARY);
+        if (result instanceof String) {
+            return (String) result;
+        }
+
+        // If we haven't found it return an empty string
+        return "";
     }
 
     public String getMBeanName() {

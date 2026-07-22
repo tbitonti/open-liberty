@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2010, 2020 IBM Corporation and others.
+# Copyright (c) 2010, 2022 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -29,7 +31,7 @@
 #   Messages in the range CWWKF1000 are reserved for the FeatureToolMessages.
 # -------------------------------------------------------------------------------------------------
 
-UPDATE_MISSING_FEATURE_ERROR=CWWKF0001E: Impossibile trovare una definizione di funzione per {0}
+UPDATE_MISSING_FEATURE_ERROR=CWWKF0001E: Impossibile trovare una definizione della funzione per {0}. Per installare la funzionalit\u00e0, eseguire il comando bin/featureUtility installFeature {0} oppure il comando bin/featureUtility installServerFeatures.
 UPDATE_MISSING_FEATURE_ERROR.explanation=Il gestore funzioni non \u00e8 stato in grado di trovare una definizione per la funzione specificata.
 UPDATE_MISSING_FEATURE_ERROR.useraction=Verificare che il nome della funzione specificata sia indicato correttamente e che la definizione di funzione esista e sia leggibile nella directory lib/features.
 
@@ -69,8 +71,7 @@ BUNDLE_MATCH_WARNING=CWWKF0010W: \u00c8 presente pi\u00f9 di un bundle corrispon
 BUNDLE_MATCH_WARNING.explanation=Un elemento di definizione della funzione corrisponde a pi\u00f9 bundle. Ci\u00f2 potrebbe verificarsi perch\u00e9 il filtro \u00e8 troppo generico o perch\u00e9 nell'immagine sono presenti bundle obsoleti che corrispondono al filtro.
 BUNDLE_MATCH_WARNING.useraction=Verificare che il filtro sia sufficientemente specifico e che venga utilizzata un'immagine di installazione pulita.
 
-SERVER_STARTED=CWWKF0011I: Il server {0} \u00e8 pronto per "un pianeta pi\u00f9 intelligente". \
-Server {0} avviato in {1} secondi.
+SERVER_STARTED=CWWKF0011I: Il server {0} \u00e8 pronto per "un pianeta pi\u00f9 intelligente". Server {0} avviato in {1} secondi.
 SERVER_STARTED.explanation=Il server \u00e8 stato avviato correttamente.
 SERVER_STARTED.useraction=Non \u00e8 richiesta alcuna azione.
 
@@ -201,11 +202,9 @@ UPDATE_WRONG_PROCESS_TYPE_DEPENDENCY_CLIENT_ERROR.explanation=La funzione config
 UPDATE_WRONG_PROCESS_TYPE_DEPENDENCY_CLIENT_ERROR.useraction=Rimuovere la funzione dalla configurazione o modificare il file manifest della funzione per abilitare il supporto per il tipo di processo desiderato.
 
 # CWWK0042E  {0} = feature Name: {1} = server name 
-UPDATE_MISSING_CORE_FEATURE_ERROR=CWWKF0042E: Impossibile trovare una definizione di funzione per la funzione {0}.  Provare ad eseguire il comando bin/installUtility install {0},  per installare la funzione. In alternativa \u00e8 possibile eseguire il comando bin/installUtility install {1},  per installare tutte le funzioni cui fa riferimento questa configurazione.
+UPDATE_MISSING_CORE_FEATURE_ERROR=CWWKF0042E: Impossibile trovare una definizione di funzione per la funzione {0}.  Prova a eseguire il comando bin/featureUtility installFeature {0} per installare la funzionalit\u00e0. In alternativa, \u00e8 possibile eseguire il comando bin/featureUtility installServerFeatures {1} per installare tutte le funzionalit\u00e0 a cui fa riferimento questa configurazione.
 UPDATE_MISSING_CORE_FEATURE_ERROR.explanation=Il gestore funzioni non \u00e8 stato in grado di trovare una definizione per la funzione specificata.
-UPDATE_MISSING_CORE_FEATURE_ERROR.useraction=Verificare che il nome della funzione specificata sia scritto correttamente.  \
-Verificare anche che  la definizione di funzione esista e sia leggibile nella directory lib/features.  \
-Se la funzione non esiste, tentare di eseguire il comando bin/installUtility install nome_funzione,  per installare tutte le funzioni cui fa riferimento questa configurazione.
+UPDATE_MISSING_CORE_FEATURE_ERROR.useraction=Verificare che il nome della funzione specificata sia scritto correttamente.  Verificare anche che  la definizione di funzione esista e sia leggibile nella directory lib/features.  Se la funzionalit\u00e0 non \u00e8 presente, provare a eseguire il comando bin/featureUtility installFeature feature_name per installarla oppure provare a eseguire il comando bin/featureUtility installServerFeatures server_name per installare tutte le funzionalit\u00e0 a cui fa riferimento questa configurazione.
 
 # CWWK0043E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = configuredFeature1: {3} = configuredFeature2: {4} EePlaformCommonToProgModels 
 UPDATE_CONFLICT_INCOMPATIBLE_EE_FEATURES_SAME_PLATFORM_ERROR=CWWKF0043E: La funzione configurata {2} di {0} \u00e8 incompatibile con la funzione configurata {3} di {1}.  La configurazione include una combinazione incompatibile di funzioni {4} non supportata.  Aggiornare la configurazione per utilizzare le versioni compatibili delle funzioni configurate che supportino i modelli di programmazione {0} o {1}.
@@ -226,10 +225,50 @@ UPDATE_DISABLED_FEATURES_ON_CONFLICT=CWWKF0046W: La configurazione include una c
 UPDATE_DISABLED_FEATURES_ON_CONFLICT.explanation=La configurazione include una combinazione incompatibile di funzioni. Per evitare una modalit\u00e0 di funzionamento non valida, il gestore funzioni ha disabilitato tutte le funzioni.
 UPDATE_DISABLED_FEATURES_ON_CONFLICT.useraction=Specificare una versione differente delle funzioni configurate che hanno causato il conflitto.
 
-# CWWK0044E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2 {6} EePlaformCommonToProgModels
+# CWWK0047E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2 {6} EePlatformCommonToProgModels
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR=CWWKF0047E: Le funzioni {2} e {3} non possono essere caricate contemporaneamente. La funzione {2} di {0} non \u00e8 compatibile con la funzione {3} di {1}. La configurazione include una combinazione incompatibile di funzioni {6} non supportata. Le funzioni configurate, {4} e {5}, includono una combinazione incompatibile di funzioni. La configurazione non \u00e8 supportata. Aggiornare la configurazione per utilizzare le versioni compatibili delle funzioni configurate che supportino i modelli di programmazione {0} o {1}.
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.explanation=La configurazione del server contiene una combinazione incompatibile di funzioni per i modelli di programmazione indicati. Questo conflitto pu\u00f2 accadere se le due funzioni incompatibili sono configurate direttamente nella configurazione del server o se le funzioni configurate includono versioni differenti di una funzione che sono incompatibili.
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.useraction=Tentare specificando una versione compatibile delle funzioni configurate che hanno causato il conflitto nel file server.xml. Se non sono disponibili altre versioni, le funzioni configurate non sono compatibili tra loro e non possono essere configurate contemporaneamente.
+
+# CWWKF0048E  {0} = the unknown platform value in the environment variable
+UNKNOWN_PLATFORM_VALUE_ENV_VAR=CWWKF0048E: IL {0} il valore della variabile di ambiente della piattaforma PREFERRED_PLATFORM_VERSIONS non contiene una versione valida.
+UNKNOWN_PLATFORM_VALUE_ENV_VAR.explanation=Ogni valore nella variabile di ambiente della piattaforma deve essere una piattaforma nota. Le piattaforme conosciute sono una versione di javaee, jakartaee o microProfile.
+UNKNOWN_PLATFORM_VALUE_ENV_VAR.useraction=Verifica che la variabile di ambiente contenga solo piattaforme conosciute.
+
+# CWWKF0049E  {0} = set of duplicate platforms
+DUPLICATE_PLATFORMS=CWWKF0049E: Le seguenti versioni della piattaforma configurata sono in conflitto: {0}.
+DUPLICATE_PLATFORMS.explanation=\u00c8 stata specificata pi\u00f9 di una versione per la stessa piattaforma.
+DUPLICATE_PLATFORMS.useraction=Rimuovi tutte le versioni della piattaforma tranne una.
+
+# CWWKF0050E  {0} = the versionless features that cannot be resolved
+UNRESOLVED_VERSIONLESS_FEATURE=CWWKF0050E: IL {0} le funzionalit\u00e0 senza versione non possono essere risolte
+UNRESOLVED_VERSIONLESS_FEATURE.explanation=Le funzionalit\u00e0 senza versione necessitano di una piattaforma designata prima di poter essere risolte.
+UNRESOLVED_VERSIONLESS_FEATURE.useraction=Assicurati che sia specificato un elemento della piattaforma per la tua funzionalit\u00e0.
+
+# CWWKF0051I  {0} = the versionless features: {1} = the features that were resolved from the versionless features
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE=CWWKF0051I: IL {0} funzionalit\u00e0 senza versione risolte {1}
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE.explanation=Le funzionalit\u00e0 con versione risolte dalle funzionalit\u00e0 senza versione.
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE.useraction=Non \u00e8 richiesta alcuna azione.
+
+# CWWKF0052E  {0} = the unknown platform
+UNKNOWN_PLATFORM_ELEMENT=CWWKF0052E: IL {0} la piattaforma non \u00e8 valida
+UNKNOWN_PLATFORM_ELEMENT.explanation=L'elemento della piattaforma specificato non \u00e8 una piattaforma conosciuta. Le piattaforme conosciute sono una versione di javaee, jakartaee o microProfile
+UNKNOWN_PLATFORM_ELEMENT.useraction=Assicurati che la piattaforma configurata sia una piattaforma conosciuta.
+
+# CWWKF0053I  {0} = the resolved platforms
+RESOLVED_PLATFORM=CWWKF0053I: La risoluzione della funzione ha selezionato il {0} piattaforme.
+RESOLVED_PLATFORM.explanation=Le versioni della piattaforma sono state selezionate per consentire la risoluzione delle funzionalit\u00e0 senza versione. Le versioni della piattaforma sono state ottenute da elementi della piattaforma, da funzionalit\u00e0 con versione o da una variabile di ambiente.
+RESOLVED_PLATFORM.useraction=Non \u00e8 richiesta alcuna azione.
+
+# CWWKF0054E  {0} = the versionless feature that cannot be resolved: {1} = the resolved platform
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM=CWWKF0054E: IL {0} la funzionalit\u00e0 senza versione non ha una versione che appartiene a {1} piattaforma.
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM.explanation=Nessuna versione della funzionalit\u00e0 \u00e8 disponibile per la versione della piattaforma. La risoluzione della funzionalit\u00e0 \u00e8 stata completata, ma non \u00e8 stata selezionata una versione della funzionalit\u00e0.
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM.useraction=Rimuovi la funzionalit\u00e0 senza versione, specifica una versione della piattaforma diversa o utilizza una funzionalit\u00e0 con versione.
+
+# CWWKF0055E  {0} = the versionless features
+NO_RESOLVED_PLATFORM=CWWKF0055E: IL {0} le funzionalit\u00e0 senza versione non hanno una piattaforma configurata.
+NO_RESOLVED_PLATFORM.explanation=Ogni tipo di funzionalit\u00e0 senza versione deve avere una piattaforma configurata. Se sono configurate funzioni senza versione Javaee o Jakartaee, richiedono una piattaforma Javaee o Jakartaee corrispondente. Se microProfile sono configurate funzionalit\u00e0 senza versione, richiedono un file microProfile piattaforma.
+NO_RESOLVED_PLATFORM.useraction=Aggiungi un elemento della piattaforma, una funzionalit\u00e0 con versione o una variabile di ambiente.
 
 #   Messages in the range CWWKF1000 are reserved for the FeatureToolMessages.
 
@@ -342,4 +381,14 @@ tool.classpath.create.fail.useraction=Esaminare il messaggio di errore, risolver
 tool.userfeature.install.location.invalid=CWWKF1036E: La funzione utente {0} non pu\u00f2 essere installata nel componente principale.
 tool.userfeature.install.location.invalid.explanation= La funzione utente non \u00e8 una funzione principale pertanto non pu\u00f2 essere installata nel componente principale.
 tool.userfeature.install.location.invalid.useraction= Installare la funzione utente in usr. 
+
+FEATURES_ADDED_DELTA=CWWKF1037I: Il server ha aggiunto le funzioni {0} alla serie di funzioni esistenti.
+FEATURES_ADDED_DELTA.explanation=Il server ha installato una serie di nuove funzioni oltre a quelle precedentemente installate.
+FEATURES_ADDED_DELTA.useraction=Non \u00e8 richiesta alcuna azione.
+
+FEATURES_ADDED_CLIENT_DELTA=CWWKF1038I: Il client ha aggiunto {0} funzioni alla serie di funzioni esistente. 
+FEATURES_ADDED_CLIENT_DELTA.explanation=Il client ha installato una serie di nuove funzioni in aggiunta alle funzioni precedentemente installate.
+FEATURES_ADDED_CLIENT_DELTA.useraction=Non \u00e8 richiesta alcuna azione. 
+
+
 

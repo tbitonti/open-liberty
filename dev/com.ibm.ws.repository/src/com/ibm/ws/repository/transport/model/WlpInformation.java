@@ -1,15 +1,21 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 
 package com.ibm.ws.repository.transport.model;
+
+import static com.ibm.ws.repository.transport.model.CopyUtils.copyCollection;
+import static com.ibm.ws.repository.transport.model.CopyUtils.copyDate;
+import static com.ibm.ws.repository.transport.model.CopyUtils.copyObject;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -60,6 +66,7 @@ public class WlpInformation extends AbstractJSON implements VersionableContent, 
     private String vanityRelativeURL;
     private String featuredWeight;
     private Collection<String> supersededBy;
+    private Collection<String> platforms;
     private Collection<String> supersededByOptional;
     private JavaSEVersionRequirements javaSEVersionRequirements;
     private String mainAttachmentSHA256;
@@ -69,6 +76,49 @@ public class WlpInformation extends AbstractJSON implements VersionableContent, 
     private String mavenCoordinates;
     private String singleton;
     private String ibmInstallTo;
+
+    public WlpInformation() {
+    }
+
+    public WlpInformation(WlpInformation other) {
+        typeLabel = other.typeLabel;
+        productVersion = other.productVersion;
+        productInstallType = other.productInstallType;
+        productId = other.productId;
+        productEdition = other.productEdition;
+        provideFeature = copyCollection(other.provideFeature);
+        requireFeature = copyCollection(other.requireFeature);
+        provideFix = copyCollection(other.provideFix);
+        requireFix = copyCollection(other.requireFix);
+        appliesTo = other.appliesTo;
+        appliesToFilterInfo = copyCollection(other.appliesToFilterInfo, AppliesToFilterInfo::new);
+        visibility = other.visibility;
+        shortName = other.shortName;
+        lowerCaseShortName = other.lowerCaseShortName;
+        date = copyDate(other.date);
+        scriptLanguage = other.scriptLanguage;
+        provisionCapability = other.provisionCapability;
+        installPolicy = other.installPolicy;
+        downloadPolicy = other.downloadPolicy;
+        displayPolicy = other.displayPolicy;
+        webDisplayPolicy = other.webDisplayPolicy;
+        wlpInformationVersion = other.wlpInformationVersion;
+        mainAttachmentSize = other.mainAttachmentSize;
+        links = copyCollection(other.links, Link::new);
+        vanityRelativeURL = other.vanityRelativeURL;
+        featuredWeight = other.featuredWeight;
+        supersededBy = copyCollection(other.supersededBy);
+        platforms = copyCollection(other.platforms);
+        supersededByOptional = copyCollection(other.supersededByOptional);
+        javaSEVersionRequirements = copyObject(other.javaSEVersionRequirements, JavaSEVersionRequirements::new);
+        mainAttachmentSHA256 = other.mainAttachmentSHA256;
+        genericRequirements = other.genericRequirements;
+        packagedJava = other.packagedJava;
+        requireFeatureWithTolerates = copyCollection(other.requireFeatureWithTolerates, RequireFeatureWithTolerates::new);
+        mavenCoordinates = other.mavenCoordinates;
+        singleton = other.singleton;
+        ibmInstallTo = other.ibmInstallTo;
+    }
 
     public String getFeaturedWeight() {
         return featuredWeight;
@@ -377,6 +427,14 @@ public class WlpInformation extends AbstractJSON implements VersionableContent, 
 
     public void setSupersededBy(Collection<String> supersededBy) {
         this.supersededBy = supersededBy;
+    }
+
+    public Collection<String> getPlatforms() {
+        return this.platforms;
+    }
+
+    public void setPlatforms(Collection<String> myPlatforms) {
+        this.platforms = myPlatforms;
     }
 
     public Collection<String> getSupersededByOptional() {
@@ -750,6 +808,14 @@ public class WlpInformation extends AbstractJSON implements VersionableContent, 
                 return false;
         } else if (!ibmInstallTo.equals(other.ibmInstallTo))
             return false;
+
+        if (platforms == null) {
+            if (other.platforms != null) {
+                return false;
+            }
+        } else if (!platforms.equals(other.platforms)) {
+            return false;
+        }
 
         return true;
     }

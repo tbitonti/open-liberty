@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,7 +16,7 @@ package com.ibm.ws.fat.grpc;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import java.io.File;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -28,7 +30,6 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
-import com.ibm.websphere.simplicity.RemoteFile;
 import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.log.Log;
 
@@ -58,6 +59,7 @@ public class SecureHelloWorldTest extends HelloWorldBasicTest {
     @BeforeClass
     public static void setUp() throws Exception {
 
+        secureHelloWorldServer.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         ShrinkHelper.defaultDropinApp(secureHelloWorldServer, "SecureHelloWorldService.war",
                                       "com.ibm.ws.grpc.fat.helloworld.service",
                                       "io.grpc.examples.helloworld");
@@ -69,11 +71,15 @@ public class SecureHelloWorldTest extends HelloWorldBasicTest {
                                       "io.grpc.examples.helloworld");
 
         secureHelloWorldServer.startServer(SecureHelloWorldTest.class.getSimpleName() + ".log");
-        assertNotNull("CWWKO0219I.*ssl not received", secureHelloWorldServer.waitForStringInLog("CWWKO0219I.*ssl"));
+        secureHelloWorldServer.waitForDefaultHTTPEndpointSSLStart();
     }
 
     @AfterClass
     public static void tearDown() throws Exception {
+        // Setting serverConfigurationFile to null forces a server.xml update (when GrpcTestUtils.setServerConfiguration() is first called) on the repeat run
+        // If not set to null, test failures may occur (since the incorrect server.xml could be used)
+        serverConfigurationFile = null;
+
         // SRVE0777E for testSecureHelloWorldWOTls case
         secureHelloWorldServer.stopServer("SRVE0777E", "CWWKE1102W", "CWWKE1107W", "CWWKE1106W");
     }
@@ -98,7 +104,6 @@ public class SecureHelloWorldTest extends HelloWorldBasicTest {
     @MinimumJavaLevel(javaLevel = 9)
     public void testSecureHelloWorldWithTls() throws Exception {
         serverConfigurationFile = GrpcTestUtils.setServerConfiguration(secureHelloWorldServer, serverConfigurationFile, DEFAULT_CONFIG_FILE, clientAppName, LOG);
-
         String response = runHelloWorldTlsTest();
         assertTrue("the gRPC request did not complete correctly", response.contains("us3r2"));
     }
@@ -112,13 +117,9 @@ public class SecureHelloWorldTest extends HelloWorldBasicTest {
     @Test
     @AllowedFFDC("io.grpc.StatusRuntimeException")
     public void testSecureHelloWorldWOTls() throws Exception {
-        Exception clientException = null;
-
-        // make a backup of the original configuration so we can restore it later
-        RemoteFile backup = new RemoteFile(secureHelloWorldServer.getMachine(), new File(secureHelloWorldServer.getServerRoot(), "server-backup.xml").getPath());
-        backup.copyFromSource(secureHelloWorldServer.getServerConfigurationFile());
-
+        // set <grpcClient ... usePlaintext="true" /> to disable the Liberty TLS config on the client
         serverConfigurationFile = GrpcTestUtils.setServerConfiguration(secureHelloWorldServer, serverConfigurationFile, SECURITY_PLAIN_TEXT, clientAppName, LOG);
+        Exception clientException = null;
         try {
             runHelloWorldTest();
         } catch (Exception e) {
@@ -126,8 +127,5 @@ public class SecureHelloWorldTest extends HelloWorldBasicTest {
             Log.info(c, name.getMethodName(), "exception caught: " + e);
         }
         assertTrue("An error is expected for this case", clientException != null);
-
-        // restore the original configuration
-        GrpcTestUtils.setServerConfiguration(secureHelloWorldServer, backup, clientAppName, LOG);
     }
 }

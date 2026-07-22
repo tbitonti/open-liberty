@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2013, 2015 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -375,6 +377,9 @@ public class PackageCommand {
                 startProblem = true;
             }
         } catch (TimeoutException to) {
+            // A 10 minute timeout is crazy.. dump threads to see what the server is doing.
+            Thread.dumpStack();
+
             Debug.printStackTrace(to);
             startProblem = true;
         } catch (InterruptedException e) {
@@ -385,6 +390,7 @@ public class PackageCommand {
             startProblem = true;
         }
         if (startProblem) {
+
             System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("error.minify.unable.to.start.server"),
                                                     serverName));
             throw new FailedWithReturnCodeException(ReturnCode.ERROR_SERVER_PACKAGE);

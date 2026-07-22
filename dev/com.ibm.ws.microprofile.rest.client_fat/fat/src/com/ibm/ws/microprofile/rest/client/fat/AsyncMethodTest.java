@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,22 +15,18 @@ package com.ibm.ws.microprofile.rest.client.fat;
 import static org.junit.Assert.assertTrue;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 
 import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.rules.repeater.FeatureReplacementAction;
-import componenttest.rules.repeater.RepeatTestAction;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
@@ -44,11 +42,7 @@ public class AsyncMethodTest extends FATServletClient {
     final static String SERVER_NAME = "mpRestClient11.async";
 
     @ClassRule
-    public static RepeatTests r = RepeatTests.withoutModification()
-        .andWith(FATSuite.MP_REST_CLIENT("1.2", SERVER_NAME))
-        .andWith(FATSuite.MP_REST_CLIENT("1.3", SERVER_NAME))
-        .andWith(FATSuite.MP_REST_CLIENT("1.4", SERVER_NAME))
-        .andWith(FATSuite.MP_REST_CLIENT("2.0", SERVER_NAME));
+    public static RepeatTests r = FATSuite.repeatMP20Up(SERVER_NAME);
 
     private static final String appName = "asyncApp";
 
@@ -58,7 +52,7 @@ public class AsyncMethodTest extends FATServletClient {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        ShrinkHelper.defaultApp(server, appName, "mpRestClient11.async");
+        ShrinkHelper.defaultApp(server, appName, new DeployOptions[] { DeployOptions.SERVER_ONLY }, "mpRestClient11.async");
         server.startServer();
     }
 
@@ -66,8 +60,8 @@ public class AsyncMethodTest extends FATServletClient {
     public static void afterClass() throws Exception {
         try {
             // check for error that occurs if cannot handle CompletionStage<?> generic type in JsonBProvider
-            List<String> jsonbProviderErrors = server.findStringsInLogs("E Problem with reading the data");
-            assertTrue("Found JsonBProvider errors in log file", 
+            List<String> jsonbProviderErrors = server.findStringsInLogs("E Problem with reading the data.*CompletionStage");
+            assertTrue("Found JsonBProvider errors in log file",
                        jsonbProviderErrors == null || jsonbProviderErrors.isEmpty());
         } finally {
             server.stopServer("CWWKE1102W",  //ignore server quiesce timeouts due to slow test machines

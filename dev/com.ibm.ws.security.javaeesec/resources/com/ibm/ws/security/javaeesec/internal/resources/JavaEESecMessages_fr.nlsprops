@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2017, 2018 IBM Corporation and others.
+# Copyright (c) 2017, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -27,6 +29,10 @@ JAVAEESEC_ERROR_NO_HAM=CWWKS1912E: L''objet HttpAuthenticationMechanism pour le 
 JAVAEESEC_ERROR_NO_HAM.explanation=La raison pour laquelle l'objet HttpAuthenticationMechanism ne peut pas \u00eatre cr\u00e9\u00e9 varie. Les messages d'erreur pour l'objet HttpAuthenticationMechanism fournissent des informations sur la raison pour laquelle l'objet HttpAuthenticationMechanism ne peut pas \u00eatre cr\u00e9\u00e9.
 JAVAEESEC_ERROR_NO_HAM.useraction=Examinez les \u00e9ventuels messages d'erreur \u00e9mis par l'objet HttpAuthenticationMechanism et apportez les corrections n\u00e9cessaires en fonction des messages d'erreur.
 
+JAVAEESEC_ERROR_NO_HAM_SERVICE_IMPL=CWWKS1913E: L''objet d''impl\u00e9mentation HttpAuthenticationMechanismService pour le module {0} dans l''application {1} n''a pas \u00e9t\u00e9 trouv\u00e9 en tant que bundle OSGi.
+JAVAEESEC_ERROR_NO_HAM_SERVICE_IMPL.explanation=L'objet d'impl\u00e9mentation HttpAuthenticationMechanismService n'a pas \u00e9t\u00e9 trouv\u00e9 car l'un des bundles d\u00e9pendants contenant cette impl\u00e9mentation est absent du fichier manifeste des fonctionnalit\u00e9s.
+JAVAEESEC_ERROR_NO_HAM_SERVICE_IMPL.useraction=Assurez-vous que le manifeste de fonctionnalit\u00e9 fait r\u00e9f\u00e9rence \u00e0 un ensemble contenant une impl\u00e9mentation de l'interface HttpAuthenticationMechanismService.
+
 #Note to translator, do not translate EL.
 JAVAEESEC_WARNING_IDSTORE_CONFIG=CWWKS1916W: L''expression EL (Expression Language) pour l''attribut ''{0}'' de l''annotation de magasin d''identit\u00e9s ne peut pas \u00eatre r\u00e9solue en valeur valide. Assurez-vous que l''expression EL et le r\u00e9sultat sont valides et que tout bean r\u00e9f\u00e9renc\u00e9 utilis\u00e9 dans l''expression peut \u00eatre r\u00e9solu. La valeur d''attribut par d\u00e9faut ''{1}'' est utilis\u00e9e \u00e0 la place.
 JAVAEESEC_WARNING_IDSTORE_CONFIG.explanation=L'erreur est due \u00e0 une non-concordance du type dans le r\u00e9sultat de l'expression EL et la valeur d'attribut attendue. Par exemple, si le type d'attribut attendu est String, le r\u00e9sultat de l'expression EL doit \u00eatre String.
@@ -44,10 +50,9 @@ JAVAEESEC_WARNING_EXCEPTION_ON_GROUPS=CWWKS1919W: L''objet DatabaseIdentityStore
 JAVAEESEC_WARNING_EXCEPTION_ON_GROUPS.explanation=Une liste partielle des groupes pour l'appelant est renvoy\u00e9e \u00e0 la place de la liste compl\u00e8te en raison d'une erreur dans la requ\u00eate.
 JAVAEESEC_WARNING_EXCEPTION_ON_GROUPS.useraction=Consultez l'erreur fournie et apportez les corrections n\u00e9cessaires \u00e0 la requ\u00eate afin que la liste compl\u00e8te des groupes pour l'appelant puisse \u00eatre renvoy\u00e9e.
 
-
-JAVAEESEC_ERROR_WRONG_CRED=CWWKS1920E: Les donn\u00e9es d'identification fournies dans l'objet IdentityStore ne correspondent pas \u00e0 UsernamePasswordCredential et ne peuvent pas \u00eatre valid\u00e9es.
-JAVAEESEC_ERROR_WRONG_CRED.explanation=Les donn\u00e9es d'identification fournies \u00e0 l'objet IdentityStore ne correspondent pas \u00e0 une classe UsernamePasswordCredential et ne peuvent pas \u00eatre valid\u00e9es.
-JAVAEESEC_ERROR_WRONG_CRED.useraction=V\u00e9rifiez le type des donn\u00e9es d'identification transmises dans l'objet IdentityStore par l'impl\u00e9mentation HttpAuthMechanism.
+JAVAEESEC_ERROR_WRONG_CRED=CWWKS1920E: Les informations d'identification fournies \u00e0 l'objet IdentityStore ne sont ni UsernamePasswordCredential ni CallerOnlyCredential et ne peuvent pas \u00eatre valid\u00e9es.
+JAVAEESEC_ERROR_WRONG_CRED.explanation=Les informations d'identification fournies \u00e0 l'objet IdentityStore ne sont ni une classe UsernamePasswordCredential ni une classe CallerOnlyCredential et ne peuvent donc pas \u00eatre valid\u00e9es.
+JAVAEESEC_ERROR_WRONG_CRED.useraction=V\u00e9rifiez le type d'informations d'identification transmises \u00e0 l'objet IdentityStore par l'impl\u00e9mentation HttpAuthenticationMechanism.
 
 JAVAEESEC_ERROR_HASH_NOTFOUND=CWWKS1922E: Le bean d''algorithme de hachage est introuvable pour la classe {0}.
 JAVAEESEC_ERROR_HASH_NOTFOUND.explanation=L'algorithme de hachage r\u00e9pertori\u00e9 dans l'\u00e9l\u00e9ment hashAlgorithm dans l'annotation DatabaseIdentityStoreDefinition est introuvable.

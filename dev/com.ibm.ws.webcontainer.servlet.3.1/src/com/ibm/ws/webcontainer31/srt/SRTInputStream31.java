@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -54,13 +56,17 @@ public class SRTInputStream31 extends SRTInputStream
     public SRTInputStream31(SRTServletRequest31 request) {
         super();
         this.request = request;
+
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+            Tr.debug(tc, "constructor SRTInputStream31 [" + this + "] , request [" + request + "]"); 
     }
     
     @Override
     public void init(InputStream in) throws IOException
     {
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
-            Tr.debug(tc, "Initializing the stream : " + this);
+            Tr.debug(tc, "Initializing [" + this + "] ; underlying stream [" + in + "]");
+
         if(in != null){
 
             //The passed in should always be an HttpInputStreamExtended if Servlet 3.1 is enabled
@@ -211,7 +217,7 @@ public class SRTInputStream31 extends SRTInputStream
             this.callback = new AsyncAlreadyReadCallback(this, tcm);
         } else {
             //Create a new HttpServletCallback so we can use it for our async read callbacks
-            this.callback = new AsyncReadCallback(this, tcm);
+            this.callback = new AsyncReadCallback(this, tcm, request.getAsyncContext());
         }    
         
         AsyncContext31Impl ac = (AsyncContext31Impl)request.getAsyncContext();
@@ -401,6 +407,13 @@ public class SRTInputStream31 extends SRTInputStream
     public void setAsyncReadOutstanding(boolean asyncReadOutstanding){
         this.asyncReadOutstanding = asyncReadOutstanding;
     }
+
+    public boolean isAsyncReadOutstanding() {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.debug(tc, "isAsyncReadOutstanding" , "SRTInputStream31.isAsyncReadOutstanding() returning: " + this.asyncReadOutstanding);
+        }
+        return this.asyncReadOutstanding;
+    }
     
     /**
      * Sets up for driving the read listener again on another thread.
@@ -417,6 +430,13 @@ public class SRTInputStream31 extends SRTInputStream
      */
     public Object getCompleteLockObj() {
         return completeLockObj;
+    }
+
+    /**
+     * @return the lockObj
+     */
+    public Object getLockObj() {
+        return lockObj;
     }
     
     /* (non-Javadoc)
@@ -463,13 +483,13 @@ public class SRTInputStream31 extends SRTInputStream
     @Override
     public void close() throws IOException {
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
-            Tr.debug(tc, "The input stream has been closed : " + this + " read Listener running ->" + listener);
+            Tr.debug(tc, "close() this [" + this + "] ; read Listener [" + listener + "]");
         
         isClosed = true;
         listener = null;
         
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
-            Tr.debug(tc, "The input stream has been closed : " + this + " read Listener ->" + listener);
+            Tr.debug(tc, "close() , set isClosed = true , read Listener is null out.");
         
         super.close();
     }

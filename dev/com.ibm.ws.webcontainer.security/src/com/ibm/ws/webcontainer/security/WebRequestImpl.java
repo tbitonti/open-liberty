@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2019 IBM Corporation and others.
+ * Copyright (c) 2011, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,20 +22,22 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.ibm.ws.security.jwtsso.token.proxy.JwtSSOTokenHelper;
 import com.ibm.ws.security.krb5.SpnegoUtil;
-import com.ibm.ws.webcontainer.security.internal.BasicAuthAuthenticator;
 import com.ibm.ws.webcontainer.security.internal.CertificateLoginAuthenticator;
 import com.ibm.ws.webcontainer.security.internal.SSOAuthenticator;
 import com.ibm.ws.webcontainer.security.metadata.FormLoginConfiguration;
 import com.ibm.ws.webcontainer.security.metadata.LoginConfiguration;
 import com.ibm.ws.webcontainer.security.metadata.MatchResponse;
 import com.ibm.ws.webcontainer.security.metadata.SecurityMetadata;
+import com.ibm.ws.webcontainer.srt.ISRTServletRequest;
+import com.ibm.wsspi.http.channel.values.HttpHeaderKeys;
 
 /**
  *
  */
 public class WebRequestImpl implements WebRequest {
-    private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_AUTHORIZATION_METHOD = "Bearer ";
+    private static final String BASIC_AUTHORIZATION_METHOD = "Basic ";
+    private static final String BEARER_COOKIE = "Bearer";
 
     private final HttpServletRequest request;
     private final HttpServletResponse response;
@@ -150,33 +154,32 @@ public class WebRequestImpl implements WebRequest {
      * @return {@code true} if some authentication data is available, {@code false} otherwise.
      */
     private boolean determineIfRequestHasAuthenticationData() {
-        return isBasicAuthHeaderInRequest(request) || isClientCertHeaderInRequest(request) || isSSOCookieInRequest(request)
-               || spnegoUtil.isSpnegoOrKrb5Token(request.getHeader(BasicAuthAuthenticator.BASIC_AUTH_HEADER_NAME));
+        String hdrValue = ISRTServletRequest.getHeader(request, HttpHeaderKeys.HDR_AUTHORIZATION);
+        return isBasicOrBearerAuthHeaderInRequest(hdrValue) || isClientCertHeaderInRequest(request) || isSSOCookieInRequest(request)
+               || isBearerCookieInRequest(request) || spnegoUtil.isSpnegoOrKrb5Token(hdrValue);
     }
 
-    private boolean isBasicAuthHeaderInRequest(HttpServletRequest request) {
-        String hdrValue = request.getHeader(BasicAuthAuthenticator.BASIC_AUTH_HEADER_NAME);
-        return hdrValue != null && hdrValue.startsWith("Basic ");
+    private boolean isBasicOrBearerAuthHeaderInRequest(String authHeaderValue) {
+        return authHeaderValue != null &&
+               (authHeaderValue.startsWith(BASIC_AUTHORIZATION_METHOD) || authHeaderValue.startsWith(BEARER_AUTHORIZATION_METHOD));
     }
 
     private boolean isClientCertHeaderInRequest(HttpServletRequest request) {
-        boolean hasClientCertHeader = false;
         LoginConfiguration loginConfig = getLoginConfig();
-        String authenticationMethod = null;
 
         if (loginConfig != null) {
-            authenticationMethod = loginConfig.getAuthenticationMethod();
+            String authenticationMethod = loginConfig.getAuthenticationMethod();
+            if (LoginConfiguration.CLIENT_CERT.equals(authenticationMethod)) {
+                X509Certificate certChain[] = (X509Certificate[]) request.getAttribute(CertificateLoginAuthenticator.PEER_CERTIFICATES);
+                return certChain != null && certChain.length > 0;
+            }
         }
 
-        if (LoginConfiguration.CLIENT_CERT.equals(authenticationMethod)) {
-            X509Certificate certChain[] = (X509Certificate[]) request.getAttribute(CertificateLoginAuthenticator.PEER_CERTIFICATES);
-            hasClientCertHeader = certChain != null && certChain.length > 0;
-        }
-        return hasClientCertHeader;
+        return false;
     }
 
     private boolean isSSOCookieInRequest(HttpServletRequest request) {
-        return isJwtCookieInRequest(request) || isBearerAuthorizationHeaderInRequest(request) || canUseLTPATokenFromRequest(request);
+        return isJwtCookieInRequest(request) || canUseLTPATokenFromRequest(request);
     }
 
     private boolean isJwtCookieInRequest(HttpServletRequest request) {
@@ -189,9 +192,9 @@ public class WebRequestImpl implements WebRequest {
         return CookieHelper.hasCookie(cookies, jwtCookieName);
     }
 
-    private boolean isBearerAuthorizationHeaderInRequest(HttpServletRequest request) {
-        String hdrValue = request.getHeader(AUTHORIZATION_HEADER);
-        return hdrValue != null && hdrValue.startsWith(BEARER_AUTHORIZATION_METHOD);
+     private boolean isBearerCookieInRequest(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        return CookieHelper.hasCookie(cookies, BEARER_COOKIE);
     }
 
     private boolean canUseLTPATokenFromRequest(HttpServletRequest request) {

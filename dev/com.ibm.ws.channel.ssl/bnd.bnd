@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2017 IBM Corporation and others.
+# Copyright (c) 2017, 2024 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -22,6 +24,12 @@ IBM-Default-Config: OSGI-INF/wlp/defaultInstances.xml
 
 Private-Package: com.ibm.ws.channel.ssl.internal.*
 
+# The bytebuffer 'internal' package below has been refactored with the rest of the buffer code into
+# a seperate bundle but is currently used by channel framework projects in whitebox testing.
+Import-Package: \
+    com.ibm.ws.bytebuffer.internal, \
+    ${defaultPackageImport}
+
 Include-Resource: \
     OSGI-INF=resources/OSGI-INF
 
@@ -33,7 +41,6 @@ Service-Component: \
         sslSupport=com.ibm.wsspi.ssl.SSLSupport; \
         sslConfig=com.ibm.wsspi.ssl.SSLConfiguration; \
         eventService=com.ibm.websphere.event.EventEngine; \
-        approxTime=com.ibm.wsspi.timer.ApproximateTime; \
         configuration-policy:=ignore;\
         optional:='sslConfig';\
         multiple:='sslConfig';\
@@ -55,9 +62,10 @@ instrument.disabled: true
 	com.ibm.websphere.org.osgi.service.component;version=latest,\
 	com.ibm.websphere.appserver.spi.kernel.service;version=latest,\
 	com.ibm.ws.logging;version=latest,\
-	com.ibm.ws.timer;version=latest,\
 	com.ibm.ws.event;version=latest, \
-	com.ibm.ws.org.osgi.annotation.versioning;version=latest
+	com.ibm.ws.org.osgi.annotation.versioning;version=latest, \
+    io.openliberty.wsoc.ssl.internal;version=latest, \
+    com.ibm.ws.kernel.boot;version=latest
 
 #  <property name="extra.vmargs" value="-Dexception.log.enabled=false" />
 
@@ -67,4 +75,6 @@ instrument.disabled: true
 	org.jmock:jmock;strategy=exact;version=2.5.1, \
 	../build.sharedResources/lib/junit/old/junit.jar;version=file, \
 	com.ibm.ws.junit.extensions;version=latest, \
+	com.ibm.ws.wsbytebuffer;version=latest, \
 	com.ibm.ws.kernel.boot;version=latest
+	

@@ -1,19 +1,16 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2018 IBM Corporation and others.
+ * Copyright (c) 2013, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- * IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.openidconnect.clients.common;
 
 import java.util.Arrays;
 import java.util.List;
-
-import com.ibm.ws.security.openidconnect.common.Constants;
 
 /**
  * This is used by the openidconnect client code.
@@ -54,10 +51,8 @@ public class ClientConstants {
     public static final String IMPLICIT = Constants.IMPLICIT; // "implicit"
     public final static String AUTHORIZATION_CODE = "authorization_code";
     public static final String STATE = Constants.STATE; // "state";
-    public static final String WAS_OIDC_STATE_KEY = "WASOidcState";
-    public static final String WAS_REQ_URL_OIDC = "WASReqURLOidc";
     public static final String WAS_OIDC_CODE = "WASOidcCode";
-    public static final String WAS_OIDC_NONCE = "WASOidcNonce";
+    public static final String WAS_OIDC_SESSION = "WASOidcSession";
 
     public final static String RESPONSEMAP_CODE = "RESPONSEMAP_CODE";
     public final static String RESPONSEMAP_METHOD = "RESPONSEMAP_METHOD";
@@ -80,10 +75,15 @@ public class ClientConstants {
     public final static String PROPAGATION_NONE = "none";
 
     public final static String ALGORITHM_NONE = "none";
+    public final static String ALGORITHM_FROM_HEADER = "FROM_HEADER";
 
     public final static String VALIDATION_INTROSPECT = "introspect";
     public final static String VALIDATION_USERINFO = "userinfo";
     public final static String VALIDATION_LOCAL = "local";
+
+    public final static String JWT_ACCESS_TOKEN_REMOTE_VALIDATION_NONE = "none";
+    public final static String JWT_ACCESS_TOKEN_REMOTE_VALIDATION_ALLOW = "allow";
+    public final static String JWT_ACCESS_TOKEN_REMOTE_VALIDATION_REQUIRE = "require";
 
     public final static String ATTRIB_OIDC_CLIENT_REQUEST = "com.ibm.wsspi.security.oidc.client.request";
     public static final String WLP_USER_DIR = "${wlp.user.dir}";
@@ -96,5 +96,7 @@ public class ClientConstants {
     public static final String CREDENTIAL_STORING_TIME_MILLISECONDS = Constants.CREDENTIAL_STORING_TIME_MILLISECONDS;
     public static final String RSA = "RSA";
     public static final String EC = "EC";
+
+    public static final String PKCE_CODE_CHALLENGE_DISABLED = "disabled";
 
 }

@@ -14,15 +14,12 @@ IBM-API-Package: \
   com.ibm.websphere.jaxrs20.multipart; type="ibm-api", \
   com.ibm.websphere.jaxrs.providers.json4j; type="ibm-api"
 IBM-SPI-Package: com.ibm.wsspi.webservices.handler
--features=\
-  com.ibm.websphere.appserver.javax.jaxrs-2.0, \
-  com.ibm.websphere.appserver.injection-1.0, \
-  com.ibm.websphere.appserver.containerServices-1.0, \
+-features=com.ibm.websphere.appserver.optional.jaxb-2.2, \
+  com.ibm.websphere.appserver.json-1.0, \
   com.ibm.websphere.appserver.servlet-3.1, \
-  com.ibm.websphere.appserver.classloading-1.0, \
-  com.ibm.websphere.appserver.globalhandler-1.0, \
-  com.ibm.websphere.appserver.optional.jaxb-2.2; ibm.tolerates:=2.3, \
-  com.ibm.websphere.appserver.json-1.0
+  io.openliberty.servlet.internal-3.1, \
+  com.ibm.websphere.appserver.javax.jaxrs-2.0, \
+  com.ibm.websphere.appserver.globalhandler-1.0
 -bundles=\
   com.ibm.websphere.javaee.jaxws.2.2; apiJar=false; require-java:="9"; location:="dev/api/spec/,lib/",\
   com.ibm.websphere.javaee.jws.1.0; apiJar=false; require-java:="9"; location:="dev/api/spec/,lib/",\
@@ -31,7 +28,8 @@ IBM-SPI-Package: com.ibm.wsspi.webservices.handler
   com.ibm.ws.jaxrs.2.0.common, \
   com.ibm.ws.jaxrs.2.x.config, \
   com.ibm.ws.org.apache.ws.xmlschema.core.2.0.3
--jars=com.ibm.ws.jaxrs.2.0.tools
+-jars=com.ibm.ws.jaxrs.2.0.tools, \
+  io.openliberty.jaxrs.2.0.wadl2java.jaxb.runtime
 -files=\
   bin/jaxrs/wadl2java, \
   bin/jaxrs/wadl2java.bat, \

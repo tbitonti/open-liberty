@@ -1,0 +1,63 @@
+/*******************************************************************************
+ * Copyright (c) 2021, 2025 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
+
+/* 
+ * This is where all application ZIP and WARs will be built.
+ */
+def appBuildDir = "${buildDir}/test-application"
+
+dependencies { 
+    requiredLibs 'org.apache.directory.server:apacheds-all:2.0.0-M24',
+	'org.apache.directory.server:kerberos-client:2.0.0-M24',
+    project(':com.ibm.ws.security.registry_test.servlet'),
+    project(':com.ibm.ws.com.unboundid'),
+    project(':com.ibm.ws.org.slf4j.jdk14')
+}
+
+addRequiredLibraries.dependsOn copyTestContainers
+
+jar.dependsOn ':com.ibm.ws.security.registry_test.servlet:assemble'
+
+autoFVT.dependsOn ':com.ibm.ws.security.registry_test.servlet:assemble'
+
+autoFVT {
+  def registryServletProject = project(':com.ibm.ws.security.registry_test.servlet')
+  def unboundidProject = project(':com.ibm.ws.com.unboundid')
+  doLast {
+  /*
+   * Copy the userRegistry WAR into test servers.
+   */
+  def servers = [
+    'com.ibm.ws.security.registry.ldap.fat.krb5.base'
+  ]
+  servers.each { server ->
+    copy { 
+      from new File(registryServletProject.buildDir, 'test-application/userRegistry.war')
+      into new File(autoFvtDir, 'publish/servers/' + server + '/dropins')
+    }
+  }
+  
+  /*
+   * Copy the InMemoryLdapServer truststore into test servers.
+   */
+  servers = [
+    'com.ibm.ws.security.registry.ldap.fat.krb5.base'
+  ]
+  servers.each { server ->
+    copy { 
+      from unboundidProject.file('resources/truststore.p12')
+      into new File(autoFvtDir,'publish/servers/' + server)
+    }
+  }
+  }
+}

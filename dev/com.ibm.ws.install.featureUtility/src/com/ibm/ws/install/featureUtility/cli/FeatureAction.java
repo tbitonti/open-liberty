@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,7 +19,6 @@ import java.util.logging.Level;
 
 import com.ibm.ws.install.InstallKernel;
 import com.ibm.ws.install.InstallKernelFactory;
-import com.ibm.ws.install.internal.ExceptionUtils;
 import com.ibm.ws.install.internal.InstallKernelImpl;
 import com.ibm.ws.kernel.boot.cmdline.ActionDefinition;
 import com.ibm.ws.kernel.boot.cmdline.ActionHandler;
@@ -30,8 +31,10 @@ import com.ibm.ws.kernel.feature.internal.cmdline.ReturnCode;
 
 
 public enum FeatureAction implements ActionDefinition {
-    installFeature(new InstallFeatureAction(), "if",-1, "--noCache", "--verbose", "--acceptLicense", "name..."),
-    installServerFeatures(new InstallServerAction(), "isf",-1, "--noCache", "--verbose","--acceptLicense", "name..."),
+    installFeature(new InstallFeatureAction(), "if", -1, "--noCache", "--verbose", "--acceptLicense", "--featuresBom",
+	    "--to", "--verify", "name..."),
+    installServerFeatures(new InstallServerAction(), "isf", -1, "--noCache", "--verbose", "--acceptLicense",
+	    "--featuresBom", "--verify", "name..."),
     viewSettings(new ViewSettingsAction(),"", 0, "--viewValidationMessages"),
     find(new FindAction(), "", -1, "[searchString]"),
     help(new FeatureHelpAction(),"", 0);
@@ -42,10 +45,13 @@ public enum FeatureAction implements ActionDefinition {
     private String abbreviation;
 
     private FeatureAction(ActionHandler a, String abbreviationString, int count, String... args) {
-        commandOptions = Collections.unmodifiableList(Arrays.asList(args));
+        
         action = a;
         positionalOptions = count;
         abbreviation = abbreviationString;
+
+	commandOptions = Collections.unmodifiableList(Arrays.asList(args));
+
     }
 
     @Override

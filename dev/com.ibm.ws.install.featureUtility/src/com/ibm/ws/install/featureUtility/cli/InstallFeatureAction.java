@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -32,13 +34,16 @@ import com.ibm.ws.install.internal.InstallKernelImpl;
 import com.ibm.ws.install.internal.InstallLogUtils;
 import com.ibm.ws.install.internal.InstallUtils;
 import com.ibm.ws.install.internal.ProgressBar;
+import com.ibm.ws.install.internal.InstallLogUtils.Messages;
 import com.ibm.ws.kernel.boot.ReturnCode;
 import com.ibm.ws.kernel.boot.cmdline.ActionHandler;
 import com.ibm.ws.kernel.boot.cmdline.Arguments;
 import com.ibm.ws.kernel.boot.cmdline.ExitCode;
+import com.ibm.ws.kernel.boot.cmdline.Utils;
 import com.ibm.ws.kernel.feature.internal.cmdline.ArgumentsImpl;
 import com.ibm.ws.kernel.provisioning.BundleRepositoryRegistry;
 import com.ibm.ws.product.utility.CommandConsole;
+import com.ibm.ws.product.utility.CommandConstants;
 import com.ibm.ws.product.utility.CommandTaskRegistry;
 import com.ibm.ws.product.utility.ExecutionContext;
 import com.ibm.ws.product.utility.extension.ValidateCommandTask;
@@ -51,9 +56,11 @@ public class InstallFeatureAction implements ActionHandler {
         private List<String> argList;
         private List<String> featureNames;
         private String fromDir;
-        private String toDir;
-        private File esaFile;
+        private String to;
+        private String featuresBom;
+	private String verify;
         private List<File> esaFiles;
+        private List<String> additionalJsons;
         private Boolean noCache;
         private Boolean acceptLicense;
         private ProgressBar progressBar;
@@ -91,19 +98,34 @@ public class InstallFeatureAction implements ActionHandler {
                 }
                 this.noCache = args.getOption("nocache") != null;
                 this.acceptLicense = args.getOption("acceptlicense") != null;
+                this.featuresBom = args.getOption("featuresbom");
+                this.additionalJsons = new ArrayList<String>();
+		this.verify = args.getOption("verify");
 
+                try {
+		    if (featuresBom != null && checkValidCoord(featuresBom)) {
+			additionalJsons.add(bomCoordToJsonCoord(featuresBom));
+		    }
+		} catch (InstallException e1) {
+		    logger.log(Level.SEVERE, e1.getMessage(), e1);
+                    return FeatureUtilityExecutor.returnCode(e1.getRc());
+		}
+                
+                this.to = args.getOption("to");
+                
                 this.progressBar = ProgressBar.getInstance();
 
                 HashMap<String, Double> methodMap = new HashMap<>();
                 // initialize feature utility and install kernel map
-                methodMap.put("initializeMap", 5.00);//done
-                methodMap.put("fetchJsons", 10.00); //dpne
-                methodMap.put("resolvedFeatures", 10.00); //done
+                methodMap.put("initializeMap", 5.00);
+                methodMap.put("fetchJsons", 10.00);
+                methodMap.put("resolvedFeatures", 10.00);
                 // in installFeature we have 80 units to work with
                 methodMap.put("fetchArtifacts", 10.00);
                 methodMap.put("downloadArtifacts", 25.00);
                 // 10 + 15 = 35 for download artifact
-                methodMap.put("installFeatures", 35.00);
+		methodMap.put("verifyFeatures", 10.00);
+		methodMap.put("installFeatures", 25.00);
                 methodMap.put("cleanUp", 5.00);
 
                 progressBar.setMethodMap(methodMap);
@@ -113,7 +135,7 @@ public class InstallFeatureAction implements ActionHandler {
                         return rc;
                 }
                 try {
-                        checkAssetsNotInstalled(new ArrayList<>(featureNames));
+					checkAssetsNotInstalled(new ArrayList<>(featureNames), true);
                 } catch (InstallException e) {
                 	logger.log(Level.SEVERE, e.getMessage(), e);
                     return FeatureUtilityExecutor.returnCode(e.getRc());
@@ -124,7 +146,27 @@ public class InstallFeatureAction implements ActionHandler {
                 return rc;
         }
 
-        // determine if args are feature shortnames or esa files
+        private String bomCoordToJsonCoord(String bomCoordinate) {
+			String[] coordSplit = bomCoordinate.split(":");
+			String groupId = coordSplit[0];
+			String artifactId = "features";
+			String version = coordSplit[2];
+			return String.format("%s:%s:%s", groupId, artifactId, version);
+		}
+
+
+		private boolean checkValidCoord(String bomCoordinate) throws InstallException {
+        	boolean result = false;
+			if(bomCoordinate.split(":").length == 3) {
+				result = true;
+			} else {
+				throw new InstallException(Messages.INSTALL_KERNEL_MESSAGES.getMessage("ERROR_INVALID_FEATURE_BOM_COORDINATE", featuresBom));
+			}
+			return result;
+		}
+
+
+		// determine if args are feature shortnames or esa files
         private ExitCode handleFeatureArguments(List<String> args){
                 ExitCode rc = ReturnCode.OK;
                 for(String arg : args){
@@ -148,12 +190,10 @@ public class InstallFeatureAction implements ActionHandler {
         private ReturnCode esaInstallInit(String esaPath) {
 
                 try {
-                        String feature = InstallUtils.getFeatureName(esaFile);
-//                        Set<String> features = new HashSet<String>();
-//                        features.add(feature);
-                        featureNames.add(feature);
-//                        installKernel.resolve(feature, esaFile, repoType);
-//                        featureLicenses = installKernel.getFeatureLicense(Locale.getDefault());
+		    File esaFile = new File(esaPath);
+		    String feature = InstallUtils.getFeatureName(esaFile);
+		    featureNames.add(feature);
+		    esaFiles.add(esaFile);
                 } catch (InstallException e) {
                         logger.log(Level.SEVERE, e.getMessage(), e);
                         return FeatureUtilityExecutor.returnCode(e.getRc());
@@ -173,8 +213,8 @@ public class InstallFeatureAction implements ActionHandler {
         }
 
         // call the install kernel to verify we are installing at least 1 new asset
-        private void checkAssetsNotInstalled(List<String> assetIds) throws InstallException {
-                installKernel.checkAssetsNotInstalled(assetIds);
+	private void checkAssetsNotInstalled(List<String> assetIds, boolean installingFeature) throws InstallException {
+	    installKernel.checkAssetsNotInstalled(assetIds, installingFeature);
         }
 
         private ReturnCode validateFromDir(String fromDir) {
@@ -200,7 +240,9 @@ public class InstallFeatureAction implements ActionHandler {
         private ExitCode install() {
         	try {
             	featureUtility = new FeatureUtility.FeatureUtilityBuilder().setFromDir(fromDir)
-                	.setFeaturesToInstall(featureNames).setNoCache(noCache).setEsaFiles(esaFiles).setlicenseAccepted(acceptLicense).build();
+						.setFeaturesToInstall(featureNames).setNoCache(noCache).setEsaFiles(esaFiles)
+						.setlicenseAccepted(acceptLicense).setAdditionalJsons(additionalJsons).setTo(to)
+						.setVerify(verify).build();
             	featureUtility.installFeatures();
         	} catch (InstallException e) {
             	logger.log(Level.SEVERE, e.getMessage(), e);
@@ -312,6 +354,9 @@ public class InstallFeatureAction implements ActionHandler {
 
                         @Override
                         public <T> T getAttribute(String name, Class<T> cls) {
+						if (name.equals(CommandConstants.WLP_INSTALLATION_LOCATION)) {
+							return (T) Utils.getInstallDir();
+						}
                                 return null;
                         }
 

@@ -1,18 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2015, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.cdi.impl.managedobject;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Iterator;
 import java.util.Set;
 
 import javax.enterprise.inject.spi.Bean;
@@ -94,7 +96,7 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
     @Override
     protected synchronized Bean<T> getBean() {
         if (!ejbBeanLookupComplete) {
-           doInitialization();
+            doInitialization();
         }
         return this.ejbBean;
     }
@@ -105,7 +107,7 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
 
             //This is needed for an edge case where the EJB is annotated @Vetoed.
             //In this case we'll find a ejbDescriptor but it will not have an associated bean.
-            //And we need to set these three variables. 
+            //And we need to set these three variables.
             EjbDescriptor<T> firstDescriptor = null;
             WeldManager firstBeanManager = null;
             WebSphereBeanDeploymentArchive firstBDA = null;
@@ -116,9 +118,6 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
                 Tr.debug(tc, "Looking for EJB Bean: " + this.ejbName);
             }
 
-            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                Tr.debug(tc, "Looking for EJB Bean: " + this.ejbName);
-            }
             WebSphereBeanDeploymentArchive bda = super.getCurrentBeanDeploymentArchive();
             WeldManager beanManager = null;
             if (bda != null) {
@@ -127,7 +126,7 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
                 beanManager = (WeldManager) getCDIRuntime().getCurrentBeanManager();
             }
 
-            EjbDescriptor<T> ejbDescriptor = beanManager.getEjbDescriptor(this.ejbName);
+            EjbDescriptor<T> ejbDescriptor = lookUpEjbDescriptor(this.ejbName, bda, beanManager);
             if (ejbDescriptor != null) {
                 if (firstDescriptor == null) {
                     firstDescriptor = ejbDescriptor;
@@ -137,7 +136,7 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
                 bean = beanManager.getBean(ejbDescriptor);
             }
             //If we didn't find a bean or found the wrong bean from the EJB descriptor (possible if multiple EJBs have the smae class name) continue looking.
-            if (bean == null || ! bean.getBeanClass().equals(getManagedObjectClass())) {
+            if (bean == null || !bean.getBeanClass().equals(getManagedObjectClass())) {
                 ejbDescriptor = null;
                 bean = null;
                 Set<WebSphereBeanDeploymentArchive> children = bda.getDescendantBdas();
@@ -145,7 +144,7 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
                 while (bean == null && itr.hasNext()) {
                     bda = itr.next();
                     beanManager = (WeldManager) bda.getBeanManager();
-                    ejbDescriptor = beanManager.getEjbDescriptor(this.ejbName);
+                    ejbDescriptor = lookUpEjbDescriptor(this.ejbName, bda, beanManager);
                     if (ejbDescriptor != null) {
                         if (firstDescriptor == null) {
                             firstDescriptor = ejbDescriptor;
@@ -154,7 +153,7 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
                         }
                         bean = beanManager.getBean(ejbDescriptor);
                     }
-                    if (bean != null && ! bean.getBeanClass().equals(getManagedObjectClass())) {
+                    if (bean != null && !bean.getBeanClass().equals(getManagedObjectClass())) {
                         partialMatchDescriptors.add(ejbDescriptor);
                         ejbDescriptor = null;
                         bean = null;
@@ -168,7 +167,7 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
                     while (bean == null && itr.hasNext()) {
                         bda = itr.next();
                         beanManager = (WeldManager) bda.getBeanManager();
-                        ejbDescriptor = beanManager.getEjbDescriptor(this.ejbName);
+                        ejbDescriptor = lookUpEjbDescriptor(ejbName, bda, beanManager);
                         if (ejbDescriptor != null) {
                             if (firstDescriptor == null) {
                                 firstDescriptor = ejbDescriptor;
@@ -177,7 +176,7 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
                             }
                             bean = beanManager.getBean(ejbDescriptor);
                         }
-                        if (bean != null && ! bean.getBeanClass().equals(getManagedObjectClass())) {
+                        if (bean != null && !bean.getBeanClass().equals(getManagedObjectClass())) {
                             partialMatchDescriptors.add(ejbDescriptor);
                             ejbDescriptor = null;
                             bean = null;
@@ -195,25 +194,35 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                         Tr.debug(tc, "Setting ejbDescriptor to firstEjbDescriptor: " + firstDescriptor.toString());
                     }
-                 } else {
+                } else {
                     Tr.error(tc, "Could not find an EjbDescriptor for : " + this.ejbName);
-                 }
+                }
             }
 
             if (bean == null) {
-                //The bean can be null if it's Vetoed. 
-                if (TraceComponent.isAnyTracingEnabled() && tc.isWarningEnabled()) {
-                    Tr.warning(tc, "Found the following EjbDescriptor " + this.ejbDescriptor + " for ejbName " + this.ejbName + " but it did not produce a bean or produced the wrong bean");
+                //The bean can be null if it's Vetoed.
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Found the following EjbDescriptor " + firstDescriptor + " for ejbName " + this.ejbName
+                                 + " but it did not produce a bean or produced the wrong bean. It will be used anyway as this is expected in some circumstances");
                 }
-                if (! partialMatchDescriptors.isEmpty()) {
+
+                //Use the firstDescriptor to match the old behaviour. Since the bean is null it will have gone looking for other descriptors.
+                if (firstDescriptor != null) {
+                    this.ejbDescriptor = firstDescriptor;
+                    this.ejbBeanManager = firstBeanManager;
+                    this.ejbBDA = firstBDA;
+                }
+
+                //Output the others we found in the trace, it might come in handy.
+                if (!partialMatchDescriptors.isEmpty()) {
                     String listStr = "[";
                     for (EjbDescriptor<T> desc : partialMatchDescriptors) {
                         listStr += desc.getEjbName() + ",";
                     }
                     listStr = listStr.substring(0, listStr.length() - 1);
                     listStr += "]";
-                    if (TraceComponent.isAnyTracingEnabled() && tc.isWarningEnabled()) {
-                        Tr.warning(tc, "Found the following EjbDescriptors but they produced the wrong bean " + listStr);
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "We also found the following EjbDescriptors but they produced the wrong bean " + listStr);
                     }
                 }
             } else {
@@ -223,9 +232,9 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
                 if (!bean.getBeanClass().equals(getManagedObjectClass())) {
                     //this exception should never happen
                     throw new IllegalStateException("Managed Class {" + getManagedObjectClass().getName() + "} does not match Bean Class {"
-                            + bean.getBeanClass().getName() + "}");
-                } else { 
-                    //We have an ejbDescriptor and a bean. The checks have pased, success. 
+                                                    + bean.getBeanClass().getName() + "}");
+                } else {
+                    //We have an ejbDescriptor and a bean. The checks have pased, success.
                     if (ejbDescriptor != null) {
                         this.ejbDescriptor = ejbDescriptor;
                         this.ejbBeanManager = beanManager;
@@ -237,6 +246,20 @@ public class CDIEJBManagedObjectFactoryImpl<T> extends AbstractManagedObjectFact
 
             ejbBeanLookupComplete = true;
         }
+    }
+
+    private EjbDescriptor<T> lookUpEjbDescriptor(String ejbName, WebSphereBeanDeploymentArchive bda, WeldManager bm) {
+
+        EjbDescriptor<T> result = bm.getEjbDescriptor(ejbName);
+
+        if (result == null && bda != null) {
+            Set<EjbDescriptor<?>> descriptors = bda.getEjbDescriptor(getManagedObjectClass());
+            if (descriptors != null) {
+                result = (EjbDescriptor<T>) descriptors.stream().filter(e -> ejbName.equals(e.getEjbName())).findFirst().orElse(null);
+            }
+        }
+
+        return result;
     }
 
     private synchronized EjbDescriptor<T> getEjbDescriptor() {

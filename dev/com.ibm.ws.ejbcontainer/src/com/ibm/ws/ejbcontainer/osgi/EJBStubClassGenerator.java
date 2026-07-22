@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -18,6 +20,10 @@ public interface EJBStubClassGenerator {
      * Returns a set of Remote classes for which the dynamically generated
      * stub classes need to be compatible with RMIC generated stubs and ties
      * for the specified application. <p>
+     *
+     * Starting with Jakarta EE 9 / Enterprise Beans 4.0 all remote bean
+     * interfaces are RMIC compatible so an application at EE 9 or later
+     * should not use this method; UnsupportedOperationException will be thrown.
      *
      * @param appName application name
      * @return the RMIC compatible class names; or an empty set if none exist.
@@ -38,7 +44,11 @@ public interface EJBStubClassGenerator {
      * that stubs for pre-EJB 3 modules are generated with as much
      * compatibility with RMIC as we can.
      *
-     * @param loader application classloader for which the RMIC compatible stubs are required
+     * Starting with Jakarta EE 9 / Enterprise Beans 4.0 all remote bean
+     * interfaces are RMIC compatible so an application at EE 9 or later
+     * should not use this method; UnsupportedOperationException will be thrown.
+     *
+     * @param loader                application classloader for which the RMIC compatible stubs are required
      * @param rmicCompatibleClasses the RMIC compatible class names
      */
     void addRMICCompatibleClasses(ClassLoader loader, Set<String> rmicCompatibleClasses);

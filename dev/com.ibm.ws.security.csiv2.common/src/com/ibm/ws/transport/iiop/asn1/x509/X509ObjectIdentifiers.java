@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -29,10 +31,6 @@ public interface X509ObjectIdentifiers
     static final DERObjectIdentifier    stateOrProvinceName     = new DERObjectIdentifier(id + ".8");
     static final DERObjectIdentifier    organization            = new DERObjectIdentifier(id + ".10");
     static final DERObjectIdentifier    organizationalUnitName  = new DERObjectIdentifier(id + ".11");
-
-    // id-SHA1 OBJECT IDENTIFIER ::=
-    //   {iso(1) identified-organization(3) oiw(14) secsig(3) algorithms(2) 26 }    //
-    static final DERObjectIdentifier    id_SHA1                 = new DERObjectIdentifier("1.3.14.3.2.26");
 
     //
     // ripemd160 OBJECT IDENTIFIER ::=

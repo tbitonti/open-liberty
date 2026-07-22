@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2021 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,6 +19,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,8 +30,10 @@ import org.junit.AfterClass;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.testcontainers.containers.GenericContainer;
 
 import com.ibm.websphere.simplicity.Machine;
 import com.ibm.websphere.simplicity.RemoteFile;
@@ -45,6 +50,10 @@ import componenttest.topology.impl.LibertyServerFactory;
 @RunWith(FATRunner.class)
 @Mode(TestMode.LITE)
 public class LogstashSSLTest extends LogstashCollectorTest {
+
+    /*
+     * Current model must acquire server this way, we need server "early" so that the static initialization of the generic container can resolve
+     */
     private static LibertyServer server = LibertyServerFactory.getLibertyServer("LogstashServer");
     protected static Machine machine = null;
     private static boolean connected = false;
@@ -57,18 +66,31 @@ public class LogstashSSLTest extends LogstashCollectorTest {
 
     protected static boolean runTest = true;
 
+    @ClassRule
+    public static GenericContainer<?> logstashContainer = createExpLogstashContainer();
+
+    private static GenericContainer<?> createExpLogstashContainer() {
+        try {
+            return prepareServerSSLAndConstructContainer(server);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to setup server and/or container", e);
+        }
+    }
+
     @BeforeClass
     public static void setUp() throws Exception {
+        server.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         os = System.getProperty("os.name").toLowerCase();
+        if (os != null && (os.contains("os/390") || os.contains("z/os") || os.contains("zos")))
+            runTest = false;
+
         Log.info(c, "setUp", "os.name = " + os);
         Log.info(c, "setUp", "runTest = " + runTest);
 
-        if (!runTest) {
-            return;
-        }
+        Assume.assumeTrue(runTest); // runTest must be true to run test
 
         clearContainerOutput();
-        String host = logstashContainer.getContainerIpAddress();
+        String host = logstashContainer.getHost();
         String port = String.valueOf(logstashContainer.getMappedPort(5043));
         Log.info(c, "setUp", "Logstash container: host=" + host + "  port=" + port);
         server.addEnvVar("LOGSTASH_HOST", host);
@@ -85,14 +107,13 @@ public class LogstashSSLTest extends LogstashCollectorTest {
             found_liberty_gc_at_startup = waitForStringInContainerOutput(LIBERTY_GC) != null;
         }
 
+        assertNotNull("The application is not ready", server.waitForStringInLogUsingMark("CWWKT0016I", 10000));
         assertNotNull("Cannot find TRAS0218I from Logstash output", waitForStringInContainerOutput("TRAS0218I"));
         clearContainerOutput();
     }
 
     @Before
     public void setUpTest() throws Exception {
-        Assume.assumeTrue(runTest); // runTest must be true to run test
-
         testName = "setUpTest";
         if (!server.isStarted()) {
             serverStart();
@@ -169,6 +190,36 @@ public class LogstashSSLTest extends LogstashCollectorTest {
     }
 
     @Test
+    public void testLogstashForMessageWithExceptionEvent() throws Exception {
+        testName = "testLogstashForMessageWithExceptionEvent";
+        setConfig("server_logs_msg.xml");
+        clearContainerOutput();
+
+        createMessageEventWithException(testName);
+
+        assertNotNull("Cannot find TRAS0218I from messages.log", server.waitForStringInLogUsingMark("TRAS0218I"));
+
+        /**
+         * The exception servlet emits three exceptions.
+         * Given that the current setup of this FAT is using regex to parse the messages
+         * and that the JSON fields can be ordered in a varied order, we'll use each message to test an individual field.
+         * First assert will just check that the message is there.
+         * Second will check that the exceptionName is present.
+         * Third will check that the stacktrace field is present.
+         *
+         */
+        assertNotNull("exception message not found", waitForStringInContainerOutput("\"message\":\"exception message\""));
+
+        String line = waitForStringInContainerOutput("\"message\":\"second exception message\"");
+        assertNotNull("second exception message not found", line);
+        assertTrue(line.contains("\"exceptionName\":\"java.lang.IllegalArgumentException\""));
+
+        line = waitForStringInContainerOutput("\"message\":\"third exception message\"");
+        assertNotNull("third exception message not found", line);
+        assertTrue(line.contains("\"stackTrace\":\"java.lang.IllegalArgumentException: bad"));
+    }
+
+    @Test
     public void testLogstashForAccessEvent() throws Exception {
         testName = "testLogstashForAccessEvent";
         setConfig("server_logs_access.xml");
@@ -234,6 +285,17 @@ public class LogstashSSLTest extends LogstashCollectorTest {
     public void testLogstashForAuditEvent() throws Exception {
         testName = "testLogstashForAuditEvent";
         setConfig("server_logs_audit.xml");
+        clearContainerOutput();
+
+        createTraceEvent(testName);
+
+        assertNotNull("Did not find " + LIBERTY_AUDIT, waitForStringInContainerOutput(LIBERTY_AUDIT));
+    }
+
+    @Test
+    public void testLogstashForAudit20Event() throws Exception {
+        testName = "testLogstashForAuditEvent";
+        setConfig("server_logs_audit20.xml");
         clearContainerOutput();
 
         createTraceEvent(testName);
@@ -417,9 +479,10 @@ public class LogstashSSLTest extends LogstashCollectorTest {
         // CWWKZ0001I: Application LogstashApp started in x seconds.
         assertNotNull("Cannot find CWWKZ0001I from messages.log", server.waitForStringInLogUsingMark("CWWKZ0001I", 15000));
 
-        Log.info(c, "serverStart", "---> Wait for application to start ");
-        // CWWKT0016I: Web application available (default_host): http://localhost:8010/LogstashApp/
-        assertNotNull("Cannot find CWWKT0016I from messages.log", server.waitForStringInLogUsingMark("CWWKT0016I", 10000));
+        // Comment this to debug a build break.  This check might be redundant as we check the same message ID in the container output in the next step.
+        // Log.info(c, "serverStart", "---> Wait for application to start ");
+        // // CWWKT0016I: Web application available (default_host): http://localhost:8010/LogstashApp/
+        // assertNotNull("Cannot find CWWKT0016I from messages.log", server.waitForStringInLogUsingMark("CWWKT0016I", 10000));
 
         // Wait for CWWKT0016I in Logstash container output
         waitForStringInContainerOutput("CWWKT0016I");

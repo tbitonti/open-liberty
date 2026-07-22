@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2010, 2020 IBM Corporation and others.
+# Copyright (c) 2010, 2022 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -29,7 +31,7 @@
 #   Messages in the range CWWKF1000 are reserved for the FeatureToolMessages.
 # -------------------------------------------------------------------------------------------------
 
-UPDATE_MISSING_FEATURE_ERROR=CWWKF0001E: Es wurde keine Featuredefinition f\u00fcr {0} gefunden.
+UPDATE_MISSING_FEATURE_ERROR=CWWKF0001E: F\u00fcr \u201e {0} \u201c konnte keine Feature-Definition gefunden werden. Um die Funktion zu installieren, f\u00fchren Sie den Befehl \u201e bin/featureUtility \u201c ( installFeature {0} ) oder den Befehl \u201e bin/featureUtility \u201c ( installServerFeatures ) aus.
 UPDATE_MISSING_FEATURE_ERROR.explanation=Der Feature-Manager hat keine Definition f\u00fcr das angegebene Feature gefunden.
 UPDATE_MISSING_FEATURE_ERROR.useraction=Stellen Sie sicher, dass das Feature korrekt angegeben wurde und dass die Featuredefinition im Verzeichnis lib/features vorhanden und lesbar ist.
 
@@ -176,8 +178,7 @@ CLIENT_STARTED.useraction=Es ist keine Aktion erforderlich.
 #Required feature gather query messages
 SERVER_GATHER_FEATURES=CWWKF0036I: Der Server {0} hat eine Liste mit den erforderlichen Features zusammengestellt.
 SERVER_GATHER_FEATURES.explanation=Der Server hat eine Liste mit den erforderlichen Features zusammengestellt.
-SERVER_GATHER_FEATURES.useraction=Es ist keine Aktion erforderlich. \
-
+SERVER_GATHER_FEATURES.useraction=Es ist keine Aktion erforderlich. 
 #End required feature gather query messages
 
 UPDATE_NOT_PUBLIC_FEATURE_CLIENT_ERROR=CWWKF0037E: Das in der Datei client.xml angegebene Feature {0} ist kein \u00f6ffentliches Feature und wird vom Client nicht ausgef\u00fchrt.
@@ -201,11 +202,10 @@ UPDATE_WRONG_PROCESS_TYPE_DEPENDENCY_CLIENT_ERROR.explanation=Das konfigurierte 
 UPDATE_WRONG_PROCESS_TYPE_DEPENDENCY_CLIENT_ERROR.useraction=Entfernen Sie das Feature aus der Konfiguration oder \u00e4ndern Sie die Feature-Manifestdatei so, dass die Unterst\u00fctzung f\u00fcr den gew\u00fcnschten Prozesstyp aktiviert wird.
 
 # CWWK0042E  {0} = feature Name: {1} = server name 
-UPDATE_MISSING_CORE_FEATURE_ERROR=CWWKF0042E: Es wurde keine Featuredefinition f\u00fcr das Feature {0} gefunden. Versuchen Sie, das Feature mit dem Befehl bin/installUtility install {0} zu installieren. Alternativ k\u00f6nnen Sie den Befehl bin/installUtility install {1} ausf\u00fchren, um alle Features zu installieren, die von dieser Konfiguration referenziert werden.
+UPDATE_MISSING_CORE_FEATURE_ERROR=CWWKF0042E: Es wurde keine Featuredefinition f\u00fcr das Feature {0} gefunden.  F\u00fchren Sie den Befehl \u201e bin/featureUtility \u201c \u201e installFeature \u201c \u201e {0} \u201c aus, um die Funktion zu installieren. Alternativ k\u00f6nnen Sie den Befehl \u201e bin/featureUtility installServerFeatures {1} \u201c ausf\u00fchren, um alle Funktionen zu installieren, auf die in dieser Konfiguration verwiesen wird.
 UPDATE_MISSING_CORE_FEATURE_ERROR.explanation=Der Feature-Manager hat keine Definition f\u00fcr das angegebene Feature gefunden.
-UPDATE_MISSING_CORE_FEATURE_ERROR.useraction=\u00dcberpr\u00fcfen Sie, ob der Name des Features richtig angegeben wurde. \
-Stellen Sie au\u00dferdem sicher, dass die Featuredefinition im Verzeichnis lib/features vorhanden und lesbar ist. \
-Wenn das Feature nicht vorhanden ist, versuchen Sie, das Feature mit dem Befehl bin/installUtility install Featurename zu installieren bzw. alle von dieser Konfiguration referenzierten Features mit dem Befehl bin/installUtility install Servername zu installieren.
+UPDATE_MISSING_CORE_FEATURE_ERROR.useraction=\u00dcberpr\u00fcfen Sie, ob der Name des Features richtig angegeben wurde.  Stellen Sie au\u00dferdem sicher, dass die Featuredefinition im Verzeichnis lib/features vorhanden und lesbar ist.  Falls die Funktion nicht vorhanden ist, f\u00fchren Sie den Befehl \u201e bin/featureUtilityinstallFeature feature_name\u201c aus, um die Funktion zu installieren, oder den Befehl \u201e bin/featureUtilityinstallServerFeatures server_name\u201c, um alle Funktionen zu installieren, auf die in dieser Konfiguration verwiesen wird.
+
 # CWWK0043E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = configuredFeature1: {3} = configuredFeature2: {4} EePlaformCommonToProgModels 
 UPDATE_CONFLICT_INCOMPATIBLE_EE_FEATURES_SAME_PLATFORM_ERROR=CWWKF0043E: Das konfigurierte Feature {2} von {0} ist nicht kompatibel mit dem konfigurierten Feature {3} von {1}. Die Konfiguration enth\u00e4lt eine nicht kompatible Kombination von {4}-Features, die nicht unterst\u00fctzt wird. Aktualisieren Sie die Konfiguration so, dass kompatible Versionen der konfigurierten Features verwendet werden, die {0} oder die {1}-Programmiermodelle unterst\u00fctzen.
 UPDATE_CONFLICT_INCOMPATIBLE_EE_FEATURES_SAME_PLATFORM_ERROR.explanation=Die Serverkonfiguration enth\u00e4lt eine nicht kompatible Kombination von Features f\u00fcr die angegebenen Programmiermodelle. Dieser Konflikt kann auftreten, wenn die zwei nicht kompatiblen Features direkt in der Serverkonfiguration konfiguriert werden, oder wenn die konfigurierten Features unterschiedliche Versionen eines Features enthalten, die nicht kompatibel sind.
@@ -225,44 +225,78 @@ UPDATE_DISABLED_FEATURES_ON_CONFLICT=CWWKF0046W: Die Konfiguration enth\u00e4lt 
 UPDATE_DISABLED_FEATURES_ON_CONFLICT.explanation=Die Konfiguration enth\u00e4lt eine nicht kompatible Kombination von Features. Der Feature-Manager hat alle Features inaktiviert, um ung\u00fcltiges Verhalten zu vermeiden.
 UPDATE_DISABLED_FEATURES_ON_CONFLICT.useraction=Geben Sie eine andere Version der konfigurierten Features an, die den Konflikt verursacht haben.
 
-# CWWK0044E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2 {6} EePlaformCommonToProgModels
+# CWWK0047E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2 {6} EePlatformCommonToProgModels
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR=CWWKF0047E: Die Features {2} und {3} k\u00f6nnen nicht gleichzeitig geladen werden. Das Feature {2} von {0} ist nicht kompatibel mit dem Feature {3} von {1}. Die Konfiguration enth\u00e4lt eine nicht kompatible Kombination von {6}-Features, die nicht unterst\u00fctzt wird. Die konfigurierten Features {4} und {5} enthalten eine nicht kompatible Kombination von Features. Ihre Konfiguration wird nicht unterst\u00fctzt. Aktualisieren Sie die Konfiguration so, dass kompatible Versionen der konfigurierten Features verwendet werden, die {0} oder die {1}-Programmiermodelle unterst\u00fctzen.
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.explanation=Die Serverkonfiguration enth\u00e4lt eine nicht kompatible Kombination von Features f\u00fcr die angegebenen Programmiermodelle. Dieser Konflikt kann auftreten, wenn die zwei nicht kompatiblen Features direkt in der Serverkonfiguration konfiguriert werden, oder wenn die konfigurierten Features unterschiedliche Versionen eines Features enthalten, die nicht kompatibel sind.
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.useraction=Versuchen Sie, eine kompatible Version f\u00fcr die konfigurierten Features anzugeben, die den Konflikt in der Datei server.xml verursacht haben. Wenn keine anderen Versionen verf\u00fcgbar sind, sind die konfigurierten Features nicht miteinander kompatibel und k\u00f6nnen nicht gleichzeitig konfiguriert werden.
+
+# CWWKF0048E  {0} = the unknown platform value in the environment variable
+UNKNOWN_PLATFORM_VALUE_ENV_VAR=CWWKF0048E: Der {0} Der Wert der Plattformumgebungsvariablen PREFERRED_PLATFORM_VERSIONS enth\u00e4lt keine g\u00fcltige Version.
+UNKNOWN_PLATFORM_VALUE_ENV_VAR.explanation=Jeder Wert in der Plattformumgebungsvariablen muss eine bekannte Plattform sein. Die bekannten Plattformen sind eine Version von javaee, jakartaee oder microProfile.
+UNKNOWN_PLATFORM_VALUE_ENV_VAR.useraction=\u00dcberpr\u00fcfen Sie, dass die Umgebungsvariable nur bekannte Plattformen enth\u00e4lt.
+
+# CWWKF0049E  {0} = set of duplicate platforms
+DUPLICATE_PLATFORMS=CWWKF0049E: Die folgenden konfigurierten Plattformversionen stehen im Konflikt: {0}.
+DUPLICATE_PLATFORMS.explanation=F\u00fcr dieselbe Plattform wurde mehr als eine Version angegeben.
+DUPLICATE_PLATFORMS.useraction=Entfernen Sie alle Plattformversionen bis auf eine.
+
+# CWWKF0050E  {0} = the versionless features that cannot be resolved
+UNRESOLVED_VERSIONLESS_FEATURE=CWWKF0050E: Der {0} Versionslose Features k\u00f6nnen nicht aufgel\u00f6st werden
+UNRESOLVED_VERSIONLESS_FEATURE.explanation=Versionslose Funktionen ben\u00f6tigen eine bestimmte Plattform, bevor sie aufgel\u00f6st werden k\u00f6nnen.
+UNRESOLVED_VERSIONLESS_FEATURE.useraction=Stellen Sie sicher, dass f\u00fcr Ihre Funktion ein Plattformelement angegeben ist.
+
+# CWWKF0051I  {0} = the versionless features: {1} = the features that were resolved from the versionless features
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE=CWWKF0051I: Der {0} versionslose Funktionen aufgel\u00f6st in {1}
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE.explanation=Die versionierten Features, die aus den versionslosen Features aufgel\u00f6st wurden.
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE.useraction=Es ist keine Aktion erforderlich.
+
+# CWWKF0052E  {0} = the unknown platform
+UNKNOWN_PLATFORM_ELEMENT=CWWKF0052E: Der {0} Plattform ist ung\u00fcltig
+UNKNOWN_PLATFORM_ELEMENT.explanation=Das angegebene Plattformelement ist keine bekannte Plattform. Die bekannten Plattformen sind eine Version von javaee, jakartaee oder microProfile
+UNKNOWN_PLATFORM_ELEMENT.useraction=Stellen Sie sicher, dass die konfigurierte Plattform eine bekannte Plattform ist.
+
+# CWWKF0053I  {0} = the resolved platforms
+RESOLVED_PLATFORM=CWWKF0053I: Feature-Aufl\u00f6sung ausgew\u00e4hlt die {0} Plattformen.
+RESOLVED_PLATFORM.explanation=Die Plattformversionen wurden ausgew\u00e4hlt, um die Aufl\u00f6sung versionsloser Funktionen zu erm\u00f6glichen. Die Plattformversionen wurden aus Plattformelementen, aus versionierten Funktionen oder aus einer Umgebungsvariable abgerufen.
+RESOLVED_PLATFORM.useraction=Es ist keine Aktion erforderlich.
+
+# CWWKF0054E  {0} = the versionless feature that cannot be resolved: {1} = the resolved platform
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM=CWWKF0054E: Der {0} Versionsloses Feature hat keine Version, die zum {1} Plattform.
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM.explanation=F\u00fcr die Plattformversion ist keine Version der Funktion verf\u00fcgbar. Die Funktionsaufl\u00f6sung wurde abgeschlossen, es wurde jedoch keine Version der Funktion ausgew\u00e4hlt.
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM.useraction=Entfernen Sie entweder die versionslose Funktion, geben Sie eine andere Plattformversion an oder verwenden Sie eine versionierte Funktion.
+
+# CWWKF0055E  {0} = the versionless features
+NO_RESOLVED_PLATFORM=CWWKF0055E: Der {0} Versionenlose Funktionen haben keine konfigurierte Plattform.
+NO_RESOLVED_PLATFORM.explanation=F\u00fcr jeden Typ versionsloser Funktion ist eine konfigurierte Plattform erforderlich. Wenn versionslose JavaEE- oder JakartaEE-Funktionen konfiguriert sind, erfordern sie eine entsprechende JavaEE- oder JakartaEE-Plattform. Wenn microProfile Wenn versionslose Features konfiguriert sind, ben\u00f6tigen sie eine microProfile Plattform.
+NO_RESOLVED_PLATFORM.useraction=F\u00fcgen Sie entweder ein Plattformelement, eine versionierte Funktion oder eine Umgebungsvariable hinzu.
 
 #   Messages in the range CWWKF1000 are reserved for the FeatureToolMessages.
 
 tool.feature.exists=CWWKF1000I: Das Feature {0} ist bereits vorhanden. Es wird nicht erneut installiert. Um ein bereits vorhandenes Feature zu \u00e4ndern, m\u00fcssen Sie es zuerst manuell deinstallieren.
 tool.feature.exists.explanation=Das Feature, das installiert wird, ist bereits vorhanden.
-tool.feature.exists.useraction=Es ist keine Aktion erforderlich. \
-
+tool.feature.exists.useraction=Es ist keine Aktion erforderlich. 
 tool.missing.args=CWWKF1001E: {0} erfordert {1} Argumente. Es wurden aber {2} angegeben.
 tool.missing.args.explanation=Beim Aufrufen der Aktion wurde die falsche Anzahl an Argumenten verwendet.
-tool.missing.args.useraction=F\u00fchren Sie den Befehl mit den richtigen Argumenten erneut aus. \
-
+tool.missing.args.useraction=F\u00fchren Sie den Befehl mit den richtigen Argumenten erneut aus. 
 tool.unknown.options=CWWKF1002E: {0} unterst\u00fctzt die folgenden Optionen nicht: {1}
 tool.unknown.options.explanation=Es wurde versucht, einen Befehl mit ung\u00fcltigen Argumenten auszuf\u00fchren.
 tool.unknown.options.useraction=F\u00fchren Sie den Befehl ohne die ung\u00fcltigen Argumente erneut aus.
 
 tool.install.bad.extension=CWWKF1003E: Die Produkterweiterung {0} ist nicht vorhanden.
 tool.install.bad.extension.explanation=Die Produkterweiterung, in der das Feature installiert werden soll, ist nicht registriert.
-tool.install.bad.extension.useraction=Installieren Sie das Feature in einer registrierten Produkterweiterung oder registrieren Sie die fehlende Produkterweiterung. \
-
+tool.install.bad.extension.useraction=Installieren Sie das Feature in einer registrierten Produkterweiterung oder registrieren Sie die fehlende Produkterweiterung. 
 tool.install.invalid.extension=CWWKF1004E: Die Produkterweiterung {0} gibt keine Position an.
 tool.install.invalid.extension.explanation=Die Produkterweiterung wurde nicht gefunden, weil die Registrierungsdatei keine Position enth\u00e4lt.
-tool.install.invalid.extension.useraction=Korrigieren Sie die Registrierung der Produkterweiterung und geben Sie die Position der Erweiterung an. \
-
+tool.install.invalid.extension.useraction=Korrigieren Sie die Registrierung der Produkterweiterung und geben Sie die Position der Erweiterung an. 
 tool.install.ioexception.extension=CWWKF1005E: Beim Lesen der Produkterweiterung {0} ist ein unerwarteter Fehler aufgetreten. Ausnahme: {1}
 tool.install.ioexception.extension.explanation=Beim Lesen der Eigenschaftendatei f\u00fcr die in der Fehlernachricht angegebene Produkterweiterung ist ein unerwarteter Fehler aufgetreten.
 tool.install.ioexception.extension.useraction=Suchen Sie in der Ausnahmenachricht nach einer Erkl\u00e4rung, warum die Datei nicht gelesen werden konnte, und wiederholen Sie dann die Operation.
 tool.install.no.dir=CWWKF1006E: Das Feature kann nicht installiert werden, weil das Verzeichnis {0} nicht vorhanden ist.
 tool.install.no.dir.explanation=Das Produkterweiterungsverzeichnis ist nicht vorhanden. Deshalb kann das Feature nicht installiert werden.
-tool.install.no.dir.useraction=Stellen Sie sicher, dass das Feature vorhanden ist, und installieren Sie das Feature erneut. \
-
+tool.install.no.dir.useraction=Stellen Sie sicher, dass das Feature vorhanden ist, und installieren Sie das Feature erneut. 
 tool.install.download.esa=CWWKF1007E: Beim Herunterladen des Subsystemarchivs in {0} ist ein Fehler aufgetreten. Ausnahme: {1}
 tool.install.download.esa.explanation=Beim Herunterladen des Subsystemarchivs ist ein Fehler aufgetreten. M\u00f6glicherweise ist die URL nicht g\u00fcltig oder es ist ein tempor\u00e4res Netzproblem aufgetreten. Der zweite Satz der Fehlernachricht enth\u00e4lt ggf. weitere Detailinformationen zur Fehlerursache.
-tool.install.download.esa.useraction=Vergewissern Sie sich, dass die URL zum Subsystemarchiv korrekt ist, und wiederholen Sie dann die Operation. \
-
+tool.install.download.esa.useraction=Vergewissern Sie sich, dass die URL zum Subsystemarchiv korrekt ist, und wiederholen Sie dann die Operation. 
 tool.install.download.tmpFile=CWWKF1008E: Es konnte keine tempor\u00e4re Datei zum Herunterladen des Subsystemarchivs erstellt werden. Ausnahme: {0}
 tool.install.download.tmpFile.explanation=Die Featureinstallationsoperation l\u00e4dt das Subsystemarchiv in eine tempor\u00e4re Datei herunter, aber es konnte keine tempor\u00e4re Datei erstellt werden. Die Ursache ist wahrscheinlich eine Einschr\u00e4nkung der Maschine. Der zweite Satz der Fehlernachricht enth\u00e4lt m\u00f6glicherweise weitere Detailinformationen zur Fehlerursache.
 tool.install.download.tmpFile.useraction=M\u00f6glicherweise ist das tempor\u00e4re Dateisystem voll. Wenn ja, kann das Problem durch Bereinigung des Speicherplatzes behoben werden.
@@ -347,4 +381,14 @@ tool.classpath.create.fail.useraction=Sehen Sie sich die Fehlernachricht an, beh
 tool.userfeature.install.location.invalid=CWWKF1036E: Das Benutzerfestaure {0} kann nicht in core installiert werden.
 tool.userfeature.install.location.invalid.explanation= Das Benutzerfeature ist kein Basisfeature und kann deshalb nicht in core installiert werden.
 tool.userfeature.install.location.invalid.useraction= Installieren Sie das Benutzerfeature in usr. 
+
+FEATURES_ADDED_DELTA=CWWKF1037I: Der Server hat die {0}-Funktionen der vorhandenen Gruppe von Funktionen hinzugef\u00fcgt.
+FEATURES_ADDED_DELTA.explanation=Der Server hat zus\u00e4tzlich zu den zuvor installierten Funktionen eine Reihe neuer Funktionen installiert.
+FEATURES_ADDED_DELTA.useraction=Es ist keine Aktion erforderlich.
+
+FEATURES_ADDED_CLIENT_DELTA=CWWKF1038I: Der Client hat die {0}-Funktionen der Gruppe von vorhandenen Funktionen hinzugef\u00fcgt. 
+FEATURES_ADDED_CLIENT_DELTA.explanation=Der Client hat zus\u00e4tzlich zu den zuvor installierten Funktionen eine Reihe neuer Funktionen installiert.
+FEATURES_ADDED_CLIENT_DELTA.useraction=Es ist keine Aktion erforderlich. 
+
+
 

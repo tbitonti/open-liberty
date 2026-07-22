@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020,2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,12 +27,12 @@ import org.apache.cxf.ws.policy.AssertionInfo;
 import org.apache.cxf.ws.policy.AssertionInfoMap;
 import org.apache.cxf.ws.security.SecurityConstants;
 import org.apache.cxf.ws.security.policy.PolicyUtils;
-
 import org.apache.cxf.ws.security.wss4j.WSS4JUtils;
 import org.apache.wss4j.common.WSS4JConstants;
 import org.apache.wss4j.common.cache.ReplayCache;
 import org.apache.wss4j.common.ext.WSPasswordCallback;
 import org.apache.wss4j.common.ext.WSSecurityException;
+import org.apache.wss4j.common.ext.WSSecurityException.ErrorCode;
 import org.apache.wss4j.dom.WSDocInfo;
 import org.apache.wss4j.dom.engine.WSSConfig;
 import org.apache.wss4j.dom.engine.WSSecurityEngineResult;
@@ -48,6 +50,7 @@ import org.w3c.dom.Element;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
+import com.ibm.ws.wssecurity.WSSecurityPolicyException;
 import com.ibm.ws.wssecurity.cxf.validator.Utils;
 import com.ibm.ws.wssecurity.internal.WSSecurityConstants;
 /**
@@ -59,6 +62,11 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
                                                            WSSecurityConstants.TR_GROUP,
                                                            WSSecurityConstants.TR_RESOURCE_BUNDLE);
 
+    public UsernameTokenInterceptor() {
+        super();
+        addBefore(WSSecurityLibertyCallerInterceptor.class.getName());
+    }
+    
     @Override
     protected WSSecurityEngineResult validateToken(Element tokenElement, final SoapMessage message) throws WSSecurityException, Base64DecodingException {
 
@@ -66,7 +74,9 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
         boolean allowNoPassword = isAllowNoPassword(message.get(AssertionInfoMap.class));
         UsernameTokenProcessor p = new UsernameTokenProcessor();
         org.apache.cxf.ws.security.wss4j.UsernameTokenInterceptor nt = null;
-
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, " validateToken" + tokenElement.toString());
+        }
         RequestData data = new RequestData() {
             @Override
             public CallbackHandler getCallbackHandler() {
@@ -96,15 +106,16 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
         }
         data.setMsgContext(message);
 
-        translateSettingsFromMsgContext(data, message); // This EMULATES CXF HTTPS behavior, but "MAY or MAY NOT be exactly CXF HTTPS behavior" //@AV999 TODO
+        translateSettingsFromMsgContext(data, message); // This EMULATES CXF HTTPS behavior, but "MAY or MAY NOT be exactly CXF HTTPS behavior" //TODO
         WSDocInfo wsDocInfo = new WSDocInfo(tokenElement.getOwnerDocument());
         data.setWsDocInfo(wsDocInfo);
-        try {
+        //try {
             List<WSSecurityEngineResult> results = p.handleToken(tokenElement, data);
+            checkTokens(message, results);
             return results.get(0);
-        } catch (WSSecurityException ex) {
-            throw WSS4JUtils.createSoapFault(message, message.getVersion(), ex);
-        }
+        //} catch (WSSecurityException ex) {
+        //    throw WSS4JUtils.createSoapFault(message, message.getVersion(), ex);
+        //}
     }
 
     private boolean isAllowNoPassword(AssertionInfoMap aim) throws WSSecurityException {
@@ -125,7 +136,7 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
 
     private CallbackHandler getCallback(@Sensitive SoapMessage message) {
         //Then try to get the password from the given callback handler
-        Object o = Utils.getSecurityPropertyValue(SecurityConstants.CALLBACK_HANDLER, message);//message.getContextualProperty(SecurityConstants.CALLBACK_HANDLER); //@AV999
+        Object o = Utils.getSecurityPropertyValue(SecurityConstants.CALLBACK_HANDLER, message);//message.getContextualProperty(SecurityConstants.CALLBACK_HANDLER); //v3
 
         CallbackHandler handler = null;
         if (o instanceof CallbackHandler) {
@@ -146,9 +157,12 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
     @Override
     protected WSSecUsernameToken addUsernameToken(@Sensitive SoapMessage message, Document doc, @Sensitive UsernameToken token) {
         String userName = null;
-        Object o = Utils.getSecurityPropertyValue(SecurityConstants.USERNAME, message);//(String) message.getContextualProperty(SecurityConstants.USERNAME); //@AV999
+        Object o = Utils.getSecurityPropertyValue(SecurityConstants.USERNAME, message);//(String) message.getContextualProperty(SecurityConstants.USERNAME); //v3
         if (o != null) {
             userName = (String) o;
+        }
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "add usernameToken" + userName);
         }
         WSSConfig wssConfig = (WSSConfig) message.getContextualProperty(WSSConfig.class.getName());
         if (wssConfig == null) {
@@ -160,7 +174,7 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
             boolean isNoPassword = UsernameToken.PasswordType.NoPassword.equals(token.getPasswordType());
             boolean isPasswordHashed = UsernameToken.PasswordType.HashPassword.equals(token.getPasswordType());
             if (isNoPassword) { 
-                WSSecUsernameToken utBuilder = new WSSecUsernameToken(doc);//new WSSecUsernameToken(wssConfig); //@AV999
+                WSSecUsernameToken utBuilder = new WSSecUsernameToken(doc);//new WSSecUsernameToken(wssConfig); //v3
                 utBuilder.setUserInfo(userName, null);
                 utBuilder.setPasswordType(null);
                 if (token.isCreated() && !isPasswordHashed) {
@@ -191,11 +205,17 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
                 }
 
                 utBuilder.setUserInfo(userName, password);
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "addUsernameToken, " + userName);
+                }
                 if (token.isCreated() && !isPasswordHashed) {
                     utBuilder.addCreated();
                 }
                 if (token.isNonce() && !isPasswordHashed) {
                     utBuilder.addNonce();
+                }
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "addUsernameToken returns, " + utBuilder);
                 }
                 return utBuilder;
             } else {
@@ -277,7 +297,8 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
             }
         }
         if (!bOk) {
-            throw new WSSecurityException(null, msgs.toString()); //TODO error code
+            WSSecurityPolicyException wsse = new WSSecurityPolicyException(msgs.toString());
+            throw new WSSecurityException(ErrorCode.FAILED_CHECK,wsse); 
         }
 
         return true;
@@ -288,18 +309,29 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
         WSSConfig wssConfig = reqData.getWssConfig();
         if (wssConfig == null) {
             wssConfig = WSSConfig.getNewInstance();
+            reqData.setWssConfig(wssConfig);
         }
-        reqData.setUtTTL(decodeTimeToLive(reqData, message));
+        //v3
+        Object mc = reqData.getMsgContext();
+
+        reqData.setUtTTL(decodeTimeToLive(reqData, message, false));
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "unt TTL '" + reqData.getUtTTL() + "'");
+        }
         // wssConfig.setTimeStampFutureTTL(decodeFutureTimeToLive(reqData, message));
         //wssConfig.setUtFutureTTL(decodeFutureTimeToLive(reqData, message));
-        reqData.setUtFutureTTL(decodeFutureTimeToLive(reqData, message));
+        reqData.setUtFutureTTL(decodeFutureTimeToLive(reqData, message, false));
         //wssConfig.setHandleCustomPasswordTypes(decodeCustomPasswordTypes(reqData));
         //wssConfig.setPasswordsAreEncoded(decodeUseEncodedPasswords(reqData));
         reqData.setWssConfig(wssConfig);
     }
 
-    public int decodeTimeToLive(RequestData reqData, @Sensitive SoapMessage message) {
-        String ttl = (String) message.getContextualProperty(SecurityConstants.TIMESTAMP_TTL);
+    public int decodeTimeToLive(RequestData reqData, @Sensitive SoapMessage message, boolean timestamp) {
+        String tag = SecurityConstants.TIMESTAMP_TTL;
+        if (!timestamp) {
+            tag = SecurityConstants.USERNAMETOKEN_TTL;
+        }
+        String ttl = (String) message.getContextualProperty(tag);
         int ttlI = 0;
         if (ttl != null) {
             try {
@@ -308,17 +340,29 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                     Tr.debug(tc, "ttl string is malformat '" + ttl + "'" + e.getMessage());
                 }
-                ttlI = reqData.getTimeStampTTL();
+                if (timestamp) {
+                    ttlI = reqData.getTimeStampTTL();
+                } else {
+                    ttlI = reqData.getUtTTL();
+                }    
             }
         }
         if (ttlI <= 0) {
-            ttlI = reqData.getTimeStampTTL();
+            if (timestamp) {
+                ttlI = reqData.getTimeStampTTL();
+            } else {
+                ttlI = reqData.getUtTTL();
+            }    
         }
         return ttlI;
     }
 
-    protected int decodeFutureTimeToLive(RequestData reqData, @Sensitive SoapMessage message) {
-        String ttl = (String) message.getContextualProperty(SecurityConstants.TIMESTAMP_FUTURE_TTL);
+    protected int decodeFutureTimeToLive(RequestData reqData, @Sensitive SoapMessage message, boolean timestamp) {
+        String tag = SecurityConstants.TIMESTAMP_FUTURE_TTL;
+        if (!timestamp) {
+            tag = SecurityConstants.USERNAMETOKEN_FUTURE_TTL;
+        }
+        String ttl = (String) message.getContextualProperty(tag);
         int defaultFutureTimeToLive = 60;
         if (ttl != null) {
             try {
@@ -335,6 +379,5 @@ public class UsernameTokenInterceptor extends org.apache.cxf.ws.security.wss4j.U
             }
         }
         return defaultFutureTimeToLive;
-    }
-    
+    }    
 }

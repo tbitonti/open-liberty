@@ -1,12 +1,11 @@
 /*******************************************************************************
-* Copyright (c) 2016, 2020 IBM Corporation and others.
+* Copyright (c) 2016, 2024 IBM Corporation and others.
 * All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v1.0
+* are made available under the terms of the Eclipse Public License 2.0
 * which accompanies this distribution, and is available at
-* http://www.eclipse.org/legal/epl-v10.html
+* http://www.eclipse.org/legal/epl-2.0/
 *
-* Contributors:
-*     IBM Corporation - initial API and implementation
+* SPDX-License-Identifier: EPL-2.0
 *******************************************************************************/
 
 package com.ibm.ws.microprofile.config.fat.tests;
@@ -26,6 +25,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.microprofile.appConfig.simultaneousRequests.test.SimultaneousRequestsTestServlet;
 import com.ibm.ws.microprofile.config.fat.suite.SharedShrinkWrapApps;
 
@@ -34,23 +34,24 @@ import componenttest.annotation.TestServlet;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.rules.repeater.MicroProfileActions;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
+import io.openliberty.microprofile.config.fat.repeat.ConfigRepeatActions;
 
 @RunWith(FATRunner.class)
 @Mode(TestMode.FULL)
 public class SimultaneousRequestsTest extends FATServletClient {
 
+    public static final String SERVER_NAME = "SimultaneousRequestsServer";
     public static final String APP_NAME = "simultaneousRequests";
 
-    @Server("SimultaneousRequestsServer")
+    @Server(SERVER_NAME)
     @TestServlet(servlet = SimultaneousRequestsTestServlet.class, contextRoot = APP_NAME)
     public static LibertyServer server;
 
     @ClassRule
-    public static RepeatTests r = MicroProfileActions.repeat("SimultaneousRequestsServer", MicroProfileActions.MP33, MicroProfileActions.LATEST);
+    public static RepeatTests r = ConfigRepeatActions.repeatDefault(SERVER_NAME);
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -63,7 +64,7 @@ public class SimultaneousRequestsTest extends FATServletClient {
                                                         .addAsManifestResource(new File("test-applications/" + APP_NAME + ".war/resources/META-INF/microprofile-config.properties"),
                                                                                "microprofile-config.properties");
 
-        ShrinkHelper.exportDropinAppToServer(server, simultaneousRequests_war);
+        ShrinkHelper.exportDropinAppToServer(server, simultaneousRequests_war, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }

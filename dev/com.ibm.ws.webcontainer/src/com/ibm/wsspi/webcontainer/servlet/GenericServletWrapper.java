@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 1997, 2006 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -38,7 +40,7 @@ import javax.servlet.ServletResponse;
 public abstract class GenericServletWrapper implements IServletWrapper
 {
 	/**
-	 * The IServletContext interface thats exposed to the subclasses of this class
+	 * The IServletContext interface that's exposed to the subclasses of this class
 	 */
 	protected IServletContext context;
 	
@@ -50,7 +52,7 @@ public abstract class GenericServletWrapper implements IServletWrapper
 	private IServletWrapper wrapper;
 
 	/**
-	 * Public constructor. This contructor must be invoked from within the 
+	 * Public constructor. This constructor must be invoked from within the 
 	 * constructor of the subclass passing in the IServletContext so that the
 	 * parent object can be constructed correctly.
 	 * 

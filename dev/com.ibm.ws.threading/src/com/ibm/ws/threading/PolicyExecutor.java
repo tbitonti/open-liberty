@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017,2021 IBM Corporation and others.
+ * Copyright (c) 2017,2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,11 +15,14 @@ package com.ibm.ws.threading;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 import com.ibm.websphere.ras.annotation.Trivial;
 
@@ -96,6 +101,15 @@ public interface PolicyExecutor extends ExecutorService {
      * @return the number of running or about-to-run tasks
      */
     int getRunningTaskCount();
+
+    /**
+     * If this policy executor is configured with virtual=true, this method returns an executor that
+     * runs tasks on new virtual threads. The tasks submitted to this executor are not subject to the
+     * constraints of the policy executor.
+     *
+     * @return an executor that runs tasks on new virtual threads if virtual=true. Otherwise null.
+     */
+    Executor getVirtualThreadExecutor();
 
     /**
      * Submits and invokes a group of tasks with a callback per task to be invoked at various points in the task's life cycle.
@@ -274,12 +288,14 @@ public interface PolicyExecutor extends ExecutorService {
 
     /**
      * Registers a one-time callback to be invoked inline when the
-     * policy executor shuts down. This method is intended for optional use
-     * on a newly created policy executor instance.
+     * policy executor shuts down. If shutdown has already occurred,
+     * the callback does not get invoked.
      *
-     * @param callback the callback, or null to unregister.
+     * @param callback the callback to register.
+     * @throw IllegalStateException if a different shutdown callback
+     *        has already been registered with this policy executor.
      */
-    void registerShutdownCallback(Runnable callback);
+    void registerShutdownCallback(Consumer<Set<Object>> callback);
 
     /**
      * Applies when using the <code>execute</code> or <code>submit</code> methods. Indicates whether or not to run the task on the

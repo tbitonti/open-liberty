@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2020 IBM Corporation and others.
+ * Copyright (c) 2016, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -105,7 +107,7 @@ public class CollectorJsonUtils {
         jsonBuilder.addField(gcData.getGcTypeKey(), gcData.getGcType(), false, true);
         jsonBuilder.addField(gcData.getReasonKey(), gcData.getReason(), false, true);
 
-        String datetime = CollectorJsonHelpers.dateFormatTL.get().format(gcData.getDatetime());
+        String datetime = CollectorJsonHelpers.formatTime(gcData.getDatetime());
         jsonBuilder.addField(gcData.getDatetimeKey(), datetime, false, true);
 
         jsonBuilder.addField(gcData.getSequenceKey(), gcData.getSequence(), false, true);
@@ -140,12 +142,8 @@ public class CollectorJsonUtils {
         }
 
         StringBuilder formattedValue = new StringBuilder(CollectorJsonHelpers.formatMessage(message, maxFieldLength));
-        String throwable = logData.getThrowable();
-        if (throwable != null) {
-            formattedValue.append(CollectorJsonHelpers.LINE_SEPARATOR).append(throwable);
-        }
 
-        String datetime = CollectorJsonHelpers.dateFormatTL.get().format(logData.getDatetime());
+        String datetime = CollectorJsonHelpers.formatTime(logData.getDatetime());
 
         //@formatter:off
         jsonBuilder.addField(LogTraceData.getMessageKey(LOGSTASH_KEY, isMessageEvent), formattedValue.toString(), false, true)
@@ -158,6 +156,14 @@ public class CollectorJsonUtils {
                    .addField(LogTraceData.getClassNameKey(LOGSTASH_KEY, isMessageEvent), logData.getClassName(), false, true)
                    .addField(LogTraceData.getSequenceKey(LOGSTASH_KEY, isMessageEvent), logData.getSequence(), false, true);
         //@formatter:on
+
+        //append Throwable information (i.e. exception name and stacktrace)
+        String exceptionName = logData.getExceptionName();
+        String throwable = logData.getThrowable();
+        if (exceptionName != null && throwable != null) {
+            jsonBuilder.addField(LogTraceData.getExceptionNameKey(LOGSTASH_KEY, isMessageEvent), exceptionName, false, true);
+            jsonBuilder.addField(LogTraceData.getStackTraceKey(LOGSTASH_KEY, isMessageEvent), throwable, false, true);
+        }
 
         ArrayList<KeyValuePair> extensions = null;
         KeyValuePairList kvpl = null;
@@ -198,7 +204,7 @@ public class CollectorJsonUtils {
 
         JSONObjectBuilder jsonBuilder = CollectorJsonHelpers.startFFDC(LOGSTASH_KEY);
 
-        String datetime = CollectorJsonHelpers.dateFormatTL.get().format(ffdcData.getDatetime());
+        String datetime = CollectorJsonHelpers.formatTime(ffdcData.getDatetime());
         String formattedValue = CollectorJsonHelpers.formatMessage(ffdcData.getStacktrace(), maxFieldLength);
         //@formatter:off
         jsonBuilder.addField(FFDCData.getDatetimeKey(LOGSTASH_KEY), datetime, false, true)
@@ -274,7 +280,7 @@ public class CollectorJsonUtils {
                      * This method is to parse and format into logstash_1.0 expected formatting.
                      */
                     if (key.equals(LogFieldConstants.IBM_DATETIME) || key.equals("loggingEventTime")) {
-                        String datetime = CollectorJsonHelpers.dateFormatTL.get().format(kvp.getLongValue());
+                        String datetime = CollectorJsonHelpers.formatTime(kvp.getLongValue());
                         jsonBuilder.addField(AuditData.getDatetimeKey(LOGSTASH_KEY), datetime, false, true);
                     } else if (key.equals(LogFieldConstants.IBM_SEQUENCE) || key.equals("loggingSequenceNumber")) {
                         jsonBuilder.addField(AuditData.getSequenceKey(LOGSTASH_KEY), kvp.getStringValue(), false, false);

@@ -1,11 +1,10 @@
-# Copyright (c) 2018, 2021 IBM Corporation and others.
+# Copyright (c) 2018, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 # -------------------------------------------------------------------------------------------------
 #CMVCPATHNAME N/A
 #COMPONENTPREFIX CWWKO
@@ -17,50 +16,165 @@
 
 # Message prefix block: CWWKO1650 - CWWKO1699
 
-OPENAPI_DOCUMENT_VALIDATION_ERROR=CWWKO1650E: Validarea documentului OpenAPI a produs erorile urm\u0103toare:
-OPENAPI_DOCUMENT_VALIDATION_ERROR.explanation=Documentul OpenAPI este invalid.
-OPENAPI_DOCUMENT_VALIDATION_ERROR.useraction=Furniza\u0163i un document OpenAPI valid care rezolv\u0103 eroarea raportat\u0103.
+OPENAPI_DOCUMENT_VALIDATION_ERROR=CWWKO1650E: Validarea documentului OpenAPI a generat urm\u0103toarea eroare (erori):
+OPENAPI_DOCUMENT_VALIDATION_ERROR.explanation=Documentul OpenAPI nu este valid.
+OPENAPI_DOCUMENT_VALIDATION_ERROR.useraction=Furniza\u021bi un document OpenAPI care rezolv\u0103 eroarea raportat\u0103.
 
-OPENAPI_DOCUMENT_VALIDATION_WARNING=CWWKO1651W: Validarea documentului OpenAPI a produs avertismentele urm\u0103toare:
-OPENAPI_DOCUMENT_VALIDATION_WARNING.explanation=Documentul OpenAPI con\u0163ine date care nu sunt \u00een formatul recomandat.
-OPENAPI_DOCUMENT_VALIDATION_WARNING.useraction=Furniza\u0163i un document OpenAPI valid care rezolv\u0103 avertismentul raportat.
+OPENAPI_DOCUMENT_VALIDATION_WARNING=CWWKO1651W: Validarea documentului OpenAPI a generat urm\u0103toarea avertizare (avertiz\u0103ri):
+OPENAPI_DOCUMENT_VALIDATION_WARNING.explanation=Documentul OpenAPI con\u021bine date care nu sunt \u00een formatul recomandat.
+OPENAPI_DOCUMENT_VALIDATION_WARNING.useraction=Furniza\u021bi un document OpenAPI care rezolv\u0103 avertizarea raportat\u0103.
 
-CSS_NOT_PROCESSED=CWWKO1652W: Serverul nu poate citi documentul CSS specificat {0} datorit\u0103 {1} : {2}.
-CSS_NOT_PROCESSED.explanation=Documentul de CSS nu poate fi procesat din cauza unei erori de validitate.
+CSS_NOT_PROCESSED=CWWKO1652W: Serverul nu poate citi documentul CSS {0} specificat din cauza {1}: {2}.
+CSS_NOT_PROCESSED.explanation=Documentul CSS nu poate fi procesat din cauza unei erori valide.
 CSS_NOT_PROCESSED.useraction=Furniza\u0163i un document Swagger valid.
 
 UNSUPPORTED_CSS_VALUE=CWWKO1653W: Valoarea care a fost specificat\u0103 pentru proprietatea {0} nu este suportat\u0103. Valoarea trebuie sa fie {1}.
-UNSUPPORTED_CSS_VALUE.explanation=Valoarea pentru proprietatea specificat\u0103 fie nu este valid\u0103, fie nu este acceptat\u0103 de cadrul de lucru OpenAPI.
-UNSUPPORTED_CSS_VALUE.useraction=Furniza\u0163i o valoare valid\u0103 pentru proprietate \u00een fi\u015fierul CSS personalizat pentru interfa\u0163a de utilizator OpenAPI. 
+UNSUPPORTED_CSS_VALUE.explanation=Valoarea propriet\u0103\u021bii specificate fie este nevalid\u0103, fie nu este suportat\u0103 de cadrul de lucru OpenAPI.
+UNSUPPORTED_CSS_VALUE.useraction=Furniza\u021bi o valoare valid\u0103 pentru proprietate \u00een fi\u0219ierul CSS personalizat pentru OpenAPI UI. 
 
-INVALID_CSS_BACKGROUND_IMAGE=CWWKO1654W: Imaginea de fundal care a fost specificat\u0103 la {0} nu exist\u0103 sau este invalid\u0103.
-INVALID_CSS_BACKGROUND_IMAGE.explanation=Imaginea de fundal nu exist\u0103 sau este invalid\u0103.
+INVALID_CSS_BACKGROUND_IMAGE=CWWKO1654W: Imaginea de fundal care a fost specificat\u0103 la {0} fie nu exist\u0103, fie este nevalid\u0103.
+INVALID_CSS_BACKGROUND_IMAGE.explanation=Imaginea de fundal fie nu exist\u0103, fie este nevalid\u0103.
 INVALID_CSS_BACKGROUND_IMAGE.useraction=Furniza\u0163i o valoare valid\u0103.
 
-CUSTOM_CSS_NOT_PROCESSED=CWWKO1655W: Fi\u015fierul CSS personalizat {0} care a fost specificat pentru interfa\u0163a de utilizator OpenAPI nu a fost procesat. Serverul va restaura valorile implicite pentru interfa\u0163a de utilizator OpenAPI. Motiv={1} : {2}.
-CUSTOM_CSS_NOT_PROCESSED.explanation=Serverul nu poate procesa fi\u015fierul CSS personalizat. Serverul va restaura valorile implicite pentru interfa\u0163a de utilizator OpenAPI.
-CUSTOM_CSS_NOT_PROCESSED.useraction=Furniza\u0163i un fi\u015fier CSS personalizat valid pentru interfa\u0163a de utilizator OpenAPI, \u00eempreun\u0103 cu toate dependen\u0163ele.
+CUSTOM_CSS_NOT_PROCESSED=CWWKO1655W: Fi\u0219ierul CSS personalizat {0} care a fost specificat pentru OpenAPI UI nu a fost procesat. Serverul va restabili valorile implicite pentru OpenAPI UI. Motiv={1}: {2}.
+CUSTOM_CSS_NOT_PROCESSED.explanation=Serverul nu poate procesa fi\u015fierul CSS personalizat. Serverul va restabili valorile implicite pentru OpenAPI UI.
+CUSTOM_CSS_NOT_PROCESSED.useraction=Furniza\u021bi un fi\u0219ier CSS personalizat valid pentru OpenAPI UI \u00eempreun\u0103 cu toate dependen\u021bele.
 
-CSS_SECTION_NOT_FOUND=CWWKO1656W: Serverul cite\u015fte documentul CSS specificat {0} dar nu poate g\u0103si <.swagger-ui .headerbar >.
-CSS_SECTION_NOT_FOUND.explanation=Documentul CSS care este specificat nu con\u0163ine <.swagger-ui .headerbar > sau nu este formatat s\u0103 \u00eendeplineasc\u0103 constr\u00e2ngerile cerute de server.
-CSS_SECTION_NOT_FOUND.useraction=Furniza\u0163i un fi\u015fier CSS valid care con\u0163ine <.swagger-ui .headerbar > \u00een formatul cerut.
+CSS_SECTION_NOT_FOUND=CWWKO1656W: Serverul cite\u0219te documentul CSS {0} specificat, dar nu putut g\u0103si &lt;.swagger-ui .headerbar &gt;.
+CSS_SECTION_NOT_FOUND.explanation=Documentul CSS specificat nu con\u021bine &lt;.swagger-ui .headerbar &gt;, sau nu este formatat pentru a respecta limit\u0103rile impuse de server.
+CSS_SECTION_NOT_FOUND.useraction=Furniza\u021bi un fi\u0219ier CSS valid care con\u021bine &lt;.swagger-ui .headerbar &gt; \u00een formatul necesar.
 
 OPENAPI_FILTER_LOAD_ERROR=CWWKO1657E: A e\u015fuat \u00eenc\u0103rcarea clasei de filtrare OpenAPI: {0}.
 OPENAPI_FILTER_LOAD_ERROR.explanation=Nu a putut fi g\u0103sit\u0103 sau \u00eenc\u0103rcat\u0103 clasa de filtrare OpenAPI specificat\u0103.
-OPENAPI_FILTER_LOAD_ERROR.useraction=Asigura\u0163i-v\u0103 c\u0103 clasa specificat\u0103 exist\u0103 \u015fi implementa\u0163i interfa\u0163a OASFilter.
+OPENAPI_FILTER_LOAD_ERROR.useraction=Asigura\u021bi-v\u0103 c\u0103 respectiva clas\u0103 specificat\u0103 exist\u0103 \u0219i implementeaz\u0103 interfa\u021ba OASFilter.
 
-OPENAPI_MODEL_READER_LOAD_ERROR=CWWKO1658E: A e\u015fuat \u00eenc\u0103rcarea clasei de cititor de modele OpenAPI: {0}.
+OPENAPI_MODEL_READER_LOAD_ERROR=CWWKO1658E: Nu s-a reu\u0219it \u00eenc\u0103rcarea clasei de cititor de modele OpenAPI: {0}.
 OPENAPI_MODEL_READER_LOAD_ERROR.explanation=Nu a putut fi g\u0103sit\u0103 sau \u00eenc\u0103rcat\u0103 clasa de cititor de modele OpenAPI specificat\u0103.
-OPENAPI_MODEL_READER_LOAD_ERROR.useraction=Asigura\u0163i-v\u0103 c\u0103 clasa specificat\u0103 exist\u0103 \u015fi implementa\u0163i interfa\u0163a OASModelReader.
+OPENAPI_MODEL_READER_LOAD_ERROR.useraction=Asigura\u021bi-v\u0103 c\u0103 respectiva clas\u0103 specificat\u0103 exist\u0103 \u0219i implementeaz\u0103 interfa\u021baOASModelReader.
 
-OPENAPI_FILE_PARSE_ERROR=CWWKO1659E: A e\u015fuat parsarea documentului OpenAPI pentru aplica\u0163ia: {0}.
-OPENAPI_FILE_PARSE_ERROR.explanation=A e\u015fuat parsarea documentului OpenAPI din folderul META-INF.
-OPENAPI_FILE_PARSE_ERROR.useraction=Asigura\u0163i-v\u0103 c\u0103 fi\u015fierul este \u00een format YAML sau JSON corect.
+OPENAPI_FILE_PARSE_ERROR=CWWKO1659E: Nu s-a reu\u0219it analiza documentului OpenAPI pentru aplica\u021bia: {0}.
+OPENAPI_FILE_PARSE_ERROR.explanation=Nu s-a reu\u0219it analiza documentului OpenAPI din directorul META-INF.
+OPENAPI_FILE_PARSE_ERROR.useraction=Asigura\u021bi-v\u0103 c\u0103 fi\u0219ierul este \u00een format corect YAML sau JSON.
 
-OPENAPI_APPLICATION_PROCESSED=CWWKO1660I: Aplica\u0163ia {0} a fost procesat\u0103 \u015fi a fost produs un document OpenAPI.
+OPENAPI_APPLICATION_PROCESSED=CWWKO1660I: Aplica\u021bia {0} a fost procesat\u0103 \u0219i un document OpenAPI a fost generat.
 OPENAPI_APPLICATION_PROCESSED.explanation=S-a generat documentul OpenAPI pentru aplica\u0163ia specificat\u0103. Poate fi vizualizat la punctul final /openapi.
-OPENAPI_APPLICATION_PROCESSED.useraction=Nu este necesar\u0103 nici o ac\u0163iune.
+OPENAPI_APPLICATION_PROCESSED.useraction=Nu este necesar\u0103 nicio ac\u0163iune.
 
-OPENAPI_APPLICATION_PROCESSING_ERROR=CWWKO1661E: A ap\u0103rut o eroare la procesarea aplica\u0163iei {0} \u015fi un document OpenAPI nu a fost produs. Eroarea a fost: {1}.
-OPENAPI_APPLICATION_PROCESSING_ERROR.explanation=A ap\u0103rut o eroare de runtime la procesarea aplica\u0163iei.
-OPENAPI_APPLICATION_PROCESSING_ERROR.useraction=Examina\u0163i istoricele FFDC \u015fi textul excep\u0163iei pentru a identifica problema.
+OPENAPI_APPLICATION_PROCESSING_ERROR=CWWKO1661E: S-a produs o eroare la procesarea aplica\u021biei {0} \u0219i nu a fost generat un document OpenAPI. Eroarea este: {1}.
+OPENAPI_APPLICATION_PROCESSING_ERROR.explanation=S-a produs o eroare de execu\u021bie la procesarea aplica\u021biei.
+OPENAPI_APPLICATION_PROCESSING_ERROR.useraction=Verifica\u021bi istoricele FFDC \u0219i textul excep\u021biei pentru a identifica problema.
+
+OPENAPI_MERGE_PROBLEMS_CWWKO1662W=CWWKO1662W: Urm\u0103toarele probleme s-au produs \u00een timpul combin\u0103rii documentelor OpenAPI: {0}
+OPENAPI_MERGE_PROBLEMS_CWWKO1662W.explanation=Documenta\u021bia OpenAPI de la module web multiple nu poate fi combinat\u0103 cu succes. Punctele finale din modulele raportate nu sunt incluse \u00een documentul OpenAPI generat.
+OPENAPI_MERGE_PROBLEMS_CWWKO1662W.useraction=Examina\u021bi problemele de combinare pentru a identifica motivul pentru care documentele OpenAPI generate nu pot fi combinate.
+
+OPENAPI_MERGE_PROBLEM_PATH_CLASH=Calea {0} din modulul {1} intr\u0103 \u00een conflict cu o cale din modulul {2}. Modulul {1} nu poate fi combinat.
+OPENAPI_MERGE_PROBLEM_PATH_CLASH.explanation=Calea o reprezint\u0103 dou\u0103 module. Ambele instan\u021be ale c\u0103ii nu pot fi incluse \u00een acela\u0219i document OpenAPI. Acest mesaj este returnat ca parte din CWWKO1662.
+OPENAPI_MERGE_PROBLEM_PATH_CLASH.useraction=Fie modifica\u021bi unul dintre modulele conflictuale, fie configura\u021bi caracteristica mpOpenApi-2.0 pentru a exclude unul dintre module. Aceast\u0103 problem\u0103 ar putea ap\u0103rea dac\u0103 serverele sunt incluse \u00een documentul OpenAPI \u0219i URL-ul serverului nu se termin\u0103 cu r\u0103d\u0103cina de context a aplica\u021biei. De exemplu, atunci c\u00e2nd aplica\u021bia este accesat\u0103 la un alt URL printr-un proxy invers.
+
+OPENAPI_MERGE_PROBLEM_EXTENSION_CLASH=Cheia de extensie {0} din modulul {1} intr\u0103 \u00een conflict cu aceea\u0219i cheie de extensie din modulul {2}. Modulul {1} nu poate fi combinat.
+OPENAPI_MERGE_PROBLEM_EXTENSION_CLASH.explanation=Dou\u0103 module declar\u0103 aceea\u0219i extensie cu valori diferite la nivelul superior al documentului OpenAPI. Ambele instan\u021be ale extensiei nu pot fi incluse \u00eentr-un singur document OpenAPI. Acest mesaj este returnat ca parte din CWWKO1662.
+OPENAPI_MERGE_PROBLEM_EXTENSION_CLASH.useraction=Fie modifica\u021bi unul dintre modulele conflictuale pentru a \u00eenl\u0103tura extensia sau configura\u021bi caracteristica mpOpenApi-2.0 pentru a exclude unul dintre module.
+
+OPENAPI_MERGE_DISABLED_CWWKO1663I=CWWKO1663I: Combinarea documenta\u021biei OpenAPI pentru module multiple este dezactivat\u0103. Doar {0} este folosit pentru a genera documenta\u021bia OpenAPI. Pentru a permite combinarea documenta\u021biei OpenAPI pentru toate modulele, seta\u021bi config property mp.openapi.extensions.liberty.merged.include = all.
+OPENAPI_MERGE_DISABLED_CWWKO1663I.explanation=Dac\u0103 documenta\u021bia OpenAPI este activat\u0103, documenta\u021bia OpenAPI este generat\u0103 doar pentru primul modul OpenAPI implementat.
+OPENAPI_MERGE_DISABLED_CWWKO1663I.useraction=Dac\u0103 dori\u021bi ca toate modulele dumneavoastr\u0103 web s\u0103 fie folosite pentru a genera documenta\u021bia OpenAPI, seta\u021bi proprietatea MicroProfile Config care este afi\u0219at\u0103 \u00een mesaj. Aceast\u0103 proprietate poate fi setat\u0103 \u00een oricare dintre loca\u021biile pe care MicroProfile Config le caut\u0103 pentru propriet\u0103\u021bi de configurare, precum proprietatea de sistem Java sau o variabil\u0103 de mediu.
+
+OPENAPI_MERGE_INFO_INVALID_CWWKO1664W=CWWKO1664W: Obiectul informativ configurat cu proprietatea {0} nu este valid. Propriet\u0103\u021bile de titlu \u0219i versiune trebuie setate. Valoarea nevalid\u0103 este: {1}
+OPENAPI_MERGE_INFO_INVALID_CWWKO1664W.explanation=Dac\u0103 proprietatea este setat\u0103, aceasta trebuie setat\u0103 ca sec\u021biune informativ\u0103 complet\u0103 \u00een format JSON, cu propriet\u0103\u021bile de titlu \u0219i versiune setate la valori valide.
+OPENAPI_MERGE_INFO_INVALID_CWWKO1664W.useraction=Corecta\u021bi valoarea informativ\u0103 configurat\u0103.
+
+OPENAPI_MERGE_INFO_PARSE_ERROR_CWWKO1665W=CWWKO1665W: Proprietatea de configurare {0} nu poate fi analizat\u0103 ca JSON. Valoarea este: {1}\nEroarea este: {2}
+OPENAPI_MERGE_INFO_PARSE_ERROR_CWWKO1665W.explanation=Dac\u0103 proprietatea este setat\u0103, aceasta trebuie setat\u0103 ca sec\u021biune informativ\u0103 complet\u0103 \u00een format JSON.
+OPENAPI_MERGE_INFO_PARSE_ERROR_CWWKO1665W.useraction=Examina\u021bi textul de eroare pentru a identifica problema \u0219i corecta\u021bi valoarea informativ\u0103 configurat\u0103 \u00een a\u0219a fel \u00eenc\u00e2t s\u0103 fie JSON valid\u0103.
+
+OPENAPI_MERGE_INVALID_NAME_CWWKO1666W=CWWKO1666W: Nume nevalid g\u0103sit \u00een {0}: {1}. Fiecare nume trebuie s\u0103 foloseasc\u0103 formatul \u201eapplicationName\u201d sau \u201eapplicationName/moduleName\u201d.
+OPENAPI_MERGE_INVALID_NAME_CWWKO1666W.explanation=Proprietatea de configurare trebuie s\u0103 con\u021bin\u0103 o list\u0103 de aplicare \u0219i nume de module separate prin virgule, sau una din valorile speciale \u201etoate\u201d, \u201eprima\u201d, or \u201eniciuna\u201d.
+OPENAPI_MERGE_INVALID_NAME_CWWKO1666W.useraction=Examina\u021bi textul de eroare pentru a identifica problema \u0219i corecta\u021bi proprietatea de configurare indicat\u0103.
+
+OPENAPI_MERGE_UNUSED_INCLUDE_CWWKO1667W=CWWKO1667W: Proprietatea de configurare {0} include \u201e{1}\u201d dar nu se potrive\u0219te niciunei aplica\u021bii sau modul web implementat.
+OPENAPI_MERGE_UNUSED_INCLUDE_CWWKO1667W.explanation=Serverul este configurat pentru a crea documenta\u021bie OpenAPI pentru aplica\u021bie sau numele de modul, dar nicio aplica\u021bie sau modul web cu acest nume nu au fost implementate.
+OPENAPI_MERGE_UNUSED_INCLUDE_CWWKO1667W.useraction=Verifica\u021bi c\u0103 toate aplica\u021biile au pornit corect \u0219i c\u0103 numele din proprietatea de configurare sunt specificate corect.
+
+OPEN_API_UI_PATH_UPDATE_CWWKO1668I=CWWKO1668I: Calea de UI OpenAPI este setat\u0103 la {0}.
+OPEN_API_UI_PATH_UPDATE_CWWKO1668I.explanation=Calea de UI OpenAPI este setat\u0103 la o valoare care nu este cea implicit\u0103.
+OPEN_API_UI_PATH_UPDATE_CWWKO1668I.useraction=Nu este necesar\u0103 nicio ac\u0163iune.
+
+OPEN_API_DOC_PATH_UPDATE_CWWKO1669I=CWWKO1669I: Calea de document OpenAPI este setat\u0103 la {0}.
+OPEN_API_DOC_PATH_UPDATE_CWWKO1669I.explanation=Calea de document OpenAPI este setat\u0103 la o valoare care nu este cea implicit\u0103.
+OPEN_API_DOC_PATH_UPDATE_CWWKO1669I.useraction=Nu este necesar\u0103 nicio ac\u0163iune.
+
+OPEN_API_UI_PATH_UPDATE_FAILED_CWWKO1670E=CWWKO1670E: Calea de UI OpenAPI nu este valid\u0103. Valoarea implicit\u0103 este utilizat\u0103 \u00een loc. Verifica\u021bi avertismentele anterioare pentru cauza e\u0219ecului de validare.
+OPEN_API_UI_PATH_UPDATE_FAILED_CWWKO1670E.explanation=Calea de UI OpenAPI nu este valid\u0103. Valoarea implicit\u0103 este utilizat\u0103 \u00een loc.
+OPEN_API_UI_PATH_UPDATE_FAILED_CWWKO1670E.useraction=Verifica\u021bi mesajele de eroare anterioare pentru cauza e\u0219ecului de validare.
+
+OPEN_API_DOC_PATH_UPDATE_FAILED_CWWKO1671E=CWWKO1671E: Calea de document OpenAPI nu este valid\u0103. Valoarea implicit\u0103 este utilizat\u0103 \u00een loc. Verifica\u021bi avertismentele anterioare pentru cauza e\u0219ecului de validare.
+OPEN_API_DOC_PATH_UPDATE_FAILED_CWWKO1671E.explanation=Calea de document OpenAPI nu este valid\u0103. Valoarea implicit\u0103 este utilizat\u0103 \u00een loc.
+OPEN_API_DOC_PATH_UPDATE_FAILED_CWWKO1671E.useraction=Verifica\u021bi mesajele de eroare anterioare pentru cauza e\u0219ecului de validare.
+
+OPEN_API_UI_PATH_CONFLICT_CWWKO1672E=CWWKO1672E: Calea de UI OpenAPI nu poate fi setat\u0103 la {0}. Aceast\u0103 cale este folosit\u0103 pentru a recupera documentele OpenAPI.
+OPEN_API_UI_PATH_CONFLICT_CWWKO1672E.explanation=C\u0103ile de document OpenAPI \u0219i UI OpenAPI nu pot fi identice.
+OPEN_API_UI_PATH_CONFLICT_CWWKO1672E.useraction=Specifica\u021bi o cale unic\u0103 pentru UI OpenAPI.
+
+OPEN_API_UI_PATH_INVALID_CWWKO1675E=CWWKO1675E: Calea de UI OpenAPI nu este valid\u0103 sau con\u021bine caractere invalide. URL-ul trebuie s\u0103 fie construit cu caractere alfanumerice Unicode A-Z, a-z, 0-9, liniu\u021b\u0103 de subliniere (_), cratim\u0103 (-), slash \u00eenainte (/) sau punct (.).
+OPEN_API_UI_PATH_INVALID_CWWKO1675E.explanation=Calea de UI OpenAPI nu poate fi setat\u0103 la o valoare care con\u021bine caractere invalide.
+OPEN_API_UI_PATH_INVALID_CWWKO1675E.useraction=Asigura\u021bi-v\u0103 c\u0103 calea OpenAPI con\u021bine numai A-Z, a-z, 0-9, _, -, ., /.
+
+OPEN_API_DOC_PATH_INVALID_CWWKO1676E=CWWKO1676E: Calea de document OpenAPI nu este valid\u0103 sau con\u021bine caractere invalide. URL-ul trebuie s\u0103 fie construit cu caractere alfanumerice Unicode A-Z, a-z, 0-9, liniu\u021b\u0103 de subliniere (_), cratim\u0103 (-), slash \u00eenainte (/) sau punct (.).
+OPEN_API_DOC_PATH_INVALID_CWWKO1676E.explanation=Calea de document OpenAPI nu poate fi setat\u0103 la o valoare care con\u021bine caractere invalide.
+OPEN_API_DOC_PATH_INVALID_CWWKO1676E.useraction=Asigura\u021bi-v\u0103 c\u0103 calea OpenAPI con\u021bine numai A-Z, a-z, 0-9, _, -, ., /.
+
+OPEN_API_PATH_SEGMENT_INVALID_CWWKO1677E=CWWKO1677E: Segmentul de cale "/." sau "/.." nu este valid pentru puncte finale OpenAPI.
+OPEN_API_PATH_SEGMENT_INVALID_CWWKO1677E.explanation=Segmentul de cale OpenAPI "/." sau "/.." nu este valid.
+OPEN_API_PATH_SEGMENT_INVALID_CWWKO1677E.useraction=Elimina\u021bi orice segment de cale "/." sau "/.." din cale.
+
+# {1} - the server.xml element name, either includeApplication or excludeApplication
+OPEN_API_SLASH_IN_APPLICATION_CWWKO1678W=CWWKO1678W: Numele aplica\u021biei {0} configurat \u00een elementul {1} nu este valid deoarece con\u021bine caracterul \u201e/\u201d sau este gol.
+OPEN_API_SLASH_IN_APPLICATION_CWWKO1678W.explanation=O aplica\u021bie nu poate denumi nu poate include un \u201e/\u201d deoarece \u201e/\u201d este folosit pentru a separa aplica\u021bia de modulele sale componente.
+OPEN_API_SLASH_IN_APPLICATION_CWWKO1678W.useraction=Elimina\u021bi \u201e/\u201d din elementul includeApplication sau excludeApplication din fi\u0219ierul server.xml sau converti\u021bi acel element \u00een includeModule sau excludeModule pentru a face referire la un singur modul.
+
+# {1} - the server.xml element name, either includeModule or excludeModule
+OPEN_API_SLASH_IN_MODULE_CWWKO1679W=CWWKO1679W: Numele modulului {0} configurat \u00een elementul {1} nu este valid, deoarece nu este \u00een formatul \u201e<nume-aplica\u021bie>/<nume-modul>\u201d.
+OPEN_API_SLASH_IN_MODULE_CWWKO1679W.explanation=Un modul trebuie s\u0103 aib\u0103 formatul \u201e<nume-aplica\u021bie>/<nume-modul>\u201d; prin urmare, un nume de modul f\u0103r\u0103 bar\u0103 oblic\u0103 ("/") sau un nume de aplica\u021bie sau un nume de modul gol nu este valid.
+OPEN_API_SLASH_IN_MODULE_CWWKO1679W.useraction=Corecta\u021bi elementul includeModule sau excludeModule din fi\u0219ierul server.xml sau converti\u021bi acel element \u00een includeApplication sau excludeApplication pentru a face referire la o \u00eentreag\u0103 aplica\u021bie.
+
+OPENAPI_USING_WRONG_NAME_SOURCE_CWWKO1680W=CWWKO1680W: Numele aplica\u021biei {1} din elementul de configurare {0} nu se potrive\u0219te cu numele niciunei aplica\u021bii implementate, dar se potrive\u0219te fie cu numele din descriptorul de implementare, fie cu numele de arhiv\u0103 al aplica\u021biei {2} . Numele aplica\u021biei care este folosit aici trebuie s\u0103 fie cel specificat \u00een fi\u0219ierul server.xml sau, dac\u0103 nu este specificat niciun nume, numele fi\u0219ierului arhiv\u0103 f\u0103r\u0103 extensie.
+OPENAPI_USING_WRONG_NAME_SOURCE_CWWKO1680W.explanation=Referin\u021ba numelui aplica\u021biei din elementul de configurare mpOpenAPI se potrive\u0219te cu numele dintr-un descriptor de implementare a aplica\u021biei, dar nu se potrive\u0219te cu niciun nume de aplica\u021bie care este definit \u00een fi\u0219ierul server.xml .
+OPENAPI_USING_WRONG_NAME_SOURCE_CWWKO1680W.useraction=Verifica\u021bi dac\u0103 toate aplica\u021biile au pornit corect \u0219i dac\u0103 numele din elementul de configurare sunt specificate corect.
+
+OPENAPI_VERSION_INVALID_CWWK06181W=CWWKO1681W: Versiunea configurat\u0103 {0} OpenAPI nu este \u00eentr-un format valid, trebuie s\u0103 fie dou\u0103 sau trei numere separate printr-un punct (.). Valorile acceptate sunt {1} . \u00cen schimb, se utilizeaz\u0103 versiunea implicit\u0103 a {2} .
+OPENAPI_VERSION_INVALID_CWWK06181W.explanation=Atributul openAPIVersion al elementului de configurare mpOpenAPI este setat la o valoare care nu este o versiune valid\u0103 OpenAPI .
+OPENAPI_VERSION_INVALID_CWWK06181W.useraction=Actualiza\u021bi atributul openAPIVersion la una dintre valorile acceptate din mesajul de eroare.
+
+OPENAPI_VERSION_NOT_SUPPORTED_CWWK06182W=CWWKO1682W: Aceast\u0103 versiune de mpOpenAPI nu accept\u0103 versiunea configurat\u0103 {0} OpenAPI . Valorile acceptate sunt {1} . \u00cen schimb, se utilizeaz\u0103 versiunea implicit\u0103 a {2} .
+OPENAPI_VERSION_NOT_SUPPORTED_CWWK06182W.explanation=Atributul openAPIVersion al elementului de configurare mpOpenAPI este setat la o versiune OpenAPI care nu este acceptat\u0103 de versiunea de rulare a caracteristicii mpOpenAPI .
+OPENAPI_VERSION_NOT_SUPPORTED_CWWK06182W.useraction=Actualiza\u021bi atributul openAPIVersion la una dintre valorile acceptate din mesajul de eroare sau utiliza\u021bi o versiune a caracteristicii mpOpenAPI care accept\u0103 versiunea OpenAPI configurat\u0103.
+
+# "mpOpenAPI", "info", "title" and "version" are names in server.xml and should not be translated
+OPENAPI_INFO_INVALID_SERVERXML_CWWKO1683W=CWWKO1683W: Elementul de configurare a informa\u021biilor mpOpenAPI din fi\u0219ierul server.xml este nevalid. Trebuie setate at\u00e2t atributele titlu, c\u00e2t \u0219i versiunea. Elementul info va fi ignorat.
+OPENAPI_INFO_INVALID_SERVERXML_CWWKO1683W.explanation=C\u00e2mpurile titlu \u0219i versiune sunt propriet\u0103\u021bi obligatorii \u00een obiectul de informa\u021bii al unui document OpenAPI . La configurarea obiectului info, trebuie furnizat\u0103 o valoare pentru atributele titlu \u0219i versiune.
+OPENAPI_INFO_INVALID_SERVERXML_CWWKO1683W.useraction=Asigura\u021bi-v\u0103 c\u0103 atributele titlu \u0219i versiune sunt setate la valori valide \u00een elementul de informa\u021bii mpOpenAPI .
+
+OPENAPI_MERGE_UNUSED_INCLUDE_SERVERXML_CWWKO1684W=CWWKO1684W: Elementul de configurare {0} include \u201e {1} \u201d, dar care nu se potrive\u0219te cu nicio aplica\u021bie sau modul web implementat.
+OPENAPI_MERGE_UNUSED_INCLUDE_SERVERXML_CWWKO1684W.explanation=Serverul este configurat s\u0103 creeze documenta\u0163ia OpenAPI pentru numele de aplica\u0163ie sau de modul web, dar nu este implementat\u0103 nicio aplica\u0163ie sau modul web cu acel nume.
+OPENAPI_MERGE_UNUSED_INCLUDE_SERVERXML_CWWKO1684W.useraction=Verifica\u021bi dac\u0103 toate aplica\u021biile au pornit corect \u0219i dac\u0103 numele din configura\u021bie sunt specificate corect.
+
+OPENAPI_MP_CONFIG_REDUNDANT_CWWKO1685I=CWWKO1685I: Proprietatea {0} MicroProfile Config este ignorat\u0103 deoarece configura\u021bia echivalent\u0103 este furnizat\u0103 \u00een fi\u0219ierul server.xml.
+OPENAPI_MP_CONFIG_REDUNDANT_CWWKO1685I.explanation=Atunci c\u00e2nd aceast\u0103 proprietate este setat\u0103 \u0219i aceea\u0219i func\u021bie este configurat\u0103 utiliz\u00e2nd fi\u0219ierul server.xml, se utilizeaz\u0103 configura\u021bia din fi\u0219ierul server.xml \u0219i proprietatea MicroProfile Config este ignorat\u0103.
+OPENAPI_MP_CONFIG_REDUNDANT_CWWKO1685I.useraction=Elimina\u021bi proprietatea MicroProfile Config.
+
+OPENAPI_MP_CONFIG_CONFLICTS_CWWKO1686W=CWWKO1686W: Proprietatea {0} MicroProfile Config este ignorat\u0103 deoarece \u00een fi\u0219ierul server.xml este furnizat\u0103 o configura\u021bie conflictual\u0103.
+OPENAPI_MP_CONFIG_CONFLICTS_CWWKO1686W.explanation=Atunci c\u00e2nd aceast\u0103 proprietate este setat\u0103 \u0219i aceea\u0219i func\u021bie este configurat\u0103 utiliz\u00e2nd fi\u0219ierul server.xml, se utilizeaz\u0103 configura\u021bia din fi\u0219ierul server.xml \u0219i proprietatea MicroProfile Config este ignorat\u0103.
+OPENAPI_MP_CONFIG_CONFLICTS_CWWKO1686W.useraction=Elimina\u021bi proprietatea MicroProfile Config \u0219i asigura\u021bi-v\u0103 c\u0103 configura\u021bia din fi\u0219ierul server.xml este corect\u0103.
+
+OPENAPI_ANNOTATION_TOO_NEW_CWWKO1687W=CWWKO1687W: Elementul de adnotare {0} din clasa {1} este ignorat deoarece necesit\u0103 versiunea OpenAPI {2}, dar versiunea curent\u0103 OpenAPI este {3}.
+OPENAPI_ANNOTATION_TOO_NEW_CWWKO1687W.explanation=Elementul de adnotare se refer\u0103 la o caracteristic\u0103 ad\u0103ugat\u0103 la o versiune mai nou\u0103 a specifica\u021biei OpenAPI dec\u00e2t cea configurat\u0103. Versiunea OpenAPI \u00een uz nu poate reprezenta aceste informa\u021bii, astfel \u00eenc\u00e2t acestea sunt excluse din documenta\u021bia OpenAPI produs\u0103.
+OPENAPI_ANNOTATION_TOO_NEW_CWWKO1687W.useraction=Lua\u021bi \u00een considerare eliminarea elementului de adnotare sau setarea elementului de configurare openAPIVersion la o versiune care \u00eel accept\u0103 \u00een fi\u0219ierul server.xml.
+
+OPENAPI_CACHE_READ_ERROR_CWWKO1688W=CWWKO1688W: A ap\u0103rut o eroare la citirea cache-ului OpenAPI pentru aplica\u021bia {0}. Memoria cache nu va fi utilizat\u0103. Eroarea este {1}
+OPENAPI_CACHE_READ_ERROR_CWWKO1688W.explanation=Caracteristica MicroProfile OpenAPI stocheaz\u0103 anumite date calculate \u00een timpul pornirii aplica\u021biei pentru a evita recalcularea acestor date la viitoarele porniri ale serverului, dac\u0103 aplica\u021bia este neschimbat\u0103. S-a produs o eroare la \u00eencercarea de citire a acestor date, astfel \u00eenc\u00e2t acestea vor fi recalculate.
+OPENAPI_CACHE_READ_ERROR_CWWKO1688W.useraction=Examina\u0163i istoricele de server message.log \u015fi FFDC pentru a identifica problema.
+
+OPENAPI_CACHE_WRITE_ERROR_CWWKO1689W=CWWKO1689W: A ap\u0103rut o eroare la scrierea cache-ului OpenAPI pentru aplica\u021bia {0}. Cache-ul nu va fi disponibil la urm\u0103toarea pornire. Eroarea este {1}
+OPENAPI_CACHE_WRITE_ERROR_CWWKO1689W.explanation=Caracteristica MicroProfile OpenAPI stocheaz\u0103 anumite date calculate \u00een timpul pornirii aplica\u021biei pentru a evita recalcularea acestor date la viitoarele porniri ale serverului, dac\u0103 aplica\u021bia este neschimbat\u0103. A avut loc o eroare la \u00eencercarea de a scrie aceste date, astfel \u00eenc\u00e2t acestea vor fi recalculate data viitoare c\u00e2nd serverul este pornit.
+OPENAPI_CACHE_WRITE_ERROR_CWWKO1689W.useraction=Examina\u0163i istoricele de server message.log \u015fi FFDC pentru a identifica problema.

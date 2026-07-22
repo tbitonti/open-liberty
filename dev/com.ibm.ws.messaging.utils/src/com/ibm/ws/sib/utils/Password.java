@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,6 +22,7 @@ import java.io.Serializable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import com.ibm.ws.common.crypto.CryptoUtils;
 
 /* ************************************************************************** */
 /**
@@ -212,7 +215,7 @@ public final class Password implements Traceable, FFDCSelfIntrospectable, Serial
       {
         try
         {
-          MessageDigest digester = MessageDigest.getInstance("SHA-256");
+          MessageDigest digester = MessageDigest.getInstance(CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA_256);
           digester.update(SALT);
 
           for(char c : _password)

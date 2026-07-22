@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2011, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,6 +27,7 @@ import org.osgi.framework.wiring.BundleCapability;
 import org.osgi.framework.wiring.BundleRequirement;
 import org.osgi.framework.wiring.BundleWire;
 import org.osgi.framework.wiring.BundleWiring;
+import org.osgi.resource.Namespace;
 
 import com.ibm.wsspi.logging.Introspector;
 
@@ -93,7 +96,7 @@ public class BundleWiringIntrospection implements Introspector {
 
                                 if (!removed) {
                                     // print the requirement
-                                    result.println("  Requirement:");
+                                    result.println("  Requirement: " + req.getNamespace());
                                     introspectBundleRequirementInfo(req, result);
                                     reqsItr.remove();
                                     removed = true;
@@ -117,7 +120,7 @@ public class BundleWiringIntrospection implements Introspector {
             if (reqs != null && !reqs.isEmpty()) {
                 result.println("Not Satisfied Requirements:");
                 for (BundleRequirement req : reqs) {
-                    result.println("  Requirement:");
+                    result.println("  Requirement: " + req.getNamespace());
                     introspectBundleRequirementInfo(req, result);
                 }
             }
@@ -146,7 +149,7 @@ public class BundleWiringIntrospection implements Introspector {
                             if (provWire.getCapability().equals(cap)) {
                                 if (!removed) {
                                     // print the capability
-                                    result.println("  Capability:");
+                                    result.println("  Capability: " + cap.getNamespace());
                                     introspectBundleCapabilityInfo(cap, result);
                                     capsItr.remove();
                                     removed = true;
@@ -170,11 +173,24 @@ public class BundleWiringIntrospection implements Introspector {
             if (caps != null && !caps.isEmpty()) {
                 result.println("Not Utilized Capabilities:");
                 for (BundleCapability cap : caps) {
-                    result.println("  Capability:");
+                    result.println("  Capability: " + cap.getNamespace());
                     introspectBundleCapabilityInfo(cap, result);
                 }
             }
 
+            List<BundleCapability> declaredCaps = wiring.getRevision().getDeclaredCapabilities(null);
+            boolean printHeader = true;
+            for (BundleCapability cap : declaredCaps) {
+                String effective = cap.getDirectives().get(Namespace.CAPABILITY_EFFECTIVE_DIRECTIVE);
+                if (effective != null && !effective.equals(Namespace.EFFECTIVE_RESOLVE)) {
+                    if (printHeader) {
+                        result.println("Declared Capabilities:");
+                        printHeader = false;
+                    }
+                    result.println("  Capability: " + cap.getNamespace());
+                    introspectBundleCapabilityInfo(cap, result);
+                }
+            }
         } else {// means it is in the INSTALLED or UNINSTALLED state
             result.println("No wiring");
         }

@@ -1,15 +1,19 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2013 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,8 +55,21 @@ public final class AccessIdUtil {
     public static final String REALM_SEPARATOR = "/";
     public static final String KEY_SECURITY_SERVICE = "securityService";
 
-    private static volatile String[] realm = null;
-    private static volatile Pattern realmPattern;
+    private static volatile RealmHolder realmHolder;
+
+    private static class RealmHolder {
+        final String[] realm;
+        final Pattern realmPattern;
+
+        RealmHolder(String[] realm) {
+            this.realm = realm;
+            if (realm.length == 1) {
+                realmPattern = Pattern.compile("([^:]+):(" + Pattern.quote(realm[0]) + ")/(.*)");
+            } else {
+                realmPattern = null;
+            }
+        }
+    }
 
     @Reference(service = SecurityService.class,
                name = KEY_SECURITY_SERVICE,
@@ -60,24 +77,19 @@ public final class AccessIdUtil {
                target = "(UserRegistry=*)",
                updated = "setSecurityService")
     protected void setSecurityService(ServiceReference<SecurityService> ref) {
-        realm = (String[]) ref.getProperty(SecurityServiceImpl.KEY_USERREGISTRY);
-        if (realm.length == 1) {
-            realmPattern = Pattern.compile("([^:]+):(" + Pattern.quote(realm[0]) + ")/(.*)");
-        } else {
-            realmPattern = null;
-        }
+        String[] realm = (String[]) ref.getProperty(SecurityServiceImpl.KEY_USERREGISTRY);
+        realmHolder = new RealmHolder(realm);
     }
 
     protected void unsetSecurityService(ServiceReference<SecurityService> ref) {
-        realm = null;
-        realmPattern = null;
+        realmHolder = null;
     }
 
     /**
      * Constructs the full access identifier: type:realm/uniqueId
-     * 
-     * @param type Entity type, must not be null or empty
-     * @param realm Realm, must not be null or empty
+     *
+     * @param type     Entity type, must not be null or empty
+     * @param realm    Realm, must not be null or empty
      * @param uniqueId Entity unique ID, must not be null or empty
      * @return An accessId representing the entity. Will not be null.
      */
@@ -97,7 +109,7 @@ public final class AccessIdUtil {
     /**
      * Checks that the string is a complete accessId, of the format:
      * type:realm/uniqueId
-     * 
+     *
      * @param accessId
      * @return true if the string is a complete accessId, false otherwise
      */
@@ -109,8 +121,9 @@ public final class AccessIdUtil {
         if (accessId == null || accessId.isEmpty()) {
             return null;
         }
-        if (realmPattern != null) {
-            Matcher m = realmPattern.matcher(accessId);
+        RealmHolder holder = realmHolder;
+        if (holder != null && holder.realmPattern != null) {
+            Matcher m = holder.realmPattern.matcher(accessId);
             if (m.matches()) {
                 if (m.group(3).length() > 0)
                     return m;
@@ -131,7 +144,8 @@ public final class AccessIdUtil {
     }
 
     static boolean validateRealm(Matcher m) {
-        String[] realms = realm;
+        RealmHolder holder = realmHolder;
+        String[] realms = holder == null ? null : holder.realm;
         if (realms == null || realms.length != 1)
             return true;
         String r = m.group(2);
@@ -140,7 +154,7 @@ public final class AccessIdUtil {
 
     /**
      * Given an accessId, extract the entity type.
-     * 
+     *
      * @param accessId
      * @return The type for the accessId, or {@code null} if the accessId is invalid
      */
@@ -154,7 +168,7 @@ public final class AccessIdUtil {
 
     /**
      * Given an accessId, extract the realm.
-     * 
+     *
      * @param accessId
      * @return The realm for the accessId, or {@code null} if the accessId is invalid
      */
@@ -168,7 +182,7 @@ public final class AccessIdUtil {
 
     /**
      * Given an accessId, extract the uniqueId.
-     * 
+     *
      * @param accessId
      * @return The uniqueId for the accessId, or {@code null} if the accessId is invalid
      */
@@ -182,19 +196,34 @@ public final class AccessIdUtil {
 
     /**
      * Given an accessId and realm name, extract the uniqueId.
-     * 
+     *
      * @param accessId
      * @param realm
      * @return The uniqueId for the accessId, or {@code null} if the accessId is invalid
      */
     public static String getUniqueId(String accessId, String realm) {
-    
-        if (realm != null) {
-            Pattern pattern = Pattern.compile("([^:]+):(" + Pattern.quote(realm) + ")/(.*)");
-            Matcher m = pattern.matcher(accessId);
+        Pattern pattern = realm == null ? null : getPatternForRealm(realm);
+        return getUniqueId(pattern, accessId);
+    }
+
+    private static Pattern getPatternForRealm(String realm) {
+        Pattern pattern;
+        RealmHolder holder = realmHolder;
+        if (holder != null && holder.realmPattern != null && realm.equals(holder.realm[0])) {
+            pattern = holder.realmPattern;
+        } else {
+            pattern = Pattern.compile("([^:]+):(" + Pattern.quote(realm) + ")/(.*)");
+        }
+        return pattern;
+    }
+
+    private static final String getUniqueId(Pattern realmPattern, String accessId) {
+        if (realmPattern != null) {
+            Matcher m = realmPattern.matcher(accessId);
             if (m.matches()) {
-                if (m.group(3).length() > 0) {
-                    return m.group(3);
+                String uniqueId = m.group(3);
+                if (uniqueId.length() > 0) {
+                    return uniqueId;
                 }
             }
         }
@@ -203,8 +232,28 @@ public final class AccessIdUtil {
     }
 
     /**
+     * Given an array of accessIds and realm name, extract the uniqueIds.
+     *
+     * @param accessIds
+     * @param realm
+     * @return The uniqueIds for the accessIds, can contain {@code null} if an accessId is invalid
+     */
+    public static Collection<String> getUniqueIds(String[] accessIds, String realm) {
+        Collection<String> uniqueIds = new ArrayList<>();
+
+        Pattern pattern = realm == null ? null : getPatternForRealm(realm);
+        for (String accessId : accessIds) {
+            String uniqueId = getUniqueId(pattern, accessId);
+            if (uniqueId != null) {
+                uniqueIds.add(uniqueId);
+            }
+        }
+        return uniqueIds;
+    }
+
+    /**
      * Checks to see if the specified accessId is complete.
-     * 
+     *
      * @param accessId
      * @return boolean if accessId is complete and valid
      */
@@ -214,7 +263,7 @@ public final class AccessIdUtil {
 
     /**
      * Checks to see if the specified accessId begins with "server:".
-     * 
+     *
      * @param accessId
      * @return boolean if accessId is valid and begins with "server:"
      */
@@ -224,7 +273,7 @@ public final class AccessIdUtil {
 
     /**
      * Checks to see if the specified accessId begins with "user:".
-     * 
+     *
      * @param accessId
      * @return boolean if accessId is valid and begins with "user:"
      */
@@ -234,7 +283,7 @@ public final class AccessIdUtil {
 
     /**
      * Checks to see if the specified accessId begins with "group:".
-     * 
+     *
      * @param accessId
      * @return boolean if accessId is valid and begins with "group:"
      */

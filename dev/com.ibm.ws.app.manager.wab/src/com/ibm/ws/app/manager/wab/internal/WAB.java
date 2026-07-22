@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2014 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -18,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.servlet.ServletContext;
 
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleEvent;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceRegistration;
@@ -474,13 +477,18 @@ class WAB implements BundleTrackerCustomizer<WAB> {
 
     private ServiceRegistration<ServletContext> scReg = null;
 
-    void registerServletContext(ServletContext sc) {
+    @FFDCIgnore(IllegalStateException.class)
+    void registerServletContext(ServletContext sc, BundleContext bc) {
         //Register the ServletContext in the service registry
         Dictionary<String, Object> scRegProps = new Hashtable<String, Object>(3);
         scRegProps.put("osgi.web.symbolicname", wabBundleSymbolicName);
         scRegProps.put("osgi.web.version", wabBundleVersion);
         scRegProps.put("osgi.web.contextpath", wabContextPath);
-        scReg = wabBundle.getBundleContext().registerService(ServletContext.class, sc, scRegProps);
+        try {
+            scReg = bc.registerService(ServletContext.class, sc, scRegProps);
+        } catch (IllegalStateException e) {
+            // ignore, but is likely stopped
+        }
     }
 
     @FFDCIgnore(IllegalStateException.class)

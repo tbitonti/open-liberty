@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,19 +24,22 @@ import java.net.HttpURLConnection;
 import java.net.ProtocolException;
 import java.net.URL;
 
-import org.junit.AfterClass;
+import org.junit.After;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
+import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.log.Log;
 
+import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
 
 /**
  * This test bucket tests the server startup process.
  */
+@RunWith(FATRunner.class)
 public class ServerStartAsServiceTest {
     private static final Class<?> c = ServerStartAsServiceTest.class;
 
@@ -47,8 +52,8 @@ public class ServerStartAsServiceTest {
     @ClassRule
     public static final TestRule onWinRule = new OnlyRunOnWinRule();
 
-    @AfterClass
-    public static void after() throws Exception {
+    @After
+    public void after() throws Exception {
         if (server != null && server.isStarted()) {
             server.stopServer();
         }
@@ -64,6 +69,8 @@ public class ServerStartAsServiceTest {
         final String METHOD_NAME = "testWinServiceLifeCycle";
         Log.entering(c, METHOD_NAME);
 
+        cleanEnvironmentCheck(SERVER_NAME_1);
+
         Log.info(c, METHOD_NAME, "calling LibertyServerFactory.getLibertyServer(SERVER_NAME, ON): " + SERVER_NAME_1);
         server = LibertyServerFactory.getLibertyServer(SERVER_NAME_1, LibertyServerFactory.WinServiceOption.ON);
 
@@ -72,6 +79,8 @@ public class ServerStartAsServiceTest {
 
         Log.info(c, METHOD_NAME, "calling server.waitForStringInLog('CWWKF0011I')");
         server.waitForStringInLog("CWWKF0011I");
+
+        callSnoop(server);
 
         assertTrue("the server should have been started", server.isStarted());
 
@@ -92,6 +101,8 @@ public class ServerStartAsServiceTest {
         final String METHOD_NAME = "testWinServiceAppAccess";
         Log.entering(c, METHOD_NAME);
 
+        cleanEnvironmentCheck(SERVER_NAME_2);
+
         Log.info(c, METHOD_NAME, "calling LibertyServerFactory.getLibertyServer(SERVER_NAME, ON): " + SERVER_NAME_2);
         server = LibertyServerFactory.getLibertyServer(SERVER_NAME_2, LibertyServerFactory.WinServiceOption.ON);
 
@@ -103,15 +114,7 @@ public class ServerStartAsServiceTest {
 
         assertTrue("the server should have been started", server.isStarted());
 
-        URL url = new URL("http://" + server.getHostname() + ":" + server.getHttpDefaultPort() + "/snoop");
-        Log.info(c, METHOD_NAME, "Calling Snoop Application with URL=" + url.toString());
-        HttpURLConnection con = getHttpConnection(url);
-        BufferedReader br = getConnectionStream(con);
-        String line = br.readLine();
-        assertTrue("The response did not contain the \'Snoop Servlet\'",
-                   line.contains("Snoop Servlet"));
-
-        Log.info(c, METHOD_NAME, "return line: " + line);
+        callSnoop(server);
 
         Log.info(c, METHOD_NAME, "calling server.stopServer(): " + SERVER_NAME_2);
         server.stopServer();
@@ -132,6 +135,8 @@ public class ServerStartAsServiceTest {
 
         try {
 
+            cleanEnvironmentCheck(SERVER_NAME_3);
+
             Log.info(c, METHOD_NAME, "calling LibertyServerFactory.getLibertyServer(SERVER_NAME, ON): " + SERVER_NAME_3);
             server = LibertyServerFactory.getLibertyServer(SERVER_NAME_3, LibertyServerFactory.WinServiceOption.ON);
 
@@ -150,6 +155,8 @@ public class ServerStartAsServiceTest {
             server.waitForStringInLog("CWWKF0011I");
 
             assertTrue("the server should have been started", server.isStarted());
+
+            callSnoop(server);
 
             Log.info(c, METHOD_NAME, "calling server.stopServer(): " + SERVER_NAME_3);
             server.stopServer();
@@ -237,5 +244,43 @@ public class ServerStartAsServiceTest {
         serverEnvFile.delete();
 
         return serverEnv;
+    }
+
+    /**
+     * Call the snoop app and make sure it responds
+     *
+     * @param server
+     * @throws Exception
+     */
+    private void callSnoop(LibertyServer server) throws Exception {
+        String METHOD_NAME = "callSnoop()";
+        URL url = new URL("http://" + server.getHostname() + ":" + server.getHttpDefaultPort() + "/snoop");
+
+        Log.info(c, METHOD_NAME, "Calling Snoop Application with URL=" + url.toString());
+        HttpURLConnection con = getHttpConnection(url);
+        BufferedReader br = getConnectionStream(con);
+        String line = br.readLine();
+
+        Log.info(c, METHOD_NAME, "return line: " + line);
+        assertTrue("The response did not contain the \'Snoop Servlet\'", line.contains("Snoop Servlet"));
+
+    }
+
+    /**
+     * Checks to make sure a prior test didn't leave a server running
+     *
+     * @param serverName
+     * @throws Exception
+     */
+    private void cleanEnvironmentCheck(String serverName) throws Exception {
+        final String METHOD_NAME = "cleanEnvironmentCheck";
+
+        server = LibertyServerFactory.getLibertyServer(serverName, LibertyServerFactory.WinServiceOption.ON);
+        if (server != null && server.isStarted()) {
+            Log.info(c, METHOD_NAME, serverName + " is still running, a stop attempt will be performed.");
+            server.stopServer();
+        } else {
+            Log.info(c, METHOD_NAME, serverName + " was not running.");
+        }
     }
 }

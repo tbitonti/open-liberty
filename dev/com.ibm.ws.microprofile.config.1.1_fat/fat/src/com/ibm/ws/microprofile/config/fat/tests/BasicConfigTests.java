@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2018 IBM Corporation and others.
+ * Copyright (c) 2016, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.microprofile.config.fat.tests;
 
@@ -40,6 +39,7 @@ import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.LocalFile;
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.microprofile.appConfig.cdi.web.BuiltInConverterTestServlet;
 import com.ibm.ws.microprofile.appConfig.cdi.web.ConfigPropertyTestServlet;
 import com.ibm.ws.microprofile.appConfig.cdi.web.FieldTestServlet;
@@ -57,10 +57,10 @@ import componenttest.annotation.TestServlets;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.rules.repeater.MicroProfileActions;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
+import io.openliberty.microprofile.config.fat.repeat.ConfigRepeatActions;
 
 /**
  *
@@ -76,9 +76,9 @@ public class BasicConfigTests extends FATServletClient {
     public static final String CUSTOM_SOURCES_APP_NAME = "customSources";
     public static final String TYPES_APP_NAME = "types";
 
+    //This is the basic test so repeat with all features
     @ClassRule
-    public static RepeatTests r = MicroProfileActions.repeat(SERVER_NAME, MicroProfileActions.MP12, MicroProfileActions.MP13, MicroProfileActions.MP14, MicroProfileActions.MP33,
-                                                             MicroProfileActions.MP40);
+    public static RepeatTests r = ConfigRepeatActions.repeatAll(SERVER_NAME);
 
     @Server(SERVER_NAME)
     @TestServlets({
@@ -126,11 +126,12 @@ public class BasicConfigTests extends FATServletClient {
                                                                                 + ".war/resources/META-INF/services/org.eclipse.microprofile.config.spi.ConfigSource"),
                                                                        "services/org.eclipse.microprofile.config.spi.ConfigSource");
 
-        ShrinkHelper.exportDropinAppToServer(server, customSourcesWar);
-        ShrinkHelper.exportDropinAppToServer(server, types_war);
-        ShrinkHelper.exportDropinAppToServer(server, cdiConfigWar);
-        ShrinkHelper.exportDropinAppToServer(server, convertersWar);
-        ShrinkHelper.defaultDropinApp(server, CONVERTER_PRIORITY_APP_NAME, "com.ibm.ws.microprofile.config11.converter.*");
+        ShrinkHelper.exportDropinAppToServer(server, customSourcesWar, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportDropinAppToServer(server, types_war, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportDropinAppToServer(server, cdiConfigWar, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportDropinAppToServer(server, convertersWar, DeployOptions.SERVER_ONLY);
+        DeployOptions[] options = { DeployOptions.SERVER_ONLY };
+        ShrinkHelper.defaultDropinApp(server, CONVERTER_PRIORITY_APP_NAME, options, "com.ibm.ws.microprofile.config11.converter.*");
 
         server.startServer();
     }

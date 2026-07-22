@@ -1,41 +1,41 @@
-/*
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+/*******************************************************************************
+ * Copyright (c) 2015, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
- */
+ * SPDX-License-Identifier: EPL-2.0
+ *******************************************************************************/
 package com.ibm.ws.jsf22.fat.tests;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import java.net.URL;
+import java.util.ArrayList;
 
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
+import org.openqa.selenium.By;
+import org.testcontainers.Testcontainers;
 
-import com.gargoylesoftware.htmlunit.NicelyResynchronizingAjaxController;
-import com.gargoylesoftware.htmlunit.WebClient;
-import com.gargoylesoftware.htmlunit.html.HtmlElement;
-import com.gargoylesoftware.htmlunit.html.HtmlPage;
-import com.gargoylesoftware.htmlunit.html.HtmlTextInput;
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.ws.jsf22.fat.FATSuite;
 import com.ibm.ws.jsf22.fat.JSFUtils;
 
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
-import junit.framework.Assert;
+import io.openliberty.faces.fat.selenium.util.internal.ExtendedWebDriver;
+import io.openliberty.faces.fat.selenium.util.internal.WebPage;
 
 /**
  * Tests to execute on the jsfTestServer2 that use HtmlUnit.
@@ -46,18 +46,34 @@ public class JSF22ClientWindowTests {
     @Rule
     public TestName name = new TestName();
 
-    String contextRoot = "JSF22ClientWindow";
+    private static final String APP_NAME = "JSF22ClientWindow";
+    private static final String APP_NAME_FACES40 = "JSF22ClientWindowFaces40";
+    private static boolean isEE10;
 
     protected static final Class<?> c = JSF22ClientWindowTests.class;
 
     @Server("jsfTestServer2")
     public static LibertyServer jsfTestServer2;
+    
+    private static ExtendedWebDriver driver;
 
     @BeforeClass
     public static void setup() throws Exception {
-        ShrinkHelper.defaultDropinApp(jsfTestServer2, "JSF22ClientWindow.war", "com.ibm.ws.jsf22.fat.clientwindow");
+        isEE10 = JakartaEEAction.isEE10OrLaterActive();
 
-        jsfTestServer2.startServer(JSF22ClientWindowTests.class.getSimpleName() + ".log");
+        if (isEE10) {
+            ShrinkHelper.defaultDropinApp(jsfTestServer2, APP_NAME_FACES40 + ".war",
+                                          "com.ibm.ws.jsf22.fat.clientwindow.faces40");
+        } else {
+            ShrinkHelper.defaultDropinApp(jsfTestServer2, APP_NAME + ".war",
+                                          "com.ibm.ws.jsf22.fat.clientwindow.jsf22");
+        }
+
+        jsfTestServer2.startServer(c.getSimpleName() + ".log");
+
+        Testcontainers.exposeHostPorts(jsfTestServer2.getHttpDefaultPort(), jsfTestServer2.getHttpDefaultSecurePort());
+
+        driver = FATSuite.getWebDriver();
     }
 
     @AfterClass
@@ -68,6 +84,15 @@ public class JSF22ClientWindowTests {
         }
     }
 
+    /*
+     * Clear cookies for the selenium webdriver, so that session don't carry over between tests
+     */
+    @After
+    public void clearCookies()
+    {
+        driver.getRemoteWebDriver().manage().deleteAllCookies();
+    }
+
     /**
      * Check the ClientWindow ID retrieved from javascript when the page loads.
      * Then click a link and check that the client window id is set in the request parameter.
@@ -76,30 +101,22 @@ public class JSF22ClientWindowTests {
      */
     @Test
     public void JSF22ClientWindow_TestSimpleLink() throws Exception {
-        try (WebClient webClient = new WebClient()) {
+        String contextRoot = isEE10 ? APP_NAME_FACES40 : APP_NAME;
 
-            URL url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "index.jsf");
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "index.jsf");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            if (page == null) {
-                Assert.fail("index.xhtml did not render properly.");
-            }
-            //get the window id from javascript
-            HtmlElement clientWindowElement = (HtmlElement) page.getElementById("clientWindowDisplay");
-            String clientWindowJS = clientWindowElement.asText();
+        String clientWindowJS = page.findElement(By.id("clientWindowDisplay")).getText();
 
-            // Click link to execute the methods and update the page
-            HtmlElement link = (HtmlElement) page.getElementById("testForm:link1");
-            page = link.click();
+        page.findElement(By.id("testForm:link1")).click();
+        // Look for the correct results
+        assertTrue(page.isInPageTextReduced("Window ID from parameter: " + clientWindowJS));
 
-            HtmlElement output = (HtmlElement) page.getElementById("testFormPage2:windowIdParam");
-
-            // Look for the correct results
-            assertTrue(page.asText().contains("Window ID from parameter: " + output.asText()));
-
-            //check that the client window ids match
-            assertTrue(clientWindowJS.equals(output.asText()));
-        }
+        // check that the client window ids match
+        String outputText = page.findElement(By.id("testFormPage2:windowIdParam")).getText();
+        assertTrue(clientWindowJS.equals(outputText));
     }
 
     /**
@@ -110,29 +127,29 @@ public class JSF22ClientWindowTests {
      */
     @Test
     public void JSF22ClientWindow_TestSimpleLinkNewWindow() throws Exception {
-        try (WebClient webClient = new WebClient()) {
+        String contextRoot = isEE10 ? APP_NAME_FACES40 : APP_NAME;
 
-            URL url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "index.jsf");
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "index.jsf");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            if (page == null) {
-                Assert.fail("index.xhtml did not render properly.");
-            }
-            //get the window id from javascript
-            HtmlElement clientWindowElement = (HtmlElement) page.getElementById("clientWindowDisplay");
-            String clientWindowJS = clientWindowElement.asText();
+        String clientWindowJS = page.findElement(By.id("clientWindowDisplay")).getText();
 
-            // Click link to execute the methods and update the page
-            HtmlElement link = (HtmlElement) page.getElementById("testForm:link2");
-            page = link.click();
+        String currentHandle = driver.getWindowHandle();
 
-            HtmlElement output = (HtmlElement) page.getElementById("testFormPage2:windowIdParam");
+        page.findElement(By.id("testForm:link2")).click(); // opens new tab
+        ArrayList<String> wid = new ArrayList<String>(driver.getWindowHandles());
+        // switch to the new tab
+        driver.close(); // close current window
+        wid.remove(currentHandle);
+        driver.switchTo().window(wid.get(0));
+        // Look for the correct results
+        assertTrue(page.isInPageTextReduced("Window ID from parameter: " + clientWindowJS));
 
-            // Look for the correct results
-            assertTrue(page.asText().contains("Window ID from parameter: " + output.asText()));
-            //check that the client window ids match
-            assertTrue(clientWindowJS.equals(output.asText()));
-        }
+        // check that the client window ids match
+        String outputText = page.findElement(By.id("testFormPage2:windowIdParam")).getText();
+        assertTrue(clientWindowJS.equals(outputText));
     }
 
     /**
@@ -143,21 +160,23 @@ public class JSF22ClientWindowTests {
      */
     @Test
     public void JSF22ClientWindow_TestDisabledLink() throws Exception {
-        try (WebClient webClient = new WebClient()) {
+        String contextRoot = isEE10 ? APP_NAME_FACES40 : APP_NAME;
 
-            URL url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "index.jsf");
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "index.jsf");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
+        String currentHandle = driver.getWindowHandle();
 
-            if (page == null) {
-                Assert.fail("index.xhtml did not render properly.");
-            }
-            // Click link to execute the methods and update the page
-            HtmlElement link = (HtmlElement) page.getElementById("testForm:linkDisabled1");
-            page = link.click();
+        page.findElement(By.id("testForm:linkDisabled1")).click();
+        ArrayList<String> wid = new ArrayList<String>(driver.getWindowHandles());
+        // switch to the new tab
+        driver.close(); // close current window
+        wid.remove(currentHandle);
+        driver.switchTo().window(wid.get(0));
 
-            // Look for the "Test Passed".  The page2Disabled.xhtml page has the logic to compare the IDs.
-            assertTrue(page.asText().contains("Test Passed"));
-        }
+        String outputText = page.findElement(By.id("form2Disabled:outputPassed")).getText();
+        assertTrue("Test Passed".equals(outputText));
     }
 
     /**
@@ -170,42 +189,32 @@ public class JSF22ClientWindowTests {
      */
     @Test
     public void JSF22ClientWindow_TestAjax() throws Exception {
-        try (WebClient webClient = new WebClient()) {
-            // Use a synchronizing ajax controller to allow proper ajax updating
-            webClient.setAjaxController(new NicelyResynchronizingAjaxController());
+        String contextRoot = isEE10 ? APP_NAME_FACES40 : APP_NAME;
 
-            URL url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "index.jsf");
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "index.jsf");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            if (page == null) {
-                Assert.fail("index.xhtml did not render properly.");
-            }
+        String clientWindowJS = page.findElement(By.id("clientWindowDisplay")).getText();
 
-            //get the window id from javascript
-            HtmlElement clientWindowElement = (HtmlElement) page.getElementById("clientWindowDisplay");
-            String clientWindowJS = clientWindowElement.asText();
+        // fill out fields
+        page.findElement(By.id("testForm:firstName")).sendKeys("John");
+        page.findElement(By.id("testForm:lastName")).sendKeys("Doe");
 
-            // fill out fields
-            HtmlTextInput input = (HtmlTextInput) page.getElementById("testForm:firstName");
-            input.type("John");
+        // Click link to execute the methods and update the page
+        page.findElement(By.id("testForm:buttonAjax1")).click();
+        page.waitReqJs();
 
-            HtmlTextInput input2 = (HtmlTextInput) page.getElementById("testForm:lastName");
-            input2.type("Doe");
+        String firstName = page.findElement(By.id("testForm:ajaxFirstName")).getText();
+        String lastName = page.findElement(By.id("testForm:ajaxLastName")).getText();
+        String ajaxWindowId = page.findElement(By.id("testForm:ajaxWindowId")).getText();
 
-            // Click link to execute the methods and update the page
-            HtmlElement button = (HtmlElement) page.getElementById("testForm:buttonAjax1");
+        // Look for the correct results
+        assertTrue(firstName.equals("John"));
+        assertTrue(lastName.equals("Doe"));
+        assertTrue(ajaxWindowId.equals(clientWindowJS));
 
-            page = button.click();
-
-            HtmlElement firstName = (HtmlElement) page.getElementById("testForm:ajaxFirstName");
-            HtmlElement lastName = (HtmlElement) page.getElementById("testForm:ajaxLastName");
-            HtmlElement ajaxWindowId = (HtmlElement) page.getElementById("testForm:ajaxWindowId");
-
-            // Look for the correct results
-            assertTrue(firstName.asText().equals("John"));
-            assertTrue(lastName.asText().equals("Doe"));
-            assertTrue(ajaxWindowId.asText().equals(clientWindowJS));
-        }
     }
 
     /**
@@ -218,39 +227,31 @@ public class JSF22ClientWindowTests {
      */
     @Test
     public void JSF22ClientWindow_TestCommandButton() throws Exception {
-        try (WebClient webClient = new WebClient()) {
+        String contextRoot = isEE10 ? APP_NAME_FACES40 : APP_NAME;
 
-            URL url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "index.jsf");
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "index.jsf");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            if (page == null) {
-                Assert.fail("index.xhtml did not render properly.");
-            }
+        String clientWindowJS = page.findElement(By.id("clientWindowDisplay")).getText();
 
-            //get the window id from javascript
-            HtmlElement clientWindowElement = (HtmlElement) page.getElementById("clientWindowDisplay");
-            String clientWindowJS = clientWindowElement.asText();
+        // fill out fields
+        page.findElement(By.id("testForm:firstName")).sendKeys("Bill");
+        page.findElement(By.id("testForm:lastName")).sendKeys("Smith");
 
-            // fill out fields
-            HtmlTextInput input = (HtmlTextInput) page.getElementById("testForm:firstName");
-            input.type("Bill");
-            HtmlTextInput input2 = (HtmlTextInput) page.getElementById("testForm:lastName");
-            input2.type("Smith");
+        // Click link to execute the methods and update the page
+        page.findElement(By.id("testForm:submitCommandButton1")).click();
+        page.waitReqJs();
 
-            // Click link to execute the methods and update the page
-            HtmlElement button = (HtmlElement) page.getElementById("testForm:submitCommandButton1");
+        String firstName = page.findElement(By.id("testFormPage2:firstName")).getText();
+        String lastName = page.findElement(By.id("testFormPage2:lastName")).getText();
+        String windowIdBean = page.findElement(By.id("testFormPage2:windowIdBean")).getText();
 
-            page = button.click();
-
-            HtmlElement firstName = (HtmlElement) page.getElementById("testFormPage2:firstName");
-            HtmlElement lastName = (HtmlElement) page.getElementById("testFormPage2:lastName");
-            HtmlElement windowIdBean = (HtmlElement) page.getElementById("testFormPage2:windowIdBean");
-
-            // Look for the correct results
-            assertTrue(firstName.asText().equals("Bill"));
-            assertTrue(lastName.asText().equals("Smith"));
-            assertTrue(windowIdBean.asText().equals(clientWindowJS));
-        }
+        // Look for the correct results
+        assertTrue(firstName.equals("Bill"));
+        assertTrue(lastName.equals("Smith"));
+        assertTrue(windowIdBean.equals(clientWindowJS));
     }
 
     /**
@@ -263,39 +264,31 @@ public class JSF22ClientWindowTests {
      */
     @Test
     public void JSF22ClientWindow_TestCommandLink() throws Exception {
-        try (WebClient webClient = new WebClient()) {
+        String contextRoot = isEE10 ? APP_NAME_FACES40 : APP_NAME;
 
-            URL url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "index.jsf");
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "index.jsf");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            if (page == null) {
-                Assert.fail("index.xhtml did not render properly.");
-            }
+        String clientWindowJS = page.findElement(By.id("clientWindowDisplay")).getText();
 
-            //get the window id from javascript
-            HtmlElement clientWindowElement = (HtmlElement) page.getElementById("clientWindowDisplay");
-            String clientWindowJS = clientWindowElement.asText();
+        // fill out fields
+        page.findElement(By.id("testForm:firstName")).sendKeys("Jane");
+        page.findElement(By.id("testForm:lastName")).sendKeys("Jones");
 
-            // fill out fields
-            HtmlTextInput input = (HtmlTextInput) page.getElementById("testForm:firstName");
-            input.type("Jane");
-            HtmlTextInput input2 = (HtmlTextInput) page.getElementById("testForm:lastName");
-            input2.type("Jones");
+        // Click link to execute the methods and update the page
+        page.findElement(By.id("testForm:commandLink1")).click();
+        page.waitReqJs();
 
-            // Click link to execute the methods and update the page
-            HtmlElement button = (HtmlElement) page.getElementById("testForm:commandLink1");
+        String firstName = page.findElement(By.id("testFormPage2:firstName")).getText();
+        String lastName = page.findElement(By.id("testFormPage2:lastName")).getText();
+        String windowIdBean = page.findElement(By.id("testFormPage2:windowIdBean")).getText();
 
-            page = button.click();
-
-            HtmlElement firstName = (HtmlElement) page.getElementById("testFormPage2:firstName");
-            HtmlElement lastName = (HtmlElement) page.getElementById("testFormPage2:lastName");
-            HtmlElement windowIdBean = (HtmlElement) page.getElementById("testFormPage2:windowIdBean");
-
-            // Look for the correct results
-            assertTrue(firstName.asText().equals("Jane"));
-            assertTrue(lastName.asText().equals("Jones"));
-            assertTrue(windowIdBean.asText().equals(clientWindowJS));
-        }
+        // Look for the correct results
+        assertTrue(firstName.equals("Jane"));
+        assertTrue(lastName.equals("Jones"));
+        assertTrue(windowIdBean.equals(clientWindowJS));
     }
 
     /**
@@ -308,31 +301,25 @@ public class JSF22ClientWindowTests {
      */
     @Test
     public void JSF22ClientWindow_TestButton() throws Exception {
-        try (WebClient webClient = new WebClient()) {
+        String contextRoot = isEE10 ? APP_NAME_FACES40 : APP_NAME;
 
-            URL url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "index.jsf");
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "index.jsf");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            if (page == null) {
-                Assert.fail("index.xhtml did not render properly.");
-            }
+        String clientWindowJS = page.findElement(By.id("clientWindowDisplay")).getText();
 
-            //get the window id from javascript
-            HtmlElement clientWindowElement = (HtmlElement) page.getElementById("clientWindowDisplay");
-            String clientWindowJS = clientWindowElement.asText();
+        page.findElement(By.id("testForm:button1")).click();
+        page.waitForPageToLoad();
 
-            // Click link to execute the methods and update the page
-            HtmlElement button = (HtmlElement) page.getElementById("testForm:button1");
+        String windowIdParam = page.findElement(By.id("testFormPage2:windowIdParam")).getText();
 
-            page = button.click();
+        String windowIdBean = page.findElement(By.id("testFormPage2:windowIdBean")).getText();
 
-            HtmlElement windowIdParam = (HtmlElement) page.getElementById("testFormPage2:windowIdParam");
-            HtmlElement windowIdBean = (HtmlElement) page.getElementById("testFormPage2:windowIdBean");
+        assertTrue(windowIdBean.equals(clientWindowJS));
+        assertTrue(windowIdBean.equals(windowIdParam));
 
-            // Look for the correct results
-            assertTrue(windowIdBean.asText().equals(clientWindowJS));
-            assertTrue(windowIdBean.asText().equals(windowIdParam.asText()));
-        }
     }
 
     /**
@@ -346,27 +333,23 @@ public class JSF22ClientWindowTests {
      */
     @Test
     public void JSF22ClientWindow_TestButtonDisabled() throws Exception {
-        try (WebClient webClient = new WebClient()) {
+        String contextRoot = isEE10 ? APP_NAME_FACES40 : APP_NAME;
 
-            URL url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "index.jsf");
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "index.jsf");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            if (page == null) {
-                Assert.fail("index.xhtml did not render properly.");
-            }
+        String clientWindowJS = page.findElement(By.id("clientWindowDisplay")).getText();
 
-            // Click link to execute the methods and update the page
-            HtmlElement button = (HtmlElement) page.getElementById("testForm:button2Disabled");
+        page.findElement(By.id("testForm:button2Disabled")).click();
+        // Look for the "Test Passed". The page2Disabled.xhtml page has the logic to compare the IDs.
+        assertTrue(page.isInPageTextReduced("Test Passed"));
 
-            page = button.click();
+        // We still should be able to get the id from the ExternalContext (in the bean), check to make sure that it isn't null
+        String windowIdBean = page.findElement(By.id("form2Disabled:outputWindowIdBean")).getText();
 
-            HtmlElement windowIdBean = (HtmlElement) page.getElementById("form2Disabled:outputWindowIdBean");
-
-            // Look for the "Test Passed".  The page2Disabled.xhtml page has the logic to compare the IDs.
-            assertTrue(page.asText().contains("Test Passed"));
-            //We still should be able to get the id from the ExternalContext (in the bean), check to make sure that it isn't null.
-            assertTrue(windowIdBean.asText() != null);
-        }
+        assertTrue(windowIdBean != null && windowIdBean != "");
     }
 
     /**
@@ -377,37 +360,28 @@ public class JSF22ClientWindowTests {
      */
     @Test
     public void JSF22ClientWindow_TestMultipleBasePages() throws Exception {
-        try (WebClient webClient = new WebClient()) {
+        String contextRoot = isEE10 ? APP_NAME_FACES40 : APP_NAME;
 
-            //index.xhtml link
-            URL url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "index.jsf");
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "index.jsf");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            if (page == null) {
-                Assert.fail("index.xhtml did not render properly.");
-            }
+        page.findElement(By.id("testForm:link1")).click();
+        page.waitForPageToLoad();
 
-            // Click link to execute the methods and update the page
-            HtmlElement link = (HtmlElement) page.getElementById("testForm:link1");
-            page = link.click();
+        String windowIdParam = page.findElement(By.id("testFormPage2:windowIdParam")).getText();
 
-            HtmlElement output1 = (HtmlElement) page.getElementById("testFormPage2:windowIdParam");
+        String url2 = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "index2.jsf");
+        WebPage page2 = new WebPage(driver);
+        page2.get(url2);
+        page2.waitForPageToLoad();
 
-            //index2.xhtml link
-            url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "index2.jsf");
-            HtmlPage page2 = (HtmlPage) webClient.getPage(url);
+        page2.findElement(By.id("testForm:link1")).click();
+        page.waitForPageToLoad();
 
-            if (page2 == null) {
-                Assert.fail("index2.xhtml did not render properly.");
-            }
-
-            // Click link to execute the methods and update the page
-            HtmlElement link2 = (HtmlElement) page2.getElementById("testForm:link1");
-            page2 = link2.click();
-
-            HtmlElement output2 = (HtmlElement) page2.getElementById("testFormPage2:windowIdParam");
-            //check that the client window ids do not match
-            assertFalse(output1.asText().equals(output2.asText()));
-        }
+        String windowIdParam2 = page.findElement(By.id("testFormPage2:windowIdParam")).getText();
+        // check that the client window ids do not match
+        assertFalse(windowIdParam.equals(windowIdParam2));
     }
 }

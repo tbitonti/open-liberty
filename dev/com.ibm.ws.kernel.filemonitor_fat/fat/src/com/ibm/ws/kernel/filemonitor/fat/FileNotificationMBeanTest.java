@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -50,14 +52,15 @@ import org.junit.runner.RunWith;
 
 import com.ibm.websphere.filemonitor.FileNotificationMBean;
 import com.ibm.ws.jmx.connector.client.rest.ClientProvider;
+
+import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.custom.junit.runner.FATRunner;
 
 @RunWith(FATRunner.class)
 public class FileNotificationMBeanTest extends AbstractNotificationTest {
 
-    /** Used for sanity checks of changes in the timed scan case */
+    /** Used for evaluating changes in the timed scan case */
     private static final MonitorReader recursiveMonitor = new MonitorReader("-RECURSIVETESTMONITOROUTPUT-", "recursive folder monitor");
     private static final MonitorReader manualMonitor = new MonitorReader("-MANUALMONITOROUTPUT-", "externally triggered folder monitor");
 
@@ -74,12 +77,12 @@ public class FileNotificationMBeanTest extends AbstractNotificationTest {
         assertNotNull("The application 'IBMJMXConnectorREST' did not report it was started",
                       server.waitForStringInLog("CWWKT0016I.*IBMJMXConnectorREST"));
         // Wait for secure port to be ready
-        assertNotNull("SSL port is not ready",
-                      server.waitForStringInLog("CWWKO0219I.*ssl"));
+        server.waitForDefaultHTTPEndpointSSLStart();
         assertNotNull("The server is not ready to run a smarter planet",
                       server.waitForStringInLog("CWWKF0011I"));
         assertNotNull("The security service is not ready",
                       server.waitForStringInLog("CWWKS0008I"));
+        assertNotNull("JMX is not initialized", server.waitForStringInLog("CWWKX0103I"));
 
         trustEverything();
 
@@ -174,7 +177,7 @@ public class FileNotificationMBeanTest extends AbstractNotificationTest {
         assertNothingDeleted(manualMonitor);
         assertNothingModified(manualMonitor);
 
-        // Sanity check - the recursive monitor should have noticed
+        // Test - the recursive monitor should have noticed
         HashSet<File> created = new HashSet<File>();
         created.add(f);
         recursiveMonitor.scrapeLogsForExpectedChanges(created, null, null);
@@ -269,7 +272,7 @@ public class FileNotificationMBeanTest extends AbstractNotificationTest {
         File f = new File(monitoredFolder, "testFileInFolderCreationIsNotifiedAfterRequest");
         createFile(f);
 
-        // Sanity check - the recursive monitor should have noticed
+        // Test - the recursive monitor should have noticed
         recursiveMonitor.scrapeLogsForChanges();
         assertCreated(recursiveMonitor, f);
 
@@ -358,7 +361,7 @@ public class FileNotificationMBeanTest extends AbstractNotificationTest {
         File f = new File(folder, "childFile");
         createFile(f);
 
-        // Sanity check - the recursive monitor should have noticed
+        // Test - the recursive monitor should have noticed
         recursiveMonitor.scrapeLogsForChanges();
         assertCreated(recursiveMonitor, f, folder);
 
@@ -387,7 +390,7 @@ public class FileNotificationMBeanTest extends AbstractNotificationTest {
         File f = new File(folder, "childFile");
         createFile(f);
 
-        // Sanity check - the recursive monitor should have noticed
+        // Test - the recursive monitor should have noticed
         recursiveMonitor.scrapeLogsForChanges();
         assertCreated(recursiveMonitor, f, folder);
 
@@ -465,7 +468,7 @@ public class FileNotificationMBeanTest extends AbstractNotificationTest {
         File f = new File(folder, "childFile");
         createFile(f);
 
-        // Sanity check - the recursive monitor should have noticed
+        // Test - the recursive monitor should have noticed
         recursiveMonitor.scrapeLogsForChanges();
         assertCreated(recursiveMonitor, f, folder);
 
@@ -725,7 +728,7 @@ public class FileNotificationMBeanTest extends AbstractNotificationTest {
             createFolder(folder);
             File f = new File(folder, "childFile1");
             createFile(f);
-            // Sanity check - the recursive monitor should have noticed
+            // Test - the recursive monitor should have noticed
             recursiveMonitor.scrapeLogsForChanges();
             assertCreated(recursiveMonitor, f, folder);
             Collection<String> fileSet = new HashSet<String>();

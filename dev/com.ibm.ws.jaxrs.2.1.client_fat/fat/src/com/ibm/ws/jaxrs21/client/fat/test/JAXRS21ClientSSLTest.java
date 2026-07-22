@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020, 2021 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,6 +24,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.Rule;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
 
@@ -30,8 +33,11 @@ import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
 
+import componenttest.rules.SkipJavaSemeruWithFipsEnabled;
+import componenttest.rules.SkipJavaSemeruWithFipsEnabled.SkipJavaSemeruWithFipsEnabledRule;
+
+
 @RunWith(FATRunner.class)
-//@SkipForRepeat("EE9_FEATURES") // currently broken due to multiple issues
 public class JAXRS21ClientSSLTest extends JAXRS21AbstractTest {
     @Server("jaxrs21.client.JAXRS21ClientSSLTest")
     public static LibertyServer server;
@@ -59,10 +65,7 @@ public class JAXRS21ClientSSLTest extends JAXRS21AbstractTest {
         // Pause for the smarter planet message
         assertNotNull("The smarter planet message did not get printed on server",
                       server.waitForStringInLog("CWWKF0011I"));
-
-        // wait for the tcp channel to start
-        assertNotNull("TCP Channel not started",
-                      server.waitForStringInLog("CWWKO0219I"));
+        server.waitForDefaultHTTPEndpointSSLStart();
     }
 
     @AfterClass
@@ -81,6 +84,10 @@ public class JAXRS21ClientSSLTest extends JAXRS21AbstractTest {
         serverRef = null;
     }
 
+    @Rule
+    public static final SkipJavaSemeruWithFipsEnabled skipJavaSemeruWithFipsEnabled = new SkipJavaSemeruWithFipsEnabled("jaxrs21.client.JAXRS21ClientSSLTest");
+
+
     @Test
     public void testClientBasicSSL_ClientBuilder() throws Exception {
         Map<String, String> p = new HashMap<String, String>();
@@ -89,7 +96,6 @@ public class JAXRS21ClientSSLTest extends JAXRS21AbstractTest {
     }
 
     @Test
-    @SkipForRepeat("EE9_FEATURES") // Currently, RESTEasy only allows SSLContext to be set from ClientBuilder
     public void testClientBasicSSL_Client() throws Exception {
         Map<String, String> p = new HashMap<String, String>();
         p.put("param", "alex");
@@ -97,7 +103,6 @@ public class JAXRS21ClientSSLTest extends JAXRS21AbstractTest {
     }
 
     @Test
-    @SkipForRepeat("EE9_FEATURES") // Currently, RESTEasy only allows SSLContext to be set from ClientBuilder
     public void testClientBasicSSL_WebTarget() throws Exception {
         Map<String, String> p = new HashMap<String, String>();
         p.put("param", "alex");
@@ -111,8 +116,9 @@ public class JAXRS21ClientSSLTest extends JAXRS21AbstractTest {
         this.runTestOnServer(target, "testClientBasicSSL_InvalidSSLRef", p, "the SSL configuration reference \"invalidSSLConfig\" is invalid.");
     }
 
+    @SkipJavaSemeruWithFipsEnabledRule
     @Test
-    @SkipForRepeat("EE9_FEATURES") // Needs more investigation, but also runs into the same issue with SSLContext only being set from ClientBuilder
+    @SkipForRepeat({SkipForRepeat.EE9_FEATURES, SkipForRepeat.EE10_FEATURES, SkipForRepeat.EE11_FEATURES}) // Needs more investigation, but also runs into the same issue with SSLContext only being set from ClientBuilder
     public void testClientBasicSSL_CustomizedSSLContext() throws Exception {
         Map<String, String> p = new HashMap<String, String>();
         p.put("param", "alex");

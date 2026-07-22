@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,16 +16,17 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -54,6 +57,8 @@ import com.ibm.ws.microprofile.metrics.impl.ConcurrentGaugeImpl;
 import com.ibm.ws.microprofile.metrics.impl.CounterImpl;
 import com.ibm.ws.microprofile.metrics.impl.ExponentiallyDecayingReservoir;
 import com.ibm.ws.microprofile.metrics.impl.MeterImpl;
+
+import io.openliberty.microprofile.metrics30.setup.config.MetricsConfigurationManager;
 
 /**
  * A registry of metric instances.
@@ -97,7 +102,7 @@ public class MetricRegistry30Impl implements MetricRegistry {
     protected final ConcurrentMap<MetricID, Metric> metricsMID;
     protected final ConcurrentMap<String, Metadata> metadataMID;
 
-    protected final ConcurrentHashMap<String, ConcurrentLinkedQueue<MetricID>> applicationMap;
+    protected final ConcurrentHashMap<String, Set<MetricID>> applicationMap;
 
     /**
      * This ConcurrentHashMap<String,Tag> holds the cached value of the MP Config mp.metrics.appName value for each appliation.
@@ -121,7 +126,7 @@ public class MetricRegistry30Impl implements MetricRegistry {
 
         this.metadataMID = new ConcurrentHashMap<String, Metadata>();
 
-        this.applicationMap = new ConcurrentHashMap<String, ConcurrentLinkedQueue<MetricID>>();
+        this.applicationMap = new ConcurrentHashMap<String, Set<MetricID>>();
 
         this.applicationMPConfigAppNameTagCache = new ConcurrentHashMap<String, Tag>();
 
@@ -190,6 +195,7 @@ public class MetricRegistry30Impl implements MetricRegistry {
     @Override
 
     public <T extends Metric> T register(Metadata metadata, T metric, Tag... tags) throws IllegalArgumentException {
+
         return register(metadata, metric, false, tags);
     }
 
@@ -237,6 +243,30 @@ public class MetricRegistry30Impl implements MetricRegistry {
 
         this.metadataMID.putIfAbsent(metadata.getName(), metadataBuilder.build());
 
+        /*
+         * This is the method used by monitor metrics to register metrics.
+         * Previously, connectionpool metrics will be associated with an application
+         * as the initial creation of a connection pool occurs under an application context thread.
+         *
+         * We must avoid associating connection pool metrics to an application
+         * so that it is not deregistered. The metric is to remain until the datasource
+         * is removed via mbean deregistration (i.e., server shut down or jbc-x.x is removed or thee datasource
+         * element in sever.xml is removed.
+         *
+         */
+        String metricName = metadata.getName();
+        if (metricName.equalsIgnoreCase("connectionpool.create.total") ||
+            metricName.equalsIgnoreCase("connectionpool.destroy.total") ||
+            metricName.equalsIgnoreCase("connectionpool.managedConnections") ||
+            metricName.equalsIgnoreCase("connectionpool.connectionHandles") ||
+            metricName.equalsIgnoreCase("connectionpool.freeConnections") ||
+            metricName.equalsIgnoreCase("connectionpool.waitTime.total") ||
+            metricName.equalsIgnoreCase("connectionpool.inUseTime.total") ||
+            metricName.equalsIgnoreCase("connectionpool.queuedRequests.total") ||
+            metricName.equalsIgnoreCase("connectionpool.usedConnections.total")) {
+            return metric;
+        }
+
         addNameToApplicationMap(MetricID);
         return metric;
     }
@@ -265,14 +295,14 @@ public class MetricRegistry30Impl implements MetricRegistry {
         // If it is a base metric, the name will be null
         if (appName == null)
             return;
-        ConcurrentLinkedQueue<MetricID> list = applicationMap.get(appName);
-        if (list == null) {
-            ConcurrentLinkedQueue<MetricID> newList = new ConcurrentLinkedQueue<MetricID>();
-            list = applicationMap.putIfAbsent(appName, newList);
-            if (list == null)
-                list = newList;
+        Set<MetricID> metricIDSet = applicationMap.get(appName);
+        if (metricIDSet == null) {
+            Set<MetricID> newSet = new HashSet<MetricID>();
+            metricIDSet = applicationMap.putIfAbsent(appName, newSet);
+            if (metricIDSet == null)
+                metricIDSet = newSet;
         }
-        list.add(metricID);
+        metricIDSet.add(metricID);
     }
 
     public void unRegisterApplicationMetrics() {
@@ -290,13 +320,15 @@ public class MetricRegistry30Impl implements MetricRegistry {
             Tr.event(tc, "Application name is null. Cannot unregister metrics for null application.");
             return;
         }
-        ConcurrentLinkedQueue<MetricID> list = applicationMap.remove(appName);
+        Set<MetricID> list = applicationMap.remove(appName);
 
         if (list != null) {
             for (MetricID metricID : list) {
                 remove(metricID);
             }
         }
+
+        MetricsConfigurationManager.getInstance().removeConfiguration(appName);
     }
 
     /**
@@ -894,14 +926,16 @@ public class MetricRegistry30Impl implements MetricRegistry {
         if (builder.isInstance(metric)) {
             return (T) metric;
         } else if (metric == null) { //otherwise register this new metric..
+
             try {
-                return register(metadata, builder.newMetric(), true, tags);
+                return register(metadata, builder.newMetric(metadata), true, tags);
             } catch (IllegalArgumentException e) {
 
                 validateMetricNameToSingleType(metadata.getName(), builder);
 
                 final Metric added = metricsMID.get(metricID);
                 if (builder.isInstance(added)) {
+
                     return (T) added;
                 }
             }
@@ -1039,8 +1073,12 @@ public class MetricRegistry30Impl implements MetricRegistry {
      */
     public interface MetricBuilder30<T extends Metric> {
         MetricBuilder30<Counter> COUNTERS = new MetricBuilder30<Counter>() {
-            @Override
             public Counter newMetric() {
+                return new CounterImpl();
+            }
+
+            @Override
+            public Counter newMetric(Metadata metadata) {
                 return new CounterImpl();
             }
 
@@ -1051,8 +1089,12 @@ public class MetricRegistry30Impl implements MetricRegistry {
         };
 
         MetricBuilder30<ConcurrentGauge> CONCURRENT_GAUGE = new MetricBuilder30<ConcurrentGauge>() {
-            @Override
             public ConcurrentGauge newMetric() {
+                return new ConcurrentGaugeImpl();
+            }
+
+            @Override
+            public ConcurrentGauge newMetric(Metadata metadata) {
                 return new ConcurrentGaugeImpl();
             }
 
@@ -1063,20 +1105,27 @@ public class MetricRegistry30Impl implements MetricRegistry {
         };
 
         MetricBuilder30<Histogram> HISTOGRAMS = new MetricBuilder30<Histogram>() {
+
             @Override
-            public Histogram newMetric() {
-                return new Histogram30Impl(new ExponentiallyDecayingReservoir());
+            public Histogram newMetric(Metadata metadata) {
+
+                return new Histogram30Impl(new ExponentiallyDecayingReservoir(), metadata);
             }
 
             @Override
             public boolean isInstance(Metric metric) {
                 return Histogram.class.isInstance(metric);
             }
+
         };
 
         MetricBuilder30<Meter> METERS = new MetricBuilder30<Meter>() {
-            @Override
             public Meter newMetric() {
+                return new MeterImpl();
+            }
+
+            @Override
+            public Meter newMetric(Metadata metadata) {
                 return new MeterImpl();
             }
 
@@ -1087,9 +1136,10 @@ public class MetricRegistry30Impl implements MetricRegistry {
         };
 
         MetricBuilder30<Timer> TIMERS = new MetricBuilder30<Timer>() {
+
             @Override
-            public Timer newMetric() {
-                return new Timer30Impl();
+            public Timer newMetric(Metadata metadata) {
+                return new Timer30Impl(metadata);
             }
 
             @Override
@@ -1099,8 +1149,13 @@ public class MetricRegistry30Impl implements MetricRegistry {
         };
 
         MetricBuilder30<SimpleTimer> SIMPLE_TIMER = new MetricBuilder30<SimpleTimer>() {
-            @Override
+
             public SimpleTimer newMetric() {
+                return new SimpleTimer30Impl();
+            }
+
+            @Override
+            public SimpleTimer newMetric(Metadata metadata) {
                 return new SimpleTimer30Impl();
             }
 
@@ -1110,7 +1165,7 @@ public class MetricRegistry30Impl implements MetricRegistry {
             }
         };
 
-        T newMetric();
+        T newMetric(Metadata metadata);
 
         boolean isInstance(Metric metric);
     }
@@ -1337,19 +1392,18 @@ public class MetricRegistry30Impl implements MetricRegistry {
     @Override
     public <T, R extends Number> Gauge<R> gauge(MetricID metricID, T object, Function<T, R> func) {
         Metadata metadata = Metadata.builder().withName(metricID.getName()).withType(MetricType.GAUGE).build();
-        return gauge(metadata, object, func, null);
+        return gauge(metadata, object, func, metricID.getTagsAsList().toArray(new Tag[0]));
     }
 
     @Override
     public <T extends Number> Gauge<T> gauge(String name, Supplier<T> supplier, Tag... tags) {
-
         return gauge(new MetricID(name, tags), supplier);
     }
 
     @Override
     public <T extends Number> Gauge<T> gauge(MetricID metricID, Supplier<T> supplier) {
         Metadata metadata = Metadata.builder().withName(metricID.getName()).withType(MetricType.GAUGE).build();
-        return gauge(metadata, supplier, null);
+        return gauge(metadata, supplier, metricID.getTagsAsList().toArray(new Tag[0]));
     }
 
     private static class GaugeToDoubleFunction<T, R extends Number> implements Gauge<R> {

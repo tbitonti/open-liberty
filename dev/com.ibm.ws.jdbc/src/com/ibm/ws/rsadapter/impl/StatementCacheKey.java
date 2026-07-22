@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2001, 2017 IBM Corporation and others.
+ * Copyright (c) 2001, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -93,4 +95,17 @@ public abstract class StatementCacheKey {
         return x;
     }
 
+    @Override
+    public String toString() {
+        // Both hashCode and identityHashCode are included so that we can correlate
+        // output in Liberty trace, which prints toString for values and method args
+        // but uses uses identityHashCode (id=...) when printing trace for a class
+        return new StringBuilder(39) //
+                        .append("StatementCacheKey@") //
+                        .append(Integer.toHexString(hashCode())) //
+                        .append("(id=") //
+                        .append(Integer.toHexString(System.identityHashCode(this))) //
+                        .append(')') //
+                        .toString();
+    }
 }

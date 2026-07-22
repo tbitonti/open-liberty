@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2011, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -37,7 +39,7 @@ public class ClientCertAuthClient extends ServletClientImpl {
     public static final String DEFAULT_SERVLET_NAME = "Snoop Servlet Client Cert";
     public static final String DEFAULT_CONTEXT_ROOT = "/snoop_cert";
     private final static String CLIENT_CERT_REALM = "Client Cert Authentication";
-    private final static String DEFAULT_KS_FILE = "publish" + File.separator + "files" + File.separator + "keystore.jks";
+    private final static String DEFAULT_KS_FILE = "publish" + File.separator + "files" + File.separator + "keystore.p12";
     private final static String DEFAULT_KS_PASSWORD = "password";
     private final static String FORM_LOGIN_PAGE = "Form Login Page";
     private final String servletName;
@@ -169,8 +171,9 @@ public class ClientCertAuthClient extends ServletClientImpl {
                     " expectedStatusCode=" + expectedStatusCode);
         try {
             if (user != null) {
-                client.getCredentialsProvider().setCredentials(new AuthScope(host, AuthScope.ANY_PORT, CLIENT_CERT_REALM),
-                                                               new UsernamePasswordCredentials(user, password));
+                client.getCredentialsProvider()
+                                .setCredentials(new AuthScope(host, AuthScope.ANY_PORT, CLIENT_CERT_REALM),
+                                                new UsernamePasswordCredentials(user, password));
             }
             HttpGet getMethod = new HttpGet(url);
             HttpResponse response = client.execute(getMethod);
@@ -192,8 +195,9 @@ public class ClientCertAuthClient extends ServletClientImpl {
                     " user=" + user + " password=" + password);
         try {
             if (user != null) {
-                client.getCredentialsProvider().setCredentials(new AuthScope(host, AuthScope.ANY_PORT, CLIENT_CERT_REALM),
-                                                               new UsernamePasswordCredentials(user, password));
+                client.getCredentialsProvider()
+                                .setCredentials(new AuthScope(host, AuthScope.ANY_PORT, CLIENT_CERT_REALM),
+                                                new UsernamePasswordCredentials(user, password));
             }
             HttpGet getMethod = new HttpGet(url);
             HttpResponse response = client.execute(getMethod);
@@ -217,8 +221,9 @@ public class ClientCertAuthClient extends ServletClientImpl {
 
         try {
             if (user != null) {
-                client.getCredentialsProvider().setCredentials(new AuthScope(host, AuthScope.ANY_PORT, CLIENT_CERT_REALM),
-                                                               new UsernamePasswordCredentials(user, password));
+                client.getCredentialsProvider()
+                                .setCredentials(new AuthScope(host, AuthScope.ANY_PORT, CLIENT_CERT_REALM),
+                                                new UsernamePasswordCredentials(user, password));
             }
             HttpGet getMethod = new HttpGet(url);
             HttpResponse response = client.execute(getMethod);

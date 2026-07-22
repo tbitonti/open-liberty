@@ -20,12 +20,12 @@ package org.apache.cxf.jaxrs.provider;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.security.AccessController; // Liberty Change
+import java.security.PrivilegedAction; // Liberty Change
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -45,11 +45,7 @@ import javax.ws.rs.core.Configurable;
 import javax.ws.rs.core.Configuration;
 import javax.ws.rs.core.Feature;
 import javax.ws.rs.core.FeatureContext;
-import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.ExceptionMapper;
-import javax.ws.rs.ext.MessageBodyReader;
-import javax.ws.rs.ext.MessageBodyWriter;
-import javax.ws.rs.ext.ParamConverterProvider;
 import javax.ws.rs.ext.ReaderInterceptor;
 import javax.ws.rs.ext.WriterInterceptor;
 
@@ -63,7 +59,7 @@ import org.apache.cxf.jaxrs.impl.FeatureContextImpl;
 import org.apache.cxf.jaxrs.impl.RequestPreprocessor;
 import org.apache.cxf.jaxrs.impl.ResourceInfoImpl;
 import org.apache.cxf.jaxrs.impl.WebApplicationExceptionMapper;
-import org.apache.cxf.jaxrs.impl.tl.ThreadLocalProxy;
+import org.apache.cxf.jaxrs.impl.tl.ThreadLocalProxy; // Liberty Change
 import org.apache.cxf.jaxrs.lifecycle.ResourceProvider;
 import org.apache.cxf.jaxrs.model.AbstractResourceInfo;
 import org.apache.cxf.jaxrs.model.ApplicationInfo;
@@ -76,18 +72,23 @@ import org.apache.cxf.jaxrs.nio.NioMessageBodyWriter;
 import org.apache.cxf.jaxrs.utils.AnnotationUtils;
 import org.apache.cxf.jaxrs.utils.InjectionUtils;
 import org.apache.cxf.jaxrs.utils.JAXRSUtils;
-import org.apache.cxf.jaxrs.utils.ThreadLocalProxyCopyOnWriteArraySet;
+import org.apache.cxf.jaxrs.utils.ThreadLocalProxyCopyOnWriteArraySet; // Liberty Change
 import org.apache.cxf.message.Message;
 import org.apache.cxf.message.MessageUtils;
 
+// Liberty Change Start - Imports
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.jaxrs21.providers.NoOpPreprocessor;
+// Liberty Change End
 
 public final class ServerProviderFactory extends ProviderFactory {
-    private static final TraceComponent tc = Tr.register(ServerProviderFactory.class);
+    @SuppressWarnings("unused") // Liberty Change
+    private static final TraceComponent tc = Tr.register(ServerProviderFactory.class); // Liberty Change
 
     private static final String WADL_PROVIDER_NAME = "org.apache.cxf.jaxrs.model.wadl.WadlGenerator";
     private static final String MAKE_DEFAULT_WAE_LEAST_SPECIFIC = "default.wae.mapper.least.specific";
+	// Liberty Change Start - Set final modifiers
     private final List<ProviderInfo<ExceptionMapper<?>>> exceptionMappers = new ArrayList<>(1);
 
     private final List<ProviderInfo<ContainerRequestFilter>> preMatchContainerRequestFilters = new ArrayList<>(1);
@@ -98,6 +99,7 @@ public final class ServerProviderFactory extends ProviderFactory {
     private final Set<DynamicFeature> dynamicFeatures = new LinkedHashSet<>();
 
     private final Map<Class<?>, BeanParamInfo> beanParams = new ConcurrentHashMap<>();
+	// Liberty Change End
     private ProviderInfo<ContainerRequestFilter> wadlGenerator;
 
     private ServerProviderFactory(Bus bus) {
@@ -123,7 +125,7 @@ public final class ServerProviderFactory extends ProviderFactory {
         }
         ServerProviderFactory factory = new ServerProviderFactory(bus);
         ProviderFactory.initFactory(factory);
-        // Liberty difference - we use our own CustomExceptionMapper so we don't use the default WebApplicationExceptionMapper
+        // Liberty Change - we use our own CustomExceptionMapper so we don't use the default WebApplicationExceptionMapper
         //factory.setProviders(false, false, new WebApplicationExceptionMapper());
         factory.setProviders(false, false,
                              new NioMessageBodyWriter());
@@ -195,8 +197,8 @@ public final class ServerProviderFactory extends ProviderFactory {
                                                                           Message m) {
 
         boolean makeDefaultWaeLeastSpecific =
-            MessageUtils.getContextualBoolean(m, MAKE_DEFAULT_WAE_LEAST_SPECIFIC, false);
-
+            MessageUtils.getContextualBoolean(m, MAKE_DEFAULT_WAE_LEAST_SPECIFIC, true);
+        
         return (ExceptionMapper<T>)exceptionMappers.stream()
                 .filter(em -> handleMapper(em, exceptionType, m, ExceptionMapper.class, Throwable.class, true))
                 .sorted(new ExceptionProviderInfoComparator(exceptionType,
@@ -207,7 +209,7 @@ public final class ServerProviderFactory extends ProviderFactory {
 
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "rawtypes" }) // Liberty Change
     @Override
     protected void setProviders(boolean custom, boolean busGlobal, Object... providers) {
         List<Object> allProviders = new LinkedList<>();
@@ -244,10 +246,16 @@ public final class ServerProviderFactory extends ProviderFactory {
         List<ProviderInfo<ContainerRequestFilter>> postMatchRequestFilters = new LinkedList<>();
         List<ProviderInfo<ContainerResponseFilter>> postMatchResponseFilters = new LinkedList<>();
 
-        List<ProviderInfo<? extends Object>> theProviders = prepareProviders(custom, busGlobal, allProviders.toArray(), application);
-        super.setCommonProviders(theProviders);
+        List<ProviderInfo<? extends Object>> theProviders =
+            prepareProviders(custom, busGlobal, allProviders.toArray(), application);
+        super.setCommonProviders(theProviders, RuntimeType.SERVER);
         for (ProviderInfo<? extends Object> provider : theProviders) {
             Class<?> providerCls = ClassHelper.getRealClass(getBus(), provider.getProvider());
+
+            // Check if provider is constrained to server
+            if (!constrainedTo(providerCls, RuntimeType.SERVER)) {
+                continue;
+            }
 
             if (filterContractSupported(provider, providerCls, ContainerRequestFilter.class)) {
                 addContainerRequestFilter(postMatchRequestFilters,
@@ -364,7 +372,15 @@ public final class ServerProviderFactory extends ProviderFactory {
     }
 
     public void setRequestPreprocessor(RequestPreprocessor rp) {
-        this.requestPreprocessor = rp;
+        // Liberty Change Start - don't set the requestPreprocessor if user requests the no-op preprocessor
+        if (AccessController.doPrivileged((PrivilegedAction<Boolean>) () -> {
+            return Boolean.getBoolean("jaxrs.cxf.use.noop.requestPreprocessor");
+        })) {
+            this.requestPreprocessor = new NoOpPreprocessor();
+        } else {
+            this.requestPreprocessor = rp;
+        }
+        // Liberty Change End
     }
 
     public void clearExceptionMapperProxies() {
@@ -382,9 +398,9 @@ public final class ServerProviderFactory extends ProviderFactory {
 
     @Override
     public void clearThreadLocalProxies() {
-        //Liberty code change start defect 169218
-        //Clear saved ThreadLocalProxy object set.
-        //All the created ThreadLocalProxy objects are added to the set in AbstractResourceInfo class
+        // Liberty Change Start - Defect 169218
+        // Clear saved ThreadLocalProxy object set.
+        // All the created ThreadLocalProxy objects are added to the set in AbstractResourceInfo class
         @SuppressWarnings("unchecked")
         ThreadLocalProxyCopyOnWriteArraySet<ThreadLocalProxy<?>> proxySet = (ThreadLocalProxyCopyOnWriteArraySet<ThreadLocalProxy<?>>) getBus().getProperty(AbstractResourceInfo.PROXY_SET);
         if (proxySet != null) {
@@ -393,12 +409,13 @@ public final class ServerProviderFactory extends ProviderFactory {
                 ((ThreadLocalProxy<?>) proxy).remove();
             }
         }
-        //super.clearThreadLocalProxies may clean same TheadLocalProxy object more than one times in one call.
-        //Liberty code change end
+        // super.clearThreadLocalProxies may clean same TheadLocalProxy object more than one times in one call.
 //        if (application != null) {
 //            application.clearThreadLocalProxies();
 //        }
 //        super.clearThreadLocalProxies();
+
+        // Liberty Change End
     }
 
     public void applyDynamicFeatures(List<ClassResourceInfo> list) {
@@ -409,7 +426,7 @@ public final class ServerProviderFactory extends ProviderFactory {
         }
     }
 
-    @Override
+    @Override // Liberty Change
     public Configuration getConfiguration(Message m) {
         return new ServerConfigurationImpl();
     }
@@ -523,9 +540,10 @@ public final class ServerProviderFactory extends ProviderFactory {
             return application != null ? application.getProvider().getSingletons() : Collections.emptySet();
         }
 
+        @SuppressWarnings("unlikely-arg-type") // Liberty Change
         @Override
         public boolean isEnabled(Feature f) {
-            return dynamicFeatures.contains(f);
+            return dynamicFeatures.contains(f); // Liberty Change
         }
 
         @Override
@@ -637,13 +655,14 @@ public final class ServerProviderFactory extends ProviderFactory {
     }
 
     public static class ExceptionProviderInfoComparator extends ProviderInfoClassComparator {
-        private final boolean makeDefaultWaeLeastSpecific;
+        private final boolean makeDefaultWaeLeastSpecific; // Liberty Change
 
         public ExceptionProviderInfoComparator(Class<?> expectedCls, boolean makeDefaultWaeLeastSpecific) {
             super(expectedCls);
             this.makeDefaultWaeLeastSpecific = makeDefaultWaeLeastSpecific;
         }
 
+		// Liberty Change Start
         @Override
         public int compare(ProviderInfo<?> p1, ProviderInfo<?> p2) {
             // ExceptionMapper classes may be turned to proxy classes due to dependency
@@ -666,5 +685,6 @@ public final class ServerProviderFactory extends ProviderFactory {
             }
             return result;
         }
+		// Liberty Change End
     }
 }

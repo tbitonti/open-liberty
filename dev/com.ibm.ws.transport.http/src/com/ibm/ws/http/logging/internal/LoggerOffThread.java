@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2013 IBM Corporation and others.
+ * Copyright (c) 2004, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,6 +19,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.Locale;
@@ -30,6 +34,9 @@ import com.ibm.ws.http.dispatcher.internal.HttpDispatcher;
 import com.ibm.wsspi.bytebuffer.WsByteBuffer;
 import com.ibm.wsspi.http.logging.LogFile;
 import com.ibm.wsspi.logging.TextFileOutputStreamFactory;
+import java.util.TimerTask;
+import com.ibm.wsspi.kernel.service.utils.MetatypeUtils;
+import java.util.concurrent.TimeUnit;
 
 /**
  * This utility class is the entry point for writing to the actual log file.
@@ -84,6 +91,10 @@ public class LoggerOffThread implements LogFile {
     private long maxFileSize = LogFile.UNLIMITED;
     /** Maximum number of backup files to keep around */
     private int maxBackupFiles = 1;
+    /** The rollover start time for time based accesslog rollover. */
+    private String rolloverStartTime = "";
+    /** The rollover start time for time based accesslog rollover. */
+    private long rolloverInterval = -1;
 
     /**
      * Constructor that opens a reference to the input file name. Note that
@@ -352,12 +363,51 @@ public class LoggerOffThread implements LogFile {
     }
 
     /**
+     * 
+     */
+
+    public void setRolloverStartTime(String time) {
+        this.rolloverStartTime = time;
+    }
+
+    /**
+     * 
+     */
+
+    public String getRolloverStartTime() {
+        return this.rolloverStartTime;
+    }
+
+    /**
+     * 
+     */
+
+    public void setRolloverInterval(String interval) {
+        this.rolloverInterval = MetatypeUtils.evaluateDuration(interval, TimeUnit.MINUTES);
+    }
+
+    /**
+     * 
+     */
+
+    public long getRolloverInterval() {
+        return this.rolloverInterval;
+    }
+
+    /**
+     * 
+     */
+    public WorkerThread getWorkerThread() {
+        return this.myWorker;
+    }
+
+    /**
      * Worker thread class that handles pulling data off of the outgoing queue
      * and writing each buffer to the file. Each time this wakes up it will
      * purge the entire queue to the file.
      *
      */
-    private class WorkerThread extends Thread {
+    protected class WorkerThread extends Thread {
 
         /** State of worker thread */
         private WorkerState workerState = WorkerState.RUNNING;
@@ -405,7 +455,30 @@ public class LoggerOffThread implements LogFile {
                 }
                 this.backups = new LinkedList<File>();
             }
-
+            
+            /** 
+             * Manage existing backups: find files matching the pattern, sort by newest first, enforce limit, and delete excess.
+             * */ 
+            if (getMaximumBackupFiles()>0) {
+                File directory = new File(getFilePathName()).getParentFile();
+                if (directory != null && directory.isDirectory()) {
+                    String fileinfoName = new File(this.fileinfo).getName();
+                    File[] backupFiles = directory.listFiles((dir, name) -> name.startsWith(fileinfoName));
+                    if (backupFiles != null) {
+                        Arrays.sort(backupFiles, Comparator.comparingLong(File::lastModified));
+                        this.backups.addAll(Arrays.asList(backupFiles));
+                        while (this.backups.size() > getMaximumBackupFiles()) {
+                            File oldestFile = this.backups.poll(); 
+                                if (oldestFile != null && oldestFile.exists()) {
+                                    oldestFile.delete();
+                                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                                        Tr.debug(tc, "Deleted old log file: " + oldestFile.getName());
+                                    } 
+                                }
+                        }
+                    }
+                }
+            }
             //Set bytesWritten from the already existing file
             try {
                 bytesWritten = myChannel.size();
@@ -513,6 +586,9 @@ public class LoggerOffThread implements LogFile {
             String newname = this.fileinfo + this.myFormat.format(new Date(HttpDispatcher.getApproxTime())) + this.extensioninfo;
             File newFile = new File(newname);
             renameFile(getFile(), newFile);
+            // Updating this.backups to include the newly rotated log file 
+            // Ensures the latest backup is tracked before deleting old ones
+            this.backups.addFirst(newFile);
             // now see if we need to delete an existing backup to make room
             // if not set to unlimited
             if (getMaximumBackupFiles() > 0) {
@@ -527,7 +603,10 @@ public class LoggerOffThread implements LogFile {
                 }
             }
 
-            this.backups.addFirst(newFile);
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, getFileName() + ": number of backup files-> " + this.backups.size());
+            }
+
         }
 
         /**
@@ -536,7 +615,7 @@ public class LoggerOffThread implements LogFile {
          * with a new file.
          *
          */
-        private void rotate() {
+        protected void rotate() {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                 Tr.debug(tc, getFileName() + ": Rotating output log");
             }

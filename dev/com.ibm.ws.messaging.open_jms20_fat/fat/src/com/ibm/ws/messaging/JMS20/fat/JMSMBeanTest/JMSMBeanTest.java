@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+ * Copyright (c) 2015, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.messaging.JMS20.fat.JMSMBeanTest;
 
@@ -31,11 +30,12 @@ import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
 
+import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.ws.messaging.JMS20.fat.TestUtils;
 
 // This test cannot be run under jakarta, as jakarta has no replacement
 // for j2ee-management.
-@SkipForRepeat(SkipForRepeat.EE9_FEATURES)
+@SkipForRepeat({SkipForRepeat.EE9_FEATURES, SkipForRepeat.EE10_FEATURES, SkipForRepeat.EE11_FEATURES})
 // The FAT runner must be used explicitly to trigger the necessary
 // repeat steps, including filtering based on 'SkipForRepeat'.
 @RunWith(FATRunner.class)
@@ -72,6 +72,7 @@ public class JMSMBeanTest {
         } catch ( Exception e ) {
             e.printStackTrace();
         }
+        ShrinkHelper.cleanAllExportedArchives();
     }
 
     //

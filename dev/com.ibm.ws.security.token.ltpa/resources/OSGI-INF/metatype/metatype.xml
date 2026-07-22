@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    Copyright (c) 2011 IBM Corporation and others.
+    Copyright (c) 2011, 2026 IBM Corporation and others.
     All rights reserved. This program and the accompanying materials
-    are made available under the terms of the Eclipse Public License v1.0
+    are made available under the terms of the Eclipse Public License 2.0
     which accompanies this distribution, and is available at
-    http://www.eclipse.org/legal/epl-v10.html
+    http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0
    
     Contributors:
         IBM Corporation - initial API and implementation
@@ -19,22 +21,49 @@
             required="false" type="String" ibm:type="location(file)"
             default="${server.output.dir}/resources/security/ltpa.keys" />
         <AD id="keysPassword" name="%keysPassword" description="%keysPassword.desc"
-            required="false" type="String" ibm:type="password"
-            default="{xor}CDo9Hgw=" /> <!-- WebAS -->
+            required="false" type="String" ibm:type="password" />
         <AD id="expiration"  name="%expiration" description="%expiration.desc"
             required="false" type="String" ibm:type="duration(m)"
             default="120m" />
         <AD id="monitorInterval" name="%ltpa.monitorInterval" description="%ltpa.monitorInterval.desc"
-            required="false" type="String" ibm:type="duration" default="0ms" />
-            
+            required="false" type="String" ibm:type="duration" 
+            default="0ms" />
+        <AD id="monitorValidationKeysDir" name="%ltpa.monitorValidationKeysDir" description="%ltpa.monitorValidationKeysDir.desc" 
+            required="false" type="Boolean"
+            default="false"/>
+        <AD id="updateTrigger" name="%ltpa.updateTrigger" description="%ltpa.updateTrigger.desc" 
+            required="false" type="String"
+            default="polled">
+            <Option label="%ltpa.updateTrigger.timed" value="polled"/>
+            <Option label="%ltpa.updateTrigger.external" value="mbean"/>
+            <Option label="%ltpa.updateTrigger.disabled" value="disabled"/>
+        </AD>
         <AD id="authFilterRef" name="%authFilterRef" description="%authFilterRef.desc" 
-            ibm:type="pid" ibm:reference="com.ibm.ws.security.authentication.filter" required="false" type="String"  />
+            required="false" type="String" ibm:type="pid" 
+            ibm:reference="com.ibm.ws.security.authentication.filter"/>
         <AD id="authenticationFilter.target" name="internal" description="internal use only"
-            required="false" type="String"  default="(service.pid=${authFilterRef})" />         
+            required="false" type="String"  
+            default="(service.pid=${authFilterRef})" />
+        <AD id="expirationDifferenceAllowed" name="internal" description="internal use only"
+            required="false" type="String" ibm:type="duration(ms)" 
+            default="3000ms" /> 
+        <AD id="validationKeys" ibm:type="pid" ibm:reference="com.ibm.ws.security.token.ltpa.validationKeys" 
+           	required="false" type="String" 
+            ibm:flat="true" cardinality="2147483647"/>        
     </OCD>
 
     <Designate pid="com.ibm.ws.security.token.ltpa.LTPAConfiguration">
         <Object ocdref="com.ibm.ws.security.token.ltpa.configuration" />
+    </Designate>
+    
+    <OCD id="com.ibm.ws.security.token.ltpa.validationKeys.metatype" name="%validationKeys" description="%validationKeys.desc">
+       	<AD id="fileName" name="%fileName" description="%fileName.desc" required="true" type="String"  />
+    	<AD id="password" name="%password" description="%password.desc" required="true" type="String" ibm:type="password" />
+    	<AD id="validUntilDate" name="%validUntilDate" description="%validUntilDate.desc" required="false" type="String"  />
+    </OCD>
+
+    <Designate factoryPid="com.ibm.ws.security.token.ltpa.validationKeys">
+         <Object ocdref="com.ibm.ws.security.token.ltpa.validationKeys.metatype" />
     </Designate>
   
 </metatype:MetaData>

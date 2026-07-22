@@ -1,23 +1,22 @@
-/*
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+/*******************************************************************************
+ * Copyright (c) 2015, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
- */
+ * SPDX-License-Identifier: EPL-2.0
+ *******************************************************************************/
 package com.ibm.ws.jsf22.fat.tests;
 
+import static componenttest.annotation.SkipForRepeat.CHECKPOINT_RULE;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URL;
 import java.util.List;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -32,39 +31,57 @@ import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.jsf22.fat.JSFUtils;
 
+import componenttest.annotation.CheckpointTest;
 import componenttest.annotation.Server;
+import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.CheckpointRule;
+import componenttest.rules.repeater.CheckpointRule.ServerMode;
+import componenttest.rules.repeater.EmptyAction;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
-
 /**
  * Tests to execute on the jsfTestServer1 that use HtmlUnit.
  * This particular class executes the tests found in the TestJSF2.2 application.
  * These tests are relatively standalone.
  */
 @RunWith(FATRunner.class)
+@CheckpointTest(alwaysRun = true)
 public class JSFSimpleHtmlUnit {
     @Rule
     public TestName name = new TestName();
 
-    protected static final Class<?> c = JSFSimpleHtmlUnit.class;
-
-    String contextRoot = "JSF22SimpleHTML";
+    private static final Class<?> c = JSFSimpleHtmlUnit.class;
+    private static final String APP_NAME = "JSF22SimpleHTML";
 
     @Server("jsfTestServer1")
     public static LibertyServer jsfTestServer1;
 
-    @BeforeClass
-    public static void setup() throws Exception {
+    @ClassRule
+    public static CheckpointRule checkpointRule = new CheckpointRule()
+                                                      .setConsoleLogName(JSFSimpleHtmlUnit.class.getSimpleName()+ ".log")
+                                                      .setServerSetup(JSFSimpleHtmlUnit::serverSetUp)
+                                                      .setServerStart(JSFSimpleHtmlUnit::serverStart)
+                                                      .setServerTearDown(JSFSimpleHtmlUnit::serverTearDown)
+                                                      .addUnsupportedRepeatIDs(EmptyAction.ID); // CheckPoint doesn't work for JSF 2.2
 
-        ShrinkHelper.defaultDropinApp(jsfTestServer1, "JSF22SimpleHTML.war", "com.ibm.ws.jsf22.fat.simple.bean", "com.ibm.ws.jsf22.fat.simple.cforeach",
-                                      "com.ibm.ws.jsf22.fat.simple.externalContext");
+    public static LibertyServer serverSetUp(ServerMode mode) throws Exception {
+                boolean isEE10 = JakartaEEAction.isEE10OrLaterActive();
 
-        jsfTestServer1.startServer(JSFServerTest.class.getSimpleName() + ".log");
+        ShrinkHelper.defaultDropinApp(jsfTestServer1, APP_NAME + ".war",
+                                      isEE10 ? "com.ibm.ws.jsf22.fat.simple.bean.faces40" : "com.ibm.ws.jsf22.fat.simple.bean.jsf22",
+                                      "com.ibm.ws.jsf22.fat.simple.cforeach",
+                                      isEE10 ? "com.ibm.ws.jsf22.fat.simple.cforeach.faces40" : "com.ibm.ws.jsf22.fat.simple.cforeach.jsf22",
+                                      isEE10 ? "com.ibm.ws.jsf22.fat.simple.externalContext.faces40" : "com.ibm.ws.jsf22.fat.simple.externalContext.jsf22");
+        return jsfTestServer1;
     }
 
-    @AfterClass
-    public static void tearDown() throws Exception {
+    public static void serverStart(ServerMode mode, LibertyServer server) throws Exception {
+
+        jsfTestServer1.startServer(c.getSimpleName() + ".log");
+    }
+
+    public static void serverTearDown(ServerMode mode, LibertyServer server) throws Exception {
         // Stop the server
         if (jsfTestServer1 != null && jsfTestServer1.isStarted()) {
             jsfTestServer1.stopServer();
@@ -79,7 +96,7 @@ public class JSFSimpleHtmlUnit {
     @Test
     public void sampleTest() throws Exception {
         try (WebClient webClient = new WebClient()) {
-            URL url = JSFUtils.createHttpUrl(jsfTestServer1, contextRoot, "");
+            URL url = JSFUtils.createHttpUrl(jsfTestServer1, APP_NAME, "");
             HtmlPage page = (HtmlPage) webClient.getPage(url);
 
             assertTrue(page.asText().contains("Hello World"));
@@ -96,7 +113,7 @@ public class JSFSimpleHtmlUnit {
         try (WebClient webClient = new WebClient()) {
 
             // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsfTestServer1, contextRoot, "testValue.jsf");
+            URL url = JSFUtils.createHttpUrl(jsfTestServer1, APP_NAME, "testValue.jsf");
             HtmlPage page = (HtmlPage) webClient.getPage(url);
             // Log.info(c, name.getMethodName(), "testEditableValueHoldergetSubmittedValue:: page " + page.asXml());
 
@@ -118,7 +135,7 @@ public class JSFSimpleHtmlUnit {
     public void testDatainCdataSectionWorks() throws Exception {
         try (WebClient webClient = new WebClient()) {
             // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsfTestServer1, contextRoot, "testCdata.jsf");
+            URL url = JSFUtils.createHttpUrl(jsfTestServer1, APP_NAME, "testCdata.jsf");
             HtmlPage page = (HtmlPage) webClient.getPage(url);
             Log.info(c, name.getMethodName(), "testEditableValueHoldergetSubmittedValue:: page --> " + page.asText());
 
@@ -140,7 +157,7 @@ public class JSFSimpleHtmlUnit {
         try (WebClient webClient = new WebClient()) {
 
             // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsfTestServer1, contextRoot, "forEach-equals.jsf");
+            URL url = JSFUtils.createHttpUrl(jsfTestServer1, APP_NAME, "forEach-equals.jsf");
             HtmlPage page = (HtmlPage) webClient.getPage(url);
 
             // Page without clicking the button of the form called Change Items
@@ -204,7 +221,7 @@ public class JSFSimpleHtmlUnit {
         try (WebClient webClient = new WebClient()) {
 
             // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsfTestServer1, contextRoot, "testCommandButton.jsf");
+            URL url = JSFUtils.createHttpUrl(jsfTestServer1, APP_NAME, "testCommandButton.jsf");
             HtmlPage page = (HtmlPage) webClient.getPage(url);
 
             assertTrue(page.asText().contains("Testing h:commandButton on first click"));
@@ -229,13 +246,15 @@ public class JSFSimpleHtmlUnit {
      * @throws Exception
      */
     @Test
+    @SkipForRepeat(CHECKPOINT_RULE) // Message is not logged during checkpoint (checkpoint is taken before app starts), so this test fails. 
     public void check_default_FACELETS_BUFFER_SIZE() throws Exception {
         try (WebClient webClient = new WebClient()) {
 
             // Make a request to a dummy page to ensure that MyFaces initializes if it has not done so already
-            URL url = JSFUtils.createHttpUrl(jsfTestServer1, contextRoot, "dummy.jsf");
+            URL url = JSFUtils.createHttpUrl(jsfTestServer1, APP_NAME, "dummy.jsf");
 
-            String msg = "No context init parameter '" + (JakartaEE9Action.isActive() ? "jakarta" : "javax") + ".faces.FACELETS_BUFFER_SIZE' found, using default value '1024'";
+            String msg = "No context init parameter '" + (JakartaEEAction.isEE9OrLaterActive() ? "jakarta" : "javax")
+                         + ".faces.FACELETS_BUFFER_SIZE' found, using default value '1024'";
             // Check the trace.log
             // There should be a match so fail if there is not.
             assertFalse(msg, jsfTestServer1.findStringsInLogs(msg).isEmpty());
@@ -245,7 +264,10 @@ public class JSFSimpleHtmlUnit {
 
     /**
      * Create a testcase 169346: Port MYFACES-3949, javax.faces.ViewState autocomplete
-     *
+     * Note: one-time-code is now default for faces-4.1+. 
+     * Note: Autcomplete default was set to false in 2.3.11 and 4.0.3 but later changed back.
+     *   -  See MYFACES-4721 / MYFACES-4659
+     * See the JIRA for more info.
      * @throws Exception
      */
     @Test
@@ -253,14 +275,24 @@ public class JSFSimpleHtmlUnit {
         try (WebClient webClient = new WebClient()) {
 
             // Make a request to a dummy page to ensure that MyFaces initializes if it has not done so already
-            URL url = JSFUtils.createHttpUrl(jsfTestServer1, contextRoot, "dummy.jsf");
-            webClient.getPage(url);
+            URL url = JSFUtils.createHttpUrl(jsfTestServer1, APP_NAME, "dummy.jsf");
+            HtmlPage page = webClient.getPage(url);
 
             String msg = "No context init parameter 'org.apache.myfaces.AUTOCOMPLETE_OFF_VIEW_STATE' found, using default value 'true'";
-            // Check the trace.log
-            // There should be a match so fail if there is not.
-            assertFalse(msg, jsfTestServer1.findStringsInLogs(msg).isEmpty());
-            Log.info(c, name.getMethodName(), "check_defaultLogging_AUTOCOMPLETE_OFF_VIEW_STATE :: Found expected msg in log -->" + msg);
+            String autocompleteValue = "autocomplete=\"off\"";
+            if(JakartaEEAction.isEE11OrLaterActive()) { // default in 4.1.2 (but backported to 4.1.1 in OL)
+                msg = "No context init parameter 'org.apache.myfaces.AUTOCOMPLETE_OFF_VIEW_STATE' found, using default value 'one-time-code'";
+                autocompleteValue = "autocomplete=\"one-time-code\"";
+            } 
+            assertTrue("The expected autocomplete attribute was not found!: " + autocompleteValue, page.asXml().contains(autocompleteValue));
+
+            //Skip the check for checkpoint since the context param messages are not logged in the checkpoint log
+            if(!CheckpointRule.isActive()){
+                // Check the trace.log
+                // There should be a match so fail if there is not.
+                assertFalse(msg, jsfTestServer1.findStringsInLogs(msg).isEmpty());
+                Log.info(c, name.getMethodName(), "check_defaultLogging_AUTOCOMPLETE_OFF_VIEW_STATE :: Found expected msg in log -->" + msg);
+            }
         }
     }
 
@@ -276,7 +308,7 @@ public class JSFSimpleHtmlUnit {
         try (WebClient webClient = new WebClient()) {
 
             // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsfTestServer1, contextRoot, "getInitParam.jsf");
+            URL url = JSFUtils.createHttpUrl(jsfTestServer1, APP_NAME, "getInitParam.jsf");
             HtmlPage page = webClient.getPage(url);
 
             Log.info(c, name.getMethodName(), "Response: " + page.asText());
@@ -298,7 +330,7 @@ public class JSFSimpleHtmlUnit {
             webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 
             // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsfTestServer1, contextRoot, "forEach-varStatus.jsf");
+            URL url = JSFUtils.createHttpUrl(jsfTestServer1, APP_NAME, "forEach-varStatus.jsf");
             HtmlPage page = webClient.getPage(url);
 
             // Page without clicking the button of the form called Change Items

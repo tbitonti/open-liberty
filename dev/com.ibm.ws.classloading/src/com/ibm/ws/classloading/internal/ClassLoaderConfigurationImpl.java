@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2016 IBM Corporation and others.
+ * Copyright (c) 2010, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -24,12 +26,13 @@ import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.classloading.ClassLoaderConfiguration;
 import com.ibm.wsspi.classloading.ClassLoaderIdentity;
 
-class ClassLoaderConfigurationImpl implements ClassLoaderConfiguration {
+class ClassLoaderConfigurationImpl implements ClassLoaderConfiguration, ClassLoaderConfigurationExtended {
     private final static ProtectionDomain DEFAULT_PROTECTION_DOMAIN = new ProtectionDomain(new CodeSource((URL) null, (Certificate[]) null), null);
     private boolean delegateLast;
     private boolean includeAppExtensions;
     private ClassLoaderIdentity id;
     private ClassLoaderIdentity parentId;
+    private List<String> overrideLibraries = Collections.emptyList();
     private List<String> sharedLibraries = new ArrayList<String>();
     private List<String> commonLibraries = Collections.emptyList();
     private List<String> providers = Collections.emptyList();
@@ -57,6 +60,12 @@ class ClassLoaderConfigurationImpl implements ClassLoaderConfiguration {
     @Override
     public ClassLoaderConfiguration setSharedLibraries(List<String> libs) {
         this.sharedLibraries = libs == null ? Collections.<String> emptyList() : libs;
+        return this;
+    }
+
+    @Override
+    public ClassLoaderConfiguration setOverrideLibraries(List<String> libs) {
+        this.overrideLibraries = libs == null ? Collections.<String> emptyList() : libs;
         return this;
     }
 
@@ -130,6 +139,11 @@ class ClassLoaderConfigurationImpl implements ClassLoaderConfiguration {
     }
 
     @Override
+    public List<String> getOverrideLibraries() {
+        return Collections.unmodifiableList(overrideLibraries);
+    }
+
+    @Override
     @Trivial
     public List<String> getSharedLibraries() {
         return Collections.unmodifiableList(sharedLibraries);
@@ -153,15 +167,33 @@ class ClassLoaderConfigurationImpl implements ClassLoaderConfiguration {
     }
 
     @Override
+    @Trivial
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append(id)
-          .append(" [child of ").append(parentId).append("]")
-          .append(" privateLibraries = ").append(sharedLibraries)
-          .append(" commonLibraries = ").append(commonLibraries)
-          .append(" providers = ").append(providers)
-          .append(" nativeLibraries = ").append(nativeLibraryContainers)
-          .append(" parentLast = ").append(delegateLast);
+        sb.append("Config@");
+        
+        if (id != null) {
+            sb.append(":").append(id.getDomain()).append(":").append(id.getId());
+        }
+        
+        if (parentId != null) {
+            sb.append(" [child of ").append(parentId).append("]");
+        }
+        
+        sb.append(":").append(delegateLast ? "PL" : "PF");
+        
+        if (!sharedLibraries.isEmpty()) {
+            sb.append(":privateLibs=").append(sharedLibraries.size());
+        }
+        
+        if (!overrideLibraries.isEmpty()) {
+            sb.append(":overrideLibs=").append(overrideLibraries.size());
+        }
+        
+        if (!commonLibraries.isEmpty()) {
+            sb.append(":commonLibs=").append(commonLibraries.size());
+        }
+        
         return sb.toString();
     }
 

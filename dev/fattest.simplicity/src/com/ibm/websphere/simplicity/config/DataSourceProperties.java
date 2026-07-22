@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,6 +22,7 @@ public class DataSourceProperties extends ConfigElement {
     public static final String DERBY_EMBEDDED = "properties.derby.embedded";
     public static final String DERBY_CLIENT = "properties.derby.client";
     public static final String GENERIC = "properties";
+    public static final String H2 = "properties.h2";
     public static final String INFORMIX_JCC = "properties.informix.jcc";
     public static final String INFORMIX_JDBC = "properties.informix";
     public static final String ORACLE_JDBC = "properties.oracle";

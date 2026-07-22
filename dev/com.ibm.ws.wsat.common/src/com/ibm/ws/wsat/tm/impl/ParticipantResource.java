@@ -1,21 +1,22 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.wsat.tm.impl;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
+
+import org.apache.cxf.ws.addressing.EndpointReferenceType;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
@@ -23,6 +24,7 @@ import com.ibm.ws.wsat.common.impl.WSATParticipant;
 import com.ibm.ws.wsat.common.impl.WSATParticipantState;
 import com.ibm.ws.wsat.service.WSATException;
 import com.ibm.ws.wsat.service.WebClient;
+import com.ibm.ws.wsat.service.impl.WSATConfigServiceImpl;
 
 /**
  * This is an XAResource that wrappers a remote WSATParticipant. The tran mgr
@@ -32,21 +34,13 @@ import com.ibm.ws.wsat.service.WebClient;
  */
 public class ParticipantResource implements XAResource {
 
-    private static final String CLASS_NAME = ParticipantResource.class.getName();
     private static final TraceComponent TC = Tr.register(ParticipantResource.class);
 
-    private WSATParticipant participant;
+    private final WSATParticipant participant;
     private long timeoutMillis;
-    private long defaultTimeout;
 
     public ParticipantResource(WSATParticipant participant) {
-        defaultTimeout = AccessController.doPrivileged(new PrivilegedAction<Long>() {
-            @Override
-            public Long run() {
-                return Long.parseLong(System.getProperty(WebClient.ASYNC_TIMEOUT, WebClient.DEFAULT_ASYNC_TIMEOUT));
-            }
-        });
-        this.timeoutMillis = defaultTimeout;
+        this.timeoutMillis = WSATConfigServiceImpl.getInstance().getAsyncResponseTimeout();
         this.participant = participant;
     }
 
@@ -98,6 +92,7 @@ public class ParticipantResource implements XAResource {
      */
     @Override
     public void commit(Xid xid, boolean onePhase) throws XAException {
+        reroute(participant);
         WebClient webClient = WebClient.getWebClient(participant, participant.getCoordinator());
         try {
             participant.setState(WSATParticipantState.COMMIT);
@@ -110,9 +105,27 @@ public class ParticipantResource implements XAResource {
                 throw new XAException(XAException.XA_RBTIMEOUT);
             }
         } catch (WSATException e) {
-            throw new XAException(XAException.XA_RBROLLBACK);
+            XAException e1 = new XAException(XAException.XA_RBROLLBACK);
+            e1.initCause(e);
+            throw e1;
         } finally {
             participant.remove();
+        }
+    }
+
+    /**
+     * @param participant
+     */
+    private void reroute(WSATParticipant participant) {
+
+        EndpointReferenceType recoveryAddress = ParticipantFactoryService.getRecoveryAddress(participant.getGlobalId(), participant.getId());
+
+        if (recoveryAddress != null) {
+            if (TC.isDebugEnabled()) {
+                Tr.debug(TC, "Rerouting to: {0}", recoveryAddress.getAddress().getValue());
+            }
+
+            participant.init(recoveryAddress);
         }
     }
 
@@ -189,7 +202,7 @@ public class ParticipantResource implements XAResource {
     @Override
     public boolean setTransactionTimeout(int timeout) throws XAException {
         if (timeout == 0) {
-            timeoutMillis = defaultTimeout;
+            timeoutMillis = WSATConfigServiceImpl.getInstance().getAsyncResponseTimeout();;
         } else {
             timeoutMillis = timeout * 1000;
         }

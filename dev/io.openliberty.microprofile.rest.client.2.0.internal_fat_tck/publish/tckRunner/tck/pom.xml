@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- 
-    Copyright (c) 2020, 2021 IBM Corporation and others. All rights reserved.
+    Copyright (c) 2020, 2023 IBM Corporation and others. All rights reserved.
     This program and the accompanying materials are made available under the 
-    terms of the Eclipse Public License v1.0 which accompanies this distribution, 
+    terms of the Eclipse Public License 2.0 which accompanies this distribution, 
     and is available at 
-        http://www.eclipse.org/legal/epl-v10.html 
+        http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0 
     Contributors: 
         IBM Corporation - initial API and implementation
 -->
@@ -21,7 +23,7 @@
         <repository>
             <id>ibmdhe</id>
             <name>IBM_DHE File Server</name>
-            <url>http://public.dhe.ibm.com/ibmdl/export/pub/software/olrepo</url>
+            <url>https://public.dhe.ibm.com/ibmdl/export/pub/software/olrepo</url>
             <releases>
                 <enabled>true</enabled>
                 <updatePolicy>always</updatePolicy>
@@ -35,8 +37,11 @@
 -->
 
     <properties>
-        <microprofile.rest.client.version>2.0.1-RC1</microprofile.rest.client.version>
-        <arquillian.version>1.3.0.Final</arquillian.version>
+        <microprofile.rest.client.version>2.0.1-RC2</microprofile.rest.client.version>
+        <arquillian.version>1.7.0.Alpha13</arquillian.version>
+		<arquillian.liberty.managed.version>1.0.8</arquillian.liberty.managed.version>
+		<testng.version>7.5.1</testng.version>
+        <slf4j.version>2.0.6</slf4j.version>
 
         <!-- the below is used in arquillian.xml -->
         <wlp>${wlp}</wlp>
@@ -101,11 +106,11 @@
         </dependency>
 
         <dependency>
-            <groupId>com.ibm.ws.org.reactivestreams</groupId>
+            <groupId>com.ibm.websphere.org.reactivestreams</groupId>
             <artifactId>reactive-streams</artifactId>
             <version>${reactive.streams.version}</version>
             <scope>system</scope>
-            <systemPath>${com.ibm.ws.org.reactivestreams.reactive-streams.1.0_}</systemPath>
+            <systemPath>${com.ibm.websphere.org.reactivestreams.reactive-streams.1.0_}</systemPath>
         </dependency>
 
         <dependency>
@@ -181,11 +186,11 @@
         </dependency>
 
         <dependency>
-            <groupId>com.ibm.ws</groupId>
+            <groupId>com.ibm.websphere</groupId>
             <artifactId>org.reactivestreams.reactive-streams</artifactId>
             <version>1.0</version>
             <scope>system</scope>
-            <systemPath>${com.ibm.ws.org.reactivestreams.reactive-streams.1.0_}</systemPath>
+            <systemPath>${com.ibm.websphere.org.reactivestreams.reactive-streams.1.0_}</systemPath>
         </dependency>
 
         <dependency>
@@ -237,20 +242,33 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
-            <version>6.9.9</version>
+            <version>${testng.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
+            <version>${slf4j.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.jboss.arquillian.testng</groupId>
             <artifactId>arquillian-testng-container</artifactId>
-            <version>1.1.14.Final</version>
+            <version>${arquillian.version}</version>
         </dependency>
 
         <dependency>
             <groupId>io.openliberty.arquillian</groupId>
             <artifactId>arquillian-liberty-managed</artifactId>
-            <version>1.0.6</version>
+            <version>${arquillian.liberty.managed.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -366,9 +384,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.17</version>
+                <version>3.5.2</version>
                 <configuration>
-                    <argLine>-Xmx2048m -Dfile.encoding=${project.build.sourceEncoding} -Dcom.ibm.tools.attach.enable=yes</argLine> <!-- Needed for ZOS. sourceEncoding is needed becuase arquillian calls string.getBtytes(). Attach is needed becuase because arquillian uses com.sun.tools.attach to find VMs -->
+                    <!-- Fork configuration to improve z/OS stability -->
+                    <forkNode implementation="org.apache.maven.plugin.surefire.extensions.SurefireForkNodeFactory" />
+                    <argLine>-Xmx1024m -Dfile.encoding=${project.build.sourceEncoding} -Dcom.ibm.tools.attach.enable=yes</argLine> <!-- Needed for ZOS. sourceEncoding is needed becuase arquillian calls string.getBtytes(). Attach is needed becuase because arquillian uses com.sun.tools.attach to find VMs -->
                     <!-- <argLine>-Dwas.debug.mode=true -Dcom.ibm.websphere.ras.inject.at.transform=true -Dsun.reflect.noInflation=true -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=7777</argLine> -->
                     <systemPropertyVariables>
                         <wlp>${wlp}</wlp>

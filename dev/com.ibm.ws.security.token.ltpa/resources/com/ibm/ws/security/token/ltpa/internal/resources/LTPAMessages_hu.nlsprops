@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2011 IBM Corporation and others.
+# Copyright (c) 2011, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -46,12 +48,62 @@ LTPA_CONFIG_ERROR=CWWKS4106E: LTPA konfigur\u00e1ci\u00f3s hiba. Nem lehet l\u00
 LTPA_CONFIG_ERROR.explanation=Az LTPA kulcsokat nem lehet beolvasni vagy l\u00e9trehozni a megadott helyen.
 LTPA_CONFIG_ERROR.useraction=Gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy a hely a kiszolg\u00e1l\u00f3 feldolgoz sz\u00e1m\u00e1ra hozz\u00e1f\u00e9rhet\u0151. Az esetleges FFDC-k a kulcsok el\u0151\u00e1ll\u00edt\u00e1sa vagy bet\u00f6lt\u00e9se k\u00f6zben bek\u00f6vetkezett s\u00falyos hib\u00e1t jelezhetnek.
 
-LTPA_KEYS_TO_LOAD=CWWKS4107A: Az LTPA kulcsf\u00e1jl vagy konfigur\u00e1ci\u00f3 m\u00f3dos\u00edt\u00e1sra ker\u00fclt. Az LTPA kulcsok \u00fajrabet\u00f6lt\u00e9sre ker\u00fclnek a k\u00f6vetkez\u0151 f\u00e1jlb\u00f3l: {0}
-LTPA_KEYS_TO_LOAD.explanation=Az LTPA kulcsokat \u00fajra be kell t\u00f6lteni, mert az LTPA kulcsf\u00e1jl vagy a konfigur\u00e1ci\u00f3 m\u00f3dosult.
-LTPA_KEYS_TO_LOAD.useraction=Gondoskodj\u00e9k r\u00f3la, hogy az egypontos bejelentkez\u00e9sben r\u00e9szt vev\u0151 \u00f6sszes kiszolg\u00e1l\u00f3 ugyanazokat az LTPA kulcsokat \u00e9s jelsz\u00f3t haszn\u00e1lja.
+LTPA_KEYS_TO_LOAD=CWWKS4107A: Az LTPA konfigur\u00e1ci\u00f3 m\u00f3dos\u00edtva lett. A k\u00f6vetkez\u0151 f\u00e1jlok m\u00f3dosultak: {0}. Az LTPA konfigur\u00e1ci\u00f3ban minden LTPA kulcs \u00fajrat\u00f6lt\u00e9sre ker\u00fcl.
+LTPA_KEYS_TO_LOAD.explanation=Az LTPA kulcsf\u00e1jlokat \u00fajra be kell t\u00f6lteni az LTPA kulcsf\u00e1jlok vagy a konfigur\u00e1ci\u00f3 m\u00f3dos\u00edt\u00e1sa miatt.
+LTPA_KEYS_TO_LOAD.useraction=Gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy az egypontos bejelentkez\u00e9sben r\u00e9szt vev\u0151 \u00f6sszes kiszolg\u00e1l\u00f3 azonos LTPA kulcsokkal \u00e9s jelsz\u00f3val rendelkezik.
 
 LTPA_KEY_CREATE_ERROR=CWWKS4108E: A rendszer nem tudja l\u00e9trehozni az LTPA kulcsot.
 LTPA_KEY_CREATE_ERROR.explanation=Az LTPA kulcs nem hozhat\u00f3 l\u00e9tre.
 LTPA_KEY_CREATE_ERROR.useraction=Az esetleges FFDC-k a kulcsok el\u0151\u00e1ll\u00edt\u00e1sa sor\u00e1n bek\u00f6vetkezett s\u00falyos hib\u00e1t jelezhetnek.
 
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST=CWWKS4109W: A {1} LTPA \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsf\u00e1jl validUntilDate attrib\u00fatum\u00e1nak {0} \u00e9rt\u00e9ke a m\u00faltban tal\u00e1lhat\u00f3. Az LTPA \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsok nem haszn\u00e1lhat\u00f3k.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST.explanation=Az LTPA \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsok csak akkor ker\u00fclnek felhaszn\u00e1l\u00e1sra, ha a validUntila j\u00f6v\u0151ben van.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST.useraction=Friss\u00edtse a validUntilD\u00e1tum attrib\u00fatum \u00e9rt\u00e9k\u00e9t egy k\u00e9s\u0151bbi d\u00e1tumra, ha az LTPA kulcsokat kell haszn\u00e1lni. Ellenkez\u0151 esetben t\u00f6r\u00f6lje az LTPA kulcsf\u00e1jlt.
 
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT=CWWKS4110E: A {1} LTPA \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsf\u00e1jl validUntilDate attrib\u00fatum\u00e1nak {0} d\u00e1tuma \u00e9rv\u00e9nytelen d\u00e1tumform\u00e1tumot tartalmaz. Az LTPA \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsok nem haszn\u00e1lhat\u00f3k.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT.explanation=A validUntilD\u00e1tum attrib\u00fatum \u00e9rt\u00e9k\u00e9t az ISO d\u00e1tum, id\u0151 \u00e9s z\u00f3na form\u00e1tumban kell form\u00e1zni. A k\u00f6vetkez\u0151 p\u00e9lda az ISO d\u00e1tumform\u00e1tumot mutatja: "2023-11-18T18:08:35Z".
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT.useraction=Friss\u00edtse a validUntilD\u00e1tum attrib\u00fatum \u00e9rt\u00e9k\u00e9t az ISO d\u00e1tum, id\u0151 \u00e9s z\u00f3na form\u00e1tumra (p\u00e9ld\u00e1ul: '2023-11-18T18:08:35Z')
+
+LTPA_VALIDATION_KEYS_MISSING_ATTR=CWWKS4111E: A server.xml f\u00e1jlban megadott {0} LTPA validationKeys elemb\u0151l hi\u00e1nyzik a f\u00e1jln\u00e9v, a jelsz\u00f3 vagy mindkett\u0151: {1}.
+LTPA_VALIDATION_KEYS_MISSING_ATTR.explanation=Az LTPA validationKeys elem megk\u00f6veteli a f\u00e1jln\u00e9v \u00e9s jelsz\u00f3 attrib\u00fatumokat.
+LTPA_VALIDATION_KEYS_MISSING_ATTR.useraction=Adja hozz\u00e1 a hi\u00e1nyz\u00f3 attrib\u00fatumokat.
+
+LTPA_KEYS_FILE_DOES_NOT_EXIST=CWWKS4112E: A(z) {0} LTPA \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsf\u00e1jl nem l\u00e9tezik.
+LTPA_KEYS_FILE_DOES_NOT_EXIST.explanation=Az \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsf\u00e1jl nem l\u00e9tezik.
+LTPA_KEYS_FILE_DOES_NOT_EXIST.useraction=Gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy az \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsf\u00e1jl l\u00e9tezik a validationKeys elem \u00e1ltal megadott helyen.
+
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED=CWWKS4113W: Az LTPA updateTrigger attrib\u00fatum be van pol\u00edrozva, monitorValidationKeysDir true \u00e9rt\u00e9kre van be\u00e1ll\u00edtva, de a monitorInterval a {0}\u00e9rt\u00e9kre van be\u00e1ll\u00edtva. Az LTPA kulcsf\u00e1jlok m\u00f3dos\u00edt\u00e1sa eset\u00e9n nincs dinamikus \u00fajrabet\u00f6lt\u00e9s.
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED.explanation=A monitorInterval attrib\u00fatum \u00e9rt\u00e9ke nulla vagy null\u00e1n\u00e1l kisebb. A k\u00f6nyvt\u00e1r nem figyelhet\u0151 meg a .keys ut\u00f3taggal \u00e9s dinamikus \u00fajrabet\u00f6lt\u00e9ssel rendelkez\u0151 f\u00e1jlok m\u00f3dos\u00edt\u00e1saihoz.
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED.useraction=\u00c1ll\u00edtsa be a monitorInterval attrib\u00fatumot egy null\u00e1n\u00e1l nagyobb id\u0151k\u00f6zre.
+
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE=CWWKS4114W: A updateTrigger attrib\u00fatum le van tiltva, \u00e9s a monitorValidationKeysDir attrib\u00fatum \u00e9rt\u00e9ke true. Nincs dinamikus \u00fajrabet\u00f6lt\u00e9s, ha az LTPA kulcsf\u00e1jlok a k\u00f6nyvt\u00e1rban m\u00f3dosulnak.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE.explanation=Ha a updateTrigger attrib\u00fatum le van tiltva, akkor a k\u00f6nyvt\u00e1r nem ker\u00fcl megfigyel\u00e9sre a .keys ut\u00f3taggal \u00e9s dinamikus \u00fajrabet\u00f6lt\u00e9ssel rendelkez\u0151 f\u00e1jlok m\u00f3dos\u00edt\u00e1saihoz. M\u00e9g ha a monitorValidationKeysDir attrib\u00fatum true \u00e9rt\u00e9kre van be\u00e1ll\u00edtva, akkor az attrib\u00fatum figyelmen k\u00edv\u00fcl marad, \u00e9s a k\u00f6nyvt\u00e1r nem ker\u00fcl megfigyel\u00e9sre.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE.useraction=\u00c1ll\u00edtsa be az updateTrigger attrib\u00fatumot lek\u00e9rdez\u00e9sre vagy mbean \u00e9rt\u00e9kre.
+
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO=CWWKS4115W: A updateTrigger attrib\u00fatum le van tiltva, \u00e9s a megfigyel\u00e9si id\u0151k\u00f6z nagyobb, mint {0}. Az LTPA kulcsf\u00e1jlok m\u00f3dos\u00edt\u00e1sa eset\u00e9n nincs dinamikus \u00fajrabet\u00f6lt\u00e9s.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO.explanation=Ha a updateTrigger attrib\u00fatum le van tiltva, akkor a f\u00e1jlok nem ker\u00fclnek megfigyel\u00e9sre a .keys ut\u00f3taggal \u00e9s dinamikus \u00fajrabet\u00f6lt\u00e9ssel rendelkez\u0151 f\u00e1jlok m\u00f3dos\u00edt\u00e1saihoz. M\u00e9g akkor is, ha a monitorInterval attrib\u00fatum \u00e9rt\u00e9ke null\u00e1n\u00e1l nagyobb, az attrib\u00fatum figyelmen k\u00edv\u00fcl marad, \u00e9s a f\u00e1jlok nem ker\u00fclnek megfigyel\u00e9sre.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO.useraction=\u00c1ll\u00edtsa be az updateTrigger attrib\u00fatumot lek\u00e9rdez\u00e9sre vagy mbean \u00e9rt\u00e9kre.
+
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE=CWWKS4116W: A {0} \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsokat FIPS 140-3 tan\u00fas\u00edtv\u00e1nnyal rendelkez\u0151 kriptogr\u00e1fiai algoritmusok seg\u00edts\u00e9g\u00e9vel kell \u00fajrateremteni.
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE.explanation=A FIPS 140-3 enged\u00e9lyez\u00e9se n\u00e9lk\u00fcl l\u00e9trehozott LTPA \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsok nem m\u0171k\u00f6dnek, ha a FIPS 140-3 enged\u00e9lyezve van.
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE.useraction=A securityUtility createLTPAKeys paranccsal hozhatja l\u00e9tre a FIPS 140-3 konfigur\u00e1l\u00e1sa eset\u00e9n a FIPS \u00e1ltal j\u00f3v\u00e1hagyott \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsokat.
+
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE=CWWKS4117W: A {0} \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsokat olyan kriptogr\u00e1fiai algoritmusokkal kell \u00fajrateremteni, amelyek nem rendelkeznek FIPS 140-3 tan\u00fas\u00edtv\u00e1nnyal.
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE.explanation=A FIPS 140-3 enged\u00e9lyez\u00e9s\u00e9vel l\u00e9trehozott LTPA \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsok nem m\u0171k\u00f6dnek, ha a FIPS 140-3 ki van kapcsolva.
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE.useraction=A securityUtility createLTPAKeys paranccsal hozhatja l\u00e9tre a nem FIPS \u00e1ltal j\u00f3v\u00e1hagyott \u00e9rv\u00e9nyes\u00edt\u00e9si kulcsokat, ha a FIPS 140-3 ki van kapcsolva.
+
+LTPA_KEYS_PASSWORD_ERROR=CWWKS4118E: LTPA konfigur\u00e1ci\u00f3s hiba. Az ` keysPassword ` attrib\u00fatum nincs be\u00e1ll\u00edtva az <ltpa /> `element` elemen, az `ltpa_keys_password` k\u00f6rnyezeti v\u00e1ltoz\u00f3 nincs be\u00e1ll\u00edtva, \u00e9s a `keystore_password` k\u00f6rnyezeti v\u00e1ltoz\u00f3 sincs be\u00e1ll\u00edtva.
+LTPA_KEYS_PASSWORD_ERROR.explanation=Az LTPA-konfigur\u00e1ci\u00f3hoz jelsz\u00f3 sz\u00fcks\u00e9ges az LTPA-kulcsok t\u00e1rol\u00e1s\u00e1hoz \u00e9s olvas\u00e1s\u00e1hoz.
+LTPA_KEYS_PASSWORD_ERROR.useraction=\u00c1ll\u00edtsa be az ` keysPassword ` attrib\u00fatumot az <ltpa /> `element` elemben, vagy adja meg a jelsz\u00f3t az `ltpa_keys_password` vagy a `keystore_password` k\u00f6rnyezeti v\u00e1ltoz\u00f3k be\u00e1ll\u00edt\u00e1s\u00e1val.
+
+LTPA_KEYS_REENCRYPT=CWWKS4119I: Az {0} LTPA-kulcsok \u00fajratitkos\u00edt\u00e1s\u00e1ra a \u201ekeystore_password\u201d k\u00f6rnyezeti v\u00e1ltoz\u00f3 haszn\u00e1lat\u00e1val ker\u00fcl sor.
+LTPA_KEYS_REENCRYPT.explanation=Az LTPA-kulcsokat a \u201ekeystore_password\u201d haszn\u00e1lat\u00e1val \u00fajratitkos\u00edtj\u00e1k, mivel a biztons\u00e1g n\u00f6vel\u00e9se \u00e9rdek\u00e9ben elt\u00e1vol\u00edtott\u00e1k az LTPA \u201e keysPassword \u201d attrib\u00fatum alap\u00e9rtelmezett \u00e9rt\u00e9k\u00e9t.
+LTPA_KEYS_REENCRYPT.useraction=Nincs teend\u0151.
+
+LTPA_KEYS_REENCRYPT_SUCCESS=CWWKS4120I: A \u201ekeystore_password\u201d k\u00f6rnyezeti v\u00e1ltoz\u00f3 haszn\u00e1lat\u00e1val sikeresen \u00fajratitkos\u00edtottam az {0} LTPA-kulcsait.
+LTPA_KEYS_REENCRYPT_SUCCESS.explanation=Az LTPA-kulcsokat a \u201ekeystore_password\u201d k\u00f6rnyezeti v\u00e1ltoz\u00f3 felhaszn\u00e1l\u00e1s\u00e1val \u00fajra titkos\u00edtj\u00e1k.
+LTPA_KEYS_REENCRYPT_SUCCESS.useraction=Ha egy k\u00f6z\u00f6s helysz\u00ednen l\u00e9v\u0151 szerverek k\u00f6z\u00f6tt osztja meg az LTPA-kulcsokat, akkor a t\u00f6bbi szervert is friss\u00edteni kell, hogy azok tov\u00e1bbra is el tudj\u00e1k olvasni ezeket az LTPA-kulcsokat. \u00c1ll\u00edtsa be a megfelel\u0151 <ltpa /> elem \u201e keysPassword \u201d attrib\u00fatum\u00e1t, illetve a megfelel\u0151 <validationKeys /> elem \u201epassword\u201d attrib\u00fatum\u00e1t a szerver \u201ekeystore_password\u201d k\u00f6rnyezeti v\u00e1ltoz\u00f3j\u00e1nak \u00e9rt\u00e9k\u00e9re. A \u201ekeystore_password\u201d k\u00f6rnyezeti v\u00e1ltoz\u00f3t \u00e1ltal\u00e1ban az ` server.env ` f\u00e1jlban hat\u00e1rozz\u00e1k meg.
+
+LTPA_KEYS_REENCRYPT_ERROR=CWWKS4121E: Az {0} LTPA-kulcsok \u00fajratitkos\u00edt\u00e1sa nem siker\u00fclt. Kiv\u00e9tel: {1}
+LTPA_KEYS_REENCRYPT_ERROR.explanation=Az LTPA-kulcsokat nem lehetett \u00fajra titkos\u00edtani. Tov\u00e1bbi inform\u00e1ci\u00f3k\u00e9rt tekintse meg az \u00fczenetben szerepl\u0151 kiv\u00e9telt.
+LTPA_KEYS_REENCRYPT_ERROR.useraction=Gy\u0151z\u0151dj\u00f6n meg arr\u00f3l, hogy az LTPA-kulcsf\u00e1jl \u00e9s a hozz\u00e1 tartoz\u00f3 k\u00f6nyvt\u00e1r nem csak olvashat\u00f3. Ha az LTPA kulcsf\u00e1jl \u00e9s a hozz\u00e1 tartoz\u00f3 k\u00f6nyvt\u00e1r nem csak olvashat\u00f3, akkor tov\u00e1bbi inform\u00e1ci\u00f3k\u00e9rt olvassa el az \u00fczenetben szerepl\u0151 kiv\u00e9telt.

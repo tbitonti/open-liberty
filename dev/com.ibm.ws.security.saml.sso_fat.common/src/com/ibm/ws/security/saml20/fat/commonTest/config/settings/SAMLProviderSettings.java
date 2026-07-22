@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,6 +17,7 @@ import java.util.Map;
 
 import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.security.fat.common.config.settings.BaseConfigSettings;
+import com.ibm.ws.common.crypto.CryptoUtils;
 
 public class SAMLProviderSettings extends BaseConfigSettings {
 
@@ -103,7 +106,7 @@ public class SAMLProviderSettings extends BaseConfigSettings {
     protected String id = "sp1";
     protected String inboundPropagation = null;
     protected String wantAssertionsSigned = null;
-    protected String signatureMethodAlgorithm = "SHA1";
+    protected String signatureMethodAlgorithm = CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA1;
     protected String createSession = null;
     protected String authnRequestsSigned = null;
     protected String forceAuthn = null;

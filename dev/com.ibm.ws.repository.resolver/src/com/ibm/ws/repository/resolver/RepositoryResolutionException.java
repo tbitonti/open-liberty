@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2019 IBM Corporation and others.
+ * Copyright (c) 2014, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,6 +17,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.osgi.service.resolver.ResolutionException;
 
@@ -38,6 +41,9 @@ public class RepositoryResolutionException extends RepositoryException {
     private final Collection<ProductRequirementInformation> missingProductInformation;
     private final Collection<MissingRequirement> allRequirementsResourcesNotFound;
     private final Map<String, Collection<Chain>> featureConflicts;
+    private Set<String> resolvedPlatforms;
+    private Set<String> missingPlatforms;
+    private Map<String, Set<String>> missingBasePlatforms;
 
     /**
      * @param cause
@@ -45,6 +51,7 @@ public class RepositoryResolutionException extends RepositoryException {
      * @param allRequirementsNotFound
      * @param missingProductInformation        all the product information requirements that could not be found. Can be empty but must not be <code>null</code>
      * @param allRequirementsResourcesNotFound The {@link MissingRequirement} objects that were not found. Must not be <code>null</code>.
+     * @param featureConflicts                 the details of any feature conflicts which occurred during feature resolution, as returned from {@link Result#getConflicts()}
      */
     public RepositoryResolutionException(ResolutionException cause, Collection<String> topLevelFeaturesNotResolved, Collection<String> allRequirementsNotFound,
                                          Collection<ProductRequirementInformation> missingProductInformation, Collection<MissingRequirement> allRequirementsResourcesNotFound,
@@ -58,9 +65,36 @@ public class RepositoryResolutionException extends RepositoryException {
     }
 
     /**
+     * @param object
+     * @param missingTopLevelRequirements
+     * @param missingRequirementNames
+     * @param missingProductInformation        all the product information requirements that could not be found. Can be empty but must not be <code>null</code>
+     * @param allRequirementsResourcesNotFound The {@link MissingRequirement} objects that were not found. Must not be <code>null</code>.
+     * @param featureConflicts                 the details of any feature conflicts which occurred during feature resolution, as returned from {@link Result#getConflicts()}
+     * @param resolvedPlatforms
+     * @param missingPlatforms                 Unknown platform names
+     * @param missingBasePlatforms             unresolved versionless features needing platforms defined
+     */
+    public RepositoryResolutionException(ResolutionException cause, Collection<String> topLevelFeaturesNotResolved, Collection<String> allRequirementsNotFound,
+                                         Collection<ProductRequirementInformation> missingProductInformation, Collection<MissingRequirement> allRequirementsResourcesNotFound,
+                                         Map<String, Collection<Chain>> featureConflicts, Set<String> resolvedPlatforms, Set<String> missingPlatforms,
+                                         Map<String, Set<String>> missingBasePlatforms) {
+        super(cause);
+        this.topLevelFeaturesNotResolved = topLevelFeaturesNotResolved;
+        this.allRequirementsNotFound = allRequirementsNotFound;
+        this.missingProductInformation = missingProductInformation;
+        this.allRequirementsResourcesNotFound = allRequirementsResourcesNotFound;
+        this.featureConflicts = featureConflicts;
+        this.resolvedPlatforms = resolvedPlatforms;
+        this.missingPlatforms = missingPlatforms;
+        this.missingBasePlatforms = missingBasePlatforms;
+
+    }
+
+    /**
      * Returns a collection of top level feature names that were not resolved.
      *
-     * @return
+     * @return the feature names which were not resolved
      */
     public Collection<String> getTopLevelFeaturesNotResolved() {
         return topLevelFeaturesNotResolved;
@@ -69,7 +103,7 @@ public class RepositoryResolutionException extends RepositoryException {
     /**
      * Returns a collection of requirements that were not found during the resolution process.
      *
-     * @return
+     * @return the requirements which were not found
      * @deprecated use {@link #getAllRequirementsResourcesNotFound()} instead as this includes information about the resource that is held the requirement
      */
     @Deprecated
@@ -151,7 +185,7 @@ public class RepositoryResolutionException extends RepositoryException {
      * @param productId The product ID to find the version for or <code>null</code> to match to all products
      * @param edition   The edition to find the version for or <code>null</code> to match to all editions
      *
-     * @return
+     * @return the version ranges which apply to the given product ID and edition
      */
     private Collection<LibertyVersionRange> filterVersionRanges(String productId, String edition) {
         Collection<LibertyVersionRange> filteredRanges = new HashSet<LibertyVersionRange>();
@@ -248,6 +282,7 @@ public class RepositoryResolutionException extends RepositoryException {
     @Override
     public String getMessage() {
         StringBuilder sb = new StringBuilder();
+
         for (String missing : getTopLevelFeaturesNotResolved()) {
             sb.append("Top level feature not resolved: resource=").append(missing).append("\n");
         }
@@ -324,6 +359,34 @@ public class RepositoryResolutionException extends RepositoryException {
                     return resource.toString();
             }
         }
+    }
+
+    /**
+     * This states the target platforms that were used during the resolution
+     *
+     * @return the resolvedPlatforms
+     */
+    public Set<String> getResolvedPlatforms() {
+        return resolvedPlatforms;
+    }
+
+    /**
+     * This describes missspelled or unknown platform names, official names are collected by the feature metadata
+     *
+     * @return the missingPlatforms
+     */
+    public Set<String> getMissingPlatforms() {
+        return missingPlatforms;
+    }
+
+    /**
+     * This describes a Map of base platforms like "jakartaee" (associated with versionless features) that are not derived, either by passed platform values, or by other included
+     * versioned features
+     *
+     * @return the missingBasePlatforms
+     */
+    public Map<String, Set<String>> getMissingBasePlatforms() {
+        return missingBasePlatforms;
     }
 
 }

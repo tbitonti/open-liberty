@@ -1,10 +1,13 @@
 @echo off
 @REM WebSphere Application Server liberty launch script
 @REM
-@REM Copyright IBM Corp. 2011, 2021
-@REM The source code for this program is not published or other-
-@REM wise divested of its trade secrets, irrespective of what has
-@REM been deposited with the U.S. Copyright Office.
+@REM Copyright (c) 2011, 2026 IBM Corporation and others.
+@REM All rights reserved. This program and the accompanying materials
+@REM are made available under the terms of the Eclipse Public License 2.0
+@REM which accompanies this distribution, and is available at
+@REM http://www.eclipse.org/legal/epl-2.0/
+@REM 
+@REM SPDX-License-Identifier: EPL-2.0
 @REM 
 @REM ----------------------------------------------------------------------------
 @REM
@@ -52,6 +55,20 @@
 @REM              to y to allow remote debugging. By default, this value is not
 @REM              defined, which does not allow remote debugging on newer JDK/JREs.
 @REM
+@REM WINDOWS_SERVICE_START_TIMEOUT - Use when liberty is registered as a Windows
+@REM              service.  The value specifies the number of seconds the script 
+@REM              waits for the service to start before continuing. Default is 30.
+@REM
+@REM WINDOWS_SERVICE_STOP_TIMEOUT - Use when liberty is registered as a Windows
+@REM              service.  The value specifies the number of seconds the script 
+@REM              waits for the service to stop before continuing.  Default is 30.
+@REM
+@REM SERVER_WORKING_DIR - The directory containing output files from the JVM.  For 
+@REM              example the javadump files.  The default value is the location
+@REM              ${WLP_OUTPUT_DIR}/serverName. If set with an absolute path 
+@REM              (ex, C:\logs), that location will be utilized, else if a relative 
+@REM              path (ex, logs) is set it will be relative to the default 
+@REM              location.
 @REM ----------------------------------------------------------------------------
 
 setlocal enabledelayedexpansion
@@ -86,7 +103,13 @@ if defined LOG_DIR set LOG_DIR=!LOG_DIR:"=!
 if defined LOG_FILE set LOG_FILE=!LOG_FILE:"=!
 if defined WLP_USER_DIR set WLP_USER_DIR=!WLP_USER_DIR:"=!
 if defined WLP_OUTPUT_DIR set WLP_OUTPUT_DIR=!WLP_OUTPUT_DIR:"=!
+if defined SERVER_WORKING_DIR set SERVER_WORKING_DIR=!SERVER_WORKING_DIR:"=!
 if defined WLP_DEBUG_ADDRESS set WLP_DEBUG_ADDRESS=!WLP_DEBUG_ADDRESS:"=!
+if defined WINDOWS_SERVICE_START_TIMEOUT set WINDOWS_SERVICE_START_TIMEOUT=!WINDOWS_SERVICE_START_TIMEOUT:"=!
+if defined WINDOWS_SERVICE_STOP_TIMEOUT set WINDOWS_SERVICE_STOP_TIMEOUT=!WINDOWS_SERVICE_STOP_TIMEOUT:"=!
+
+if NOT defined WINDOWS_SERVICE_START_TIMEOUT set WINDOWS_SERVICE_START_TIMEOUT=30
+if NOT defined WINDOWS_SERVICE_STOP_TIMEOUT set WINDOWS_SERVICE_STOP_TIMEOUT=30
 
 @REM Consume script parameters
 
@@ -195,7 +218,7 @@ goto:eof
 goto:eof
 
 :version
-  call:installEnv
+  call:serverEnv
   !JAVA_CMD_QUOTED! !JAVA_PARAMS_QUOTED! --version
   set RC=%errorlevel%
   call:javaCmdResult
@@ -252,6 +275,10 @@ goto:eof
   set SAVE_OPENJ9_JAVA_OPTIONS=!OPENJ9_JAVA_OPTIONS!
   set IBM_JAVA_OPTIONS=!SERVER_IBM_JAVA_OPTIONS!
   set OPENJ9_JAVA_OPTIONS=!SERVER_IBM_JAVA_OPTIONS!
+
+  call:checkForVerboseGC
+  call:enableFIPS140_3
+
   !JAVA_CMD_QUOTED! !JAVA_AGENT_QUOTED! !JVM_OPTIONS! !JAVA_PARAMS_QUOTED! --batch-file !PARAMS_QUOTED!
   set RC=%errorlevel%
   set IBM_JAVA_OPTIONS=!SAVE_IBM_JAVA_OPTIONS!
@@ -270,6 +297,10 @@ goto:eof
   set IBM_JAVA_OPTIONS=!SERVER_IBM_JAVA_OPTIONS!
   set SAVE_OPENJ9_JAVA_OPTIONS=!OPENJ9_JAVA_OPTIONS!
   set OPENJ9_JAVA_OPTIONS=!SERVER_IBM_JAVA_OPTIONS!
+
+  call:checkForVerboseGC
+  call:enableFIPS140_3
+
   !JAVA_CMD_QUOTED! !JAVA_AGENT_QUOTED! !JVM_OPTIONS! !JAVA_PARAMS_QUOTED! --batch-file !PARAMS_QUOTED!
   set RC=%errorlevel%
   set IBM_JAVA_OPTIONS=!SAVE_IBM_JAVA_OPTIONS!
@@ -317,6 +348,9 @@ goto:eof
     set IBM_JAVA_OPTIONS=!SERVER_IBM_JAVA_OPTIONS!
     set SAVE_OPENJ9_JAVA_OPTIONS=!OPENJ9_JAVA_OPTIONS!
     set OPENJ9_JAVA_OPTIONS=!SERVER_IBM_JAVA_OPTIONS!
+	
+    call:checkForVerboseGC
+    call:enableFIPS140_3
 
     @REM Use javaw so command windows can be closed.
     start /min /b "" !JAVA_CMD_QUOTED!w !JAVA_AGENT_QUOTED! !JVM_OPTIONS! !JAVA_PARAMS_QUOTED! --batch-file !PARAMS_QUOTED! >> "%X_LOG_DIR%\%X_LOG_FILE%" 2>&1
@@ -378,7 +412,38 @@ goto:eof
   call:serverEnv
   call:serverExists true
   if %RC% == 2 goto:eof
-  "!WLP_INSTALL_DIR!\bin\tools\win\prunsrv.exe"  //IS//%SERVER_NAME% --Startup=manual --DisplayName="%SERVER_NAME%" --Description="Open Liberty" ++DependsOn=Tcpip --LogPath="!WLP_OUTPUT_DIR!\%SERVER_NAME%\logs" --StdOutput=auto --StdError=auto --StartMode=exe --StartPath="%WLP_INSTALL_DIR%" --StartImage="%WLP_INSTALL_DIR%\bin\server.bat" ++StartParams=start#%SERVER_NAME% --StopMode=exe --StopPath="%WLP_INSTALL_DIR%" --StopImage="%WLP_INSTALL_DIR%\bin\server.bat" ++StopParams=stop#%SERVER_NAME% --ServiceUser=LocalSystem                                                                                                                          
+  if not exist "!WLP_OUTPUT_DIR!\%SERVER_NAME%\logs" (
+     mkdir "!WLP_OUTPUT_DIR!\%SERVER_NAME%\logs"
+  )
+  @REM Register Windows Service using Apache Commons Daemon (prunsrv)
+  @REM Updates registry at: Computer\HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Apache Software Foundation\Procrun 2.0\%SERVER_NAME%\Parameters
+  @REM
+  @REM Start Configuration:
+  @REM   --StartImage: Directly invokes server.bat
+  @REM   ++StartParams: Passes "start <servername>" to server.bat
+  @REM   Note: prunsrv //ES// (start) is ASYNCHRONOUS - returns without waiting for the server to start.
+  @REM         The startWinService subroutine polls for WINDOWS_SERVICE_START_TIMEOUT seconds after prunsrv returns.
+  @REM.        LIMITATION: Since prunsrv is asynchronous (returns almost immediately), the server might not be started when 
+  @REM.                 prunsrv command returns. Windows Services interface (services.msc) always reports that it is started.  
+  @REM                  If server start was invoked from Windows Services, server.bat runs in the background and waits for the
+  @REM                  server to start.  It waits for a hard-coded 30 seconds - not WINDOWS_SERVICE_START_TIMEOUT seconds, but 
+  @REM                  whether it waits the correct amount of time doesn't matter.  The output is not visible and the return 
+  @REM                  value is not checked.  This is a limitation of running prunsrv in exe mode, which is what we have to do
+  @REM                  in order to launch server.bat.               
+  @REM
+  @REM Stop Configuration:
+  @REM   --StopImage: Directly invokes server.bat
+  @REM   ++StopParams: Passes "stop <servername> --timeout <seconds>" to server.bat
+  @REM                 --timeout: Passed to Java process to control how long Java client waits for stop confirmation
+  @REM   --StopTimeout: Maximum seconds prunsrv waits for stop command to complete (should match the --timeout value)
+  @REM         Note: prunsrv //SS// (stop) is SYNCHRONOUS (because we added --StopTimeout option). Prunsrv waits up to 
+  @REM               StopTimeout seconds for server to stop
+  @REM
+  @REM IMPORTANT: Stop timeout value is resolved at registration time, not at runtime.
+  @REM            To change the stop timeout, you must unregister and re-register the service.
+  @REM            Modifying WINDOWS_SERVICE_STOP_TIMEOUT in server.env after registration does not affect the timeout.
+  @REM            WINDOWS_SERVICE_START_TIMEOUT is not used by Windows Services.  It is only used by the startWinService command.
+  "!WLP_INSTALL_DIR!\bin\tools\win\prunsrv.exe"  //IS//%SERVER_NAME% --Startup=manual --DisplayName="%SERVER_NAME%" --Description="Open Liberty" ++DependsOn=Tcpip --LogPath="!WLP_OUTPUT_DIR!\%SERVER_NAME%\logs" --StdOutput=auto --StdError=auto --StartMode=exe --StartPath="%WLP_INSTALL_DIR%\bin" --StartImage="%WLP_INSTALL_DIR%\bin\server.bat" ++StartParams=start#%SERVER_NAME% --StopMode=exe --StopPath="%WLP_INSTALL_DIR%\bin" --StopImage="%WLP_INSTALL_DIR%\bin\server.bat" ++StopParams=stop#%SERVER_NAME%#--timeout=%WINDOWS_SERVICE_STOP_TIMEOUT% --StopTimeout=%WINDOWS_SERVICE_STOP_TIMEOUT% --ServiceUser=LocalSystem
   set RC=!errorlevel!
 goto:eof
 
@@ -400,18 +465,46 @@ goto:eof
   ) else (
      "!WLP_INSTALL_DIR!\bin\tools\win\prunsrv.exe" //ES//%SERVER_NAME%
      set RC=!errorlevel!
-     call:serverRunning
+
+     @REM  Wait up to WINDOWS_SERVICE_START_TIMEOUT seconds for server status to be "running"
+     call:serverRunning !WINDOWS_SERVICE_START_TIMEOUT! 0
      call:javaCmdResult
-  )   
+  )
 goto:eof
 
 :stopWinService
   if NOT "%OS%" == "Windows_NT" goto:eof
   call:serverEnv
+  
+  @REM KNOWN LIMITATION:
+  @REM If the server is stopped immediately after starting (within ~1-2 seconds - an unlikely scenario), 
+  @REM there is a race condition in the Liberty kernel's FeatureManager that can cause the stop to
+  @REM timeout. This occurs because the stop is requested while features are still being
+  @REM activated, leading to lock contention in FeatureManager.deactivate(). The server
+  @REM will eventually stop successfully after the timeout period.
+  @REM This mainly occurs because Windows Services interface reports the service started before it actually starts.
+  
   call:serverExists true
   if %RC% == 2 goto:eof
+  
+  @REM prunsrv calls the "server stop --timeout %WINDOWS_SERVICE_START_TIMEOUT% command".  See "registerWinService" subroutine.
   "!WLP_INSTALL_DIR!\bin\tools\win\prunsrv.exe" //SS//%SERVER_NAME%
-  set RC=!errorlevel!
+
+  @REM The prunsrv call is synchronous.
+  @REM Check the final server status.
+  @REM RC=0 indicates the server is running (stop failed).
+  @REM RC=1 indicates the server is stopped (stop succeeded).
+  call:serverRunning 0 1
+
+  @REM Flip the return code to standard exit code convention:
+  @REM   RC=1 (stopped) --> RC=0 (success)
+  @REM   RC=0 (still running) --> RC=1 (failure)
+  if !RC! EQU 1 (
+     set RC=0
+  ) else (
+     set RC=1
+  )
+  
 goto:eof
 
 :unregisterWinService
@@ -489,26 +582,73 @@ goto:eof
   )
 
   @REM Unset these variables to prevent collisions with nested process invocations
-  set LOG_DIR=
+  @REM set LOG_DIR=
   set LOG_FILE=
 
+  @REM Return if JAVA_HOME already processed 
+  if defined JAVA_HOME_PROCESSED goto:eof
+  set JAVA_HOME_PROCESSED=1
+
   if NOT defined JAVA_HOME (
-    if NOT defined JRE_HOME (
-      if NOT defined WLP_DEFAULT_JAVA_HOME (
-        @REM Use whatever java is on the path
-        set JAVA_CMD_QUOTED="java"
-      ) else (
+    if defined JRE_HOME (
+      set JAVA_HOME=!JRE_HOME!
+      set JAVA_CMD_QUOTED="!JAVA_HOME!\bin\java"
+    ) else (
+      if defined WLP_DEFAULT_JAVA_HOME (
         if "!WLP_DEFAULT_JAVA_HOME:~0,17!" == "@WLP_INSTALL_DIR@" (
           set WLP_DEFAULT_JAVA_HOME=!WLP_INSTALL_DIR!!WLP_DEFAULT_JAVA_HOME:~17!
         )
-        set JAVA_CMD_QUOTED="!WLP_DEFAULT_JAVA_HOME!\bin\java"
+        set JAVA_HOME=!WLP_DEFAULT_JAVA_HOME!
+        set JAVA_CMD_QUOTED="!JAVA_HOME!\bin\java"
+      ) else (
+        @REM Use whatever java is on the path
+        set JAVA_CMD_QUOTED="java"
       )
-    ) else (
-      set JAVA_CMD_QUOTED="%JRE_HOME%\bin\java"
     )
   ) else (
-    if exist "%JAVA_HOME%\jre\bin\java.exe" set JAVA_HOME=!JAVA_HOME!\jre
+    @REM For older JDKs with separate JRE directory, adjust JAVA_HOME to point to JRE
+    @REM Only append \jre if JAVA_HOME doesn't already end with "jre"
+    for %%i in ("!JAVA_HOME!") do set JAVA_PARENT_NAME=%%~nxi
+    if /I NOT "!JAVA_PARENT_NAME!"=="jre" (
+      if exist "!JAVA_HOME!\jre\bin\java.exe" (
+        set JAVA_HOME=!JAVA_HOME!\jre
+      )
+    )
     set JAVA_CMD_QUOTED="!JAVA_HOME!\bin\java"
+  )
+
+  @REM If JAVA_HOME is still not set, attempt to detect it from the java command in PATH
+  if NOT defined JAVA_HOME (
+    @REM Try to find java.exe in PATH and derive JAVA_HOME from it
+    for %%i in (java.exe) do set JAVA_PATH=%%~$PATH:i
+    if defined JAVA_PATH (
+      @REM Get the directory containing java.exe
+      for %%i in ("!JAVA_PATH!") do set JAVA_BIN_DIR=%%~dpi
+      @REM Remove trailing backslash
+      set JAVA_BIN_DIR=!JAVA_BIN_DIR:~0,-1!
+      @REM Get parent directory (should be JAVA_HOME or JAVA_HOME\jre)
+      for %%i in ("!JAVA_BIN_DIR!") do set JAVA_HOME=%%~dpi
+      @REM Remove trailing backslash
+      set JAVA_HOME=!JAVA_HOME:~0,-1!
+      @REM Check if we're in a jre subdirectory and adjust if needed
+      for %%i in ("!JAVA_HOME!") do set JAVA_PARENT_NAME=%%~nxi
+      if /I "!JAVA_PARENT_NAME!" == "jre" (
+        @REM We're in JAVA_HOME\jre\bin, go up one more level
+        for %%i in ("!JAVA_HOME!") do set JAVA_HOME=%%~dpi
+        set JAVA_HOME=!JAVA_HOME:~0,-1!
+      )
+      @REM Validate that JAVA_HOME looks reasonable (has lib directory or release file)
+      if NOT exist "!JAVA_HOME!\lib" (
+        if NOT exist "!JAVA_HOME!\release" (
+          @REM Not a valid JAVA_HOME, unset it
+          set JAVA_HOME=
+        ) else (
+          set JAVA_CMD_QUOTED="!JAVA_HOME!\bin\java"
+        )
+      ) else (
+        set JAVA_CMD_QUOTED="!JAVA_HOME!\bin\java"
+      )
+    )
   )
 
   @REM Use OPENJ9_JAVA_OPTIONS if defined, otherwise use IBM_JAVA_OPTIONS
@@ -535,9 +675,9 @@ goto:eof
     if "!ADD_SHARE_CLASSES!" == "true" (
       @REM Set -Xscmx
       if "debug" == "%ACTION%" (
-        set XSCMX_VAL="130m"
+        set XSCMX_VAL="165m"
       ) else (
-        set XSCMX_VAL="80m"
+        set XSCMX_VAL="125m"
       )
       set SERVER_IBM_JAVA_OPTIONS=-Xshareclasses:name=liberty-%%u,nonfatal,cacheDir="%WLP_OUTPUT_DIR%\.classCache" -XX:ShareClassesEnableBCI -Xscmx!XSCMX_VAL! !SPECIFIED_JAVA_OPTIONS!
     ) else (
@@ -546,6 +686,9 @@ goto:eof
   ) else (
     set SERVER_IBM_JAVA_OPTIONS=!SPECIFIED_JAVA_OPTIONS!
   )
+
+  @REM Add JDK property to improve encryption performance for password utilities
+  set SERVER_IBM_JAVA_OPTIONS=-Djdk.nativePBKDF2=true !SERVER_IBM_JAVA_OPTIONS!
 
   @REM Add -Xquickstart -Xshareclasses:none for client JVMs only.  We don't want 
   @REM shared classes cache created for client operations.
@@ -560,7 +703,7 @@ goto:eof
   call:readServerEnv "%WLP_INSTALL_DIR%\etc\server.env"
   call:installEnvDefaults
 
-  call:readServerEnv "%WLP_USER_DIR%/shared/server.env"
+  call:readServerEnv "%WLP_USER_DIR%\shared\server.env"
   call:readServerEnv "%SERVER_CONFIG_DIR%\server.env"
   call:serverEnvDefaults
 goto:eof
@@ -610,9 +753,34 @@ goto:eof
     call:mergeJVMOptions "%WLP_INSTALL_DIR%\etc\jvm.options"
   )
   
-  @REM If we are running on Java 9, apply Liberty's built-in java 9 options
+  @REM If we are running on Java 9 or higher, apply one of Liberty's built-in java options files
   if exist "%JAVA_HOME%\lib\modules" (
-    call:mergeJVMOptions "%WLP_INSTALL_DIR%\lib\platform\java\java9.options"
+    @REM If there is a 'release' file under JAVA_HOME, examine it to see if JAVA_VERSION is set.  If so, determine which version of Java we will be using
+    if exist "%JAVA_HOME%\release" (
+      for /f "usebackq eol=# delims== tokens=1,*" %%i in ("%JAVA_HOME%\release") do (
+        if "%%i" == "JAVA_VERSION" (
+          for /f "tokens=1,2 delims=." %%a in ("%%~j") do (
+            if %%a GTR 1 (
+              set JAVA_VERSION_MAJOR=%%a
+            ) else (
+              set JAVA_VERSION_MAJOR=%%b
+            )
+          )
+        )
+      )
+    )
+
+    @REM If JAVA_VERSION_MAJOR was determined, then use it to decide which Java options file to use
+    @REM if JAVA_VERSION_MAJOR was not determined, default to java9.options
+    if "!JAVA_VERSION_MAJOR!"=="" (
+      call:mergeJVMOptions "%WLP_INSTALL_DIR%\lib\platform\java\java9.options"
+    ) else (
+      if !JAVA_VERSION_MAJOR! GEQ 24 (
+        call:mergeJVMOptions "%WLP_INSTALL_DIR%\lib\platform\java\java24.options"
+      ) else (
+        call:mergeJVMOptions "%WLP_INSTALL_DIR%\lib\platform\java\java9.options"
+      )
+    )
   )
 
   @REM Filter off all of the -D and -X arguments off of !PARAMS_QUOTED! and
@@ -673,12 +841,104 @@ goto:eof
   )
 goto:eof
 
+@REM Check for any verbose:gc variable set by user
+@REM By default we set this to be true unless user specifies otherwise
+@REM if not jvmargs, javaoptions, jvmoptionsquoted contains verbose:gc, verbosegc, etc ( set SERVER_IBM_JAVA_OPTIONS=%SERVER_IBM_JAVA_OPTIONS% -Xverbosegclog:verbosegc.%seq.log,10,1024)
+:checkForVerboseGC
+    set TEMPJVMOPTIONS=!JVM_OPTIONS:"=!
+   
+    if not "!TEMPJVMOPTIONS:verbosegc=!"=="!TEMPJVMOPTIONS!" (
+      goto:eof
+    ) else if not "x!TEMPJVMOPTIONS:verbose:gc=!"=="x!TEMPJVMOPTIONS!" (
+      goto:eof
+    ) else if "!VERBOSEGC!"=="false" (
+      goto:eof
+    )
+
+    set OPENJ9_JAVA_OPTIONS="-Xverbosegclog:!X_LOG_DIR!\verbosegc.%%seq.log,10,1024" !OPENJ9_JAVA_OPTIONS!
+goto:eof
+
+@REM Check if the ENABLE_FIPS140_3 variable has been set by the user
+@REM If ENABLE_FIPS140_3 is set, determine the correct JVM options depending on the version of Java to be used and add to list
+@REM The version of java is determined to correctly set IBM SDK 8 or Semeru FIPS140-3 flags
+:enableFIPS140_3
+  if defined ENABLE_FIPS140_3 (
+    if "%ENABLE_FIPS140_3%" neq "false" (
+      @REM determine if we are using IBM SDK 8 with FIPS140-3 support
+      if exist "%JAVA_HOME%\fips140-3\" set IBM_SDK_8=true
+      if NOT defined IBM_SDK_8 (
+        if exist "%JRE_HOME%\fips140-3\" set IBM_SDK_8=true
+        if NOT defined IBM_SDK_8 (
+          if exist "%WLP_DEFAULT_JAVA_HOME%\jre\fips140-3\" set IBM_SDK_8=true
+        )
+      )
+      if not defined IBM_SDK_8 (
+        for /f "delims=" %%a in ('find "OpenJCEPlusFIPS.FIPS140-3-Strongly-Enforced" "!JAVA_HOME!\conf\security\java.security"') do (
+            if defined SKIP_FIRST_LINE (
+               set SEMERU_FIPS=true
+            ) else (
+               set SKIP_FIRST_LINE="true"
+            )
+        )
+      )
+
+      if defined IBM_SDK_8 (
+        set JVM_OPTIONS=-Xenablefips140-3 -Dcom.ibm.jsse2.usefipsprovider=true -Dcom.ibm.jsse2.usefipsProviderName=IBMJCEPlusFIPS !JVM_OPTIONS!
+      ) else (
+        if defined SEMERU_FIPS (
+            @REM de-quote input variable
+            set ENABLE_FIPS140_3=!ENABLE_FIPS140_3:"=!
+            set ENABLE_FIPS140_3=!WLP_INSTALL_DIR!\lib\security\fips140_3\FIPS140-3-Liberty.properties;!ENABLE_FIPS140_3!
+            @REM Retrieve name of Semeru FIPS140-3 profile from the last file in provided paths
+            for %%i in ("!ENABLE_FIPS140_3:;=";"!") do (
+              set "file=%%~i"
+            )
+            if not defined file (
+               set file=!WLP_INSTALL_DIR!\lib\security\fips140_3\FIPS140-3-Liberty.properties
+            )
+            for /f "usebackq delims== " %%l in ("!file!") do (
+              set line=%%l
+              if /i "!line:~0,18!" == "RestrictedSecurity" (
+                set "line=!line:~19!"
+                if "!line:~-7!" == "extends" (
+                  set profileName=!line:~0,-8!
+                )
+              )
+            )
+            set JVM_OPTIONS=-Dsemeru.fips=true -Dsemeru.customprofile=!profileName! -Djava.security.propertiesList="!ENABLE_FIPS140_3!" !JVM_OPTIONS!
+        )
+      )
+    )
+  )
+goto:eof
+
 @REM
 @REM Set the current working directory for an existing server.
 @REM
 :serverWorkingDirectory
-  if not exist "%SERVER_OUTPUT_DIR%" mkdir "%SERVER_OUTPUT_DIR%"
-  cd /d "%SERVER_OUTPUT_DIR%"
+  @REM Use a default if SERVER_WORKING_DIR is not set.
+  if not defined SERVER_WORKING_DIR (
+    set SERVER_WORKING_DIR=!SERVER_OUTPUT_DIR!
+    goto:checkDir
+  )
+  
+  @REM Default to SERVER_OUTPUT_DIR if user only specifies a drive letter, ex c:\
+  if /I "%SERVER_WORKING_DIR:~1,2%" == ":\" (
+    if "%SERVER_WORKING_DIR:~3,1%"=="" (
+      set SERVER_WORKING_DIR=!SERVER_OUTPUT_DIR!
+      goto:checkDir
+    )
+  )
+  
+  @REM Check if we are relative or absolute path based on a : in the path string.
+  if "x%SERVER_WORKING_DIR::=%" == "x%SERVER_WORKING_DIR%" (
+    set SERVER_WORKING_DIR=!SERVER_OUTPUT_DIR!\!SERVER_WORKING_DIR!
+    goto:checkDir
+  )
+  
+  :checkDir
+    if not exist "%SERVER_WORKING_DIR%" mkdir "%SERVER_WORKING_DIR%"
+    cd /d "%SERVER_WORKING_DIR%"
 goto:eof
 
 @REM
@@ -705,22 +965,58 @@ goto:eof
 
 @REM
 @REM serverRunning: Return 0 if the server is running (.sLock file is in use), 
-@REM                1 if not (file is not in use),
+@REM                       1 if not (file is not in use),
+@REM Parmeters %1 - optional.  Time (in seconds) to wait for a particular status.
+@REM                 default: 0 
+@REM           %2 - optional. (0 or 1). Status to wait for.
+@REM                 0: wait for server to be running
+@REM                 1: wait for server to be stopped
+@REM                 default: 0
 @REM
 :serverRunning
+
+  @REM set defaults
+  set serverRunningCounter=0
+  set serverRunningTimeOut=0
+  set serverRunningDesiredStatus=0
   set SERVER_LOCK_FILE=!SERVER_OUTPUT_DIR!\workarea\.sLock
-  if NOT EXIST "%SERVER_LOCK_FILE%" (
-    set RC=1
-  ) else (
-    @REM If the server has locked .sLock, then the redirection will fail.  The
-    @REM type command doesn't set errorlevel by itself, so use ||.
-    (type nul > "%SERVER_LOCK_FILE%") 2> nul || rem
-    if !errorlevel! == 0 (
+
+  @REM Read parameters if any
+  if NOT "%~1" == "" set serverRunningTimeOut=%~1
+  if NOT "%~2" == "" set serverRunningDesiredStatus=%~2
+
+  @REM DO WHILE not timed out and desired status not achieved.
+  :repeatServerRunning
+
+    @REM Check server status
+    if NOT EXIST "%SERVER_LOCK_FILE%" (
       set RC=1
     ) else (
-      set RC=0
+      @REM If the server has locked .sLock, then the redirection will fail.  The
+      @REM type command doesn't set errorlevel by itself, so use ||.
+      (type nul > "%SERVER_LOCK_FILE%") 2> nul || rem
+      if !errorlevel! == 0 (
+        set RC=1
+      ) else (
+        set RC=0
+      )
     )
-  )
+
+    @REM If no timeout is set, just return. Not waiting for any particular status.
+    if !serverRunningTimeOut! EQU 0 goto:eof
+
+    @REM Got desired status?  Get out of here.
+    if !RC! EQU !serverRunningDesiredStatus! goto:eof
+
+    @REM If timed out, get out of here.
+    if !serverRunningCounter! GEQ !serverRunningTimeOut! goto:eof
+
+    @REM Delay 1 second and repeat loop
+    ping -n 1 127.0.0.1 > nul
+    set /A serverRunningCounter = !serverRunningCounter! + 1
+    goto :repeatServerRunning
+
+  @REM END WHILE
 goto:eof
 
 @REM

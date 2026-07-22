@@ -1,16 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.rest.handler.config.fat;
 
-import static componenttest.annotation.SkipForRepeat.EE9_FEATURES;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -32,9 +30,7 @@ import com.ibm.ws.microprofile.openapi.impl.parser.OpenAPIParser;
 import com.ibm.ws.microprofile.openapi.impl.parser.core.models.SwaggerParseResult;
 
 import componenttest.annotation.Server;
-import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.rules.repeater.MicroProfileActions;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
@@ -42,20 +38,23 @@ import componenttest.topology.utils.FATServletClient;
 import componenttest.topology.utils.HttpsRequest;
 
 @RunWith(FATRunner.class)
-@SkipForRepeat(EE9_FEATURES) // TODO: Enable this once mpopenapi-2.0 (jakarta enabled) is available
 public class ConfigOpenApiSchemaTest extends FATServletClient {
 
     /**  */
     private static final String SERVER_NAME = "com.ibm.ws.rest.handler.config.openapi.fat";
 
+    @ClassRule
+    public static RepeatTests r = MicroProfileActions.repeat(SERVER_NAME,
+                                                             MicroProfileActions.MP71_EE11,
+                                                             MicroProfileActions.MP71_EE10,
+                                                             MicroProfileActions.MP70_EE11,
+                                                             MicroProfileActions.MP70_EE10,
+                                                             MicroProfileActions.MP61, // EE10
+                                                             MicroProfileActions.MP50, // EE9
+                                                             MicroProfileActions.MP40); // EE8
+
     @Server(SERVER_NAME)
     public static LibertyServer server;
-
-    @ClassRule
-    public static RepeatTests r = MicroProfileActions.repeat(SERVER_NAME, TestMode.FULL,
-                                                             MicroProfileActions.MP40,
-                                                             MicroProfileActions.MP30,
-                                                             MicroProfileActions.MP20);
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -79,12 +78,29 @@ public class ConfigOpenApiSchemaTest extends FATServletClient {
     }
 
     /**
+     * Test the config schema is available under the ibm/api/platform/config endpoint, and
+     * honors both the "format=json" query parameter and "Accept application/json" http header.
+     */
+    @Test
+    public void testConfigOpenAPIAsJSON_ibmApi() throws Exception {
+        testConfigOpenAPIAsJSON("/ibm/api");
+    }
+
+    /**
      * Test the config schema is available under the openapi/platform/config endpoint, and
      * honors both the "format=json" query parameter and "Accept application/json" http header.
      */
     @Test
-    public void testConfigOpenAPIAsJSON() throws Exception {
-        HttpsRequest request = new HttpsRequest(server, "/openapi/platform/config?format=json");
+    public void testConfigOpenAPIAsJSON_openApi() throws Exception {
+        testConfigOpenAPIAsJSON("/openapi");
+    }
+
+    /**
+     * Test the config schema is available under the ${contextRoot}/platform/config endpoint, and
+     * honors both the "format=json" query parameter and "Accept application/json" http header.
+     */
+    private void testConfigOpenAPIAsJSON(String contextRoot) throws Exception {
+        HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, contextRoot + "/platform/config?format=json");
         JsonObject json = request.run(JsonObject.class);
         String err = "Unexpected json response: " + json.toString();
         JsonObject paths = json.getJsonObject("paths");
@@ -96,7 +112,7 @@ public class ConfigOpenApiSchemaTest extends FATServletClient {
         assertTrue(err, paths.size() == 3);
 
         //test again with json specified in the header
-        request = new HttpsRequest(server, "/openapi/platform/config");
+        request = FATSuite.createHttpsRequestWithAdminUser(server, contextRoot + "/platform/config");
         json = request.requestProp("Accept", "application/json").run(JsonObject.class);
         err = "Unexpected json response: " + json.toString();
         paths = json.getJsonObject("paths");
@@ -109,12 +125,29 @@ public class ConfigOpenApiSchemaTest extends FATServletClient {
     }
 
     /**
+     * Test the config schema is available under the ibm/api/platform/config endpoint, and
+     * is returned as YAML by default.
+     */
+    @Test
+    public void testConfigOpenAPIAsYAML_ibmApi() throws Exception {
+        testConfigOpenAPIAsYAML("/ibm/api");
+    }
+
+    /**
      * Test the config schema is available under the openapi/platform/config endpoint, and
      * is returned as YAML by default.
      */
     @Test
-    public void testConfigOpenAPIAsYAML() throws Exception {
-        HttpsRequest request = new HttpsRequest(server, "/openapi/platform/config");
+    public void testConfigOpenAPIAsYAML_openApi() throws Exception {
+        testConfigOpenAPIAsYAML("/openapi");
+    }
+
+    /**
+     * Test the config schema is available under the ${contextRoot}/platform/config endpoint, and
+     * is returned as YAML by default.
+     */
+    private void testConfigOpenAPIAsYAML(String contextRoot) throws Exception {
+        HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, contextRoot + "/platform/config");
         String yaml = request.run(String.class);
         SwaggerParseResult result = new OpenAPIParser().readContents(yaml, null, null, null);
         assertNotNull(result);

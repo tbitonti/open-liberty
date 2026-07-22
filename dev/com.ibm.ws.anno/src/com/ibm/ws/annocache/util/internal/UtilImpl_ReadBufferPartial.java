@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.annocache.util.internal;
 
@@ -50,17 +49,16 @@ public final class UtilImpl_ReadBufferPartial implements UtilImpl_ReadBuffer {
     private int bufferPos;
     private int bufferAvail;
 
-    private final String encoding;
     private final Charset charset;
 
     @Trivial
     public String getEncoding() {
-        return encoding;
+        return charset.name();
     }
 
     //
 
-    public static final String UTF_8 = UtilImpl_WriteBuffer.UTF_8;
+    public static final Charset UTF_8 = UtilImpl_WriteBuffer.UTF_8;
 
     public UtilImpl_ReadBufferPartial(String path, int bufferSize)
         throws IOException {
@@ -72,13 +70,13 @@ public final class UtilImpl_ReadBufferPartial implements UtilImpl_ReadBuffer {
         this(path, file, bufferSize, UTF_8);
     }
 
-    public UtilImpl_ReadBufferPartial(String path, int bufferSize, String encoding)
+    public UtilImpl_ReadBufferPartial(String path, int bufferSize, Charset charset)
         throws IOException {
 
         this( path,
               new RandomAccessFile(path, "r"), // throws IOException
               bufferSize,
-              encoding);
+              charset);
     }
 
     /**
@@ -95,7 +93,7 @@ public final class UtilImpl_ReadBufferPartial implements UtilImpl_ReadBuffer {
      */
     public UtilImpl_ReadBufferPartial(
         String path, RandomAccessFile file, int bufferSize,
-        String encoding) throws IOException {
+        Charset charset) throws IOException {
 
         this.path = path;
         this.file = file;
@@ -109,8 +107,7 @@ public final class UtilImpl_ReadBufferPartial implements UtilImpl_ReadBuffer {
         }
         this.fileLength = (int) rawFileLength; 
 
-        this.encoding = encoding;
-        this.charset = Charset.forName(encoding);
+        this.charset = charset;
 
         if ( this.fileLength < bufferSize ) {
             this.bufferFill = this.fileLength;
@@ -233,7 +230,14 @@ public final class UtilImpl_ReadBufferPartial implements UtilImpl_ReadBuffer {
         // Most expected case ...
 
         if ( len < bufferAvail ) {
-            System.arraycopy(buffer, bufferPos, bytes, offset, len);
+            // Manual copy for small arrays (faster than System.arraycopy overhead)
+            if (len <= 8) {
+                for (int i = 0; i < len; i++) {
+                    bytes[offset + i] = buffer[bufferPos + i];
+                }
+            } else {
+                System.arraycopy(buffer, bufferPos, bytes, offset, len);
+            }
             bufferPos += len;
             bufferAvail -= len;
             return;

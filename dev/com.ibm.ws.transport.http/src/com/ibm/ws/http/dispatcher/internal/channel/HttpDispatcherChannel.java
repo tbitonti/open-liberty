@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009,2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -54,7 +56,7 @@ public class HttpDispatcherChannel implements InboundChannel, Discriminator {
 
     /**
      * Constructor.
-     * 
+     *
      * @param config
      * @param factory
      */
@@ -119,7 +121,7 @@ public class HttpDispatcherChannel implements InboundChannel, Discriminator {
     protected void decrementActiveConns() {
         int count = this.activeConnections.decrementAndGet();
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-            Tr.debug(tc, "Decrement active, current=" + count);
+            Tr.debug(tc, "Decrement active, current=" + count + " quiescing: " + this.quiescing);
         }
         if (0 == count && this.quiescing) {
             signalNoConnections();
@@ -185,7 +187,7 @@ public class HttpDispatcherChannel implements InboundChannel, Discriminator {
     @Override
     public void stop(long millisec) throws ChannelException {
         if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
-            Tr.event(tc, "Stop channel: " + this + " time=" + millisec);
+            Tr.event(tc, "Stop channel: " + this + " time=" + millisec + " number of active conns is: " + this.activeConnections.get());
         }
         if (0L < millisec) {
             this.quiescing = true;
@@ -255,7 +257,7 @@ public class HttpDispatcherChannel implements InboundChannel, Discriminator {
 
     /**
      * Access the Dispatcher configuration information.
-     * 
+     *
      * @return HttpDispatcherConfig
      */
     @Trivial

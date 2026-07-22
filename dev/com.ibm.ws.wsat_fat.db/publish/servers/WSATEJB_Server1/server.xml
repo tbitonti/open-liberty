@@ -12,6 +12,8 @@
 		<feature>timedexit-1.0</feature>
 	</featureManager>
 
+	<transaction recoverOnStartup="true" waitForRecovery="true"/>
+
 	<httpEndpoint httpPort="8091" httpsPort="9444" id="defaultHttpEndpoint"/>
 	
 	<jdbcDriver id="derbyDriver">
@@ -25,6 +27,5 @@
     	databaseName="${shared.config.dir}/data/derbydb" -->
     	<properties.derby.embedded createDatabase="create" databaseName="memory:WsatDatabase1"></properties.derby.embedded>
     </dataSource>
-    <logging traceSpecification="*=info: wsat=all: Transaction=all"></logging>
     <javaPermission codebase="${shared.resource.dir}derby/derby.jar" className="java.security.AllPermission"/>
 </server>

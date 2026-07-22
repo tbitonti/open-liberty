@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012,2021 IBM Corporation and others.
+ * Copyright (c) 2012,2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -36,6 +38,7 @@ public class ConnectionManager extends ConfigElement {
     private String stuckTime;
     private String surgeCreationInterval;
     private String surgeThreshold;
+    private String maxInUseTime;
 
     // Not supported yet.
     @XmlAttribute(name = "stuckThreshold")
@@ -222,6 +225,15 @@ public class ConnectionManager extends ConfigElement {
         this.numConnectionsPerThreadLocal = numConnectionsPerThreadLocal;
     }
 
+    @XmlAttribute
+    public void setMaxInUseTime(String maxInUseTime) {
+        this.maxInUseTime = maxInUseTime;
+    }
+
+    public String getMaxInUseTime() {
+        return maxInUseTime;
+    }
+
     @Override
     public String toString() {
         StringBuffer buf = new StringBuffer("ConnectionManager{");
@@ -246,6 +258,8 @@ public class ConnectionManager extends ConfigElement {
             buf.append("purgePolicy=\"" + purgePolicy + "\" ");
         if (reapTime != null)
             buf.append("reapTime=\"" + reapTime + "\" ");
+        if (maxInUseTime != null)
+            buf.append("maxInUseTime=\"" + maxInUseTime + "\" ");
         if (numConnectionsPerThreadLocal != null)
             buf.append("numConnectionsPerThreadLocal=\"" + numConnectionsPerThreadLocal + "\" ");
         if (maxConnectionsPerThread != null)

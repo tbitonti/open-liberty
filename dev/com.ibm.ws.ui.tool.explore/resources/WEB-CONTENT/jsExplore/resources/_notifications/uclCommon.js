@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2015 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -69,6 +71,11 @@ define([ ], function() {
      * @return {Object} Returns an Object with an added and removed field or null if the array contents are the same
      */
     compareTwoLists: function(cachedList, nowList) {
+      // Guard against undefined inputs (e.g. stale cache after WS session)
+      if (!cachedList || !nowList) {
+       return null;
+      }
+
       var addedRemoved = { added: [], removed: [] };
 
       // First, find things that were 'added'
@@ -103,6 +110,11 @@ define([ ], function() {
      *                  or null if the IDs of the elements in the arrays of objects are the same.
      */
     compareTwoListsById: function(cachedList, nowList) {
+      // Guard against undefined inputs (e.g. stale cache after WS session)
+      if (!cachedList || !nowList) {
+       return null;
+      }
+
       var addedRemoved = { added: [], removed: [] };
 
       // First, find things that were 'added'

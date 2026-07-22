@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,6 +19,7 @@ import java.io.File;
 
 import org.junit.Test;
 
+import com.ibm.ws.repository.common.enums.ReadMode;
 import com.ibm.ws.repository.connections.DirectoryRepositoryConnection;
 import com.ibm.ws.repository.connections.RestRepositoryConnection;
 import com.ibm.ws.repository.connections.ZipRepositoryConnection;
@@ -40,7 +43,7 @@ public class RepositoryConnectionTest {
     @Test
     public void testDirectoryRepoLocation() {
         File root = new File("C:/root");
-        DirectoryRepositoryConnection dirCon = new DirectoryRepositoryConnection(root);
+        DirectoryRepositoryConnection dirCon = new DirectoryRepositoryConnection(root, ReadMode.DETECT_CHANGES);
         RepositoryResourceImpl mr = new SampleResourceImpl(dirCon);
         assertEquals("The repo url in the resource is not the one we set",
                      root.getAbsolutePath(), mr.getRepositoryConnection().getRepositoryLocation());

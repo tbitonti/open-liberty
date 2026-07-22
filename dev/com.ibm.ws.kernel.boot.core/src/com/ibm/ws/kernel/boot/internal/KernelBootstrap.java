@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2020 IBM Corporation and others.
+ * Copyright (c) 2013, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,14 +17,11 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
-import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.UnknownHostException;
 import java.security.AccessController;
 import java.security.Policy;
 import java.security.PrivilegedAction;
-import java.security.PrivilegedExceptionAction;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -51,6 +50,8 @@ import com.ibm.ws.kernel.provisioning.NameBasedLocalBundleRepository;
 import com.ibm.ws.kernel.provisioning.ServiceFingerprint;
 import com.ibm.ws.kernel.provisioning.VersionUtility;
 
+import io.openliberty.checkpoint.spi.CheckpointPhase;
+
 /**
  * Bootstrap the runtime: Resolve the few jar files required to construct the nested
  * classloader requierd for launching the framework, use reflection to find
@@ -77,7 +78,7 @@ public class KernelBootstrap {
 
     /**
      * @param bootProps BootstrapProperties carry forward all of the parameters and
-     *            options used to launch the kernel.
+     *                      options used to launch the kernel.
      */
     public KernelBootstrap(BootstrapConfig bootProps) {
         this.bootProps = bootProps;
@@ -304,7 +305,7 @@ public class KernelBootstrap {
             return serverLock.waitForStop();
         }
 
-        // Server did not propertly start (no delegate), so stop is fine.
+        // Server did not properly start (no delegate), so stop is fine.
         return ReturnCode.OK;
     }
 
@@ -437,11 +438,11 @@ public class KernelBootstrap {
      * Set Java 2 Security if enabled
      */
     public static void enableJava2SecurityIfSet(BootstrapConfig bootProps, List<URL> urlList) {
-        if (bootProps.get(BootstrapConstants.JAVA_2_SECURITY_PROPERTY) != null) {
+        if (bootProps.get(BootstrapConstants.JAVA_2_SECURITY_PROPERTY) != null && javaVersion() < 24) {
 
             NameBasedLocalBundleRepository repo = new NameBasedLocalBundleRepository(bootProps.getInstallRoot());
             File bestMatchFile = repo.selectBundle("com.ibm.ws.org.eclipse.equinox.region",
-                                                   VersionUtility.stringToVersionRange("[1.0,1.0.100)"));
+                                                   VersionUtility.stringToVersionRange("[1.0,1.1)"));
             if (bestMatchFile == null) {
                 throw new LaunchException("Could not find bundle for " + "com.ibm.ws.org.eclipse.equinox.region"
                                           + ".", BootstrapConstants.messages.getString("error.missingBundleException"));
@@ -492,7 +493,7 @@ public class KernelBootstrap {
         String bsConsoleFormat = bootProps.get("com.ibm.ws.logging.console.format");
         String envConsoleFormat = System.getenv("WLP_LOGGING_CONSOLE_FORMAT");
 
-        //boostrap format should take precedence
+        //bootstrap format should take precedence
         String consoleFormat = bsConsoleFormat != null ? bsConsoleFormat : envConsoleFormat;
 
         if (productDisplayName == null) {
@@ -514,6 +515,10 @@ public class KernelBootstrap {
                 System.out.println(jsonConsoleHeader);
             } else {
                 System.out.println(consoleLogHeader);
+            }
+            if (!CheckpointPhase.getPhase().restored()) {
+                // store for later to log on restore; only if printVersion is requested
+                bootProps.put(BootstrapConstants.BOOTPROP_CONSOLE_LOG_HEADER, consoleLogHeader);
             }
         }
 
@@ -556,7 +561,7 @@ public class KernelBootstrap {
         //retrieve information for header
         String serverName = bootProps.get(BootstrapConstants.INTERNAL_SERVER_NAME);
         String wlpUserDir = System.getProperty("wlp.user.dir");
-        String serverHostName = getServerHostName();
+        String serverHostName = KernelUtils.getServerHostName();
         String datetime = getDatetime();
         String sequenceNumber = getSequenceNumber();
 
@@ -628,29 +633,6 @@ public class KernelBootstrap {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         String datetime = dateFormat.format(System.currentTimeMillis());
         return datetime;
-    }
-
-    private static String getServerHostName() {
-        String serverHostName = null;
-        //Resolve server name to be the DOCKER HOST name or the cannonical host name.
-        String containerHost = System.getenv("CONTAINER_HOST");
-        if (containerHost == null || containerHost.equals("") || containerHost.length() == 0) {
-            try {
-                serverHostName = AccessController.doPrivileged(new PrivilegedExceptionAction<String>() {
-                    @Override
-                    public String run() throws UnknownHostException {
-                        return InetAddress.getLocalHost().getCanonicalHostName();
-                    }
-                });
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                serverHostName = "";
-            }
-        } else {
-            serverHostName = containerHost;
-        }
-        return serverHostName;
     }
 
     /**
@@ -773,5 +755,15 @@ public class KernelBootstrap {
             return true;
         }
         return false;
+    }
+
+    private static int javaVersion() {
+        String version = System.getProperty("java.version");
+        String[] versionElements = version.split("\\D"); // split on non-digits
+
+        // Pre-JDK 9 the java.version is 1.MAJOR.MINOR
+        // Post-JDK 9 the java.version is MAJOR.MINOR
+        int i = Integer.valueOf(versionElements[0]) == 1 ? 1 : 0;
+        return Integer.valueOf(versionElements[i]);
     }
 }

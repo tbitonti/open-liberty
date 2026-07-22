@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -106,6 +108,13 @@ public class JWKProviderTest {
             assertEquals("Rotation time was not the expected value.", defaultRotationTime, provider.rotationTimeInMilliseconds);
             assertEquals("Number of generated JWKs was not expected value.", 0, provider.jwks.size());
 
+            // Allow 0m rotation time, resulting in keys never rotating
+            provider = new JWKProvider(defaultKeySize, RS256, 0);
+            assertEquals("Key size was not the expected length.", defaultKeySize, provider.size);
+            assertEquals("Did not get expected algorithm.", RS256, provider.alg);
+            assertEquals("Rotation time was not the expected value.", 0, provider.rotationTimeInMilliseconds);
+            assertEquals("Number of generated JWKs was not expected value.", 0, provider.jwks.size());
+            assertEquals("Timer was not expected value.", null, provider.timer);
         } catch (Throwable t) {
             outputMgr.failWithThrowable(testName.getMethodName(), t);
         }

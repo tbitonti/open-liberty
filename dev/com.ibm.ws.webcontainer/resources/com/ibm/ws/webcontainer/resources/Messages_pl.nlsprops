@@ -1,12 +1,11 @@
 ###############################################################################
-# Copyright (c) 1997, 2020 IBM Corporation and others.
+# Copyright (c) 1997, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 
 # This file has been modified to follow the WebSphere Message Guidelines.
@@ -21,8 +20,6 @@
 #ISMESSAGEFILE TRUE
 #NLS_MESSAGEFORMAT_VAR
 #NLS_ENCODING=UNICODE
-
-
 
 # --------------------------------
 Illegal.Argument.Trying.to.write.chars=SRVE0011E: Wyj\u0105tek niedozwolonego argumentu: pr\u00f3ba zapisania liczby znak\u00f3w mniejszej od 0.
@@ -215,7 +212,7 @@ failed.to.load.converter.properties.explanation=Nie mo\u017cna za\u0142adowa\u01
 failed.to.load.converter.properties.useraction=Sprawd\u017a, czy okre\u015blony plik istnieje oraz czy ma poprawny format zgodny z obiektem java.utils.Properties.
 
 # --------------------------------
-setbuffer.size.called.after.write=SRVE0157E: Wywo\u0142ano metod\u0119 setBufferSize() po uprzednim zapisie do strumienia wyj\u015bciowego/programu zapisuj\u0105cego
+setbuffer.size.called.after.write=SRVE0157E:setBufferSize( ) wywo\u0142ywana po zatwierdzeniu pierwszego zapisu lub odpowiedzi
 setbuffer.size.called.after.write.explanation=Wykonano pr\u00f3b\u0119 ustawienia wielko\u015bci buforu odpowiedzi w momencie, gdy odpowied\u017a by\u0142a ju\u017c zatwierdzona. Jest to b\u0142\u0105d aplikacji.
 setbuffer.size.called.after.write.useraction=Usu\u0144 wywo\u0142anie metody setBufferSize() lub przenie\u015b je w miejsce przed zatwierdzeniem odpowiedzi.
 
@@ -1411,9 +1408,9 @@ Null.filter.config.object=SRVE8079E: Obiekt konfiguracji filtru ma warto\u015b\u
 Null.filter.config.object.explanation=Wyst\u0105pi\u0142 nieoczekiwany wyj\u0105tek konfiguracji.
 Null.filter.config.object.useraction=Zbierz dzienniki serwera i skontaktuj si\u0119 z Serwisem IBM.
 
-isUserInRole.caught.exception=SRVE8080E: Wyst\u0105pi\u0142 nieoczekiwany wyj\u0105tek metody isUserInRole.	Metoda isUserInRole zwraca warto\u015b\u0107 false.
-isUserInRole.caught.exception.explanation=Wyst\u0105pi\u0142 nieoczekiwany wyj\u0105tek metody isUserInRole.	Metoda isUserInRole zwraca warto\u015b\u0107 false.
-isUserInRole.caught.exception.useraction=Wyst\u0105pi\u0142 nieoczekiwany wyj\u0105tek metody isUserInRole.	Metoda isUserInRole zwraca warto\u015b\u0107 false.
+isUserInRole.caught.exception=SRVE8080E: Wyst\u0105pi\u0142 nieoczekiwany wyj\u0105tek metody isUserInRole.\tMetoda isUserInRole zwraca warto\u015b\u0107 false.
+isUserInRole.caught.exception.explanation=Wyst\u0105pi\u0142 nieoczekiwany wyj\u0105tek metody isUserInRole.\tMetoda isUserInRole zwraca warto\u015b\u0107 false.
+isUserInRole.caught.exception.useraction=Wyst\u0105pi\u0142 nieoczekiwany wyj\u0105tek metody isUserInRole.\tMetoda isUserInRole zwraca warto\u015b\u0107 false.
 
 Error.occurred.while.adding.WebAppCollaborator=SRVE8081E: Podczas dodawania wsp\u00f3\u0142pracownika aplikacji WWW wyst\u0105pi\u0142 nieoczekiwany b\u0142\u0105d wewn\u0119trzny serwera.
 Error.occurred.while.adding.WebAppCollaborator.explanation=Podczas dodawania wsp\u00f3\u0142pracownika aplikacji WWW wyst\u0105pi\u0142 nieoczekiwany b\u0142\u0105d wewn\u0119trzny serwera.
@@ -1560,8 +1557,8 @@ servlet.with.same.name.already.exists.explanation=Serwlet o takiej nazwie ju\u01
 servlet.with.same.name.already.exists.useraction=Nie jest wymagana \u017cadna czynno\u015b\u0107.  Sprawd\u017a, czy istnieje konflikt w deskryptorze wdra\u017cania, adnotacjach lub kodzie \u017ar\u00f3d\u0142owym s\u0142u\u017c\u0105cym do dynamicznego dodawania tej konfiguracji serwletu. 
 
 servlet.feature.not.loaded.correctly=SRVE8501E: Kontener serwletu nie zosta\u0142 za\u0142adowany w akceptowalnej wersji.
-servlet.feature.not.loaded.correctly.explanation=Kontener serwletu zosta\u0142 za\u0142adowany w wersji, kt\u00f3ra odpowiada specyfikacji Java EE tego sk\u0142adnika serwletu. Kontener zosta\u0142 za\u0142adowany bez zdefiniowanej wersji.
-servlet.feature.not.loaded.correctly.useraction=Sprawd\u017a, czy w pliku server.xml istnieje sk\u0142adnik servlet-3.0 lub servlet-3.1. Jeden z tych sk\u0142adnik\u00f3w powinien by\u0107 zdefiniowany, ale nie oba jednocze\u015bnie.
+servlet.feature.not.loaded.correctly.explanation=Za\u0142adowano kontener serwletu bez akceptowalnej wersji. Aplikacja mo\u017ce zachowywa\u0107 si\u0119 inaczej, ni\u017c oczekiwano.
+servlet.feature.not.loaded.correctly.useraction=Sprawd\u017a server.xml plik pod k\u0105tem istnienia wielu funkcji serwletu.  Plik nie mo\u017ce okre\u015bla\u0107 wi\u0119cej ni\u017c jednej funkcji serwletu.
 
 filter.failed.app.destroyed=SRVE8502W: Nie mo\u017cna wykona\u0107 \u017c\u0105dania {0}, poniewa\u017c aplikacja zosta\u0142a zatrzymana.
 filter.failed.app.destroyed.explanation=Aplikacja WWW jest zatrzymywana i nie mo\u017cna zako\u0144czy\u0107 wykonywania \u017c\u0105dania. To dzia\u0142anie mo\u017ce by\u0107 spowodowane zamykaniem serwera podczas obs\u0142ugi \u017c\u0105dania.
@@ -1581,10 +1578,7 @@ uncaught.exception.during.AsyncListener.onComplete.explanation=Przywo\u0142ywany
 uncaught.exception.during.AsyncListener.onComplete.useraction=Sprawd\u017a kod \u017ar\u00f3d\u0142owy obiektu AsyncListener i dzienniki serwera, aby znale\u017a\u0107 podstawow\u0105 przyczyn\u0119 b\u0142\u0119du aplikacji.
 
 # Since servlet 4.0.  Use the registered and reserved prefix CWWWC from now on.  
-# 0001 - 0199 for Base
-# 0200 - 0299 for Servlet 3.0
-# 0300 - 0399 for Servlet 3.1
-# 0400 - 0499 for Servlet 4
+# Sequential increment the message number for all new releases and services
 
 #name.is.null=CWWWC0400E: An attribute name, or initial parameter name, is null.
 #name.is.null.explanation=This is an application error.  The name is null in either context getAttribute(), setAttribute(), getInitParameter(), or setInitParameter().
@@ -1614,3 +1608,46 @@ duplicate.samesite.attribute.for.cookie.name.useraction=Sprawd\u017a konfiguracj
 duplicate.reported.for.samesite.attribute.cookie.name=CWWWC0004W: Nazwa informacji cookie {0}, kt\u00f3ra jest skonfigurowana dla warto\u015bci atrybutu SameSite {1}, zosta\u0142a wcze\u015bniej zidentyfikowana jako duplikat. Dla tej informacji cookie nie dodano atrybutu SameSite.
 duplicate.reported.for.samesite.attribute.cookie.name.explanation=Nazwa informacji cookie nie mo\u017ce by\u0107 skonfigurowana dla wielu warto\u015bci atrybut\u00f3w SameSite. Ta nazwa informacji cookie zosta\u0142a ju\u017c zidentyfikowana jako duplikat.
 duplicate.reported.for.samesite.attribute.cookie.name.useraction=Sprawd\u017a konfiguracj\u0119 deskryptora wdra\u017cania, aby upewni\u0107 si\u0119, \u017ce nazwa informacji cookie zosta\u0142a skonfigurowana dla tylko jednej z nast\u0119puj\u0105cych warto\u015bci atrybut\u00f3w SameSite: 'SameSiteCookies_Lax', 'SameSiteCookies_None' albo 'SameSiteCookies_Strict'. 
+
+bad.request.uri\:.{0}=CWWWC0005I: Identyfikator URI \u017c\u0105dania zawiera niepoprawne lub niepoprawnie zakodowane znaki: [{0}]
+bad.request.uri\:.{0}.explanation=Identyfikator URI \u017c\u0105dania ma niepoprawne parametry \u015bcie\u017cki, niepoprawne segmenty kropki lub niepoprawnie zakodowane znaki.
+bad.request.uri\:.{0}.useraction=Upewnij si\u0119, \u017ce identyfikator URI \u017c\u0105dania nie zawiera niepoprawnej kombinacji parametr\u00f3w kropki lub \u015bcie\u017cki ani niew\u0142a\u015bciwie zakodowanych znak\u00f3w.
+
+uri.has.fragment.character=Identyfikator URI ma znak fragmentu [#]; zakodowany [%23] lub nie.
+uri.has.dot.character=Identyfikator URI ma zakodowany znak kropki [%2E].
+uri.has.forwarslash.character=Identyfikator URI ma zakodowany znak uko\u015bnika [%2F].
+uri.has.backslash.character=Identyfikator URI ma znak uko\u015bnika odwrotnego; zakodowany [%5C] lub nie.
+
+multipart.file.count.max.exceeded=CWWWC0006E: \u017b\u0105danie zawiera\u0142o wi\u0119cej plik\u00f3w do przes\u0142ania ni\u017c jest to dozwolone. Maksymalna liczba plik\u00f3w: [{0}].
+multipart.file.count.max.exceeded.explanation=Liczba plik\u00f3w, kt\u00f3re zosta\u0142y przes\u0142ane z u\u017cyciem \u017c\u0105dania multipart/form-data, przekroczy\u0142a limit.
+multipart.file.count.max.exceeded.useraction=Zwi\u0119ksz maksymaln\u0105 liczb\u0119 plik\u00f3w, kt\u00f3re mog\u0105 zosta\u0107 przes\u0142ane w jednym \u017c\u0105daniu, ustawiaj\u0105c w\u0142a\u015bciwo\u015b\u0107 niestandardow\u0105 maxFileCount webContainer w pliku server.xml. Warto\u015b\u0107 domy\u015blna to 5000. Aby uzyska\u0107 nieograniczon\u0105 operacj\u0119 przesy\u0142ania pliku, ustaw warto\u015b\u0107 -1.
+
+cannot.sendRedirect.response.already.committed=CWWWC0007E: Odpowied\u017a sendRedirect nie jest dozwolona po zatwierdzeniu odpowiedzi.
+cannot.sendRedirect.response.already.committed.explanation=Po zatwierdzeniu odpowiedzi nie mo\u017cna wys\u0142a\u0107 przekierowania.
+cannot.sendRedirect.response.already.committed.useraction=Sprawd\u017a logik\u0119 sendRedirect , aby upewni\u0107 si\u0119, \u017ce odpowied\u017a nie zosta\u0142a zatwierdzona r\u0119cznie lub automatycznie przed wywo\u0142aniem metody sendRedirect .
+
+redirect.location.cannot.be.null=CWWWC0008E: Po\u0142o\u017cenie przekierowania nie mo\u017ce mie\u0107 warto\u015bci NULL.
+redirect.location.cannot.be.null.explanation=Adres URL po\u0142o\u017cenia przekierowania musi by\u0107 wzgl\u0119dnym lub bezwzgl\u0119dnym adresem URL. 
+redirect.location.cannot.be.null.useraction=Zaktualizuj po\u0142o\u017cenie przekierowania, podaj\u0105c warto\u015b\u0107 adresu URL, kt\u00f3ra nie jest pusta. Adres URL mo\u017ce by\u0107 wzgl\u0119dny lub bezwzgl\u0119dny.
+
+sendRedirect.hyper.text.url=<html><body><p>Przekierowanie do <a href="{0}"></a></p></body></html>
+
+query.or.post.is.null=CWWWC0009E: \u0141a\u0144cuch zapytania \u017c\u0105dania HTTP lub dane \u017c\u0105dania HTTP POST maj\u0105 warto\u015b\u0107 NULL.
+query.or.post.is.null.explanation=Aplikacja pr\u00f3bowa\u0142a przeanalizowa\u0107 \u0142a\u0144cuch zapytania \u017c\u0105dania HTTP o warto\u015bci NULL lub tre\u015b\u0107 \u017c\u0105dania POST HTTP o warto\u015bci NULL.
+query.or.post.is.null.useraction=Klient musi wys\u0142a\u0107 \u0142a\u0144cuch zapytania \u017c\u0105dania HTTP o warto\u015bci innej ni\u017c NULL lub tre\u015b\u0107 \u017c\u0105dania POST HTTP o warto\u015bci innej ni\u017c NULL.
+
+read.write.bytebuffer.null=CWWWC0010E: Pr\u00f3ba odczytu z operacji InputStream lub zapisu do operacji OutputStream nie powiod\u0142a si\u0119, poniewa\u017c argument zmiennej instancji ByteBuffer mia\u0142 warto\u015b\u0107 NULL.
+read.write.bytebuffer.null.explanation=Argument zmiennej ByteBuffer , kt\u00f3ry jest przekazywany do funkcji API odczytu lub zapisu, nie mo\u017ce mie\u0107 warto\u015bci NULL.
+read.write.bytebuffer.null.useraction=Zmodyfikuj kod aplikacji, aby utworzy\u0107 instancj\u0119 ByteBuffer o warto\u015bci innej ni\u017c NULL w celu przekazania jej do operacji InputStream lub OutputStream .
+
+read.write.failed.isReady.false=CWWWC0011E: Pr\u00f3ba odczytu z operacji InputStream lub zapisu do operacji OutputStream nie powiod\u0142a si\u0119, poniewa\u017c funkcja API isReady zwraca warto\u015b\u0107 false.
+read.write.failed.isReady.false.explanation=Je\u015bli funkcja API isReady zwr\u00f3ci warto\u015b\u0107 false, nie mo\u017cna wywo\u0142a\u0107 metody odczytu lub zapisu.
+read.write.failed.isReady.false.useraction=Zmodyfikuj logik\u0119 aplikacji, aby upewni\u0107 si\u0119, \u017ce strumie\u0144 jest gotowy do wykonania operacji InputStream lub OutputStream .
+
+sendRedirect.cannot.convert.relative.url=CWWWC0012E: Wzgl\u0119dny adres sendRedirect URL w aplikacji nie mo\u017ce zosta\u0107 przekonwertowany na prawid\u0142owy adres URL.
+sendRedirect.cannot.convert.relative.url.explanation=Podany wzgl\u0119dny adres URL mo\u017ce zawiera\u0107 nieprawid\u0142owe znaki lub indeksy \u015bcie\u017cek.
+sendRedirect.cannot.convert.relative.url.useraction=Zweryfikuj lokalizacj\u0119 sendRedirect URL w aplikacji przed wywo\u0142aniem metody response.sendRedirect( )
+
+invalid.accept.language.length=CWWWC0013E: Warto\u015b\u0107 nag\u0142\u00f3wka Accept-Language w \u017c\u0105daniu typu \u201e HTTP \u201d jest zbyt d\u0142uga.
+invalid.accept.language.length.explanation=Klient wysy\u0142a nag\u0142\u00f3wek \u201eAccept-Language\u201d, kt\u00f3ry jest zbyt d\u0142ugi.
+invalid.accept.language.length.useraction=Klient musi wys\u0142a\u0107 nag\u0142\u00f3wek \u201eAccept-Language\u201d o d\u0142ugo\u015bci nieprzekraczaj\u0105cej 4096 bajt\u00f3w.

@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020, 2021 IBM Corporation and others.
+ * Copyright (c) 2020, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.request.timing.monitor.fat;
 
@@ -27,22 +26,24 @@ import org.apache.http.util.EntityUtils;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.request.timing.RequestTimingStatsMXBean;
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.request.timing.app.RequestTimingServlet;
 
-import componenttest.annotation.ExpectedFFDC;
 import componenttest.annotation.Server;
-import componenttest.annotation.SkipForRepeat;
 import componenttest.annotation.TestServlet;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.topology.impl.JavaInfo;
+import componenttest.rules.repeater.EERepeatActions;
+import componenttest.rules.repeater.FeatureReplacementAction;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 
 /**
@@ -94,8 +95,14 @@ import componenttest.topology.impl.LibertyServer;
  * request during the mbean call which happens inside the initial servlet call.
  */
 @RunWith(FATRunner.class)
-@SkipForRepeat({ "MPM23", "MPM22", "MPM20" })
 public class RequestTimingEventTest {
+
+    @ClassRule
+    public static RepeatTests r = EERepeatActions.repeat(FeatureReplacementAction.ALL_SERVERS,
+                                                         EERepeatActions.EE11,
+                                                         EERepeatActions.EE10,
+                                                         EERepeatActions.EE9,
+                                                         EERepeatActions.EE7);
 
     private static final Class<RequestTimingEventTest> c = RequestTimingEventTest.class;
 
@@ -109,7 +116,7 @@ public class RequestTimingEventTest {
     static ObjectName ServletInstanceName;
 
     // Keeping a AtomicLong total count because of threads created
-    public static AtomicLong totalRequestCount = new AtomicLong();
+    public static final AtomicLong totalRequestCount = new AtomicLong();
     public static long mbeanServletActiveCount = 1;
 
     public final String TestRequestHandlerUrl = getURLString("TestRequestHandler", 0);
@@ -120,14 +127,9 @@ public class RequestTimingEventTest {
      */
     @BeforeClass
     public static void setUp() throws Exception {
-        ShrinkHelper.defaultApp(server, "RequestTimingWebApp", "com.ibm.ws.request.timing.app");
+        totalRequestCount.set(0);
+        ShrinkHelper.defaultApp(server, "RequestTimingWebApp", new DeployOptions[] { DeployOptions.SERVER_ONLY }, "com.ibm.ws.request.timing.app");
 
-        JavaInfo java = JavaInfo.forCurrentVM();
-        int javaMajorVersion = java.majorVersion();
-        if (javaMajorVersion != 8) {
-            Log.info(c, "setUp", " Java version = " + javaMajorVersion + " - It is higher than 8, adding --add-exports...");
-            server.copyFileToLibertyServerRoot("add-exports/jvm.options");
-        }
         server.startServer();
         setupTables();
     }
@@ -163,7 +165,6 @@ public class RequestTimingEventTest {
      *
      * @throws Exception
      */
-    @ExpectedFFDC("java.lang.ClassCastException")
     @Mode(TestMode.LITE)
     @Test
     public void testTotalServletRequestsWithEventTiming() throws Exception {
@@ -229,7 +230,6 @@ public class RequestTimingEventTest {
      *
      * @throws Exception
      */
-    @ExpectedFFDC("java.lang.ClassCastException")
     @Mode(TestMode.LITE)
     @Test
     public void testSlowServletRequestWithEventTiming() throws Exception {
@@ -317,7 +317,6 @@ public class RequestTimingEventTest {
      *
      * @throws Exception
      */
-    @ExpectedFFDC("java.lang.ClassCastException")
     @Mode(TestMode.LITE)
     @Test
     public void testHungServletRequestWithEventTiming() throws Exception {

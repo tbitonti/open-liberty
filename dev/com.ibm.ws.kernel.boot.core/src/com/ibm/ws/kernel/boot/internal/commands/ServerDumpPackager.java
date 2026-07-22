@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2013 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,6 +22,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
 import java.security.MessageDigest;
 import java.security.PrivilegedAction;
@@ -44,9 +47,9 @@ import com.ibm.ws.kernel.boot.logging.TextFileOutputStreamFactory;
 /**
  * The ServerDumpPackager encapsulates the logic of creating an archive file containing
  * various server dump data.
- * 
+ *
  * The usage pattern of this helper class is as follows:
- * 
+ *
  * -- create an instance of the server dump packager using your chosen constructor
  * -- call initializeDumpDirectory() to create the temporary directory that will contain dump information
  * -- if additional information is to be included in the dump (such as a server introspection), the location
@@ -96,6 +99,11 @@ public class ServerDumpPackager {
             dumpDir = new File(serverOutputDir, BootstrapConstants.SERVER_DUMP_FOLDER_PREFIX + dumpTimestamp);
             if (!FileUtils.createDir(dumpDir))
                 throw new IllegalStateException("Dump directory could not be created.");
+
+            // Ensure the dump directory is accessible by the server
+            dumpDir.setReadable(true, false);
+            dumpDir.setWritable(true, false);
+            dumpDir.setExecutable(true, false);
         }
     }
 
@@ -120,7 +128,7 @@ public class ServerDumpPackager {
 
     /**
      * Package the server dump and optionally record error data.
-     * 
+     *
      * @return
      */
     public ReturnCode packageDump(boolean javaDumpsRequested) {
@@ -137,7 +145,7 @@ public class ServerDumpPackager {
 
         captureEnvData(dumpDir, bootProps.getInstallRoot());
 
-        // we also want the dump zip contains the lib inventory, so generate one. 
+        // we also want the dump zip contains the lib inventory, so generate one.
         File libInventory = new File(dumpDir, BootstrapConstants.SERVER_LIB_INVENTORY_FILE_NAME + ".txt");
         if (!new FolderStructureGenerator().generate(bootProps.getInstallRoot(), libInventory)) {
             System.out.println(MessageFormat.format(BootstrapConstants.messages.getString("info.LibInventoryGenerationException"), serverName));
@@ -168,7 +176,7 @@ public class ServerDumpPackager {
                             javacoreAscii.setWritable(true);
 
                             InputStreamReader reader = new InputStreamReader(new FileInputStream(javacoreEbcdic), Charset.forName("IBM-1047"));
-                            OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(javacoreAscii), Charset.forName("US-ASCII"));
+                            OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(javacoreAscii), StandardCharsets.US_ASCII);
                             int readInt;
                             while ((readInt = reader.read()) != -1) {
                                 writer.write(readInt);
@@ -207,7 +215,7 @@ public class ServerDumpPackager {
 
     /**
      * Copy relevant data (like service data, shared config, etc) to the dump dir to be zipped up.
-     * 
+     *
      * @param dumpDir
      * @param installDir
      */
@@ -253,19 +261,20 @@ public class ServerDumpPackager {
 
     static class FolderStructureGenerator {
 
-        protected static MessageDigest newMD5MessageDigest() {
+        protected static MessageDigest getMessageDigest() {
             try {
-                return MessageDigest.getInstance("MD5");
+                return MessageDigest.getInstance("SHA-512");
             } catch (Exception ex) {
                 return null;
             }
         }
 
-        private static final int NUM_MD5_BYTES = 16;
+        private static final int HASH_LEN = 64;
+        private static final int HASH_STR_LEN = HASH_LEN * 2;
 
-        private final MessageDigest md5 = newMD5MessageDigest();
-        private final byte[] md5Bytes = new byte[0x4000];
-        private final char[] md5Chars = new char[NUM_MD5_BYTES * 2];
+        private final MessageDigest digest = getMessageDigest();
+        private final byte[] hashBytes = new byte[0x4000];
+        private final char[] hashChars = new char[HASH_STR_LEN];
 
         private boolean generate(File folder, File output) {
             if (folder == null || output == null) {
@@ -308,15 +317,15 @@ public class ServerDumpPackager {
                         if (!BootstrapConstants.LOC_AREA_NAME_USR.equals(file.getName()))
                             printFileList(file, writer, leadingPathLength);
                     } else {
-                        writer.format("f  %1$10d  %2$tF %2$tT  %3$32s  %4$s%n", file.length(), file.lastModified(), md5(file), fileName);
+                        writer.format("f  %1$10d  %2$tF %2$tT  %3$" + HASH_STR_LEN + "s  %4$s%n", file.length(), file.lastModified(), hash(file), fileName);
                     }
                 }
             }
         }
 
-        protected String md5(File file) {
-            if (md5 == null) {
-                return "MD5 unavailable";
+        protected String hash(File file) {
+            if (digest == null) {
+                return "SHA-512 unavailable";
             }
 
             InputStream in = null;
@@ -324,8 +333,8 @@ public class ServerDumpPackager {
                 in = new FileInputStream(file);
                 in = new BufferedInputStream(in);
 
-                for (int read; (read = in.read(md5Bytes)) != -1;) {
-                    md5.update(md5Bytes, 0, read);
+                for (int read; (read = in.read(hashBytes)) != -1;) {
+                    digest.update(hashBytes, 0, read);
                 }
             } catch (IOException ex) {
                 return ex.toString();
@@ -333,21 +342,21 @@ public class ServerDumpPackager {
                 Utils.tryToClose(in);
             }
 
-            byte[] bytes = md5.digest();
+            byte[] bytes = digest.digest();
             int j = 0;
-            for (int i = 0; i < NUM_MD5_BYTES; i++) {
+            for (int i = 0; i < HASH_LEN; i++) {
                 byte b = bytes[i];
-                md5Chars[j++] = Character.forDigit((b >> 4) & 0xf, 16);
-                md5Chars[j++] = Character.forDigit(b & 0xf, 16);
+                hashChars[j++] = Character.forDigit((b >> 4) & 0xf, 16);
+                hashChars[j++] = Character.forDigit(b & 0xf, 16);
             }
 
-            return new String(md5Chars);
+            return new String(hashChars);
         }
     }
 
     /**
      * Creates an archive containing the server dumps, server configurations.
-     * 
+     *
      * @param packageFile
      * @return
      */

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,25 +13,30 @@
 package com.ibm.websphere.simplicity.config;
 
 import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
 
 /**
  * Lists data source properties. Some properties are generic, others are driver specifc.
  */
 public class Transaction extends ConfigElement {
     private Boolean acceptHeuristicHazard;
-    private Integer clientInactivityTimeout;
-    private Integer defaultMaxShutdownDelay;
+    private String clientInactivityTimeout;
+    private String defaultMaxShutdownDelay;
     private Boolean enableLoggingForHeuristicReporting;
-    private Integer heuristicRetryInterval;
+    private String heuristicRetryInterval;
     private Integer heuristicRetryWait;
     private String lpsHeuristicCompletion;
-    private Integer propogatedOrBMTTranLifetimeTimeout;
+    private String propogatedOrBMTTranLifetimeTimeout;
     private Boolean recoverOnStartup;
     private Boolean timeoutGracePeriodEnabled;
     private String totalTranLifetimeTimeout;
     private String transactionLogDirectory;
     private Integer transactionLogSize;
     private Boolean waitForRecovery;
+    private Boolean enableLogRetries;
+    private String retriableSqlCodes;
+    private String nonRetriableSqlCodes;
+    private String recoveryIdentity;
 
     @XmlAttribute(name = "acceptHeuristicHazard")
     public void setAcceptHeuristicHazard(Boolean acceptHeuristicHazard) {
@@ -41,20 +48,20 @@ public class Transaction extends ConfigElement {
     }
 
     @XmlAttribute(name = "clientInactivityTimeout")
-    public void setClientInactivityTimeout(Integer clientInactivityTimeout) {
+    public void setClientInactivityTimeout(String clientInactivityTimeout) {
         this.clientInactivityTimeout = clientInactivityTimeout;
     }
 
-    public Integer getClientInactivityTimeout() {
+    public String getClientInactivityTimeout() {
         return this.clientInactivityTimeout;
     }
 
     @XmlAttribute(name = "defaultMaxShutdownDelay")
-    public void setDefaultMaxShutdownDelay(Integer defaultMaxShutdownDelay) {
+    public void setDefaultMaxShutdownDelay(String defaultMaxShutdownDelay) {
         this.defaultMaxShutdownDelay = defaultMaxShutdownDelay;
     }
 
-    public Integer getDefaultMaxShutdownDelay() {
+    public String getDefaultMaxShutdownDelay() {
         return this.defaultMaxShutdownDelay;
     }
 
@@ -68,11 +75,11 @@ public class Transaction extends ConfigElement {
     }
 
     @XmlAttribute(name = "heuristicRetryInterval")
-    public void setHeuristicRetryInterval(Integer heuristicRetryInterval) {
+    public void setHeuristicRetryInterval(String heuristicRetryInterval) {
         this.heuristicRetryInterval = heuristicRetryInterval;
     }
 
-    public Integer getHeuristicRetryInterval() {
+    public String getHeuristicRetryInterval() {
         return this.heuristicRetryInterval;
     }
 
@@ -95,11 +102,11 @@ public class Transaction extends ConfigElement {
     }
 
     @XmlAttribute(name = "propogatedOrBMTTranLifetimeTimeout")
-    public void setPropogatedOrBMTTranLifetimeTimeout(Integer propogatedOrBMTTranLifetimeTimeout) {
+    public void setPropogatedOrBMTTranLifetimeTimeout(String propogatedOrBMTTranLifetimeTimeout) {
         this.propogatedOrBMTTranLifetimeTimeout = propogatedOrBMTTranLifetimeTimeout;
     }
 
-    public Integer getPropogatedOrBMTTranLifetimeTimeout() {
+    public String getPropogatedOrBMTTranLifetimeTimeout() {
         return this.propogatedOrBMTTranLifetimeTimeout;
     }
 
@@ -157,6 +164,49 @@ public class Transaction extends ConfigElement {
         return this.waitForRecovery;
     }
 
+    @XmlAttribute(name = "enableLogRetries")
+    public void setEnableLogRetries(Boolean enableLogRetries) {
+        this.enableLogRetries = enableLogRetries;
+    }
+
+    public Boolean getEnableLogRetries() {
+        return this.enableLogRetries;
+    }
+
+    @XmlAttribute(name = "retriableSqlCodes")
+    public void setRetriableSqlCodes(String retriableSqlCodes) {
+        this.retriableSqlCodes = retriableSqlCodes;
+    }
+
+    public String getRetriableSqlCodes() {
+        return this.retriableSqlCodes;
+    }
+
+    @XmlAttribute(name = "nonRetriableSqlCodes")
+    public void setNonRetriableSqlCodes(String nonRetriableSqlCodes) {
+        this.nonRetriableSqlCodes = nonRetriableSqlCodes;
+    }
+
+    public String getNonRetriableSqlCodes() {
+        return this.nonRetriableSqlCodes;
+    }
+
+    @XmlAttribute(name = "recoveryIdentity")
+    public void setRecoveryIdentity(String recoveryIdentity) {
+        this.recoveryIdentity = recoveryIdentity;
+    }
+
+    public String getRecoveryIdentity() {
+        return this.recoveryIdentity;
+    }
+
+    @XmlElement(name = "dataSource")
+    private ConfigElementList<DataSource> dataSources;
+
+    public ConfigElementList<DataSource> getDataSources() {
+        return dataSources == null ? (dataSources = new ConfigElementList<DataSource>()) : dataSources;
+    }
+
     /**
      * Returns a String listing the properties and their values used on this
      * transaction element.
@@ -192,7 +242,16 @@ public class Transaction extends ConfigElement {
             buf.append("transactionLogSize=\"" + transactionLogSize + "\" ");
         if (waitForRecovery != null)
             buf.append("waitForRecovery=\"" + waitForRecovery + "\" ");
+        if (enableLogRetries != null)
+            buf.append("enableLogRetries=\"" + enableLogRetries + "\" ");
+        if (retriableSqlCodes != null)
+            buf.append("retriableSqlCodes=\"" + retriableSqlCodes + "\" ");
+        if (nonRetriableSqlCodes != null)
+            buf.append("nonRetriableSqlCodes=\"" + nonRetriableSqlCodes + "\" ");
+        if (recoveryIdentity != null)
+            buf.append("recoveryIdentity=\"" + recoveryIdentity + "\" ");
         buf.append("}");
         return buf.toString();
     }
+
 }

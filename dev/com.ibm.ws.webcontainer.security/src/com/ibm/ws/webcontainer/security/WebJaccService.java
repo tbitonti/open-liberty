@@ -1,0 +1,121 @@
+/*******************************************************************************
+ * Copyright (c) 2024, 2026 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *******************************************************************************/
+package com.ibm.ws.webcontainer.security;
+
+import javax.security.auth.Subject;
+import javax.servlet.http.HttpServletRequest;
+
+import com.ibm.wsspi.webcontainer.webapp.WebAppConfig;
+
+public interface WebJaccService {
+
+    /**
+     * Propagates web constraints information to JACC.
+     *
+     * @param applicationName Application name
+     * @param moduleName Module name
+     * @param webAppConfig WebAppConfig object.
+     */
+    public void propagateWebConstraints(String applicationName,
+                                        String moduleName,
+                                        WebAppConfig webAppConfig);
+
+    /**
+     * Validates whether SSL is required for web inbound transport.
+     *
+     * @param applicationName Application name
+     * @param moduleName Module name
+     * @param uriName Uri
+     * @param methodName method Name
+     * @param req HttpServletObject of this request.
+     * @return true if SSL is required.
+     */
+    public boolean isSSLRequired(String applicationName,
+                                 String moduleName,
+                                 String uriName,
+                                 String methodName,
+                                 HttpServletRequest req);
+
+    /**
+     * Validates whether the http request is excluded.
+     *
+     * @param applicationName Application name
+     * @param moduleName Module name
+     * @param uriName Uri
+     * @param methodName method Name
+     * @param req HttpServlet Object of this request.
+     * @return true if access is excludeed.
+     */
+    public boolean isAccessExcluded(String applicationName,
+                                    String moduleName,
+                                    String uriName,
+                                    String methodName,
+                                    HttpServletRequest req);
+
+    /**
+     * Validates whether given Subject is granted to access the specified resource.
+     *
+     * @param applicationName Application name
+     * @param moduleName Module name
+     * @param uriName Uri
+     * @param methodName method Name
+     * @param req HttpServletObject of this request.
+     * @param subject Subject object to be authorized.
+     * @return true if access is granted.
+     */
+    public boolean isAuthorized(String applicationName,
+                                String moduleName,
+                                String uriName,
+                                String methodName,
+                                HttpServletRequest req,
+                                Subject subject);
+
+    /**
+     * Validates whether given Subject is granted to access the specified resource.
+     *
+     * @param applicationName Application name
+     * @param moduleName Module name
+     * @param uriName Uri
+     * @param req HttpServletObject of this request.
+     * @param role role name to be examined.
+     * @param subject Subject object to be authorized.
+     * @return true if the specified subject has the specified role.
+     */
+    public boolean isSubjectInRole(String applicationName,
+                                   String moduleName,
+                                   String servletName,
+                                   String role,
+                                   HttpServletRequest req,
+                                   Subject subject);
+
+    public void setPolicyContextID(String applicationName, String moduleName);
+
+    /**
+     * Reset the policyContext Handler as per JACC specification
+     */
+    public void resetPolicyContextHandlerInfo();
+
+    /**
+     * Determines if a Policy is configured. In EE 11, we create the WebJaccService always even if there
+     * isn't a PolicyFactory defined because it can be added dynamically by applications in their web.xml
+     * or using the PolicyFactory.setPolicyFactory() method.
+     */
+    public boolean isPolicyConfigured();
+
+    /**
+     * Pre-Authorization 3.0 versions of the JACC/ Authorization liberty features did not allow for
+     * unauthenticated users to call the Authorization Policy to override the unauthenticated user
+     * behavior when there are roles defined. Until Authorization 3.0, the servlet rules were followed
+     * for JACC / Authorization behavior that if roles were defined a 401 was returned to the caller.
+     *
+     * @return
+     */
+    public boolean isUnauthenticatedAuthorizationCheckAllowed();
+}

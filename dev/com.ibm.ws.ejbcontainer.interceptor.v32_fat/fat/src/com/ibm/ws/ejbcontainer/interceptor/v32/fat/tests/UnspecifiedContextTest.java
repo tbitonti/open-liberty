@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.ejbcontainer.interceptor.v32.fat.tests;
 
@@ -16,16 +15,20 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 
 import com.ibm.ejblite.interceptor.v32.mix.web.UnspecifiedContextMixServlet;
 import com.ibm.ejblite.interceptor.v32.xml.web.UnspecifiedContextXmlServlet;
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 
 import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.annotation.TestServlets;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.rules.repeater.FeatureReplacementAction;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 
@@ -40,6 +43,23 @@ public class UnspecifiedContextTest extends FATServletClient {
                     @TestServlet(servlet = UnspecifiedContextXmlServlet.class, contextRoot = "EJB3INTXTestApp") })
     public static LibertyServer server;
 
+    /*@formatter:off*/
+    @ClassRule
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.interceptor.v32.fat.basic"))
+                                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.interceptor.v32.fat.basic"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11)
+                                                    .forServers("com.ibm.ws.ejbcontainer.interceptor.v32.fat.basic"))
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17)
+                                                    .forServers("com.ibm.ws.ejbcontainer.interceptor.v32.fat.basic"))
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.interceptor.v32.fat.basic"));
+    /*@formatter:on*/
+
     @BeforeClass
     public static void setUp() throws Exception {
 
@@ -52,7 +72,7 @@ public class UnspecifiedContextTest extends FATServletClient {
         EJB3INTMTestApp.addAsModule(EJB3INTMBean).addAsModule(EJB3INTMWeb);
         ShrinkHelper.addDirectory(EJB3INTMTestApp, "test-applications/EJB3INTMTestApp.ear/resources");
 
-        ShrinkHelper.exportDropinAppToServer(server, EJB3INTMTestApp);
+        ShrinkHelper.exportDropinAppToServer(server, EJB3INTMTestApp, DeployOptions.SERVER_ONLY);
 
         JavaArchive EJB3INTXBean = ShrinkHelper.buildJavaArchive("EJB3INTXBean.jar", "com.ibm.ejblite.interceptor.v32.xml.ejb.");
         ShrinkHelper.addDirectory(EJB3INTXBean, "test-applications/EJB3INTXBean.jar/resources");
@@ -62,7 +82,7 @@ public class UnspecifiedContextTest extends FATServletClient {
         EJB3INTXTestApp.addAsModule(EJB3INTXBean).addAsModule(EJB3INTXWeb);
         ShrinkHelper.addDirectory(EJB3INTXTestApp, "test-applications/EJB3INTXTestApp.ear/resources");
 
-        ShrinkHelper.exportDropinAppToServer(server, EJB3INTXTestApp);
+        ShrinkHelper.exportDropinAppToServer(server, EJB3INTXTestApp, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }

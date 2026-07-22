@@ -1,17 +1,19 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2018 IBM Corporation and others.
+ * Copyright (c) 2013, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
- *     IBM Corporation - initial API and implementation
+ * IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.openidconnect.token.impl;
 
 import java.io.Serializable;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,7 +22,7 @@ import java.util.Set;
 
 import org.apache.commons.codec.binary.Base64;
 
-import com.ibm.ws.security.openidconnect.common.Constants;
+import com.ibm.ws.security.openidconnect.clients.common.Constants;
 import com.ibm.ws.security.openidconnect.token.PayloadConstants;
 
 public class IdTokenImpl implements Serializable {
@@ -466,12 +468,7 @@ public class IdTokenImpl implements Serializable {
     //
 
     public String getAllClaimsAsJson() {
-        try {
-            return new String(idTokenPart2Bytes, Constants.UTF_8);
-        } catch (UnsupportedEncodingException e) {
-            // this should not happen
-            return new String(idTokenPart2Bytes);
-        }
+        return new String(idTokenPart2Bytes, StandardCharsets.UTF_8);
     }
 
     /** {@inheritDoc} */

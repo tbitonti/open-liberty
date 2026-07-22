@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -42,6 +44,9 @@ import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
+
+import componenttest.rules.SkipJavaSemeruWithFipsEnabled;
+import componenttest.rules.SkipJavaSemeruWithFipsEnabled.SkipJavaSemeruWithFipsEnabledRule;
 
 /**
  * Test Description:
@@ -106,6 +111,9 @@ public class HttpAuthenticationMechanismDBTest extends JavaEESecTestBase {
     protected String getCurrentTestName() {
         return name.getMethodName();
     }
+
+    @Rule
+    public static final SkipJavaSemeruWithFipsEnabled skipJavaSemeruWithFipsEnabled = new SkipJavaSemeruWithFipsEnabled("com.ibm.ws.security.javaeesec.db.fat");
 
     /**
      * Verify the following:
@@ -186,6 +194,7 @@ public class HttpAuthenticationMechanismDBTest extends JavaEESecTestBase {
      * <LI> Return code 403
      * </OL>
      */
+    @SkipJavaSemeruWithFipsEnabledRule
     @Mode(TestMode.LITE)
     @Test
     public void testJaspiAnnotatedDBBasicAuthValidUserBadPwd() throws Exception {
@@ -206,6 +215,7 @@ public class HttpAuthenticationMechanismDBTest extends JavaEESecTestBase {
      * <LI> Return code 403
      * </OL>
      */
+    @SkipJavaSemeruWithFipsEnabledRule
     @Mode(TestMode.LITE)
     @Test
     public void testJaspiAnnotatedDBBasicNullUserPwd() throws Exception {

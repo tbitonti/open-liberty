@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package test.server.transport.http2;
 
@@ -16,7 +15,9 @@ import java.util.logging.Logger;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import componenttest.custom.junit.runner.FATRunner;
@@ -36,15 +37,12 @@ public class Http2Config31H2On extends FATServletClient {
     public static final String TEST_DIR = System.getProperty("dir.build.classes") + File.separator + "test" + File.separator + "server" + File.separator + "transport"
                                           + File.separator + "http2" + File.separator + "buckets";
 
-    private final static String SUCCESS = "SUCCESS";
-    private final static String FAIL = "com.ibm.ws.http2.test.exceptions.ClientPrefaceTimeoutException";
-
     private final static LibertyServer runtimeServer = LibertyServerFactory.getLibertyServer("http2ClientRuntime");
 
     private final static LibertyServer server = LibertyServerFactory.getLibertyServer("com.ibm.ws.transport.http2.fat.servlet31.h2.on");
 
-    private final static String defaultServletPath = "H2FATDriver/H2FATDriverServlet?hostName=";
-    private final static String TEST_NAME = "testHeaderAndDataPost";
+    @Rule
+    public TestName testName = new Utils.CustomTestName();
 
     @BeforeClass
     public static void before() throws Exception {
@@ -58,6 +56,7 @@ public class Http2Config31H2On extends FATServletClient {
 
         server.startServer(true, true);
         runtimeServer.startServer(true, true);
+        H2FATApplicationHelper.preTestNettyCheck(runtimeServer, server);
     }
 
     @AfterClass
@@ -90,7 +89,7 @@ public class Http2Config31H2On extends FATServletClient {
      */
     @Test
     public void servlet31H2On() throws Exception {
-        runTest(defaultServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.defaultServletPath, testName.getMethodName());
     }
 
 }

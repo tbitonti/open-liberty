@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -33,8 +35,6 @@ import javax.persistence.PessimisticLockException;
 import javax.persistence.Query;
 import javax.persistence.QueryTimeoutException;
 import javax.persistence.TypedQuery;
-
-import org.eclipse.persistence.platform.database.DatabasePlatform;
 
 import com.ibm.websphere.concurrent.persistent.PersistentExecutor;
 import com.ibm.websphere.concurrent.persistent.TaskState;
@@ -774,7 +774,7 @@ public class DatabaseTaskStore implements TaskStore {
     @Override
     public List<Object[]> findUnclaimedTasks(long maxNextExecTime, Integer maxResults) throws Exception {
         StringBuilder find = new StringBuilder(161)
-                        .append("SELECT t.ID,t.MBITS,t.NEXTEXEC,t.TXTIMEOUT,t.VERSION FROM Task t WHERE t.STATES<")
+                        .append("SELECT t.ID,t.OWNR,t.MBITS,t.NEXTEXEC,t.TXTIMEOUT,t.VERSION FROM Task t WHERE t.STATES<")
                         .append(TaskState.SUSPENDED.bit)
                         .append(" AND t.NEXTEXEC<=:m AND t.PARTN<:c");
         if (maxResults != null)
@@ -944,12 +944,13 @@ public class DatabaseTaskStore implements TaskStore {
     }
 
     /**
-     * Returns the persistence service unit with TRANSACTION_READ_COMMITTED isolation, lazily initializing if necessary.
+     * Returns the persistence service unit with TRANSACTION_READ_UNCOMMITTED isolation, lazily initializing if necessary.
      *
      * @return the persistence service unit.
      * @throws Exception             if an error occurs.
      * @throws IllegalStateException if this instance has been destroyed.
      */
+    @FFDCIgnore(UnsupportedOperationException.class)
     public final PersistenceServiceUnit getPersistenceServiceUnitReadUncommitted() throws Exception {
         lock.readLock().lock();
         try {
@@ -963,24 +964,16 @@ public class DatabaseTaskStore implements TaskStore {
                     if (destroyed)
                         throw new IllegalStateException();
                     if (persistenceServiceUnitReadUncommitted == null) {
-                        persistenceServiceUnitReadUncommitted = dbStore.createPersistenceServiceUnit(priv.getClassLoader(Task.class),
-                                                                                                     Task.class.getName());
-                        EntityManager em = persistenceServiceUnitReadUncommitted.createEntityManager();
-                        // This seems to apply to every subsequent usage of the persistence service unit. Can we rely on that?
-                        Object dbSession = em.getClass().getMethod("getDatabaseSession").invoke(em);
+                        Map<String, Object> properties = new HashMap<String, Object>();
+                        properties.put("transactionIsolationLevel", Connection.TRANSACTION_READ_UNCOMMITTED);
 
-                        // TODO is there a more efficient way to detect Oracle that doesn't require obtaining an extra connection?
-                        DatabasePlatform dbPlatform = (DatabasePlatform) dbSession.getClass().getMethod("getPlatform").invoke(dbSession);
-                        if (dbPlatform.isOracle() || dbPlatform.isOracle9()) {
-                            em.close();
-                            persistenceServiceUnitReadUncommitted.close();
+                        try {
+                            persistenceServiceUnitReadUncommitted = dbStore.createPersistenceServiceUnit(priv.getClassLoader(Task.class),
+                                                                                                         properties,
+                                                                                                         Task.class.getName());
+                        } catch (UnsupportedOperationException e) {
+                            // Oracle does not support READ_UNCOMMITTED; fall back on default persistence service unit
                             persistenceServiceUnitReadUncommitted = getPersistenceServiceUnit();
-                        } else {
-                            org.eclipse.persistence.sessions.DatabaseLogin dbLogin = (org.eclipse.persistence.sessions.DatabaseLogin) dbSession.getClass()
-                                            .getMethod("getDatasourceLogin")
-                                            .invoke(dbSession);
-                            dbLogin.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
-                            em.close();
                         }
                     }
                 } finally {

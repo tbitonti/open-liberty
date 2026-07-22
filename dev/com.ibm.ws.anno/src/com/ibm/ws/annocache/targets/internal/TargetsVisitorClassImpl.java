@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2019 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -21,13 +23,14 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.annocache.service.internal.AnnotationCacheServiceImpl_Logging;
 import com.ibm.ws.annocache.util.internal.UtilImpl_IdentityStringSet;
 import com.ibm.wsspi.annocache.util.Util_InternMap;
+
+import io.openliberty.asm.ASMHelper;
 
 // Visit rules:
 //
@@ -102,7 +105,7 @@ public class TargetsVisitorClassImpl extends ClassVisitor {
         Type type = Type.getType(desc);
         String className = type.getClassName();
 
-        String resourceName = className.replace(".", "/");
+        String resourceName = className.replace('.', '/');
 
         return resourceName;
     }
@@ -118,7 +121,7 @@ public class TargetsVisitorClassImpl extends ClassVisitor {
     }
 
     protected static String getClassNameFromPartialResourceName(String partialResourceName) {
-        return partialResourceName.replace("/", ".");
+        return partialResourceName.replace('/', '.');
     }
 
     // Top of the world ...
@@ -146,10 +149,9 @@ public class TargetsVisitorClassImpl extends ClassVisitor {
         Set<String> i_selectAnnotationClassNames,
         boolean recordDetail) {
 
-        super(Opcodes.ASM8);
+        super(ASMHelper.getCurrentASM());
 
         String methodName = "<init>";
-        this.hashText = getClass().getSimpleName() + "@" + Integer.toHexString(hashCode());
 
         this.targetsData = parentData;
 
@@ -172,12 +174,13 @@ public class TargetsVisitorClassImpl extends ClassVisitor {
         this.annotationVisitor = (recordDetail ? new TargetsVisitorAnnotationImpl(this) : null );
 
         if (logger.isLoggable(Level.FINER)) {
+            String hashText = getHashText();
             logger.logp(Level.FINER, CLASS_NAME, methodName,
                     "[ {0} ] on [ {1} ]",
-                    new Object[] { this.hashText, this.targetsData.getHashText() });
+                    new Object[] { hashText, this.targetsData.getHashText() });
             logger.logp(Level.FINER, CLASS_NAME, methodName,
                     "[ {0} ] detail [ {1} ]",
-                    new Object[] { this.hashText, Boolean.valueOf(recordDetail) });
+                    new Object[] { hashText, Boolean.toString(recordDetail) });
         }
     }
 
@@ -193,11 +196,9 @@ public class TargetsVisitorClassImpl extends ClassVisitor {
 
     // Trace ...
 
-    protected final String hashText;
-
     @Trivial
     public String getHashText() {
-        return hashText;
+        return getClass().getSimpleName() + "@" + Integer.toHexString(hashCode());
     }
 
     // The target which is updated by this visitor and associated methods.
@@ -910,7 +911,7 @@ public class TargetsVisitorClassImpl extends ClassVisitor {
 
     protected class AnnoFieldVisitor extends FieldVisitor {
         public AnnoFieldVisitor() {
-            super(Opcodes.ASM8);
+            super(ASMHelper.getCurrentASM());
         }
 
         // A field annotation.  Needs to be recorded.
@@ -971,7 +972,7 @@ public class TargetsVisitorClassImpl extends ClassVisitor {
 
     protected class AnnoMethodVisitor extends MethodVisitor {
         public AnnoMethodVisitor() {
-            super(Opcodes.ASM8);
+            super(ASMHelper.getCurrentASM());
         }
 
         // A method annotation.  Needs to be recorded.

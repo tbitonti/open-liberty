@@ -1,34 +1,30 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jsf23.fat.tests;
 
 import static org.junit.Assert.assertTrue;
 
-import java.net.URL;
-
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebElement;
+import org.testcontainers.Testcontainers;
 
-import com.gargoylesoftware.htmlunit.NicelyResynchronizingAjaxController;
-import com.gargoylesoftware.htmlunit.WebClient;
-import com.gargoylesoftware.htmlunit.html.HtmlForm;
-import com.gargoylesoftware.htmlunit.html.HtmlPage;
-import com.gargoylesoftware.htmlunit.html.HtmlSubmitInput;
-import com.gargoylesoftware.htmlunit.html.HtmlTextInput;
 import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.log.Log;
+import com.ibm.ws.jsf23.fat.FATSuite;
 import com.ibm.ws.jsf23.fat.JSFUtils;
 
 import componenttest.annotation.Server;
@@ -36,6 +32,8 @@ import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.topology.impl.LibertyServer;
+import io.openliberty.faces.fat.selenium.util.internal.ExtendedWebDriver;
+import io.openliberty.faces.fat.selenium.util.internal.WebPage;
 
 /**
  * JSF 2.3 test cases for the spec issue 1412
@@ -49,23 +47,38 @@ public class JSF23EvalScriptsTests {
     @Rule
     public TestName name = new TestName();
 
-    @Server("jsf23CDIServer")
-    public static LibertyServer jsf23CDIServer;
+    @Server("jsf23EvalScriptsServer")
+    public static LibertyServer server;
+
+    private static ExtendedWebDriver driver;
 
     @BeforeClass
     public static void setup() throws Exception {
-        ShrinkHelper.defaultDropinApp(jsf23CDIServer, "EvalScripts.war", "com.ibm.ws.jsf23.fat.evalscripts.beans");
+        ShrinkHelper.defaultDropinApp(server, "EvalScripts.war", "com.ibm.ws.jsf23.fat.evalscripts.beans");
 
         // Start the server and use the class name so we can find logs easily.
         // Many tests use the same server
-        jsf23CDIServer.startServer(JSF23EvalScriptsTests.class.getSimpleName() + ".log");
+        server.startServer(c.getSimpleName() + ".log");
+
+        Testcontainers.exposeHostPorts(server.getHttpDefaultPort(), server.getHttpDefaultSecurePort());
+
+        driver = FATSuite.getWebDriver();
+    }
+
+    /*
+     * Clear cookies for the selenium webdriver, so that session don't carry over between tests
+     */
+    @After
+    public void clearCookies()
+    {
+        driver.getRemoteWebDriver().manage().deleteAllCookies();
     }
 
     @AfterClass
     public static void tearDown() throws Exception {
         // Stop the server
-        if (jsf23CDIServer != null && jsf23CDIServer.isStarted()) {
-            jsf23CDIServer.stopServer();
+        if (server != null && server.isStarted()) {
+            server.stopServer();
         }
     }
 
@@ -78,29 +91,18 @@ public class JSF23EvalScriptsTests {
     @Test
     public void testEvalScriptsSimple() throws Exception {
         String contextRoot = "EvalScripts";
-        try (WebClient webClient = new WebClient()) {
-            webClient.setAjaxController(new NicelyResynchronizingAjaxController());
-            // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "EvalScriptsSimple.xhtml");
+        String url = JSFUtils.createSeleniumURLString(server, contextRoot, "EvalScriptsSimple.xhtml");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        page.findElement(By.id("form1:button1")).click();
+        page.waitForCondition(driver -> page.isInPage("Test Passed!"));
 
-            // Get the form that we are dealing with
-            HtmlForm form = page.getFormByName("form1");
+        Log.info(c, name.getMethodName(), page.getPageSource());
 
-            // Get the submit button
-            HtmlSubmitInput submitButton = form.getInputByName("form1:button1");
-
-            //click the button
-            submitButton.click();
-
-            // Log the page for debugging if necessary in the future.
-            Log.info(c, name.getMethodName(), page.asText());
-            Log.info(c, name.getMethodName(), page.asXml());
-
-            //if the getEvalScripts worked, the javascript should have populated the outputText field.
-            assertTrue("Test failed. The javascript code from getEvalScripts was not called.", page.asText().contains("Test Passed!"));
-        }
+        //if the commandScript code works properly the success message will be displayed on the page.
+        assertTrue("The commandScript test failed, success not displayed.", page.isInPage("Test Passed!"));
     }
 
     /**
@@ -113,29 +115,22 @@ public class JSF23EvalScriptsTests {
     @Mode(TestMode.FULL)
     public void testEvalScriptsList() throws Exception {
         String contextRoot = "EvalScripts";
-        try (WebClient webClient = new WebClient()) {
-            webClient.setAjaxController(new NicelyResynchronizingAjaxController());
-            // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "EvalScriptsList.xhtml");
+        String url = JSFUtils.createSeleniumURLString(server, contextRoot, "EvalScriptsList.xhtml");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        Log.info(c, name.getMethodName(), page.getPageSource());
 
-            // Get the form that we are dealing with
-            HtmlForm form = page.getFormByName("form1");
+        WebElement element =  page.findElement(By.id("form1:button1"));
+        page.findElement(By.id("form1:button1")).click();
 
-            // Get the submit button
-            HtmlSubmitInput submitButton = form.getInputByName("form1:button1");
+        page.waitForCondition(driver -> page.isInPageTextReduced("Text Value 1"));
 
-            //click the button
-            submitButton.click();
+        Log.info(c, name.getMethodName(), page.getPageSource());
 
-            // Log the page for debugging if necessary in the future.
-            Log.info(c, name.getMethodName(), page.asText());
-            Log.info(c, name.getMethodName(), page.asXml());
-
-            //if the getEvalScripts worked, the javascript should have populated the three outputText fields.
-            assertTrue("Test failed. The javascript code from getEvalScripts was not called.", page.asText().contains("Text Value 1,Text Value 2,Text Value 3"));
-        }
+        //if the commandScript code works properly the success message will be displayed on the page.
+        assertTrue("The commandScript test failed, success not displayed.", page.isInPageTextReduced("Text Value 1,Text Value 2,Text Value 3"));
     }
 
     /**
@@ -149,29 +144,18 @@ public class JSF23EvalScriptsTests {
     @Mode(TestMode.FULL)
     public void testEvalScriptsFunction() throws Exception {
         String contextRoot = "EvalScripts";
-        try (WebClient webClient = new WebClient()) {
-            webClient.setAjaxController(new NicelyResynchronizingAjaxController());
-            // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "EvalScriptsFunction.xhtml");
+        String url = JSFUtils.createSeleniumURLString(server, contextRoot, "EvalScriptsFunction.xhtml");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        page.findElement(By.id("form1:button1")).click();
+        page.waitForCondition(driver -> page.isInPage("Function Called!"));
 
-            // Get the form that we are dealing with
-            HtmlForm form = page.getFormByName("form1");
+        Log.info(c, name.getMethodName(), page.getPageSource());
 
-            // Get the submit button
-            HtmlSubmitInput submitButton = form.getInputByName("form1:button1");
-
-            //click the button
-            submitButton.click();
-
-            // Log the page for debugging if necessary in the future.
-            Log.info(c, name.getMethodName(), page.asText());
-            Log.info(c, name.getMethodName(), page.asXml());
-
-            //if the getEvalScripts worked, the javascript should have populated the outputText field.
-            assertTrue("Test failed. The javascript code from getEvalScripts was not called.", page.asText().contains("Function Called!"));
-        }
+        //if the commandScript code works properly the success message will be displayed on the page.
+        assertTrue("The commandScript test failed, success not displayed.", page.isInPage("Function Called!"));
     }
 
     /**
@@ -186,32 +170,22 @@ public class JSF23EvalScriptsTests {
     @Mode(TestMode.FULL)
     public void testEvalScriptsMultiField() throws Exception {
         String contextRoot = "EvalScripts";
-        try (WebClient webClient = new WebClient()) {
-            webClient.setAjaxController(new NicelyResynchronizingAjaxController());
-            // Construct the URL for the test
-            URL url = JSFUtils.createHttpUrl(jsf23CDIServer, contextRoot, "EvalScriptsMultiFieldUpdate.xhtml");
+        String url = JSFUtils.createSeleniumURLString(server, contextRoot, "EvalScriptsMultiFieldUpdate.xhtml");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        WebElement input = page.findElement(By.id("form1:inputText1"));
+        input.sendKeys("test");
 
-            // Get the form that we are dealing with
-            HtmlForm form = page.getFormByName("form1");
+        Log.info(c, name.getMethodName(), page.getPageSource());
 
-            // Get the input text and submit button
-            HtmlTextInput inputText = (HtmlTextInput) form.getInputByName("form1:inputText1");
-            HtmlSubmitInput submitButton = form.getInputByName("form1:button1");
+        page.findElement(By.id("form1:button1")).click();
+        page.waitForCondition(driver -> page.isInPageTextReduced("Test Passed!,test"));
 
-            // Fill the input text
-            inputText.setValueAttribute("test");
+        Log.info(c, name.getMethodName(), page.getPageSource());
 
-            //click the button
-            submitButton.click();
-
-            // Log the page for debugging if necessary in the future.
-            Log.info(c, name.getMethodName(), page.asText());
-            Log.info(c, name.getMethodName(), page.asXml());
-
-            //if the getEvalScripts worked, the javascript should have populated the outputText field and ajax should have update the outputText4.
-            assertTrue("Test failed. The javascript code from getEvalScripts was not called.", page.asText().contains("Test Passed!,test"));
-        }
+        //if the commandScript code works properly the success message will be displayed on the page.
+        assertTrue("Test failed. The javascript code from getEvalScripts was not called.", page.isInPageTextReduced("Test Passed!,test"));
     }
 }

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2014 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,13 +18,16 @@ import static com.ibm.wsspi.classloading.ApiType.SPEC;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.lang.instrument.ClassFileTransformer;
 import java.lang.reflect.Field;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Dictionary;
 import java.util.Hashtable;
+import java.util.List;
 
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -56,7 +61,11 @@ final class TestUtil {
     static final String SERVLET_JAR_LOCATION = "servlet.jar.location";
 
     static final Container buildMockContainer(final String name, final URL url) {
-        return new MockContainer(name, url);
+        return buildMockContainer(name, url, false);
+    }
+
+    static final Container buildMockContainer(final String name, final URL url, boolean throwException) {
+        return new MockContainer(name, url, throwException);
     }
 
     static synchronized ClassLoadingServiceImpl getClassLoadingService(ClassLoader parentClassLoader) throws BundleException, InvalidSyntaxException {
@@ -82,9 +91,6 @@ final class TestUtil {
                                                           final GetLibraryAction getLibraries,
                                                           final boolean failResolve,
                                                           final ComponentContextExpectationProvider expectations) throws BundleException, InvalidSyntaxException {
-        final ClassLoadingServiceImpl cls = new ClassLoadingServiceImpl();
-
-        cls.setGlobalClassloadingConfiguration(new GlobalClassloadingConfiguration());
 
         final Mockery mockery = new Mockery();
         final ComponentContext componentContext = mockery.mock(ComponentContext.class);
@@ -100,7 +106,8 @@ final class TestUtil {
 
         mockery.checking(new Expectations() {
             {
-
+                allowing(myBundleContext).getProperty(with(any(String.class)));
+                will(returnValue(null));
                 // componentContext.getBundleContext() should return bCtx
                 allowing(componentContext).getBundleContext();
                 will(returnValue(myBundleContext));
@@ -193,7 +200,9 @@ final class TestUtil {
         if (expectations != null) {
             expectations.addExpectations(mockery, componentContext);
         }
-        cls.activate(componentContext, null);
+
+        final ClassLoadingServiceImpl cls = new ClassLoadingServiceImpl(componentContext, new GlobalClassloadingConfiguration(), null, null, null, null);
+        cls.activate();
         return cls;
     }
 
@@ -245,11 +254,22 @@ final class TestUtil {
 
     public static AppClassLoader createAppClassloader(String id, URL url, boolean parentLast,
                                                       GetLibraryAction getLibraries) throws MalformedURLException, FileNotFoundException, BundleException, InvalidSyntaxException {
+        return createAppClassloader(id, url, parentLast, getLibraries, Collections.emptyList());
+    }
+
+    public static AppClassLoader createAppClassloader(String id, URL url, boolean parentLast,
+                                                      GetLibraryAction getLibraries,
+                                                      List<ClassFileTransformer> systemTransformers) throws MalformedURLException, FileNotFoundException, BundleException, InvalidSyntaxException {
+
         // find the servlet jar
         URL[] urlsForParentClassLoader = { TestUtil.getServletJarURL() };
         // get a classloader service that thinks it is in a framework
         ClassLoader parentLoader = new URLClassLoader(urlsForParentClassLoader);
         ClassLoadingServiceImpl service = TestUtil.getClassLoadingService(parentLoader, getLibraries);
+        if (!systemTransformers.isEmpty()) {
+            service.unitTestOnlyGetSystemTransformers().addAll(systemTransformers);
+        }
+
         // configure up a classloader
         GatewayConfiguration gwConfig = service.createGatewayConfiguration().setApiTypeVisibility(SPEC, API);
         ClassLoaderConfiguration config = service.createClassLoaderConfiguration().setSharedLibraries(getLibraries.getPrivateLibs()).setCommonLibraries(getLibraries.getCommonLibs()).setDelegateToParentAfterCheckingLocalClasspath(parentLast).setId(service.createIdentity("UnitTest",

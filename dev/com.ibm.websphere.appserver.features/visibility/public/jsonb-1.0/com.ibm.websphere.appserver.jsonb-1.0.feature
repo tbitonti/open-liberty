@@ -15,3 +15,5 @@ IBM-API-Package: javax.json.bind; type="spec", \
 kind=ga
 edition=core
 WLP-Activation-Type: parallel
+WLP-InstantOn-Enabled: true
+WLP-Platform: javaee-8.0,jakartaee-8.0

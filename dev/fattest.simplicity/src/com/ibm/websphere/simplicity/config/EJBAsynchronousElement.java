@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2014 IBM Corporation and others.
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -19,7 +21,7 @@ public class EJBAsynchronousElement extends ConfigElement {
 
     private String contextServiceRef;
     private String unclaimedRemoteResultTimeout;
-    private String maxUnclaimedRemoteResults;
+    private Integer maxUnclaimedRemoteResults;
 
     public String getContextServiceRef() {
         return contextServiceRef;
@@ -39,12 +41,12 @@ public class EJBAsynchronousElement extends ConfigElement {
         this.unclaimedRemoteResultTimeout = unclaimedRemoteResultTimeout;
     }
 
-    public String getMaxUnclaimedRemoteResults() {
+    public Integer getMaxUnclaimedRemoteResults() {
         return maxUnclaimedRemoteResults;
     }
 
     @XmlAttribute(name = "maxUnclaimedRemoteResults")
-    public void setMaxUnclaimedRemoteResults(String maxUnclaimedRemoteResults) {
+    public void setMaxUnclaimedRemoteResults(Integer maxUnclaimedRemoteResults) {
         this.maxUnclaimedRemoteResults = maxUnclaimedRemoteResults;
     }
 

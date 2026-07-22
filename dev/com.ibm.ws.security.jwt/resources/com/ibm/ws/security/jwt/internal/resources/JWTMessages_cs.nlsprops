@@ -1,12 +1,11 @@
 ###############################################################################
-# Copyright (c) 2016, 2021 IBM Corporation and others.
+# Copyright (c) 2016, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 #CMVCPATHNAME com.ibm.ws.security/resources/com/ibm/ws/security/jwt/resources/JWTMessages.nlsprops
 #COMPONENTPREFIX CWWKS
@@ -17,11 +16,11 @@
 # -------------------------------------------------------------------------------------------------
 # Message prefix block: CWWKS6000 - CWWKS6100
 JWT_BUILDER_CONFIG_PROCESSED=CWWKS6000I: Konfigurace JWT {0} byla \u00fasp\u011b\u0161n\u011b zpracov\u00e1na.
-JWT_BUILDER_CONFIG_PROCESSED.explanation=Konfigurace JWT (json web token builder) byla \u00fasp\u011b\u0161n\u011b zpracov\u00e1na.
+JWT_BUILDER_CONFIG_PROCESSED.explanation=Konfigurace tv\u016frce JSON Web Token (JWT) byla \u00fasp\u011b\u0161n\u011b zpracov\u00e1na.
 JWT_BUILDER_CONFIG_PROCESSED.useraction=Nen\u00ed
 
 JWT_BUILDER_CONFIG_MODIFIED=CWWKS6001I: Zm\u011bna konfigurace JWT {0} byla \u00fasp\u011b\u0161n\u011b zpracov\u00e1na.
-JWT_BUILDER_CONFIG_MODIFIED.explanation=Konfigurace JWT (json web token builder) byla \u00fasp\u011b\u0161n\u011b upravena.
+JWT_BUILDER_CONFIG_MODIFIED.explanation=Konfigurace tv\u016frce JSON Web Token (JWT) byla \u00fasp\u011b\u0161n\u011b upravena.
 JWT_BUILDER_CONFIG_MODIFIED.useraction=Nen\u00ed.
 
 # Do not translate "JSON Web Token", "JWT"
@@ -42,7 +41,7 @@ JWT_ENDPOINT_FILTER_MATCH_NOT_FOUND.useraction=Ov\u011b\u0159te, \u017ee cesta k
 
 # Do not translate "JSON Web Token", "JWT"
 # 0=Config ID of JWT provider
-JWT_CONFIG_SERVICE_NOT_AVAILABLE=CWWKS6005E: Slu\u017eba konfigurace webov\u00e9ho tokenu JSON Web Token (JWT) nen\u00ed k dispozici pro poskytovatele [{0}].
+JWT_CONFIG_SERVICE_NOT_AVAILABLE=CWWKS6005E: Slu\u017eba konfigurace webov\u00e9ho tokenu JSON nen\u00ed k dispozici pro poskytovatele [{0}].
 JWT_CONFIG_SERVICE_NOT_AVAILABLE.explanation=Poskytovatel ur\u010den\u00fd ve zpr\u00e1v\u011b bu\u010f neexistuje, nebo konfigurace pro ur\u010den\u00e9ho poskytovatele nebyla zpracov\u00e1na slu\u017ebou konfigurace.
 JWT_CONFIG_SERVICE_NOT_AVAILABLE.useraction=Zkontrolujte konfiguraci serveru a ujist\u011bte se, \u017ee je nakonfigurov\u00e1n ur\u010den\u00fd poskytovatel.
 
@@ -63,7 +62,7 @@ JWT_BUILDER_INVALID.explanation=Tv\u016frce JSON Web Token (JWT) s ur\u010den\u0
 JWT_BUILDER_INVALID.useraction=V souboru server.xml nakonfigurujte prvek jwtBuilder s ur\u010den\u00fdm ID.
 
 # Do not translate "JSON Web Token", "JWT"
-JWT_INVALID_CLAIM_VALUE_ERR=CWWKS6009E: Hodnota [{1}] v n\u00e1roku JSON Web Token (JWT) [{0}] nen\u00ed platn\u00e1.
+JWT_INVALID_CLAIM_VALUE_ERR=CWWKS6009E: Hodnota [{1}] v n\u00e1roku [{0}] JSON Web Token (JWT) je neplatn\u00e1.
 JWT_INVALID_CLAIM_VALUE_ERR.explanation=Ur\u010den\u00e1 hodnota v n\u00e1roku JSON Web Token (JWT) nespl\u0148uje specifikaci JWT.
 JWT_INVALID_CLAIM_VALUE_ERR.useraction=Zadejte platnou hodnotu ur\u010den\u00e9ho n\u00e1roku. Dal\u0161\u00ed informace viz specifikace JWT.
 
@@ -129,13 +128,13 @@ JWT_INVALID_CLAIMS_ERR.useraction=Ujist\u011bte se, \u017ee je dod\u00e1na spr\u
 
 # Do not translate "JSON Web Token", "JWT"
 # 0=Issuer claim of the token, 1=JWT configuration ID, 2=Trusted issuers specified in server configuration
-JWT_ISSUER_NOT_TRUSTED=CWWKS6022E: Vydavatel [{0}] zadan\u00e9ho tokenu JSON Web Token (JWT) nen\u00ed v konfiguraci JWT [{1}] uveden jako d\u016fv\u011bryhodn\u00fd vydavatel. D\u016fv\u011bryhodn\u00ed vydavatel\u00e9 jsou [{2}].
+JWT_ISSUER_NOT_TRUSTED=CWWKS6022E: Vydavatel [{0}] poskytnut\u00e9ho tokenu JSON Web Token (JWT) nen\u00ed uveden jako d\u016fv\u011bryhodn\u00fd vydavatel v konfiguraci JWT [{1}]. D\u016fv\u011bryhodn\u00ed vydavatel\u00e9 jsou [{2}].
 JWT_ISSUER_NOT_TRUSTED.explanation=Konfigurace serveru ur\u010duje, kte\u0159\u00ed vydavatel\u00e9 jsou p\u0159i ov\u011b\u0159ov\u00e1n\u00ed JWT d\u016fv\u011bryhodn\u00ed. Dodan\u00fd token nepoch\u00e1zel od d\u016fv\u011bryhodn\u00e9ho vydavatele, tak\u017ee token nelze ov\u011b\u0159it.
 JWT_ISSUER_NOT_TRUSTED.useraction=Z\u00edskejte nov\u00fd token od jednoho z d\u016fv\u011bryhodn\u00fdch vydavatel\u016f ur\u010den\u00fdch v konfiguraci JWT, nebo p\u0159idejte vydavatele ur\u010den\u00e9ho ve zpr\u00e1v\u011b jako d\u016fv\u011bryhodn\u00e9ho vydavatele v konfiguraci JWT.
 
 # Do not translate "JSON Web Token", "JWT"
 # 0=Audience claim of the token, 1=JWT configuration ID, 2=Trusted audiences specified in server configuration
-JWT_AUDIENCE_NOT_TRUSTED=CWWKS6023E: P\u0159\u00edjemce [{0}] zadan\u00e9ho tokenu JSON Web Token (JWT) nen\u00ed v konfiguraci JWT [{1}] uveden jako d\u016fv\u011bryhodn\u00fd p\u0159\u00edjemce. D\u016fv\u011bryhodn\u00ed p\u0159\u00edjemci jsou [{2}].
+JWT_AUDIENCE_NOT_TRUSTED=CWWKS6023E: P\u0159\u00edjemce [{0}] poskytnut\u00e9ho tokenu JSON Web Token (JWT) nen\u00ed uveden jako d\u016fv\u011bryhodn\u00fd p\u0159\u00edjemce v konfiguraci JWT [{1}]. D\u016fv\u011bryhodn\u00ed p\u0159\u00edjemci jsou [{2}].
 JWT_AUDIENCE_NOT_TRUSTED.explanation=Konfigurace serveru ur\u010duje, kte\u0159\u00ed p\u0159\u00edjemci jsou p\u0159i ov\u011b\u0159ov\u00e1n\u00ed JWT d\u016fv\u011bryhodn\u00ed. Dodan\u00fd token nen\u00ed ur\u010den pro d\u016fv\u011bryhodn\u00e9ho p\u0159\u00edjemce, tak\u017ee token nelze ov\u011b\u0159it.
 JWT_AUDIENCE_NOT_TRUSTED.useraction=Z\u00edskejte nov\u00fd token ur\u010den\u00fd pro jednoho z d\u016fv\u011bryhodn\u00fdch p\u0159\u00edjemc\u016f ur\u010den\u00fdch v konfiguraci JWT, nebo p\u0159idejte p\u0159\u00edjemce ur\u010den\u00e9 ve zpr\u00e1v\u011b jako d\u016fv\u011bryhodn\u00e9ho p\u0159\u00edjemce v konfiguraci JWT.
 
@@ -310,7 +309,7 @@ JWT_TRUSTED_ISSUERS_NULL=CWWKS6052E: Vydavatel [{0}] zadan\u00e9ho tokenu JSON W
 JWT_TRUSTED_ISSUERS_NULL.explanation=Konfigurace serveru specifikuje, kte\u0159\u00ed vydavatel\u00e9 jsou d\u016fv\u011bryhodn\u00ed pro ov\u011b\u0159en\u00ed token\u016f JWT. Konfigurace tokenu JWT nespecifikuje \u017e\u00e1dn\u00e9 d\u016fv\u011bryhodn\u00e9 u\u017eivatele, a proto token nem\u016f\u017ee b\u00fdt ov\u011b\u0159en.
 JWT_TRUSTED_ISSUERS_NULL.useraction=Ujist\u011bte se, \u017ee konfigurace tokenu JWT specifikovan\u00e1 ve zpr\u00e1v\u011b definuje alespo\u0148 jednoho d\u016fv\u011bryhodn\u00e9ho vydavatele. Ujist\u011bte se, \u017ee vydavatel tokenu JWT odpov\u00edd\u00e1 jednomu z d\u016fv\u011bryhodn\u00fdch vydavatel\u016f specifikovan\u00fdch ve va\u0161\u00ed konfiguraci tokenu JWT.
 
-SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME=CWWKS6053E: V ur\u010den\u00e9m koncov\u00e9m bod\u011b: {0} se pou\u017e\u00edv\u00e1 sch\u00e9ma HTTP, je po\u017eadov\u00e1no sch\u00e9ma HTTPS.
+SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME=CWWKS6052E: V ur\u010den\u00e9m koncov\u00e9m bod\u011b: {0} se pou\u017e\u00edv\u00e1 sch\u00e9ma HTTP, je po\u017eadov\u00e1no sch\u00e9ma HTTPS.
 SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME.explanation=Ur\u010den\u00fd koncov\u00fd bod vy\u017eaduje sch\u00e9ma HTTPS, ale v adrese URL po\u017eadavku bylo pou\u017eito sch\u00e9ma HTTP.
 SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME.useraction=Zkontrolujte adresu URL po\u017eadavku a ujist\u011bte se, \u017ee pou\u017e\u00edv\u00e1 sch\u00e9ma HTTPS, nebo zm\u011b\u0148te konfiguraci tak, aby sch\u00e9ma HTTPS nebylo po\u017eadov\u00e1no.
 
@@ -321,7 +320,7 @@ MP_CONFIG_PUBLIC_KEY_ALG_NOT_SUPPORTED.useraction=Uve\u010fte podporovan\u00fd p
 
 # Do not translate "JSON Web Token", "AMR", "JWT"
 # 0=AMR claim of the token, 1=JWT configuration ID, 2=AMR specified in server configuration
-JWT_AMR_CLAIM_NOT_VALID=CWWKS6054E: AMR [{0}] zadan\u00e9ho tokenu JSON Web Token (JWT) nen\u00ed v konfiguraci JWT [{1}] uveden jako d\u016fv\u011bryhodn\u00fd n\u00e1rok AMR. D\u016fv\u011bryhodn\u00fd n\u00e1rok AMR je [ {2}].
+JWT_AMR_CLAIM_NOT_VALID=CWWKS6054E: [{0}] AMR poskytnut\u00e9ho tokenu JSON Web Token (JWT) nen\u00ed uveden jako d\u016fv\u011bryhodn\u00fd AMR v konfiguraci JWT [{1}]. D\u016fv\u011bryhodn\u00fd n\u00e1rok AMR je [ {2}].
 JWT_AMR_CLAIM_NOT_VALID.explanation=Konfigurace serveru ur\u010duje, kter\u00fd n\u00e1rok AMR je p\u0159i ov\u011b\u0159ov\u00e1n\u00ed JWT d\u016fv\u011bryhodn\u00fd. Dodan\u00fd token nen\u00ed ur\u010den pro d\u016fv\u011bryhodn\u00fd n\u00e1rok AMR, tak\u017ee token nelze ov\u011b\u0159it.
 JWT_AMR_CLAIM_NOT_VALID.useraction=Z\u00edskejte nov\u00fd token pro jeden d\u016fv\u011bryhodn\u00fd n\u00e1rok AMR ur\u010den\u00fd v konfiguraci JWT, nebo p\u0159idejte n\u00e1rok AMR ur\u010den\u00fd ve zpr\u00e1v\u011b jako d\u016fv\u011bryhodn\u00fd n\u00e1rok AMR v konfiguraci JWT.
 
@@ -382,3 +381,32 @@ JWE_REQUIRED_BUT_TOKEN_NOT_JWE.useraction=Chcete-li p\u0159ijmout tokeny JWS m\u
 NESTED_JWS_REQUIRED_BUT_NOT_FOUND=CWWKS6065E: Informa\u010dn\u00ed obsah tokenu JSON Web Encryption (JWE), kter\u00fd je sou\u010d\u00e1st\u00ed po\u017eadavku, nen\u00ed token JSON Web Signature (JWS).
 NESTED_JWS_REQUIRED_BUT_NOT_FOUND.explanation=Informa\u010dn\u00ed obsah tokenu JWE mus\u00ed b\u00fdt platn\u00fdm tokenem JSON Web Token (JWT) ve form\u00e1tu JWS.
 NESTED_JWS_REQUIRED_BUT_NOT_FOUND.useraction=Ujist\u011bte se, \u017ee informa\u010dn\u00ed obsah tokenu JWE je platn\u00fd JWT ve form\u00e1tu JWS.
+
+JWE_DECRYPTION_KEY_MISSING=CWWKS6066E: Token JSON Web Encryption (JWE) nem\u016f\u017ee b\u00fdt de\u0161ifrov\u00e1n, proto\u017ee de\u0161ifrovac\u00ed kl\u00ed\u010d nelze nal\u00e9zt. Atribut konfigurace serveru {0} je nastaven na [{1}].
+JWE_DECRYPTION_KEY_MISSING.explanation=K de\u0161ifrov\u00e1n\u00ed tokenu JWE je vy\u017eadov\u00e1n de\u0161ifrovac\u00ed kl\u00ed\u010d. De\u0161ifrovac\u00ed kl\u00ed\u010d mus\u00ed b\u00fdt v \u00falo\u017ei\u0161ti kl\u00ed\u010d\u016f spot\u0159ebitele JWT, nebo mus\u00ed b\u00fdt uveden ve vlastnostech konfigurace MicroProfile.
+JWE_DECRYPTION_KEY_MISSING.useraction=Ov\u011b\u0159te, zda alias kl\u00ed\u010de, kter\u00fd je uveden ve zpr\u00e1v\u011b, existuje v \u00falo\u017ei\u0161ti kl\u00ed\u010d\u016f spot\u0159ebitele JWT. Jestli\u017ee alias nen\u00ed nakonfigurov\u00e1n, mus\u00ed b\u00fdt de\u0161ifrovac\u00ed kl\u00ed\u010d uveden ve vlastnostech konfigurace MicroProfile.
+
+# Do not translate "JSON Web Token", "JWT", "iat"
+# 0=iat claim time value (date), 1=Current time, 2=Clock skew configuration value, 3=Token age configuration value
+JWT_TOKEN_AGED=CWWKS6067E: Webov\u00fd token JSON (JWT) nen\u00ed platn\u00fd, proto\u017ee od n\u00e1roku vyd\u00e1n\u00ed (iat) do\u0161lo k vypr\u0161en\u00ed platnosti st\u00e1\u0159\u00ed tokenu. \u010cas n\u00e1roku iat je {0}. Aktu\u00e1ln\u00ed \u010das minus posun hodin je {1}. Nakonfigurovan\u00fd posun hodin je {2} sekund. Nakonfigurovan\u00e9 st\u00e1\u0159\u00ed tokenu je {3} sekund.
+JWT_TOKEN_AGED.explanation=Tokeny s p\u0159ekro\u010denou \u017eivotnost\u00ed nejsou platn\u00e9.
+JWT_TOKEN_AGED.useraction=Z\u00edskejte nov\u00fd token, kter\u00fd nem\u00e1 p\u0159ekro\u010denou \u017eivotnost. Prove\u010fte synchronizaci hodin mezi vydavatelem a odb\u011bratelem tokenu, nebo zvy\u0161te posun hodin v konfiguraci JWT.
+
+# Do not translate "JSON Web Encryption", "JWE", "alg"
+# 0=Key management key algorithm configuration value
+JWE_MISSING_ALG_HEADER=CWWKS6068E: Token JSON Web Encryption (JWE) nen\u00ed platn\u00fd, proto\u017ee chyb\u00ed hlavi\u010dka alg. Nakonfigurovan\u00fd algoritmus kl\u00ed\u010de spr\u00e1vy kl\u00ed\u010d\u016f je {0}.
+JWE_MISSING_ALG_HEADER.explanation=Token je bu\u010f deformovan\u00fd, neza\u0161ifrovan\u00fd, nebo v n\u011bm chyb\u00ed informace o \u0161ifrov\u00e1n\u00ed.
+JWE_MISSING_ALG_HEADER.useraction=Ujist\u011bte se, \u017ee z\u00e1hlav\u00ed algoritmu tokenu JWE je nastaveno na po\u017eadovanou hodnotu.
+
+# Do not translate "JSON Web Encryption", "JWE", "JWT", "Content Encryption Key", "CEK"
+# 0=Cryptographic algorithm used to encrypt the Content Encryption Key (e.g. RSA-OAEP), 1=Cryptographic algorithm required for decrypting the Content Encryption Key (e.g. RSA-OAEP)
+JWE_ALGORITHM_MISMATCH=CWWKS6069E: Webov\u00e9 \u0161ifrov\u00e1n\u00ed JSON (JWE) nen\u00ed platn\u00e9, proto\u017ee jeho \u0161ifrovac\u00ed kl\u00ed\u010d obsahu (CEK) byl za\u0161ifrov\u00e1n pomoc\u00ed algoritmu {0}. \u0160ifrovac\u00ed kl\u00ed\u010de obsahu mus\u00ed b\u00fdt za\u0161ifrov\u00e1ny pomoc\u00ed algoritmu {1}.
+JWE_ALGORITHM_MISMATCH.explanation=\u0160ifrovac\u00ed kl\u00ed\u010de obsahu mus\u00ed b\u00fdt za\u0161ifrov\u00e1ny pomoc\u00ed algoritmu uveden\u00e9ho ve zpr\u00e1v\u011b. \u0160ifrovac\u00ed kl\u00ed\u010de obsahu, kter\u00e9 jsou za\u0161ifrov\u00e1ny pomoc\u00ed jak\u00e9hokoli jin\u00e9ho \u0161ifrovac\u00edho algoritmu, nelze ov\u011b\u0159it.
+JWE_ALGORITHM_MISMATCH.useraction=Z\u00edskejte nov\u00fd token s \u0161ifrovac\u00edm kl\u00ed\u010dem obsahu, kter\u00fd je za\u0161ifrov\u00e1n pomoc\u00ed vy\u017eadovan\u00e9ho algoritmu, kter\u00fd je uveden ve zpr\u00e1v\u011b. P\u0159\u00edpadn\u011b aktualizujte konfiguraci JWT tak, aby povolovala tokeny se \u0161ifrovac\u00edmi kl\u00ed\u010di obsahu, kter\u00e9 jsou za\u0161ifrov\u00e1ny pomoc\u00ed jin\u00e9ho \u0161ifrovac\u00edho algoritmu.
+
+# 0=Truststore reference, 1=Exception message
+JWT_ERROR_GETTING_CERT_ENTRIES=CWWKS6070E: Nelze na\u010d\u00edst polo\u017eky d\u016fv\u011bryhodn\u00fdch certifik\u00e1t\u016f z \u00falo\u017ei\u0161t\u011b [ {0} ]. {1}
+JWT_ERROR_GETTING_CERT_ENTRIES.explanation=P\u0159i pokusu syst\u00e9mu o na\u010dten\u00ed seznamu polo\u017eek d\u016fv\u011bryhodn\u00fdch certifik\u00e1t\u016f ze zadan\u00e9ho \u00falo\u017ei\u0161t\u011b d\u016fv\u011bryhodn\u00fdch certifik\u00e1t\u016f do\u0161lo k chyb\u011b. V konfiguraci mo\u017en\u00e1 chyb\u00ed \u00falo\u017ei\u0161t\u011b certifik\u00e1t\u016f, p\u0159\u00edpadn\u011b m\u016f\u017ee p\u0159\u00edstup k tomuto \u00falo\u017ei\u0161ti br\u00e1nit n\u011bjak\u00e1 chyba.
+JWT_ERROR_GETTING_CERT_ENTRIES.useraction=Zkontrolujte, zda je \u00falo\u017ei\u0161t\u011b certifik\u00e1t\u016f spr\u00e1vn\u011b nastaveno v konfiguraci serveru a zda je k n\u011bmu zaji\u0161t\u011bn p\u0159\u00edstup. Dal\u0161\u00ed informace o t\u00e9to chyb\u011b najdete v chybov\u00e9 zpr\u00e1v\u011b.
+
+

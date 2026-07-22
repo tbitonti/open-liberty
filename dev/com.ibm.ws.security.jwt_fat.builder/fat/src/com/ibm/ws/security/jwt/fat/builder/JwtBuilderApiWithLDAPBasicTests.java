@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -11,7 +13,6 @@
 package com.ibm.ws.security.jwt.fat.builder;
 
 import org.junit.BeforeClass;
-import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -32,7 +33,6 @@ import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 
 /**
@@ -53,7 +53,7 @@ public class JwtBuilderApiWithLDAPBasicTests extends JwtBuilderCommonLDAPFat {
 
     @BeforeClass
     public static void setUp() throws Exception {
-    	FATSuite.transformApps(builderServer, "test-apps/jwtbuilder.war", "test-apps/jwtbuilderclient.war", "dropins/testmarker.war");
+        transformApps(builderServer);
 
         setupLdapServer(builderServer);
 
@@ -83,7 +83,7 @@ public class JwtBuilderApiWithLDAPBasicTests extends JwtBuilderCommonLDAPFat {
     public void JwtBuilderAPIWithLDAPBasicTests_runFetch_subjectSet_existingClaims() throws Exception {
 
         String builderId = "jwt1";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
 
         // create settings that will be passed to the test app as well as used to create what to expect in the results
         // set freeform claims into a json object.  Add that object into the json object of things to set
@@ -183,7 +183,7 @@ public class JwtBuilderApiWithLDAPBasicTests extends JwtBuilderCommonLDAPFat {
     public void JwtBuilderAPIWithLDAPBasicTests_runFetch_subjectSet_nonExistingClaim() throws Exception {
 
         String builderId = "jwt1";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
 
         // create settings that will be passed to the test app as well as used to create what to expect in the results
         // set freeform claims into a json object.  Add that object into the json object of things to set
@@ -218,7 +218,7 @@ public class JwtBuilderApiWithLDAPBasicTests extends JwtBuilderCommonLDAPFat {
     public void JwtBuilderAPIWithLDAPBasicTests_runFetch_subjectNotSet_existingClaims() throws Exception {
 
         String builderId = "jwt1";
-        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims(builderId);
+        JSONObject expectationSettings = BuilderHelpers.setDefaultClaims();
 
         // create settings that will be passed to the test app as well as used to create what to expect in the results
         // set freeform claims into a json object.  Add that object into the json object of things to set

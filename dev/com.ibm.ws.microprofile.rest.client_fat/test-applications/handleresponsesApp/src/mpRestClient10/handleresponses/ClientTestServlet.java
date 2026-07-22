@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,15 +14,14 @@ package mpRestClient10.handleresponses;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
+import static componenttest.rules.repeater.MicroProfileActions.*;
 
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
@@ -28,14 +29,14 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import javax.ws.rs.ProcessingException;
-import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.core.Response;
 
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
 import org.junit.Test;
 
+import componenttest.annotation.SkipForRepeat;
 import componenttest.app.FATServlet;
+import componenttest.rules.repeater.MicroProfileActions;
 
 @SuppressWarnings("serial")
 @WebServlet(urlPatterns = "/ClientTestServlet")
@@ -83,6 +84,7 @@ public class ClientTestServlet extends FATServlet {
     }
 
     @Test
+    @SkipForRepeat({MP50_ID, MP60_ID, MP61_ID, MP70_EE10_ID, MP70_EE11_ID}) // EE9's Response#readEntity behaves differently when there is no entity - see test below
     public void testEmpty202Response(HttpServletRequest req, HttpServletResponse res) throws Exception {
 
         Response r = builder.build(HandleResponsesClient.class).batchWidget(new Widget("Markers", 150, 0.2));
@@ -91,6 +93,7 @@ public class ClientTestServlet extends FATServlet {
         String entity = null;
         try {
             entity = r.readEntity(String.class);
+            System.out.println("Client received entity: " + entity);
             fail("Did not throw expected IllegalStateException");
         } catch (IllegalStateException expected) {
             entity = null;
@@ -98,6 +101,27 @@ public class ClientTestServlet extends FATServlet {
             t.printStackTrace();
             fail("Caught unexpected exception: " + t);
         }
+        assertNull(entity);
+    }
+
+    @Test
+    @SkipForRepeat({MP13_ID, MP20_ID, MP22_ID, MP30_ID, MP33_ID, MP40_ID})
+    public void testEmpty202Response_EE9(HttpServletRequest req, HttpServletResponse res) throws Exception {
+
+        Response r = builder.build(HandleResponsesClient.class).batchWidget(new Widget("Markers", 150, 0.2));
+        assertEquals(202, r.getStatus());
+
+        String entity = null;
+        try {
+            entity = r.readEntity(String.class);
+            System.out.println("Client received entity: " + entity);
+        } catch (IllegalStateException expected) {
+            entity = null;
+        } catch (Throwable t) {
+            t.printStackTrace();
+            fail("Caught unexpected exception: " + t);
+        }
+        assertEquals("", entity);
     }
 
     @Test

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package com.ibm.ws.jpa.tests.spec10.injection.ejb_in_war;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.jboss.shrinkwrap.api.ArchivePath;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
@@ -21,7 +24,12 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.internal.AssumptionViolatedException;
+import org.junit.runner.Description;
 import org.junit.runner.RunWith;
+import org.junit.runners.model.Statement;
+import org.testcontainers.containers.JdbcDatabaseContainer;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.config.Application;
@@ -42,16 +50,42 @@ import com.ibm.ws.jpa.fvt.ejbinwar.tests.web.dmi.noinh.DMI_NoInh_EIW_SF_EJBTestS
 import com.ibm.ws.jpa.fvt.ejbinwar.tests.web.dmi.noinh.DMI_NoInh_EIW_SL_EJBTestServlet;
 import com.ibm.ws.jpa.fvt.ejbinwar.tests.web.jndi.JNDI_EIW_SF_EJBTestServlet;
 import com.ibm.ws.jpa.fvt.ejbinwar.tests.web.jndi.JNDI_EIW_SL_EJBTestServlet;
+import com.ibm.ws.testtooling.vehicle.web.JPAFATServletClient;
 
 import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.annotation.TestServlets;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.topology.database.container.DatabaseContainerType;
+import componenttest.topology.database.container.DatabaseContainerUtil;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.PrivHelper;
 
 @RunWith(FATRunner.class)
 public class EjbInWar_Test extends JPAFATServletClient {
+    @Rule
+    public org.junit.rules.TestRule skipDBRule = new org.junit.rules.Verifier() {
+
+        @Override
+        public Statement apply(Statement arg0, Description arg1) {
+            return new Statement() {
+                @Override
+                public void evaluate() throws Throwable {
+                    String database = getDbVendor().name();
+                    boolean shouldSkip = (database != null
+                                          && !Pattern.compile("derby", Pattern.CASE_INSENSITIVE).matcher(database).find());
+                    System.out.println("Checking if skip test");
+                    if (shouldSkip) {
+                        throw new AssumptionViolatedException("Database is not Derby. Skipping test!");
+                    } else {
+                        System.out.println("Not Skipping");
+                        arg0.evaluate();
+                    }
+                }
+            };
+        }
+    };
+
     @Server("JPAServer")
     @TestServlets({
                     @TestServlet(servlet = JNDI_EIW_SL_EJBTestServlet.class, path = "ejbinwar_jndi" + "/" + "JNDI_EIW_SL_EJBTestServlet"),
@@ -73,6 +107,8 @@ public class EjbInWar_Test extends JPAFATServletClient {
 
     })
     public static LibertyServer server1;
+
+    public static final JdbcDatabaseContainer<?> testContainer = FATSuite.testContainer;
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -113,6 +149,12 @@ public class EjbInWar_Test extends JPAFATServletClient {
         timestart = System.currentTimeMillis();
 
         server1.addEnvVar("repeat_phase", FATSuite.repeatPhase);
+
+        //Get driver name
+        server1.addEnvVar("DB_DRIVER", DatabaseContainerType.valueOf(testContainer).getDriverName());
+
+        //Setup server DataSource properties
+        DatabaseContainerUtil.setupDataSourceProperties(server1, testContainer);
 
         server1.startServer();
 
@@ -217,6 +259,11 @@ public class EjbInWar_Test extends JPAFATServletClient {
             ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
             ClassloaderElement loader = new ClassloaderElement();
             loader.getCommonLibraryRefs().add("HibernateLib");
+            cel.add(loader);
+        } else if (FATSuite.repeatPhase != null && FATSuite.repeatPhase.contains("openjpa")) {
+            ConfigElementList<ClassloaderElement> cel = appRecord.getClassloaders();
+            ClassloaderElement loader = new ClassloaderElement();
+            loader.getCommonLibraryRefs().add("OpenJPALib");
             cel.add(loader);
         }
 

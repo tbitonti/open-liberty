@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015,2020 IBM Corporation and others.
+ * Copyright (c) 2015, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -232,8 +234,11 @@ public class EsaResourceImpl extends RepositoryResourceImpl implements EsaResour
             return;
         }
 
-        String minJava11 = "Java SE 11, Java SE 15";
-        String minJava8 = "Java SE 8, Java SE 11, Java SE 15";
+        String minJava25 = "Java SE 25, Java SE 26";
+        String minJava21 = "Java SE 21, Java SE 25, Java SE 26";
+        String minJava17 = "Java SE 17, Java SE 21, Java SE 25, Java SE 26";
+        String minJava11 = "Java SE 11, Java SE 17, Java SE 21, Java SE 25, Java SE 26";
+        String minJava8 = "Java SE 8, Java SE 11, Java SE 17, Java SE 21, Java SE 25, Java SE 26";
 
         // The min version should have been validated when the ESA was constructed
         // so checking for the version string should be safe
@@ -241,12 +246,45 @@ public class EsaResourceImpl extends RepositoryResourceImpl implements EsaResour
             reqs.setVersionDisplayString(minJava8);
             return;
         }
+
         if (minVersion.startsWith("9.") ||
             minVersion.startsWith("10.") ||
             minVersion.startsWith("11.")) {
             // If a feature requires a min of Java 9/10/11, state Java 11 is required because
             // Liberty does not officially support Java 9 or 10
             reqs.setVersionDisplayString(minJava11);
+            return;
+        }
+
+        if (minVersion.startsWith("12.") ||
+            minVersion.startsWith("13.") ||
+            minVersion.startsWith("14.") ||
+            minVersion.startsWith("15.") ||
+            minVersion.startsWith("16.") ||
+            minVersion.startsWith("17.")) {
+            // If a feature requires a min of Java 12/13/14/15/16/17, state Java 17 is required because
+            // Liberty does not officially support Java 12-16
+            reqs.setVersionDisplayString(minJava17);
+            return;
+        }
+
+        if (minVersion.startsWith("18.") ||
+            minVersion.startsWith("19.") ||
+            minVersion.startsWith("20.") ||
+            minVersion.startsWith("21.")) {
+            // If a feature requires a min of Java 18/19/20/21, state Java 21 is required because
+            // Liberty does not officially support Java 18-20
+            reqs.setVersionDisplayString(minJava21);
+            return;
+        }
+
+        if (minVersion.startsWith("22.") ||
+            minVersion.startsWith("23.") ||
+            minVersion.startsWith("24.") ||
+            minVersion.startsWith("25.")) {
+            // If a feature requires a min of Java 22/23/24/25, state Java 25 is required because
+            // Liberty does not officially support Java 22-24
+            reqs.setVersionDisplayString(minJava25);
             return;
         }
 
@@ -338,7 +376,8 @@ public class EsaResourceImpl extends RepositoryResourceImpl implements EsaResour
         addVersionDisplayString();
     }
 
-    protected Collection<AppliesToFilterInfo> getAppliesToFilterInfo() {
+    @Override
+    public Collection<AppliesToFilterInfo> getAppliesToFilterInfo() {
         return _asset.getWlpInformation().getAppliesToFilterInfo();
     }
 
@@ -391,6 +430,7 @@ public class EsaResourceImpl extends RepositoryResourceImpl implements EsaResour
         setShortName(esaRes.getShortName());
         setVanityURL(esaRes.getVanityURL());
         setSingleton(esaRes.getSingleton());
+        setPlatforms(esaRes.getPlatforms());
         setIBMInstallTo(esaRes.getIBMInstallTo());
     }
 
@@ -796,6 +836,18 @@ public class EsaResourceImpl extends RepositoryResourceImpl implements EsaResour
     @Override
     public void setIBMInstallTo(String ibmInstallTo) {
         _asset.getWlpInformation().setIbmInstallTo(ibmInstallTo);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Collection<String> getPlatforms() {
+        return _asset.getWlpInformation().getPlatforms();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setPlatforms(Collection<String> platforms) {
+        _asset.getWlpInformation().setPlatforms(platforms);
     }
 
 }

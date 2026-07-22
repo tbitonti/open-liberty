@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -59,10 +61,10 @@ public class InstallPackagesTest extends InstallPackagesToolTest {
         Boolean testsPassed = false;
 
         Log.info(c, METHOD_NAME, "Installing package:" + packageExt);
-        ProgramOutput po1 = installOldPackage(METHOD_NAME, packageExt);
+        ProgramOutput po1 = retryInstallOldPackage(METHOD_NAME, packageExt);
 
         Log.info(c, METHOD_NAME, "Updating package");
-        ProgramOutput po2 = installCurrentPackage(METHOD_NAME, packageExt);
+        ProgramOutput po2 = retryInstallCurrentPackage(METHOD_NAME, packageExt);
 
         Log.info(c, METHOD_NAME, "Roll back package");
         ProgramOutput po3 = rollbackPackage(METHOD_NAME, packageExt);

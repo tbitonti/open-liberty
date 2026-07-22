@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2017, 2020 IBM Corporation and others.
+# Copyright (c) 2017, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -43,22 +45,30 @@ Service-Component: \
     authenticatorFactory=com.ibm.ws.webcontainer.security.WebAuthenticatorFactory; \
     unauthenticatedSubjectService=com.ibm.ws.security.authentication.UnauthenticatedSubjectService; \
     unprotectedResourceService=com.ibm.ws.webcontainer.security.UnprotectedResourceService; \
-    jaccService=com.ibm.ws.security.authorization.jacc.JaccService;\
+    webJaccService=com.ibm.ws.webcontainer.security.WebJaccService;\
     kernelProvisioner=com.ibm.ws.kernel.feature.FeatureProvisioner;\
     webAppSecurityConfigChangeListener=com.ibm.ws.webcontainer.security.WebAppSecurityConfigChangeListener;\
+    loggedOutCookieCacheService=io.openliberty.jcache.CacheService;\
     multiple:='interceptorService, webAuthenticator, unprotectedResourceService, webAppSecurityConfigChangeListener'; \
     greedy:='ssoAuthFilter,interceptorService, webAuthenticator, unprotectedResourceService,authenticatorFactory'; \
-    optional:='taiService,interceptorService,webAuthenticator,jaccService,unprotectedResourceService,webAppSecurityConfigChangeListener'; \
-    dynamic:='ssoAuthFilter,taiService,interceptorService,webAuthenticator,jaccService,unprotectedResourceService,authenticatorFactory,webAppSecurityConfigChangeListener'; \
+    optional:='taiService,interceptorService,webAuthenticator,webJaccService,unprotectedResourceService,webAppSecurityConfigChangeListener,loggedOutCookieCacheService'; \
+    dynamic:='ssoAuthFilter,taiService,interceptorService,webAuthenticator,webJaccService,unprotectedResourceService,authenticatorFactory,webAppSecurityConfigChangeListener'; \
+    properties:="service.vendor=IBM,loggedOutCookieCacheService.target=(id=unbound)", \
+  com.ibm.ws.webcontainer.security.WebDeclaredRolesService; \
+    implementation:=com.ibm.ws.webcontainer.security.WebDeclaredRolesService; \
+    provide:='com.ibm.ws.security.authorization.DeclaredRolesService,\
+              com.ibm.ws.webcontainer.security.WebDeclaredRolesService'; \
+    configuration-policy:=ignore; \
     properties:="service.vendor=IBM", \
   com.ibm.ws.webcontainer.security.ServletStartedListener; \
     implementation:=com.ibm.ws.webcontainer.security.ServletStartedListener; \
     provide:='com.ibm.wsspi.webcontainer.collaborator.WebAppInitializationCollaborator'; \
     activate:=activate;\
     deactivate:=deactivate;\
-    jaccService=com.ibm.ws.security.authorization.jacc.JaccService;\
-    dynamic:='jaccService';\
-    optional:='jaccService';\
+    webJaccService=com.ibm.ws.webcontainer.security.WebJaccService;\
+    declaredRolesService=com.ibm.ws.webcontainer.security.WebDeclaredRolesService;\
+    dynamic:='webJaccService';\
+    optional:='webJaccService';\
     configuration-policy:=ignore;\
     properties:="service.vendor=IBM", \
   SecurityTransferContextService; \
@@ -73,9 +83,10 @@ Service-Component: \
     configuration-policy:=ignore; \
     activate:=activate; \
     deactivate:=deactivate; \
-    jaccService=com.ibm.ws.security.authorization.jacc.JaccService; \
-    dynamic:='jaccService'; \
-    optional:='jaccService'; \
+    webJaccService=com.ibm.ws.webcontainer.security.WebJaccService; \
+    declaredRolesService=com.ibm.ws.webcontainer.security.WebDeclaredRolesService;\
+    dynamic:='webJaccService'; \
+    optional:='webJaccService'; \
     properties:="service.vendor=IBM"
 
 -buildpath: com.ibm.ws.webcontainer.security;version=latest

@@ -1,13 +1,15 @@
-/*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+/*
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *******************************************************************************/
+ */
 
 package com.ibm.ws.sib.processor.impl;
 
@@ -2163,7 +2165,7 @@ public final class AOStream extends ControllableStream implements BatchedTimeout
         {
           changeUnknownToCompleted(0, tick);
           firstUnknownTick = tick + 1; // as tick >= 0, firstUnknownTick > 0
-          // for sanity, make sure that the highestGeneratedTick makes sense
+          // make sure that the highestGeneratedTick makes sense
           if (tick < initHighestValueTick)
           {
             // log serious error
@@ -2893,7 +2895,7 @@ public final class AOStream extends ControllableStream implements BatchedTimeout
         SibTr.exception(tc, e);
 
         aock = null;
-        ClosedException e2 = new ClosedException(e.getMessage());
+        ClosedException e2 = new ClosedException(e);
         // just using the ClosedException as a convenience
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
           SibTr.exit(tc, "findOrCreateJSRemoteConsumerPoint", e2);

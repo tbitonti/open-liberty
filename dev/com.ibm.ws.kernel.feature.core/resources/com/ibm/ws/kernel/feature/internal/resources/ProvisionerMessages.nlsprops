@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2010, 2020 IBM Corporation and others.
+# Copyright (c) 2010, 2022 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -29,7 +31,7 @@
 #   Messages in the range CWWKF1000 are reserved for the FeatureToolMessages.
 # -------------------------------------------------------------------------------------------------
 
-UPDATE_MISSING_FEATURE_ERROR=CWWKF0001E: A feature definition could not be found for {0}
+UPDATE_MISSING_FEATURE_ERROR=CWWKF0001E: A feature definition could not be found for {0}. To install the feature, run the bin/featureUtility installFeature {0} command or the bin/featureUtility installServerFeatures command.
 UPDATE_MISSING_FEATURE_ERROR.explanation=The feature manager could not find a definition for the specified feature.
 UPDATE_MISSING_FEATURE_ERROR.useraction=Check that the name of the specified feature is spelled correctly, \
 and that the feature definition exists and is readable in the lib/features directory.
@@ -201,11 +203,11 @@ UPDATE_WRONG_PROCESS_TYPE_DEPENDENCY_CLIENT_ERROR.explanation=The configured fea
 UPDATE_WRONG_PROCESS_TYPE_DEPENDENCY_CLIENT_ERROR.useraction=Remove the feature from the configuration or change the feature manifest file to enable support for the desired process type.
 
 # CWWK0042E  {0} = feature Name: {1} = server name 
-UPDATE_MISSING_CORE_FEATURE_ERROR=CWWKF0042E: A feature definition cannot be found for the {0} feature.  Try running the command, bin/installUtility install {0}, to install the feature. Alternatively, you can run the command, bin/installUtility install {1}, to install all features that are referenced by this configuration.
+UPDATE_MISSING_CORE_FEATURE_ERROR=CWWKF0042E: A feature definition cannot be found for the {0} feature.  Try running the command, bin/featureUtility installFeature {0}, to install the feature. Alternatively, you can run the command, bin/featureUtility installServerFeatures {1}, to install all features that are referenced by this configuration.
 UPDATE_MISSING_CORE_FEATURE_ERROR.explanation=The feature manager could not find a definition for the specified feature.
 UPDATE_MISSING_CORE_FEATURE_ERROR.useraction=Check that the name of the specified feature is spelled correctly.  \
-Also verify that the feature definition exists and is readable in the lib/features directory.  If the feature does not exist, try running the command, bin/installUtility install feature_name, to install the feature \
-or try running the command, bin/installUtility install server_name, to install all features that are referenced by this configuration.
+Also verify that the feature definition exists and is readable in the lib/features directory.  If the feature does not exist, try running the command, bin/featureUtility installFeature feature_name, to install the feature \
+or try running the command, bin/featureUtility installServerFeatures server_name, to install all features that are referenced by this configuration.
 
 # CWWK0043E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = configuredFeature1: {3} = configuredFeature2: {4} EePlaformCommonToProgModels 
 UPDATE_CONFLICT_INCOMPATIBLE_EE_FEATURES_SAME_PLATFORM_ERROR=CWWKF0043E: The configured feature {2} of {0} is incompatible with the configured feature {3} of {1}.  The configuration includes an incompatible combination of {4} features that is not supported.  Update the configuration to use compatible versions of the configured features that support the {0} or {1} programming models.
@@ -226,10 +228,50 @@ UPDATE_DISABLED_FEATURES_ON_CONFLICT=CWWKF0046W: The configuration includes an i
 UPDATE_DISABLED_FEATURES_ON_CONFLICT.explanation=The configuration includes an incompatible combination of features. To avoid invalid behavior, the feature manager disabled all features.
 UPDATE_DISABLED_FEATURES_ON_CONFLICT.useraction=Specify a different version of the configured features that caused the conflict.
 
-# CWWK0044E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2 {6} EePlaformCommonToProgModels
+# CWWK0047E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2 {6} EePlatformCommonToProgModels
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR=CWWKF0047E: The {2} and {3} features cannot be loaded at the same time. The {2} feature of {0} is incompatible with the {3} feature of {1}. The configuration includes an incompatible combination of {6} features that is not supported. The {4} and {5} configured features include an incompatible combination of features. Your configuration is not supported. Update the configuration to use compatible versions of the configured features that support the {0} or {1} programming models.
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.explanation=The server configuration contains an incompatible combination of features for the indicated programming models. This conflict can happen if the two incompatible features are configured directly in the server configuration, or if the configured features include different versions of a feature that are incompatible.
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.useraction=Try to specify a compatible version of the configured features that caused the conflict in the server.xml file. If no other versions are available, then the configured features are not compatible with each other and cannot be configured at the same time.
+
+# CWWKF0048E  {0} = the unknown platform value in the environment variable
+UNKNOWN_PLATFORM_VALUE_ENV_VAR=CWWKF0048E: The {0} value of the PREFERRED_PLATFORM_VERSIONS platform environment variable does not contain a valid version.
+UNKNOWN_PLATFORM_VALUE_ENV_VAR.explanation=Each value in the platform environment variable must be a known platform. The known platforms are a version of javaee, jakartaee, or microProfile.
+UNKNOWN_PLATFORM_VALUE_ENV_VAR.useraction=Check that the environment variable contains only known platforms.
+
+# CWWKF0049E  {0} = set of duplicate platforms
+DUPLICATE_PLATFORMS=CWWKF0049E: The following configured platform versions are in conflict: {0}.
+DUPLICATE_PLATFORMS.explanation=More than one version was specified for the same platform.
+DUPLICATE_PLATFORMS.useraction=Remove all but one of the platform versions.
+
+# CWWKF0050E  {0} = the versionless features that cannot be resolved
+UNRESOLVED_VERSIONLESS_FEATURE=CWWKF0050E: The {0} versionless features cannot be resolved
+UNRESOLVED_VERSIONLESS_FEATURE.explanation=Versionless features need a designated platform before they can be resolved.
+UNRESOLVED_VERSIONLESS_FEATURE.useraction=Make sure there is a platform element specified for your feature.
+
+# CWWKF0051I  {0} = the versionless features: {1} = the features that were resolved from the versionless features
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE=CWWKF0051I: The {0} versionless features resolved to {1}
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE.explanation=The versioned features that were resolved from the versionless features.
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE.useraction=No action is required.
+
+# CWWKF0052E  {0} = the unknown platform
+UNKNOWN_PLATFORM_ELEMENT=CWWKF0052E: The {0} platform is not valid
+UNKNOWN_PLATFORM_ELEMENT.explanation=The specified platform element is not a known platform. The known platforms are a version of javaee, jakartaee, or microProfile
+UNKNOWN_PLATFORM_ELEMENT.useraction=Make sure the configured platform is a known platform.
+
+# CWWKF0053I  {0} = the resolved platforms
+RESOLVED_PLATFORM=CWWKF0053I: Feature resolution selected the {0} platforms.
+RESOLVED_PLATFORM.explanation=The platform versions were selected to enable resolution of versionless features. The platform versions were obtained from platform elements, from versioned features, or from an environment variable.
+RESOLVED_PLATFORM.useraction=No action is required.
+
+# CWWKF0054E  {0} = the versionless feature that cannot be resolved: {1} = the resolved platform
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM=CWWKF0054E: The {0} versionless feature does not have a version that belongs to the {1} platform.
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM.explanation=No version of the feature is available for the platform version. Feature resolution was completed, but did not select a version of the feature.
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM.useraction=Either remove the versionless feature, specify a different platform version, or use a versioned feature.
+
+# CWWKF0055E  {0} = the versionless features
+NO_RESOLVED_PLATFORM=CWWKF0055E: The {0} versionless features do not have a configured platform.
+NO_RESOLVED_PLATFORM.explanation=Each type of versionless feature is required to have a configured platform. If javaee or jakartaee versionless features are configured, they require a corresponding javaee or jakartaee platform. If microProfile versionless features are configured, they require a microProfile platform.
+NO_RESOLVED_PLATFORM.useraction=Either add a platform element, a versioned feature, or an environment variable.
 
 #   Messages in the range CWWKF1000 are reserved for the FeatureToolMessages.
 
@@ -342,4 +384,14 @@ tool.classpath.create.fail.useraction=Review the error message, correct the prob
 tool.userfeature.install.location.invalid=CWWKF1036E: The {0} user feature cannot be installed to core.
 tool.userfeature.install.location.invalid.explanation= The user feature is not a core feature therefore cannot be installed to core.
 tool.userfeature.install.location.invalid.useraction= Install the user feature to usr. 
+
+FEATURES_ADDED_DELTA=CWWKF1037I: The server added the {0} features to the existing feature set.
+FEATURES_ADDED_DELTA.explanation=The server installed a set of new features in addition to previously installed features.
+FEATURES_ADDED_DELTA.useraction=No action is required.
+
+FEATURES_ADDED_CLIENT_DELTA=CWWKF1038I: The client added the {0} features to the existing feature set. 
+FEATURES_ADDED_CLIENT_DELTA.explanation=The client installed a set of new features in addition to previously installed features.
+FEATURES_ADDED_CLIENT_DELTA.useraction=No action is required. 
+
+
 

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,6 +17,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 
 import org.json.JSONObject;
@@ -23,8 +26,10 @@ import org.junit.AfterClass;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.testcontainers.containers.GenericContainer;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.log.Log;
@@ -40,6 +45,9 @@ import componenttest.topology.impl.LibertyServerFactory;
 @Mode(TestMode.LITE)
 public class CustomizedTagTest extends LogstashCollectorTest {
 
+    /*
+     * Current model must acquire server this way, we need server "early" so that the static initialization of the generic container can resolve
+     */
     private static LibertyServer server = LibertyServerFactory.getLibertyServer("TagTestServer");
 
     static boolean msgType = false;
@@ -58,9 +66,21 @@ public class CustomizedTagTest extends LogstashCollectorTest {
 
     protected static boolean runTest = true;
 
+    @ClassRule
+    public static GenericContainer<?> logstashContainer = createExpLogstashContainer();
+
+    private static GenericContainer<?> createExpLogstashContainer() {
+        try {
+            return prepareServerSSLAndConstructContainer(server);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to setup server and/or container", e);
+        }
+    }
+
     @BeforeClass
     public static void setUp() throws Exception {
 
+        server.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         String os = System.getProperty("os.name").toLowerCase();
         Log.info(c, "setUp", "os.name = " + os);
         Log.info(c, "setUp", "runTest = " + runTest);
@@ -70,7 +90,7 @@ public class CustomizedTagTest extends LogstashCollectorTest {
         }
 
         clearContainerOutput();
-        String host = logstashContainer.getContainerIpAddress();
+        String host = logstashContainer.getHost();
         String port = String.valueOf(logstashContainer.getMappedPort(5043));
         Log.info(c, "setUp", "Logstash container: host=" + host + "  port=" + port);
         server.addEnvVar("LOGSTASH_HOST", host);
@@ -213,6 +233,9 @@ public class CustomizedTagTest extends LogstashCollectorTest {
     private static void serverStart() throws Exception {
         Log.info(c, "serverStart", "--->  Starting Server.. ");
         server.startServer();
+        // Wait for Liberty server to connect to Logstash server
+        // TRAS0218I: The logstash collector is connected to the logstash server on the specified host {0} and port number {1}.
+        assertNotNull("Cannot find TRAS0218I from messages.log", server.waitForStringInLog("TRAS0218I", 60000));
     }
 
     private boolean isGCSupported() {

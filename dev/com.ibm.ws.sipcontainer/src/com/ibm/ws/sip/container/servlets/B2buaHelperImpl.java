@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -556,7 +558,7 @@ public class B2buaHelperImpl implements B2buaHelper {
 	 * 
 	 * @param headerMap headerMap - a simple map containing header names 
 	 * 		and their values to be overridden in the new request. 
-	 * 		The values can be a Set to accomodate for multi-valued headers 
+	 * 		The values can be a Set to accommodate for multi-valued headers 
 	 * @param outMsg
 	 * @param isToFromAlowed indicate is it allowed to insert To From tags
 	 */

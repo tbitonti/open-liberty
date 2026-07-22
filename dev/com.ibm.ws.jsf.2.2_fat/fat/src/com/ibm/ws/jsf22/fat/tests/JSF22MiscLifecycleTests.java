@@ -1,13 +1,12 @@
-/*
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+/*******************************************************************************
+ * Copyright (c) 2015, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
- */
+ * SPDX-License-Identifier: EPL-2.0
+ *******************************************************************************/
 package com.ibm.ws.jsf22.fat.tests;
 
 import static org.junit.Assert.assertEquals;
@@ -38,7 +37,7 @@ import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
 
 /**
@@ -59,9 +58,13 @@ public class JSF22MiscLifecycleTests {
 
     @BeforeClass
     public static void setup() throws Exception {
-        ShrinkHelper.defaultDropinApp(jsfTestServer1, "JSF22ActionListener.war", "com.ibm.ws.jsf22.fat.actionlistener.*");
+        boolean isEE10 = JakartaEEAction.isEE10OrLaterActive();
 
-        jsfTestServer1.startServer(JSF22MiscLifecycleTests.class.getSimpleName() + ".log");
+        ShrinkHelper.defaultDropinApp(jsfTestServer1, "JSF22ActionListener.war",
+                                      isEE10 ? "com.ibm.ws.jsf22.fat.actionlistener.bean.faces40" : "com.ibm.ws.jsf22.fat.actionlistener.bean.jsf22",
+                                      "com.ibm.ws.jsf22.fat.actionlistener.listener");
+
+        jsfTestServer1.startServer(c.getSimpleName() + ".log");
     }
 
     @AfterClass
@@ -147,7 +150,7 @@ public class JSF22MiscLifecycleTests {
             Log.info(c, name.getMethodName(), "Page output: " + page.asXml());
 
             HtmlHiddenInput hidden;
-            if (JakartaEE9Action.isActive()) {
+            if (JakartaEEAction.isEE9OrLaterActive()) {
                 hidden = (HtmlHiddenInput) page.getElementByName("jakarta.faces.ViewState");
                 Log.info(c, name.getMethodName(), "The ViewState hidden field has an id of: " + hidden.getAttribute("id"));
                 assertFalse("jakarta.faces.ViewState".equals(hidden.getAttribute("id")));

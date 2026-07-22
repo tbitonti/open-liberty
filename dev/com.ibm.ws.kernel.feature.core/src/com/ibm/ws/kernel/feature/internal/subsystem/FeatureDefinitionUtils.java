@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.kernel.feature.internal.subsystem;
 
@@ -21,9 +20,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.jar.Manifest;
 import java.util.regex.Pattern;
 
@@ -74,6 +75,7 @@ public class FeatureDefinitionUtils {
     public static final String IBM_ACTIVATION_TYPE = "WLP-Activation-Type";
     public static final String IBM_ALT_NAMES = "WLP-AlsoKnownAs";
     public static final String IBM_DISABLE_ALL_FEATURES_ON_CONFLICT = "WLP-DisableAllFeatures-OnConflict";
+    public static final String WLP_PLATFORM = "WLP-Platform";
 
     static final String FILTER_ATTR_NAME = "filter";
     static final String FILTER_FEATURE_KEY = "osgi.identity";
@@ -83,8 +85,13 @@ public class FeatureDefinitionUtils {
 
     public final static Collection<String> ALLOWED_ON_CLIENT_ONLY_FEATURES = Arrays.asList("com.ibm.websphere.appserver.javaeeClient-7.0",
                                                                                            "com.ibm.websphere.appserver.javaeeClient-8.0",
-                                                                                           "io.openliberty.jakartaeeClient-9.0",
-                                                                                           "com.ibm.websphere.appserver.appSecurityClient-1.0");
+                                                                                           "io.openliberty.jakartaeeClient-9.1",
+                                                                                           "io.openliberty.jakartaeeClient-10.0",
+                                                                                           "io.openliberty.jakartaeeClient-11.0",
+                                                                                           "io.openliberty.jakartaeeClient-12.0",
+                                                                                           "com.ibm.websphere.appserver.appSecurityClient-1.0",
+                                                                                           "io.openliberty.xmlWSClient-4.0" // Removed from the platform in EE 11
+    );
 
     public static final String NL = "\r\n";
     static final String SPLIT_CHAR = ";";
@@ -99,7 +106,6 @@ public class FeatureDefinitionUtils {
      * such, is package protected. We won't be creating a host
      * of getters for these variables, which is fine, provided this
      * class remains package-private!
-     *
      */
     static class ImmutableAttributes {
         final String bundleRepositoryType;
@@ -122,6 +128,7 @@ public class FeatureDefinitionUtils {
         final File featureFile;
         final long lastModified;
         final long length;
+        final List<String> platforms;
 
         ImmutableAttributes(String repoType,
                             String symbolicName,
@@ -141,7 +148,8 @@ public class FeatureDefinitionUtils {
                             boolean isSingleton,
                             boolean disableOnConflict,
                             EnumSet<ProcessType> processType,
-                            ActivationType activationType) {
+                            ActivationType activationType,
+                            List<String> platforms) {
 
             this.bundleRepositoryType = repoType;
             this.symbolicName = symbolicName;
@@ -165,32 +173,59 @@ public class FeatureDefinitionUtils {
             this.featureFile = featureFile;
             this.lastModified = lastModified;
             this.length = fileSize;
+            this.platforms = platforms;
+
+            this.hashCode = asHash(symbolicName, version, shortName, repoType);
+            this.asString = buildPrintName(featureName, symbolicName, version);
+        }
+
+        private static int asHash(String symbolicName, Version version, String shortName, String repoType) {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + ((symbolicName == null) ? 0 : symbolicName.hashCode());
+            result = prime * result + ((version == null) ? 0 : version.hashCode());
+            result = prime * result + ((shortName == null) ? 0 : shortName.hashCode());
+            result = prime * result + ((repoType == null) ? 0 : repoType.hashCode());
+            return result;
+        }
+
+        private static String buildPrintName(String featureName, String symbolicName, Version version) {
+            String versionText = version.toString();
+
+            int nameLength = (symbolicName.length() + 1) + versionText.length();
+            if (featureName != symbolicName) {
+                nameLength += (featureName.length() + 1);
+            }
+            StringBuilder s = new StringBuilder(nameLength);
+
+            if (featureName != symbolicName) {
+                s.append(featureName);
+                s.append('/');
+            }
+            s.append(symbolicName);
+            s.append('/');
+            s.append(versionText);
+
+            return s.toString();
         }
 
         /**
          * Build the feature name, which is used for provisioning operations and lookups.
          *
-         * @param repoType
-         * @param symbolicName2
-         * @param shortName2
-         * @return
+         * The feature name has the repository type plus either the short name or the
+         * symbolic name.
+         *
+         * The repository type is omitted if it is null or empty.
          */
-        private String buildFeatureName(String repoType, String symbolicName, String shortName) {
-            if (repoType == null || repoType.isEmpty()) {
-                if (shortName != null)
-                    return shortName;
-                else
-                    return symbolicName;
+        private static String buildFeatureName(String repoType, String symbolicName, String shortName) {
+            String useName = ((shortName != null) ? shortName : symbolicName);
+            if ((repoType == null) || repoType.isEmpty()) {
+                return useName;
             } else {
-                StringBuilder s = new StringBuilder();
-                s.append(repoType).append(":");
-
-                // Use the shortname if there is one, otherwise fall back to the symbolic name
-                if (shortName != null)
-                    s.append(shortName);
-                else
-                    s.append(symbolicName);
-
+                StringBuilder s = new StringBuilder(repoType.length() + 1 + useName.length());
+                s.append(repoType);
+                s.append(':');
+                s.append(useName);
                 return s.toString();
             }
         }
@@ -209,60 +244,117 @@ public class FeatureDefinitionUtils {
             return new File(featureFile.getParentFile(), "l10n");
         }
 
+        private final int hashCode;
+
         @Override
         public int hashCode() {
-            final int prime = 31;
-            int result = 1;
-            result = prime * result + ((symbolicName == null) ? 0 : symbolicName.hashCode());
-            result = prime * result + ((version == null) ? 0 : version.hashCode());
-            result = prime * result + ((shortName == null) ? 0 : shortName.hashCode());
-            return result;
+            return hashCode;
         }
 
-        /** {@inheritDoc} */
         @Override
         public boolean equals(Object obj) {
-            if (this == obj)
+            if (this == obj) {
                 return true;
-            if (obj == null)
+            } else if (obj == null) {
                 return false;
-            if (getClass() != obj.getClass())
+            }
+
+            if (getClass() != obj.getClass()) {
                 return false;
+            }
             ImmutableAttributes other = (ImmutableAttributes) obj;
+            if (hashCode != other.hashCode) {
+                return false;
+            }
+
             if (symbolicName == null) {
-                if (other.symbolicName != null)
+                if (other.symbolicName != null) {
                     return false;
-            } else if (!symbolicName.equals(other.symbolicName))
+                }
+            } else if (!symbolicName.equals(other.symbolicName)) {
                 return false;
+            }
+
             if (version == null) {
-                if (other.version != null)
+                if (other.version != null) {
                     return false;
-            } else if (!version.equals(other.version))
+                }
+            } else if (!version.equals(other.version)) {
                 return false;
+            }
+
             if (shortName == null) {
-                if (other.shortName != null)
+                if (other.shortName != null) {
                     return false;
-            } else if (!shortName.equals(other.shortName))
+                }
+            } else if (!shortName.equals(other.shortName)) {
                 return false;
+            }
+
             if (bundleRepositoryType == null) {
-                if (other.bundleRepositoryType != null)
+                if (other.bundleRepositoryType != null) {
                     return false;
-            } else if (!bundleRepositoryType.equals(other.bundleRepositoryType))
+                }
+            } else if (!bundleRepositoryType.equals(other.bundleRepositoryType)) {
                 return false;
+            }
+
             return true;
         }
 
         /**
-         * @return true if this is a supported feature version: either the IBM-Feature-Version
-         *         was unspecified (0), or is 2.
+         * Tell if this feature is at a supported version. Current supported
+         * versions are 0 and 2.
+         *
+         * This function appears to be obsolete.
+         *
+         * @return True or false telling if this feature is at a supported version.
          */
         public boolean isSupportedFeatureVersion() {
-            return featureVersion == 0 || featureVersion == 2;
+            return ((featureVersion == 0) || (featureVersion == 2));
         }
+
+        private final String asString;
 
         @Override
         public String toString() {
-            return (featureName == symbolicName ? "" : featureName + '/') + symbolicName + '/' + version;
+            return asString;
+        }
+    }
+
+    /**
+     * Convert string of comma-separated-values to a list.
+     *
+     * The result may be a read-only list, in particular, if
+     * the result is empty.
+     *
+     * Answer an empty list if the parameter is null.
+     *
+     * Trim value elements. Ignore any empty elements.
+     */
+    protected static List<String> csvToList(String csv) {
+        if (csv == null) {
+            return Collections.emptyList();
+        }
+
+        String[] values = csv.split(",");
+        if (values.length == 0) {
+            return Collections.emptyList();
+        }
+
+        List<String> list = new ArrayList<>(values.length);
+
+        for (String value : values) {
+            value = value.trim();
+            if (!value.isEmpty()) {
+                list.add(value);
+            }
+        }
+
+        if (list.isEmpty()) {
+            return Collections.emptyList();
+        } else {
+            return list;
         }
     }
 
@@ -271,7 +363,7 @@ public class FeatureDefinitionUtils {
      * manifest.
      *
      * @param details ManifestDetails containing manifest parser and accessor methods
-     *            for retrieving information from the manifest.
+     *                    for retrieving information from the manifest.
      * @return new ImmutableAttributes
      */
     static ImmutableAttributes loadAttributes(String repoType, File featureFile, ProvisioningDetails details) throws IOException {
@@ -286,6 +378,7 @@ public class FeatureDefinitionUtils {
         // Directive names are name attributes, but end with a colon
         Visibility visibility = Visibility.fromString(details.getNameAttribute("visibility:"));
         boolean isSingleton = Boolean.parseBoolean(details.getNameAttribute("singleton:"));
+        List<String> platforms = csvToList(details.getMainAttributeValue(WLP_PLATFORM));
 
         // ignore short name for features that are not public
         String shortName = (visibility != Visibility.PUBLIC ? null : details.getMainAttributeValue(SHORT_NAME));
@@ -340,7 +433,8 @@ public class FeatureDefinitionUtils {
                                                             hasApiPackages, hasSpiPackages, isSingleton,
                                                             disableOnConflict,
                                                             processTypes,
-                                                            activationType);
+                                                            activationType,
+                                                            platforms);
 
         // Link the details object and immutable attributes (used for diagnostic purposes:
         // the immutable attribute values are necessary for meaningful error messages)
@@ -410,7 +504,6 @@ public class FeatureDefinitionUtils {
          * @return A (possibly empty) set of alternate names.
          */
         List<String> getAltNames() {
-
             if (alternateNames == null) {
                 List<String> result;
                 String ibmAltNames;
@@ -434,13 +527,6 @@ public class FeatureDefinitionUtils {
             return alternateNames;
         }
 
-        /**
-         * @param iAttr
-         * @param autoFeatureCapability
-         * @param apiServices
-         * @param apiPackages
-         * @param spiPackages
-         */
         ProvisioningDetails(ImmutableAttributes iAttr, String autoFeatureCapability, String apiServices, String apiPackages, String spiPackages) {
             this.iAttr = iAttr;
             this.autoFeatureCapability = autoFeatureCapability;
@@ -681,20 +767,27 @@ public class FeatureDefinitionUtils {
                     return Collections.emptyList();
                 }
 
-                Map<String, Map<String, String>> data = ManifestHeaderProcessor.parseImportString(contents);
+                // using parseExportString to maintain order; but need to prevent dups
+                List<NameValuePair> data = ManifestHeaderProcessor.parseExportString(contents);
                 result = new ArrayList<FeatureResource>(data.size());
-                for (Map.Entry<String, Map<String, String>> entry : data.entrySet()) {
-                    result.add(new FeatureResourceImpl(entry.getKey(), entry.getValue(), iAttr.bundleRepositoryType, iAttr.featureName, iAttr.activationType));
+                Set<String> preventDups = new HashSet<>();
+
+                for (int idx = 0, size = data.size(); idx < size; ++idx) {
+                    NameValuePair content = data.get(idx);
+                    if (preventDups.add(content.getName())) {
+                        result.add(new FeatureResourceImpl(content.getName(), content.getAttributes(), iAttr.bundleRepositoryType, iAttr.featureName, iAttr.activationType));
+                    }
                 }
 
                 subsystemContent = result;
             }
 
             if (type != null) {
-                Collection<FeatureResource> unfiltered = result;
+                List<FeatureResource> unfiltered = result;
 
                 result = new ArrayList<FeatureResource>();
-                for (FeatureResource resource : unfiltered) {
+                for (int idx = 0, size = unfiltered.size(); idx < size; idx++) {
+                    FeatureResource resource = unfiltered.get(idx);
                     if (resource.isType(type)) {
                         result.add(resource);
                     }

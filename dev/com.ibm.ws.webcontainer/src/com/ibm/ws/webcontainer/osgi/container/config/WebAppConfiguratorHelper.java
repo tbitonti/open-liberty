@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 //  CHANGE HISTORY
 //    Defect | Issue   Date            Modified By             Description
@@ -17,6 +16,7 @@
 //      148426          10/06/14        bitonti                 Give extension default error page precedence in Servlet 3.0
 //      PI67942         10/21/16        zaroman                 encode URI after dispatch
 //      11909           12/11/20        jimblye                 Allow context-root to be overridden in server.xml
+//                      02/06/26.       jimblye                 Defer servlet mappings until webfragment servlet defs processed
 
 package com.ibm.ws.webcontainer.osgi.container.config;
 
@@ -27,6 +27,7 @@ import java.util.Dictionary;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.security.RunAs;
 import javax.servlet.DispatcherType;
 import javax.servlet.MultipartConfigElement;
+import javax.servlet.SessionCookieConfig;
 import javax.servlet.SessionTrackingMode;
 import javax.servlet.annotation.WebFilter;
 import javax.servlet.annotation.WebListener;
@@ -60,6 +62,7 @@ import com.ibm.ws.injectionengine.osgi.util.OSGiJNDIEnvironmentRefBindingHelper;
 import com.ibm.ws.javaee.dd.DeploymentDescriptor;
 import com.ibm.ws.javaee.dd.common.AdministeredObject;
 import com.ibm.ws.javaee.dd.common.ConnectionFactory;
+import com.ibm.ws.javaee.dd.common.ContextService;
 import com.ibm.ws.javaee.dd.common.DataSource;
 import com.ibm.ws.javaee.dd.common.Description;
 import com.ibm.ws.javaee.dd.common.DescriptionGroup;
@@ -72,6 +75,9 @@ import com.ibm.ws.javaee.dd.common.JMSDestination;
 import com.ibm.ws.javaee.dd.common.JNDIEnvironmentRef;
 import com.ibm.ws.javaee.dd.common.Listener;
 import com.ibm.ws.javaee.dd.common.MailSession;
+import com.ibm.ws.javaee.dd.common.ManagedExecutor;
+import com.ibm.ws.javaee.dd.common.ManagedScheduledExecutor;
+import com.ibm.ws.javaee.dd.common.ManagedThreadFactory;
 import com.ibm.ws.javaee.dd.common.MessageDestinationRef;
 import com.ibm.ws.javaee.dd.common.ParamValue;
 import com.ibm.ws.javaee.dd.common.PersistenceContextRef;
@@ -82,6 +88,7 @@ import com.ibm.ws.javaee.dd.common.ResourceRef;
 import com.ibm.ws.javaee.dd.common.wsclient.ServiceRef;
 import com.ibm.ws.javaee.dd.web.WebApp;
 import com.ibm.ws.javaee.dd.web.WebFragment;
+import com.ibm.ws.javaee.dd.web.common.AttributeValue;
 import com.ibm.ws.javaee.dd.web.common.CookieConfig;
 import com.ibm.ws.javaee.dd.web.common.Filter;
 import com.ibm.ws.javaee.dd.web.common.FilterMapping;
@@ -112,12 +119,16 @@ import com.ibm.ws.webcontainer.metadata.ResourceRefImpl;
 import com.ibm.ws.webcontainer.metadata.ServiceRefImpl;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.AdministeredObjectComparator;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.ConnectionFactoryComparator;
+import com.ibm.ws.webcontainer.osgi.container.config.merge.ContextServiceComparator;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.DataSourceComparator;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.EJBRefComparator;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.EnvEntryComparator;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.JMSConnectionFactoryComparator;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.JMSDestinationComparator;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.MailSessionComparator;
+import com.ibm.ws.webcontainer.osgi.container.config.merge.ManagedExecutorComparator;
+import com.ibm.ws.webcontainer.osgi.container.config.merge.ManagedScheduledExecutorComparator;
+import com.ibm.ws.webcontainer.osgi.container.config.merge.ManagedThreadFactoryComparator;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.MessageDestinationRefComparator;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.PersistenceContextRefComparator;
 import com.ibm.ws.webcontainer.osgi.container.config.merge.PersistenceUnitRefComparator;
@@ -146,6 +157,24 @@ import com.ibm.wsspi.webcontainer.webapp.WebAppConfig;
  * from web.xml, web-fragment.xml and annotations.  Configure them into the WebAppConfiguration.
  */
 public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
+    
+    /**
+     * Helper class to store servlet mappings for deferred processing.
+     * This allows all servlet definitions to be collected before processing mappings.
+     */
+    private static class DeferredServletMapping {
+        final ServletMapping servletMapping;
+        final ConfigSource source;
+        final String libraryURI;
+        
+        DeferredServletMapping(ServletMapping servletMapping, ConfigSource source, String libraryURI) {
+            this.servletMapping = servletMapping;
+            this.source = source;
+            this.libraryURI = libraryURI;
+        }
+    }
+    
+    private final List<DeferredServletMapping> deferredServletMappings = new ArrayList<>();
     private static final String CLASS_NAME = WebAppConfiguratorHelper.class.getSimpleName();
 
     private static final TraceComponent tc = Tr.register(WebAppConfiguratorHelper.class, WebContainerConstants.TR_GROUP, WebContainerConstants.NLS_PROPS);
@@ -179,12 +208,20 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
     private static final ConnectionFactoryComparator CF_COMPARATOR = new ConnectionFactoryComparator();
     
     private static final AdministeredObjectComparator ADMINISTERED_OBJECT_COMPARATOR = new AdministeredObjectComparator();
-    
+
+    private static final ContextServiceComparator CONTEXT_SERVICE_COMPARATOR = new ContextServiceComparator();
+
     private static final JMSConnectionFactoryComparator JMS_CF_COMPARATOR = new JMSConnectionFactoryComparator();
     
     private static final JMSDestinationComparator JMS_DESTINATION_COMPARATOR = new JMSDestinationComparator();
 
-    private final ServletConfigurator configurator;
+    private static final ManagedExecutorComparator MANAGED_EXECUTOR_COMPARATOR = new ManagedExecutorComparator();
+
+    private static final ManagedScheduledExecutorComparator MANAGED_SCHEDULED_EXECUTOR_COMPARATOR = new ManagedScheduledExecutorComparator();
+
+    private static final ManagedThreadFactoryComparator MANAGED_THREAD_FACTORY_COMPARATOR = new ManagedThreadFactoryComparator();
+
+    protected final ServletConfigurator configurator;
 
     private final List<Class<?>> listenerInterfaces;
     
@@ -222,7 +259,11 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
      */
     public static int getVersionId(String version) throws IllegalStateException {
         int versionID = 0;
-        if ("5.0".equals(version)) {
+        if ("6.1".equals(version)) {
+            versionID = 61;
+        }else if ("6.0".equals(version)) {
+            versionID = 60;
+        }else if ("5.0".equals(version)) {
             versionID = 50;
         }else if ("4.0".equals(version)) {
             versionID = 40;
@@ -272,6 +313,10 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
     public static boolean isServletSpecLevel31OrHigher() {
         return ( getServletSpecLevel() >= com.ibm.ws.webcontainer.osgi.WebContainer.SPEC_LEVEL_31 );
     }    
+
+    public static boolean isServletSpecLevel50orLower() {
+        return ( getServletSpecLevel() <= com.ibm.ws.webcontainer.osgi.WebContainer.SPEC_LEVEL_50 );
+    }   
 
     /**
      * Answer the default version level.  Used to assign the version ID to a
@@ -372,6 +417,10 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
 
         public void addServletMapping(String servletName, String urlPattern) {
             config.addServletMapping(servletName, urlPattern);
+        }
+        
+        public void removeServletMappings(String servletName) {
+            config.removeServletMappings(servletName);
         }
 
         public Map<JNDIEnvironmentRefType, Map<String, String>> getAllRefBindings() {
@@ -496,13 +545,42 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
 
         // PI05845 end
 
-        public SessionCookieConfigImpl getSessionCookieConfig() {
-            SessionCookieConfigImpl sessionCookieConfigImpl = config.getSessionCookieConfig();
+        /*
+         * Servlet 6.0 - refactor to support new SessionCookieConfig APIs
+         */
+        public SessionCookieConfig getSessionCookieConfig() {
+
+            SessionCookieConfig sessionCookieConfigImpl = config.getSessionCookieConfig();
             if (sessionCookieConfigImpl == null) {
-                sessionCookieConfigImpl = new SessionCookieConfigImpl();
-                config.setSessionCookieConfig(sessionCookieConfigImpl);
+                if (isServletSpecLevel50orLower()) {    // For Servlet 6.0 - WebAppConfiguratorHelper60 will create it
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "getSessionCookieConfig was null; created new scc for <= servlet 5.0");
+                    }  
+                    sessionCookieConfigImpl = new SessionCookieConfigImpl();
+                    setSessionCookieConfig(sessionCookieConfigImpl);
+                }
             }
+            
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "getSessionCookieConfig return [{0}]", sessionCookieConfigImpl );
+            } 
             return sessionCookieConfigImpl;
+        }
+
+        /*
+         * since Servlet 6.0: support new SessionCookieConfig APIs
+         */
+        public void setSessionCookieConfig(SessionCookieConfig scc) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "setSessionCookieConfig [{0}]", scc);
+            } 
+
+            config.setSessionCookieConfig(scc);
+        }
+        
+        //Servlet 6.0 - skip checking for %23 , %2e , %2f , %5c in URI
+        public void setSkipEncodedCharVerification() {
+            config.setSkipEncodedCharVerification();
         }
 
         public void cacheResults(ServletConfigurator configurator) {
@@ -763,7 +841,9 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         
         configureSessionConfig(webApp.getSessionConfig());
         configureServlets(webApp, webApp.getServlets());
-        configureServletMappings(webApp.getServletMappings());
+        
+        // Defer servlet mapping processing until all servlet definitions are collected
+        storeDeferredServletMappings(webApp.getServletMappings());
         configureLocaleEncodingMap(webApp.getLocaleEncodingMappingList());
         configureListener(webApp.getListeners());
         configureEnvEntries(webApp.getEnvEntries());
@@ -778,8 +858,12 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         configureEJBRefs(webApp.getEJBRefs());
         configureEJBLocalRefs(webApp.getEJBLocalRefs());
         configureConnectionFactories(webApp.getConnectionFactories());
+        configureContextServices(webApp.getContextServices());
         configureJMSConnectionFactories(webApp.getJMSConnectionFactories());
         configureJMSDestinations(webApp.getJMSDestinations());
+        configureManagedExecutors(webApp.getManagedExecutors());
+        configureManagedScheduledExecutors(webApp.getManagedScheduledExecutors());
+        configureManagedThreadFactories(webApp.getManagedThreadFactories());
         
         configureAdministeredObjects(webApp.getAdministeredObjects());
         // filter & filter-mapping
@@ -797,7 +881,9 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         configureDistributableFromFragment(webFragment.isSetDistributable());
         configureSessionConfig(webFragment.getSessionConfig());
         configureServlets(webFragment, webFragment.getServlets());
-        configureServletMappings(webFragment.getServletMappings());
+        
+        // Defer servlet mapping processing until all servlet definitions are collected
+        storeDeferredServletMappings(webFragment.getServletMappings());
         configureLocaleEncodingMap(webFragment.getLocaleEncodingMappingList());
         configureListener(webFragment.getListeners());
         configureEnvEntries(webFragment.getEnvEntries());
@@ -806,7 +892,11 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         configureMessageDestinationRefs(webFragment.getMessageDestinationRefs());
         configurePersistenceUnitRefs(webFragment.getPersistenceUnitRefs());
         configurePersistenceContextRefs(webFragment.getPersistenceContextRefs());
+        configureContextServices(webFragment.getContextServices());
         configureDataSources(webFragment.getDataSources());
+        configureManagedExecutors(webFragment.getManagedExecutors());
+        configureManagedScheduledExecutors(webFragment.getManagedScheduledExecutors());
+        configureManagedThreadFactories(webFragment.getManagedThreadFactories());
         configureServiceRefs(webFragment.getServiceRefs());
         configureEJBRefs(webFragment.getEJBRefs());
         configureEJBLocalRefs(webFragment.getEJBLocalRefs());
@@ -850,7 +940,11 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
     @Override
     public void configureDefaults() throws UnableToAdaptException {
 
-        //I think we need to process specifiedClasses first to find what servlets were defined 
+        // Process all deferred servlet mappings now that all servlet definitions have been collected
+        // from web.xml and all web-fragment.xml files
+        processDeferredServletMappings();
+        
+        //I think we need to process specifiedClasses first to find what servlets were defined
         //in case a filter is mapped to * (all servlets)
         configureSpecifiedClasses();
 
@@ -1445,7 +1539,37 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
             }
         }
     }
-   
+
+    private void configureContextServices(List<ContextService> contextServices) {
+        Map<String, ConfigItem<ContextService>> configItemMap = configurator.getConfigItemMap("context-service");
+        for (ContextService contextService : contextServices) {
+            String name = contextService.getName();
+            if (name == null) {
+                continue;
+            }
+            ConfigItem<ContextService> existed = configItemMap.get(name);
+            if (existed == null) {
+                configItemMap.put(name, createConfigItem(contextService, CONTEXT_SERVICE_COMPARATOR));
+                webAppConfiguration.addRef(JNDIEnvironmentRefType.ContextService, contextService);
+            } else {
+                if (existed.getSource() == ConfigSource.WEB_XML && configurator.getConfigSource() == ConfigSource.WEB_FRAGMENT) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(this, tc, "context-service.name with value " + existed.getValue() +
+                                 " is configured in web.xml, the value " + name + " from web-fragment.xml in " +
+                                        configurator.getLibraryURI() + " is ignored");
+                    }
+                } else if (existed.getSource() == ConfigSource.WEB_FRAGMENT && configurator.getConfigSource() == ConfigSource.WEB_FRAGMENT
+                           && !existed.compareValue(contextService)) {
+                    configurator.addErrorMessage(Tr.formatMessage(tc, "WEB_FRAGMENT_XML_RESOURCE_CONFLICT",
+                                                                  "context-service",
+                                                                  name,
+                                                                  existed.getLibraryURI(),
+                                                                  configurator.getLibraryURI()));
+                }
+            }
+        }
+    }
+
     /**
      * To configure JMS ConnectionFactory
      * @param jmsConnFactories
@@ -1514,7 +1638,97 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
             }
         }
     }
-    
+
+    private void configureManagedExecutors(List<ManagedExecutor> executors) {
+        Map<String, ConfigItem<ManagedExecutor>> configItemMap = configurator.getConfigItemMap("managed-executor");
+        for (ManagedExecutor executor : executors) {
+            String name = executor.getName();
+            if (name == null) {
+                continue;
+            }
+            ConfigItem<ManagedExecutor> existed = configItemMap.get(name);
+            if (existed == null) {
+                configItemMap.put(name, createConfigItem(executor, MANAGED_EXECUTOR_COMPARATOR));
+                webAppConfiguration.addRef(JNDIEnvironmentRefType.ManagedExecutor, executor);
+            } else {
+                if (existed.getSource() == ConfigSource.WEB_XML && configurator.getConfigSource() == ConfigSource.WEB_FRAGMENT) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(this, tc, "managed-executor.name with value " + existed.getValue() +
+                                 " is configured in web.xml, the value " + name + " from web-fragment.xml in " +
+                                        configurator.getLibraryURI() + " is ignored");
+                    }
+                } else if (existed.getSource() == ConfigSource.WEB_FRAGMENT && configurator.getConfigSource() == ConfigSource.WEB_FRAGMENT
+                           && !existed.compareValue(executor)) {
+                    configurator.addErrorMessage(Tr.formatMessage(tc, "WEB_FRAGMENT_XML_RESOURCE_CONFLICT",
+                                                                  "managed-executor",
+                                                                  name,
+                                                                  existed.getLibraryURI(),
+                                                                  configurator.getLibraryURI()));
+                }
+            }
+        }
+    }
+
+    private void configureManagedScheduledExecutors(List<ManagedScheduledExecutor> executors) {
+        Map<String, ConfigItem<ManagedScheduledExecutor>> configItemMap = configurator.getConfigItemMap("managed-scheduled-executor");
+        for (ManagedScheduledExecutor executor : executors) {
+            String name = executor.getName();
+            if (name == null) {
+                continue;
+            }
+            ConfigItem<ManagedScheduledExecutor> existed = configItemMap.get(name);
+            if (existed == null) {
+                configItemMap.put(name, createConfigItem(executor, MANAGED_SCHEDULED_EXECUTOR_COMPARATOR));
+                webAppConfiguration.addRef(JNDIEnvironmentRefType.ManagedScheduledExecutor, executor);
+            } else {
+                if (existed.getSource() == ConfigSource.WEB_XML && configurator.getConfigSource() == ConfigSource.WEB_FRAGMENT) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(this, tc, "managed-scheduled-executor.name with value " + existed.getValue() +
+                                 " is configured in web.xml, the value " + name + " from web-fragment.xml in " +
+                                        configurator.getLibraryURI() + " is ignored");
+                    }
+                } else if (existed.getSource() == ConfigSource.WEB_FRAGMENT && configurator.getConfigSource() == ConfigSource.WEB_FRAGMENT
+                           && !existed.compareValue(executor)) {
+                    configurator.addErrorMessage(Tr.formatMessage(tc, "WEB_FRAGMENT_XML_RESOURCE_CONFLICT",
+                                                                  "managed-scheduled-executor",
+                                                                  name,
+                                                                  existed.getLibraryURI(),
+                                                                  configurator.getLibraryURI()));
+                }
+            }
+        }
+    }
+
+    private void configureManagedThreadFactories(List<ManagedThreadFactory> threadFactories) {
+        Map<String, ConfigItem<ManagedThreadFactory>> configItemMap = configurator.getConfigItemMap("managed-thread-factory");
+        for (ManagedThreadFactory threadFactory : threadFactories) {
+            String name = threadFactory.getName();
+            if (name == null) {
+                continue;
+            }
+            ConfigItem<ManagedThreadFactory> existed = configItemMap.get(name);
+            if (existed == null) {
+                configItemMap.put(name, createConfigItem(threadFactory, MANAGED_THREAD_FACTORY_COMPARATOR));
+                webAppConfiguration.addRef(JNDIEnvironmentRefType.ManagedThreadFactory, threadFactory);
+            } else {
+                if (existed.getSource() == ConfigSource.WEB_XML && configurator.getConfigSource() == ConfigSource.WEB_FRAGMENT) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(this, tc, "managed-thread-factory.name with value " + existed.getValue() +
+                                 " is configured in web.xml, the value " + name + " from web-fragment.xml in " +
+                                        configurator.getLibraryURI() + " is ignored");
+                    }
+                } else if (existed.getSource() == ConfigSource.WEB_FRAGMENT && configurator.getConfigSource() == ConfigSource.WEB_FRAGMENT
+                           && !existed.compareValue(threadFactory)) {
+                    configurator.addErrorMessage(Tr.formatMessage(tc, "WEB_FRAGMENT_XML_RESOURCE_CONFLICT",
+                                                                  "managed-thread-factory",
+                                                                  name,
+                                                                  existed.getLibraryURI(),
+                                                                  configurator.getLibraryURI()));
+                }
+            }
+        }
+    }
+
     private void configureEJBRefs(List<EJBRef> ejbRefs) {
         Map<String, ConfigItem<EJBRef>> ejbRefConfigItemMap = configurator.getConfigItemMap("ejb-ref");
         Set<String> additiveEJBRefNames = configurator.getContextSet("ejb-ref-name");
@@ -2280,17 +2494,17 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
             AnnotationInfo mpCfgAnnotation = classInfo.getAnnotation(javax.servlet.annotation.MultipartConfig.class);
 
             AnnotationValue locationValue = mpCfgAnnotation.getValue("location");
-            final String location = locationValue.getStringValue();
-
+            final String location = (null == locationValue ? "" : locationValue.getStringValue());
+            
             AnnotationValue maxFileSizeValue = mpCfgAnnotation.getValue("maxFileSize");
-            final long maxFileSize = maxFileSizeValue.getLongValue();
-
+            final long maxFileSize = (null == maxFileSizeValue ? -1 : maxFileSizeValue.getLongValue());
+            
             AnnotationValue maxRequestSizeValue = mpCfgAnnotation.getValue("maxRequestSize");
-            final long maxReqSize = maxRequestSizeValue.getLongValue();
-
+            final long maxReqSize = (null == maxRequestSizeValue ? -1 : maxRequestSizeValue.getLongValue());
+            
             AnnotationValue fileSizeThresholdValue = mpCfgAnnotation.getValue("fileSizeThreshold");
-            final int fileSizeThreshold = fileSizeThresholdValue.getIntValue();
-
+            final int fileSizeThreshold = (null == fileSizeThresholdValue ? 0 : fileSizeThresholdValue.getIntValue());
+            
             allActions.add(new DeferredAction() {
                 @Override
                 public boolean isAllServletAction() {
@@ -2381,9 +2595,78 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         }
     }
 
-    private void configureServletMappings(List<ServletMapping> servletMappings) throws UnableToAdaptException {
+    /**
+     * Process all deferred servlet mappings after all servlet definitions have been collected.
+     * The deferred mappings retain their original source context for proper merging rules and error messages.
+     *
+     * @throws UnableToAdaptException if servlet mapping processing fails
+     */
+    private void processDeferredServletMappings() throws UnableToAdaptException {
+
+        // Save the current context
+	    ConfigSource savedSource = configurator.getConfigSource();
+        String savedLibraryURI = configurator.getLibraryURI();
+
+        for (DeferredServletMapping deferred : deferredServletMappings) {          
+            try {
+	            // Retrieve the context from for this servlet mapping
+                // Needed for proper merging rules in processServletMappingConfig(...)
+                configurator.setConfigSource(deferred.source);
+                configurator.setLibraryURI(deferred.libraryURI);
+                processServletMappingConfig(deferred.servletMapping);
+            } finally {
+                // Restore the saved context
+                configurator.setConfigSource(savedSource);
+                configurator.setLibraryURI(savedLibraryURI);
+            }
+        }
+        deferredServletMappings.clear();
+    }
+
+    /**
+     * Store servlet mappings for deferred processing.
+     * This allows all servlet definitions to be collected from web.xml and web-fragment.xml
+     * files before processing the mappings, which is necessary when a servlet-mapping in
+     * web.xml references a servlet whose definition is provided in a web-fragment.xml.
+     *
+     * <p>We only defer mappings for servlets that don't have a definition yet.
+     * If the servlet is already defined (e.g., from an earlier source like annotations annotations or web.xml),
+     * we process the mapping immediately. This 
+     * <ul>
+     * <li>allows processServletMappingConfig() to apply the correct merge rules based on ConfigSource
+     *     (web.xml > web-fragment.xml > annotations)</li>
+     * <li>prevents duplicate mapping attempts that would occur if we deferred all mappings and then
+     *     tried to add them again after annotations have already added them</li>
+     * <li>maintains the existing precedence behavior where earlier sources override later ones</li>
+     * </ul>
+     *
+     * @param servletMappings the list of servlet mappings to process or defer
+     * @throws UnableToAdaptException if servlet mapping processing fails
+     */
+    private void storeDeferredServletMappings(List<ServletMapping> servletMappings) throws UnableToAdaptException {
+        if (servletMappings == null || servletMappings.isEmpty()) {
+            return;
+        }
+        
+        ConfigSource currentSource = configurator.getConfigSource();
+        String currentLibraryURI = configurator.getLibraryURI();
+        
         for (ServletMapping servletMapping : servletMappings) {
-            processServletMappingConfig(servletMapping);
+            String servletName = servletMapping.getServletName();
+            Map<String, ConfigItem<ServletConfig>> servletMap = configurator.getConfigItemMap("servlet");
+            
+            // Check if servlet definition exists
+            if (servletMap.get(servletName) == null) {
+                // Servlet not defined yet - defer mapping until all servlet definitions are collected
+                // This handles the case where web.xml has a servlet-mapping but the servlet definition
+                // is in a web-fragment.xml that hasn't been processed yet
+                deferredServletMappings.add(new DeferredServletMapping(servletMapping, currentSource, currentLibraryURI));
+            } else {
+                // Servlet already defined - process mapping immediately to maintain proper precedence
+                // This ensures processServletMappingConfig() can apply merge rules correctly and
+                // prevents duplicate mappings when annotations have already added mappings
+                processServletMappingConfig(servletMapping);
+            }
         }
     }
 
@@ -2404,7 +2687,7 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
             Tr.entry(tc, methodName, "WebAppConfiguration [ " + displayName + " ]");
         }        
-        
+
         WebAnnotations webAnnotations = configurator.getWebAnnotations();
 
         removeFromRequiredClasses(webServletClassNames, "Servlet");
@@ -2477,9 +2760,13 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         }                
     }
 
-    private void configureSessionConfig(SessionConfig sessionConfig) {
+    protected void configureSessionConfig(SessionConfig sessionConfig) {
         if (sessionConfig == null) {
             return;
+        }
+        
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "configureSessionConfig ");
         }
 
         Map<String, ConfigItem<String>> sessionConfigItemMap = configurator.getConfigItemMap("session-config");
@@ -2499,7 +2786,7 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         CookieConfig cookieConfig = sessionConfig.getCookieConfig();
         if (cookieConfig != null) {
 
-            SessionCookieConfigImpl sessionCookieConfigImpl = webAppConfiguration.getSessionCookieConfig();
+            SessionCookieConfigImpl sessionCookieConfigImpl = (SessionCookieConfigImpl) webAppConfiguration.getSessionCookieConfig();
 
             String cookieComment = cookieConfig.getComment();
             if (cookieComment != null) {
@@ -2674,7 +2961,12 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         }
 
         Map<String, ConfigItem<List<String>>> servletMappingMap = configurator.getConfigItemMap("servlet-mapping");
-        if (!servletMappingMap.containsKey(servletName)) {
+        // Check if there's an existing mapping
+        ConfigItem<List<String>> existingMapping = servletMappingMap.get(servletName);
+        
+        // Per Servlet spec: XML mappings (web.xml or web-fragment.xml)
+        // override annotation mappings. Only process annotations if no XML mapping exists.
+        if (existingMapping == null) {
             AnnotationValue urlPatternListValue = webServletAnnotation.getValue("value");
             List<? extends AnnotationValue> urlPatternList = (null == urlPatternListValue ? null : urlPatternListValue.getArrayValue());
             if (null == urlPatternList || urlPatternList.isEmpty()) {
@@ -2699,7 +2991,7 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
                     if ((existingName != null) && !existingName.equals(servletName)) {
                         Tr.error(tc, "duplicate.url.pattern.for.servlet.mapping", urlText, servletName, existingName);
                         throw new UnableToAdaptException(nls.getFormattedMessage("duplicate.url.pattern.for.servlet.mapping",
-                                                                                 new Object[] { urlText, servletName, existingName }, 
+                                                                                 new Object[] { urlText, servletName, existingName },
                                                                                  "servlet-mapping value matches multiple servlets: " + urlText));
                     }
                 }
@@ -2708,6 +3000,12 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
                     Tr.debug(tc, methodName + ": Map servlet [ " + servletName + " ] to URL [ " + urlText + " ]");
                 }
                 webAppConfiguration.addServletMapping(servletName, urlText);
+            }
+        } else {
+            // Existing mapping found - skip annotation (XML or other annotation has precedence)
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, methodName + ": Skipping annotation mapping for servlet [ " + servletName +
+                         " ] - already has " + existingMapping.getSource() + " mapping");
             }
         }
 
@@ -3126,29 +3424,55 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         } else {
             if ((existedServletMapping.getSource() == ConfigSource.WEB_XML && configurator.getConfigSource() == ConfigSource.WEB_XML)
                 || (existedServletMapping.getSource() == ConfigSource.WEB_FRAGMENT && configurator.getConfigSource() == ConfigSource.WEB_FRAGMENT)) {
+                // Same source - add additional mappings (additive within same source)
                 for (String urlPattern : servletMapping.getURLPatterns()) {
                     if (isServletSpecLevel31OrHigher()) {
-                        // Strange to 'put' on error cases.                     
+                        // Strange to 'put' on error cases.
                         String  existingName =  urlToServletNameMap.put(urlPattern,servletName);
                         if ((existingName != null) && !(existingName.equals(servletName))) {
                             Tr.error(tc,"duplicate.url.pattern.for.servlet.mapping", urlPattern, servletName, existingName);
                             throw new UnableToAdaptException( nls.getFormattedMessage("duplicate.url.pattern.for.servlet.mapping",
-                                                                                      new Object[]{urlPattern, servletName, existingName} , 
+                                                                                      new Object[]{urlPattern, servletName, existingName} ,
                                                                                       "servlet-mapping value matches multiple servlets: " + urlPattern));
                         }
                     }
                     webAppConfiguration.addServletMapping(servletName, urlPattern);
                 }
+            } else if (existedServletMapping.getSource() == ConfigSource.WEB_FRAGMENT && configurator.getConfigSource() == ConfigSource.WEB_XML) {
+                // WEB_XML overrides WEB_FRAGMENT - replace the existing mapping
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "servlet-mapping for servlet " + servletName + " from web.xml overrides the value from web-fragment.xml in "
+                                 + existedServletMapping.getLibraryURI());
+                }
+                // Remove the old web-fragment mappings from webAppConfiguration before adding new web.xml mappings
+                webAppConfiguration.removeServletMappings(servletName);
+                
+                // Update the servlet mapping map with the new WEB_XML mapping
+                List<String> urlPatterns = servletMapping.getURLPatterns();
+                for (String urlPattern : urlPatterns) {
+                    if (isServletSpecLevel31OrHigher()) {
+                        urlToServletNameMap.put(urlPattern, servletName);
+                    }
+                    webAppConfiguration.addServletMapping(servletName, urlPattern);
+                }
+                if (urlPatterns.size() > 0) {
+                    servletMappingMap.put(servletName, createConfigItem(urlPatterns));
+                }
             } else if (existedServletMapping.getSource() == ConfigSource.WEB_XML && configurator.getConfigSource() == ConfigSource.WEB_FRAGMENT) {
+                // WEB_XML has precedence - ignore WEB_FRAGMENT
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                     Tr.debug(tc, "servlet-mapping for servlet " + servletName + " is configured in web.xml, the value from web-fragment.xml in "
                                  + configurator.getLibraryURI()
                                  + " is ignored");
                 }
             } else if (existedServletMapping.getSource() == ConfigSource.WEB_FRAGMENT && configurator.getConfigSource() == ConfigSource.ANNOTATION) {
+                // This case should never occur because annotation processing (configureWebServletAnnotation)
+                // skips annotations when any XML mapping exists (web.xml or web-fragment.xml).
+                // Per Servlet spec, XML mappings  override annotations.
+                // Annotations are processed before deferred mappings, so they 
+                // are prevented from being added when XML mappings exist.
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "servlet-mapping for servlet " + servletName + " is configured in web-fragment.xml from " + existedServletMapping.getLibraryURI()
-                                 + " , the value from annotation is ignored");
+                    Tr.debug(tc, "WEB_FRAGMENT -> ANNOTATION case encountered (should never happen - annotations are skipped when XML mappings exist)");
                 }
             }
         }
@@ -3186,7 +3510,7 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
     // Convenience methods that forward to the configurator
     //
 
-    private <T> ConfigItem<T> createConfigItem(T value) {
+    protected <T> ConfigItem<T> createConfigItem(T value) {
         return this.configurator.createConfigItem(value);
     }
 
@@ -3194,7 +3518,7 @@ public class WebAppConfiguratorHelper implements ServletConfiguratorHelper {
         return this.configurator.createConfigItem(value, comparator);
     }
 
-    private <T> void validateDuplicateConfiguration(String parentElementName,
+    protected <T> void validateDuplicateConfiguration(String parentElementName,
                                                     String elementName,
                                                     T currentValue,
                                                     ConfigItem<T> existedConfigItem) {

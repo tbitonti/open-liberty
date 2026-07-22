@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,6 +14,7 @@ package com.ibm.ws.jaxws.client;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,7 +22,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.xml.bind.JAXBContext;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Dispatch;
@@ -30,13 +32,12 @@ import org.apache.cxf.Bus;
 import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.interceptor.Fault;
-import org.apache.cxf.interceptor.Interceptor;
-import org.apache.cxf.interceptor.LoggingInInterceptor;
-import org.apache.cxf.interceptor.LoggingOutInterceptor;
 import org.apache.cxf.jaxws.DispatchImpl;
 import org.apache.cxf.jaxws.ServiceImpl;
-import org.apache.cxf.message.Message;
 import org.apache.cxf.ws.addressing.EndpointReferenceType;
+import org.apache.cxf.ext.logging.AbstractLoggingInterceptor;
+import org.apache.cxf.ext.logging.LoggingFeature;
+import org.apache.cxf.feature.Feature;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
@@ -47,6 +48,7 @@ import com.ibm.ws.jaxws.metadata.WebServiceFeatureInfo;
 import com.ibm.ws.jaxws.metadata.WebServiceRefInfo;
 import com.ibm.ws.jaxws.security.JaxWsSecurityConfigurationService;
 import com.ibm.ws.jaxws23.client.security.LibertyJaxWsClientSecurityOutInterceptor;
+import com.ibm.ws.kernel.productinfo.ProductInfo;
 
 /**
  * All the Web Service ports and dispatches are created via the class
@@ -63,7 +65,7 @@ public class LibertyServiceImpl extends ServiceImpl {
     private final WebServiceRefInfo wsrInfo;
 
     private final JaxWsSecurityConfigurationService securityConfigService;
-
+   
     /**
      * The map contains the port QName to port properties entry
      */
@@ -73,6 +75,10 @@ public class LibertyServiceImpl extends ServiceImpl {
         // Add more if need other service pid to property prefix
         servicePidToPropertyPrefixMap.put(JaxWsConstants.HTTP_CONDUITS_SERVICE_FACTORY_PID, JaxWsConstants.HTTP_CONDUIT_PREFIX);
     }
+    
+    // Flag tells us if the message for a call to a beta method has been issued
+    private static boolean issuedBetaMessage = false;
+    
 
     /**
      * @param bus
@@ -83,18 +89,22 @@ public class LibertyServiceImpl extends ServiceImpl {
      */
     public LibertyServiceImpl(JaxWsSecurityConfigurationService securityConfigService, WebServiceRefInfo wsrInfo,
                               Bus bus, URL url, QName name, Class<?> clazz, WebServiceFeature... features) {
+        
         super(bus, url, name, clazz, features);
+
         this.securityConfigService = securityConfigService;
         this.wsrInfo = wsrInfo;
-
-        if (null != wsrInfo) {
+        
+        if (null != wsrInfo) { 
             try {
                 //Configure each port's properties defined in the custom binding files.
                 configureClientProperties();
+                
             } catch (IOException e) {
                 throw new Fault(e);
             }
-        }
+        } 
+        
     }
 
     @Override
@@ -110,6 +120,23 @@ public class LibertyServiceImpl extends ServiceImpl {
         Client client = ClientProxy.getClient(clientProxy);
 
         configureCustomizeBinding(client, portName);
+        
+        if (!ProductInfo.getBetaEdition()) {           
+
+            // Because we have to apply webService and webServiceClient configuration to existing code
+            // we need to not apply it when not in beta. That means
+            // we can't throw the normal UnsupportedOperationException when not in beta
+            // so we just return the clientProxy as was done originally at this point in the code.
+            return clientProxy;
+        } else {
+            // Running beta exception, issue message if we haven't already issued one for this class
+            if (!issuedBetaMessage) {
+                Tr.info(tc, "BETA: A webServiceClient configuration beta method has been invoked for the class " + this.getClass().getName() + " for the first time.");
+                issuedBetaMessage = !issuedBetaMessage;
+            }
+        }
+		
+        configureWebServiceClientProperties(client);
 
         return clientProxy;
     }
@@ -122,9 +149,43 @@ public class LibertyServiceImpl extends ServiceImpl {
         Client client = dispatch.getClient();
 
         configureCustomizeBinding(client, portName);
+		
+		if (!ProductInfo.getBetaEdition()) {           
 
+            // Because we have to apply webService and webServiceClient configuration to existing code
+            // we need to not apply it when not in beta. That means
+            // we can't throw the normal UnsupportedOperationException when not in beta
+            // so we just return the clientProxy as was done originally at this point in the code.
+            return dispatch;
+        } else {
+            // Running beta exception, issue message if we haven't already issued one for this class
+            if (!issuedBetaMessage) {
+                Tr.info(tc, "BETA: A webServiceClient configuration beta method has been invoked for the class " + this.getClass().getName() + " for the first time.");
+                issuedBetaMessage = !issuedBetaMessage;
+            }
+        }
+		
+        configureWebServiceClientProperties(client); 
+		
         return dispatch;
     }
+    
+    /**
+     *  This method is used to apply webServiceClient configuration to the Client instance
+     *  Given that all of the current configuration is meant to be applied to inbound response processing
+     *  This method simply sets a new instances of the LibertyWebServiceClientInInterceptor to the InterceptorChain.
+     * @param client
+     * @param map
+     */
+    private void configureWebServiceClientProperties(Client client) {
+        // add the a new instance of LibertyWebServiceClientInInterceptor
+        if (tc.isDebugEnabled()) {
+            Tr.debug(tc, "Adding the LibertyWebServiceClintInInterceptor ");
+        }
+        client.getInInterceptors().add(new LibertyWebServiceClientInInterceptor());
+        
+    }
+
 
     /**
      * Add the LibertyCustomizeBindingOutInterceptor in the out interceptor chain.
@@ -133,6 +194,7 @@ public class LibertyServiceImpl extends ServiceImpl {
      * @param portName
      */
     protected void configureCustomizeBinding(Client client, QName portName) {
+        boolean loggingFeatureNotAdded = true;
         //put all properties defined in ibm-ws-bnd.xml into the client request context
         Map<String, Object> requestContext = client.getRequestContext();
         if (null != requestContext && null != wsrInfo) {
@@ -148,15 +210,39 @@ public class LibertyServiceImpl extends ServiceImpl {
             if (null != portProps) {
                 requestContext.putAll(portProps);
             }
-
+            
             if (null != wsrProps && Boolean.valueOf(wsrProps.get(JaxWsConstants.ENABLE_lOGGINGINOUTINTERCEPTOR))) {
-                List<Interceptor<? extends Message>> inInterceptors = client.getInInterceptors();
-                inInterceptors.add(new LoggingInInterceptor());
-                List<Interceptor<? extends Message>> outInterceptors = client.getOutInterceptors();
-                outInterceptors.add(new LoggingOutInterceptor());
+
+                Bus bus = this.getBus();
+                if(bus != null) {               
+                    
+                    // Get all the Features enabled on the CXF BUS
+                    Collection<Feature> featureList = bus.getFeatures();
+                    
+                    if( !featureList.contains(LoggingFeature.class)) {
+                        // Create a new LogginFeature instance
+                        LoggingFeature loggingFeature = new LoggingFeature();
+
+                        // Add new LoggingFeature instance to Feature list and set it back on the Bus
+                        if (!featureList.contains(loggingFeature)) {
+                            loggingFeature.setPrettyLogging(true);
+                            loggingFeature.initialize(bus);
+                            featureList.add(loggingFeature);
+                            bus.setFeatures(featureList);
+                            loggingFeatureNotAdded = false;
+                        }
+                    }
+                }
+
             }
         }
-
+        if(loggingFeatureNotAdded && !(TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()))       {
+            AbstractLoggingInterceptor.setDisableLogging(true);
+        } else {
+            Tr.debug(tc, "Common:Trace is enabled through interceptors.");
+            AbstractLoggingInterceptor.setDisableLogging(false);
+        }
+        
         Set<ConfigProperties> configPropsSet = servicePropertiesMap.get(portName);
         client.getOutInterceptors().add(new LibertyCustomizeBindingOutInterceptor(wsrInfo, securityConfigService, configPropsSet));
 

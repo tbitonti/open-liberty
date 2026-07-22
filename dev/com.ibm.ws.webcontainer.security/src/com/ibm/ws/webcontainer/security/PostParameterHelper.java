@@ -1,17 +1,16 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.security;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -25,7 +24,7 @@ import javax.servlet.http.HttpSession;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.webcontainer.security.internal.StringUtil;
 import com.ibm.ws.webcontainer.srt.SRTServletRequest;
 import com.ibm.wsspi.webcontainer.servlet.IExtendedRequest;
@@ -111,7 +110,7 @@ public class PostParameterHelper {
                 saveToCookie((IExtendedRequest) req, reqURL, authResult, keepInput);
             } else if (postParamSaveMethod.equalsIgnoreCase(WebAppSecurityConfig.POST_PARAM_SAVE_TO_SESSION)) {
                 IExtendedRequest extRequest = (IExtendedRequest) req;
-                Map params = extRequest.getInputStreamData();
+                Map params = getInputStreamData(extRequest);
                 saveToSession(req, reqURL, params);
             }
         } catch (IOException exc) {
@@ -301,12 +300,12 @@ public class PostParameterHelper {
      * The format of the data is as follows:
      * <base64 encoded byte array of the request URL>.<based64 encoded data[0] from serializeInputStreamData()>.<base 64 encoded data[1]>. and so on.
      */
-    private String serializePostParam(IExtendedRequest req, String reqURL, boolean keepInput) throws IOException, UnsupportedEncodingException, IllegalStateException {
+    private String serializePostParam(IExtendedRequest req, String reqURL, boolean keepInput) throws IOException, IllegalStateException {
         String output = null;
-        HashMap params = req.getInputStreamData();
+        HashMap params = getInputStreamData(req);
         if (params != null) {
             long size = req.sizeInputStreamData(params);
-            byte[] reqURLBytes = reqURL.getBytes("UTF-8");
+            byte[] reqURLBytes = reqURL.getBytes(StandardCharsets.UTF_8);
             long total = size + reqURLBytes.length + LENGTH_INT;
 
             long postParamSaveSize = webAppSecurityConfig.getPostParamCookieSize();
@@ -346,14 +345,14 @@ public class PostParameterHelper {
      * deserialize Post parameters.
      * The code doesn't expect that the req, cookieValueBytes, or reqURL is null.
      */
-    private HashMap deserializePostParam(IExtendedRequest req, byte[] cookieValueBytes, String reqURL) throws IOException, UnsupportedEncodingException, IllegalStateException {
+    private HashMap deserializePostParam(IExtendedRequest req, byte[] cookieValueBytes, String reqURL) throws IOException, IllegalStateException {
         HashMap output = null;
         List<byte[]> data = splitBytes(cookieValueBytes, (byte) '.');
         int total = data.size();
 
         if (total > OFFSET_DATA) {
             // url and at least one data. now deserializing the url.
-            String url = new String(Base64Coder.base64Decode(data.get(OFFSET_REQURL)), "UTF-8");
+            String url = new String(Base64Coder.base64Decode(data.get(OFFSET_REQURL)), StandardCharsets.UTF_8);
             if (url != null && url.equals(reqURL)) {
                 byte[][] bytes = new byte[total - OFFSET_DATA][];
                 for (int i = 0; i < (total - OFFSET_DATA); i++) {
@@ -396,7 +395,7 @@ public class PostParameterHelper {
             if (postParams == null) {
                 // let's save the parameters for restore
                 try {
-                    postParams = request.getInputStreamData();
+                    postParams = getInputStreamData(request);
                     request.setInputStreamData(postParams); // put it back immediately
                     request.setAttribute(ATTRIB_HASH_MAP, postParams);
                 } catch (IOException e) {
@@ -416,4 +415,15 @@ public class PostParameterHelper {
             }
         }
     }
+
+    @SuppressWarnings("rawtypes")
+    private static HashMap getInputStreamData(IExtendedRequest extRequest) throws IOException {
+        long maxAllowedLength = 1024 * 1024 * 128L;
+        WebAppSecurityConfig globalConfig = WebAppSecurityCollaboratorImpl.getGlobalWebAppSecurityConfig();
+        if (globalConfig != null) {
+            maxAllowedLength = globalConfig.postParamMaxRequestBodySize();
+        }
+        return extRequest.getInputStreamData(maxAllowedLength);
+    }
+
 }

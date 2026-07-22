@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017,2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 public class CountDownTask implements Callable<Boolean> {
     private final long awaitContinueNanos;
     private final CountDownLatch beginLatch;
-    private final CountDownLatch continueLatch;
+    final CountDownLatch continueLatch;
     final LinkedBlockingQueue<Thread> executionThreads = new LinkedBlockingQueue<Thread>();
 
     public CountDownTask(CountDownLatch beginLatch, CountDownLatch continueLatch, long awaitContinueNanos) {

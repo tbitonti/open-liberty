@@ -10,18 +10,21 @@ IBM-API-Package: \
   org.eclipse.microprofile.health.spi;  type="stable"
 IBM-ShortName: mpHealth-1.0
 Subsystem-Name: MicroProfile Health 1.0
--features=com.ibm.websphere.appserver.org.eclipse.microprofile.health-1.0, \
- com.ibm.websphere.appserver.cdi-1.2; ibm.tolerates:=2.0, \
- com.ibm.websphere.appserver.contextService-1.0, \
- com.ibm.websphere.appserver.jndi-1.0, \
- com.ibm.websphere.appserver.json-1.0, \
- com.ibm.websphere.appserver.servlet-3.1; ibm.tolerates:=4.0, \
- com.ibm.wsspi.appserver.webBundle-1.0, \
- io.openliberty.mpCompatible-0.0
+-features=com.ibm.websphere.appserver.json-1.0, \
+  io.openliberty.mpCompatible-0.0, \
+  com.ibm.wsspi.appserver.webBundle-1.0, \
+  com.ibm.websphere.appserver.contextService-1.0, \
+  com.ibm.websphere.appserver.servlet-3.1; ibm.tolerates:="4.0", \
+  io.openliberty.servlet.internal-3.1; ibm.tolerates:="4.0", \
+  com.ibm.websphere.appserver.org.eclipse.microprofile.health-1.0, \
+  com.ibm.websphere.appserver.jndi-1.0, \
+  com.ibm.websphere.appserver.cdi-1.2; ibm.tolerates:="2.0", \
+  com.ibm.websphere.appserver.jsonp-1.0; ibm.tolerates:="1.1",\
+  io.openliberty.mpHealthCompatible-0.0
 -bundles=\
- com.ibm.websphere.jsonsupport, \
  com.ibm.ws.microprofile.health; apiJar=false; location:="lib/", \
  com.ibm.ws.org.joda.time.1.6.2
 kind=ga
 edition=core
 WLP-Activation-Type: parallel
+WLP-Platform: microProfile-1.2,microProfile-1.3,microProfile-1.4,microProfile-2.0,microProfile-2.1,microProfile-2.2

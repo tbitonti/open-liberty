@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2021 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,20 +24,19 @@ import javax.xml.bind.annotation.XmlAnyAttribute;
 import javax.xml.bind.annotation.XmlAnyElement;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.namespace.QName;
 
 import org.w3c.dom.Element;
 
+import com.ibm.websphere.simplicity.config.cache.AuthCache;
+import com.ibm.websphere.simplicity.config.cache.Cache;
+import com.ibm.websphere.simplicity.config.cache.CacheManager;
+import com.ibm.websphere.simplicity.config.cache.CachingProvider;
 import com.ibm.websphere.simplicity.config.wim.FederatedRepository;
 import com.ibm.websphere.simplicity.config.wim.LdapFilters;
 import com.ibm.websphere.simplicity.config.wim.LdapRegistry;
 
-/**
- * Represents a server configuration document for the WAS 8.5 Liberty Profile.
- */
-@XmlRootElement(name = "server")
-public class ServerConfiguration implements Cloneable {
+public abstract class ServerConfiguration implements Cloneable {
 
     private String description;
     @XmlElement(name = "featureManager")
@@ -55,6 +56,15 @@ public class ServerConfiguration implements Cloneable {
 
     @XmlElement(name = "bell")
     private ConfigElementList<Bell> bells;
+
+    @XmlElement(name = "cdi")
+    private ConfigElementList<Cdi> cdi;
+
+    @XmlElement(name = "cdi12")
+    private ConfigElementList<Cdi12> cdi12;
+
+    @XmlElement(name = "data")
+    private ConfigElementList<Data> data;
 
     @XmlElement(name = "httpEndpoint")
     private ConfigElementList<HttpEndpoint> httpEndpoints;
@@ -77,11 +87,26 @@ public class ServerConfiguration implements Cloneable {
     @XmlElement(name = "httpSessionDatabase")
     private HttpSessionDatabase httpSessionDatabase;
 
+    @XmlElement(name = "cache")
+    private ConfigElementList<Cache> caches;
+
+    @XmlElement(name = "authCache")
+    private ConfigElementList<AuthCache> authCaches;
+
+    @XmlElement(name = "cacheManager")
+    private ConfigElementList<CacheManager> cacheManagers;
+
+    @XmlElement(name = "cachingProvider")
+    private ConfigElementList<CachingProvider> cachingProviders;
+
     @XmlElement(name = "application")
     private ConfigElementList<Application> applications;
 
     @XmlElement(name = "webApplication")
     private ConfigElementList<WebApplication> webApplications;
+
+    @XmlElement(name = "enterpriseApplication")
+    private ConfigElementList<EnterpriseApplication> enterpriseApplications;
 
     @XmlElement(name = "springBootApplication")
     private ConfigElementList<SpringBootApplication> springBootApplications;
@@ -91,9 +116,6 @@ public class ServerConfiguration implements Cloneable {
 
     @XmlElement(name = "cloudantDatabase")
     private ConfigElementList<CloudantDatabase> cloudantDatabases;
-
-    @XmlElement(name = "commonjTimerManager")
-    private ConfigElementList<CommonjTimerManager> commonjTimerManagers;
 
     @XmlElement(name = "concurrencyPolicy")
     private ConfigElementList<ConcurrencyPolicy> concurrencyPolicies;
@@ -106,9 +128,6 @@ public class ServerConfiguration implements Cloneable {
 
     @XmlElement(name = "jdbcDriver")
     private ConfigElementList<JdbcDriver> jdbcDrivers;
-
-    @XmlElement(name = "jmsActivationSpec")
-    private ConfigElementList<JMSActivationSpec> jmsActivationSpecs;
 
     @XmlElement(name = "jmsConnectionFactory")
     private ConfigElementList<JMSConnectionFactory> jmsConnectionFactories;
@@ -186,6 +205,15 @@ public class ServerConfiguration implements Cloneable {
     @XmlElement(name = "webContainer")
     private WebContainerElement webContainer;
 
+    @XmlElement(name = "webAppSecurity")
+    private WebAppSecurity webAppSecurity;
+
+    @XmlElement(name = "ltpa")
+    private LTPA ltpa;
+
+    @XmlElement(name = "authentication")
+    private Authentication auth;
+
     @XmlElement(name = "sslDefault")
     private SSLDefault sslDefault;
 
@@ -194,6 +222,9 @@ public class ServerConfiguration implements Cloneable {
 
     @XmlElement(name = "kerberos")
     private Kerberos kerberos;
+
+    @XmlElement(name = "spnego")
+    private Spnego spnego;
 
     @XmlElement(name = "keyStore")
     private ConfigElementList<KeyStore> keyStores;
@@ -206,6 +237,9 @@ public class ServerConfiguration implements Cloneable {
 
     @XmlElement(name = "transaction")
     private Transaction transaction;
+
+    @XmlElement(name = "wsAtomicTransaction")
+    private WsAtomicTransaction wsAtomicTransaction;
 
     @XmlElement(name = "jndiEntry")
     private ConfigElementList<JNDIEntry> jndiEntryElements;
@@ -237,20 +271,20 @@ public class ServerConfiguration implements Cloneable {
     @XmlElement(name = "persistentExecutor")
     private ConfigElementList<PersistentExecutor> persistentExecutors;
 
-    @XmlElement(name = "scalingDefinitions")
-    private ScalingDefinitions scalingDefinitions;
-
     @XmlElement(name = "remoteFileAccess")
     private ConfigElementList<RemoteFileAccess> remoteFileAccesses;
-
-    @XmlElement(name = "apiDiscovery")
-    private APIDiscoveryElement apiDiscoveryElement;
 
     @XmlElement(name = "mpMetrics")
     private MPMetricsElement mpMetricsElement;
 
+    @XmlElement(name = "mpHealth")
+    private MPHealthElement mpHealthElement;
+
     @XmlElement(name = "openapi")
     private OpenAPIElement openAPIElement;
+
+    @XmlElement(name = "mpOpenAPI")
+    private MpOpenAPIElement mpOpenAPIElement;
 
     @XmlElement(name = "federatedRepository")
     private FederatedRepository federatedRepository;
@@ -273,8 +307,26 @@ public class ServerConfiguration implements Cloneable {
     @XmlElement(name = "samesite")
     private ConfigElementList<SameSite> samesites;
 
+    @XmlElement(name = "headers")
+    private ConfigElementList<Headers> headers;
+
     @XmlElement(name = "javaPermission")
     private ConfigElementList<JavaPermission> javaPermissions;
+
+    @XmlElement(name = "oauth2Login")
+    private ConfigElementList<OAuth2Login> oauth2Logins;
+
+    @XmlElement(name = "oidcLogin")
+    private ConfigElementList<OidcLogin> oidcLogins;
+
+    @XmlElement(name = "openidConnectClient")
+    private ConfigElementList<OpenidConnectClient> openIdConnectClients;
+
+    @XmlElement(name = "jwtBuilder")
+    private ConfigElementList<JwtBuilder> jwtBuilders;
+
+    @XmlElement(name = "cveReporting")
+    private CVEReportingElement cveReporting;
 
     public ServerConfiguration() {
         this.description = "Generation date: " + new Date();
@@ -382,6 +434,20 @@ public class ServerConfiguration implements Cloneable {
         return this.bells;
     }
 
+    public ConfigElementList<Cdi> getCdi() {
+        if (this.cdi == null) {
+            this.cdi = new ConfigElementList<Cdi>();
+        }
+        return this.cdi;
+    }
+
+    public ConfigElementList<Cdi12> getCdi12() {
+        if (this.cdi12 == null) {
+            this.cdi12 = new ConfigElementList<Cdi12>();
+        }
+        return this.cdi12;
+    }
+
     public ConfigElementList<Cloudant> getCloudants() {
         if (this.cloudants == null)
             this.cloudants = new ConfigElementList<Cloudant>();
@@ -392,12 +458,6 @@ public class ServerConfiguration implements Cloneable {
         if (this.cloudantDatabases == null)
             this.cloudantDatabases = new ConfigElementList<CloudantDatabase>();
         return this.cloudantDatabases;
-    }
-
-    public ConfigElementList<CommonjTimerManager> getCommonjTimerManagers() {
-        if (this.commonjTimerManagers == null)
-            this.commonjTimerManagers = new ConfigElementList<CommonjTimerManager>();
-        return this.commonjTimerManagers;
     }
 
     public ConfigElementList<ConcurrencyPolicy> getConcurrencyPolicies() {
@@ -416,6 +476,19 @@ public class ServerConfiguration implements Cloneable {
         if (this.connectionFactories == null)
             this.connectionFactories = new ConfigElementList<ConnectionFactory>();
         return this.connectionFactories;
+    }
+
+    /**
+     * Returns a list of configured top level data elements.
+     *
+     * @return A list of configured top level data elements.
+     */
+    public ConfigElementList<Data> getData() {
+        if (this.data == null) {
+            this.data = new ConfigElementList<Data>();
+        }
+
+        return this.data;
     }
 
     /**
@@ -495,11 +568,43 @@ public class ServerConfiguration implements Cloneable {
         return this.httpSessionDatabase;
     }
 
-    public ConfigElementList<JMSActivationSpec> getJMSActivationSpecs() {
-        if (this.jmsActivationSpecs == null)
-            this.jmsActivationSpecs = new ConfigElementList<JMSActivationSpec>();
-        return this.jmsActivationSpecs;
+    /**
+     * @return the list of caches configuration elements
+     */
+    public ConfigElementList<Cache> getCaches() {
+        if (this.caches == null)
+            this.caches = new ConfigElementList<Cache>();
+        return this.caches;
     }
+
+    /**
+     * @return the list of authCaches configuration elements
+     */
+    public ConfigElementList<AuthCache> getAuthCaches() {
+        if (this.authCaches == null)
+            this.authCaches = new ConfigElementList<AuthCache>();
+        return this.authCaches;
+    }
+
+    /**
+     * @return the list of cachingProvider configuration elements
+     */
+    public ConfigElementList<CachingProvider> getCachingProviders() {
+        if (this.cachingProviders == null)
+            this.cachingProviders = new ConfigElementList<CachingProvider>();
+        return this.cachingProviders;
+    }
+
+    /**
+     * @return the list of cacheManagers configuration elements
+     */
+    public ConfigElementList<CacheManager> getCacheManagers() {
+        if (this.cacheManagers == null)
+            this.cacheManagers = new ConfigElementList<CacheManager>();
+        return this.cacheManagers;
+    }
+
+    abstract public ConfigElementList<? extends JMSActivationSpec> getJMSActivationSpecs();
 
     public ConfigElementList<JMSConnectionFactory> getJMSConnectionFactories() {
         if (this.jmsConnectionFactories == null)
@@ -593,6 +698,30 @@ public class ServerConfiguration implements Cloneable {
         return kerberos;
     }
 
+    public Spnego getSpnego() {
+        if (spnego == null)
+            spnego = new Spnego();
+        return spnego;
+    }
+
+    public WebAppSecurity getWebAppSecurity() {
+        if (webAppSecurity == null)
+            webAppSecurity = new WebAppSecurity();
+        return webAppSecurity;
+    }
+
+    public LTPA getLTPA() {
+        if (ltpa == null)
+            ltpa = new LTPA();
+        return ltpa;
+    }
+
+    public Authentication getAuthentication() {
+        if (auth == null)
+            auth = new Authentication();
+        return auth;
+    }
+
     /**
      * @return the KeyStore configurations for this server
      */
@@ -665,14 +794,6 @@ public class ServerConfiguration implements Cloneable {
         return this.ejbContainer;
     }
 
-    public APIDiscoveryElement getAPIDiscoveryElement() {
-        if (this.apiDiscoveryElement == null) {
-            this.apiDiscoveryElement = new APIDiscoveryElement();
-        }
-
-        return this.apiDiscoveryElement;
-    }
-
     public OpenAPIElement getOpenAPIElement() {
         if (this.openAPIElement == null) {
             this.openAPIElement = new OpenAPIElement();
@@ -681,12 +802,28 @@ public class ServerConfiguration implements Cloneable {
         return this.openAPIElement;
     }
 
+    public MpOpenAPIElement getMpOpenAPIElement() {
+        if (this.mpOpenAPIElement == null) {
+            this.mpOpenAPIElement = new MpOpenAPIElement();
+        }
+
+        return this.mpOpenAPIElement;
+    }
+
     public MPMetricsElement getMPMetricsElement() {
         if (this.mpMetricsElement == null) {
             this.mpMetricsElement = new MPMetricsElement();
         }
 
         return this.mpMetricsElement;
+    }
+
+    public MPHealthElement getMPHealthElement() {
+        if (this.mpHealthElement == null) {
+            this.mpHealthElement = new MPHealthElement();
+        }
+
+        return this.mpHealthElement;
     }
 
     /**
@@ -770,6 +907,16 @@ public class ServerConfiguration implements Cloneable {
             this.webApplications = new ConfigElementList<WebApplication>();
         }
         return this.webApplications;
+    }
+
+    /**
+     * @return explicitly installed enterprise applications
+     */
+    public ConfigElementList<EnterpriseApplication> getEnterpriseApplications() {
+        if (this.enterpriseApplications == null) {
+            this.enterpriseApplications = new ConfigElementList<EnterpriseApplication>();
+        }
+        return this.enterpriseApplications;
     }
 
     /**
@@ -932,6 +1079,12 @@ public class ServerConfiguration implements Cloneable {
         return this.transaction;
     }
 
+    public WsAtomicTransaction getWsAtomicTransaction() {
+        if (this.wsAtomicTransaction == null)
+            this.wsAtomicTransaction = new WsAtomicTransaction();
+        return this.wsAtomicTransaction;
+    }
+
     /**
      * @return all configured <variable> elements
      */
@@ -999,19 +1152,6 @@ public class ServerConfiguration implements Cloneable {
     }
 
     /**
-     * Returns the configured top level scalingDefinitions element.
-     *
-     * @return The configured top level scalingDefinitions element.
-     */
-    public ScalingDefinitions getScalingDefinitions() {
-        if (this.scalingDefinitions == null) {
-            this.scalingDefinitions = new ScalingDefinitions();
-        }
-
-        return this.scalingDefinitions;
-    }
-
-    /**
      * Returns a list of configured top level remoteFileAccess elements.
      *
      * @return A list of configured top level remoteFileAccess elements.
@@ -1037,7 +1177,7 @@ public class ServerConfiguration implements Cloneable {
 
     private List<Field> getAllXmlElements() {
         List<Field> xmlElements = new ArrayList<Field>();
-        for (Field field : getClass().getDeclaredFields()) {
+        for (Field field : ServerConfiguration.class.getDeclaredFields()) {
             if (field.isAnnotationPresent(XmlElement.class))
                 xmlElements.add(field);
         }
@@ -1069,22 +1209,28 @@ public class ServerConfiguration implements Cloneable {
     @Override
     public String toString() {
         String nl = System.getProperty("line.separator");
-        StringBuffer buf = new StringBuffer("ServerConfiguration" + nl);
+        StringBuilder builder = new StringBuilder("ServerConfiguration").append(nl);
 
+        fieldsToString(builder);
+        return builder.toString();
+    }
+
+    protected void fieldsToString(StringBuilder builder) {
+        String nl = System.getProperty("line.separator");
         for (Field field : getAllXmlElements()) {
             try {
-                buf.append(field.get(this).toString());
+                builder.append(field.get(this).toString());
+                builder.append(nl);
             } catch (Exception ignore) {
             }
         }
-        return buf.toString();
     }
 
     @Override
     public boolean equals(Object otherConfig) {
         if (otherConfig == null)
             return false;
-        if (!(otherConfig instanceof ServerConfiguration))
+        if (otherConfig.getClass() != getClass())
             return false;
 
         // Consider server configurations equal if their XmlElements match up
@@ -1282,4 +1428,91 @@ public class ServerConfiguration implements Cloneable {
         }
         return this.javaPermissions;
     }
+
+    /**
+     * Add a Headers configuration to this server
+     *
+     * @param headers The headers element to be added to this server
+     */
+    public void addHeaders(Headers headers) {
+
+        ConfigElementList<Headers> headersCfgs = getHeaders();
+
+        for (Headers headersEntry : headersCfgs) {
+            if (headersEntry.getId().equals(headers.getId())) {
+                headersCfgs.remove(headersEntry);
+            }
+        }
+        headersCfgs.add(headers);
+    }
+
+    /**
+     * @return the headers configuration for this server
+     */
+    public ConfigElementList<Headers> getHeaders() {
+        if (this.headers == null) {
+            this.headers = new ConfigElementList<Headers>();
+        }
+        return this.headers;
+
+    }
+
+    /**
+     * Get the 'oauth2Login' elements.
+     *
+     * @return The {@link OAuth2Login} configuration instance.
+     */
+    public ConfigElementList<OAuth2Login> getOAuth2Logins() {
+        if (this.oauth2Logins == null) {
+            this.oauth2Logins = new ConfigElementList<OAuth2Login>();
+        }
+        return this.oauth2Logins;
+    }
+
+    /**
+     * Get the 'oidcLogin' elements.
+     *
+     * @return The {@link OidcLogin} configuration instance.
+     */
+    public ConfigElementList<OidcLogin> getOidcLogins() {
+        if (this.oidcLogins == null) {
+            this.oidcLogins = new ConfigElementList<OidcLogin>();
+        }
+        return this.oidcLogins;
+    }
+
+    /**
+     * Get the 'openidConnectClient' elements.
+     *
+     * @return The {@link OpenidConnectClient} configuration instance.
+     */
+    public ConfigElementList<OpenidConnectClient> getOpenidConnectClients() {
+        if (this.openIdConnectClients == null) {
+            this.openIdConnectClients = new ConfigElementList<OpenidConnectClient>();
+        }
+        return this.openIdConnectClients;
+    }
+
+    /**
+     * Get the 'jwtBuilder' elements.
+     *
+     * @return The {@link JwtBuilder} configuration instance.
+     */
+    public ConfigElementList<JwtBuilder> getJwtBuilders() {
+        if (this.jwtBuilders == null) {
+            this.jwtBuilders = new ConfigElementList<JwtBuilder>();
+        }
+        return this.jwtBuilders;
+    }
+
+    /**
+     * @return the fixPackReporting
+     */
+    public CVEReportingElement getCVEReporting() {
+        if (this.cveReporting == null)
+            this.cveReporting = new CVEReportingElement();
+
+        return this.cveReporting;
+    }
+
 }

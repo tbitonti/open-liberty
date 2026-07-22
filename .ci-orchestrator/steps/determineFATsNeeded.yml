@@ -1,0 +1,24 @@
+- stepName: Determine FATs Needed
+  workType: Jenkins
+  projectName: dependencyMapper
+  dependsOn:
+    - stepName: PR Changes
+      awaitOutputProperties: true
+    - stepName: Compile Liberty Images
+      awaitOutputProperties: true
+    - stepName: Compile FATs
+      awaitOutputProperties: true
+  conditionalRun:
+    - type: ifSet
+      value: ${fat.buckets.to.run}
+  timeoutInMinutes: 1440 # 1 day
+  properties:
+    aggregationId: ${Compile Liberty Images:execution_id}
+    bndFilesZipUrl: ${Compile Liberty Images:bndFilesZipUrl}
+    buildType: personal
+    changeDetectorImageUrl: ${Compile FATs:changeDetectorImageUrl}
+    ebcShortlist: jenkins-child.yml
+    fat.buckets.to.run: ${PR Changes:fat.buckets.to.run}
+    fatFeatureJsonUrl: ${Compile FATs:fatFeatureJsonUrl}
+    githubPRApi: ${github_pr_api}
+    imageUrl: ${Compile Liberty Images:imageUrl}

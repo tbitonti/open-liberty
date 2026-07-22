@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013 IBM Corporation and others.
+ * Copyright (c) 2013, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -136,14 +138,6 @@ public class JaxWsSecurityConfigurationServiceImpl implements JaxWsSecurityConfi
                 tlsClientParams = new TLSClientParameters();
             }
             tlsClientParams.setSSLSocketFactory(sslSocketFactory);
-            if (null == sslRef) {
-                // No sslRef is assigned in binding file, uses the server's default SSL configuration,
-                // the server should trust it self, so set the disableCNCheck = true.
-                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "Set the disableCNCheck is true as using the default server ssl configuration, and the server should trust itself.");
-                }
-                tlsClientParams.setDisableCNCheck(true);
-            }
         }
 
         return tlsClientParams;

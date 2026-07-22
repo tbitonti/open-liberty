@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017,2019 IBM Corporation and others.
+ * Copyright (c) 2017,2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,6 +19,7 @@ import java.util.Arrays;
 import java.util.Dictionary;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.TreeMap;
 
 import org.osgi.framework.BundleContext;
@@ -29,6 +32,7 @@ import org.osgi.service.cm.ConfigurationAdmin;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.kernel.service.util.ServiceCaller;
 import com.ibm.ws.management.security.ManagementSecurityConstants;
 import com.ibm.wsspi.kernel.service.utils.FilterUtils;
 import com.ibm.wsspi.rest.handler.RESTHandler;
@@ -51,6 +55,7 @@ import com.ibm.wsspi.rest.handler.RESTResponse;
  */
 public abstract class ConfigBasedRESTHandler implements RESTHandler {
     private static final TraceComponent tc = Tr.register(ConfigBasedRESTHandler.class);
+    private static final ServiceCaller<ConfigurationAdmin> configurationAdminService = new ServiceCaller(ConfigBasedRESTHandler.class, ConfigurationAdmin.class);
 
     /**
      * Indicates whether or not to filter by the specified configuration property name if included as a query parameter.
@@ -151,6 +156,10 @@ public abstract class ConfigBasedRESTHandler implements RESTHandler {
         if (trace && tc.isEntryEnabled())
             Tr.entry(this, tc, "handleRequest", path); // /apiRoot/{elementName}/{uid}
 
+        response.setResponseHeader("X-XSS-Protection", "1");
+        response.setResponseHeader("X-Content-Type-Options", "nosniff");
+        response.setResponseHeader("Content-Security-Policy", "default-src 'self'");
+
         if (requireAdministratorRole() && !request.isUserInRole(ManagementSecurityConstants.ADMINISTRATOR_ROLE_NAME)) {
             response.sendError(403, "Forbidden");
             response.setRequiredRoles(new HashSet<String>(Arrays.asList(new String[] { ManagementSecurityConstants.ADMINISTRATOR_ROLE_NAME })));
@@ -225,16 +234,12 @@ public abstract class ConfigBasedRESTHandler implements RESTHandler {
         filter.append(')');
 
         if (trace && tc.isDebugEnabled())
-            Tr.debug(this, tc, "filter", filter);
-
-        BundleContext bundleContext = FrameworkUtil.getBundle(getClass()).getBundleContext();
-        ServiceReference<ConfigurationAdmin> configAdminRef = bundleContext.getServiceReference(ConfigurationAdmin.class);
-        ConfigurationAdmin configAdmin = bundleContext.getService(configAdminRef);
+            Tr.debug(this, tc, "filter", filter);        
 
         Configuration[] configurations;
         try {
-            configurations = configAdmin.listConfigurations(filter.toString());
-        } catch (InvalidSyntaxException x) {
+            configurations = configurationAdminService.current().get().listConfigurations(filter.toString()); //Using current() rather than the functional interface because of checked exceptions
+        } catch (InvalidSyntaxException | NoSuchElementException x) {
             configurations = null; // same error handling as not found
         }
 

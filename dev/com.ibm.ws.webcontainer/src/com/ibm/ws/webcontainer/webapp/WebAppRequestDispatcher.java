@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 1997, 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -1412,8 +1414,11 @@ public class WebAppRequestDispatcher implements RequestDispatcher, WebContainerC
                                                     CollaboratorHelper.allCollabEnum);
         } catch (ServletErrorReport ser) {
             // PK79464
-            if (dispatcherRethrowSER&&httpServletReq.getAttribute(WebContainerConstants.IGNORE_DISPATCH_STATE) == null)
+            if (dispatcherRethrowSER&&httpServletReq.getAttribute(WebContainerConstants.IGNORE_DISPATCH_STATE) == null) {
+                if (WCCustomProperties.DO_NOT_CLOSE_OUTPUT_ON_FORWARD_EXCEPTION) 
+                   exception = true;
                 throw ser;
+	    }
             webapp.sendError(httpServletReq, httpServletRes, ser);
         } catch (ServletException se) {
             exception = true;

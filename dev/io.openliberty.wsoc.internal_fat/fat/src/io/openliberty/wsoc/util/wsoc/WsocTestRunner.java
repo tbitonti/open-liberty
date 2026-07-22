@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2013, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -39,6 +41,8 @@ public class WsocTestRunner {
 
     public static int DEFAULT_MAX_MESSAGES = 1;
 
+    // private int _numMsgsExpected = 0;
+
     private static int _runTimeout = Constants.getDefaultTimeout();
 
     private WsocTestContext _wtr = null;
@@ -56,12 +60,12 @@ public class WsocTestRunner {
 
     /**
      *
-     * @param edp - Annotated or programmatic endpoint
-     * @param uri - URI to connect to - in the form of ws:// or ws:///
-     * @param cfg - endpoint config
+     * @param edp             - Annotated or programmatic endpoint
+     * @param uri             - URI to connect to - in the form of ws:// or ws:///
+     * @param cfg             - endpoint config
      * @param numMsgsExpected - Each client is expected to receive this many msgs before shutting down.. Endpoints should check the text context limit reached to determine when to
-     *            shut down endpoint
-     * @param runTimeout - how long test will run before stopping
+     *                            shut down endpoint
+     * @param runTimeout      - how long test will run before stopping
      *
      * @throws Exception
      */
@@ -73,6 +77,8 @@ public class WsocTestRunner {
 
         WsocTestContext.completeLatch = new CountDownLatch(1);
         _wtr = new WsocTestContext(numMsgsExpected);
+
+        // _numMsgsExpected = numMsgsExpected;
 
         if (!(edp instanceof TestHelper)) {
             throw new WsocTestException("Test class does not implement TestHelper,   can't run this test.");
@@ -103,12 +109,14 @@ public class WsocTestRunner {
         LOG.info("Waiting for wsoc test to finish");
 
         if (!WsocTestContext.completeLatch.await(_runTimeout, TimeUnit.MILLISECONDS)) {
+            LOG.info("Latch timeout reached!");
             _wtr.setTimedout(true);
         }
+
         // We've had some test failures that are not found in local env and some builds.  This short wait should flesh them out locally...
-        java.lang.Thread.sleep(50);
+        java.lang.Thread.sleep(250);
         if (sess.isOpen()) {
-            //LOG.info("Reached max messages or test timeout, closing wsoc session");
+            LOG.info("Reached max messages or test timeout, closing wsoc session");
             if (!_wtr.getClosedAlready()) {
                 sess.close(new CloseReason(CloseReason.CloseCodes.NORMAL_CLOSURE, "Normal Close"));
             }

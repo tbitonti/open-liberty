@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2010, 2020 IBM Corporation and others.
+# Copyright (c) 2010, 2022 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -29,7 +31,7 @@
 #   Messages in the range CWWKF1000 are reserved for the FeatureToolMessages.
 # -------------------------------------------------------------------------------------------------
 
-UPDATE_MISSING_FEATURE_ERROR=CWWKF0001E: Pro {0} nelze nal\u00e9zt definici funkce.
+UPDATE_MISSING_FEATURE_ERROR=CWWKF0001E: Neda\u0159ilo se naj\u00edt definici vlastnosti pro {0}. Chcete-li tuto funkci nainstalovat, spus\u0165te p\u0159\u00edkaz \u201e bin/featureUtility \u201c ( installFeature {0} ) nebo p\u0159\u00edkaz \u201e bin/featureUtility \u201c ( installServerFeatures ).
 UPDATE_MISSING_FEATURE_ERROR.explanation=Spr\u00e1vce funkce nemohl nal\u00e9zt definici zadan\u00e9 funkce.
 UPDATE_MISSING_FEATURE_ERROR.useraction=Zkontrolujte, zda je spr\u00e1vn\u011b uveden n\u00e1zev zadan\u00e9 funkce a zda definice funkce existuje a lze ji v adres\u00e1\u0159i lib/features \u010d\u00edst.
 
@@ -81,16 +83,12 @@ FEATURES_REMOVED=CWWKF0013I: Server odebral n\u00e1sleduj\u00edc\u00ed funkce: {
 FEATURES_REMOVED.explanation=Server odebral sadu funkc\u00ed.
 FEATURES_REMOVED.useraction=Nen\u00ed pot\u0159eba \u017e\u00e1dn\u00e1 akce.
 
-TEST_FIX_DETECTED=CWWKF0014W: Server m\u00e1 v b\u011bhov\u00e9m prost\u0159ed\u00ed n\u00e1sleduj\u00edc\u00ed aktivn\u00ed testovac\u00ed opravy: {0}. \u00dapln\u00fd v\u00fdpis nainstalovan\u00fdch oprav z\u00edsk\u00e1te po spu\u0161t\u011bn\u00ed p\u0159\u00edkazu: \
-productInfo version --ifixes
-TEST_FIX_DETECTED.explanation=Bal\u00edky OSGi na\u010dten\u00e9 v b\u011bhov\u00e9m prost\u0159ed\u00ed byly zm\u011bn\u011bny n\u011bkter\u00fdmi z nainstalovan\u00fdch testovac\u00edch oprav. V\u00fdpis v\u0161ech nainstalovan\u00fdch oprav lze z\u00edskat pomoc\u00ed \
-p\u0159\u00edkazu: productInfo version --ifixes
+TEST_FIX_DETECTED=CWWKF0014W: Server m\u00e1 v b\u011bhov\u00e9m prost\u0159ed\u00ed n\u00e1sleduj\u00edc\u00ed aktivn\u00ed testovac\u00ed opravy: {0}. \u00dapln\u00fd v\u00fdpis nainstalovan\u00fdch oprav z\u00edsk\u00e1te po spu\u0161t\u011bn\u00ed p\u0159\u00edkazu: productInfo version --ifixes
+TEST_FIX_DETECTED.explanation=Bal\u00edky OSGi na\u010dten\u00e9 v b\u011bhov\u00e9m prost\u0159ed\u00ed byly zm\u011bn\u011bny n\u011bkter\u00fdmi z nainstalovan\u00fdch testovac\u00edch oprav. V\u00fdpis v\u0161ech nainstalovan\u00fdch oprav lze z\u00edskat pomoc\u00ed p\u0159\u00edkazu: productInfo version --ifixes
 TEST_FIX_DETECTED.useraction=Testovac\u00ed opravy by nem\u011bly b\u00fdt instalov\u00e1ny na produk\u010dn\u00edm serveru. Pokud se jedn\u00e1 o produk\u010dn\u00ed server, odeberte testovac\u00ed opravy a restartujte server.
 
-INTERIM_FIX_DETECTED=CWWKF0015I: Server m\u00e1 v b\u011bhov\u00e9m prost\u0159ed\u00ed n\u00e1sleduj\u00edc\u00ed aktivn\u00ed prozat\u00edmn\u00ed opravy: {0}. \u00dapln\u00fd v\u00fdpis nainstalovan\u00fdch oprav z\u00edsk\u00e1te po spu\u0161t\u011bn\u00ed p\u0159\u00edkazu: productInfo \
-version --ifixes
-INTERIM_FIX_DETECTED.explanation=Bal\u00edky OSGi na\u010dten\u00e9 v b\u011bhov\u00e9m prost\u0159ed\u00ed byly zm\u011bn\u011bny n\u011bkter\u00fdmi z nainstalovan\u00fdch prozat\u00edmn\u00edch oprav. V\u00fdpis v\u0161ech nainstalovan\u00fdch oprav lze z\u00edskat \
-pomoc\u00ed p\u0159\u00edkazu: productInfo version --ifixes
+INTERIM_FIX_DETECTED=CWWKF0015I: Server m\u00e1 v b\u011bhov\u00e9m prost\u0159ed\u00ed n\u00e1sleduj\u00edc\u00ed aktivn\u00ed prozat\u00edmn\u00ed opravy: {0}. \u00dapln\u00fd v\u00fdpis nainstalovan\u00fdch oprav z\u00edsk\u00e1te po spu\u0161t\u011bn\u00ed p\u0159\u00edkazu: productInfo version --ifixes
+INTERIM_FIX_DETECTED.explanation=Bal\u00edky OSGi na\u010dten\u00e9 v b\u011bhov\u00e9m prost\u0159ed\u00ed byly zm\u011bn\u011bny n\u011bkter\u00fdmi z nainstalovan\u00fdch prozat\u00edmn\u00edch oprav. V\u00fdpis v\u0161ech nainstalovan\u00fdch oprav lze z\u00edskat pomoc\u00ed p\u0159\u00edkazu: productInfo version --ifixes
 INTERIM_FIX_DETECTED.useraction=Nen\u00ed pot\u0159eba \u017e\u00e1dn\u00e1 akce.
 
 # IBM-Provision-Capability is a manifest header name and should not be translated.
@@ -204,13 +202,9 @@ UPDATE_WRONG_PROCESS_TYPE_DEPENDENCY_CLIENT_ERROR.explanation=Zkonfigurovan\u00e
 UPDATE_WRONG_PROCESS_TYPE_DEPENDENCY_CLIENT_ERROR.useraction=Odeberte funkci z konfigurace nebo zm\u011b\u0148te soubor typu manifest funkce, abyste povolili podporu pro po\u017eadovan\u00fd typ procesu.
 
 # CWWK0042E  {0} = feature Name: {1} = server name 
-UPDATE_MISSING_CORE_FEATURE_ERROR=CWWKF0042E: Nelze naj\u00edt definici funkce pro funkci {0}. Zkuste spustit p\u0159\u00edkaz bin/installUtility install {0} a funkci nainstalovat. P\u0159\u00edpadn\u011b \
-m\u016f\u017eete spustit p\u0159\u00edkaz bin/installUtility install {1} a nainstalovat v\u0161echny funkce, na kter\u00e9 tato konfigurace odkazuje.
+UPDATE_MISSING_CORE_FEATURE_ERROR=CWWKF0042E: Nelze naj\u00edt definici funkce pro funkci {0}.  Zkuste spustit p\u0159\u00edkaz \u201e bin/featureUtility \u201c \u201e installFeature \u201c \u201e {0} \u201c, abyste tuto funkci nainstalovali. Alternativn\u011b m\u016f\u017eete spustit p\u0159\u00edkaz \u201e bin/featureUtility \u201c installServerFeatures {1}, \u010d\u00edm\u017e nainstalujete v\u0161echny funkce, na kter\u00e9 tato konfigurace odkazuje.
 UPDATE_MISSING_CORE_FEATURE_ERROR.explanation=Spr\u00e1vce funkce nemohl nal\u00e9zt definici zadan\u00e9 funkce.
-UPDATE_MISSING_CORE_FEATURE_ERROR.useraction=Zkontrolujte, zda je n\u00e1zev uveden\u00e9 funkce naps\u00e1n spr\u00e1vn\u011b. \
-Tak\u00e9 zkontrolujte, zda definice funkce existuje v adres\u00e1\u0159i lib/features a je \u010diteln\u00e1. \
-Pokud funkce neexistuje, zkuste spustit p\u0159\u00edkaz bin/installUtility install n\u00e1zev_funkce a funkci nainstalovat, nebo zkuste spustit p\u0159\u00edkaz bin/installUtility install n\u00e1zev_serveru a nainstalovat \
-v\u0161echny funkce, na kter\u00e9 odkazuje tato konfigurace.
+UPDATE_MISSING_CORE_FEATURE_ERROR.useraction=Zkontrolujte, zda je n\u00e1zev uveden\u00e9 funkce naps\u00e1n spr\u00e1vn\u011b.  Tak\u00e9 zkontrolujte, zda definice funkce existuje v adres\u00e1\u0159i lib/features a je \u010diteln\u00e1.  Pokud dan\u00e1 funkce neexistuje, zkuste spustit p\u0159\u00edkaz \u201e bin/featureUtilityinstallFeature feature_name\u201c a nainstalovat tak danou funkci, nebo zkuste spustit p\u0159\u00edkaz \u201e bin/featureUtilityinstallServerFeatures server_name\u201c a nainstalovat v\u0161echny funkce, na kter\u00e9 tato konfigurace odkazuje.
 
 # CWWK0043E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = configuredFeature1: {3} = configuredFeature2: {4} EePlaformCommonToProgModels 
 UPDATE_CONFLICT_INCOMPATIBLE_EE_FEATURES_SAME_PLATFORM_ERROR=CWWKF0043E: Konfigurovan\u00e1 funkce {2} z {0} nen\u00ed kompatibiln\u00ed s konfigurovanou funkc\u00ed {3} z {1}. Konfigurace obsahuje nekompatibiln\u00ed kombinaci funkc\u00ed {4}, kter\u00e9 nejsou podporov\u00e1ny. Aktualizujte konfiguraci tak, aby pou\u017e\u00edvala kompatibiln\u00ed verze nakonfigurovan\u00fdch funkc\u00ed, kter\u00e9 podporuj\u00ed programovac\u00ed modely {0} nebo {1}.
@@ -231,10 +225,50 @@ UPDATE_DISABLED_FEATURES_ON_CONFLICT=CWWKF0046W: Konfigurace zahrnuje nekompatib
 UPDATE_DISABLED_FEATURES_ON_CONFLICT.explanation=Konfigurace zahrnuje nekompatibiln\u00ed kombinaci funkc\u00ed. Aby se zabr\u00e1nilo neplatn\u00e9mu chov\u00e1n\u00ed, zak\u00e1zal spr\u00e1vce funkc\u00ed v\u0161echny funkce.
 UPDATE_DISABLED_FEATURES_ON_CONFLICT.useraction=Uve\u010fte jinou verzi nakonfigurovan\u00fdch funkc\u00ed, kter\u00e9 zp\u016fsobuj\u00ed konflikt.
 
-# CWWK0044E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2 {6} EePlaformCommonToProgModels
+# CWWK0047E  {0} = EeProgModel1: {1} = EeProgModel2: {2} = EeConflictFeature1: {3} = EeConflictFeature2: {4} = configuredFeature1: {5} configuredFeature2 {6} EePlatformCommonToProgModels
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR=CWWKF0047E: Funkce {2} a {3} nelze na\u010d\u00edst sou\u010dasn\u011b. Funkce {2} prvku {0} nen\u00ed kompatibiln\u00ed s prvkem {3} s funkc\u00ed {1}. Konfigurace obsahuje nekompatibiln\u00ed kombinaci funkc\u00ed {6}, kter\u00e9 nejsou podporov\u00e1ny. Konfigurovan\u00e9 funkce {4} a {5} obsahuj\u00ed nekompatibiln\u00ed kombinaci funkc\u00ed. Va\u0161e konfigurace nen\u00ed podporov\u00e1na. Aktualizujte konfiguraci tak, aby pou\u017e\u00edvala kompatibiln\u00ed verze nakonfigurovan\u00fdch funkc\u00ed, kter\u00e9 podporuj\u00ed programovac\u00ed modely {0} nebo {1}.
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.explanation=Konfigurace serveru obsahuje nekompatibiln\u00ed kombinaci funkc\u00ed pro uveden\u00e9 programovac\u00ed modely. K tomuto konfliktu doch\u00e1z\u00ed, pokud jsou dv\u011b nekompatibiln\u00ed funkce nakonfigurov\u00e1ny p\u0159\u00edmo v konfiguraci serveru nebo pokud nakonfigurovan\u00e9 funkce zahrnuj\u00ed r\u016fzn\u00e9 verze nekompatibiln\u00ed funkce.
 UPDATE_INDIRECT_CONFLICT_INCOMPATIBLE_FEATURES_SAME_PLATFORM_ERROR.useraction=Pokuste se zadat do souboru server.xml kompatibiln\u00ed verzi nakonfigurovan\u00fdch funkc\u00ed, kter\u00e9 zp\u016fsobuj\u00ed konflikt. Pokud nem\u00e1te k dispozici jin\u00e9 verze, nejsou nakonfigurovan\u00e9 funkce mezi sebou kompatibiln\u00ed a nelze je sou\u010dasn\u011b nakonfigurovat.
+
+# CWWKF0048E  {0} = the unknown platform value in the environment variable
+UNKNOWN_PLATFORM_VALUE_ENV_VAR=CWWKF0048E: The {0} hodnota prom\u011bnn\u00e9 prost\u0159ed\u00ed platformy PREFERRED_PLATFORM_VERSIONS neobsahuje platnou verzi.
+UNKNOWN_PLATFORM_VALUE_ENV_VAR.explanation=Ka\u017ed\u00e1 hodnota v prom\u011bnn\u00e9 prost\u0159ed\u00ed platformy mus\u00ed b\u00fdt zn\u00e1m\u00e1 platforma. Zn\u00e1m\u00e9 platformy jsou verze javaee, jakartaee, pop\u0159 microProfile.
+UNKNOWN_PLATFORM_VALUE_ENV_VAR.useraction=Zkontrolujte, zda prom\u011bnn\u00e1 prost\u0159ed\u00ed obsahuje pouze zn\u00e1m\u00e9 platformy.
+
+# CWWKF0049E  {0} = set of duplicate platforms
+DUPLICATE_PLATFORMS=CWWKF0049E: N\u00e1sleduj\u00edc\u00ed nakonfigurovan\u00e9 verze platformy jsou v konfliktu: {0}.
+DUPLICATE_PLATFORMS.explanation=Pro stejnou platformu byla zad\u00e1na v\u00edce ne\u017e jedna verze.
+DUPLICATE_PLATFORMS.useraction=Odeberte v\u0161echny verze platformy krom\u011b jedn\u00e9.
+
+# CWWKF0050E  {0} = the versionless features that cannot be resolved
+UNRESOLVED_VERSIONLESS_FEATURE=CWWKF0050E: The {0} funkce bez verze nelze vy\u0159e\u0161it
+UNRESOLVED_VERSIONLESS_FEATURE.explanation=Funkce bez verze pot\u0159ebuj\u00ed ur\u010denou platformu, ne\u017e je lze vy\u0159e\u0161it.
+UNRESOLVED_VERSIONLESS_FEATURE.useraction=Ujist\u011bte se, \u017ee je pro va\u0161i funkci specifikov\u00e1n prvek platformy.
+
+# CWWKF0051I  {0} = the versionless features: {1} = the features that were resolved from the versionless features
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE=CWWKF0051I: The {0} funkce bez verze vy\u0159e\u0161eny {1}
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE.explanation=Verzovan\u00e9 funkce, kter\u00e9 byly vy\u0159e\u0161eny z funkc\u00ed bez verze.
+VERSIONLESS_FEATURE_RESOLVED_TO_FEATURE.useraction=Nen\u00ed pot\u0159eba \u017e\u00e1dn\u00e1 akce.
+
+# CWWKF0052E  {0} = the unknown platform
+UNKNOWN_PLATFORM_ELEMENT=CWWKF0052E: The {0} platforma nen\u00ed platn\u00e1
+UNKNOWN_PLATFORM_ELEMENT.explanation=Zadan\u00fd prvek platformy nen\u00ed zn\u00e1m\u00e1 platforma. Zn\u00e1m\u00e9 platformy jsou verze javaee, jakartaee, pop\u0159 microProfile
+UNKNOWN_PLATFORM_ELEMENT.useraction=Ujist\u011bte se, \u017ee nakonfigurovan\u00e1 platforma je zn\u00e1m\u00e1 platforma.
+
+# CWWKF0053I  {0} = the resolved platforms
+RESOLVED_PLATFORM=CWWKF0053I: Vybr\u00e1no rozli\u0161en\u00ed funkce {0} platformy.
+RESOLVED_PLATFORM.explanation=Verze platformy byly vybr\u00e1ny tak, aby umo\u017e\u0148ovaly rozli\u0161en\u00ed funkc\u00ed bez verze. Verze platformy byly z\u00edsk\u00e1ny z prvk\u016f platformy, z verzovan\u00fdch funkc\u00ed nebo z prom\u011bnn\u00e9 prost\u0159ed\u00ed.
+RESOLVED_PLATFORM.useraction=Nen\u00ed pot\u0159eba \u017e\u00e1dn\u00e1 akce.
+
+# CWWKF0054E  {0} = the versionless feature that cannot be resolved: {1} = the resolved platform
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM=CWWKF0054E: The {0} funkce bez verze nem\u00e1 verzi, kter\u00e1 pat\u0159\u00ed do {1} plo\u0161ina.
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM.explanation=Pro verzi platformy nen\u00ed k dispozici \u017e\u00e1dn\u00e1 verze funkce. Rozli\u0161en\u00ed funkce bylo dokon\u010deno, ale nebyla vybr\u00e1na verze funkce.
+INCOMPATIBLE_VERSIONLESS_FEATURE_WITH_PLATFORM.useraction=Bu\u010f odeberte funkci bez verze, zadejte jinou verzi platformy nebo pou\u017eijte funkci s verz\u00ed.
+
+# CWWKF0055E  {0} = the versionless features
+NO_RESOLVED_PLATFORM=CWWKF0055E: The {0} funkce bez verze nemaj\u00ed nakonfigurovanou platformu.
+NO_RESOLVED_PLATFORM.explanation=Ka\u017ed\u00fd typ funkce bez verze mus\u00ed m\u00edt nakonfigurovanou platformu. Pokud jsou nakonfigurov\u00e1ny funkce javaee nebo jakartaee bez verze, vy\u017eaduj\u00ed odpov\u00eddaj\u00edc\u00ed platformu javaee nebo jakartaee. Li microProfile jsou nakonfigurov\u00e1ny funkce bez verze, vy\u017eaduj\u00ed a microProfile plo\u0161ina.
+NO_RESOLVED_PLATFORM.useraction=P\u0159idejte bu\u010f prvek platformy, funkci s verz\u00ed nebo prom\u011bnnou prost\u0159ed\u00ed.
 
 #   Messages in the range CWWKF1000 are reserved for the FeatureToolMessages.
 
@@ -347,4 +381,14 @@ tool.classpath.create.fail.useraction=P\u0159e\u010dt\u011bte si chybovou zpr\u0
 tool.userfeature.install.location.invalid=CWWKF1036E: U\u017eivatelskou funkci {0} nelze instalovat do j\u00e1dra.
 tool.userfeature.install.location.invalid.explanation= U\u017eivatelsk\u00e1 funkce nen\u00ed funkc\u00ed j\u00e1dra, proto nem\u016f\u017ee b\u00fdt instalov\u00e1na do j\u00e1dra.
 tool.userfeature.install.location.invalid.useraction= U\u017eivatelskou funkci nainstalujte do usr. 
+
+FEATURES_ADDED_DELTA=CWWKF1037I: Server p\u0159idal do existuj\u00edc\u00ed sady funkc\u00ed {0} funkc\u00ed.
+FEATURES_ADDED_DELTA.explanation=Server nainstaloval sadu nov\u00fdch funkc\u00ed nav\u00edc k d\u0159\u00edve nainstalovan\u00fdm funkc\u00edm.
+FEATURES_ADDED_DELTA.useraction=Nen\u00ed pot\u0159eba \u017e\u00e1dn\u00e1 akce.
+
+FEATURES_ADDED_CLIENT_DELTA=CWWKF1038I: Klient p\u0159idal do existuj\u00edc\u00ed sady funkc\u00ed {0} funkc\u00ed. 
+FEATURES_ADDED_CLIENT_DELTA.explanation=Klient nainstaloval sadu nov\u00fdch funkc\u00ed nav\u00edc k d\u0159\u00edve nainstalovan\u00fdm funkc\u00edm.
+FEATURES_ADDED_CLIENT_DELTA.useraction=Nen\u00ed pot\u0159eba \u017e\u00e1dn\u00e1 akce. 
+
+
 

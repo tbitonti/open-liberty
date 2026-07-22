@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018,2021 IBM Corporation and others.
+ * Copyright (c) 2018,2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -154,7 +156,7 @@ task createFeatureResources {
   dependsOn parent.subprojects.minus(project).assemble
 
   def featureFiles = fileTree(dir: project.projectDir, include: 'visibility/**/*.feature')
-  inputs.files(featureFiles).skipWhenEmpty()
+  inputs.files(featureFiles).ignoreEmptyDirectories().skipWhenEmpty()
   outputs.dir buildImage.file('wlp/lib/features')
   doFirst {
     buildImage.mkdir('wlp/lib/features')
@@ -201,7 +203,7 @@ task createFeatureResources {
               createFor: kind,
               buildType: kind,
               junit: new File(project.buildDir, 'report/featureChecks.xml')) {
-        defaultEdition(licenseURL: "https://www.eclipse.org/legal/epl-v10.html",
+        defaultEdition(licenseURL: "https://www.eclipse.org/legal/epl-2.0/",
                 licensePath: buildImage.file('lafiles/featureTerms'),
                 version: version,
                 licenseType: "EPL",
@@ -230,7 +232,7 @@ task publishFeatureResources {
   dependsOn parent.subprojects.assemble
 
   def featureFiles = fileTree(dir: project.projectDir, include: 'visibility/**/*.feature')
-  inputs.files(featureFiles).skipWhenEmpty()
+  inputs.files(featureFiles).ignoreEmptyDirectories().skipWhenEmpty()
   outputs.dir buildImage.file('wlp/lib/features')
   outputs.dir new File(project.buildDir, 'repo')
   doFirst {
@@ -279,7 +281,7 @@ task publishFeatureResources {
               createFor: kind,
               buildType: kind,
               junit: new File(project.buildDir, 'report/featureChecks.xml')) {
-        defaultEdition(licenseURL: "https://www.eclipse.org/legal/epl-v10.html",
+        defaultEdition(licenseURL: "https://www.eclipse.org/legal/epl-2.0/",
                 licensePath: buildImage.file('lafiles/featureTerms'),
                 version: version,
                 licenseType: "EPL",
@@ -316,14 +318,14 @@ publishing {
     map.keySet().each { featureName ->
       Properties featureProps = map[featureName]
       "feature-${featureName}" (MavenPublication) {
-        artifactId featureName
-        version project.version
+        artifactId = featureName
+        version = project.version
         artifact(new File(project.buildDir, 'repo/' + featureName + ".esa")) {
-          extension 'esa'
+          extension = 'esa'
           builtBy publishFeatureResources
         }
         artifact(new File(project.buildDir, 'repo/' + featureName + ".esa.metadata.zip")) {
-          extension 'esa.metadata.zip'
+          extension = 'esa.metadata.zip'
           builtBy publishFeatureResources
         }
       }
@@ -350,20 +352,26 @@ task generateModifiedGAFeatureList {
 publishing {
     publications {
         modifiedFeatureList(MavenPublication) {
-            artifactId 'openliberty-modifiedgaFeatureList'
-            version project.version
+            artifactId = 'openliberty-modifiedgaFeatureList'
+            version = project.version
             artifact(modifiedgaFeatureList) {
-                extension 'txt'
+                extension = 'txt'
                 builtBy generateModifiedGAFeatureList
             }
         }
     }
 }
 
+task cleanSingleJsonRepo {
+    doLast {
+        delete project.file('build/temp/SingleJson.json')
+    }
+}
 if (isAutomatedBuild) {
     def singleOpenLibertyJsonRepo = project.file('build/temp/SingleJson.json')
     task generateSingleJsonRepo {
         dependsOn publishFeatureResources
+        dependsOn cleanSingleJsonRepo
         inputs.dir new File(project.buildDir, 'repo')
         outputs.file singleOpenLibertyJsonRepo
         doLast {
@@ -383,10 +391,10 @@ if (isAutomatedBuild) {
     publishing {
         publications {
             newJsonArtifact(MavenPublication) {
-                artifactId 'openliberty-singleJson'
-                version project.version
+                artifactId = 'openliberty-singleJson'
+                version = project.version
                 artifact(singleOpenLibertyJsonRepo) {
-                    extension 'json'
+                    extension = 'json'
                     builtBy generateSingleJsonRepo
                 }
             }
@@ -410,15 +418,15 @@ if (isAutomatedBuild) {
         dependsOn generateMavenArtifact
         from project.file('build/temp/mavenArtifact')
         include "io/**"
-        archiveName 'openliberty-mavenArtifact.zip'
-        destinationDir distsDir
+        archiveFileName = 'openliberty-mavenArtifact.zip'
+        destinationDirectory = layout.buildDirectory.dir("distributions")
     }
 
     publishing {
         publications {
             newMavenArtifact(MavenPublication) {
-                artifactId 'openliberty-MavenArtifact'
-                version project.version
+                artifactId = 'openliberty-MavenArtifact'
+                version = project.version
                 artifact zipOpenLibertyMavenRepo
             }
         }

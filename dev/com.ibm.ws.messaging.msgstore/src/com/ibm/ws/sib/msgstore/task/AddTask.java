@@ -2,9 +2,11 @@ package com.ibm.ws.sib.msgstore.task;
 /*******************************************************************************
  * Copyright (c) 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -40,9 +42,9 @@ public final class AddTask extends Task
         private boolean _isMemberDataCached;
 
         // Feature SIB0112b.ms.1
-        public CachedPersistable(Persistable masterPersistable, boolean copyMemberData) throws PersistentDataEncodingException, SevereMessageStoreException
+        public CachedPersistable(Persistable primaryPersistable, boolean copyMemberData) throws PersistentDataEncodingException, SevereMessageStoreException
         {
-            super(masterPersistable);
+            super(primaryPersistable);
 
             if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) SibTr.entry(this, tc, "<init>$CachedPersistable");
 
@@ -50,7 +52,7 @@ public final class AddTask extends Task
             // hints evaluated in the call to the constructor for this object
             if (copyMemberData)
             {
-                List<DataSlice> memberData = masterPersistable.getData();
+                List<DataSlice> memberData = primaryPersistable.getData();
                 if ((null == memberData) || _isPersistentDataImmutable)
                 {
                     _cachedMemberData = memberData;
@@ -68,7 +70,7 @@ public final class AddTask extends Task
             // member data. We want the value returned here to be constant, otherwise, we're at risk
             // of another class getting its sums wrong. This length is an approximation of the size
             // of the member data in memory.
-            _cachedInMemorySize = masterPersistable.getInMemoryByteSize();
+            _cachedInMemorySize = primaryPersistable.getInMemoryByteSize();
 
             _isMemberDataCached = copyMemberData;
 
@@ -76,7 +78,7 @@ public final class AddTask extends Task
             // member data. Even if we don't copy the member data at the time that the
             // AddTask is created, we must copy the lock id since the MS user can
             // immediately lock the item and we don't want to risk a timing oddity
-            _cachedLockId = masterPersistable.getLockID();
+            _cachedLockId = primaryPersistable.getLockID();
 
             if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) SibTr.exit(this, tc, "<init>$CachedPersistable");
         }
@@ -85,7 +87,7 @@ public final class AddTask extends Task
         {
             if (!_isMemberDataCached)
             {
-                return _masterPersistable.getData();
+                return _primaryPersistable.getData();
             }
             return _cachedMemberData;
         }
@@ -113,7 +115,7 @@ public final class AddTask extends Task
 
             if (!_isMemberDataCached)
             {
-                List<DataSlice> memberData = _masterPersistable.getData();
+                List<DataSlice> memberData = _primaryPersistable.getData();
 
                 if ((null == memberData) || _isPersistentDataImmutable)
                 {
@@ -138,7 +140,7 @@ public final class AddTask extends Task
                                                       MessageStoreConstants.MSG_BUNDLE);
 
     private CachedPersistable _cachedPersistable = null;
-    private Persistable _masterPersistable;
+    private Persistable _primaryPersistable;
     private final boolean _isPersistentDataImmutable;
     private final boolean _isPersistentDataNeverUpdated;
 
@@ -148,7 +150,7 @@ public final class AddTask extends Task
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) SibTr.entry(this, tc, "<init>", link);
 
         // 258179 - moved called to Task superclass - getItem();
-        _masterPersistable = super.getPersistable();
+        _primaryPersistable = super.getPersistable();
         _isPersistentDataImmutable = getItem().isPersistentDataImmutable();
         _isPersistentDataNeverUpdated = getItem().isPersistentDataNeverUpdated();
 
@@ -208,7 +210,7 @@ public final class AddTask extends Task
         // item's data can be used by the MS at any time without needing a separate copy
         if (_cachedPersistable == null)
         {
-            _cachedPersistable = new CachedPersistable(_masterPersistable,
+            _cachedPersistable = new CachedPersistable(_primaryPersistable,
                                                        !(_isPersistentDataImmutable &&
                                                          _isPersistentDataNeverUpdated));
         }
@@ -235,7 +237,7 @@ public final class AddTask extends Task
         // copy of the data which is taken by copyDataIfVulnerable
         if (_cachedPersistable == null)
         {
-            _cachedPersistable = new CachedPersistable(_masterPersistable, true);
+            _cachedPersistable = new CachedPersistable(_primaryPersistable, true);
         }
         else
         {
@@ -257,7 +259,7 @@ public final class AddTask extends Task
         }
         else
         {
-            return _masterPersistable;
+            return _primaryPersistable;
         }
     }
 

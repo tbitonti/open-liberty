@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+ * Copyright (c) 2015, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,9 +27,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.decorator.Decorator;
 import javax.enterprise.context.ApplicationScoped;
@@ -40,18 +44,30 @@ import javax.enterprise.inject.Model;
 import javax.enterprise.inject.Stereotype;
 import javax.enterprise.inject.spi.Extension;
 import javax.interceptor.Interceptor;
+import javax.interceptor.InvocationContext;
 
 import org.jboss.weld.bean.proxy.ProxyObject;
 import org.jboss.weld.bootstrap.spi.Metadata;
 import org.jboss.weld.bootstrap.spi.helpers.MetadataImpl;
+import org.jboss.weld.interceptor.WeldInvocationContext;
 import org.jboss.weld.resources.spi.ResourceLoadingException;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.cdi.CDIException;
 import com.ibm.ws.cdi.CDIRuntimeException;
+import com.ibm.ws.cdi.extension.CDIExtensionMetadataInternal;
+import com.ibm.ws.cdi.internal.interfaces.CDIRuntime;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.util.ThreadContextAccessor;
+
+import com.ibm.wsspi.kernel.service.utils.ServiceAndServiceReferencePair;
+import com.ibm.wsspi.kernel.service.utils.ServiceReferenceUtils;
+
+import io.openliberty.cdi.spi.CDIExtensionMetadata;
+
+import org.osgi.framework.Bundle;
+import org.osgi.framework.ServiceReference;
 
 /**
  * Common constants and utility methods
@@ -91,8 +107,6 @@ public class CDIUtils {
     public static final String META_INF_SERVICES_CDI_EXTENSION = META_INF_SERVICES + SPI_EXTENSION;
     public static final String WEB_INF_CLASSES_META_INF_SERVICES_CDI_EXTENSION = WEB_INF_CLASSES + META_INF_SERVICES_CDI_EXTENSION;
 
-    private final static String PROXY_CLASS_SIGNATURE = "$Proxy$_$$_WeldSubclass";
-
     static {
         Set<String> names = new HashSet<String>();
         for (Class<? extends Annotation> anno : CDIUtils.BEAN_DEFINING_ANNOTATIONS) {
@@ -105,26 +119,6 @@ public class CDIUtils {
             metaNames.add(anno.getName());
         }
         BEAN_DEFINING_META_ANNOTATION_NAMES = Collections.unmodifiableSet(metaNames);
-    }
-    private final static String DEVELOPMENT_MODE = "org.jboss.weld.development";
-    private static final boolean developmentMode =
-
-                    AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
-                        @Override
-                        public Boolean run() {
-                            String developmentModeStr = System.getProperty(DEVELOPMENT_MODE);
-                            Boolean developmentMode = Boolean.valueOf(developmentModeStr);
-                            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                                Tr.debug(tc, "CDIUtils",
-                                         "The system property " + DEVELOPMENT_MODE + " : " + developmentMode);
-                            }
-                            return developmentMode;
-
-                        }
-                    });
-
-    public static boolean isDevelopementMode() {
-        return developmentMode;
     }
 
     /*
@@ -412,5 +406,67 @@ public class CDIUtils {
         Class<?> clazz = obj.getClass();
         boolean result = isWeldProxy(clazz);
         return result;
+    }
+
+    /**
+     * Returns all interceptor bindings which apply to the current invocation or lifecycle event.
+     *
+     * @return a set of interceptor bindings which apply to the current invocation or lifecycle event. This will include all interceptor bindings that apply, not just those that were used to bind the current interceptor.
+     * @throws IllegalArgumentException if InvocationContext is not an instance of org.jboss.weld.interceptor.proxy.AbstractInvocationContext;
+     */
+    public static Set<Annotation> getInterceptorBindingsFromInvocationContext(InvocationContext invocationContext) throws IllegalArgumentException {
+        if (invocationContext instanceof WeldInvocationContext) {
+            WeldInvocationContext weldInvocationContext = (WeldInvocationContext) invocationContext;
+            return weldInvocationContext.getInterceptorBindings();            
+        } else {
+            throw new IllegalArgumentException("InvocationContext was not an instance of WeldInvocationContext");
+        }
+    }
+
+    /**
+     * Creates a CDI extension archive from an implimentation of CDIExtensionMetadata, the class may also implement CDIExtensionMetadataInternal to add options
+     * only available to components of Liberty
+     *
+     * @return An ExtensionArchive with all the contents defined in CDIExtensionMetadata
+     */
+    public static ExtensionArchive newSPIExtensionArchive(CDIRuntime cdiRuntime, ServiceReference<CDIExtensionMetadata> sr,
+                                                    CDIExtensionMetadata webSphereCDIExtensionMetaData, WebSphereCDIDeployment applicationContext) throws CDIException {
+        Bundle bundle = sr.getBundle();
+
+        Set<Class<? extends Extension>> extensionClasses = webSphereCDIExtensionMetaData.getExtensions();
+        Set<Class<?>> beanClasses = webSphereCDIExtensionMetaData.getBeanClasses();
+        Set<Class<? extends Annotation>> beanDefiningAnnotationClasses = webSphereCDIExtensionMetaData.getBeanDefiningAnnotationClasses();
+
+        Set<String> extensionClassNames = extensionClasses.stream().map(clazz -> clazz.getCanonicalName()).collect(Collectors.toSet());
+
+        Set<String> extra_classes = beanClasses.stream().map(clazz -> clazz.getCanonicalName()).collect(Collectors.toSet());
+        Set<String> extraAnnotations = beanDefiningAnnotationClasses.stream().map(clazz -> clazz.getCanonicalName()).collect(Collectors.toSet());
+        boolean applicationBDAsVisible = false;
+
+        //The SPI does not offer this property.
+        boolean extClassesOnly = false;
+
+        if (webSphereCDIExtensionMetaData instanceof CDIExtensionMetadataInternal) {
+            CDIExtensionMetadataInternal internalExtension = (CDIExtensionMetadataInternal) webSphereCDIExtensionMetaData;
+            applicationBDAsVisible = internalExtension.applicationBeansVisible();
+        }
+
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "newSPIExtensionArchive", "***We are creating a new CDI Extension Archive***");
+            Tr.debug(tc, "newSPIExtensionArchive", "The following classes will be registered as beans: " + String.join(", ", extra_classes));
+            Tr.debug(tc, "newSPIExtensionArchive", "The following classes will be registered as extensions: " + String.join(", ", extensionClassNames));
+            Tr.debug(tc, "newSPIExtensionArchive", "The following annotations will be registered as bean defining annotations: " + String.join(", ", extraAnnotations));
+            if (applicationBDAsVisible) {
+                Tr.debug(tc, "newSPIExtensionArchive", "The extension will be able to see and inject beans provided by the application and other extensions");
+            } else {
+                Tr.debug(tc, "newSPIExtensionArchive", "The extension will **NOT** be able to see and inject beans provided by the application and other extensions");
+            }
+        }
+
+        ExtensionArchive extensionArchive = cdiRuntime.getExtensionArchiveForBundle(bundle, extra_classes, extraAnnotations,
+                                                                                    applicationBDAsVisible,
+                                                                                    extClassesOnly, extensionClassNames);
+
+        return extensionArchive;
     }
 }

@@ -1,16 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2016 IBM Corporation and others.
+ * Copyright (c) 2016,2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.common.jwk.utils;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.text.SimpleDateFormat;
@@ -54,10 +56,6 @@ public class JsonUtils {
     public static final String CFG_KEY_JWK_SIGNING_KEY_SIZE = "jwkSigningKeySize";
     public static final String CFG_KEY_JWK_ENDPOINT_URL = "jwkEndpointUrl";
     public static final String CFG_KEY_CLOCK_SKEW = "clockSkew";
-
-    public static final String JCEPROVIDER_IBM = "IBMJCE";
-    public static final String SECRANDOM_SHA1PRNG = "SHA1PRNG";
-    public static final String SECRANDOM_IBM = "IBMSecureRandom";
 
     public static final String ISSUER = "iss";
     public static final String SUBJECT = "sub";
@@ -121,13 +119,7 @@ public class JsonUtils {
         if (source == null) {
             return null;
         }
-        try {
-            return StringUtils.newStringUtf8(source.getBytes("UTF8"));
-        } catch (UnsupportedEncodingException e) {
-            // TODO Auto-generated catch block
-            // e.printStackTrace();
-        }
-        return null;
+        return StringUtils.newStringUtf8(source.getBytes(StandardCharsets.UTF_8));
     }
 
     public static boolean isNullEmpty(String value) {
@@ -162,8 +154,8 @@ public class JsonUtils {
     }
 
     // assuming payload not the whole token string
-    public static Map claimsFromJsonObject(String jsonFormattedString) throws JoseException {
-        Map claimsMap = new ConcurrentHashMap<String, Object>();
+    public static Map<String, Object> claimsFromJsonObject(String jsonFormattedString) throws JoseException {
+        Map<String, Object> claimsMap = new ConcurrentHashMap<>();
         if (jsonFormattedString == null) {
             return claimsMap;
         }
@@ -259,41 +251,6 @@ public class JsonUtils {
             return jwtInfo[1];
         }
         return null;
-    }
-
-    public static String getRandom(int length) {
-        StringBuffer result = new StringBuffer(length);
-        final char[] chars = new char[] {
-                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
-                'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-                'U', 'V', 'W', 'X', 'Y', 'Z',
-                'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
-                'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
-                'u', 'v', 'w', 'x', 'y', 'z'
-        };
-        Random r = getRandom();
-
-        for (int i = 0; i < length; i++) {
-            int n = r.nextInt(62);
-            result.append(chars[n]);
-        }
-
-        return result.toString();
-    }
-
-    static Random getRandom() {
-        Random result = null;
-        try {
-            if (Security.getProvider(JCEPROVIDER_IBM) != null) {
-                result = SecureRandom.getInstance(SECRANDOM_IBM);
-            } else {
-                result = SecureRandom.getInstance(SECRANDOM_SHA1PRNG);
-            }
-        } catch (Exception e) {
-            result = new Random();
-        }
-        return result;
     }
 
     public static long calculate(long valid) {

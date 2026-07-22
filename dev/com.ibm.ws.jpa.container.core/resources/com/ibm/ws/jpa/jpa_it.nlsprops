@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2006, 2019 IBM Corporation and others.
+# Copyright (c) 2006, 2021 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -192,7 +194,7 @@ CONNECTION_NOT_FOUND_CWWJP0032E.useraction=Accertarsi che un'applicazione Java E
 
 #-------------------------------------------------------------------------------
 NO_COMPONENT_CONTEXT_ON_THREAD_CWWJP0033E=CWWJP0033E: Il server non riesce ad individuare l''origine dati {0} nello spazio nomi del componente dell''unit\u00e0 di persistenza {1} poich\u00e9 non esiste un contesto del componente sul thread.
-NO_COMPONENT_CONTEXT_ON_THREAD_CWWJP0033E.explanation=Non \u00e8 possibile individuare l'origine dati perch\u00e9 l'ambiente runtime del server non \u00e8 in grado di associare il thread dell'operazione ad un componente dell'applicazione Java Platform, Enterprise Edition 5 (Java EE 5).  Questa condizione pu\u00f2 verificarsi quando il client JNDI (Java Naming and Directory Interface) che utilizza il nome \"java:\" non viene eseguito sul thread di una richiesta dell'applicazione server.
+NO_COMPONENT_CONTEXT_ON_THREAD_CWWJP0033E.explanation=Non \u00e8 possibile individuare l'origine dati perch\u00e9 l'ambiente runtime del server non \u00e8 in grado di associare il thread dell'operazione ad un componente dell'applicazione Java Platform, Enterprise Edition 5 (Java EE 5).  Questa condizione pu\u00f2 verificarsi quando il client JNDI (Java Naming and Directory Interface) che utilizza il nome "java:" non viene eseguito sul thread di una richiesta dell'applicazione server.
 NO_COMPONENT_CONTEXT_ON_THREAD_CWWJP0033E.useraction=Accertarsi che un'applicazione Java EE 5 non esegua operazioni JNDI su nomi java: all'interno di blocchi di codice statici oppure in thread creati da quell'applicazione Java EE 5.  Tale codice non viene necessariamente eseguito sul thread di una richiesta di applicazione server.  Quindi il codice non \u00e8 supportato dalle operazioni JNDI sui nomi java:.
 
 #----------------------------------
@@ -302,9 +304,20 @@ NOT_COMPLIANT_WITH_JPA21_CWWJP0054E=CWWJP0054E: L''implementazione {0}, {1}, non
 NOT_COMPLIANT_WITH_JPA21_CWWJP0054E.explanation=Il provider di persistenza JPA non pu\u00f2 essere utilizzato perch\u00e9 manca di implementazione di metodi richiesti dalla specifica JPA 2.1.
 NOT_COMPLIANT_WITH_JPA21_CWWJP0054E.useraction=Ottenere una nuova versione del provider di persistenza JPA che sia conforme alla specifica JPA 2.1.
 
-ERROR_TRANSFORMING_CLASS_CWWJP0055E=CWWJP0055E: Si \u00e8 verificato un errore durante il tentativo di trasformare la classe Java {0}.  Sono stati raccolti i seguenti dettagli sull''errore: {1}
-ERROR_TRANSFORMING_CLASS_CWWJP0055E.explanation=Si \u00e8 verificato un errore imprevisto durante la trasformazione della classe Java. Questo errore \u00e8 di solito causato da un bytecode Java non valido.
-ERROR_TRANSFORMING_CLASS_CWWJP0055E.useraction=La cache di classe potrebbe essere danneggiata o l'applicazione potrebbe essere compressa in modo errato. Innanzitutto, svuotare la cache di classe. Se tale azione non risolve il problema, esaminare se nell'archivio dell'applicazione ci sono errori di impacchettamento.
+ERROR_TRANSFORMING_CLASS_CWWJP0055E=CWWJP0055E: Si \u00e8 verificato un errore durante il tentativo di trasformare la classe Java {0}.  Sono stati raccolti i seguenti dettagli dell''errore: {1}
+ERROR_TRANSFORMING_CLASS_CWWJP0055E.explanation=Si \u00e8 verificato un errore non previsto durante la trasformazione della classe Java. Di solito questo errore \u00e8 causato da un bytecode Java non valido.
+ERROR_TRANSFORMING_CLASS_CWWJP0055E.useraction=La cache della classe potrebbe essere danneggiata oppure l'applicazione potrebbe essere stata compressa in modo non corretto. Innanzitutto, svuotare la cache di classe. Se tale azione non risolve il problema, cercare nell'archivio dell'applicazione eventuali errori di compressione.
+
+#-------------------------------------------------------------------------------
+# 0=property name, 1=property value
+EMPTY_PROP_NAME_VALUE_CWWJP0056W=CWWJP0056W: Una propriet\u00e0 predefinita JPA che contiene un nome o un valore vuoto \u00e8 configurata nel file server.xml: nome = [{0}], valore = [{1}]. Questa propriet\u00e0 viene ignorata.
+EMPTY_PROP_NAME_VALUE_CWWJP0056W.explanation=Gli attributi nome e valore per una propriet\u00e0 predefinita JPA non devono essere vuoti.
+EMPTY_PROP_NAME_VALUE_CWWJP0056W.useraction=Modificare la configurazione del server per fornire un nome e un valore non vuoti per la propriet\u00e0, oppure rimuoverla.
+
+# 0=property name, 1=property value
+JDBC_PROP_NAME_CWWJP0057W=CWWJP0057W: Una propriet\u00e0 predefinita JPA che deve essere utilizzata solo in ambienti Java SE \u00e8 configurata nel file server.xml: nome = [{0}], valore = [{1}]. Questa propriet\u00e0 viene ignorata.
+JDBC_PROP_NAME_CWWJP0057W.explanation=Questa propriet\u00e0 predefinita JPA viene utilizzata in un ambiente Java EE, ma deve essere utilizzata solo in ambienti Java SE.
+JDBC_PROP_NAME_CWWJP0057W.useraction=Modificare la configurazione del server e dell'applicazione per utilizzare un'origine dati JNDI e rimuovere la propriet\u00e0.
 
 #-------------------------------------------------------------------------------
 # Error messages from the JPA Provider below this point
@@ -329,5 +342,10 @@ PROVIDER_ERROR_CWWJP9992E.useraction=Consultare la documentazione sul provider J
 PROVIDER_FATAL_CWWJP9993E=CWWJP9993E: {0}
 PROVIDER_FATAL_CWWJP9993E.explanation=Il provider JPA (Java Persistence API) ha registrato questo messaggio irreversibile.
 PROVIDER_FATAL_CWWJP9993E.useraction=Consultare la documentazione sul provider JPA.
+
+#-------------------------------------------------------------------------------
+FAILED_TO_CREATE_PU_BEAN_CWWJP9994W=CWWJP9994W: Il server non pu\u00f2 creare i bean per {0} PersistenceUnit perch\u00e9: {1}.
+FAILED_TO_CREATE_PU_BEAN_CWWJP9994W.explanation=Si \u00e8 verificata un'eccezione quando CDI ha tentato di creare il bean per un'unit\u00e0 di persistenza. CDI non pu\u00f2 iniettare un gestore di entit\u00e0, un factory di gestore di entit\u00e0 o classi di utilit\u00e0 relative all'unit\u00e0 di persistenza.
+FAILED_TO_CREATE_PU_BEAN_CWWJP9994W.useraction=Risolvere l'eccezione.
 
 #-------------------------------------------------------------------------------

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2010, 2015, 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -71,8 +73,8 @@ public class InjectInjectionObjectFactory {
 
     @SuppressWarnings("rawtypes")
     public static Object getObjectInstance(InjectInjectionBinding iBinding, Object targetObject, final CreationalContext<Object> cc,
-            final CreationalContext<Object> methodInvocactionContext,
-            CDIRuntime cdiRuntime) throws Exception {
+                                           final CreationalContext<Object> methodInvocactionContext,
+                                           CDIRuntime cdiRuntime) throws Exception {
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
             Tr.entry(tc, "getObjectInstance", new Object[] { iBinding, Util.identity(targetObject), Util.identity(cc), Util.identity(methodInvocactionContext) });
@@ -138,7 +140,9 @@ public class InjectInjectionObjectFactory {
                     EjbDescriptor<?> ejbDescriptor = ejbDescriptors.iterator().next();
                     String ejb_name = ejbDescriptor.getEjbName();
                     EjbDescriptor<?> realEjbDescriptor = weldManager.getEjbDescriptor(ejb_name);
-                    bean = weldManager.getBean(realEjbDescriptor);
+                    if (realEjbDescriptor != null) {
+                        bean = weldManager.getBean(realEjbDescriptor);
+                    }
                 }
 
             }
@@ -166,14 +170,13 @@ public class InjectInjectionObjectFactory {
                     }
                     Object ref = null;
                     if ((injectionPoint.getAnnotated() instanceof AnnotatedParameter<?>)
-                            && injectionPoint.getAnnotated().getBaseType().equals(InjectionPoint.class)){
+                        && injectionPoint.getAnnotated().getBaseType().equals(InjectionPoint.class)) {
                         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                             Tr.debug(tc, "Creating an InjectionPoint for {0}", injectionPoint);
                         }
                         ref = localBeanManager.createInjectionPoint((AnnotatedParameter<?>) injectionPoint.getAnnotated());
-                    }
-                    else if ((injectionPoint.getAnnotated() instanceof AnnotatedParameter<?>)
-                            && (((AnnotatedParameter<?>) injectionPoint.getAnnotated()).isAnnotationPresent(TransientReference.class))) {
+                    } else if ((injectionPoint.getAnnotated() instanceof AnnotatedParameter<?>)
+                               && (((AnnotatedParameter<?>) injectionPoint.getAnnotated()).isAnnotationPresent(TransientReference.class))) {
                         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                             Tr.debug(tc, "Getting an injectable ref from the bean manager with {0}, {1}", injectionPoint, Util.identity(methodInvocactionContext));
                         }
@@ -198,8 +201,8 @@ public class InjectInjectionObjectFactory {
                 ResolvableBuilder resolvableBuilder = new ResolvableBuilder(injectionPoint, beanManagerImpl);
                 Bean maybeProducerBean = beanManagerImpl.getBean(resolvableBuilder.create());
                 if (maybeProducerBean instanceof org.jboss.weld.bean.ProducerMethod
-                        && javax.enterprise.context.Dependent.class.isAssignableFrom(
-                                maybeProducerBean.getScope())) {
+                    && javax.enterprise.context.Dependent.class.isAssignableFrom(
+                                                                                 maybeProducerBean.getScope())) {
                     references.add(new InjectableNull());
                 }
 
@@ -208,7 +211,7 @@ public class InjectInjectionObjectFactory {
 
         debugInjectionObjects(references.toArray());
         if (references.size() == 1) {
-                Object reference = references.get(0);
+            Object reference = references.get(0);
             if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
                 Tr.exit(tc, "getObjectInstance", Util.identity(reference));
             }
@@ -218,11 +221,11 @@ public class InjectInjectionObjectFactory {
             if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
                 StringBuilder exitStringBuilder = new StringBuilder("[");
                 boolean first = true;
-                for (Object object : referencesArray){ 
-                    if(!first){
+                for (Object object : referencesArray) {
+                    if (!first) {
                         exitStringBuilder.append(", ");
-                    }
-                    else first = false;
+                    } else
+                        first = false;
                     exitStringBuilder.append(Util.identity(object));
                 }
                 exitStringBuilder.append("]");
@@ -233,7 +236,7 @@ public class InjectInjectionObjectFactory {
     }
 
     private static List<InjectionPoint> findUnmanagedInjectionPoints(BeanManager beanManager, WebSphereBeanDeploymentArchive bda, Class<?> targetClass,
-            Member targetMember) throws CDIException {
+                                                                     Member targetMember) throws CDIException {
         List<InjectionPoint> injectionPoints = new ArrayList<InjectionPoint>();
         List<InjectionPoint> allInjectionPoints = null;
         if (bda != null) {
@@ -352,4 +355,3 @@ public class InjectInjectionObjectFactory {
         }
     }
 }
-

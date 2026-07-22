@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.fat.common.mp.jwt.sharedTests;
 
@@ -30,7 +29,6 @@ import com.ibm.ws.security.fat.common.mp.jwt.utils.MPJwtAppSetupUtils;
 import com.ibm.ws.security.fat.common.mp.jwt.utils.MpJwtMessageConstants;
 import com.ibm.ws.security.fat.common.utils.CommonIOUtils;
 
-import componenttest.annotation.MinimumJavaLevel;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
@@ -48,7 +46,6 @@ import componenttest.topology.impl.LibertyServer;
  *
  **/
 
-@MinimumJavaLevel(javaLevel = 8)
 @RunWith(FATRunner.class)
 public class MPJwt12MPConfigTests extends MPJwtMPConfigTests {
 
@@ -208,6 +205,10 @@ public class MPJwt12MPConfigTests extends MPJwtMPConfigTests {
      * @throws Exception
      */
     public static void setAlternateMP_ConfigProperties_envVars(LibertyServer server, MP12ConfigSettings mpConfigSettings) throws Exception {
+        setAlternateMP_ConfigProperties_envVars(new HashMap<String, String>(), server, mpConfigSettings);
+    }
+
+    public static void setAlternateMP_ConfigProperties_envVars(HashMap<String, String> envVars, LibertyServer server, MP12ConfigSettings mpConfigSettings) throws Exception {
 
         // some platforms do NOT support env vars with ".", so, we'll use
         // underscores "_" (our runtime allows either)
@@ -217,7 +218,6 @@ public class MPJwt12MPConfigTests extends MPJwtMPConfigTests {
         String AlgorithmName = "mp_jwt_verify_publickey_algorithm";
         String DecryptKeyName = "mp_jwt_decrypt_key_location";
 
-        HashMap<String, String> envVars = new HashMap<String, String>();
         Log.info(thisClass, "setAlternateMP_ConfigProperties_envVars", HeaderName + "=" + mpConfigSettings.getHeader());
         envVars.put(HeaderName, mpConfigSettings.getHeader());
         Log.info(thisClass, "setAlternateMP_ConfigProperties_envVars", CookieName + "=" + mpConfigSettings.getCookie());
@@ -254,7 +254,7 @@ public class MPJwt12MPConfigTests extends MPJwtMPConfigTests {
     }
 
     /**
-     * Copy the master wars (one for META-INF and one for WEB-INF testing) and
+     * Copy the primary wars (one for META-INF and one for WEB-INF testing) and
      * create new wars that contain updated microprofile-config.properties
      * files. This method creates many wars that will be used later to test both
      * good and bad values within the microprofile-config.properties files.
@@ -262,7 +262,7 @@ public class MPJwt12MPConfigTests extends MPJwtMPConfigTests {
      * @param theServer
      *            - the resource server
      * @param mpConfigSettings-
-     *            a master/default set of mp-config settings (the wars will be
+     *            a primary/default set of mp-config settings (the wars will be
      *            created with specific good or bad values)
      * @throws Exception
      */
@@ -653,7 +653,7 @@ public class MPJwt12MPConfigTests extends MPJwtMPConfigTests {
     }
 
     /**
-     * Sets expectations to check when the keyManagementKeyAlias is not set
+     * Sets expectations to check when the decryption key cannot be found
      *
      * @param server - server whose logs will be searched
      * @param extraMsgs - the tai drives the code down different paths depending on if it finds config info in server.xml - if it finds config settings, we'll get 2 extra messages.
@@ -662,7 +662,7 @@ public class MPJwt12MPConfigTests extends MPJwtMPConfigTests {
      */
     public Expectations setEncryptMissingKeyExpectations(LibertyServer server, boolean extraMsgs) throws Exception {
         Expectations expectations = setAllBadEncryptExpectations(server, extraMsgs);
-        expectations.addExpectation(new ServerMessageExpectation(server, "The key must not be null", "Messagelog did not contain an exception indicating that the keyManagementKeyAlias was missing."));
+        expectations.addExpectation(new ServerMessageExpectation(server, MpJwtMessageConstants.CWWKS6066E_JWE_DECRYPTION_KEY_MISSING, "Messagelog did not contain an exception indicating that a JWE decryption key was missing."));
         return expectations;
 
     }
@@ -692,7 +692,7 @@ public class MPJwt12MPConfigTests extends MPJwtMPConfigTests {
      */
     public Expectations setEncryptMismatchExpectations(LibertyServer server, boolean extraMsgs) throws Exception {
         Expectations expectations = setAllBadEncryptExpectations(server, extraMsgs);
-        expectations.addExpectation(new ServerMessageExpectation(server, "javax.crypto.AEADBadTagException", "Messagelog did not contain an exception indicating a tag mismatch."));
+        expectations.addExpectation(new ServerMessageExpectation(server, "org.jose4j.lang.IntegrityException", "Messagelog did not contain an IntegrityException for the JWE."));
         return expectations;
 
     }
@@ -707,7 +707,7 @@ public class MPJwt12MPConfigTests extends MPJwtMPConfigTests {
      */
     public Expectations setEncryptMismatchKeyTypeExpectations(LibertyServer server, boolean extraMsgs) throws Exception {
         Expectations expectations = setAllBadEncryptExpectations(server, extraMsgs);
-        expectations.addExpectation(new ServerMessageExpectation(server, "java.lang.ClassCastException", "Messagelog did not contain an exception indicating a classcast exception due to the key type."));
+        expectations.addExpectation(new ServerMessageExpectation(server, "org.jose4j.lang.InvalidKeyException", "Messagelog did not contain an InvalidKeyException for the JWE."));
         return expectations;
 
     }

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -111,7 +113,7 @@ public class WebResponse {
      */
     protected WebResponse(WebBrowser browser, int requestNum, String frameName, int frameIndex) {
         if (browser == null) {
-            throw new IllegalArgumentException("Unable to construct an instance of " + this.getClass().getName() + " becuase the parent WebBrowser is null.");
+            throw new IllegalArgumentException("Unable to construct an instance of " + this.getClass().getName() + " because the parent WebBrowser is null.");
         }
         this.browser = browser;
         this.number = requestNum;
@@ -486,7 +488,7 @@ public class WebResponse {
             String method = "parseResponseBody";
             LOG.logp(Level.FINE, CLASS_NAME, method, "Parsing the body of " + this.toString());
             if (this.responseBody == null) {
-                throw new WebBrowserException("Unable to parse the body of " + this.toString() + " becuase the body is null");
+                throw new WebBrowserException("Unable to parse the body of " + this.toString() + " because the body is null");
             }
             try {
                 return this.parsedResponseBody = HtmlParser.getInstance().parse(this.responseBody);

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -27,15 +29,15 @@ import org.osgi.framework.ServiceReference;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 
+import io.openliberty.microprofile.health.internal.common.HealthCheckConstants;
 import io.openliberty.microprofile.health30.internal.HealthCheck30Service;
-import io.openliberty.microprofile.health30.internal.HealthCheckConstants;
 
 public class HealthCheckLivenessServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final TraceComponent tc = Tr.register(HealthCheckLivenessServlet.class);
     private transient HealthCheck30Service healthService = null;
 
-    private final static Logger logger = Logger.getLogger(HealthCheckLivenessServlet.class.getName(), "io.openliberty.microprofile.health30.resources.Health30");
+    private final static Logger logger = Logger.getLogger(HealthCheckLivenessServlet.class.getName(), "io.openliberty.microprofile.health.resources.Health");
 
     /** {@inheritDoc} */
     @Override

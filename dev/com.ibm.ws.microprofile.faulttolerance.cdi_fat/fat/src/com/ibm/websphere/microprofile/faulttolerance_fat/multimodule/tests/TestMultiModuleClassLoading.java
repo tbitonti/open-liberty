@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2019 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.websphere.microprofile.faulttolerance_fat.multimodule.tests;
 
@@ -46,10 +45,15 @@ public class TestMultiModuleClassLoading extends FATServletClient {
     @Server(SERVER_NAME)
     public static LibertyServer server;
 
-    //run against both EE8 and EE7 features
+    //run against EE10, EE9, EE8 and EE7 features
     @ClassRule
-    public static RepeatTests r = RepeatFaultTolerance.repeat(SERVER_NAME, TestMode.LITE, MicroProfileActions.LATEST, MicroProfileActions.MP13,
-                                                              RepeatFaultTolerance.MP21_METRICS20);
+    public static RepeatTests r = RepeatFaultTolerance.repeat(SERVER_NAME, TestMode.FULL,
+                                                              MicroProfileActions.MP70_EE10,
+                                                              MicroProfileActions.MP70_EE11,
+                                                              MicroProfileActions.MP61,
+                                                              MicroProfileActions.MP13,
+                                                              RepeatFaultTolerance.MP21_METRICS20,
+                                                              MicroProfileActions.MP50);
 
     @BeforeClass
     public static void setupApp() throws Exception {

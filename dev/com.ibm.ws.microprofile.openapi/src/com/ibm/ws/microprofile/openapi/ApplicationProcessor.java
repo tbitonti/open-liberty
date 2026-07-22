@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017, 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,6 +24,7 @@ import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 
+import io.openliberty.microprofile.openapi.internal.common.services.OpenAPIEndpointProvider;
 import org.eclipse.microprofile.openapi.OASFilter;
 import org.eclipse.microprofile.openapi.OASModelReader;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
@@ -78,7 +81,10 @@ public class ApplicationProcessor {
 
     private static final ThreadContextAccessor THREAD_CONTEXT_ACCESSOR = AccessController.doPrivileged(ThreadContextAccessor.getPrivilegedAction());
 
-    enum DocType {
+    @Reference(policy = ReferencePolicy.DYNAMIC, cardinality = ReferenceCardinality.OPTIONAL)
+    private volatile OpenAPIEndpointProvider openAPIEndpointProvider;
+
+    public enum DocType {
         JSON,
         YAML
     }
@@ -558,7 +564,7 @@ public class ApplicationProcessor {
             synchronized (serverInfo) {
                 reqServerInfo = new ServerInfo(serverInfo);
             }
-            ProxySupportUtil.processRequest(request, reqServerInfo);
+            ProxySupportUtil.processRequest(request, openAPIEndpointProvider, reqServerInfo);
             if (OpenAPIUtils.isEventEnabled(tc)) {
                 Tr.event(tc, "Request server info : " + reqServerInfo);
             }

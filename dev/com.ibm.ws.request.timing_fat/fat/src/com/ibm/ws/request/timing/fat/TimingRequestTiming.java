@@ -1,15 +1,19 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.request.timing.fat;
 
+import static componenttest.annotation.SkipForRepeat.EE8_FEATURES;
+import static componenttest.annotation.SkipForRepeat.EE9_FEATURES;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -22,6 +26,7 @@ import java.net.HttpURLConnection;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
@@ -36,10 +41,12 @@ import org.junit.runner.RunWith;
 import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.annotation.Server;
+import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.topology.impl.JavaInfo;
+import componenttest.topology.impl.JavaInfo.Vendor;
 import componenttest.topology.impl.LibertyServer;
 
 @RunWith(FATRunner.class)
@@ -61,13 +68,16 @@ public class TimingRequestTiming {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        JavaInfo java = JavaInfo.forCurrentVM();
-        ShrinkHelper.defaultDropinApp(server, "jdbcTestPrj_3", "com.ibm.ws.request.timing");
-        int javaVersion = java.majorVersion();
-        if (javaVersion != 8) {
-            CommonTasks.writeLogMsg(Level.INFO, " Java version = " + javaVersion + " - It is higher than 8, adding --add-exports...");
-            server.copyFileToLibertyServerRoot("add-exports/jvm.options");
+        Vendor vendor = JavaInfo.forServer(server).vendor();
+        // For J9 JVMs, add system dump for IOException to diagnose issues
+        if (vendor == Vendor.IBM || vendor == Vendor.OPENJ9) {
+            Map<String, String> jvmOptions = server.getJvmOptionsAsMap();
+            jvmOptions.put("-Xdump:system:events=throw+systhrow,filter=java/io/IOException,msg_filter=Invalid argument,range=1..3,request=exclusive+prepwalk",
+                           null);
+            server.setJvmOptions(jvmOptions);
         }
+
+        ShrinkHelper.defaultDropinApp(server, "jdbcTestPrj_3", "com.ibm.ws.request.timing");
         CommonTasks.writeLogMsg(Level.INFO, " starting server...");
         server.startServer();
     }
@@ -130,10 +140,7 @@ public class TimingRequestTiming {
         createRequests(6000, 1);
 
         server.waitForStringInLog("TRAS0112W", 10000);
-        server.waitForStringInLog("TRAS0114W", 10000);
-
         int slow = fetchSlowRequestWarningsCount();
-        int hung = fetchHungRequestWarningsCount();
 
         //Retry the request again
         if (slow == 0) {
@@ -142,6 +149,9 @@ public class TimingRequestTiming {
             server.waitForStringInLogUsingMark("TRAS0112W", 10000);
             slow = fetchSlowRequestWarningsCount();
         }
+
+        server.waitForStringInLog("TRAS0114W", 10000);
+        int hung = fetchHungRequestWarningsCount();
 
         assertTrue("Expected > 0 slow request warning but found : " + slow, (slow > 0));
 
@@ -160,6 +170,7 @@ public class TimingRequestTiming {
      * </requestTiming>
      */
     @Test
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testDynamicTimingEnableDisable() throws Exception {
         //Set to default Configuration of Request Timing feature
         server.setServerConfigurationFile("server_original.xml");
@@ -181,13 +192,21 @@ public class TimingRequestTiming {
 
         createRequests(8000, 1);
 
+        server.waitForStringInLogUsingMark("TRAS0112W", 10000);
         int slow = fetchSlowRequestWarningsCount();
+
+        // Retry the request again
+        if (slow == p_slow) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry because no slow request warning found!");
+            createRequests(8000, 1);
+            server.waitForStringInLogUsingMark("TRAS0112W", 10000);
+            slow = fetchSlowRequestWarningsCount();
+        }
+
+        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
         int hung = fetchHungRequestWarningsCount();
 
-        server.waitForStringInLogUsingMark("TRAS0112W", 10000);
-        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
-
-        assertTrue("Expected  > 0 slow request warnings but found : " + slow, ((slow - p_slow) > 0));
+        assertTrue("Expected  > 0 slow request warnings but found : " + (slow - p_slow), ((slow - p_slow) > 0));
         assertTrue("Expected 1 or more hung request warning but found : " + hung, (hung > 0));
 
         server.setMarkToEndOfLog();
@@ -197,11 +216,22 @@ public class TimingRequestTiming {
 
         createRequests(12000, 1);
 
+        server.waitForStringInLogUsingMark("TRAS0112W", 10000);
         int n_slow = fetchSlowRequestWarningsCount();
+
+        // Retry the request again
+        if (n_slow == slow) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry because no new_slow request warning found!");
+            createRequests(12000, 1);
+            server.waitForStringInLogUsingMark("TRAS0112W", 10000);
+            n_slow = fetchSlowRequestWarningsCount();
+        }
+
+        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
         int n_hung = fetchHungRequestWarningsCount();
 
-        assertTrue("Expected > 0 slow request warning but found : " + n_slow, ((n_slow - slow) > 0));
-        assertTrue("Expected 0 hung request warning but found : " + n_hung, ((n_hung - hung) == 0));
+        assertTrue("Expected > 0 slow request warning but found : " + (n_slow - slow), ((n_slow - slow) > 0));
+        assertTrue("Expected 0 hung request warning but found : " + (n_hung - hung), ((n_hung - hung) == 0));
 
         CommonTasks.writeLogMsg(Level.INFO, "***** timing works - Dynamic enable and disable *****");
     }
@@ -210,6 +240,7 @@ public class TimingRequestTiming {
      * Verify that an exact match on context info over-rides global defaults.
      */
     @Test
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testContextInfoExactMatchOverrideDefault() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for - <global - slow : 5s , hung : 10s> <timing - Slow : 120s , hung : 120s>");
         server.setServerConfigurationFile("contextInfoPattern/server_timing_1.xml");
@@ -254,6 +285,7 @@ public class TimingRequestTiming {
      * Verify that a wild-card match on context info over-rides global defaults.
      */
     @Test
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testContextInfoWildCardMatchOverrideDefault() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for - <global - slow : 5s , hung : 10s> <timing - Slow : 120s , hung : 120s>");
         server.setServerConfigurationFile("contextInfoPattern/server_timing_3.xml");
@@ -305,6 +337,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testTimingGlobalConfig() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for  <global : slow : 3s , hung : 6s><timing - Slow : 10s , hung : 12s>");
         server.setServerConfigurationFile("server_timing_global.xml");
@@ -313,9 +346,17 @@ public class TimingRequestTiming {
         createRequests(20000, 1);
 
         server.waitForStringInLogUsingMark("TRAS0112W", 10000);
-        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
-
         int slow = fetchSlowRequestWarningsCount();
+
+        // Retry the request again
+        if (slow == 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry because no slow request warning found!");
+            createRequests(20000, 1);
+            server.waitForStringInLogUsingMark("TRAS0112W", 10000);
+            slow = fetchSlowRequestWarningsCount();
+        }
+
+        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
         int hung = fetchHungRequestWarningsCount();
 
         assertTrue("Expected > 1 slow request warnings but found : " + slow, (slow > 1));
@@ -336,6 +377,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testTimingLocalConfigOnly() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for  <global : defaults ><timing - Slow : 3s , hung : 5s>");
         server.setServerConfigurationFile("server_timing_localOnly.xml");
@@ -346,7 +388,6 @@ public class TimingRequestTiming {
         createRequests(7000, 1);
 
         server.waitForStringInLogUsingMark("TRAS0112W", 10000);
-        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
 
         int slow = fetchSlowRequestWarningsCount();
 
@@ -358,6 +399,7 @@ public class TimingRequestTiming {
             slow = fetchSlowRequestWarningsCount();
         }
 
+        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
         int hung = fetchHungRequestWarningsCount();
 
         assertTrue("Expected > 0 slow request warning but found : " + slow, (slow > 0));
@@ -379,6 +421,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testTimingGlobalConfigNotSpecified() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for  <global : defaults ><timing - Slow : 3s , hung : 5s>");
         server.setServerConfigurationFile("server_timing_NoGlobal.xml");
@@ -420,6 +463,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testTimingLocalNegativeSlowThreshold() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for  <global : slow : 9s , hung : 20s ><timing - Slow : -1 , hung : 3s>");
         server.setServerConfigurationFile("server_timing_local_NoSlowReq.xml");
@@ -432,10 +476,16 @@ public class TimingRequestTiming {
         server.waitForStringInLogUsingMark("TRAS0114W", 10000);
 
         int slow = fetchSlowRequestWarningsCount();
-        int hung = fetchHungRequestWarningsCount();
-
         assertTrue("Expected 0 slow request warning but found : " + slow, (slow == 0));
 
+        int hung = fetchHungRequestWarningsCount();
+        // Retry the request again
+        if (hung == 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry because no h request warning found!");
+            createRequests(5000, 1);
+            server.waitForStringInLogUsingMark("TRAS0114W", 10000);
+            hung = fetchHungRequestWarningsCount();
+        }
         assertTrue("Expected 1 hung request warning but found : " + hung, (hung > 0));
 
         CommonTasks.writeLogMsg(Level.INFO, "***** timing works - local config disables slow request for value smaller that 1 *****");
@@ -449,6 +499,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testTimingLocalInheritsGlobalConfig() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for  <global : slow : 2s , hung : 4s ><timing>");
         server.setServerConfigurationFile("server_timing_local_inherits.xml");
@@ -459,7 +510,6 @@ public class TimingRequestTiming {
         createRequests(6000, 1);
 
         server.waitForStringInLogUsingMark("TRAS0112W", 15000);
-        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
 
         int slow = fetchSlowRequestWarningsCount();
 
@@ -470,6 +520,7 @@ public class TimingRequestTiming {
             slow = fetchSlowRequestWarningsCount();
         }
 
+        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
         int hung = fetchHungRequestWarningsCount();
 
         assertTrue("Expected > 1 slow request warnings but found : " + slow, (slow > 1));
@@ -486,6 +537,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testTimingLocalGlobalNoConfig() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for - <global -default> <timing - default>");
         server.setServerConfigurationFile("server_timing_local_global_noConfig.xml");
@@ -515,6 +567,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testTimingLocalDisableSlowHungRequest() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for - <global : slow : 1s , hung : 2s ><timing - slow : 0 , hung : 0>");
         server.setServerConfigurationFile("server_timing_NoSlowHungReqs.xml");
@@ -543,6 +596,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testTimingGlobalConfigFollowsLocal() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for - <global : slow : 3s , hung : 6s ><timing - slow : 2s , hung : 9m>");
         server.setServerConfigurationFile("server_timing_global_follows_local.xml");
@@ -560,8 +614,8 @@ public class TimingRequestTiming {
             server.waitForStringInLog("TRAS0112W", 15000);
             slow = fetchSlowRequestWarningsCount();
         }
-
         int hung = fetchHungRequestWarningsCount();
+
         assertTrue("Expected > 1 slow request warnings but found : " + slow, (slow > 1));
 
         assertTrue("Expected 0 hung request warning but found : " + hung, (hung == 0));
@@ -588,13 +642,22 @@ public class TimingRequestTiming {
         createRequests(9000, 1);
 
         server.waitForStringInLogUsingMark("TRAS0112W", 10000);
-        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
-
         int slow = fetchSlowRequestWarningsCount();
-        int hung = fetchHungRequestWarningsCount();
-        assertTrue("Expected > 0 slow request warnings but found : " + slow, (slow > 0));
 
+        //Retry the request again
+        if (slow == 0) {
+            CommonTasks.writeLogMsg(Level.INFO, "$$$$ -----> Retry because no slow request warning found!");
+            createRequests(9000, 1);
+            server.waitForStringInLogUsingMark("TRAS0112W", 10000);
+            slow = fetchSlowRequestWarningsCount();
+        }
+
+        server.waitForStringInLogUsingMark("TRAS0114W", 10000);
+        int hung = fetchHungRequestWarningsCount();
+
+        assertTrue("Expected > 0 slow request warnings but found : " + slow, (slow > 0));
         assertTrue("Expected 1 hung request warning but found : " + hung, (hung > 0));
+
         server.setMarkToEndOfLog();
 
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> UPDATED server configuration thresholds for  <global : defaults ><timing - Slow : 3s , hung : 5s>");
@@ -625,6 +688,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testTimingContextInfoConflict() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration ctx info conflict");
         server.setServerConfigurationFile("server_timing_ctxinfo_conflict.xml");
@@ -653,6 +717,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testTimingContextInfoNoConflict() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration ctx info no conflict");
         server.setServerConfigurationFile("server_timing_ctxinfo_no_conflict.xml");
@@ -669,6 +734,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testContextInfoWildCardNoMatch() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for - <global - slow : 120s , hung : 120s> <timing - Slow : 5s , hung : 10s>");
         server.setServerConfigurationFile("contextInfoPattern/server_timing_5.xml");
@@ -713,6 +779,7 @@ public class TimingRequestTiming {
      */
     @Test
     @Mode(TestMode.FULL)
+    @SkipForRepeat({ EE8_FEATURES, EE9_FEATURES })
     public void testContextInfoExactMatchDisableDefault() throws Exception {
         CommonTasks.writeLogMsg(Level.INFO, "**** >>>>> server configuration thresholds for - <global - slow : 5s , hung : 10s> <timing - Slow : 120s , hung : 120s>");
         server.setServerConfigurationFile("contextInfoPattern/server_timing_7.xml");

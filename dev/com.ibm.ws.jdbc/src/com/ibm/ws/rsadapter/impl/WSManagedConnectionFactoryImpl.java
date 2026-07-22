@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 1997, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -72,6 +74,7 @@ import com.ibm.ws.jca.cm.AbstractConnectionFactoryService;
 import com.ibm.ws.jca.cm.ConnectorService;
 import com.ibm.ws.jdbc.internal.PropertyService;
 import com.ibm.ws.jdbc.osgi.JDBCRuntimeVersion;
+import com.ibm.ws.kernel.productinfo.ProductInfo;
 import com.ibm.ws.kernel.service.util.SecureAction;
 import com.ibm.ws.resource.ResourceRefInfo;
 import com.ibm.ws.rsadapter.AdapterUtil;
@@ -131,7 +134,7 @@ public class WSManagedConnectionFactoryImpl extends WSManagedConnectionFactory i
     /**
      * The type of data source (for example, javax.sql.XADataSource) or java.sql.Driver that this managed connection factory uses to establish connections.
      */
-    final Class<?> type;
+    public final Class<?> type;
 
     /**
      * Helps cope with differences between databases/JDBC drivers.
@@ -322,11 +325,13 @@ public class WSManagedConnectionFactoryImpl extends WSManagedConnectionFactory i
      * @param dsConfigRef reference to update to point at the new data source configuration.
      * @param ifc the type of data source, otherwise java.sql.Driver.
      * @param vendorImpl the data source or driver implementation.
+     * @param loader class loader for JDBC driver classes.
      * @param jdbcRuntime version of the Liberty jdbc feature
      * @throws Exception if an error occurs.
      */
     public WSManagedConnectionFactoryImpl(AtomicReference<DSConfig> dsConfigRef, Class<?> ifc,
-                                          Object vendorImpl, JDBCRuntimeVersion jdbcRuntime) throws Exception {
+                                          Object vendorImpl, ClassLoader loader,
+                                          JDBCRuntimeVersion jdbcRuntime) throws Exception {
         dsConfig = dsConfigRef;
         DSConfig config = dsConfig.get();
 
@@ -339,7 +344,7 @@ public class WSManagedConnectionFactoryImpl extends WSManagedConnectionFactory i
         instanceID = NUM_INITIALIZED.incrementAndGet();
         vendorImplClass = vendorImpl.getClass();
         type = ifc;
-        jdbcDriverLoader = priv.getClassLoader(vendorImplClass);
+        jdbcDriverLoader = loader;
 
         String implClassName = vendorImplClass.getName();
         isUCP = implClassName.charAt(2) == 'a' && implClassName.startsWith("oracle.ucp.jdbc."); // 3rd char distinguishes from common names like: com, org, java
@@ -423,6 +428,7 @@ public class WSManagedConnectionFactoryImpl extends WSManagedConnectionFactory i
         else if (dsClassName.startsWith("com.sybase.")) helper = new SybaseHelper(this);
         else if (dsClassName.startsWith("org.apache.derby.jdbc.Client")) helper = new DerbyNetworkClientHelper(this);
         else if (dsClassName.startsWith("org.apache.derby.jdbc.Embedded")) helper = new DerbyHelper(this);
+        else if (dsClassName.startsWith("org.h2.") && ProductInfo.getBetaEdition()) helper = new H2Helper(this);
         else if (dsClassName.startsWith("org.postgresql.")) helper = new PostgreSQLHelper(this);
         else if (vPropsPid.length() > PropertyService.FACTORY_PID.length()) {
             String suffix = vPropsPid.substring(PropertyService.FACTORY_PID.length() + 1);
@@ -437,6 +443,7 @@ public class WSManagedConnectionFactoryImpl extends WSManagedConnectionFactory i
             else if (suffix.startsWith("sybase")) helper = new SybaseHelper(this);
             else if (suffix.startsWith("derby.client")) helper = new DerbyNetworkClientHelper(this);
             else if (suffix.startsWith("derby.embedded")) helper = new DerbyHelper(this);
+            else if (suffix.startsWith("h2") && ProductInfo.getBetaEdition()) helper = new H2Helper(this);
             else if (suffix.startsWith("postgresql")) helper = new PostgreSQLHelper(this);
         }
 
@@ -1122,9 +1129,16 @@ public class WSManagedConnectionFactoryImpl extends WSManagedConnectionFactory i
         for (Class<?> cl = d.getClass(); cl != null; cl = cl.getSuperclass())
             classes.addAll(Arrays.asList(cl.getInterfaces()));
         
-        return Proxy.newProxyInstance(jdbcDriverLoader,
-                                      classes.toArray(new Class[classes.size()]),
-                                      tracer);
+        try {
+            return Proxy.newProxyInstance(jdbcDriverLoader,
+                                          classes.toArray(new Class[classes.size()]),
+                                          tracer);
+        } catch (IllegalArgumentException e) {
+            //Creating a proxy can fail based on jdbc driver restrictions.
+            //Throw a resource exception and let caller handle it. 
+            throw new ResourceException(e);
+        } //TODO handle security exceptions
+        
     }
 
     /**
@@ -1210,7 +1224,7 @@ public class WSManagedConnectionFactoryImpl extends WSManagedConnectionFactory i
         WSRdbManagedConnectionImpl matchedmc = null;
 
         // the J2c component will always send us a set of one and only one mc.  Therefore, there
-        // is no need to go through a loop. Just far sanity check, i am printing the size in a debug
+        // is no need to go through a loop. Just for validating, i am printing the size in a debug
         if (isTraceOn && tc.isDebugEnabled()) 
             Tr.debug(this, tc, "the size of the set should be 1, and it is", connectionSet.size()); 
 

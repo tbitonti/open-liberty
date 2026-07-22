@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -62,8 +64,8 @@ class UninstallDirector extends AbstractDirector {
      * Creates array and calls method below
      *
      * @param checkDependency if uninstall should check for dependencies
-     * @param productId product id to uninstall
-     * @param toBeDeleted Collection of files to uninstall
+     * @param productId       product id to uninstall
+     * @param toBeDeleted     Collection of files to uninstall
      * @throws InstallException
      */
     void uninstall(boolean checkDependency, String productId, Collection<File> toBeDeleted) throws InstallException {
@@ -72,13 +74,16 @@ class UninstallDirector extends AbstractDirector {
         uninstall(checkDependency, productIds, toBeDeleted);
     }
 
-    void retrieveUninstallFileList(UninstallAsset uninstallAsset, boolean checkDependency) throws InstallException {
-        if (uninstallAsset.getType().equals(UninstallAssetType.feature) &&
-            uninstallAsset.getFeatureFileList().isEmpty()) {
-            uninstallAsset.setFeaturePath(ESAAdaptor.getFeaturePath(uninstallAsset.getProvisioningFeatureDefinition(),
-                                                                    engine.getBaseDir(uninstallAsset.getProvisioningFeatureDefinition())));
-            uninstallAsset.setFeatureFileList(ESAAdaptor.determineFilesToBeDeleted(uninstallAsset.getProvisioningFeatureDefinition(), product.getFeatureDefinitions(),
-                                                                                   engine.getBaseDir(uninstallAsset.getProvisioningFeatureDefinition()),
+    void retrieveUninstallFileList(UninstallAsset uninstallAsset, boolean checkDependency, Map<String, ProvisioningFeatureDefinition> features) throws InstallException {
+
+        if (uninstallAsset.getType().equals(UninstallAssetType.feature) && uninstallAsset.getFeatureFileList().isEmpty()) {
+
+            ProvisioningFeatureDefinition featureDef = uninstallAsset.getProvisioningFeatureDefinition();
+            File baseDir = engine.getBaseDir(featureDef);
+            uninstallAsset.setFeaturePath(ESAAdaptor.getFeaturePath(featureDef, baseDir));
+            uninstallAsset.setFeatureFileList(ESAAdaptor.determineFilesToBeDeleted(featureDef,
+                                                                                   features,
+                                                                                   baseDir,
                                                                                    uninstallAsset.getFeaturePath(), checkDependency,
                                                                                    uninstallAsset.getFixUpdatesFeature()));
         }
@@ -88,20 +93,27 @@ class UninstallDirector extends AbstractDirector {
      * Uninstalls product depending on dependencies
      *
      * @param checkDependency if uninstall should check for dependencies
-     * @param productIds product ids to uninstall
-     * @param toBeDeleted Collection of files to uninstall
+     * @param productIds      product ids to uninstall
+     * @param toBeDeleted     Collection of files to uninstall
      * @throws InstallException
      */
     void uninstall(boolean checkDependency, String[] productIds, Collection<File> toBeDeleted) throws InstallException {
         if (uninstallAssets.isEmpty())
             return;
 
+        //get all installed features
+        Map<String, ProvisioningFeatureDefinition> features = product.getFeatureDefinitions();
+        
+        //Need to update the bundle repository registry
+        BundleRepositoryRegistry.disposeAll();
+        BundleRepositoryRegistry.initializeDefaults(null, false);
+
         // Run file checking only on Windows
         if (InstallUtils.isWindows) {
             // check any file is locked
             fireProgressEvent(InstallProgressEvent.CHECK, 10, Messages.INSTALL_KERNEL_MESSAGES.getLogMessage("STATE_CHECKING"));
             for (UninstallAsset uninstallAsset : uninstallAssets) {
-                retrieveUninstallFileList(uninstallAsset, checkDependency);
+                retrieveUninstallFileList(uninstallAsset, checkDependency, features);
                 engine.preCheck(uninstallAsset);
             }
             if (toBeDeleted != null) {
@@ -121,7 +133,9 @@ class UninstallDirector extends AbstractDirector {
             fireProgressEvent(InstallProgressEvent.UNINSTALL, progress, Messages.INSTALL_KERNEL_MESSAGES.getLogMessage("STATE_UNINSTALLING", uninstallAsset.getName()));
             progress += interval;
             try {
-                retrieveUninstallFileList(uninstallAsset, checkDependency);
+                if (!InstallUtils.isWindows) {
+                    retrieveUninstallFileList(uninstallAsset, checkDependency, features);
+                }
                 engine.uninstall(uninstallAsset, checkDependency, filesRestored);
                 log(Level.FINE, uninstallAsset.uninstalledLogMsg());
             } catch (IOException e) {
@@ -172,7 +186,7 @@ class UninstallDirector extends AbstractDirector {
      *
      * @param featureNames a list of the feature names and feature symbolic names to uninstall
      * @throws InstallException if there is a feature not installed or
-     *             there is another feature still requires the uninstalling features.
+     *                              there is another feature still requires the uninstalling features.
      */
     void uninstallFeatures(Collection<String> featureNames, Collection<String> uninstallInstallFeatures, boolean force) {
         product.refresh();
@@ -209,7 +223,7 @@ class UninstallDirector extends AbstractDirector {
     /**
      * Creates array and calls method below
      *
-     * @param productId product id to uninstall
+     * @param productId              product id to uninstall
      * @param exceptPlatfromFeatuers If platform features should be ignored
      * @throws InstallException
      */
@@ -222,7 +236,7 @@ class UninstallDirector extends AbstractDirector {
     /**
      * Uninstalls features by product id
      *
-     * @param productIds product ids to uninstall
+     * @param productIds             product ids to uninstall
      * @param exceptPlatfromFeatuers If platform features should be ignored
      * @throws InstallException
      */

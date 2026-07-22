@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015,2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package com.ibm.ws.ejbcontainer.security.internal.jacc;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.ejb.EnterpriseBean;
 import javax.security.auth.Subject;
@@ -30,9 +33,9 @@ import com.ibm.ws.ejbcontainer.EJBRequestData;
 import com.ibm.ws.ejbcontainer.security.internal.EJBAccessDeniedException;
 import com.ibm.ws.ejbcontainer.security.internal.EJBAuthorizationHelper;
 import com.ibm.ws.ejbcontainer.security.internal.TraceConstants;
+import com.ibm.ws.ejbcontainer.security.jacc.EJBJaccService;
 import com.ibm.ws.security.audit.Audit;
 import com.ibm.ws.security.authentication.principals.WSPrincipal;
-import com.ibm.ws.security.authorization.jacc.JaccService;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 
 /**
@@ -41,17 +44,18 @@ import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 public class EJBJaccAuthorizationHelper implements EJBAuthorizationHelper {
     private static final TraceComponent tc = Tr.register(EJBJaccAuthorizationHelper.class);
 
-    private AtomicServiceReference<JaccService> jaccServiceRef = null;
+    private final AtomicServiceReference<EJBJaccService> jaccServiceRef;
 
-    public EJBJaccAuthorizationHelper(AtomicServiceReference<JaccService> jaccServiceRef) {
+    private final EJBAuthorizationHelper defaultHelper;
+
+    public EJBJaccAuthorizationHelper(AtomicServiceReference<EJBJaccService> jaccServiceRef, EJBAuthorizationHelper defaultHelper) {
         this.jaccServiceRef = jaccServiceRef;
+        this.defaultHelper = defaultHelper;
     }
-
-    public HashMap<String, Object> ejbAuditHashMap = new HashMap<String, Object>();
 
     protected AuditManager auditManager;
 
-    public void populateAuditEJBHashMap(EJBRequestData request) {
+    public void populateAuditEJBHashMap(EJBRequestData request, Map<String, Object> ejbAuditHashMap) {
         EJBMethodMetaData methodMetaData = request.getEJBMethodMetaData();
         Object[] methodArguments = request.getMethodArguments();
         String applicationName = methodMetaData.getEJBComponentMetaData().getJ2EEName().getApplication();
@@ -85,11 +89,16 @@ public class EJBJaccAuthorizationHelper implements EJBAuthorizationHelper {
      * <li>is the subject authorized to any of the required roles</li>
      *
      * @param methodMetaData the info on the EJB method to call
-     * @param subject the subject authorize
+     * @param subject        the subject authorize
      * @throws EJBAccessDeniedException when the subject is not authorized to the EJB
      */
     @Override
     public void authorizeEJB(EJBRequestData request, Subject subject) throws EJBAccessDeniedException {
+        EJBJaccService ejbJaccService = jaccServiceRef.getService();
+        if (!ejbJaccService.isPolicyConfigured()) {
+            defaultHelper.authorizeEJB(request, subject);
+            return;
+        }
         auditManager = new AuditManager();
         Object req = auditManager.getHttpServletRequest();
         Object webRequest = auditManager.getWebRequest();
@@ -104,7 +113,9 @@ public class EJBJaccAuthorizationHelper implements EJBAuthorizationHelper {
         String beanName = methodMetaData.getEJBComponentMetaData().getJ2EEName().getComponent();
         List<Object> methodParameters = null;
 
-        populateAuditEJBHashMap(request);
+        HashMap<String, Object> ejbAuditHashMap = new HashMap<String, Object>();
+
+        populateAuditEJBHashMap(request, ejbAuditHashMap);
 
         Object bean = request.getBeanInstance();
         EnterpriseBean ejb = null;
@@ -116,8 +127,8 @@ public class EJBJaccAuthorizationHelper implements EJBAuthorizationHelper {
             methodParameters = Arrays.asList(methodArguments);
         }
 
-        boolean isAuthorized = jaccServiceRef.getService().isAuthorized(applicationName, moduleName, beanName, methodName, methodInterface, methodSignature, methodParameters, ejb,
-                                                                        subject);
+        boolean isAuthorized = ejbJaccService.isAuthorized(applicationName, moduleName, beanName, methodName, methodInterface, methodSignature, methodParameters, ejb,
+                                                           subject);
         String authzUserName = subject.getPrincipals(WSPrincipal.class).iterator().next().getName();
 
         if (!isAuthorized) {
@@ -139,6 +150,10 @@ public class EJBJaccAuthorizationHelper implements EJBAuthorizationHelper {
 
     @Override
     public boolean isCallerInRole(EJBComponentMetaData cmd, EJBRequestData request, String roleName, String roleLink, Subject subject) {
+        EJBJaccService ejbJaccService = jaccServiceRef.getService();
+        if (!ejbJaccService.isPolicyConfigured()) {
+            return defaultHelper.isCallerInRole(cmd, request, roleName, roleLink, subject);
+        }
         // roleLink is not used.
         String applicationName = cmd.getJ2EEName().getApplication();
         String moduleName = cmd.getJ2EEName().getModule();
@@ -153,7 +168,7 @@ public class EJBJaccAuthorizationHelper implements EJBAuthorizationHelper {
         if (request.getBeanInstance() instanceof EnterpriseBean) {
             bean = (EnterpriseBean) request.getBeanInstance();
         }
-        return jaccServiceRef.getService().isSubjectInRole(applicationName, moduleName, beanName, methodName, methodParameters, roleName, bean, subject);
+        return ejbJaccService.isSubjectInRole(applicationName, moduleName, beanName, methodName, methodParameters, roleName, bean, subject);
     }
 
 }

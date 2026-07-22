@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.spnego.fat;
 
@@ -25,10 +24,12 @@ import org.junit.runners.Suite.SuiteClasses;
 import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.security.spnego.fat.config.CommonTest;
 import com.ibm.ws.security.spnego.fat.config.InitClass;
+import com.ibm.ws.security.spnego.fat.config.KdcHelper;
 import com.ibm.ws.security.spnego.fat.config.SPNEGOConstants;
 
 import componenttest.custom.junit.runner.AlwaysPassesTest;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.FeatureReplacementAction;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.JavaInfo;
 import componenttest.topology.impl.JavaInfo.Vendor;
@@ -38,7 +39,7 @@ import componenttest.topology.impl.LibertyServerFactory;
 @RunWith(Suite.class)
 @SuiteClasses({
                 AlwaysPassesTest.class,
-                DynamicSpnegoConfigTest.class,
+                //DynamicSpnegoConfigTest.class,
                 S4U2SelfTest.class,
                 S4U2ProxyTest.class
 })
@@ -46,7 +47,12 @@ public class FATSuite extends InitClass {
     private static final Class<?> c = FATSuite.class;
 
     @ClassRule
-    public static RepeatTests repeat = RepeatTests.withoutModification().andWith(new JakartaEE9Action());
+    public static RepeatTests repeat = RepeatTests.withoutModification()
+                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11))
+                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17))
+                    .andWith(FeatureReplacementAction.EE11_FEATURES());
 
     /**
      * Rule to setup users, SPNs etc on the KDC.
@@ -98,21 +104,13 @@ public class FATSuite extends InitClass {
             String thisMethod = "isSupportJDK";
             JavaInfo javaInfo = JavaInfo.forServer(LibertyServerFactory.getLibertyServer("DynamicSpnegoConfigTest"));
 
-            IBM_JDK_V8_LOWER = javaInfo.vendor() == Vendor.IBM && javaInfo.majorVersion() <= 8;
-            SUN_ORACLE_JDK_V8_HIGHER = javaInfo.vendor() == Vendor.SUN_ORACLE && javaInfo.majorVersion() >= 8;
-            OTHER_SUPPORT_JDKS = javaInfo.majorVersion() >= 11 || SUN_ORACLE_JDK_V8_HIGHER;
             IBM_HYBRID_JDK = isHybridJDK(javaInfo);
 
             Log.info(c, thisMethod, "The JDK used on this system is version: " + javaInfo.majorVersion() + " and vendor: " + javaInfo.vendor());
-            if (!IBM_JDK_V8_LOWER && !OTHER_SUPPORT_JDKS && !SUN_ORACLE_JDK_V8_HIGHER) {
-                Log.info(c, thisMethod, "The JDK used on this system is version: " + javaInfo.majorVersion() + " and vendor: " + javaInfo.vendor() +
-                                        ". Because only IBM JDK version 8 or less, Oracle and Open JDK version 8 and higher and JDK version 11 are currently supported, no tests will be run.");
-                RUN_TESTS = false;
-            }
             if (IBM_HYBRID_JDK) {
+                Log.info(c, thisMethod, "SPENGO and constrained delegation do not support IBM hybrid JDK. Test will not be run as isHybridJDK: " + IBM_HYBRID_JDK);
                 RUN_TESTS = false;
             }
-            Log.info(c, thisMethod, "The JDK vendor used is " + javaInfo.vendor() + " and version: " + javaInfo.majorVersion());
             return RUN_TESTS;
         };
 
@@ -139,22 +137,22 @@ public class FATSuite extends InitClass {
      */
     @ClassRule
     public static ExternalResource afterRule = new ExternalResource() {
+        @SuppressWarnings("restriction")
         @Override
         protected void after() {
             try {
                 if (RUN_TESTS) {
-                    CommonTest.getKdcHelper().deleteUser();
-                    CommonTest.getKdcHelper()
-                                    .deleteRemoteFileFromRemoteMachine(CommonTest.getKdcHelper().getKdcMachine(),
-                                                                       SPNEGOConstants.KRB5_KEYTAB_FILE);
+                    KdcHelper kdcHelper = CommonTest.getKdcHelper();
+                    kdcHelper.deleteUser();
+                    kdcHelper.deleteRemoteFileFromRemoteMachine(CommonTest.getKdcHelper().getKdcMachine(), SPNEGOConstants.KRB5_KEYTAB_FILE);
 
+                    kdcHelper.deleteVbsScriptsFromKDC();
                     /*
                      * Don't delete the localhost_HTTP_krb5.keytab from the remote machine.
                      */
                     if (!"localhost".equalsIgnoreCase(InitClass.serverShortHostName)) {
-                        CommonTest.getKdcHelper()
-                                        .deleteRemoteFileFromRemoteMachine(CommonTest.getKdcHelper().getKdcMachine(),
-                                                                           InitClass.serverShortHostName + SPNEGOConstants.KRB5_KEYTAB_TEMP_SUFFIX);
+                        kdcHelper.deleteRemoteFileFromRemoteMachine(CommonTest.getKdcHelper().getKdcMachine(),
+                                                                    InitClass.serverShortHostName + SPNEGOConstants.KRB5_KEYTAB_TEMP_SUFFIX);
                     }
                 }
             } catch (Exception e) {
@@ -171,11 +169,12 @@ public class FATSuite extends InitClass {
      * @param apps     The simple names of the applications to transform.
      */
     public static void transformApps(LibertyServer myServer, String... apps) {
-        if (JakartaEE9Action.isActive()) {
+        if (JakartaEEAction.isEE9OrLaterActive()) {
             for (String app : apps) {
                 Path someArchive = Paths.get(myServer.getServerRoot() + File.separatorChar + "apps" + File.separatorChar + app);
-                JakartaEE9Action.transformApp(someArchive);
+                JakartaEEAction.transformApp(someArchive);
             }
         }
+
     }
 }

@@ -1,14 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2018 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.kernel.feature.internal.subsystem;
+
+import static com.ibm.wsspi.kernel.service.condition.StartPhaseCondition.StartPhase.CONTAINER;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,11 +28,12 @@ import org.osgi.framework.VersionRange;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Trivial;
-import com.ibm.ws.kernel.feature.internal.ProvisionerConstants;
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.kernel.feature.provisioning.ActivationType;
 import com.ibm.ws.kernel.feature.provisioning.FeatureResource;
 import com.ibm.ws.kernel.feature.provisioning.SubsystemContentType;
 import com.ibm.ws.kernel.provisioning.VersionUtility;
+import com.ibm.wsspi.kernel.service.condition.StartPhaseCondition.StartPhase;
 
 public class FeatureResourceImpl implements FeatureResource {
     private static final TraceComponent tc = Tr.register(FeatureResourceImpl.class);
@@ -200,7 +205,7 @@ public class FeatureResourceImpl implements FeatureResource {
         int result = _startLevel.get();
 
         if (result == -1) {
-            result = ProvisionerConstants.LEVEL_FEATURE_CONTAINERS;
+            result = CONTAINER.level();
             // Directive names are in the attributes map, but end with a colon
             String phase = _rawAttributes.get("start-phase:");
 
@@ -214,31 +219,14 @@ public class FeatureResourceImpl implements FeatureResource {
         return result;
     }
 
+    @FFDCIgnore(IllegalArgumentException.class)
     private int setStartLevel(String phase, int original) {
-
         if (phase == null) {
             return original;
         }
-
-        if (ProvisionerConstants.PHASE_APPLICATION.equals(phase)) {
-            return ProvisionerConstants.LEVEL_FEATURE_APPLICATION;
-        } else if (ProvisionerConstants.PHASE_APPLICATION_LATE.equals(phase)) {
-            return ProvisionerConstants.LEVEL_FEATURE_APPLICATION + ProvisionerConstants.PHASE_INCREMENT;
-        } else if (ProvisionerConstants.PHASE_APPLICATION_EARLY.equals(phase)) {
-            return ProvisionerConstants.LEVEL_FEATURE_APPLICATION - ProvisionerConstants.PHASE_INCREMENT;
-        } else if (ProvisionerConstants.PHASE_SERVICE.equals(phase)) {
-            return ProvisionerConstants.LEVEL_FEATURE_SERVICES;
-        } else if (ProvisionerConstants.PHASE_SERVICE_LATE.equals(phase)) {
-            return ProvisionerConstants.LEVEL_FEATURE_SERVICES + ProvisionerConstants.PHASE_INCREMENT;
-        } else if (ProvisionerConstants.PHASE_SERVICE_EARLY.equals(phase)) {
-            return ProvisionerConstants.LEVEL_FEATURE_SERVICES - ProvisionerConstants.PHASE_INCREMENT;
-        } else if (ProvisionerConstants.PHASE_CONTAINER.equals(phase)) {
-            return ProvisionerConstants.LEVEL_FEATURE_CONTAINERS;
-        } else if (ProvisionerConstants.PHASE_CONTAINER_LATE.equals(phase)) {
-            return ProvisionerConstants.LEVEL_FEATURE_CONTAINERS + ProvisionerConstants.PHASE_INCREMENT;
-        } else if (ProvisionerConstants.PHASE_CONTAINER_EARLY.equals(phase)) {
-            return ProvisionerConstants.LEVEL_FEATURE_CONTAINERS - ProvisionerConstants.PHASE_INCREMENT;
-        } else {
+        try {
+            return StartPhase.valueOf(phase).level();
+        } catch (IllegalArgumentException e) {
             Tr.warning(tc, "INVALID_START_PHASE_WARNING", new Object[] { phase, this._symbolicName, this._featureName });
             return original;
         }
@@ -288,7 +276,7 @@ public class FeatureResourceImpl implements FeatureResource {
                && Objects.equals(getLocation(), other.getLocation())
                && Objects.equals(getOsList(), other.getOsList())
                && Objects.equals(getTolerates(), other.getTolerates())
-               && Objects.equals(getRequireJava(), other.getRequireJava());
+               && Objects.equals(getJavaRange(), other.getJavaRange());
     }
 
     /** {@inheritDoc} */
@@ -332,10 +320,10 @@ public class FeatureResourceImpl implements FeatureResource {
     }
 
     @Override
-    public Integer getRequireJava() {
+    public VersionRange getJavaRange() {
         // Directive names are in the attributes map, but end with a colon
-        String requireJava = _rawAttributes.get("require-java:");
-        return requireJava == null ? null : Integer.valueOf(requireJava);
+        String javaRange = _rawAttributes.get("require-java:");
+        return javaRange == null ? null : new VersionRange(javaRange);
     }
 
     @Override

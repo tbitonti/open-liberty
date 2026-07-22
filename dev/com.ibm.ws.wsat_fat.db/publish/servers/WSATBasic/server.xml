@@ -7,11 +7,13 @@
 		<feature>servlet-3.1</feature>
 		<feature>cdi-1.2</feature>
 		<feature>txtest-1.0</feature>
+		<feature>jaxws-2.2</feature>
 	</featureManager>
+
+	<transaction recoverOnStartup="true" waitForRecovery="true"/>
 
 	<include location="../fatTestPorts.xml" />
 
-	<logging traceSpecification="*=info: wsat=all: Transaction=all"></logging>
   <javaPermission codebase="${server.config.dir}/dropins/assertion.war" className="java.security.AllPermission"/>
   <javaPermission codebase="${server.config.dir}/dropins/oneway.war" className="java.security.AllPermission"/>
   <javaPermission codebase="${server.config.dir}/dropins/endtoend.war" className="java.security.AllPermission"/>

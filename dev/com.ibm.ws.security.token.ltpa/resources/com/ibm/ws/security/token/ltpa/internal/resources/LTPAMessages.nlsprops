@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2011 IBM Corporation and others.
+# Copyright (c) 2011, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -46,12 +48,62 @@ LTPA_CONFIG_ERROR=CWWKS4106E: LTPA configuration error. Unable to create or read
 LTPA_CONFIG_ERROR.explanation=The LTPA keys could not be read or created at the specified location.
 LTPA_CONFIG_ERROR.useraction=Ensure the location is accessible by the server process. Any FFDCs might indicate a fatal error in generating or loading the keys.
 
-LTPA_KEYS_TO_LOAD=CWWKS4107A: The LTPA keys file or configuration were modified. The LTPA keys will be reloaded from the file: {0}
-LTPA_KEYS_TO_LOAD.explanation=The LTPA keys need to be reloaded because there was a change to the LTPA keys file or the configuration.
-LTPA_KEYS_TO_LOAD.useraction=Ensure that all servers participating in Single-Sign-On use the same LTPA keys and password.
+LTPA_KEYS_TO_LOAD=CWWKS4107A: The LTPA configuration is modified. The following files are modified: {0}. All the LTPA keys in the LTPA configuration are reloaded.
+LTPA_KEYS_TO_LOAD.explanation=The LTPA keys files must be reloaded due to a change to the LTPA keys files or the configuration.
+LTPA_KEYS_TO_LOAD.useraction=Ensure that all servers that participate in single sign-on share the same LTPA keys and password.
 
 LTPA_KEY_CREATE_ERROR=CWWKS4108E: The system cannot create the LTPA key.
 LTPA_KEY_CREATE_ERROR.explanation=The LTPA key cannot be created.
 LTPA_KEY_CREATE_ERROR.useraction=Any FFDCs might indicate a fatal error in generating the keys.
 
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST=CWWKS4109W: The {0} value for the validUntilDate attribute for the {1} LTPA validation keys file is in the past. The LTPA validation keys cannot be used.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST.explanation=The LTPA validation keys are used only if the validUntilDate attribute value is in the future.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_IS_IN_THE_PAST.useraction=Update the validUntilDate attribute value to a future date if the LTPA keys must be used. Otherwise, delete the LTPA keys file.
 
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT=CWWKS4110E: The {0} value for the validUntilDate attribute for the {1} LTPA validation keys file has an invalid date format. The LTPA validation keys cannot be used.
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT.explanation=The validUntilDate attribute value must be formatted in the ISO date, time, and zone format. The following example shows the ISO date format: "2023-11-18T18:08:35Z".
+LTPA_VALIDATION_KEYS_VALID_UNTIL_DATE_INVALID_FORMAT.useraction=Update the validUntilDate attribute value to the ISO date, time, and zone format (e.g., '2023-11-18T18:08:35Z')
+
+LTPA_VALIDATION_KEYS_MISSING_ATTR=CWWKS4111E: The {0} LTPA validationKeys element that is specified in the server.xml file is missing either the filename, password, or both: {1}.
+LTPA_VALIDATION_KEYS_MISSING_ATTR.explanation=The LTPA validationKeys element requires the filename and password attributes.
+LTPA_VALIDATION_KEYS_MISSING_ATTR.useraction=Add the missing attributes.
+
+LTPA_KEYS_FILE_DOES_NOT_EXIST=CWWKS4112E: The {0} LTPA validation keys file does not exist.
+LTPA_KEYS_FILE_DOES_NOT_EXIST.explanation=The validation keys file does not exist.
+LTPA_KEYS_FILE_DOES_NOT_EXIST.useraction=Make sure that the validation keys file exists in the specified location that is specified by the validationKeys element.
+
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED=CWWKS4113W: The LTPA updateTrigger attribute is set to polled, monitorValidationKeysDir is set to true, but monitorInterval is set to {0}. No dynamic reload occurs when LTPA key files are modified.
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED.explanation=The value for the monitorInterval attribute is zero or less than zero. The directory cannot be monitored for any modifications on files with the .keys suffix and dynamic reload cannot occur.
+LTPA_UPDATE_TRIGGER_POLLED_MONITOR_VALIDATION_KEYS_DIR_TRUE_AND_MONITOR_INTERVAL_NOT_ENABLED.useraction=Set the monitorInterval attribute to an interval that is greater than zero.
+
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE=CWWKS4114W: The updateTrigger attribute is set to disabled and the monitorValidationKeysDir attribute is set to true. No dynamic reload occurs when LTPA key files are modified in the directory.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE.explanation=When the updateTrigger attribute is set to disabled, the directory is not monitored for any modifications to files with the .keys suffix and dynamic reload does not occur. Even if the monitorValidationKeysDir attribute is set to true, the attribute is ignored, and the directory is not monitored.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_VALIDATION_KEYS_DIR_TRUE.useraction=Set the value of the updateTrigger attribute to polled or mbean.
+
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO=CWWKS4115W: The updateTrigger attribute is set to disabled and the monitor interval is greater than {0}. No dynamic reload occurs when LTPA key files are modified.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO.explanation=When the updateTrigger attribute is set to disabled, the files are not monitored for any modifications on files with the .keys suffix and dynamic reload does not occur. Even if the monitorInterval attribute is set to an interval that is greater than zero, the attribute is ignored, and the files are not monitored.
+LTPA_UPDATE_TRIGGER_DISABLED_AND_MONITOR_INTERVAL_GREATER_THAN_ZERO.useraction=Set the value of the updateTrigger attribute to polled or mbean.
+
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE=CWWKS4116W: The {0} validation keys must be regenerated using cryptographic algorithms that are FIPS 140-3 certified.
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE.explanation=The LTPA validation keys that are created without FIPS 140-3 enabled fail when FIPS 140-3 is enabled.
+LTPA_VALIDATION_KEYS_NEED_TO_REGENERATE.useraction=Use the securityUtility createLTPAKeys command to create the FIPS approved validation keys when FIPS 140-3 is configured.
+
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE=CWWKS4117W: The {0} validation keys must be regenerated using cryptographic algorithms that are not FIPS 140-3 certified.
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE.explanation=The LTPA validation keys that are created with FIPS 140-3 enabled fail when FIPS 140-3 is disabled.
+LTPA_FIPS_VALIDATION_KEYS_NEED_TO_REGENERATE.useraction=Use the securityUtility createLTPAKeys command to create the non FIPS approved validation keys when FIPS 140-3 is disabled.
+
+LTPA_KEYS_PASSWORD_ERROR=CWWKS4118E: LTPA configuration error. A keysPassword attribute is not configured on the <ltpa /> element, the 'ltpa_keys_password' environment variable is not set, and the 'keystore_password' environment variable is not set.
+LTPA_KEYS_PASSWORD_ERROR.explanation=The LTPA configuration requires a password to store and read LTPA keys.
+LTPA_KEYS_PASSWORD_ERROR.useraction=Configure the keysPassword attribute in the <ltpa /> element, or set the 'ltpa_keys_password' or 'keystore_password' environment variables to provide a password.
+
+LTPA_KEYS_REENCRYPT=CWWKS4119I: The {0} LTPA keys are being re-encrypted by using the ''keystore_password'' environment variable.
+LTPA_KEYS_REENCRYPT.explanation=The LTPA keys are being re-encrypted by using the 'keystore_password' because the default value for the LTPA keysPassword attribute is removed to improve security.
+LTPA_KEYS_REENCRYPT.useraction=No action is required.
+
+LTPA_KEYS_REENCRYPT_SUCCESS=CWWKS4120I: Successfully re-encrypted the {0} LTPA keys by using the ''keystore_password'' environment variable.
+LTPA_KEYS_REENCRYPT_SUCCESS.explanation=The LTPA keys are re-encrypted by using the 'keystore_password' environment variable.
+LTPA_KEYS_REENCRYPT_SUCCESS.useraction=If you are sharing the LTPA keys between servers in a common location, the other servers must be updated so they can continue to read those LTPA keys. Set the keysPassword attribute in the corresponding <ltpa /> element, or the password attribute in the corresponding <validationKeys /> element, to the value of the 'keystore_password' environment variable from this server. The 'keystore_password' environment variable is typically defined in the server.env file.
+
+LTPA_KEYS_REENCRYPT_ERROR=CWWKS4121E: Failed to re-encrypt the {0} LTPA keys. Exception: {1}
+LTPA_KEYS_REENCRYPT_ERROR.explanation=The LTPA keys could not be re-encrypted. For more information, see the exception in the message.
+LTPA_KEYS_REENCRYPT_ERROR.useraction=Ensure that the LTPA keys file and its directory are not read-only. If the LTPA keys file and its directory are not read-only, then see the exception in the message for more information.

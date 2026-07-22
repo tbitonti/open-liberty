@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2018 IBM Corporation and others.
+# Copyright (c) 2018, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+#
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -23,12 +25,12 @@ publish.wlp.jar.disabled: true
 
 tool.project: true
 
-generate.replacement: false
+generate.replacement: true
 
 -buildpath: \
 	com.ibm.ws.org.apache.commons.io;version=latest, \
 	commons-lang:commons-lang;version=2.4, \
-	org.apache.ant:ant;version=1.9.6, \
+	com.ibm.ws.org.apache.ant;version=latest, \
 	org.apache.maven:maven-model;version=3.5.0, \
 	javax.json:javax.json-api;version=1.1.2, \
 	org.apache.aries:org.apache.aries.util;version=1.1.3

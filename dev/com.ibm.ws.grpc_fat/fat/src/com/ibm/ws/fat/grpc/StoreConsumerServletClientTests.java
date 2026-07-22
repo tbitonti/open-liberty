@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.fat.grpc;
 
@@ -16,6 +15,7 @@ import static org.junit.Assert.fail;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.Arrays;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -64,6 +64,10 @@ public class StoreConsumerServletClientTests extends FATServletClient {
     @BeforeClass
     public static void setUp() throws Exception {
 
+        storeServer.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
+        producerServer.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
+        consumerServer.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
+
         boolean isArchive = false;
         // To export the assembled services application archive files, set isArchive to true
         // run it locally , keep this false when merging
@@ -76,11 +80,11 @@ public class StoreConsumerServletClientTests extends FATServletClient {
         StoreClientTestsUtils.addConsumerApp(consumerServer, isArchive);
 
         storeServer.startServer(c.getSimpleName() + ".log");
-        assertNotNull("CWWKO0219I.*ssl not received", storeServer.waitForStringInLog("CWWKO0219I.*ssl"));
+        storeServer.waitForDefaultHTTPEndpointSSLStart();
 
         producerServer.useSecondaryHTTPPort(); // sets httpSecondaryPort and httpSecondarySecurePort
         producerServer.startServer(c.getSimpleName() + ".log");
-        assertNotNull("CWWKO0219I.*ssl not received", producerServer.waitForStringInLog("CWWKO0219I.*ssl"));
+        producerServer.waitForDefaultHTTPEndpointSSLStart();
 
         // set bvt.prop.member_1.http=8080 and bvt.prop.member_1.https=8081
         consumerServer.setHttpDefaultPort(Integer.parseInt(getSysProp("member_1.http")));
@@ -90,7 +94,10 @@ public class StoreConsumerServletClientTests extends FATServletClient {
 
         consumerServer.setHttpDefaultSecurePort(securePort);
         consumerServer.startServer(c.getSimpleName() + ".log");
-        assertNotNull("CWWKO0219I.*ssl not received", consumerServer.waitForStringInLog("CWWKO0219I.*ssl"));
+        consumerServer.waitForDefaultHTTPEndpointSSLStart();
+
+        // Error CWWKS4000E shows up intermittently due to LTPA slowness
+        consumerServer.waitForLTPAConfigReady();
 
         Log.info(c, "setUp", "Check if Store.war started");
         assertNotNull(storeServer.waitForStringInLog("CWWKZ0001I: Application StoreApp started"));

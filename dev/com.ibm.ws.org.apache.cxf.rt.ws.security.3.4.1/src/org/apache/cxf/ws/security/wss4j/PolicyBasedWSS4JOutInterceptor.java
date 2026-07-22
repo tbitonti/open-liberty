@@ -21,6 +21,8 @@ package org.apache.cxf.ws.security.wss4j;
 import java.security.Provider;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -43,6 +45,7 @@ import org.apache.cxf.phase.PhaseInterceptor;
 import org.apache.cxf.ws.policy.AssertionInfoMap;
 import org.apache.cxf.ws.security.SecurityConstants;
 import org.apache.cxf.ws.security.policy.PolicyUtils;
+import org.apache.cxf.ws.security.policy.custom.DefaultAlgorithmSuiteLoader;
 import org.apache.cxf.ws.security.tokenstore.TokenStoreException;
 import org.apache.cxf.ws.security.wss4j.policyhandlers.AsymmetricBindingHandler;
 import org.apache.cxf.ws.security.wss4j.policyhandlers.SymmetricBindingHandler;
@@ -51,6 +54,7 @@ import org.apache.neethi.Policy;
 import org.apache.wss4j.common.ConfigurationConstants;
 import org.apache.wss4j.common.crypto.ThreadLocalSecurityProvider;
 import org.apache.wss4j.common.ext.WSSecurityException;
+import org.apache.wss4j.common.WSS4JConstants;
 import org.apache.wss4j.dom.engine.WSSConfig;
 import org.apache.wss4j.dom.message.WSSecHeader;
 import org.apache.wss4j.policy.model.AbstractBinding;
@@ -58,12 +62,15 @@ import org.apache.wss4j.policy.model.AsymmetricBinding;
 import org.apache.wss4j.policy.model.SymmetricBinding;
 import org.apache.wss4j.policy.model.TransportBinding;
 
+// Liberty Change; This class has no Liberty specific changes other than the Sensitive annotation 
+// It is required as an overlay because of Liberty specific changes to MessageImpl.put(). Any call
+// to SoapMessage.put() will cause a NoSuchMethodException in the calling class if the class is not recompiled.
+// If a solution to this compilation issue can be found, this class should be removed as an overlay. 
 public class PolicyBasedWSS4JOutInterceptor extends AbstractPhaseInterceptor<SoapMessage> {
     public static final String SECURITY_PROCESSED = PolicyBasedWSS4JOutInterceptor.class.getName() + ".DONE";
     public static final PolicyBasedWSS4JOutInterceptor INSTANCE = new PolicyBasedWSS4JOutInterceptor();
 
     private static final Logger LOG = LogUtils.getL7dLogger(PolicyBasedWSS4JOutInterceptor.class);
-
 
     private PolicyBasedWSS4JOutInterceptorInternal ending;
     private SAAJOutInterceptor saajOut = new SAAJOutInterceptor();
@@ -140,7 +147,7 @@ public class PolicyBasedWSS4JOutInterceptor extends AbstractPhaseInterceptor<Soa
 
             if (binding != null) {
                 WSSecHeader secHeader = new WSSecHeader(actor, mustUnderstand, saaj.getSOAPPart());
-                Element el = null;
+                final Element el;
                 try {
                     el = secHeader.insertSecurityHeader();
                 } catch (WSSecurityException e) {
@@ -162,8 +169,27 @@ public class PolicyBasedWSS4JOutInterceptor extends AbstractPhaseInterceptor<Soa
                 }
                 translateProperties(message);
 
+             // Liberty Change Start: Backport 4.x and remove existing Lamda operator to make it java 8 safe
+                if (binding.getAlgorithmSuite() != null) {
+                    //filter custom alg suite properties:
+                    // Refactored to remove lambda operator
+                    Map<String, Object> customAlgSuiteParameters = new HashMap<String, Object>();
+                    Collection<String> keys = message.getContextualPropertyKeys();
+                    for (String k : keys) {
+                        if (k.startsWith(SecurityConstants.CUSTOM_ALG_SUITE_PREFIX)) {
+                            customAlgSuiteParameters.put(k, message.getContextualProperty(k));
+                        }
+                    }
+
+                    DefaultAlgorithmSuiteLoader.customize(binding.getAlgorithmSuite().getAlgorithmSuiteType(),
+                            customAlgSuiteParameters);
+                    // Liberty Change End
+                }
+                
+                
                 String asymSignatureAlgorithm =
                     (String)message.getContextualProperty(SecurityConstants.ASYMMETRIC_SIGNATURE_ALGORITHM);
+                
                 if (asymSignatureAlgorithm != null && binding.getAlgorithmSuite() != null) {
                     binding.getAlgorithmSuite().getAlgorithmSuiteType().setAsymmetricSignature(asymSignatureAlgorithm);
                 }

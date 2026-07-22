@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,7 +13,7 @@
 
 package com.ibm.ws.sib.mfp.jmf.impl;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
@@ -126,14 +128,7 @@ public class JSchema implements JMFSchema, HashedArray.Element {
     System.arraycopy(frame, offset, serialForm, 0, length);
     // Decode the name from the serialForm
     int namelen = ArrayUtil.readShort(frame, offset);
-    try {
-      name = new String(frame, offset + 2, namelen, "UTF8");
-    } catch (UnsupportedEncodingException e) {
-      FFDCFilter.processException(e, "<init>", "159");
-      IllegalArgumentException ex = new IllegalArgumentException();
-      ex.initCause(e);
-      throw ex;
-    }
+    name = new String(frame, offset + 2, namelen, StandardCharsets.UTF_8);
     // Decode the schema structure body
     int[] limits = new int[] { offset + 2 + namelen, offset + length };
     version = JSType.getCount(frame, limits);
@@ -567,20 +562,13 @@ public class JSchema implements JMFSchema, HashedArray.Element {
       name = jsTypeTree.getFeatureName();
       if (name == null)
         name = "";
-      try {
-        byte[] utfname = name.getBytes("UTF8");
+        byte[] utfname = name.getBytes(StandardCharsets.UTF_8);
         serialForm = new byte[2 + utfname.length + 2 + jsTypeTree.encodedTypeLength()];
         ArrayUtil.writeShort(serialForm, 0, (short)utfname.length);
         System.arraycopy(utfname, 0, serialForm, 2, utfname.length);
         int limits[] = new int[] { 2 + utfname.length, serialForm.length };
         JSType.setCount(serialForm, limits, version);
         jsTypeTree.encodeType(serialForm, limits);
-      } catch (UnsupportedEncodingException e) {
-        FFDCFilter.processException(e, "initialize", "604");
-        IllegalArgumentException ex = new IllegalArgumentException();
-        ex.initCause(e);
-        throw ex;
-      }
     }
 
     // Compute the schemaID, which is a 64-bit truncated SHA-1 hash over the serialForm.

@@ -1,0 +1,107 @@
+#CMVCPATHNAME N/A
+#COMPONENTPREFIX CWMMH
+#COMPONENTNAMEFOR CWMMH MicroProfile Health API 
+#NLS_ENCODING=UNICODE
+#NLS_MESSAGEFORMAT_VAR
+#ISMESSAGEFILE true
+# #########################################################################
+###############################################################################
+# Copyright (c) 2021, 2026 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+###############################################################################
+# This file follows the WebSphere Message Guidelines.
+# For more information, visit: 
+# http://washome.austin.ibm.com/xwiki/bin/view/MessagesTeam/
+#
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Messages used by Health Impl -  range is 0000-0999
+# The range 0000-0049 has been reserved for messages issued above the HealthCheckExecutor within the call stack
+# The range 0050-0099 has been reserved for messages issued at or below the HealthCheckExecutor within the call stack
+# The 0100-0149 range is reserved for messages that are issued by the file-based health check mechanism
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Emergency Health error message
+#-----------------------------------------------------------------------------------------------------------------------------
+OSGI_SERVICE_ERROR=CWMMH0000E: El servicio OSGi {0} no est\u00e1 disponible.
+OSGI_SERVICE_ERROR.explanation=Este error interno del servidor se genera porque el servicio especificado no est\u00e1 disponible.
+OSGI_SERVICE_ERROR.useraction=Reinicie el servidor con la opci\u00f3n clean.
+
+# The HealthCheck bean call method had an exception
+healthcheck.bean.call.exception.CWMMH0050E=CWMMH0050E: El m\u00e9todo HealthCheck {0} en la aplicaci\u00f3n {1} del m\u00f3dulo {2} ha lanzado la excepci\u00f3n {3} con el mensaje siguiente: {4}
+healthcheck.bean.call.exception.CWMMH0050E.explanation=El m\u00e9todo de llamada especificado ha generado una excepci\u00f3n.
+healthcheck.bean.call.exception.CWMMH0050E.useraction=Revise el m\u00e9todo de llamada en el bean HealthCheck para identificar la excepci\u00f3n que se ha producido.
+
+# The HealthCheck bean call method had a DOWN outcome
+healthcheck.application.down.CWMMH0052W=CWMMH0052W: La respuesta {0} que implementa HealthChecken la aplicaci\u00f3n {1} en el m\u00f3dulo, {2}, ha notificado un estado {3} para la comprobaci\u00f3n de estado, {4}, y con los datos {5}.
+healthcheck.application.down.CWMMH0052W.explanation=El estado DOWN puede hacer que un servicio de supervisi\u00f3n act\u00fae en este servidor.
+healthcheck.application.down.CWMMH0052W.useraction=No es necesaria ninguna acci\u00f3n del usuario.  Este aviso es un registro del estado DOWN.
+
+# The Readiness HealthCheck had a DOWN outcome, when applications are not started yet
+readiness.healthcheck.applications.not.started.down.CWMMH0053W=CWMMH0053W: La comprobaci\u00f3n de estado de preparaci\u00f3n ha informado de un estado general DOWN porque las aplicaciones siguiente a\u00fan no se han iniciado: {0}
+readiness.healthcheck.applications.not.started.down.CWMMH0053W.explanation=La comprobaci\u00f3n de estado de preparaci\u00f3n ha informado de un estado general DOWN porque las aplicaciones especificadas a\u00fan no se han iniciado y no est\u00e1n listas para procesar solicitudes.
+readiness.healthcheck.applications.not.started.down.CWMMH0053W.useraction=Este aviso es un registro del estado DOWN y no se necesita ninguna acci\u00f3n del usuario. Espere a que se inicien todas las aplicaciones. Una vez iniciadas todas las aplicaciones, se procesan las comprobaciones de estado definidas por el usuario.
+
+# The Startup HealthCheck had a DOWN outcome, when applications are not started yet
+startup.healthcheck.applications.not.started.down.CWMMH0054W=CWMMH0054W: La comprobaci\u00f3n de estado de arranque ha informado de un estado general DOWN porque las aplicaciones siguiente a\u00fan no se han iniciado: {0}
+startup.healthcheck.applications.not.started.down.CWMMH0054W.explanation=La comprobaci\u00f3n de estado de arranque ha informado de un estado general DOWN porque las aplicaciones especificadas a\u00fan no se han iniciado y no est\u00e1n listas para procesar solicitudes.
+startup.healthcheck.applications.not.started.down.CWMMH0054W.useraction=Este aviso es un registro del estado DOWN y no se necesita ninguna acci\u00f3n del usuario. Espere a que se inicien todas las aplicaciones. Una vez iniciadas todas las aplicaciones, se procesan las comprobaciones de estado definidas por el usuario.
+
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# File-based health check messages
+#-----------------------------------------------------------------------------------------------------------------------------
+file.healthcheck.health.directory.create.fail.CWMMH0100W=CWMMH0100W: No se ha podido crear el directorio /health en la siguiente ruta [ {0} ]. La funci\u00f3n de comprobaci\u00f3n de estado basada en archivos se desactivar\u00e1.
+file.healthcheck.health.directory.create.fail.CWMMH0100W.explanation=El tiempo de ejecuci\u00f3n no ha podido crear el directorio /health necesario para que las comprobaciones de estado basadas en archivos funcionen correctamente.
+file.healthcheck.health.directory.create.fail.CWMMH0100W.useraction=El usuario debe identificar la causa ra\u00edz que impide al runtime crear el directorio /health.
+
+
+file.healthcheck.health.directory.write.fail.CWMMH0101W=CWMMH0101W: No se puede escribir en el directorio {0}. La funci\u00f3n de comprobaci\u00f3n de estado basada en archivos se desactivar\u00e1.
+file.healthcheck.health.directory.write.fail.CWMMH0101W.explanation=El tiempo de ejecuci\u00f3n requiere permisos de escritura en el directorio /health para crear los archivos "live", "ready" y "started" para que las comprobaciones de salud basadas en archivos funcionen correctamente.
+file.healthcheck.health.directory.write.fail.CWMMH0101W.useraction=El usuario debe identificar la causa ra\u00edz del problema de permisos.
+
+file.healthcheck.health.directory.resolution.fail.CWMMH0102W=CWMMH0102W: El motor de ejecuci\u00f3n no puede resolver la ruta del directorio /health. La funci\u00f3n de comprobaci\u00f3n de estado basada en archivos se desactivar\u00e1.
+file.healthcheck.health.directory.resolution.fail.CWMMH0102W.explanation=El tiempo de ejecuci\u00f3n requiere que se establezca la propiedad interna server.output.dir o la variable de entorno WLP_OUTPUT_DIR para determinar la ubicaci\u00f3n del directorio /health.
+file.healthcheck.health.directory.resolution.fail.CWMMH0102W.useraction=Aseg\u00farese de que la variable de entorno WLP_OUTPUT_DIR est\u00e1 correctamente configurada.
+
+file.healthcheck.file.name.conflict.CWMMH0105W=CWMMH0106W: El runtime ha detectado la presencia del siguiente directorio [ {0} ]. Se requiere un archivo con el mismo nombre para la funci\u00f3n de comprobaci\u00f3n de estado basada en archivos en esta ruta. La funci\u00f3n de comprobaci\u00f3n de estado basada en archivos se desactivar\u00e1.
+file.healthcheck.file.name.conflict.CWMMH0105W.explanation=Las comprobaciones de salud basadas en archivos requieren la creaci\u00f3n y el uso de los archivos "live", "ready" y "started" en el directorio /health. En el directorio /health ya existe un directorio con uno de esos nombres, lo que impide que se creen los archivos necesarios.
+file.healthcheck.file.name.conflict.CWMMH0105W.useraction=El directorio no es creado por este tiempo de ejecuci\u00f3n y puede contener contenidos importantes para el usuario. Por favor, elimine o reubique el directorio.
+
+file.healthcheck.file.delete.fail.CWMMH0106W=CWMMH0106W: No se puede eliminar el archivo existente en [ {0} ]. La funci\u00f3n de comprobaci\u00f3n de estado basada en archivos se desactivar\u00e1.
+file.healthcheck.file.delete.fail.CWMMH0106W.explanation=Las comprobaciones de salud basadas en archivos requieren la creaci\u00f3n y el uso de los archivos "live", "ready" y "started" en el directorio /health. Para que las comprobaciones de estado basadas en archivos funcionen correctamente, estos archivos no deben existir cuando se inicie el tiempo de ejecuci\u00f3n. El programa de ejecuci\u00f3n ha intentado eliminar el archivo existente, pero no ha podido.
+file.healthcheck.file.delete.fail.CWMMH0106W.useraction=El usuario debe identificar la causa ra\u00edz que impide que el tiempo de ejecuci\u00f3n elimine los archivos.
+
+file.healthcheck.system.inconsistency.CWMMH0107W=CWMMH0107W: El tiempo de ejecuci\u00f3n detect\u00f3 incoherencias con el mecanismo de comprobaci\u00f3n de estado basado en archivos locales. El mecanismo de comprobaci\u00f3n de estado basado en archivos est\u00e1 desactivado.
+file.healthcheck.system.inconsistency.CWMMH0107W.explanation=Se han detectado incoherencias con el sistema de archivos. Por ejemplo, el archivo "started" est\u00e1 presente antes de que el tiempo de ejecuci\u00f3n cree el archivo "started".
+file.healthcheck.system.inconsistency.CWMMH0107W.useraction=Borre el directorio < server.output.dir >/health y reinicie el servidor.
+
+check.interval.config.invalid.CWMMH01010W=CWMMH01010W: Se ha proporcionado un valor no v\u00e1lido [ {0} ] para el intervalo de comprobaci\u00f3n. El valor proporcionado debe consistir en un n\u00famero seguido de una unidad de tiempo opcional de "ms" para milisegundos o "s" para segundos. Si no se especifica ninguna unidad de tiempo, el valor por defecto es en segundos. El tiempo de ejecuci\u00f3n ser\u00e1 por defecto de 10 segundos.
+check.interval.config.invalid.CWMMH01010W.explanation=La configuraci\u00f3n del intervalo de comprobaci\u00f3n s\u00f3lo acepta un n\u00famero seguido de una unidad de tiempo opcional "ms" para milisegundos o "s" para segundos. Si no se especifica ninguna unidad de tiempo, el valor por defecto es en segundos.
+check.interval.config.invalid.CWMMH01010W.useraction=Introduzca un valor correcto para la configuraci\u00f3n del intervalo de comprobaci\u00f3n.
+
+startup.check.interval.config.invalid.CWMMH01011W=CWMMH01011W: Se ha proporcionado un valor no v\u00e1lido [ {0} ] para el intervalo de comprobaci\u00f3n de inicio. El valor proporcionado debe consistir en un n\u00famero seguido de una unidad de tiempo opcional de "ms" para milisegundos o "s" para segundos. Si no se especifica ninguna unidad de tiempo, el valor por defecto es en milisegundos. El tiempo de ejecuci\u00f3n por defecto es de 100 milisegundos.
+startup.check.interval.config.invalid.CWMMH01011W.explanation=La configuraci\u00f3n del intervalo de comprobaci\u00f3n de inicio s\u00f3lo acepta valores con un n\u00famero seguido de una unidad de tiempo opcional de "ms" para milisegundos o "s" para segundos. Si no se especifica ninguna unidad de tiempo, el valor por defecto es en milisegundos.
+startup.check.interval.config.invalid.CWMMH01011W.useraction=Especifique un valor correcto para la configuraci\u00f3n del intervalo de comprobaci\u00f3n de inicio.
+
+startup.check.interval.config.only.set.CWMMH01012W=CWMMH01012W: La configuraci\u00f3n del intervalo de comprobaci\u00f3n de inicio se estableci\u00f3 antes de configurar el intervalo de comprobaci\u00f3n. La comprobaci\u00f3n de estado basada en archivos se desactiva cuando no se configura el intervalo de comprobaci\u00f3n.
+startup.check.interval.config.only.set.CWMMH01012W.explanation=Configurar s\u00f3lo el intervalo de comprobaci\u00f3n de inicio no habilita el mecanismo de comprobaci\u00f3n de estado basado en archivos.
+startup.check.interval.config.only.set.CWMMH01012W.useraction=Configure el intervalo de comprobaci\u00f3n para activar el mecanismo de comprobaci\u00f3n de estado basado en archivos.
+
+enable.endpoints.config.without.file.health.check.CWMMH01013W=CWMMH01013W: La configuraci\u00f3n de \u00ab enableEndpoints \u00bb est\u00e1 establecida en \u00abfalse\u00bb, pero la funci\u00f3n de comprobaci\u00f3n de estado basada en archivos no est\u00e1 habilitada. Esta configuraci\u00f3n no tiene ning\u00fan efecto y los puntos finales de comprobaci\u00f3n de estado est\u00e1n habilitados.
+enable.endpoints.config.without.file.health.check.CWMMH01013W.explanation=La configuraci\u00f3n de \u00ab enableEndpoints \u00bb solo surte efecto cuando est\u00e1n habilitadas las comprobaciones de estado basadas en archivos.
+enable.endpoints.config.without.file.health.check.CWMMH01013W.useraction=Active las funciones de comprobaci\u00f3n del estado basadas en archivos o elimine la configuraci\u00f3n de \u00ab enableEndpoints \u00bb.
+
+enable.endpoints.env.var.invalid.value.CWMMH01014W=CWMMH01014W: Se ha introducido un valor no v\u00e1lido [ {0} ] para la variable de entorno MP_HEALTH_ENABLE_ENDPOINTS. El valor que se introduzca debe ser \u00abtrue\u00bb o \u00abfalse\u00bb. El entorno de ejecuci\u00f3n utiliza la configuraci\u00f3n del servidor o, en su defecto, el valor predeterminado es \u00abtrue\u00bb.
+enable.endpoints.env.var.invalid.value.CWMMH01014W.explanation=La variable de entorno MP_HEALTH_ENABLE_ENDPOINTS solo admite los valores \u00abtrue\u00bb o \u00abfalse\u00bb (sin distinci\u00f3n entre may\u00fasculas y min\u00fasculas).
+enable.endpoints.env.var.invalid.value.CWMMH01014W.useraction=Establece la variable de entorno MP_HEALTH_ENABLE_ENDPOINTS en \u00abtrue\u00bb o \u00abfalse\u00bb, o elimina la variable de entorno para utilizar la configuraci\u00f3n del servidor.

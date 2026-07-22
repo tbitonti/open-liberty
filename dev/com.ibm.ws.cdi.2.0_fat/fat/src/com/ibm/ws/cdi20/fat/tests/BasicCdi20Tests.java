@@ -1,17 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.cdi20.fat.tests;
-
-import static componenttest.rules.repeater.EERepeatTests.EEVersion.EE8;
-import static componenttest.rules.repeater.EERepeatTests.EEVersion.EE9;
 
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
@@ -45,7 +44,6 @@ import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.custom.junit.runner.TestModeFilter;
-import componenttest.rules.repeater.EERepeatTests;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
@@ -60,7 +58,7 @@ public class BasicCdi20Tests extends FATServletClient {
     public static final String SERVER_NAME = "cdi20BasicServer";
 
     @ClassRule
-    public static RepeatTests r = EERepeatTests.with(SERVER_NAME, EE9, EE8);
+    public static RepeatTests r = FATSuite.defaultRepeat(SERVER_NAME);
 
     public static final String BEAN_MANAGER_LOOKUP_APP_NAME = "beanManagerLookupApp";
     public static final String CONFIGURATION_APP_NAME = "configuratorApp";
@@ -82,7 +80,6 @@ public class BasicCdi20Tests extends FATServletClient {
 
                     @TestServlet(servlet = TrimTestServlet.class, contextRoot = TRIM_TEST_APP_NAME) //FULL
     })
-
     public static LibertyServer server;
 
     @BeforeClass

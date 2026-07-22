@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -38,12 +40,13 @@ import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.config.ServerConfiguration;
 import com.ibm.websphere.simplicity.log.Log;
 
+import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.Server;
-import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
 
 @RunWith(FATRunner.class)
+@AllowedFFDC("javax.management.InstanceNotFoundException")
 public class TestEnableDisableFeaturesTest {
 
     private static Class<?> c = TestEnableDisableFeaturesTest.class;
@@ -242,6 +245,35 @@ public class TestEnableDisableFeaturesTest {
                         "vendor_connectionpool_queuedRequests_total{datasource=\"jdbc_exampleDS2\"}",
                         "vendor_connectionpool_usedConnections_total{datasource=\"jdbc_exampleDS2\"}", },
                 new String[] {});
+
+        currentServ.setMarkToEndOfLog();
+        // FAT updated to check that connectionpool metric remains after unloading
+        // application.
+        boolean res = currentServ.removeDropinsApplications("testJDBCApp.war");
+        Assert.assertTrue("TestJDBCApp.war was not removed", res);
+
+        currentServ.waitForStringInLog(".*CWWKZ0009I: The application testJDBCApp has stopped successfully.*");
+        Log.info(c, testName, "------- Removed JDBC application ------");
+        checkStrings(getHttpsServlet("/metrics/vendor", serverEDF4),
+                new String[] { "vendor_connectionpool_connectionHandles{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_freeConnections{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_destroy_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_create_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_managedConnections{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_waitTime_total_seconds{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_inUseTime_total_seconds{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_queuedRequests_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_usedConnections_total{datasource=\"jdbc_exampleDS1\"}",
+                        "vendor_connectionpool_connectionHandles{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_freeConnections{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_destroy_total{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_create_total{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_managedConnections{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_waitTime_total_seconds{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_inUseTime_total_seconds{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_queuedRequests_total{datasource=\"jdbc_exampleDS2\"}",
+                        "vendor_connectionpool_usedConnections_total{datasource=\"jdbc_exampleDS2\"}", },
+                new String[] {});
     }
 
     @Test
@@ -286,8 +318,7 @@ public class TestEnableDisableFeaturesTest {
             // server
             waitForSecurityPrerequisites(serverEDF6, 60000);
         } else {
-            Assert.assertNotNull("TCP Channel defaultHttpEndpoint-ssl has not started (CWWKO0219I not found)",
-                    serverEDF6.waitForStringInLog("CWWKO0219I.*defaultHttpEndpoint-ssl", 60000));
+            serverEDF6.waitForDefaultHTTPEndpointSSLStart(60000);
         }
         serverEDF6FirstUse = false;
 
@@ -314,8 +345,7 @@ public class TestEnableDisableFeaturesTest {
             // server
             waitForSecurityPrerequisites(serverEDF6, 60000);
         } else {
-            Assert.assertNotNull("TCP Channel defaultHttpEndpoint-ssl has not started (CWWKO0219I not found)",
-                    serverEDF6.waitForStringInLog("CWWKO0219I.*defaultHttpEndpoint-ssl", 60000));
+            serverEDF6.waitForDefaultHTTPEndpointSSLStart(60000);
         }
         serverEDF6FirstUse = false;
 
@@ -415,17 +445,11 @@ public class TestEnableDisableFeaturesTest {
                 new String[] { "vendor_connectionpool", "vendor_servlet", "{servlet=\"testJDBCApp\"}" });
     }
 
-    private void waitForSecurityPrerequisites(LibertyServer server, int timeout) {
-        // Need to ensure LTPA keys and configuration are created before hitting a
-        // secure endpoint
-        Assert.assertNotNull("LTPA keys are not created within timeout period of " + timeout + "ms.",
-                server.waitForStringInLog("CWWKS4104A", timeout));
-        Assert.assertNotNull("LTPA configuration is not ready within timeout period of " + timeout + "ms.",
-                server.waitForStringInLog("CWWKS4105I", timeout));
-
+    private void waitForSecurityPrerequisites(LibertyServer server, int timeout) throws Exception {
+        // Need to ensure LTPA configuration is ready before hitting a secure endpoint
+        server.waitForLTPAConfigReady(timeout);
         // Ensure defaultHttpEndpoint-ssl TCP Channel is started
-        Assert.assertNotNull("TCP Channel defaultHttpEndpoint-ssl has not started (CWWKO0219I not found)",
-                server.waitForStringInLog("CWWKO0219I.*defaultHttpEndpoint-ssl", timeout));
+        server.waitForDefaultHTTPEndpointSSLStart(timeout);
     }
 
     private String getHttpServlet(String servletPath, LibertyServer server) throws Exception {

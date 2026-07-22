@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -396,6 +398,7 @@ public class JobInstances implements RESTHandler {
         		// Note: headers must be set *before* writing to the output stream
         		response.setContentType("application/zip");
         		response.setResponseHeader("Content-Disposition", "attachment; filename=" + StringUtils.enquote(getZipFileName(jobInstanceLog)));
+        		BatchRequestUtil.addExtraResponseHeaders(response);
 
         		HashSet<String> partitionEndpointURLs = new HashSet<String>();
 
@@ -446,6 +449,7 @@ public class JobInstances implements RESTHandler {
 
             	// Note: headers must be set *before* writing to the output stream
             	response.setContentType("text/plain; charset=UTF-8");
+            	BatchRequestUtil.addExtraResponseHeaders(response);
 
             	ZipHelper.aggregateFilesToStream(jobInstanceLog.getJobLogFiles(),
                                                  jobInstanceLog.getInstanceLogRootDirs(),
@@ -498,6 +502,7 @@ public class JobInstances implements RESTHandler {
 
             	// Note: headers must be set *before* writing to the output stream
             	response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
+            	BatchRequestUtil.addExtraResponseHeaders(response);
 
                 BatchJSONHelper.writeJobInstanceLogLinks(jobInstanceLog,
                                                          BatchRequestUtil.getUrlRoot(request),
@@ -530,6 +535,7 @@ public class JobInstances implements RESTHandler {
         		JobInstanceLog jobInstanceLog = jobLogManagerService.getJobInstanceLogAllExecutions(jobInstanceId);
 
         		response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
+        		BatchRequestUtil.addExtraResponseHeaders(response);
 
                 BatchJSONHelper.writeJobInstanceLogLinks(jobInstanceLog,
                                                          BatchRequestUtil.getUrlRoot(request),
@@ -587,6 +593,7 @@ public class JobInstances implements RESTHandler {
 
         // Note: headers must be set *before* writing to the output stream
         response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
+        BatchRequestUtil.addExtraResponseHeaders(response);
 
         BatchJSONHelper.writeJobInstance(jobInstance,
                                          jobExecs,
@@ -662,6 +669,7 @@ public class JobInstances implements RESTHandler {
             // Note: headers must be set *before* writing to the output stream
             response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
             response.setStatus(HttpURLConnection.HTTP_CREATED);
+            BatchRequestUtil.addExtraResponseHeaders(response);
 
             BatchJSONHelper.writeJobInstance(jobInstance,
                                              BatchRequestUtil.getUrlRoot(request),
@@ -688,6 +696,7 @@ public class JobInstances implements RESTHandler {
 
             // Note: headers must be set *before* writing to the output stream
             response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
+            BatchRequestUtil.addExtraResponseHeaders(response);
 
             if (jobExecutionId >= 0) {
                 // Return the latest job execution record, to be consistent with JobExecutions.stopJobExecution.
@@ -741,6 +750,7 @@ public class JobInstances implements RESTHandler {
 
             // Note: headers must be set *before* writing to the output stream
             response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
+            BatchRequestUtil.addExtraResponseHeaders(response);
 
             BatchJSONHelper.writeJobInstance(jobInstance,
                                              BatchRequestUtil.getUrlRoot(request),
@@ -854,6 +864,7 @@ public class JobInstances implements RESTHandler {
 
             if (fileSuccess) {
             	boolean dbSuccess = wsJobOperator.purgeJobInstance(jobInstanceId);
+            	BatchRequestUtil.addExtraResponseHeaders(response);
 
             	if (!dbSuccess) {
             		response.sendError(HttpURLConnection.HTTP_INTERNAL_ERROR, "An error occurred while purging the job instance (" + jobInstanceId + "). "
@@ -869,6 +880,7 @@ public class JobInstances implements RESTHandler {
         } else { //We won't even try to purge job logs. Only purge from database.
 
             boolean dbSuccess = wsJobOperator.purgeJobInstance(jobInstanceId);
+            BatchRequestUtil.addExtraResponseHeaders(response);
 
             if (!dbSuccess) {
                 response.sendError(HttpURLConnection.HTTP_INTERNAL_ERROR, "An error occurred while purging the job instance (" + jobInstanceId + "). Not all database entries were deleted.");
@@ -898,6 +910,7 @@ public class JobInstances implements RESTHandler {
 
         // Note: headers must be set *before* writing to the output stream
         response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
+        BatchRequestUtil.addExtraResponseHeaders(response);
 
         BatchJSONHelper.writeJobInstances(jobInstances,
                                           BatchRequestUtil.getUrlRoot(request),
@@ -1048,6 +1061,7 @@ public class JobInstances implements RESTHandler {
 
         // Note: headers must be set *before* writing to the output stream
         response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
+        BatchRequestUtil.addExtraResponseHeaders(response);
 
         BatchJSONHelper.writeJobInstances(jobInstances,
                                           BatchRequestUtil.getUrlRoot(request),
@@ -1083,6 +1097,7 @@ public class JobInstances implements RESTHandler {
 
         // Note: headers must be set *before* writing to the output stream
         response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
+        BatchRequestUtil.addExtraResponseHeaders(response);
 
         BatchJSONHelper.writeJobInstances(jobInstances,
                                           BatchRequestUtil.getUrlRoot(request),
@@ -1136,6 +1151,7 @@ public class JobInstances implements RESTHandler {
 
         // Note: headers must be set *before* writing to the output stream
         response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
+        BatchRequestUtil.addExtraResponseHeaders(response);
 
         BatchJSONHelper.buildAndWritePurgeJsonObject(purgeResponseList, response.getOutputStream());
 
@@ -1183,6 +1199,7 @@ public class JobInstances implements RESTHandler {
 
         // Note: headers must be set *before* writing to the output stream
         response.setContentType(BatchJSONHelper.MEDIA_TYPE_APPLICATION_JSON);
+        BatchRequestUtil.addExtraResponseHeaders(response);
 
         BatchJSONHelper.buildAndWritePurgeJsonObject(purgeResponseList, response.getOutputStream());
 

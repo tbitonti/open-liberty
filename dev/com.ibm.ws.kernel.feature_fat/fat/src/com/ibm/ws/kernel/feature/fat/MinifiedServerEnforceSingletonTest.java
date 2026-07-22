@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -53,6 +55,7 @@ public class MinifiedServerEnforceSingletonTest {
     private static final String PRODUCT_EXTENSION_NAME = "minifyEnforceSingleton";
     private static final String PRODUCT_FEATURE_PATH = PRODUCT_EXTENSION_NAME + "/lib/features/";
     private static final String PRODUCT_EXTENSIONS_PATH = "etc/extensions/";
+    private static final String LIB_EXTRACT = "lib/extract/";
 
     private static final String PRODUCT_FEATURE_A1 = "minifyEnforceSingletonA-1.0";
     private static final String PRODUCT_FEATURE_B1 = "minifyEnforceSingletonB-1.0";
@@ -90,6 +93,9 @@ public class MinifiedServerEnforceSingletonTest {
         server.uninstallProductExtension(PRODUCT_EXTENSION_NAME);
         server.deleteDirectoryFromLibertyInstallRoot(PRODUCT_EXTENSION_NAME);
         server.deleteFileFromLibertyInstallRoot(PRODUCT_EXTENSIONS_PATH + PRODUCT_FEATURE_PROPERTIES_FILE);
+        if (minifyUtils.isManifestOrLibExtractCreatedForTest())
+            server.deleteDirectoryFromLibertyInstallRoot(LIB_EXTRACT);
+
     }
 
     @After

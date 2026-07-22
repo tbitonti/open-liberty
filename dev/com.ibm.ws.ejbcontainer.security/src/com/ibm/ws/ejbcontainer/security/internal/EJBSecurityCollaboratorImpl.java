@@ -1,17 +1,21 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2019 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.ejbcontainer.security.internal;
 
+import java.security.AccessController;
 import java.security.Identity;
 import java.security.Principal;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -19,15 +23,25 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import javax.security.auth.Subject;
 import javax.security.auth.login.CredentialExpiredException;
 
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.ConfigurationPolicy;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 
 import com.ibm.ejs.container.BeanMetaData;
 import com.ibm.ejs.ras.TraceNLS;
+import com.ibm.websphere.csi.J2EEName;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.security.audit.AuditAuthResult;
@@ -45,7 +59,10 @@ import com.ibm.ws.ejbcontainer.EJBMethodMetaData;
 import com.ibm.ws.ejbcontainer.EJBRequestData;
 import com.ibm.ws.ejbcontainer.EJBSecurityCollaborator;
 import com.ibm.ws.ejbcontainer.security.internal.jacc.EJBJaccAuthorizationHelper;
-import com.ibm.ws.ejbcontainer.security.internal.jacc.JaccUtil;
+import com.ibm.ws.ejbcontainer.security.jacc.EJBJaccService;
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+import com.ibm.ws.kernel.security.thread.ThreadIdentityException;
+import com.ibm.ws.kernel.security.thread.ThreadIdentityManager;
 import com.ibm.ws.runtime.metadata.ComponentMetaData;
 import com.ibm.ws.runtime.metadata.MetaData;
 import com.ibm.ws.security.SecurityService;
@@ -55,10 +72,10 @@ import com.ibm.ws.security.authentication.UnauthenticatedSubjectService;
 import com.ibm.ws.security.authentication.principals.WSIdentity;
 import com.ibm.ws.security.authentication.principals.WSPrincipal;
 import com.ibm.ws.security.authorization.AuthorizationService;
-import com.ibm.ws.security.authorization.jacc.JaccService;
 import com.ibm.ws.security.collaborator.CollaboratorUtils;
 import com.ibm.ws.security.context.SubjectManager;
 import com.ibm.ws.security.credentials.CredentialsService;
+import com.ibm.ws.security.ready.SecurityReadyService;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 
 /**
@@ -66,38 +83,60 @@ import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
  */
 
 @SuppressWarnings("deprecation")
+@Component(service = { EJBSecurityCollaborator.class, ComponentMetaDataListener.class }, immediate = true,
+           configurationPolicy = ConfigurationPolicy.OPTIONAL, property = "service.vendor=IBM")
 public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<SecurityCookieImpl>, EJBAuthorizationHelper, ComponentMetaDataListener {
     private static final TraceComponent tc = Tr.register(EJBSecurityCollaboratorImpl.class);
     protected static final String KEY_SECURITY_SERVICE = "securityService";
     protected static final String KEY_CREDENTIAL_SERVICE = "credentialsService";
     protected static final String KEY_UNAUTHENTICATED_SUBJECT_SERVICE = "unauthenticatedSubjectService";
-    protected static final String KEY_JACC_SERVICE = "jaccService";
+    protected static final String KEY_EJB_JACC_SERVICE = "eJBJaccService";
+    protected static final String KEY_SECURITY_READY_SERVICE = "securityReadyService";
+    private SecurityReadyService securityReadyService;
     protected final AtomicServiceReference<SecurityService> securityServiceRef = new AtomicServiceReference<SecurityService>(KEY_SECURITY_SERVICE);
     private final AtomicServiceReference<CredentialsService> credServiceRef = new AtomicServiceReference<CredentialsService>(KEY_CREDENTIAL_SERVICE);
     private final AtomicServiceReference<UnauthenticatedSubjectService> unauthenticatedSubjectServiceRef = new AtomicServiceReference<UnauthenticatedSubjectService>(KEY_UNAUTHENTICATED_SUBJECT_SERVICE);
-    private final AtomicServiceReference<JaccService> jaccService = new AtomicServiceReference<JaccService>(KEY_JACC_SERVICE);
+    private final AtomicServiceReference<EJBJaccService> ejbJaccService = new AtomicServiceReference<EJBJaccService>(KEY_EJB_JACC_SERVICE);
 
-    protected SubjectManager subjectManager;
-    protected CollaboratorUtils collabUtils;
+    protected final SubjectManager subjectManager;
+    protected final CollaboratorUtils collabUtils;
+
+    private final EJBDeclaredRolesService rolesService;
 
     protected AuditManager auditManager;
 
     protected volatile EJBSecurityConfig ejbSecConfig = null;
     private EJBAuthorizationHelper eah = this;
 
-    /**
-     * Zero length constructor required by DS.
-     */
-    public EJBSecurityCollaboratorImpl() {
-        this(new SubjectManager());
+    private boolean waitedForSecurity = false;
+
+    private static final String securityWaitTimeProperty = "io.openliberty.ejb.security.startWaitTime";
+
+    // wait time in seconds, default 0
+    private static final int securityWaitTime = AccessController.doPrivileged(new PrivilegedAction<Integer>() {
+        @Override
+        public Integer run() {
+            int waitTime = Integer.getInteger(securityWaitTimeProperty, 0);
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "EJBSecurityCollaborator securityWaitTime set to " + waitTime + " seconds");
+            }
+            return waitTime;
+        }
+    });
+
+    @Activate
+    public EJBSecurityCollaboratorImpl(@Reference EJBDeclaredRolesService rolesService) {
+        this(new SubjectManager(), rolesService);
         this.auditManager = new AuditManager();
     }
 
-    public EJBSecurityCollaboratorImpl(SubjectManager subjectManager) {
+    EJBSecurityCollaboratorImpl(SubjectManager subjectManager, EJBDeclaredRolesService rolesService) {
         this.subjectManager = subjectManager;
         this.collabUtils = new CollaboratorUtils(subjectManager);
+        this.rolesService = rolesService;
     }
 
+    @Reference(name = KEY_CREDENTIAL_SERVICE)
     protected void setCredentialService(ServiceReference<CredentialsService> ref) {
         credServiceRef.setReference(ref);
     }
@@ -106,6 +145,7 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
         credServiceRef.unsetReference(ref);
     }
 
+    @Reference(name = KEY_SECURITY_SERVICE)
     protected void setSecurityService(ServiceReference<SecurityService> ref) {
         securityServiceRef.setReference(ref);
     }
@@ -114,6 +154,15 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
         securityServiceRef.unsetReference(ref);
     }
 
+    @Reference(name = KEY_SECURITY_READY_SERVICE)
+    protected void setSecurityReadyService(SecurityReadyService ref) {
+        this.securityReadyService = ref;
+    }
+
+    protected void unsetSecurityReadyService(SecurityReadyService ref) {
+    }
+
+    @Reference(name = KEY_UNAUTHENTICATED_SUBJECT_SERVICE)
     protected void setUnauthenticatedSubjectService(ServiceReference<UnauthenticatedSubjectService> ref) {
         unauthenticatedSubjectServiceRef.setReference(ref);
     }
@@ -122,24 +171,27 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
         unauthenticatedSubjectServiceRef.unsetReference(ref);
     }
 
-    protected void setJaccService(ServiceReference<JaccService> reference) {
-        jaccService.setReference(reference);
-        eah = new EJBJaccAuthorizationHelper(jaccService);
+    @Reference(name = KEY_EJB_JACC_SERVICE, cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    protected void setEJBJaccService(ServiceReference<EJBJaccService> reference) {
+        ejbJaccService.setReference(reference);
+        eah = new EJBJaccAuthorizationHelper(ejbJaccService, this);
     }
 
-    protected void unsetJaccService(ServiceReference<JaccService> reference) {
-        jaccService.unsetReference(reference);
+    protected void unsetEJBJaccService(ServiceReference<EJBJaccService> reference) {
+        ejbJaccService.unsetReference(reference);
         eah = this;
     }
 
+    @Activate
     protected void activate(ComponentContext cc, Map<String, Object> props) {
         securityServiceRef.activate(cc);
         credServiceRef.activate(cc);
         unauthenticatedSubjectServiceRef.activate(cc);
-        jaccService.activate(cc);
+        ejbJaccService.activate(cc);
         ejbSecConfig = new EJBSecurityConfigImpl(props);
     }
 
+    @Modified
     protected void modified(Map<String, Object> newProperties) {
         EJBSecurityConfig newEjbSecConfig = new EJBSecurityConfigImpl(newProperties);
         // Capture the properties that were changed for our audit record
@@ -148,11 +200,12 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
         Tr.audit(tc, "EJB_SECURITY_CONFIGURATION_UPDATED", deltaString);
     }
 
+    @Deactivate
     protected void deactivate(ComponentContext cc) {
         securityServiceRef.deactivate(cc);
         credServiceRef.deactivate(cc);
         unauthenticatedSubjectServiceRef.deactivate(cc);
-        jaccService.deactivate(cc);
+        ejbJaccService.deactivate(cc);
     }
 
     /**
@@ -162,14 +215,13 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
      * delegate to the run-as user, if specified. {@inheritDoc}
      *
      * @throws EJBAccessDeniedException when the caller is not authorized to invoke
-     *             the given request
+     *                                      the given request
      */
     /** {@inheritDoc} */
     @Override
     public SecurityCookieImpl preInvoke(EJBRequestData request) throws EJBAccessDeniedException {
         Subject invokedSubject = subjectManager.getInvocationSubject();
         Subject callerSubject = subjectManager.getCallerSubject();
-
         EJBMethodMetaData methodMetaData = request.getEJBMethodMetaData();
 
         if (ejbSecConfig.getUseUnauthenticatedForExpiredCredentials()) {
@@ -193,6 +245,11 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
         performDelegation(methodMetaData, subjectToAuthorize);
         subjectManager.setCallerSubject(subjectToAuthorize);
         SecurityCookieImpl securityCookie = new SecurityCookieImpl(originalInvokedSubject, originalCallerSubject, subjectManager.getInvocationSubject(), subjectToAuthorize);
+        if (ThreadIdentityManager.isAppThreadIdentityEnabled()) {
+            EJBSecurityContext ejbSecurityContext = new EJBSecurityContext(subjectManager.getInvocationSubject(), subjectManager.getCallerSubject());
+            syncToOSThread(ejbSecurityContext);
+            securityCookie.setSyncToOSThreadToken(ejbSecurityContext.getSyncToOSThreadToken());
+        }
         return securityCookie;
     }
 
@@ -203,7 +260,7 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
     @Override
     public void postInvoke(EJBRequestData request, SecurityCookieImpl preInvokeResult) throws EJBAccessDeniedException {
         if (preInvokeResult != null) {
-            JaccService js = jaccService.getService();
+            EJBJaccService js = ejbJaccService.getService();
             if (js != null) {
                 js.resetPolicyContextHandlerInfo();
             }
@@ -218,13 +275,22 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
                 // otherwise, keep the current subjects in order to preserve the subjects from the programmatic login.
                 Subject invokedSubject = securityCookie.getInvokedSubject();
                 Subject receivedSubject = securityCookie.getReceivedSubject();
-
                 subjectManager.setCallerSubject(receivedSubject);
                 subjectManager.setInvocationSubject(invokedSubject);
             } else {
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                     Tr.debug(tc, "Subjects have been changed, preserving the current Subjects.");
                 }
+            }
+            try {
+                resetSyncToOSThread(securityCookie);
+
+            } catch (ThreadIdentityException e) {
+                throw new EJBAccessDeniedException(TraceNLS.getFormattedMessage(this.getClass(),
+                                                                                TraceConstants.MESSAGE_BUNDLE,
+                                                                                "EJB_AUTHZ_EXCLUDED",
+                                                                                new Object[] { "postInvoke" },
+                                                                                "syncToOs failed {0}."));
             }
         }
     }
@@ -292,6 +358,7 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
     public boolean isCallerInRole(EJBComponentMetaData cmd, EJBRequestData request, String roleName, String roleLink, Subject subject) {
         String role = roleLink == null ? roleName : roleLink;
         String appName = getApplicationName(request.getEJBMethodMetaData());
+        waitForSecurity();
         SecurityService securityService = securityServiceRef.getService();
         AuthorizationService authzService = securityService.getAuthorizationService();
         if (authzService == null) {
@@ -414,7 +481,7 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
      * <li>is the subject authorized to any of the required roles</li>
      *
      * @param EJBRequestData the info on the EJB method to call
-     * @param subject the subject authorize
+     * @param subject        the subject authorize
      * @throws EJBAccessDeniedException when the subject is not authorized to the EJB
      */
     @Override
@@ -470,6 +537,7 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
 
             return;
         }
+        waitForSecurity();
         SecurityService securityService = securityServiceRef.getService();
         AuthorizationService authzService = securityService.getAuthorizationService();
 
@@ -541,20 +609,23 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
         return methodMetaData.getEJBComponentMetaData().getJ2EEName().getComponent();
     }
 
-    /**
-     * Gets the run-as subject for the given EJB method, and sets it as the invocation subject.
-     * If the run-as subject is null or the deployment descriptor specifies to run as the caller,
-     * then the passed-in subject is set as the invocation subject instead.
-     *
-     * @param methodMetaData the EJB method info
-     * @param delegationSubject subject to set as the invocation when running as caller
-     */
-    private void performDelegation(EJBMethodMetaData methodMetaData, Subject delegationSubject) {
-        ArrayList<String> delUsers = new ArrayList<String>();
-        String invalidUser = "";
-        Set<WSCredential> publicCredentials = (delegationSubject == null ? null : delegationSubject.getPublicCredentials(WSCredential.class));
-        Iterator<WSCredential> it = null;
+    private void performDelegationAudit(Subject initialSubject, String roleName, Subject delegationSubject, boolean success, AuthenticationService authService) {
+        final Object httpRequest = auditManager == null ? null : auditManager.getHttpServletRequest();
+
+        String outcome = success ? AuditConstants.SUCCESS : AuditConstants.FAILURE;
+
+        // if HttpRequest is null, the audit does nothing, so don't call it if null
+        if (httpRequest == null || !Audit.isAuditRequired(Audit.EventID.SECURITY_AUTHN_DELEGATION_01, outcome)) {
+            return;
+        }
+
         HashMap<String, Object> extraAuditData = new HashMap<String, Object>();
+        extraAuditData.put("HTTP_SERVLET_REQUEST", httpRequest);
+        extraAuditData.put("REASON_TYPE", "EJB");
+
+        ArrayList<String> delUsers = new ArrayList<String>();
+        Set<WSCredential> publicCredentials = (initialSubject == null ? null : initialSubject.getPublicCredentials(WSCredential.class));
+        Iterator<WSCredential> it = null;
         if (publicCredentials != null && (it = publicCredentials.iterator()) != null && it.hasNext()) {
             WSCredential credential = it.next();
             try {
@@ -571,21 +642,52 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
             }
         }
 
-        String applicationName = getApplicationName(methodMetaData);
-        String methodName = methodMetaData.getMethodName();//TODO: which API to call? methodInfo.getMethodSignature()+":"+methodInfo.getInterfaceType().getValue();
-
-        if (auditManager != null && auditManager.getHttpServletRequest() != null) {
-            extraAuditData.put("HTTP_SERVLET_REQUEST", auditManager.getHttpServletRequest());
+        if (roleName == null) {
+            delUsers.add("EJB_RUNAS_SYSTEM");
+        } else {
+            extraAuditData.put("RUN_AS_ROLE", roleName);
+            if (delegationSubject != null) {
+                String buff = delegationSubject.toString();
+                if (buff != null) {
+                    int a = buff.indexOf("accessId");
+                    if (a != -1) {
+                        buff = buff.substring(a + 9);
+                        a = buff.indexOf(",");
+                        if (a != -1) {
+                            buff = buff.substring(0, a);
+                            delUsers.add(buff);
+                        }
+                    }
+                }
+            } else {
+                String invalidUser = authService.getInvalidDelegationUser();
+                delUsers.add(invalidUser);
+            }
         }
 
-        extraAuditData.put("REASON_TYPE", "EJB");
+        extraAuditData.put("DELEGATION_USERS_LIST", delUsers);
+
+        Audit.audit(Audit.EventID.SECURITY_AUTHN_DELEGATION_01, extraAuditData, outcome, success ? Integer.valueOf(200) : Integer.valueOf(401));
+    }
+
+    /**
+     * Gets the run-as subject for the given EJB method, and sets it as the invocation subject.
+     * If the run-as subject is null or the deployment descriptor specifies to run as the caller,
+     * then the passed-in subject is set as the invocation subject instead.
+     *
+     * @param methodMetaData    the EJB method info
+     * @param delegationSubject subject to set as the invocation when running as caller
+     */
+    private void performDelegation(EJBMethodMetaData methodMetaData, Subject delegationSubject) {
+
+        final Subject initialSubject = delegationSubject;
+        String applicationName = getApplicationName(methodMetaData);
+        String methodName = methodMetaData.getMethodName();//TODO: which API to call? methodInfo.getMethodSignature()+":"+methodInfo.getInterfaceType().getValue();
 
         if (methodMetaData.isUseSystemPrincipal()) {
             // fail request because run-as-mode SYSTEM_IDENTITY is not supported on Liberty
             Tr.error(tc, "EJB_RUNAS_SYSTEM_NOT_SUPPORTED", methodName, applicationName);
-            delUsers.add("EJB_RUNAS_SYSTEM");
-            extraAuditData.put("DELEGATION_USERS_LIST", delUsers);
-            Audit.audit(Audit.EventID.SECURITY_AUTHN_DELEGATION_01, extraAuditData, AuditConstants.FAILURE, Integer.valueOf(401));
+            performDelegationAudit(initialSubject, null, null, false, null);
             throw new EJBAccessDeniedException(TraceNLS.getFormattedMessage(this.getClass(),
                                                                             TraceConstants.MESSAGE_BUNDLE,
                                                                             "EJB_RUNAS_SYSTEM_NOT_SUPPORTED",
@@ -603,68 +705,22 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
             return;
         } else {
             String roleName = getRunAsRole(methodMetaData);
-            extraAuditData.put("RUN_AS_ROLE", roleName);
             if (roleName != null) {
+                waitForSecurity();
+                SecurityService securityService = securityServiceRef.getService();
+                AuthenticationService authService = securityService.getAuthenticationService();
+                boolean success;
                 try {
-                    SecurityService securityService = securityServiceRef.getService();
-                    AuthenticationService authService = securityService.getAuthenticationService();
                     delegationSubject = authService.delegate(roleName, getApplicationName(methodMetaData));
-
-                    if (delegationSubject != null) {
-                        String buff = delegationSubject.toString();
-                        if (buff != null) {
-                            int a = buff.indexOf("accessId");
-                            if (a != -1) {
-                                buff = buff.substring(a + 9);
-                                a = buff.indexOf(",");
-                                if (a != -1) {
-                                    buff = buff.substring(0, a);
-                                    delUsers.add(buff);
-                                }
-                            }
-
-                        }
-                    } else {
-                        invalidUser = authService.getInvalidDelegationUser();
-                        delUsers.add(invalidUser);
-                    }
-                    extraAuditData.put("DELEGATION_USERS_LIST", delUsers);
-                    if (delegationSubject != null) {
-                        Audit.audit(Audit.EventID.SECURITY_AUTHN_DELEGATION_01, extraAuditData, AuditConstants.SUCCESS, Integer.valueOf(200));
-                    } else {
-                        Audit.audit(Audit.EventID.SECURITY_AUTHN_DELEGATION_01, extraAuditData, AuditConstants.FAILURE, Integer.valueOf(401));
-
-                    }
-
+                    success = (delegationSubject != null);
                 } catch (IllegalArgumentException e) {
-                    if (delegationSubject != null) {
-                        String buff = delegationSubject.toString();
-                        if (buff != null) {
-                            int a = buff.indexOf("accessId");
-                            if (a != -1) {
-                                buff = buff.substring(a + 9);
-                                a = buff.indexOf(",");
-                                if (a != -1) {
-                                    buff = buff.substring(0, a);
-                                    delUsers.add(buff);
-                                }
-                            }
-
-                        }
-                    } else {
-                        SecurityService securityService = securityServiceRef.getService();
-                        AuthenticationService authService = securityService.getAuthenticationService();
-                        invalidUser = authService.getInvalidDelegationUser();
-                        delUsers.add(invalidUser);
-                        extraAuditData.put("DELEGATION_USERS_LIST", delUsers);
-                    }
-
-                    Audit.audit(Audit.EventID.SECURITY_AUTHN_DELEGATION_01, extraAuditData, AuditConstants.FAILURE, Integer.valueOf(401));
-
+                    success = false;
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                         Tr.debug(tc, "Exception performing delegation.", e);
                     }
                 }
+
+                performDelegationAudit(initialSubject, roleName, delegationSubject, success, authService);
             }
         }
 
@@ -702,7 +758,7 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
 
     @Override
     public boolean areRequestMethodArgumentsRequired() {
-        JaccService js = jaccService.getService();
+        EJBJaccService js = ejbJaccService.getService();
         boolean result = false;
         if (js != null) {
             result = js.areRequestMethodArgumentsRequired();
@@ -717,13 +773,13 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
      */
     @Override
     public void componentMetaDataCreated(MetaDataEvent<ComponentMetaData> event) {
-        JaccService js = jaccService.getService();
-        if (js != null) {
-            MetaData metaData = event.getMetaData();
-            if (metaData instanceof BeanMetaData) {
-                BeanMetaData bmd = (BeanMetaData) metaData;
-                js.propagateEJBRoles(bmd.j2eeName.getApplication(), bmd.j2eeName.getModule(), bmd.enterpriseBeanName, bmd.ivRoleLinkMap,
-                                     JaccUtil.convertMethodInfoList(JaccUtil.mergeMethodInfos(bmd)));
+        MetaData metaData = event.getMetaData();
+        if (metaData instanceof BeanMetaData) {
+            BeanMetaData bmd = (BeanMetaData) metaData;
+            rolesService.addDeclaredRoles(bmd);
+            EJBJaccService js = ejbJaccService.getService();
+            if (js != null) {
+                js.propagateEJBRoles(bmd);
             }
         }
     }
@@ -735,6 +791,90 @@ public class EJBSecurityCollaboratorImpl implements EJBSecurityCollaborator<Secu
      */
     @Override
     public void componentMetaDataDestroyed(MetaDataEvent<ComponentMetaData> event) {
+        ComponentMetaData metaData = event.getMetaData();
+        if (metaData instanceof BeanMetaData) {
+            J2EEName j2eeName = metaData.getJ2EEName();
+            rolesService.removeModule(j2eeName.getApplication(), j2eeName.getModule());
+        }
 
+    }
+
+    @FFDCIgnore(InterruptedException.class)
+    private void waitForSecurity() {
+        final boolean isTraceOn = TraceComponent.isAnyTracingEnabled();
+
+        if (waitedForSecurity || securityReadyService.isSecurityReady()) {
+            waitedForSecurity = true;
+            return;
+        }
+
+        try {
+            if (isTraceOn && tc.isDebugEnabled())
+                Tr.debug(tc, "Waiting " + securityWaitTime + " seconds for Security Service to be ready");
+            if (securityReadyService.awaitSecurityReady(securityWaitTime, TimeUnit.SECONDS) == false) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(tc, "Security Service did not come up within " + securityWaitTime + " seconds");
+            }
+        } catch (InterruptedException e) {
+            if (isTraceOn && tc.isDebugEnabled())
+                Tr.debug(tc, "Waiting for Security Service failed: " + e);
+        }
+
+        waitedForSecurity = true;
+    }
+
+    /**
+     * Sync the invocation Subject's identity to the thread, if request by the application.
+     *
+     * @param WebSecurityContext The security context object for this application invocation.
+     *                               MUST NOT BE NULL.
+     * @throws SecurityViolationException
+     */
+    private void syncToOSThread(EJBSecurityContext ejbSecurityContext) throws EJBAccessDeniedException {
+        try {
+            if (ThreadIdentityManager.isAppThreadIdentityEnabled()) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Setting thread identity for EJB application");
+                }
+                Object token = ThreadIdentityManager.setAppThreadIdentity(ejbSecurityContext.getInvokedSubject());
+                ejbSecurityContext.setSyncToOSThreadToken(token);
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Thread identity set successfully");
+                }
+            }
+        } catch (ThreadIdentityException tie) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "Exception setting thread identity", tie);
+            }
+            throw new EJBAccessDeniedException(TraceNLS.getFormattedMessage(this.getClass(),
+                                                                            TraceConstants.MESSAGE_BUNDLE,
+                                                                            "EJB_AUTHZ_EXCLUDED",
+                                                                            new Object[] { "syncToOSThread" },
+                                                                            "syncToOs failed {0}."));
+        }
+    }
+
+    /**
+     * Remove the invocation Subject's identity from the thread, if it was previously sync'ed.
+     *
+     * @param WebSecurityContext The security context object for this application invocation.
+     *                               MUST NOT BE NULL.
+     * @throws ThreadIdentityException
+     */
+    private void resetSyncToOSThread(SecurityCookieImpl securityCookie) throws ThreadIdentityException {
+        Object token = securityCookie.getSyncToOSThreadToken();
+        if (token != null) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "Resetting thread identity for EJB application");
+            }
+            ThreadIdentityManager.resetChecked(token);
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "Thread identity reset successfully");
+            }
+        } else {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "No thread identity token to reset");
+            }
+        }
     }
 }

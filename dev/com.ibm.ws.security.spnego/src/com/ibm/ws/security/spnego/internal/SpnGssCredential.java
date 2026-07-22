@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014 IBM Corporation and others.
+ * Copyright (c) 2014, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -125,8 +127,8 @@ public class SpnGssCredential {
         GSSCredential spnGSSCred;
         String previousSpn = null;
 
-        if (Krb5Common.isIBMJdk18 || Krb5Common.isOtherSupportJDKs) {
-            if (Krb5Common.isOtherSupportJDKs) {// We support multiple SPNs so switch to the right one
+        if (Krb5Common.IBM_KRB5_LOGIN_MODULE_AVAILABLE || Krb5Common.OTHER_KRB5_LOGIN_MODULE_AVAILABLE) {
+            if (Krb5Common.OTHER_KRB5_LOGIN_MODULE_AVAILABLE) {// We support multiple SPNs so switch to the right one
                 previousSpn = Krb5Common.getSystemProperty(Krb5Common.KRB5_PRINCIPAL);
                 Krb5Common.setPropertyAsNeeded(Krb5Common.KRB5_PRINCIPAL, spn);
                 Krb5Common.setPropertyAsNeeded(Krb5Common.KRB5_NAME, spn);
@@ -141,7 +143,7 @@ public class SpnGssCredential {
                            GSSCredential.INDEFINITE_LIFETIME,
                            Krb5Common.SPNEGO_MECH_OID,
                            GSSCredential.ACCEPT_ONLY);
-            if (Krb5Common.isOtherSupportJDKs) {
+            if (Krb5Common.OTHER_KRB5_LOGIN_MODULE_AVAILABLE) {
                 Krb5Common.restorePropertyAsNeeded(Krb5Common.KRB5_PRINCIPAL, previousSpn, spn);
                 Krb5Common.restorePropertyAsNeeded(Krb5Common.KRB5_NAME, previousSpn, spn);
             }

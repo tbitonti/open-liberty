@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -80,6 +82,7 @@ public class WebContainerElement extends ConfigElement {
     private Boolean checkForceWorkRejected; // only for testing purposes
     private Boolean enablePartialURLtoExtendedDocumentRoot;
     private Boolean checkedRingetRealPath;
+    private Boolean getrealpathreturnsqualifiedpath;
     private Boolean disableServletContainerInitializersOnPreV8Apps;
     private Boolean ignoreInvalidQueryString;
 
@@ -102,6 +105,8 @@ public class WebContainerElement extends ConfigElement {
     private Boolean deferServletRequestListenerDestroyOnError; //PI26908
     private Boolean allowExpressionFactoryPerApp; // PI31922
     private Boolean useMaxRequestsizeforMultipart; //PI75528
+    private Boolean allowAbsoluteFileNameForPartWrite; //PH62271
+    private String displayCustomizedExceptionText;
 
     /**
      * @return the listeners
@@ -521,6 +526,13 @@ public class WebContainerElement extends ConfigElement {
     }
 
     /**
+     * @return the getrealpathreturnsqualifiedpath
+     */
+    public Boolean getGetRealPathReturnsQualifiedPath() {
+        return this.getrealpathreturnsqualifiedpath;
+    }
+
+    /**
      * @return the disableServletContainerInitializersOnPreV8Apps
      */
     public Boolean getdisableServletContainerInitializersOnPreV8Apps() {
@@ -623,6 +635,20 @@ public class WebContainerElement extends ConfigElement {
      */
     public Boolean getUseMaxRequestsizeforMultipart() {
         return useMaxRequestsizeforMultipart;
+    }
+
+    /*
+     * @return the allowAbsoluteFileNameForPartWrite
+     */
+    public Boolean getAllowAbsoluteFileNameForPartWrite(){
+        return allowAbsoluteFileNameForPartWrite;
+    }
+
+     /*
+      * @return the displaycustomizedexceptiontext
+      */
+    public String getDisplayCustomizedExceptionText() {
+        return displayCustomizedExceptionText;
     }
 
     @XmlAttribute(name = "listeners")
@@ -925,6 +951,11 @@ public class WebContainerElement extends ConfigElement {
         this.checkedRingetRealPath = e;
     }
 
+    @XmlAttribute(name = "com.ibm.ws.webcontainer.getrealpathreturnsqualifiedpath")
+    public void setGetRealPathReturnsQualifiedPath(Boolean e) {
+        this.getrealpathreturnsqualifiedpath = e;
+    }
+
     @XmlAttribute(name = "com.ibm.ws.webcontainer.disableServletContainerInitializersOnPreV8Apps")
     public void setdisableServletContainerInitializersOnPreV8Apps(Boolean e) {
         this.disableServletContainerInitializersOnPreV8Apps = e;
@@ -1087,6 +1118,22 @@ public class WebContainerElement extends ConfigElement {
         this.useMaxRequestsizeforMultipart = useMaxRequestsizeforMultipart;
     }//PI75528
 
+    /**
+     * @param allowAbsoluteFileNameForPartWrite the allowAbsoluteFileNameForPartWrite to set
+     */
+    @XmlAttribute(name = "com.ibm.ws.webcontainer.allowAbsoluteFileNameForPartWrite")
+    public void setAllowAbsoluteFileNameForPartWrite(Boolean allowAbsoluteFileNameForPartWrite) {
+        this.allowAbsoluteFileNameForPartWrite = allowAbsoluteFileNameForPartWrite;
+    }
+
+    /**
+     * @param displayCustomizedExceptionText the displaycustomizedexceptiontext to set
+     */
+    @XmlAttribute(name = "displayCustomizedExceptionText")
+    public void setDisplayCustomizedExceptionText(String displayCustomizedExceptionText) {
+        this.displayCustomizedExceptionText = displayCustomizedExceptionText;
+    }
+
     /*
      * listeners
      * decodeurlasutf8
@@ -1246,6 +1293,8 @@ public class WebContainerElement extends ConfigElement {
             buf.append("enablePartialURLtoExtendedDocumentRoot=\"" + enablePartialURLtoExtendedDocumentRoot + "\" ");
         if (checkedRingetRealPath != null)
             buf.append("checkedRingetRealPath=\"" + checkedRingetRealPath + "\" ");
+        if (getrealpathreturnsqualifiedpath != null)
+            buf.append("getrealpathreturnsqualifiedpath=\"" + getrealpathreturnsqualifiedpath + "\" ");
         if (disableServletContainerInitializersOnPreV8Apps != null)
             buf.append("disableServletContainerInitializersOnPreV8Apps=\"" + disableServletContainerInitializersOnPreV8Apps + "\" ");
         if (ignoreInvalidQueryString != null)
@@ -1315,6 +1364,13 @@ public class WebContainerElement extends ConfigElement {
         //PI75528
         if (useMaxRequestsizeforMultipart != null)
             buf.append("useMaxRequestsizeforMultipart=\"" + useMaxRequestsizeforMultipart + "\" ");
+
+        //PH62271
+        if (allowAbsoluteFileNameForPartWrite != null)
+            buf.append("allowAbsoluteFileNameForPartWrite=\"" + allowAbsoluteFileNameForPartWrite + "\" ");
+        
+        if (displayCustomizedExceptionText != null)
+            buf.append("displayCustomizedExceptionText=\"" + displayCustomizedExceptionText + "\" ");
 
         buf.append("}");
         return buf.toString();

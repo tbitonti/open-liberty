@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBM Corporation and others.
+ * Copyright (c) 2015, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,7 +15,7 @@
  */
 package com.ibm.ws.transport.iiop.security.config.tss;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 
 import javax.security.auth.Subject;
 
@@ -115,16 +117,14 @@ public class TSSGSSUPMechConfig extends TSSASMechConfig {
             }
 
             try {
-                String tokenTargetName = new String(token.target_name, "UTF8");
+                String tokenTargetName = new String(token.target_name, StandardCharsets.UTF_8);
 
                 if (!targetName.equals(tokenTargetName)) {
                     throw new SASException(2);
                 }
 
                 String username = Util.extractUserNameFromScopedName(token.username);
-                authenticationLayerSubject = authenticator.authenticate(username, new String(token.password, "UTF8"));
-            } catch (UnsupportedEncodingException e) {
-                throw new SASException(1, e);
+                authenticationLayerSubject = authenticator.authenticate(username, new String(token.password, StandardCharsets.UTF_8));
             } catch (AuthenticationException e) {
                 // An exception must be thrown on authentication failure per CSIv2 spec regardless that the mechanism is required or not.
                 throw new SASInvalidEvidenceException(e.getMessage(), SecurityMinorCodes.AUTHENTICATION_FAILED);
@@ -140,20 +140,15 @@ public class TSSGSSUPMechConfig extends TSSASMechConfig {
     }
 
     /** {@inheritDoc} */
-    @FFDCIgnore({ UnsupportedEncodingException.class })
     @Override
     public boolean isTrusted(TrustedIDEvaluator trustedIDEvaluator, EstablishContext msg, Codec codec) {
         // Get user and password from EstablishContext message and validate trust
         if (msg != null && msg.client_authentication_token != null && msg.client_authentication_token.length > 0) {
             InitialContextToken token = new InitialContextToken();
             if (Util.decodeGSSUPToken(codec, msg.client_authentication_token, token)) {
-                try {
-                    String user = Util.extractUserNameFromScopedName(token.username);
-                    String password = new String(token.password, "UTF8");
-                    return trustedIDEvaluator.isTrusted(user, password);
-                } catch (UnsupportedEncodingException e) {
-                    // TODO: Determine if a message is needed
-                }
+                String user = Util.extractUserNameFromScopedName(token.username);
+                String password = new String(token.password, StandardCharsets.UTF_8);
+                return trustedIDEvaluator.isTrusted(user, password);
             }
         }
         return false;

@@ -1,0 +1,27 @@
+receivers:
+ otlp:
+   protocols:
+     grpc:
+      endpoint: 0.0.0.0:4317
+     http:
+
+exporters:
+  debug:
+  otlp:
+    endpoint: "jaeger-all-in-one:4317"
+    tls:
+      insecure: true
+      insecure_skip_verify: true
+processors:
+ batch:
+   timeout: 0s
+
+service:
+  telemetry:
+    logs:
+      level: "debug"
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug,otlp]

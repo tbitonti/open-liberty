@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2018 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -112,7 +114,7 @@ public class WsMessageRouterImpl extends MessageRouterImpl implements WsMessageR
 
                 for (RoutedMessage earlierMessage : earlierMessages.toArray(new RoutedMessage[earlierMessages.size()])) {
                     if (shouldRouteMessageToLogHandler(earlierMessage, id)) {
-                        routeTo(earlierMessage, id);
+                        routeTo(earlierMessage, id, false);
                     }
                 }
             } finally {
@@ -148,7 +150,7 @@ public class WsMessageRouterImpl extends MessageRouterImpl implements WsMessageR
      * {@inheritDoc}
      */
     @Override
-    public boolean route(RoutedMessage routedMessage) {
+    public boolean route(RoutedMessage routedMessage, boolean messageHidden) {
 
         if (routedMessage == null) {
             return true;
@@ -164,7 +166,7 @@ public class WsMessageRouterImpl extends MessageRouterImpl implements WsMessageR
 
             Set<String> routeAllMsgsToTheseLogHandlers = getLogHandlersForMsgId("*");
             if (routeAllMsgsToTheseLogHandlers != null) {
-                routeToAll(routedMessage, routeAllMsgsToTheseLogHandlers);
+                routeToAll(routedMessage, routeAllMsgsToTheseLogHandlers, messageHidden);
             }
             Set<String> logHandlerIds = getLogHandlersForMessage(routedMessage.getFormattedMsg());
             if (logHandlerIds == null) {
@@ -182,13 +184,13 @@ public class WsMessageRouterImpl extends MessageRouterImpl implements WsMessageR
 	            					tempLogHandlerIds.add(id);
 	            				}
 	            			}
-	            			return routeToAll(routedMessage, tempLogHandlerIds);
+	            			return routeToAll(routedMessage, tempLogHandlerIds, messageHidden);
             			}else {
             				return true;
             			}
             		}else {
                         // Route to all LogHandlers in the wsLogHandlerService ConcurrentMap.
-                        return routeToAll(routedMessage, logHandlerIds);
+                        return routeToAll(routedMessage, logHandlerIds, messageHidden);
             		}
             }
         } finally {
@@ -202,7 +204,7 @@ public class WsMessageRouterImpl extends MessageRouterImpl implements WsMessageR
      * @return true if the set contained DEFAULT, which means the msg should be logged
      *         normally as well. false otherwise.
      */
-    protected boolean routeToAll(RoutedMessage routedMessage, Set<String> logHandlerIds) {
+    protected boolean routeToAll(RoutedMessage routedMessage, Set<String> logHandlerIds, boolean messageHidden) {
 
         boolean logNormally = false;
 
@@ -212,7 +214,7 @@ public class WsMessageRouterImpl extends MessageRouterImpl implements WsMessageR
                 // the message normally.
                 logNormally = true;
             } else {
-                routeTo(routedMessage, logHandlerId);
+                routeTo(routedMessage, logHandlerId, messageHidden);
             }
         }
 
@@ -222,14 +224,14 @@ public class WsMessageRouterImpl extends MessageRouterImpl implements WsMessageR
     /**
      * Route the message to the LogHandler identified by the given logHandlerId.
      *
-     * @param msg The fully formatted message.
-     * @param logRecord The associated LogRecord, in case the LogHandler needs it.
-     * @param logHandlerId The LogHandler ID in which to route.
+     * @param routedMessage Contains the LogRecord and various message formats.
+     * @param logHandlerId  The LogHandler ID in which to route.
+     * @param messageHidden Flag indicating if the message should be hidden or not.
      */
-    protected void routeTo(RoutedMessage routedMessage, String logHandlerId) {
+    protected void routeTo(RoutedMessage routedMessage, String logHandlerId, boolean messageHidden) { 
         WsLogHandler wsLogHandler = wsLogHandlerServices.get(logHandlerId);
         if (wsLogHandler != null) {
-            wsLogHandler.publish(routedMessage);
+            wsLogHandler.publish(routedMessage, messageHidden);
         }
     }
 

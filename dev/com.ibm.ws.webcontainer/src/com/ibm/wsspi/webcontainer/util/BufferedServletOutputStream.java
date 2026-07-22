@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 1997, 2006 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -86,7 +88,7 @@ public class BufferedServletOutputStream extends WSServletOutputStream implement
 	/**
 	 * Should we close the underlying stream on close ?
 	 * This flag is used for handling servlet chains which uses piped streams
-	 * to establish comunication from the filtered servlet to its servlet
+	 * to establish communication from the filtered servlet to its servlet
 	 * filter.
 	 * By closing the filtered servlet output stream, we trigger the end 
 	 * of the filter's input stream.

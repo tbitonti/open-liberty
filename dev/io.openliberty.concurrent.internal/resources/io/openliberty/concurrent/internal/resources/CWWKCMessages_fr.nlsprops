@@ -1,0 +1,86 @@
+###############################################################################
+# Copyright (c) 2022,2026 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+###############################################################################
+#CMVCPATHNAME io.openliberty.concurrent.internal/resources/io/openliberty/concurrent/internal/resources/CWWKCMessages.nlsprops
+#ISMESSAGEFILE TRUE
+#NLS_ENCODING=UNICODE
+#
+#COMPONENTPREFIX CWWKC
+#COMPONENTNAMEFOR CWWKC Jakarta EE Concurrency
+#
+# NLS_MESSAGEFORMAT_VAR
+#
+#   Strings in this file which contain replacement variables are processed by the MessageFormat 
+#   class (single quote must be coded as 2 consecutive single quotes ''). Strings in this file 
+#   which do NOT contain replacement variables are NOT processed by the MessageFormat class 
+#   (single quote must be coded as one single quote '). 
+
+# All messages must use the range CWWCK1200 to CWWCK1409
+
+CWWKC1200.resource.unavailable=CWWKC1200E: {0}, qui est d\u00e9fini par l''application {1}, n''\u00e9tait pas disponible en temps utile.
+CWWKC1200.resource.unavailable.explanation=Trop de charge sur le syst\u00e8me pour traiter les annotations de d\u00e9finition de ressource et les entr\u00e9es de descripteur de d\u00e9ploiement avant que l'application ne tente de les utiliser.
+CWWKC1200.resource.unavailable.useraction=Affichez le fichier messages.log pour identifier l'occurrence d'une erreur. Sinon, r\u00e9durela charge sur le syst\u00e8me.
+
+CWWKC1201.contextsvc.inaccessible=CWWKC1201E: {0}, qui est d\u00e9fini par l''application {1}, requiert un ContextService {2} mais le service ContextService est inaccessible ou n''est pas disponible en temps voulu.
+CWWKC1201.contextsvc.inaccessible.explanation=La ressource sp\u00e9cifi\u00e9e qui impl\u00e9mente l'interface ContextService est inaccessible ou n'est pas disponible en raison de l'une des raisons suivantes. 1.) Une annotation de d\u00e9finition de ressource ou une d\u00e9finition de ressource dans un descripteur de d\u00e9ploiement de l'application indique un nom JNDI incorrect pour trouver la ressource qui impl\u00e9mente l'interface. 2.) La ressource qui impl\u00e9mente l'interface ContextService est d\u00e9finie dans une port\u00e9e qui n'est pas accessible \u00e0 la ressource qui requiert la ressource qui impl\u00e9mente l'interface ContextService. 3.) Le syst\u00e8me est trop charg\u00e9 pour enregistrer une ressource qui impl\u00e9mente l'interface ContextService en temps utile.
+CWWKC1201.contextsvc.inaccessible.useraction=Corrigez l'application pour faire r\u00e9f\u00e9rence au nom JNDI du Service ContextService accessibl. Si le nom JNDI indiqu\u00e9 est correct, r\u00e9duis la charge sur le syst\u00e8me.
+
+CWWKC1202.context.lists.overlap=CWWKC1202E: La configuration en conflit du contexte d''unit\u00e9 d''ex\u00e9cution {0} se trouve dans ContextServiceDefinition {1}. Le contexte effac\u00e9 est {2}, le contexte propag\u00e9 est {3}et le contexte inchang\u00e9 est {4}.
+CWWKC1202.context.lists.overlap.explanation=Un type de contexte d'unit\u00e9 d'ex\u00e9cution peut \u00eatre configur\u00e9 dans n'importe laquelle des cat\u00e9gories de type de contexte effac\u00e9es, propag\u00e9es ou inchang\u00e9es. Le type de contexte ne peut pas \u00eatre configur\u00e9 dans plusieurs cat\u00e9gories de type de contexte.
+CWWKC1202.context.lists.overlap.useraction=Corrigez la configuration pour sp\u00e9cifier le type de contexte d'unit\u00e9 d'ex\u00e9cution dans la plupart des cat\u00e9gories.
+
+CWWKC1203.duplicate.context=CWWKC1203E: Le m\u00eame type de contexte d''unit\u00e9 d''ex\u00e9cution, {0}, est fourni par plusieurs fournisseurs de contexte d''unit\u00e9 d''ex\u00e9cution qui sont disponibles pour l''application. Les fournisseurs de contexte d''unit\u00e9 d''ex\u00e9cution sont: {1}, {2}.
+CWWKC1203.duplicate.context.explanation=Il ne peut y avoir qu'un seul fournisseur de contexte d'unit\u00e9 d'ex\u00e9cution pour chaque type de contexte.
+CWWKC1203.duplicate.context.useraction=Mettez \u00e0 jour l'application, les biblioth\u00e8ques ou les deux, de sorte qu'aucun fournisseur de contexte d'unit\u00e9 d'ex\u00e9cution du type de contexte sp\u00e9cifi\u00e9 ne soit accessible \u00e0 l'application.
+
+CWWKC1204.not.serializable=CWWKC1204E: Impossible de cr\u00e9er un proxy contextuel s\u00e9rialisable qui propage le contexte d''unit\u00e9 d''ex\u00e9cution {0} qui n''est pas s\u00e9rialisable.
+CWWKC1204.not.serializable.explanation=Les types de contexte d'unit\u00e9 d'ex\u00e9cution tiers ne sont pas compatibles avec la s\u00e9rialisation et ne peuvent pas \u00eatre configur\u00e9s pour \u00eatre propag\u00e9s pour les proxys contextuels s\u00e9rialisables.
+CWWKC1204.not.serializable.useraction=Mettez \u00e0 jour l'application pour demander un proxy contextuel non s\u00e9rialisable ou v\u00e9rifiez qu'aucun type de contexte tiers n'est configur\u00e9 pour \u00eatre propag\u00e9.
+
+CWWKC1205.qualifiers.require.cdi=CWWKC1205E: L''artefact d''application {0} ne peut pas sp\u00e9cifier les qualificateurs {1} sur l''\u00e9l\u00e9ment d''annotation {2} ou de descripteur de d\u00e9ploiement {3} qui a le nom {4} parce que la fonctionnalit\u00e9 {5} n''est pas activ\u00e9e.
+CWWKC1205.qualifiers.require.cdi.explanation=La fonction CDI est une condition pr\u00e9alable \u00e0 la sp\u00e9cification de qualificateurs dans une d\u00e9finition de ressource.
+CWWKC1205.qualifiers.require.cdi.useraction=Activer la fonction CDI.
+
+CWWKC1206.qualifier.must.be.anno=CWWKC1206E: L''artefact d''application {0} sp\u00e9cifie une annotation {1} ou un \u00e9l\u00e9ment de descripteur de d\u00e9ploiement {2} qui a le nom {3} et la liste de qualificatifs {4}. La liste des qualificatifs comprend une valeur {5} qui n''est pas une annotation. Tous les \u00e9l\u00e9ments de la liste doivent \u00eatre des classes d''annotations annot\u00e9es avec @Qualifier et @Retention(RUNTIME). Par exemple, {6}
+CWWKC1206.qualifier.must.be.anno.explanation=Chaque valeur de la liste des qualificateurs doit \u00eatre une classe d'annotation.
+CWWKC1206.qualifier.must.be.anno.useraction=Assurez-vous que toutes les valeurs de la liste des qualificateurs sont des classes d'annotation.
+
+CWWKC1207.lacks.qualifier.anno=CWWKC1207E: L''artefact d''application {0} sp\u00e9cifie une annotation {1} ou un \u00e9l\u00e9ment de descripteur de d\u00e9ploiement {2} qui a le nom {3} et la liste de qualificatifs {4}. La liste des qualificateurs comprend l''annotation {5}, qui n''est pas annot\u00e9e avec @jakartajakarta.inject.Qualifier et @Retention(RUNTIME). Voici un exemple de qualificatif valide : {6}
+CWWKC1207.lacks.qualifier.anno.explanation=L'annotation @Qualifier indique que l'annotation est un qualificateur. L'annotation Retention contr\u00f4le la disponibilit\u00e9 des annotations.
+CWWKC1207.lacks.qualifier.anno.useraction=Ajoutez les annotations @Qualifier et @Retention(RUNTIME) \u00e0 la classe qualifier.
+
+CWWKC1208.global.with.qualifiers=CWWKC1208E: L''artefact d''application {0} sp\u00e9cifie une annotation {1} ou un \u00e9l\u00e9ment de descripteur de d\u00e9ploiement {2} qui poss\u00e8de le nom {3} et la liste de qualificatifs {4}. Vous ne pouvez pas configurer une ressource Jakarta Concurrency pour qu''elle ait \u00e0 la fois des qualificateurs et un espace de noms java:global. Supprimez les qualificateurs de la configuration de la ressource Jakarta Concurrency qui porte le nom {3} ou passez \u00e0 l''espace de noms java:app.
+CWWKC1208.global.with.qualifiers.explanation=La configuration de la ressource Jakarta Concurrency ne peut pas comporter \u00e0 la fois des qualificateurs et un espace de noms java:global.
+CWWKC1208.global.with.qualifiers.useraction=Mettez \u00e0 jour la configuration de la ressource Jakarta Concurrency d\u00e9finie par l'application en omettant les qualificatifs ou en utilisant un espace de noms diff\u00e9rent, tel que l'espace de noms java:app.
+
+CWWKC1217.no.virtual.threads=CWWKC1217I: La sp\u00e9cification Concurrency exige que virtual=true soit ignor\u00e9 dans l''annotation {1} de l''artefact d''application {0} ou dans l''\u00e9l\u00e9ment du descripteur de d\u00e9ploiement {2} avec le nom {3} parce que Java {4} ne prend pas en charge les threads virtuels.
+CWWKC1217.no.virtual.threads.explanation=Les threads virtuels ne sont disponibles qu'\u00e0 partir de Java 21.
+CWWKC1217.no.virtual.threads.useraction=Mise \u00e0 jour vers Java 21 ou une version plus r\u00e9cente pour permettre l'utilisation de threads virtuels.
+
+
+# Messages for @Asynchronous that are shared with other bundles:
+
+CWWKC1400.unsupported.return.type=CWWKC1400E: {0} n''est pas un type de retour valide pour la m\u00e9thode {1} de la classe {2}. Les types de retour valides pour les m\u00e9thodes annot\u00e9es avec {3} sont: {4}.
+CWWKC1400.unsupported.return.type.explanation=La sp\u00e9cification d'acc\u00e8s concurrent Jakarta limite la plage des types de retour valides pour les m\u00e9thodes ayant cette annotation.
+CWWKC1400.unsupported.return.type.useraction=Mettez \u00e0 jour la m\u00e9thode de l'application pour passer \u00e0 l'un des types de retour pris en charge, ou supprimez l'annotation de la m\u00e9thode.
+
+CWWKC1401.class.anno.disallowed=CWWKC1401E: L''annotation {0} est autoris\u00e9e au niveau de la m\u00e9thode. Il ne peut pas \u00eatre utilis\u00e9 au niveau de la classe de la classe {1}.
+CWWKC1401.class.anno.disallowed.explanation=Cette annotation ne doit pas \u00eatre sp\u00e9cifi\u00e9e au niveau de la classe.
+CWWKC1401.class.anno.disallowed.useraction=D\u00e9placer l'annotation vers les m\u00e9thodes individuelles de la classe.
+
+CWWKC1402.not.managed.executor=CWWKC1402E: L''annotation {0} sur la m\u00e9thode {1} de la classe {2} indique le nom JNDI {3} , qui correspond \u00e0 la ressource {4} qui n''est pas ManagedExecutorService ou ManagedScheduledExecutorService. Les interfaces impl\u00e9ment\u00e9e par la ressource sont: {5}.
+CWWKC1402.not.managed.executor.explanation=Le nom JNDI doit \u00eatre r\u00e9solu en une ressource qui impl\u00e9mente l'interface ManagedExecutorService ou ManagedScheduledExecutorService.
+CWWKC1402.not.managed.executor.useraction=Corrigez le nom JNDI pour sp\u00e9cifier une ressource accessible au composant d'application et impl\u00e9mente l'interface ManagedExecutorService ou ManagedScheduledExecutorService.
+
+CWWKC1403.unsupported.tx.type=CWWKC1403E: L''annotation {0} indique la valeur {1} , qui n''est pas autoris\u00e9e en combinaison avec l''annotation {2} qui se trouve dans la m\u00e9thode {3} de la classe {4}. Les valeurs admises sont: {5}.
+CWWKC1403.unsupported.tx.type.explanation=L'utilisation de deux annotations ensemble d\u00e9pend de la question de savoir si la valeur de la premi\u00e8re annotation sp\u00e9cifi\u00e9e est autoris\u00e9e avec la deuxi\u00e8me annotation.
+CWWKC1403.unsupported.tx.type.useraction=Mettez \u00e0 jour l'application pour passer \u00e0 l'une des valeurs prises en charge ou supprimer l'une des annotations.

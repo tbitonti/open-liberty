@@ -18,7 +18,7 @@ Private-Package: \
    org.eclipse.equinox.console.telnet
 
 -includeresource: \
-   @${repo;org.eclipse.equinox.console;1.1.200.v20150929-1405}!/about.html, \
-   @${repo;org.eclipse.equinox.console;1.1.200.v20150929-1405}!/plugin.properties
+   @\${repo;org.eclipse.platform:org.eclipse.equinox.console;1.4.1100}!/about.html, \
+   @\${repo;org.eclipse.platform:org.eclipse.equinox.console;1.4.1100}!/plugin.properties
 
 -removeheaders = Require-Bundle

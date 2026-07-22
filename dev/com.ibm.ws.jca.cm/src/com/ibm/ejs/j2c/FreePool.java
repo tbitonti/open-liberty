@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -55,7 +57,7 @@ public final class FreePool implements JCAPMIHelper {
 
     ClassLoader raClassLoader;
 
-    // waiter code
+    // waiter code reset value, add to this value to remove connections from pool
     private int fatalErrorNotificationTime = 0;
 
     /*
@@ -380,9 +382,9 @@ public final class FreePool implements JCAPMIHelper {
      * - If removeFromFreePool is false, the mcWrapper do not exist in the free pool
      *
      * @param Managed connection wrapper
-     * @param Remove from free pool
-     * @param Are we already synchronized on the freeLockObject
-     * @param Skip waiter notify
+     * @param Remove  from free pool
+     * @param Are     we already synchronized on the freeLockObject
+     * @param Skip    waiter notify
      * @param Cleanup and Destroy MCWrapper
      * @pre mcWrapper != null
      * @throws ClassCastException
@@ -587,7 +589,6 @@ public final class FreePool implements JCAPMIHelper {
                 mcWrapperTemp1 = (MCWrapper) mcWrapperList.remove(mcwlIndex);
                 mcWrapperTemp1.setPoolState(0);
             }
-
         }
 
         /*
@@ -600,10 +601,11 @@ public final class FreePool implements JCAPMIHelper {
             if (hashCode == mcWrapperTemp1.getSubjectCRIHashCode()) {
                 if (((com.ibm.ejs.j2c.MCWrapper) mcWrapperTemp1).do_not_reuse_mcw) {
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                        Tr.debug(this, tc, "Connection error occurred for this mcw " + mcWrapperTemp1 + ", mcw will not be reuse");
+                        Tr.debug(this, tc, "Connection error occurred for this mcw " + mcWrapperTemp1 + ", mcw will not be reused");
                     }
                     synchronized (pm.waiterFreePoolLock) {
                         cleanupAndDestroyMCWrapper(mcWrapperTemp1);
+                        mcWrapperTemp1 = null;
                         synchronized (freeConnectionLockObject) {
                             --numberOfConnectionsAssignedToThisFreePool;
                         }
@@ -638,10 +640,9 @@ public final class FreePool implements JCAPMIHelper {
 
                                 mcWrapperTemp2 = (MCWrapper) mcWrapperList.get(i);
                                 if (hashCode == mcWrapperTemp2.getSubjectCRIHashCode()) {
-                                    mcWrapper = getMCWrapperFromMatch(subject, cri, managedConnectionFactory, mcWrapperTemp2);
                                     if (((com.ibm.ejs.j2c.MCWrapper) mcWrapperTemp2).do_not_reuse_mcw) {
                                         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                                            Tr.debug(this, tc, "Connection error occurred for this mcw " + mcWrapperTemp2 + ", mcw will not be reuse");
+                                            Tr.debug(this, tc, "Connection error occurred for this mcw " + mcWrapperTemp2 + ", mcw will not be reused");
                                         }
                                         mcWrapperList.remove(i);
                                         cleanupAndDestroyMCWrapper(mcWrapperTemp2);
@@ -652,6 +653,8 @@ public final class FreePool implements JCAPMIHelper {
                                         if ((pm.waiterCount > 0) && (pm.waiterCount > pm.mcWrapperWaiterList.size())) {
                                             pm.waiterFreePoolLock.notify();
                                         }
+                                    } else {
+                                        mcWrapper = getMCWrapperFromMatch(subject, cri, managedConnectionFactory, mcWrapperTemp2);
                                     }
                                 }
                                 if (mcWrapper != null) {
@@ -660,33 +663,46 @@ public final class FreePool implements JCAPMIHelper {
                                     break;
                                 }
 
-                            }
+                            } // for (int i = mcwlIndex; i >= 0; --i)
 
                         } // end if mcwlSize > 1
 
                     } // end synchronized (freeConnectionLockObject)
 
-                    /*
-                     * We need to add the first non-matching mcWrapper back into the free pool or waiter queue.
-                     */
-                    if (!((com.ibm.ejs.j2c.MCWrapper) mcWrapperTemp1).do_not_reuse_mcw) {
-                        //synchronized (pm.waiterFreePoolLock) {
-                        // waiter code
-                        if ((pm.waiterCount > 0) && (pm.waiterCount > pm.mcWrapperWaiterList.size())) {
+                    if (mcWrapperTemp1 != null) {
+                        // We need to add the first non-matching mcWrapper back into the free pool or waiter queue.
+                        if (!((com.ibm.ejs.j2c.MCWrapper) mcWrapperTemp1).do_not_reuse_mcw) {
+                            //synchronized (pm.waiterFreePoolLock) {
+                            // waiter code
+                            if ((pm.waiterCount > 0) && (pm.waiterCount > pm.mcWrapperWaiterList.size())) {
 
-                            // there are requests waiting, so notify one of them
-                            pm.mcWrapperWaiterList.add(mcWrapperTemp1);
-                            pm.waiterFreePoolLock.notify();
-                        } else {
+                                // there are requests waiting, so notify one of them
+                                pm.mcWrapperWaiterList.add(mcWrapperTemp1);
+                                pm.waiterFreePoolLock.notify();
+                            } else {
 
-                            synchronized (freeConnectionLockObject) {
-                                mcWrapperList.add(mcWrapperTemp1); // Add to end of list
-                                mcWrapperTemp1.setPoolState(1);
+                                synchronized (freeConnectionLockObject) {
+                                    mcWrapperList.add(mcWrapperTemp1); // Add to end of list
+                                    mcWrapperTemp1.setPoolState(1);
+                                }
                             }
-
+                        } else {
+                            // Cleanup mcWrapperTemp1 since it was removed from the free pool already, but not a match
+                            if (((com.ibm.ejs.j2c.MCWrapper) mcWrapperTemp1).errorDuringExternalCall) {
+                                if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                                    Tr.debug(tc, "Connection error occurred for this mcw " + mcWrapperTemp1 + ", mcw will not be reused");
+                                }
+                                cleanupAndDestroyMCWrapper(mcWrapperTemp1);
+                                synchronized (freeConnectionLockObject) {
+                                    --numberOfConnectionsAssignedToThisFreePool;
+                                }
+                                pm.totalConnectionCount.decrementAndGet();
+                                if ((pm.waiterCount > 0) && (pm.waiterCount > pm.mcWrapperWaiterList.size())) {
+                                    pm.waiterFreePoolLock.notify();
+                                }
+                            }
                         }
-                        //} // end synchronized (waiterFreePoolLock)
-                    } // end synchronized (waiterFreePoolLock)
+                    } // if (mcWrapperTemp1 != null)
 
                     if ((isTracingEnabled && tc.isDebugEnabled())) {
                         if (mcWrapper != null) {
@@ -819,7 +835,7 @@ public final class FreePool implements JCAPMIHelper {
                                              * Connection error event did occur, the mcw was removed.
                                              */
                                             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                                                Tr.debug(this, tc, "Connection error occurred for this mcw " + mcWrapperTemp + ", mcw will not be reuse");
+                                                Tr.debug(this, tc, "Connection error occurred for this mcw " + mcWrapperTemp + ", mcw will not be reused");
                                             }
 
                                         }
@@ -1564,6 +1580,28 @@ public final class FreePool implements JCAPMIHelper {
                         }
                     }
                 }
+                if ((pm.maxInUseTime > 0)) {
+                    if (pm.maxInUseTimeAlarmThreadCounter.get() == 0) {
+                        synchronized (pm.amMaxInUseTimeLockObject) {
+                            if (pm.maxInUseTimeAlarmThreadCounter.get() == 0) {
+                                if (pm.totalConnectionCount.get() > 0) {
+                                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                                        Tr.debug(this, tc, "Creating deferrable alarm for maxInUseTime thread");
+                                    }
+                                    pm.maxInUseTimeAlarmThreadCounter.incrementAndGet();
+                                    try {
+                                        pm.amMaxInUseTime = pm.connectorSvc.deferrableSchedXSvcRef.getServiceWithException().schedule(pm.new MaxInUseTimeThreadStarter(),
+                                                                                                                                      pm.maxInUseTime,
+                                                                                                                                      TimeUnit.MILLISECONDS);
+                                    } catch (Exception e) {
+                                        pm.maxInUseTimeAlarmThreadCounter.decrementAndGet();
+                                        throw e;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         } catch (ResourceException exn) {
             com.ibm.ws.ffdc.FFDCFilter.processException(
@@ -1949,4 +1987,9 @@ public final class FreePool implements JCAPMIHelper {
         return this.gConfigProps.getJNDIName();
     }
     //PMIHelper methods end here
+
+    @Override
+    public int getMaximumConnectionValue() {
+        return this.pm.maxConnections;
+    }
 }

@@ -1,17 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2015, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.cdi.ejb.tests;
 
-import static componenttest.rules.repeater.EERepeatTests.EEVersion.EE7_FULL;
-import static componenttest.rules.repeater.EERepeatTests.EEVersion.EE9;
+import static componenttest.custom.junit.runner.Mode.TestMode.LITE;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
@@ -34,22 +35,22 @@ import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.annotation.TestServlets;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.rules.repeater.EERepeatTests;
+import componenttest.custom.junit.runner.Mode;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 import componenttest.topology.utils.HttpUtils;
 
 @RunWith(FATRunner.class)
+@Mode(LITE)
 public class AroundConstructEjbTest extends FATServletClient {
 
     public static final String AROUND_CONSTRUCT_APP_NAME = "aroundConstructApp";
     public static final String POST_CONSTRUCT_ERROR_APP_NAME = "postConstructErrorMessageApp";
     public static final String SERVER_NAME = "cdi12EJB32Server";
 
-    //not bothering to repeat with EE8 ... the EE9 version is mostly a transformed version of the EE8 code
     @ClassRule
-    public static RepeatTests r = EERepeatTests.with(SERVER_NAME, EE9, EE7_FULL);
+    public static RepeatTests r = FATSuite.defaultRepeat(SERVER_NAME);
 
     @Server(SERVER_NAME)
     @TestServlets({

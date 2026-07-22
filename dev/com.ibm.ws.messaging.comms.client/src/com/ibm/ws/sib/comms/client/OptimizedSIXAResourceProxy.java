@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2005, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -470,9 +472,9 @@ public class OptimizedSIXAResourceProxy extends BaseSIXAResourceProxy implements
       }
 
       // Below is some logic to unjoin from a resource. The comms implementation of TMJOIN places
-      // the first XAResource that starts a transaction as the 'master' XAResource. Therefore if
+      // the first XAResource that starts a transaction as the 'primary' XAResource. Therefore if
       // any XAResources join up with it then they effectively become 'co-opted' XAResources to the
-      // first. As the XAResources can be ended in any order, we must ensure that we if the master
+      // first. As the XAResources can be ended in any order, we must ensure that we if the primary
       // is ended first then ending the last co-opted resource causes the end to actually occur.
 
       boolean performEndNow;
@@ -484,8 +486,8 @@ public class OptimizedSIXAResourceProxy extends BaseSIXAResourceProxy implements
 
          if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) SibTr.debug(this, tc, "JoinedResource.endHasBeenCalled: " +
                                                         joinedResource.endHasBeenCalled);
-         // The answer we care about here is whether the master XA Resource has any further joined
-         // resources. We also should only perform the end now if the master XA Resource has also
+         // The answer we care about here is whether the primary XA Resource has any further joined
+         // resources. We also should only perform the end now if the primary XA Resource has also
          // been ended.
          performEndNow = (!joinedResource.hasJoinedResources()) &&
                          joinedResource.endHasBeenCalled;
@@ -520,7 +522,7 @@ public class OptimizedSIXAResourceProxy extends BaseSIXAResourceProxy implements
             // Record whether a transaction was ever created on the server
             // If it was _not_ then this information makes completing the
             // transaction a no-op. Again, if this is a co-opted resource,
-            // defer the real answer to the master XAResource.
+            // defer the real answer to the primary XAResource.
             if (joinedResource != null) info.serverTransactionCreated = joinedResource.serverUowCreated;
             else                        info.serverTransactionCreated = serverUowCreated;
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) SibTr.debug(this, tc, "serverTransactionCreated", ""+info.serverTransactionCreated);

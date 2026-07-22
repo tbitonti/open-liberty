@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer;
 
@@ -19,9 +18,11 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Properties;
 import java.util.ServiceLoader;
@@ -96,6 +97,7 @@ import com.ibm.wsspi.webcontainer.servlet.AsyncContext;
 import com.ibm.wsspi.webcontainer.servlet.IExtendedRequest;
 import com.ibm.wsspi.webcontainer.servlet.IExtendedResponse;
 import com.ibm.wsspi.webcontainer.servlet.IServletWrapper;
+import com.ibm.wsspi.webcontainer.util.RequestUtils;
 import com.ibm.wsspi.webcontainer.util.ThreadContextHelper;
 import com.ibm.wsspi.webcontainer.util.URIMatcherFactory;
 
@@ -209,6 +211,9 @@ public abstract class WebContainer extends BaseContainer {
     
     // Servlet 4.0 : Must be static since referenced from static method
     protected static CacheServletWrapperFactory cacheServletWrapperFactory;
+    
+    //Servlet 6.0 - do not load it early
+    public static boolean isServlet60orAbove; 
 
     protected WebContainer(String name, Container parent) {
         super(name, parent);
@@ -228,6 +233,8 @@ public abstract class WebContainer extends BaseContainer {
             logger.logp(Level.FINE, CLASS_NAME, "initialize", "Web Container invocationCache --> [" + invocationCacheSize+ "]");
 
         webConProperties = new Properties();
+        
+        isServlet60orAbove = com.ibm.ws.webcontainer.osgi.WebContainer.isServletLevel60orAbove(); 
     }
 
     /**
@@ -320,7 +327,7 @@ public abstract class WebContainer extends BaseContainer {
                 sessionAttributeListeners.add(listener);
             }
             
-            // Servlet 3.1 start.  ONly want to look for HttpSessionIdListener if Servlet 3.1 or later
+            // Servlet 3.1 start.  Only want to look for HttpSessionIdListener if Servlet 3.1 or later
             // is the Servlet implementation being used. 
             if(com.ibm.ws.webcontainer.osgi.WebContainer.getServletContainerSpecLevel() >= 
                             com.ibm.ws.webcontainer.osgi.WebContainer.SPEC_LEVEL_31) {
@@ -397,7 +404,7 @@ public abstract class WebContainer extends BaseContainer {
     // 112102 - added method below to fill the cipher to bit size table
     protected void loadCipherToBit() {
         boolean keySizeFromCipherMap =
-                        Boolean.valueOf(WebContainer.getWebContainerProperties().getProperty("com.ibm.ws.webcontainer.keysizefromciphermap", "true")).booleanValue();
+                        Boolean.parseBoolean(WebContainer.getWebContainerProperties().getProperty("com.ibm.ws.webcontainer.keysizefromciphermap", "true"));
         //721610
         if (keySizeFromCipherMap) {
             this.getKeySizefromCipherMap("toLoad"); // this will load the Map with values
@@ -806,16 +813,49 @@ public abstract class WebContainer extends BaseContainer {
             // Begin 293696 ServletRequest.getPathInfo() fails WASCC.web.webcontainer
             String reqURI = req.getRequestURI();
             String decodedReqURI = null;
-            if (WCCustomProperties.DECODE_URL_PLUS_SIGN) {
-                decodedReqURI = URLDecoder.decode(reqURI, encoding);
-            } else {
-                decodedReqURI = WSURLDecoder.decode(reqURI, encoding);
+           
+            try {
+                if (WCCustomProperties.DECODE_URL_PLUS_SIGN) {
+                    decodedReqURI = URLDecoder.decode(reqURI, encoding);
+                } else {
+                    decodedReqURI = WSURLDecoder.decode(reqURI, encoding);
+                }
+            }
+            catch (Exception e) {
+                logger.logp(Level.FINE, CLASS_NAME, "handleRequest", "cannot decode URI; sending 400 [" + e.getMessage() + "]");
+
+                sendBadRequestResponse(req, res);
+                return;
+            }
+
+            //Servlet 6.0 - process after decoded uri
+            if (isServlet60orAbove) {
+                if (isTraceOn && logger.isLoggable(Level.FINE)) { 
+                    logger.logp(Level.FINE, CLASS_NAME, "handleRequest", "decoded uri [" + decodedReqURI + "]" );
+                }
+
+                String path;
+                try {
+                    path = RequestUtils.canonicalizeURI(decodedReqURI);
+                }
+                catch (IOException ioe) {
+                    logger.logp(Level.FINE, CLASS_NAME, "handleRequest", "canonicalize sending 400 [" + ioe.getMessage() + "]");
+
+                    sendBadRequestResponse(req, res);
+                    return;
+                }
+
+                if (isTraceOn && logger.isLoggable(Level.FINE)) { 
+                    logger.logp(Level.FINE, CLASS_NAME, "handleRequest", "canonicalize decoded uri [" + path + "]" );
+                }
+
+                decodedReqURI = path;
             }
 
             currDispatchContext.setDecodedReqUri(decodedReqURI);
             if (isTraceOn && logger.isLoggable(Level.FINE)) { //306998.15
                 logger.logp(Level.FINE, CLASS_NAME, "handleRequest", "webcontainer.handleRequest request uri --> (not decoded=" + reqURI + "), (decoded=" + decodedReqURI
-                                                                     + "), (encoding=" + encoding + ")");
+                            + "), (encoding=" + encoding + ")");
             }
             // End 293696 ServletRequest.getPathInfo() fails WASCC.web.webcontainer
 
@@ -858,8 +898,8 @@ public abstract class WebContainer extends BaseContainer {
 
                     // 325429 BEGIN
                     if (isTraceOn && logger.isLoggable(Level.FINE)) //306998.15
-                        logger.logp(Level.FINE, CLASS_NAME, "handleRequest", "Check if webApp ["+ webApp.getApplicationName()+"] is being destroyed --> " + (webApp.getDestroyed().booleanValue()));
-                    if (webApp.getDestroyed().booleanValue()) { // should be a fast boolean check.
+                        logger.logp(Level.FINE, CLASS_NAME, "handleRequest", "Check if webApp ["+ webApp.getApplicationName()+"] is being destroyed --> " + (webApp.getDestroyed()));
+                    if (webApp.getDestroyed()) { // should be a fast boolean check.
                         //no need to invalidate here, this is duplicate of what the destroying webapp will do
                         // wrapper.invalidate();
                         if (isTraceOn && logger.isLoggable(Level.FINE)) //306998.15
@@ -1038,7 +1078,7 @@ public abstract class WebContainer extends BaseContainer {
                 }
                 res.addHeader("Content-Type", "text/html;charset=UTF-8");
                 String output = webGroupVHostNotFound;
-                outBytes = output.getBytes("UTF-8"); // The custom property is stored in server.xml which is in UTF-8 and ISO-8859-1 is a subset of UTF-8 so it would work for anything in there.                  
+                outBytes = output.getBytes(StandardCharsets.UTF_8); // The custom property is stored in server.xml which is in UTF-8 and ISO-8859-1 is a subset of UTF-8 so it would work for anything in there.
 
             }
             //PK85685 End
@@ -1067,7 +1107,7 @@ public abstract class WebContainer extends BaseContainer {
                 }
 
                 res.addHeader("Content-Type", "text/html;charset=UTF-8");
-                outBytes = output.trim().getBytes("UTF-8");                  
+                outBytes = output.trim().getBytes(StandardCharsets.UTF_8);
             }
             else{
                 res.addHeader("Content-Type", "text/html");
@@ -1098,7 +1138,7 @@ public abstract class WebContainer extends BaseContainer {
                 }
 
                 res.addHeader("Content-Type", "text/html;charset=UTF-8");
-                outBytes = output.trim().getBytes("UTF-8");                
+                outBytes = output.trim().getBytes(StandardCharsets.UTF_8);
             }
             else {
                 res.addHeader("Content-Type", "text/html");
@@ -1132,7 +1172,7 @@ public abstract class WebContainer extends BaseContainer {
                 }
 
                 res.addHeader("Content-Type", "text/html;charset=UTF-8");
-                outBytes = output.trim().getBytes("UTF-8");                  
+                outBytes = output.trim().getBytes(StandardCharsets.UTF_8);
             }
             else { 
                 res.addHeader("Content-Type", "text/html");
@@ -1347,12 +1387,11 @@ public abstract class WebContainer extends BaseContainer {
 
     public static void notifyHttpServletResponseListenersPreHeaderCommit(HttpServletRequest request, HttpServletResponse response) {
         // need to notify listeners registered in the ServletRequestAttributeListener array
-        if (!httpResponseListeners.isEmpty()) {
-            Iterator i = httpResponseListeners.iterator();
-
-            while (i.hasNext()) {
+        int listenerSize = httpResponseListeners.size();
+        if (listenerSize != 0) {
+            for (int i = 0; i < listenerSize; ++i) {
                 // get the listener
-                IHttpServletResponseListener rL = (IHttpServletResponseListener) i.next();
+                IHttpServletResponseListener rL = (IHttpServletResponseListener) httpResponseListeners.get(i);
 
                 // invoke the listener's attr added method
                 rL.preHeaderCommit(request, response);
@@ -1675,6 +1714,35 @@ public abstract class WebContainer extends BaseContainer {
     
     // Servlet 4.0
     public abstract URIMatcherFactory getURIMatcherFactory();
+    
+    public static void sendBadRequestResponse(IRequest req, IResponse res) throws IOException {
+        String respContentType = "text/html";
+        String reqContentType = req.getContentType();
+
+        String formattedMessage = nls.getFormattedMessage("bad.request.uri:.{0}", new Object[] { ResponseUtils.encodeDataString(truncateURI(req.getRequestURI())) },
+                        "Bad request URI");
+        String output = "<H1>" + formattedMessage + "</H1><BR>";
+
+        if (reqContentType != null) {
+            if (reqContentType.toLowerCase().contains("application/json"))
+                respContentType = "application/json";
+        } else if ((reqContentType = req.getHeader("accept")) != null){
+            if (reqContentType.toLowerCase().contains("application/json"))
+                respContentType = "application/json";
+        }
+
+        res.setStatusCode(400);
+        res.addHeader("Content-Type", respContentType);
+        
+        if (respContentType.contains("json")) {
+            output = "{\"error_message\" : \"" + formattedMessage + "\"}";
+        }
+
+        byte[] outBytes = output.getBytes();
+        res.getOutputStream().write(outBytes, 0, outBytes.length);
+
+        logger.logp(Level.FINE, CLASS_NAME, "sendBadRequestResponse", "400 Bad Request ["+ formattedMessage + "]");
+    }
 
     // ================== CLASS ================== 721610
     private static class ReadCipherBitSize {
@@ -1727,6 +1795,9 @@ public abstract class WebContainer extends BaseContainer {
             cipherData.put("SSL_DH_anon_WITH_AES_256_CBC_SHA", 256);
             cipherData.put("SSL_DH_anon_WITH_AES_256_GCM_SHA384", 256);
             cipherData.put("SSL_DH_anon_WITH_AES_256_CBC_SHA256", 256);
+
+            // FIPS 140-3: Algorithm assessment complete; no impact; future investigation needed.
+            // because we are unsure if clients are still using the older algorithms.
 
             // _3DES_ is 168
             cipherData.put("SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA", 168);

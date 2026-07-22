@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2013 IBM Corporation and others.
+ * Copyright (c) 2010, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,8 +14,10 @@ package com.ibm.ws.recoverylog.spi;
 
 import java.util.Properties;
 
-import com.ibm.tx.util.logging.Tr;
-import com.ibm.tx.util.logging.TraceComponent;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.wsspi.resource.ResourceConfig;
 import com.ibm.wsspi.resource.ResourceFactory;
 
 //------------------------------------------------------------------------------
@@ -31,6 +35,7 @@ import com.ibm.wsspi.resource.ResourceFactory;
  * by its extension id and consists of a set of properties
  * </p>
  */
+@SuppressWarnings("serial")
 public class CustomLogProperties implements LogProperties {
     /**
      * WebSphere RAS TraceComponent registration
@@ -86,6 +91,11 @@ public class CustomLogProperties implements LogProperties {
      */
     private ResourceFactory _resourceFactory;
 
+    /**
+     * The Resource Config associated with this log implementation
+     */
+    private ResourceConfig _resourceConfig;
+
     //------------------------------------------------------------------------------
     // Method: CustomLogProperties.CustomLogProperties
     //------------------------------------------------------------------------------
@@ -100,14 +110,11 @@ public class CustomLogProperties implements LogProperties {
      * </p>
      *
      * @param logIdentifier The unique RLI value.
-     * @param logName The unique RLN value.
+     * @param logName       The unique RLN value.
      */
     public CustomLogProperties(int logIdentifier, String logName, String pluginId, Properties props) {
         if (tc.isEntryEnabled())
-            Tr.entry(tc, "CustomLogProperties", new java.lang.Object[] { new Integer(logIdentifier),
-                                                                         logName,
-                                                                         pluginId,
-                                                                         props });
+            Tr.entry(tc, "CustomLogProperties", logIdentifier, logName, pluginId, props);
 
         // Cache the supplied information.
         _logIdentifier = logIdentifier;
@@ -133,7 +140,7 @@ public class CustomLogProperties implements LogProperties {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "logIdentifier", this);
         if (tc.isEntryEnabled())
-            Tr.exit(tc, "logIdentifier", new Integer(_logIdentifier));
+            Tr.exit(tc, "logIdentifier", _logIdentifier);
         return _logIdentifier;
     }
 
@@ -179,18 +186,14 @@ public class CustomLogProperties implements LogProperties {
      * @return Properties custom properties associated with this log implementation
      */
     public Properties properties() {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "propertis", this);
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "properties", _props);
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "propertis", this, _props);
         return _props;
     }
 
     protected int logType() {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "logType", this);
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "logType", new Integer(_logType));
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "logType", this, _logType);
         return _logType;
     }
 
@@ -246,11 +249,10 @@ public class CustomLogProperties implements LogProperties {
         defaultLogType = t;
     }
 
+    @Trivial
     public void setResourceFactory(ResourceFactory fac) {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "setResourceFactory", this);
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "setResourceFactory", fac);
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "setResourceFactory", fac);
         _resourceFactory = fac;
     }
 
@@ -264,11 +266,31 @@ public class CustomLogProperties implements LogProperties {
      * @return ResourceFactory associated with this log
      *         implementation
      */
+    @Trivial
     public ResourceFactory resourceFactory() {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "resourceFactory", this);
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "resourceFactory", _resourceFactory);
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "resourceFactory", _resourceFactory);
         return _resourceFactory;
+    }
+
+    @Trivial
+    public void setResourceConfig(ResourceConfig conf) {
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "setResourceConfig", conf);
+        _resourceConfig = conf;
+    }
+
+    /**
+     * Returns the Resource Config associated with this log
+     * implementation
+     *
+     * @return ResourceConfig associated with this log
+     *         implementation
+     */
+    @Trivial
+    public ResourceConfig resourceConfig() {
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "resourceConfig", _resourceConfig);
+        return _resourceConfig;
     }
 }

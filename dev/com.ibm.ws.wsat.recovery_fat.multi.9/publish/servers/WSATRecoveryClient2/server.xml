@@ -1,0 +1,34 @@
+<server>
+  <featureManager>
+    <feature>componenttest-1.0</feature>
+    <feature>jdbc-4.2</feature>
+    <feature>servlet-4.0</feature>
+    <feature>timedexit-1.0</feature>
+    <feature>txtest-1.0</feature>
+    <feature>wsAtomicTransaction-1.2</feature>
+  </featureManager>
+
+  <include location="../fatTestCommon.xml" />
+
+  <httpEndpoint host="*"
+                httpPort="${bvt.prop.HTTP_quaternary}"
+                httpsPort="${bvt.prop.HTTP_quaternary.secure}"
+                id="defaultHttpEndpoint">
+    <tcpOptions portOpenRetries="100000"/>
+  </httpEndpoint>
+
+  <transaction
+    backendURL="http://localhost:${bvt.prop.HTTP_quaternary}"
+    clientInactivityTimeout="15m"
+    heuristicRetryInterval="10s"
+    leaseLength="2m"
+    recoverOnStartup="true"
+    recoveryGroup="client-group"
+    recoveryIdentity="WSATRecoveryClient2"
+    totalTranLifetimeTimeout="15m"
+  />
+
+  <wsAtomicTransaction asyncResponseTimeout="5m"/>
+
+  <javaPermission name="*" actions="*" className="java.security.AllPermission"/>
+</server>

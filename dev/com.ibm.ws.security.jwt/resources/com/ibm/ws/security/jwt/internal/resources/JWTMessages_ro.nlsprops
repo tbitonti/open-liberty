@@ -1,12 +1,11 @@
 ###############################################################################
-# Copyright (c) 2016, 2021 IBM Corporation and others.
+# Copyright (c) 2016, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 #CMVCPATHNAME com.ibm.ws.security/resources/com/ibm/ws/security/jwt/resources/JWTMessages.nlsprops
 #COMPONENTPREFIX CWWKS
@@ -17,11 +16,11 @@
 # -------------------------------------------------------------------------------------------------
 # Message prefix block: CWWKS6000 - CWWKS6100
 JWT_BUILDER_CONFIG_PROCESSED=CWWKS6000I: Configura\u0163ia JWT {0} s-a procesat cu succes.
-JWT_BUILDER_CONFIG_PROCESSED.explanation=Configura\u0163ia JWT (builder de jetoane web json) a fost procesat\u0103 cu succes.
+JWT_BUILDER_CONFIG_PROCESSED.explanation=Configura\u021bia constructorului JSON Web Token (JWT) a fost procesat\u0103 cu succes.
 JWT_BUILDER_CONFIG_PROCESSED.useraction=F\u0103r\u0103
 
 JWT_BUILDER_CONFIG_MODIFIED=CWWKS6001I: Modificarea configura\u0163iei JWT {0} s-a procesat cu succes.
-JWT_BUILDER_CONFIG_MODIFIED.explanation=Configura\u0163ia JWT (builder de jetoane web json) a fost modificat\u0103 cu succes.
+JWT_BUILDER_CONFIG_MODIFIED.explanation=Configura\u021bia constructorului JSON Web Token (JWT) a fost modificat\u0103 cu succes.
 JWT_BUILDER_CONFIG_MODIFIED.useraction=F\u0103r\u0103.
 
 # Do not translate "JSON Web Token", "JWT"
@@ -42,7 +41,7 @@ JWT_ENDPOINT_FILTER_MATCH_NOT_FOUND.useraction=Verifica\u0163i c\u0103 URL-ul pr
 
 # Do not translate "JSON Web Token", "JWT"
 # 0=Config ID of JWT provider
-JWT_CONFIG_SERVICE_NOT_AVAILABLE=CWWKS6005E: Serviciul de configura\u0163ie JWT (JSON Web Token) nu este disponibil pentru furnizorul [{0}].
+JWT_CONFIG_SERVICE_NOT_AVAILABLE=CWWKS6005E: Serviciul de configurare JSON Web Token nu este disponibil pentru furnizor [{0}].
 JWT_CONFIG_SERVICE_NOT_AVAILABLE.explanation=Furnizorul specificat \u00een mesaj fie nu exist\u0103 \u00een configura\u0163ia serverului, fie configura\u0163ia pentru furnizorul specificat nu a fost procesat\u0103 de c\u0103tre serviciul de configura\u0163ie.
 JWT_CONFIG_SERVICE_NOT_AVAILABLE.useraction=Inspecta\u0163i configura\u0163ia serverului pentru a v\u0103 asigura c\u0103 furnizorul specificat este configurat.
 
@@ -63,7 +62,7 @@ JWT_BUILDER_INVALID.explanation=Nu exist\u0103 un builder de jeton web JSON (JWT
 JWT_BUILDER_INVALID.useraction=\u00cen fi\u015fierul server.xml, configura\u0163i un element jwtBuilder cu ID-ul specificat.
 
 # Do not translate "JSON Web Token", "JWT"
-JWT_INVALID_CLAIM_VALUE_ERR=CWWKS6009E: Valoarea [{1}] din revendicarea de jeton JWT [{0}] nu este valid\u0103.
+JWT_INVALID_CLAIM_VALUE_ERR=CWWKS6009E: Valoarea [{1}] \u00een cererea [{0}] JSON Web Token (JWT) nu este valabil\u0103.
 JWT_INVALID_CLAIM_VALUE_ERR.explanation=Valoarea specificat\u0103 \u00een revendicarea de jeton web JSON (JWT) nu \u00eendepline\u015fte specifica\u0163ia JWT.
 JWT_INVALID_CLAIM_VALUE_ERR.useraction=Furniza\u0163i o valoare valid\u0103 pentru revendicarea specificat\u0103. Pentru informa\u0163ii suplimentare, vede\u0163i specifica\u0163ia JWT.
 
@@ -129,13 +128,13 @@ JWT_INVALID_CLAIMS_ERR.useraction=Asigura\u0163i-v\u0103 c\u0103 este furnizat s
 
 # Do not translate "JSON Web Token", "JWT"
 # 0=Issuer claim of the token, 1=JWT configuration ID, 2=Trusted issuers specified in server configuration
-JWT_ISSUER_NOT_TRUSTED=CWWKS6022E: Emitentul [{0}] al jetonului web JSON (JWT) nu este listat ca emitent de \u00eencredere \u00een configura\u0163ia JWT [{1}]. Emiten\u0163ii de \u00eencredere sunt [{2}].
+JWT_ISSUER_NOT_TRUSTED=CWWKS6022E: Emitentul [{0}JSON Web Token (JWT) furnizat nu este listat ca un emitent de \u00eencredere \u00een configura\u021bia [{1}JWT. Emiten\u0163ii de \u00eencredere sunt [{2}].
 JWT_ISSUER_NOT_TRUSTED.explanation=Configura\u0163ia de server specific\u0103 emiten\u0163ii de \u00eencredere la validarea JWT-urilor. Jetonul furnizat nu provine de la un emitent de \u00eencredere, prin urmare jetonul nu poate fi validat.
 JWT_ISSUER_NOT_TRUSTED.useraction=Ob\u0163ine\u0163i un nou jeton de la unul dintre emiten\u0163ii de \u00eencredere specifica\u0163i \u00een configura\u0163ia dumneavoastr\u0103 de JWT sau ad\u0103uga\u0163i emitentul specificat \u00een mesaj ca emitent de \u00eencredere \u00een configura\u0163ia dumneavoastr\u0103 JWT.
 
 # Do not translate "JSON Web Token", "JWT"
 # 0=Audience claim of the token, 1=JWT configuration ID, 2=Trusted audiences specified in server configuration
-JWT_AUDIENCE_NOT_TRUSTED=CWWKS6023E: Audien\u0163a [{0}] jetonului web JSON (JWT) nu este listat\u0103 ca audien\u0163\u0103 de \u00eencredere \u00een configura\u0163ia JWT [{1}] JWT. Audien\u0163ele de \u00eencredere sunt [{2}].
+JWT_AUDIENCE_NOT_TRUSTED=CWWKS6023E: Audien\u021ba [{0}JSON Web Token furnizat (JWT) nu este listat\u0103 ca o audien\u021b\u0103 de \u00eencredere \u00een configura\u021bia [{1}] JWT. Audien\u0163ele de \u00eencredere sunt [{2}].
 JWT_AUDIENCE_NOT_TRUSTED.explanation=Configura\u0163ia de server specific\u0103 ce audien\u0163e sunt de \u00eencredere la validarea JWT-urilor. Jetonul furnizat nu este destinat unei audien\u0163e de \u00eencredere, prin urmare jetonul nu poate fi validat.
 JWT_AUDIENCE_NOT_TRUSTED.useraction=Ob\u0163ine\u0163i un nou jeton dedicat pentru una dintre audien\u0163ele de \u00eencredere specificate \u00een configura\u0163ia dumneavoastr\u0103 de JWT sau ad\u0103uga\u0163i audien\u0163a specificat\u0103 \u00een mesaj ca audien\u0163\u0103 de \u00eencredere \u00een configura\u0163ia dumneavoastr\u0103 JWT.
 
@@ -310,17 +309,18 @@ JWT_TRUSTED_ISSUERS_NULL=CWWKS6052E: Emitentul [{0}] al jetonului JWT (JSON Web 
 JWT_TRUSTED_ISSUERS_NULL.explanation=Configura\u0163ia de server specific\u0103 ce emiten\u0163i sunt de \u00eencredere pentru validarea jetoanelor JWT. Configura\u0163ia JWT nu specific\u0103 niciun emitent de \u00eencredere, a\u015fa c\u0103 jetonul nu poate fi validat.
 JWT_TRUSTED_ISSUERS_NULL.useraction=Asigura\u0163i-v\u0103 c\u0103 \u00een configura\u0163ia JWT care este specificat\u0103 \u00een mesaj este definit cel pu\u0163in un emitent de \u00eencredere. Asigura\u0163i-v\u0103 c\u0103 emitentul se potrive\u015fte cu unul din emiten\u0163ii de \u00eencredere specifica\u0163i \u00een configura\u0163ia dumneavoastr\u0103 JWT.
 
-SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME=CWWKS6053E: Este utilizat\u0103 schema HTTP \u00een punctul final specificat: {0}, este necesar HTTPS.
+SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME=CWWKS6052E: Este utilizat\u0103 schema HTTP \u00een punctul final specificat: {0}, este necesar HTTPS.
 SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME.explanation=Punctul final specificat necesit\u0103 HTTPS, dar a fost utilizat HTTP \u00een URL-ul de cerere.
 SECURITY.JWT.ERROR.WRONG.HTTP.SCHEME.useraction=Verifica\u0163i URL-ul de cerere \u015fi asigura\u0163i-v\u0103 c\u0103 utilizeaz\u0103 HTTPS sau modifica\u0163i configura\u0163ia astfel \u00eenc\u00e2t HTTPS s\u0103 nu fie necesar.
 
 # 0=Signature algorithm from MP Config properties, 1=Default algorithm that will be used, 2=List of supported algorithms
 MP_CONFIG_PUBLIC_KEY_ALG_NOT_SUPPORTED=CWWKS6053W: Algoritmul de semn\u0103tur\u0103 [{0}] care este specificat de propriet\u0103\u0163ile MicroProfile Config nu este suportat. Va fi folosit algoritmul de semn\u0103tur\u0103 [{1}]. Algoritmii suporta\u0163i sunt: {2}
 MP_CONFIG_PUBLIC_KEY_ALG_NOT_SUPPORTED.explanation=Doar un anumit set de algoritmi RSA, Elliptical Curve \u015fi HMAC sunt suporta\u0163i. Algoritmul de semn\u0103tur\u0103 care este specificat de propriet\u0103\u0163ile MicroProfile Config nu este unul dintre algoritmii de semn\u0103tur\u0103 suporta\u0163i.
-MP_CONFIG_PUBLIC_KEY_ALG_NOT_SUPPORTED.useraction=Specifica\u0163i un algoritm de semn\u0103tur\u0103 suportat \u00een propriet\u0103\u0163ile MicroProfile Config. Algoritmii suporta\u0163i sunt afi\u015fa\u0163i \u00een mesaj. 
+MP_CONFIG_PUBLIC_KEY_ALG_NOT_SUPPORTED.useraction=Specifica\u0163i un algoritm de semn\u0103tur\u0103 suportat \u00een propriet\u0103\u0163ile MicroProfile Config. Algoritmii suporta\u0163i sunt afi\u015fa\u0163i \u00een mesaj.
+
 # Do not translate "JSON Web Token", "AMR", "JWT"
 # 0=AMR claim of the token, 1=JWT configuration ID, 2=AMR specified in server configuration
-JWT_AMR_CLAIM_NOT_VALID=CWWKS6054E: AMR-ul [{0}] al jetonului web JSON (JWT) furnizat nu este listat ca un AMR de \u00eencredere \u00een configura\u0163ia JWT [{1}]. AMR-urile de \u00eencredere sunt [{2}].
+JWT_AMR_CLAIM_NOT_VALID=CWWKS6054E: The [{0}] AMR of the provided JSON Web Token (JWT) is not listed as a trusted AMR in the [{1}] JWT configuration. AMR-urile de \u00eencredere sunt [{2}].
 JWT_AMR_CLAIM_NOT_VALID.explanation=Configura\u0163ia serverului specific\u0103 ce AMR este de \u00eencredere c\u00e2nd se valideaz\u0103 JWT-uri. Jetonul furnizat nu este destinat pentru un AMR de \u00eencredere, a\u015fa c\u0103 jetonul nu poate fi validat.
 JWT_AMR_CLAIM_NOT_VALID.useraction=Ob\u0163ine\u0163i un jeton nou pentru unul din AMR-urile de \u00eencredere specificate \u00een configura\u0163ia dumneavoastr\u0103 JWT sau ad\u0103uga\u0163i AMR-ul specificat \u00een mesaj ca un AMR de \u00eencredere \u00een configura\u0163ia JWT.
 
@@ -381,3 +381,32 @@ JWE_REQUIRED_BUT_TOKEN_NOT_JWE.useraction=Pentru a accepta JWS \u00een locu de j
 NESTED_JWS_REQUIRED_BUT_NOT_FOUND=CWWKS6065E: Datele utile (payload) ale jetonului JWE (JSON Web Encryption) care este inclus \u00een cerere nu este un jeton JWS (JSON Web Signature).
 NESTED_JWS_REQUIRED_BUT_NOT_FOUND.explanation=Datele utile ale unui jeton JWE trebuie s\u0103 fie un JWT (JSON Web Token) \u00een formatul JWS.
 NESTED_JWS_REQUIRED_BUT_NOT_FOUND.useraction=Asigura\u0163i-v\u0103 c\u0103 datele utile ale jetonului JWE reprezint\u0103 un JWT valid \u00een formatul JWS.
+
+JWE_DECRYPTION_KEY_MISSING=CWWKS6066E: Jetonul JWE (JSON Web Encryption) nu poate fi decriptat deoarece nu a putut fi g\u0103sit\u0103 o cheie de decriptare. Atributul de configura\u0163ie server {0} este setat la [{1}].
+JWE_DECRYPTION_KEY_MISSING.explanation=Pentru a decripta jetonul JWE este necesar\u0103 o cheie de decriptare. Cheia de decriptare trebuie s\u0103 fie prezent\u0103 \u00een depozitul de chei al consumatorului JWT, sau cheia trebuie specificat\u0103 \u00een propriet\u0103\u0163ile MicroProfile Config.
+JWE_DECRYPTION_KEY_MISSING.useraction=Verifica\u0163i c\u0103 aliasul de cheie care este specificat \u00een mesaj exist\u0103 \u00een depozitul de chei al consumatorului JWT. Dac\u0103 aliasul nu este configurat, cheia de decriptare trebuie specificat\u0103 \u00een propriet\u0103\u0163ile MicroProfile Config.
+
+# Do not translate "JSON Web Token", "JWT", "iat"
+# 0=iat claim time value (date), 1=Current time, 2=Clock skew configuration value, 3=Token age configuration value
+JWT_TOKEN_AGED=CWWKS6067E: Jetonul JWT (JSON Web Token) nu este valid, deoarece v\u00e2rsta jetonului a trecut de la revendicarea iat (issued at - emis la). Ora revendic\u0103rii iat este {0}. Ora curent\u0103 minus decalajul de ceas este {1}. Decalajul de ceas configurat este {2} secunde. V\u00e2rsta de jeton configurat\u0103 este {3} secunde.
+JWT_TOKEN_AGED.explanation=Jetoanele care dep\u0103\u0219esc v\u00e2rsta nu sunt valide.
+JWT_TOKEN_AGED.useraction=Ob\u021bine\u021bi un jeton nou, care s\u0103 nu aib\u0103 v\u00e2rsta dep\u0103\u0219it\u0103. Sincroniza\u021bi orele ceasului \u00eentre emitentul jetonului \u0219i consumator sau cre\u0219te\u021bi decalajul ceasului sau v\u00e2rsta jetonului \u00een configura\u021bia JWT.
+
+# Do not translate "JSON Web Encryption", "JWE", "alg"
+# 0=Key management key algorithm configuration value
+JWE_MISSING_ALG_HEADER=CWWKS6068E: Jetonul JWE (JSON Web Encryption) nu este valid, deoarece nu are antetul alg. Algoritmul cheie configurat pentru gestionarea cheilor este {0}.
+JWE_MISSING_ALG_HEADER.explanation=Jetonul fie nu este format corect, fie nu este criptat, fie nu are informa\u021biile de criptare.
+JWE_MISSING_ALG_HEADER.useraction=Asigura\u021bi-v\u0103 c\u0103 antetul de algoritm al jetonului JWE este setat la valoarea necesar\u0103.
+
+# Do not translate "JSON Web Encryption", "JWE", "JWT", "Content Encryption Key", "CEK"
+# 0=Cryptographic algorithm used to encrypt the Content Encryption Key (e.g. RSA-OAEP), 1=Cryptographic algorithm required for decrypting the Content Encryption Key (e.g. RSA-OAEP)
+JWE_ALGORITHM_MISMATCH=CWWKS6069E: JWE (JSON Web Encryption) nu este valid, deoarece cheia CEK (Content Encryption Key) a fost criptat\u0103 utiliz\u00e2nd algoritmul {0}. Cheile CEK trebuie s\u0103 fie criptate utiliz\u00e2nd algoritmul {1}.
+JWE_ALGORITHM_MISMATCH.explanation=Cheile CEK trebuie s\u0103 fie criptate cu algoritmul specificat \u00een mesaj. Cheile CEK care sunt criptate cu orice alt algoritm de criptare nu pot fi validate.
+JWE_ALGORITHM_MISMATCH.useraction=Ob\u021bine\u021bi un jeton nou, cu o cheie CEK care s\u0103 fie criptat\u0103 prin utilizarea algoritmului necesar care este specificat \u00een mesaj. Sau actualiza\u021bi configura\u021bia JWT pentru a permite jetoane cu chei CEK care sunt criptate prin utilizarea celuilalt algoritm de criptare.
+
+# 0=Truststore reference, 1=Exception message
+JWT_ERROR_GETTING_CERT_ENTRIES=CWWKS6070E: Nu se pot \u00eenc\u0103rca \u00eenregistr\u0103rile certificatelor de \u00eencredere din magazinul de certificate [ {0} ]. {1}
+JWT_ERROR_GETTING_CERT_ENTRIES.explanation=A ap\u0103rut o eroare \u00een timp ce sistemul \u00eencerca s\u0103 preia lista intr\u0103rilor de certificate de \u00eencredere din magazinul de certificate specificat. Este posibil ca truststore-ul s\u0103 lipseasc\u0103 din configura\u021bie sau ca o problem\u0103 s\u0103 \u00eempiedice accesul la acesta.
+JWT_ERROR_GETTING_CERT_ENTRIES.useraction=Asigura\u021bi-v\u0103 c\u0103 truststore-ul este configurat corect \u00een set\u0103rile serverului \u0219i c\u0103 este accesibil. Consulta\u021bi mesajul de eroare pentru mai multe informa\u021bii despre eroare.
+
+

@@ -1,15 +1,19 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.fat.common;
 
+import java.io.File;
+import java.nio.file.Paths;
 import java.util.Set;
 
 import org.junit.After;
@@ -20,12 +24,19 @@ import org.junit.Rule;
 import org.junit.rules.TestName;
 import org.junit.runner.Description;
 
+import com.gargoylesoftware.htmlunit.WebClient;
+import com.ibm.websphere.simplicity.Machine;
+import com.ibm.websphere.simplicity.RemoteFile;
 import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.fat.util.FatWatcher;
+import com.ibm.ws.security.fat.common.actions.TestActions;
 import com.ibm.ws.security.fat.common.logging.CommonFatLoggingUtils;
 import com.ibm.ws.security.fat.common.servers.ServerTracker;
+import com.ibm.ws.security.fat.common.utils.WebClientTracker;
 
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
+import componenttest.topology.utils.LibertyServerUtils;
 import componenttest.topology.utils.ServerFileUtils;
 
 public class CommonSecurityFat {
@@ -35,8 +46,10 @@ public class CommonSecurityFat {
 
     @Rule
     public final TestName testName = new TestName();
+    private final TestActions testActions = new TestActions();
 
     protected static ServerTracker serverTracker = new ServerTracker();
+    protected WebClientTracker webClientTracker = new WebClientTracker();
     protected static ServerTracker skipRestoreServerTracker = new ServerTracker();
 
     protected CommonFatLoggingUtils loggingUtils = new CommonFatLoggingUtils();
@@ -60,6 +73,14 @@ public class CommonSecurityFat {
     @After
     public void commonAfterTest() {
         restoreTestServers();
+        try {
+
+            // clean up webClients
+            webClientTracker.closeAllWebClients();
+
+        } catch (Exception e) {
+            e.printStackTrace(System.out);
+        }
         loggingUtils.printMethodName("ENDING TEST CASE: " + _testName);
         logTestCaseInServerLogs("ENDING");
     }
@@ -79,7 +100,8 @@ public class CommonSecurityFat {
             }
             loggingUtils.logTestCaseInServerLog(server, _testName, actionToLog);
             try {
-                server.setMarkToEndOfLog(server.getDefaultLogFile());
+                server.setMarkToEndOfLog(); // mesages.log
+                server.setTraceMarkToEndOfDefaultTrace();
             } catch (Exception e) {
                 Log.error(thisClass, "Failed to set mark to end of default log file for server " + server.getServerName(), e);
             }
@@ -117,7 +139,8 @@ public class CommonSecurityFat {
             }
             loggingUtils.logTestCaseInServerLog(server, _testName + ": " + infoToLog, actionToLog);
             try {
-                server.setMarkToEndOfLog(server.getDefaultLogFile());
+                server.setMarkToEndOfLog(); // mesages.log
+                server.setTraceMarkToEndOfDefaultTrace();
             } catch (Exception e) {
                 Log.error(thisClass, "Failed to set mark to end of default log file for server " + server.getServerName(), e);
             }
@@ -156,5 +179,64 @@ public class CommonSecurityFat {
             super.succeeded(description);
         }
     };
+
+    protected static void testSkipped() {
+
+        String methodName = "testSkipped";
+        Log.info(thisClass, methodName, "");
+        Log.info(thisClass, methodName, "TTTTT EEEEE  SSSS TTTTT   SSSS K   K IIIII PPPP  PPPP  EEEEE DDDD");
+        Log.info(thisClass, methodName, "  T   E     S       T    S     K  K    I   P   P P   P E     D   D");
+        Log.info(thisClass, methodName, "  T   EEE    SSS    T     SSS  KKK     I   PPPP  PPPP  EEE   D   D");
+        Log.info(thisClass, methodName, "  T   E         S   T        S K  K    I   P     P     E     D   D");
+        Log.info(thisClass, methodName, "  T   EEEEE SSSS    T    SSSS  K   K IIIII P     P     EEEEE DDDD");
+        Log.info(thisClass, methodName, "");
+    }
+
+    public static void transformAppsInDefaultDirs(LibertyServer server, String appDirName) {
+
+        Machine machine = server.getMachine();
+
+        Log.info(thisClass, "transformAppsInDefaultDirs", "Processing " + appDirName + " for serverName: " + server.getServerName());
+        RemoteFile appDir = machine.getFile(LibertyServerUtils.makeJavaCompatible(server.getServerRoot() + File.separatorChar + appDirName, machine));
+
+        RemoteFile[] list = null;
+        try {
+            if (appDir.isDirectory()) {
+                list = appDir.list(false);
+            }
+        } catch (Exception e) {
+            Log.error(thisClass, "transformAppsInDefaultDirs", e);
+        }
+        if (list != null) {
+            for (RemoteFile app : list) {
+                if (JakartaEEAction.isEE9OrLaterActive()) {
+                    JakartaEEAction.transformApp(Paths.get(app.getAbsolutePath()));
+                }
+            }
+        }
+    }
+
+    /**
+     * JakartaEE9 transform applications for a specified server.
+     *
+     * @param serverName
+     *            The server to transform the applications on.
+     */
+    public static void transformApps(LibertyServer server) {
+        if (JakartaEEAction.isEE9OrLaterActive()) {
+
+            transformAppsInDefaultDirs(server, "dropins");
+            transformAppsInDefaultDirs(server, "apps");
+            transformAppsInDefaultDirs(server, "test-apps");
+
+        }
+    }
+
+    public WebClient getAndSaveWebClient() throws Exception {
+
+        WebClient webClient = testActions.createWebClient();
+        webClientTracker.addWebClient(webClient);
+        return webClient;
+    }
 
 }

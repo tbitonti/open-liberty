@@ -1,0 +1,41 @@
+<!--
+    Copyright (c) 2024 IBM Corporation and others.
+    All rights reserved. This program and the accompanying materials
+    are made available under the terms of the Eclipse Public License 2.0
+    which accompanies this distribution, and is available at
+    http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0
+   
+    Contributors:
+        IBM Corporation - initial API and implementation
+ -->
+<server>
+
+  <featureManager>
+    <feature>componenttest-2.0</feature>
+    <feature>data-1.1</feature>
+    <feature>persistence-3.2</feature>
+    <feature>servlet-6.1</feature>
+  </featureManager>
+
+  <include location="../fatTestPorts.xml"/>
+
+  <application location="DataExperimentalApp.ear"/>
+
+  <authData id="auth1" user="auth1user" password="auth1pwd"/>
+
+  <data>
+    <logValues>*</logValues>
+  </data>
+
+  <dataSource id="DefaultDataSource" containerAuthDataRef="auth1">
+    <jdbcDriver libraryRef="H2Lib"/>
+    <properties.h2 URL="jdbc:h2:mem:defaultdb;DB_CLOSE_DELAY=-1"/>
+  </dataSource>
+
+  <library id="H2Lib">
+    <file name="${shared.resource.dir}/h2/h2.jar"/>
+  </library>
+
+</server>

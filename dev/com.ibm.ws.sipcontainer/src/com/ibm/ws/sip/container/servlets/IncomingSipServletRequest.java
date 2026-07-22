@@ -1,12 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.sip.container.servlets;
 
@@ -80,7 +79,7 @@ public class IncomingSipServletRequest extends SipServletRequestImpl
  
 	/**
      * Contains information if this Request SHOULD be answered Reliably
-     * If the incomming request contains "Require" header it will be true
+     * If the incoming request contains "Require" header it will be true
      */
     protected transient boolean m_shouldBeAnsweredReliable = false; 
     
@@ -432,13 +431,14 @@ public class IncomingSipServletRequest extends SipServletRequestImpl
 	        //container after a servlet has been invoked. 
 	        synchronized(this)
 	        {
-	            // If it is a final response, mark the request as committed,
+	            // If it is a final response, mark the request as Committed,
 	        	// to qualify with SipServletMessage.isCommitted().
 	        	// Note this does not prevent the application from generating
 	        	// another final response, as long as it was not sent.
-	        	//for proxy application we cannot change the request for commited if this is the
-	        	//initial request since initial proxy requests can send multiple responses
-	        	//for parallel proxy.
+	        	// For proxy application we cannot change the request 
+                // as committed if this is the initial request,
+	        	// since initial proxy requests can send multiple responses
+	        	// for parallel proxy.
 	        	boolean proxying = false;
 	        	if(incomingResponseTransactionUser == null){
 	        		proxying = tUser != null && tUser.isProxying();
@@ -451,7 +451,7 @@ public class IncomingSipServletRequest extends SipServletRequestImpl
 	            }else{
 	            	if (c_logger.isTraceDebugEnabled() && tUser != null){
 	            		c_logger.traceDebug(this, "createResponse", 
-	            				"Message state was not changed to commited, isProxy: " + proxying + ", isInital: " + isInitial());
+	            				"Message state was not changed to committed! isProxy: " + proxying + ", isInital: " + isInitial());
 	            	}
 	            }
 	        }
@@ -488,7 +488,7 @@ public class IncomingSipServletRequest extends SipServletRequestImpl
         OutgoingSipServletResponse response = null;
         try
         {
-            // Create the proper jain reponse
+            // Create the proper jain response
             Request jainRequest = getRequest();
             Response jainResponse =
                 getMessageFactory().createResponse(statusCode, jainRequest);
@@ -1038,37 +1038,31 @@ public class IncomingSipServletRequest extends SipServletRequestImpl
 
 	@Override
 	public AsyncContext getAsyncContext() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public DispatcherType getDispatcherType() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public ServletContext getServletContext() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public boolean isAsyncStarted() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public AsyncContext startAsync() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public AsyncContext startAsync(ServletRequest arg0, ServletResponse arg1) {
-		// TODO Auto-generated method stub
 		return null;
 	}
 	

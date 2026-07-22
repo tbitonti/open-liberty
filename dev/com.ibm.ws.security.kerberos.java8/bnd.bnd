@@ -1,9 +1,11 @@
 #*******************************************************************************
 # Copyright (c) 2019 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -51,8 +53,6 @@ Include-Resource: \
 IBM-Default-Config: OSGI-INF/wlp/defaultInstances.xml
 
 -dsannotations: \
-  com.ibm.ws.security.kerberos.Krb5HelperJdk8,\
-  com.ibm.ws.security.kerberos.Krb5HelperJdk11,\
   com.ibm.ws.security.kerberos.internal.KerberosExtServiceImpl,\
   com.ibm.websphere.security.s4u2proxy.SpnegoHelper
   
@@ -69,6 +69,7 @@ IBM-Default-Config: OSGI-INF/wlp/defaultInstances.xml
 	com.ibm.ws.logging.core;version=latest,\
 	com.ibm.ws.org.osgi.annotation.versioning;version=latest,\
 	com.ibm.ws.security.jaas.common;version=latest,\
+	com.ibm.ws.security.kerberos.auth;version=latest,\
 	com.ibm.ws.security.token.s4u2;version=latest,\
 	com.ibm.ws.security.token;version=latest,\
 	com.ibm.ws.security;version=latest,\

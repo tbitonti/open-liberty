@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2019 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -21,6 +23,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -52,6 +56,13 @@ import com.ibm.wsspi.injectionengine.InjectionException;
  */
 public class OSGiInjectionScopeData extends InjectionScopeData implements DeferredReferenceData {
     private static final TraceComponent tc = Tr.register(OSGiInjectionScopeData.class);
+
+    /**
+     * Deferred reference data processing results expiration interval in nanoseconds.
+     * Determines how long after deferred reference data processing completes that
+     * threads will attempt a second lookup of java:app and java:module scopes.
+     */
+    private static final long DEFERRED_RESULT_EXPIRATION = TimeUnit.SECONDS.toNanos(30);
 
     /**
      * The "primary" namespace for this scope data, which corresponds to this
@@ -127,6 +138,23 @@ public class OSGiInjectionScopeData extends InjectionScopeData implements Deferr
      * @see #deferredReferenceDataEnabled
      */
     private Map<DeferredReferenceData, Boolean> deferredReferenceDatas;
+
+    /**
+     * The result of {@link #processDeferredReferenceData} for the list of reference contexts
+     * that were registered for deferred processing if a non-java:comp request is made. The
+     * result is the nanoTime when deferred processing completed or Long.MIN_VALUE if there
+     * was no deferred metadata processed.
+     *
+     * This field is initialized lazily and cleared if no reference data was processed or
+     * 30 seconds after reference data was processed.
+     *
+     * JNDI lookups are attempted first without deferred reference data and retried if
+     * deferred reference data is processed, so the result should be kept a reasonable
+     * amount of time to cover the time between the first and second attempts.
+     *
+     * @see #deferredReferenceDatas
+     */
+    private CompletableFuture<Long> deferredReferenceDatasFuture;
 
     public OSGiInjectionScopeData(J2EEName j2eeName, NamingConstants.JavaColonNamespace namespace, OSGiInjectionScopeData parent, ReentrantReadWriteLock nonCompEnvLock) {
         super(j2eeName);
@@ -510,9 +538,16 @@ public class OSGiInjectionScopeData extends InjectionScopeData implements Deferr
      */
     private synchronized void disableDeferredReferenceData() {
         deferredReferenceDataEnabled = false;
+
         if (parent != null && deferredReferenceDatas != null) {
             parent.removeDeferredReferenceData(this);
-            deferredReferenceDatas = null;
+        }
+
+        deferredReferenceDatas = null;
+
+        if (deferredReferenceDatasFuture != null) {
+            deferredReferenceDatasFuture.complete(Long.MIN_VALUE);
+            deferredReferenceDatasFuture = null;
         }
     }
 
@@ -526,6 +561,7 @@ public class OSGiInjectionScopeData extends InjectionScopeData implements Deferr
 
         if (deferredReferenceDatas == null) {
             deferredReferenceDatas = new LinkedHashMap<DeferredReferenceData, Boolean>();
+            deferredReferenceDatasFuture = new CompletableFuture<Long>();
             if (parent != null && deferredReferenceDataEnabled) {
                 parent.addDeferredReferenceData(this);
             }
@@ -547,6 +583,15 @@ public class OSGiInjectionScopeData extends InjectionScopeData implements Deferr
 
         if (deferredReferenceDatas != null) {
             deferredReferenceDatas.remove(refData);
+
+            if (deferredReferenceDatas.isEmpty()) {
+                deferredReferenceDatas = null;
+
+                if (deferredReferenceDatasFuture != null) {
+                    deferredReferenceDatasFuture.complete(Long.MIN_VALUE);
+                    deferredReferenceDatasFuture = null;
+                }
+            }
         }
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
@@ -561,18 +606,17 @@ public class OSGiInjectionScopeData extends InjectionScopeData implements Deferr
      */
     @Override
     public boolean processDeferredReferenceData() {
-        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
-            Tr.entry(tc, "processDeferredReferenceData", "this=" + this);
+        final boolean isTraceOn = TraceComponent.isAnyTracingEnabled();
+        if (isTraceOn && tc.isEntryEnabled()) {
+            Tr.entry(tc, "processDeferredReferenceData", "this=" + this + " future=" + deferredReferenceDatasFuture);
         }
 
         Map<DeferredReferenceData, Boolean> deferredReferenceDatas;
+        CompletableFuture<Long> currentFuture;
         synchronized (this) {
             deferredReferenceDatas = this.deferredReferenceDatas;
             this.deferredReferenceDatas = null;
-
-            if (parent != null) {
-                parent.removeDeferredReferenceData(this);
-            }
+            currentFuture = deferredReferenceDatasFuture;
         }
 
         boolean any = false;
@@ -587,12 +631,53 @@ public class OSGiInjectionScopeData extends InjectionScopeData implements Deferr
                     // (erroneous or conflicting metadata).  Any exception that
                     // is thrown will be rethrown by ReferenceContext.process
                     // when the component is actually used.
-                    ex.getClass(); // findbugs
+                    if (isTraceOn && tc.isDebugEnabled())
+                        Tr.debug(tc, "ignoring : " + ex);
                 }
+            }
+
+            synchronized (this) {
+                // Removed from parent after processing completes so concurrent access of parent
+                // will block on the parent future until all child processing completes.
+                if (parent != null) {
+                    parent.removeDeferredReferenceData(this);
+                }
+
+                // Unblock any concurrent access and clear the future if no longer required.
+                if (deferredReferenceDatasFuture != null) {
+                    deferredReferenceDatasFuture.complete(any ? System.nanoTime() : Long.MIN_VALUE);
+
+                    // If there was no deferred reference data processed, no need to keep future.
+                    if (!any) {
+                        deferredReferenceDatasFuture = null;
+                    }
+                }
+            }
+        } else if (currentFuture != null) {
+            try {
+                // Wait a reasonable amount of time for deferred processing to complete
+                if (isTraceOn && tc.isDebugEnabled())
+                    Tr.debug(tc, "waiting up to 60 seconds for completion of " + currentFuture);
+                Long result = currentFuture.get(60, TimeUnit.SECONDS);
+
+                // Return the result for a reasonable amount of time after processing has
+                // completed (30s); then just remove the future as it is no longer needed.
+                // Result is true if the future returned a nanoTime other than MIN_VALUE.
+                if (result != Long.MIN_VALUE && System.nanoTime() - result < DEFERRED_RESULT_EXPIRATION) {
+                    any = true;
+                } else {
+                    synchronized (this) {
+                        deferredReferenceDatasFuture = null;
+                    }
+                }
+            } catch (Exception e) {
+                if (isTraceOn && tc.isDebugEnabled())
+                    Tr.debug(tc, "processDeferredReferenceData failed to complete; assuming something was processed");
+                any = true;
             }
         }
 
-        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+        if (isTraceOn && tc.isEntryEnabled()) {
             Tr.exit(tc, "processDeferredReferenceData", any);
         }
         return any;

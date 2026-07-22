@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.security;
 
@@ -15,7 +14,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.security.AccessController;
-import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
@@ -31,8 +29,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
-import com.ibm.websphere.ras.annotation.Trivial;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.security.authentication.AuthenticationConstants;
 import com.ibm.ws.security.authentication.utility.SubjectHelper;
@@ -42,9 +39,11 @@ import com.ibm.ws.webcontainer.security.internal.LoggedOutJwtSsoCookieCache;
 import com.ibm.ws.webcontainer.security.internal.SSOAuthenticator;
 import com.ibm.ws.webcontainer.security.internal.StringUtil;
 import com.ibm.ws.webcontainer.security.openidconnect.OidcServer;
+import com.ibm.ws.webcontainer.security.util.WebConfigUtils;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 import com.ibm.wsspi.security.token.SingleSignonToken;
 import com.ibm.wsspi.webcontainer.WebContainerRequestState;
+import com.ibm.wsspi.webcontainer.webapp.WebAppConfig;
 
 /**
  * Single sign-on cookie helper class.
@@ -82,7 +81,7 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
      * @return true if cookies were added
      */
     @Override
-    public boolean addJwtSsoCookiesToResponse(Subject subject, HttpServletRequest req, HttpServletResponse resp) {
+    public boolean addJwtSsoCookiesToResponse(Subject subject, HttpServletRequest req, HttpServletResponse resp, String contextRoot) {
         boolean result = false;
         if (JwtSSOTokenHelper.isDisableJwtCookie()) {
             return result;
@@ -92,7 +91,7 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
             String testString = getJwtSsoTokenFromCookies(req, getJwtCookieName());
             boolean cookieAlreadySent = testString != null && testString.equals(cookieByteString);
             if (!cookieAlreadySent) {
-                result = addJwtCookies(cookieByteString, req, resp);
+                result = addJwtCookies(cookieByteString, req, resp, contextRoot);
             }
         }
         return result;
@@ -102,7 +101,7 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
      * Add the cookie or cookies as needed, depending on size of token.
      * Return true if any cookies were added
      */
-    protected boolean addJwtCookies(String cookieByteString, HttpServletRequest req, HttpServletResponse resp) {
+    protected boolean addJwtCookies(String cookieByteString, HttpServletRequest req, HttpServletResponse resp, String contextRoot) {
 
         String baseName = getJwtCookieName();
         if (baseName == null) {
@@ -111,7 +110,7 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
         if ((!req.isSecure()) && getJwtCookieSecure()) {
             Tr.warning(tc, "JWT_COOKIE_SECURITY_MISMATCH", new Object[] {}); // CWWKS9127W
         }
-        String[] chunks = splitString(cookieByteString, 3900);
+        String[] chunks = CookieHelper.splitValueIntoMaximumLengthChunks(cookieByteString, 3900);
         String cookieName = baseName;
         for (int i = 0; i < chunks.length; i++) {
             if (i > 98) {
@@ -119,7 +118,7 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
                 com.ibm.ws.ffdc.FFDCFilter.processException(new Exception(eMsg), this.getClass().getName(), "132");
                 break;
             }
-            Cookie ssoCookie = createCookie(req, cookieName, chunks[i], getJwtCookieSecure()); //name
+            Cookie ssoCookie = createCookie(req, cookieName, chunks[i], getJwtCookieSecure(), contextRoot); //name
             resp.addCookie(ssoCookie);
             cookieName = baseName + (i + 2 < 10 ? "0" : "") + (i + 2); //name02... name99
         }
@@ -141,18 +140,20 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
      *
      * @param req the HTTP servlet request.
      * @param cookieValue the value used to create the cookie from.
+     * @param contextRoot the application context root.
      * @return ssoCookie the SSO cookie.
      */
 
-    public Cookie createCookie(HttpServletRequest req, String cookieValue) {
-        return createCookie(req, getSSOCookiename(), cookieValue, config.getSSORequiresSSL());
+    protected Cookie createCookie(HttpServletRequest req, String cookieValue, String contextRoot) {
+        return createCookie(req, getSSOCookiename(), cookieValue, config.getSSORequiresSSL(), contextRoot);
     }
 
-    public Cookie createCookie(HttpServletRequest req, String cookieName, String cookieValue, boolean isSecure) {
+    protected Cookie createCookie(HttpServletRequest req, String cookieName, String cookieValue, boolean isSecure, String contextRoot) {
+        String path = resolveContextRoot(contextRoot); //Only SSO LTPA/JWT cookie path support contextRoot
+
         Cookie ssoCookie = new Cookie(cookieName, cookieValue);
         ssoCookie.setMaxAge(-1);
-        //The path has to be "/" so we will not have multiple cookies in the same domain
-        ssoCookie.setPath("/");
+        ssoCookie.setPath(path);
         ssoCookie.setSecure(isSecure);
         ssoCookie.setHttpOnly(config.getHttpOnlyCookies());
 
@@ -168,10 +169,48 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
 
             if (sameSite.equals("None")) {
                 ssoCookie.setSecure(true);
+                Boolean partitioned = config.getPartitionedCookie();
+                if (partitioned != null) {
+                    //web container wants the value as a n/v pair
+                    requestState.setCookieAttributes(cookieName, "Partitioned=" + partitioned.toString());
+                }
+            }
+        } else {
+            Boolean partitioned = config.getPartitionedCookie();
+            if (partitioned != null) {
+                WebContainerRequestState requestState = WebContainerRequestState.getInstance(true);
+                // if SS has no value, then the WC wants us to pass on our partitioned value if
+                // one was specified by the user.  Even though Partitioned is an attribute and not a N/V pair,
+                // the WC wants us to set the attribute true/false and they'll translate it.
+                //
+                // We could end up with Partitioned=true on a cookie with no SS setting.  This happens when:
+                // SS is disabled in WebAppSecurity.  SS is disabled in channel.  Partitioned=true in WebAppSecurity
+                // This behavior is expected at this time.
+                requestState.setCookieAttributes(cookieName, "Partitioned=" + partitioned.toString());
             }
         }
 
         return ssoCookie;
+    }
+
+    /**
+     * Note: Only form login pass in the contextRoot. We will resolve the context root for other callers.
+     * We only use contextRoot for LTPA/LWT cookie path
+     *
+     * @param contextRoot
+     * @return
+     */
+    private String resolveContextRoot(String contextRoot) {
+        if (config.isUseContextRootForSSOCookiePath()) {
+            if (contextRoot != null)
+                return contextRoot;
+            else {
+                WebAppConfig webapp = WebConfigUtils.getWebAppConfig();
+                if (webapp != null)
+                    return webapp.getContextRoot();
+            }
+        }
+        return "/";
     }
 
     /**
@@ -466,27 +505,6 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
         return host;
     }
 
-    @Trivial
-    protected String[] splitString(String buf, int blockSize) {
-        ArrayList<String> al = new ArrayList<String>();
-        if (blockSize <= 0 || buf == null || buf.length() == 0) {
-            return al.toArray(new String[0]);
-        }
-        int begin = 0;
-        int end = 0;
-        int length = buf.length();
-        while (true) {
-            end = begin + (length - end < blockSize ? length - end : blockSize);
-            al.add(buf.substring(begin, end));
-            if (end >= length) {
-                break;
-            }
-            begin += (end - begin);
-        }
-
-        return al.toArray(new String[0]);
-    }
-
     /**
      * The token can be split across multiple cookies if it is over 3900 chars.
      * Look for subsequent cookies and concatenate them in that case.
@@ -546,17 +564,17 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
      * [; path=<some_path>][; secure][; httponly]
      **/
     @Override
-    public void addSSOCookiesToResponse(Subject subject, HttpServletRequest req, HttpServletResponse resp) {
+    public void addSSOCookiesToResponse(Subject subject, HttpServletRequest req, HttpServletResponse resp, String contextRoot) {
         if (!allowToAddCookieToResponse(req))
             return;
-        addJwtSsoCookiesToResponse(subject, req, resp);
+        addJwtSsoCookiesToResponse(subject, req, resp, contextRoot);
 
         if (!JwtSSOTokenHelper.shouldAlsoIncludeLtpaCookie()) {
             return;
         }
 
         if (!isDisableLtpaCookie(subject)) {
-            addLtpaSsoCookiesToResponse(subject, req, resp);
+            addLtpaSsoCookiesToResponse(subject, req, resp, contextRoot);
         }
 
         if (oidcServerRef != null && oidcServerRef.getService() != null) {
@@ -581,8 +599,9 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
      * @param subject
      * @param req
      * @param resp
+     * @param contextRoot
      */
-    private void addLtpaSsoCookiesToResponse(Subject subject, HttpServletRequest req, HttpServletResponse resp) {
+    private void addLtpaSsoCookiesToResponse(Subject subject, HttpServletRequest req, HttpServletResponse resp, String contextRoot) {
         SingleSignonToken ssoToken = getDefaultSSOTokenFromSubject(subject);
         if (ssoToken != null) {
             byte[] ssoTokenBytes = ssoToken.getBytes();
@@ -594,7 +613,7 @@ public class SSOCookieHelperImpl implements SSOCookieHelper {
                     updateCookieCache(cookieBytes, cookieByteString);
                 }
 
-                Cookie ssoCookie = createCookie(req, cookieByteString);
+                Cookie ssoCookie = createCookie(req, cookieByteString, contextRoot);
                 resp.addCookie(ssoCookie);
             }
         }

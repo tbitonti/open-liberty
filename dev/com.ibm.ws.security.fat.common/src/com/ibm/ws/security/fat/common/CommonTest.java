@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2021 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package com.ibm.ws.security.fat.common;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Scanner;
 
 import org.junit.After;
@@ -21,14 +24,19 @@ import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
 
 import com.gargoylesoftware.htmlunit.WebClient;
+import com.ibm.websphere.simplicity.Machine;
+import com.ibm.websphere.simplicity.RemoteFile;
 import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.security.fat.common.utils.WebClientTracker;
+
+import componenttest.rules.repeater.JakartaEEAction;
+import componenttest.topology.impl.LibertyServer;
+import componenttest.topology.utils.LibertyServerUtils;
 
 public class CommonTest {
 
     private final static Class<?> thisClass = CommonTest.class;
     public static String _testName = "";
-    protected static int timeoutCounter = 0;
     protected static int allowableTimeoutCount = 0;
     public static CommonMessageTools msgUtils = new CommonMessageTools();
     protected WebClientTracker webClientTracker = new WebClientTracker();
@@ -40,13 +48,6 @@ public class CommonTest {
 
             String methodName = "failed";
             Log.info(thisClass, methodName, _testName + ": Test failed");
-            Log.info(thisClass, methodName, "");
-            Log.info(thisClass, methodName, "TTTTT EEEEE  SSSS TTTTT   FFFFF  AAA  IIIII L     EEEEE DDDD");
-            Log.info(thisClass, methodName, "  T   E     S       T     F     A   A   I   L     E     D   D");
-            Log.info(thisClass, methodName, "  T   EEE    SSS    T     FFF   AAAAA   I   L     EEE   D   D");
-            Log.info(thisClass, methodName, "  T   E         S   T     F     A   A   I   L     E     D   D");
-            Log.info(thisClass, methodName, "  T   EEEEE SSSS    T     F     A   A IIIII LLLLL EEEEE DDDD");
-            Log.info(thisClass, methodName, "");
             super.failed(e, description);
         }
 
@@ -55,13 +56,6 @@ public class CommonTest {
 
             String methodName = "succeeded";
             Log.info(thisClass, methodName, _testName + ": Test succeeded");
-            Log.info(thisClass, methodName, "");
-            Log.info(thisClass, methodName, "TTTTT EEEEE  SSSS TTTTT   PPPP   AAA   SSSS SSSSS EEEEE DDDD");
-            Log.info(thisClass, methodName, "  T   E     S       T     P   P A   A S     S     E     D   D");
-            Log.info(thisClass, methodName, "  T   EEE    SSS    T     PPPP  AAAAA  SSS   SSS  EEE   D   D");
-            Log.info(thisClass, methodName, "  T   E         S   T     F     A   A     S     S E     D   D");
-            Log.info(thisClass, methodName, "  T   EEEEE SSSS    T     F     A   A SSSS  SSSS  EEEEE DDDD");
-            Log.info(thisClass, methodName, "");
             super.succeeded(description);
         }
     };
@@ -69,13 +63,7 @@ public class CommonTest {
     protected static void testSkipped() {
 
         String methodName = "testSkipped";
-        Log.info(thisClass, methodName, "");
-        Log.info(thisClass, methodName, "TTTTT EEEEE  SSSS TTTTT   SSSS K   K IIIII PPPP  PPPP  EEEEE DDDD");
-        Log.info(thisClass, methodName, "  T   E     S       T    S     K  K    I   P   P P   P E     D   D");
-        Log.info(thisClass, methodName, "  T   EEE    SSS    T     SSS  KKK     I   PPPP  PPPP  EEE   D   D");
-        Log.info(thisClass, methodName, "  T   E         S   T        S K  K    I   P     P     E     D   D");
-        Log.info(thisClass, methodName, "  T   EEEEE SSSS    T    SSSS  K   K IIIII P     P     EEEEE DDDD");
-        Log.info(thisClass, methodName, "");
+        Log.info(thisClass, methodName, _testName + ": Test skipped");
     }
 
     /**
@@ -108,6 +96,7 @@ public class CommonTest {
     public static void timeoutChecker() throws Exception {
         String method = "timeoutChecker";
 
+        int timeoutCounter = 0;
         boolean timeoutFound = false;
         String outputFile = "./results/output.txt";
         File f = new File(outputFile);
@@ -130,10 +119,6 @@ public class CommonTest {
                                 timeoutFound = true;
                             }
                         }
-                    }
-                    if (theLine.contains("TestClass END")) {
-                        Log.info(thisClass, method, "Found an end of test class marker in log");
-                        timeoutFound = false;
                     }
                 }
             } catch (IOException e) {
@@ -193,6 +178,49 @@ public class CommonTest {
         WebClient webClient = TestHelpers.getWebClient(override);
         webClientTracker.addWebClient(webClient);
         return webClient;
+    }
+
+    private static void transformAppsInDefaultDirs(TestServer server, String appDirName) {
+
+        try {
+            LibertyServer myServer = server.getServer();
+            Machine machine = myServer.getMachine();
+
+            Log.info(thisClass, "transformAppsInDefaultDirs", "Processing " + appDirName + " for serverName: " + myServer.getServerName());
+            RemoteFile appDir = machine.getFile(LibertyServerUtils.makeJavaCompatible(myServer.getServerRoot() + File.separatorChar + appDirName, machine));
+
+            RemoteFile[] list = null;
+            if (appDir.isDirectory()) {
+                list = appDir.list(false);
+            }
+            if (list != null) {
+                for (RemoteFile app : list) {
+                    if (!app.getName().contains("idp.war")) { // the idp.war should have already been transformed
+                        JakartaEEAction.transformApp(Paths.get(app.getAbsolutePath()));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.error(thisClass, "transformAppsInDefaultDirs", e);
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * JakartaEE9 transform applications for a specified server.
+     *
+     * @param serverName
+     *            The server to transform the applications on.
+     */
+    public static void transformApps(TestServer server) {
+        if (JakartaEEAction.isEE9OrLaterActive()) {
+
+            transformAppsInDefaultDirs(server, "dropins");
+            transformAppsInDefaultDirs(server, "test-apps");
+            //            // TODO - may break saml - may have to update saml rules
+            //            transformAppsInDefaultDirs(server, "idp-apps");
+
+        }
     }
 
     @After

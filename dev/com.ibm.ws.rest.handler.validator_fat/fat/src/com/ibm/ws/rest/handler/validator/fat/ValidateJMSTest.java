@@ -1,16 +1,16 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.rest.handler.validator.fat;
 
-import static componenttest.annotation.SkipForRepeat.EE9_FEATURES;
+import static com.ibm.ws.rest.handler.validator.fat.FATSuite.assertClassEquals;
+import static com.ibm.ws.rest.handler.validator.fat.FATSuite.expectedJmsProviderSpecVersion;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -25,22 +25,35 @@ import javax.json.JsonObject;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.Server;
-import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.rules.repeater.MicroProfileActions;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 import componenttest.topology.utils.HttpsRequest;
 
 @RunWith(FATRunner.class)
-@SkipForRepeat(EE9_FEATURES) // TODO: Enable this once mpopenapi-2.0 (jakarta enabled) is available
 public class ValidateJMSTest extends FATServletClient {
     @Server("com.ibm.ws.rest.handler.validator.jms.fat")
     public static LibertyServer server;
+
+    @ClassRule
+    public static RepeatTests r1 = MicroProfileActions.repeat("com.ibm.ws.rest.handler.validator.jms.fat",
+                                                              MicroProfileActions.MP71_EE11,
+                                                              MicroProfileActions.MP71_EE10,
+                                                              MicroProfileActions.MP70_EE11,
+                                                              MicroProfileActions.MP70_EE10,
+                                                              MicroProfileActions.MP61,
+                                                              MicroProfileActions.MP50, // EE9
+                                                              MicroProfileActions.MP40, // EE8
+                                                              MicroProfileActions.MP30,
+                                                              MicroProfileActions.MP20);
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -67,7 +80,7 @@ public class ValidateJMSTest extends FATServletClient {
      */
     @Test
     public void testJMSConnectionFactory() throws Exception {
-        JsonObject json = new HttpsRequest(server, "/ibm/api/validation/jmsConnectionFactory/jmscf1").run(JsonObject.class);
+        JsonObject json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/jmsConnectionFactory/jmscf1").run(JsonObject.class);
         String err = "Unexpected json response: " + json;
         assertEquals(err, "jmscf1", json.getString("uid"));
         assertEquals(err, "jmscf1", json.getString("id"));
@@ -77,7 +90,7 @@ public class ValidateJMSTest extends FATServletClient {
         assertNotNull(err, json = json.getJsonObject("info"));
         assertEquals(err, "IBM", json.getString("jmsProviderName"));
         assertEquals(err, "1.0", json.getString("jmsProviderVersion"));
-        assertEquals(err, "2.0", json.getString("jmsProviderSpecVersion"));
+        assertEquals(err, expectedJmsProviderSpecVersion(), json.getString("jmsProviderSpecVersion"));
         assertEquals(err, "TestClient1", json.getString("clientID"));
     }
 
@@ -92,7 +105,7 @@ public class ValidateJMSTest extends FATServletClient {
     })
     @Test
     public void testJMSConnectionFactoryFailure() throws Exception {
-        JsonObject json = new HttpsRequest(server, "/ibm/api/validation/jmsConnectionFactory/jmscf2").run(JsonObject.class);
+        JsonObject json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/jmsConnectionFactory/jmscf2").run(JsonObject.class);
         JsonArray stack;
         String err = "Unexpected json response: " + json;
         assertEquals(err, "jmscf2", json.getString("uid"));
@@ -106,7 +119,7 @@ public class ValidateJMSTest extends FATServletClient {
 
         assertNotNull(err, json = json.getJsonObject("failure"));
         assertEquals(err, "CWSIA0241", json.getString("errorCode"));
-        assertEquals(err, "javax.jms.JMSException", json.getString("class"));
+        assertClassEquals(err, "javax.jms.JMSException", json.getString("class"));
         assertTrue(err, json.getString("message").contains("CWSIA0241E"));
         assertNotNull(err, stack = json.getJsonArray("stack"));
         assertTrue(err, stack.size() > 10); // stack is actually much longer, but size could vary
@@ -116,7 +129,7 @@ public class ValidateJMSTest extends FATServletClient {
 
         assertNotNull(err, json = json.getJsonObject("cause"));
         assertNull(err, json.get("errorCode"));
-        assertEquals(err, "com.ibm.websphere.sib.exception.SIResourceException", json.getString("class"));
+        assertClassEquals(err, "com.ibm.websphere.sib.exception.SIResourceException", json.getString("class"));
         assertTrue(err, json.getString("message").contains("CWSIT0127E"));
         assertNotNull(err, stack = json.getJsonArray("stack"));
         assertTrue(err, stack.size() > 10); // stack is actually much longer, but size could vary
@@ -153,7 +166,7 @@ public class ValidateJMSTest extends FATServletClient {
     })
     @Test
     public void testMultipleConnectionFactories() throws Exception {
-        HttpsRequest request = new HttpsRequest(server, "/ibm/api/validation/jmsConnectionFactory");
+        HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/jmsConnectionFactory");
         JsonArray json = request.method("GET").run(JsonArray.class);
         String err = "unexpected response: " + json;
 
@@ -171,7 +184,7 @@ public class ValidateJMSTest extends FATServletClient {
         assertNotNull(err, j = j.getJsonObject("info"));
         assertEquals(err, "IBM", j.getString("jmsProviderName"));
         assertEquals(err, "1.0", j.getString("jmsProviderVersion"));
-        assertEquals(err, "2.0", j.getString("jmsProviderSpecVersion"));
+        assertEquals(err, expectedJmsProviderSpecVersion(), j.getString("jmsProviderSpecVersion"));
         assertEquals(err, "clientID", j.getString("clientID"));
 
         // [1]: config.displayId=jmsConnectionFactory[jmscf1]
@@ -200,7 +213,7 @@ public class ValidateJMSTest extends FATServletClient {
      */
     @Test
     public void testMultipleQueueConnectionFactories() throws Exception {
-        HttpsRequest request = new HttpsRequest(server, "/ibm/api/validation/jmsQueueConnectionFactory");
+        HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/jmsQueueConnectionFactory");
         JsonArray qcfs = request.method("GET").run(JsonArray.class);
         JsonObject json;
         String err = "unexpected response: " + qcfs;
@@ -215,7 +228,7 @@ public class ValidateJMSTest extends FATServletClient {
         assertNotNull(err, json = json.getJsonObject("info"));
         assertEquals(err, "IBM", json.getString("jmsProviderName"));
         assertEquals(err, "1.0", json.getString("jmsProviderVersion"));
-        assertEquals(err, "2.0", json.getString("jmsProviderSpecVersion"));
+        assertEquals(err, expectedJmsProviderSpecVersion(), json.getString("jmsProviderSpecVersion"));
         assertNull(err, json.get("clientID"));
     }
 
@@ -224,7 +237,7 @@ public class ValidateJMSTest extends FATServletClient {
      */
     @Test
     public void testMultipleTopicConnectionFactories() throws Exception {
-        HttpsRequest request = new HttpsRequest(server, "/ibm/api/validation/jmsTopicConnectionFactory");
+        HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/jmsTopicConnectionFactory");
         JsonArray tcfs = request.method("GET").run(JsonArray.class);
         JsonObject json;
         String err = "unexpected response: " + tcfs;
@@ -240,7 +253,7 @@ public class ValidateJMSTest extends FATServletClient {
         assertNotNull(err, json = json.getJsonObject("info"));
         assertEquals(err, "IBM", json.getString("jmsProviderName"));
         assertEquals(err, "1.0", json.getString("jmsProviderVersion"));
-        assertEquals(err, "2.0", json.getString("jmsProviderSpecVersion"));
+        assertEquals(err, expectedJmsProviderSpecVersion(), json.getString("jmsProviderSpecVersion"));
         assertEquals(err, "clientID", json.getString("clientID"));
 
         assertNotNull(err, json = tcfs.getJsonObject(1));
@@ -252,7 +265,7 @@ public class ValidateJMSTest extends FATServletClient {
         assertNotNull(err, json = json.getJsonObject("info"));
         assertEquals(err, "IBM", json.getString("jmsProviderName"));
         assertEquals(err, "1.0", json.getString("jmsProviderVersion"));
-        assertEquals(err, "2.0", json.getString("jmsProviderSpecVersion"));
+        assertEquals(err, expectedJmsProviderSpecVersion(), json.getString("jmsProviderSpecVersion"));
         assertEquals(err, "tcf2id", json.getString("clientID"));
 
         assertNotNull(err, json = tcfs.getJsonObject(2));
@@ -264,7 +277,7 @@ public class ValidateJMSTest extends FATServletClient {
         assertNotNull(err, json = json.getJsonObject("info"));
         assertEquals(err, "IBM", json.getString("jmsProviderName"));
         assertEquals(err, "1.0", json.getString("jmsProviderVersion"));
-        assertEquals(err, "2.0", json.getString("jmsProviderSpecVersion"));
+        assertEquals(err, expectedJmsProviderSpecVersion(), json.getString("jmsProviderSpecVersion"));
         assertEquals(err, "tcf3id", json.getString("clientID"));
     }
 
@@ -273,7 +286,7 @@ public class ValidateJMSTest extends FATServletClient {
      */
     @Test
     public void testQueueConnectionFactory() throws Exception {
-        JsonObject json = new HttpsRequest(server, "/ibm/api/validation/jmsQueueConnectionFactory/qcf1").run(JsonObject.class);
+        JsonObject json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/jmsQueueConnectionFactory/qcf1").run(JsonObject.class);
         String err = "Unexpected json response: " + json;
         assertEquals(err, "qcf1", json.getString("uid"));
         assertEquals(err, "qcf1", json.getString("id"));
@@ -283,7 +296,7 @@ public class ValidateJMSTest extends FATServletClient {
         assertNotNull(err, json = json.getJsonObject("info"));
         assertEquals(err, "IBM", json.getString("jmsProviderName"));
         assertEquals(err, "1.0", json.getString("jmsProviderVersion"));
-        assertEquals(err, "2.0", json.getString("jmsProviderSpecVersion"));
+        assertEquals(err, expectedJmsProviderSpecVersion(), json.getString("jmsProviderSpecVersion"));
         assertNull(err, json.get("clientID"));
     }
 
@@ -292,7 +305,8 @@ public class ValidateJMSTest extends FATServletClient {
      */
     @Test
     public void testTopicConnectionFactory() throws Exception {
-        JsonObject json = new HttpsRequest(server, "/ibm/api/validation/jmsTopicConnectionFactory/jmsTopicConnectionFactory[default-0]").run(JsonObject.class);
+        JsonObject json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/jmsTopicConnectionFactory/jmsTopicConnectionFactory%5Bdefault-0%5D")
+                        .run(JsonObject.class);
         String err = "Unexpected json response: " + json;
         assertEquals(err, "jmsTopicConnectionFactory[default-0]", json.getString("uid"));
         assertNull(err, json.get("id"));
@@ -302,7 +316,7 @@ public class ValidateJMSTest extends FATServletClient {
         assertNotNull(err, json = json.getJsonObject("info"));
         assertEquals(err, "IBM", json.getString("jmsProviderName"));
         assertEquals(err, "1.0", json.getString("jmsProviderVersion"));
-        assertEquals(err, "2.0", json.getString("jmsProviderSpecVersion"));
+        assertEquals(err, expectedJmsProviderSpecVersion(), json.getString("jmsProviderSpecVersion"));
         assertEquals(err, "clientID", json.getString("clientID"));
     }
 }

@@ -1,0 +1,16 @@
+-include= ~${workspace}/cnf/resources/bnd/feature.props
+symbolicName=io.openliberty.globalhandler-1.0
+visibility=protected
+IBM-App-ForceRestart: uninstall, \
+ install
+IBM-SPI-Package: com.ibm.wsspi.webservices.handler
+-features=\
+  io.openliberty.globalhandler1.0.internal.ee-10.0; ibm.tolerates:="11.0, 12.0", \
+  io.openliberty.servlet.api-6.0; ibm.tolerates:="6.1, 6.2"
+-jars=\
+  io.openliberty.globalhandler.spi; location:=dev/spi/ibm/
+-files=\
+  dev/spi/ibm/javadoc/io.openliberty.globalhandler.spi_1.0-javadoc.zip
+kind=ga
+edition=core
+WLP-Activation-Type: parallel

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2021 IBM Corporation and others.
+ * Copyright (c) 2016, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,25 +18,32 @@ import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
+import java.io.InputStream;
+import java.sql.Blob;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 
 import javax.annotation.Resource;
+import javax.naming.InitialContext;
 import javax.servlet.annotation.WebServlet;
 import javax.sql.DataSource;
 import javax.transaction.UserTransaction;
 
 import org.junit.Test;
 
+import componenttest.annotation.ExpectedFFDC;
+import componenttest.annotation.SkipIfSysProp;
 import componenttest.app.FATServlet;
 import oracle.jdbc.OracleCallableStatement;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OraclePreparedStatement;
+import oracle.jdbc.OracleStatement;
 import oracle.jdbc.OracleTypes;
 import oracle.jdbc.datasource.OracleCommonDataSource;
 import oracle.jdbc.datasource.OracleConnectionPoolDataSource;
@@ -46,17 +55,11 @@ public class OracleTestServlet extends FATServlet {
     @Resource
     private DataSource ds;
 
-    @Resource(lookup = "jdbc/casting-ds")
-    private DataSource ds_casting;
-
     @Resource(lookup = "jdbc/driver-ds")
     private DataSource driver_ds;
 
     @Resource(lookup = "jdbc/generic-driver-ds")
     private DataSource generic_driver_ds;
-
-    @Resource(lookup = "jdbc/inferred-ds")
-    private DataSource inferred_ds;
 
     @Resource(name = "java:comp/jdbc/env/unsharable-ds-xa-loosely-coupled", shareable = false)
     private DataSource unsharable_ds_xa_loosely_coupled;
@@ -64,12 +67,22 @@ public class OracleTestServlet extends FATServlet {
     @Resource(name = "java:comp/jdbc/env/unsharable-ds-xa-tightly-coupled", shareable = false)
     private DataSource unsharable_ds_xa_tightly_coupled;
 
+    @Resource(lookup = "jdbc/driver-url-preferred")
+    private DataSource driver_url_perferred;
+
+    @Resource(lookup = "jdbc/ds-url-preferred")
+    private DataSource ds_url_perferred;
+
     @Resource
     private UserTransaction tx;
 
     // Verify that connections are/are not castable to OracleConnection based on whether enableConnectionCasting=true/false.
     @Test
     public void testConnectionCasting() throws Exception {
+        //Lookup instead of resource injection so this datasource is not looked up when running on IBMi
+        DataSource ds_casting = InitialContext.doLookup("jdbc/casting-ds");
+        DataSource ds = InitialContext.doLookup("java:comp/DefaultDataSource");
+
         OracleConnection ocon = (OracleConnection) ds_casting.getConnection();
         try {
             assertTrue(ocon.isUsable());
@@ -102,10 +115,58 @@ public class OracleTestServlet extends FATServlet {
         }
     }
 
+    // Verify that statements are not castable to OracleStatement, but can be unwrapped
+    @Test
+    public void testStatementCasting() throws Exception {
+        //Lookup instead of resource injection so this datasource is not looked up when running on IBMi
+        DataSource ds = InitialContext.doLookup("java:comp/DefaultDataSource");
+
+        Connection con = ds.getConnection();
+        Statement stmt;
+        OracleStatement ostmt;
+
+        //Test statement
+        stmt = con.createStatement();
+        try {
+            ostmt = (OracleStatement) stmt;
+            fail("Should not be able to cast to OracleStatement");
+        } catch (Exception e) {
+            assertTrue(e instanceof ClassCastException);
+        }
+
+        assertTrue(stmt.isWrapperFor(OracleStatement.class));
+        ostmt = stmt.unwrap(OracleStatement.class);
+
+        //Test prepared statement
+        stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES(?,?)");
+        try {
+            ostmt = (OraclePreparedStatement) stmt;
+            fail("Should not be able to cast to OraclePreparedStatement");
+        } catch (Exception e) {
+            assertTrue(e instanceof ClassCastException);
+        }
+
+        assertTrue(stmt.isWrapperFor(OraclePreparedStatement.class));
+        ostmt = stmt.unwrap(OraclePreparedStatement.class);
+
+        //Test callable statement
+        stmt = con.prepareCall("INSERT INTO MYTABLE VALUES(?,?)");
+        try {
+            ostmt = (OracleCallableStatement) stmt;
+            fail("Should not be able to cast to OracleCallableStatement");
+        } catch (Exception e) {
+            assertTrue(e instanceof ClassCastException);
+        }
+
+        assertTrue(stmt.isWrapperFor(OracleCallableStatement.class));
+        ostmt = stmt.unwrap(OracleCallableStatement.class);
+    }
+
     // Test for oracle.jdbc.OracleCallableStatement.getCursor.  Should be able to execute a procedure that returns a cursor
     // and use getCursor to obtain a result set.  The parent statement of the result set should be the WAS statement wrapper.
     @Test
     public void testCursor() throws Exception {
+        DataSource ds = InitialContext.doLookup("java:comp/DefaultDataSource");
         Connection con = ds.getConnection();
         try {
             PreparedStatement ps = con.prepareStatement("INSERT INTO MYTABLE VALUES(?,?)");
@@ -136,6 +197,7 @@ public class OracleTestServlet extends FATServlet {
     // the use of transactional onConnect commands, as well as the use of Liberty variables in the onConnect SQL.
     @Test
     public void testOnConnectSQL() throws Exception {
+        DataSource ds_casting = InitialContext.doLookup("jdbc/casting-ds");
         Connection con = ds_casting.getConnection();
         try {
             con.setAutoCommit(false);
@@ -155,6 +217,23 @@ public class OracleTestServlet extends FATServlet {
         } finally {
             con.close();
         }
+    }
+
+    // Ensure that readOnly true throws an exception
+    @Test
+    @ExpectedFFDC({ "java.sql.SQLException" })
+    public void testReadOnlyException() throws Exception {
+        try (Connection con = ds.getConnection(); PreparedStatement ps = con.prepareStatement("INSERT INTO MYTABLE VALUES(?,?)");) {
+            con.setReadOnly(true);
+            ps.setInt(1, 4);
+            ps.setString(2, "four");
+            ps.executeUpdate();
+
+            fail("Should not have been able to executeUpdate with read only set to true");
+        } catch (SQLException e) {
+            assertTrue("SQLException should have contained DSRA9010E", e.getMessage().toUpperCase().contains("DSRA9010E"));
+        }
+
     }
 
     // Test for JDBC 4.2 ref cursors.  Should be able to execute a procedure that returns a cursor
@@ -194,6 +273,7 @@ public class OracleTestServlet extends FATServlet {
     // be the WAS statement wrapper.
     @Test
     public void testReturnResultSet() throws Exception {
+        DataSource ds = InitialContext.doLookup("java:comp/DefaultDataSource");
         Connection con = ds.getConnection();
         try {
             PreparedStatement ps = con.prepareStatement("INSERT INTO MYTABLE VALUES(?,?)");
@@ -231,6 +311,8 @@ public class OracleTestServlet extends FATServlet {
             atLeastJava9 = false;
         }
         if (atLeastJava9) {
+            //Lookup instead of resource injection so this datasource is not looked up when running on IBMi
+            DataSource ds = InitialContext.doLookup("java:comp/DefaultDataSource");
             Connection con = ds.getConnection();
             try {
                 DatabaseMetaData metadata = con.getMetaData();
@@ -247,6 +329,8 @@ public class OracleTestServlet extends FATServlet {
             }
         }
 
+        //Lookup instead of resource injection so this datasource is not looked up when running on IBMi
+        DataSource ds_casting = InitialContext.doLookup("jdbc/casting-ds");
         OracleCommonDataSource ocds = ds_casting.unwrap(OracleCommonDataSource.class);
         assertEquals("TestRole", ocds.getRoleName());
 
@@ -294,7 +378,13 @@ public class OracleTestServlet extends FATServlet {
     //Test that the proper implementation classes are used for the various datasources configured in this test bucket
     //since the JDBC Driver used is named so as not to be recognized by the built-in logic
     @Test
+    @SkipIfSysProp(SkipIfSysProp.OS_IBMI) //Skip on IBM i due to additional Db2 JDBC driver in JDK
     public void testInferOracleDataSource() throws Exception {
+        //Lookup instead of resource injection so this datasource is not looked up when running on IBMi
+        DataSource inferred_ds = InitialContext.doLookup("jdbc/inferred-ds");
+        DataSource ds_casting = InitialContext.doLookup("jdbc/casting-ds");
+        DataSource ds = InitialContext.doLookup("java:comp/DefaultDataSource");
+
         //The default datasource should continue to be inferred as an XADataSource, since it has properties.oracle configured
         assertTrue("default datasource should wrap OracleXADataSource",
                    ds.isWrapperFor(OracleXADataSource.class));
@@ -370,6 +460,53 @@ public class OracleTestServlet extends FATServlet {
             }
         } finally {
             tx.commit();
+        }
+    }
+
+    @Test
+    public void testBlobCreation() throws Exception {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("/data/myDataFile.txt");) {
+
+            //First try to use setBlob
+            try (Connection con1 = ds.getConnection();
+                            PreparedStatement ps = con1.prepareStatement("INSERT INTO BLOBTABLE VALUES (?, ?)");) {
+
+                byte[] byteData = new byte[inputStream.available()];
+                inputStream.read(byteData);
+
+                Blob blob = con1.createBlob();
+                blob.setBytes(1, byteData);
+
+                ps.setInt(1, 1);
+                ps.setBlob(2, blob);
+                ps.executeUpdate();
+
+                blob.free();
+            }
+
+            //Next try to use setBinaryStream
+            try (Connection con1 = ds.getConnection();
+                            PreparedStatement ps = con1.prepareStatement("INSERT INTO BLOBTABLE VALUES (?, ?)");) {
+
+                ps.setInt(1, 2);
+                ps.setBinaryStream(2, inputStream);
+                ps.executeUpdate();
+            }
+        }
+    }
+
+    @Test
+    public void testVerifyConnectionPrecedence() throws Throwable {
+        try (Connection con = driver_url_perferred.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 33);
+            stmt.setString(2, "thirty-three");
+            stmt.execute();
+        }
+
+        try (Connection con = ds_url_perferred.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 34);
+            stmt.setString(2, "thirty-four");
+            stmt.execute();
         }
     }
 }

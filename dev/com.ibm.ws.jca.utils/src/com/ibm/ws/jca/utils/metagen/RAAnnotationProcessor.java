@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014,2021 IBM Corporation and others.
+ * Copyright (c) 2014,2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -294,7 +296,7 @@ public class RAAnnotationProcessor {
     private RaConnector processConnector(Class<?> connectorClass, RaConnector rxConnector) throws ResourceAdapterInternalException {
         final boolean trace = TraceComponent.isAnyTracingEnabled();
 
-        RaConnector masterConnector = new RaConnector();
+        RaConnector primaryConnector = new RaConnector();
 
         // get the parsed ra.xml file ------------------------------------------
         RaResourceAdapter rxRA = rxConnector == null ? null : rxConnector.getResourceAdapter();
@@ -305,12 +307,12 @@ public class RAAnnotationProcessor {
         }
 
         // Create empty shell --------------------------------------------------
-        RaResourceAdapter masterRA = null;
+        RaResourceAdapter primaryRA = null;
 
         // These will be set as needed
-        RaOutboundResourceAdapter masterOutbound = null;
-        RaInboundResourceAdapter masterInbound = new RaInboundResourceAdapter();
-        RaMessageAdapter masterMessageAdapter = new RaMessageAdapter();
+        RaOutboundResourceAdapter primaryOutbound = null;
+        RaInboundResourceAdapter primaryInbound = new RaInboundResourceAdapter();
+        RaMessageAdapter primaryMessageAdapter = new RaMessageAdapter();
 
         // parse annotations ---------------------------------------------------
         // Convert all the info from the annotations to xml.Ra classes
@@ -367,16 +369,16 @@ public class RAAnnotationProcessor {
             if (trace && tc.isDebugEnabled())
                 Tr.debug(this, tc, "processing ra.xml resource adapter");
 
-            masterConnector = mergeConnectors(rxConnector, annoConnector);
+            primaryConnector = mergeConnectors(rxConnector, annoConnector);
             // The resource adapter is created by mergeConnectors
-            masterRA = masterConnector.getResourceAdapter();
+            primaryRA = primaryConnector.getResourceAdapter();
 
             // The outbound connector may have been created as part of merging connectors
-            if (masterRA.getOutboundResourceAdapter() != null) {
-                masterOutbound = masterRA.getOutboundResourceAdapter();
+            if (primaryRA.getOutboundResourceAdapter() != null) {
+                primaryOutbound = primaryRA.getOutboundResourceAdapter();
             } else {
-                masterOutbound = new RaOutboundResourceAdapter();
-                masterRA.setOutboundResourceAdapter(masterOutbound);
+                primaryOutbound = new RaOutboundResourceAdapter();
+                primaryRA.setOutboundResourceAdapter(primaryOutbound);
             }
             // -> END process connector XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -385,7 +387,7 @@ public class RAAnnotationProcessor {
                 if (trace && tc.isDebugEnabled())
                     Tr.debug(this, tc, "RA config property from xml: " + p);
             }
-            masterRA.getConfigProperties().addAll(mergeConfigProperties(rxRA.getConfigProperties(), annoRAConfigProperties));
+            primaryRA.getConfigProperties().addAll(mergeConfigProperties(rxRA.getConfigProperties(), annoRAConfigProperties));
             // <- END process RA config properties XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
             // -> BEGIN process outbound resource adapter XXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -397,19 +399,19 @@ public class RAAnnotationProcessor {
                 List<RaConnectionDefinition> rxDefinitions = rxOutbound.getConnectionDefinitions();
                 if (!rxDefinitions.isEmpty()) {
                     // merge ra.xml and annotated connection definitions
-                    masterOutbound.getConnectionDefinitions().addAll(mergeConnectionDefinitions(rxDefinitions, annoDefinitions));
+                    primaryOutbound.getConnectionDefinitions().addAll(mergeConnectionDefinitions(rxDefinitions, annoDefinitions));
                 } else {
                     // there are no connection definitions in the ra.xml, so just
-                    // add the annotated connection definitions to the master
-                    masterOutbound.getConnectionDefinitions().addAll(annoDefinitions);
+                    // add the annotated connection definitions to the primary
+                    primaryOutbound.getConnectionDefinitions().addAll(annoDefinitions);
                 }
             } else {
                 // there is no ra.xml outbound element, so just add the annotated
-                // connection definitions to the master
+                // connection definitions to the primary
                 if (trace && tc.isDebugEnabled())
-                    Tr.debug(this, tc, "no ra.xml, masterOutbound: " + masterOutbound);
-                if (masterOutbound != null)
-                    masterOutbound.getConnectionDefinitions().addAll(annoDefinitions);
+                    Tr.debug(this, tc, "no ra.xml, primaryOutbound: " + primaryOutbound);
+                if (primaryOutbound != null)
+                    primaryOutbound.getConnectionDefinitions().addAll(annoDefinitions);
             }
             // <- END process outbound resource adapter XXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -418,21 +420,21 @@ public class RAAnnotationProcessor {
                 Tr.debug(this, tc, "processing inbound message listeners");
 
             RaInboundResourceAdapter rxInbound = rxRA.getInboundResourceAdapter();
-            masterInbound.setMessageAdapter(masterMessageAdapter);
-            masterRA.setInboundResourceAdapter(masterInbound);
+            primaryInbound.setMessageAdapter(primaryMessageAdapter);
+            primaryRA.setInboundResourceAdapter(primaryInbound);
             boolean messageListenersMerged = false;
             if (rxInbound != null && rxInbound.getMessageAdapter() != null) {
                 List<RaMessageListener> rxMsgListeners = rxInbound.getMessageAdapter().getMessageListeners();
                 if (!rxMsgListeners.isEmpty()) {
                     // merge ra.xml and annotated message listeners
-                    masterMessageAdapter.getMessageListeners().addAll(mergeMessageListeners(rxMsgListeners, (LinkedList<RaMessageListener>) annoMsgListeners));
+                    primaryMessageAdapter.getMessageListeners().addAll(mergeMessageListeners(rxMsgListeners, (LinkedList<RaMessageListener>) annoMsgListeners));
                     messageListenersMerged = true;
                 }
             }
             if (!messageListenersMerged) {
                 // there is no ra.xml message listeners, so just add the annotated
-                // message listeners to the master
-                masterMessageAdapter.getMessageListeners().addAll(annoMsgListeners);
+                // message listeners to the primary
+                primaryMessageAdapter.getMessageListeners().addAll(annoMsgListeners);
             }
             // <- END process message listeners XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -443,17 +445,17 @@ public class RAAnnotationProcessor {
             List<RaAdminObject> rxAdminObjects = rxRA.getAdminObjects();
             if (!rxAdminObjects.isEmpty()) {
                 // merge ra.xml and annotated admin objects
-                masterRA.getAdminObjects().addAll(mergeAdminObjects(rxAdminObjects, annoAdminObjects));
+                primaryRA.getAdminObjects().addAll(mergeAdminObjects(rxAdminObjects, annoAdminObjects));
             } else {
                 // there are no admin objects defined in ra.xml, so just add the annotated
-                // admin objects to the master
-                masterRA.getAdminObjects().addAll(annoAdminObjects);
+                // admin objects to the primary
+                primaryRA.getAdminObjects().addAll(annoAdminObjects);
             }
             // <- END process admin objects XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
         } else {
             // There is no ra.xml resource adapter, therefore just copy the annotated
-            // objects, if any, into the master
+            // objects, if any, into the primary
 
             // There should only be zero or only one class annotated with @Connector at this point
             if (trace && tc.isDebugEnabled()) {
@@ -462,44 +464,44 @@ public class RAAnnotationProcessor {
             }
 
             // Create empty shell --------------------------------------------------
-            masterRA = new RaResourceAdapter();
-            masterConnector.setResourceAdapter(masterRA);
+            primaryRA = new RaResourceAdapter();
+            primaryConnector.setResourceAdapter(primaryRA);
 
-            // These will be set on the masterRA as needed
-            masterOutbound = new RaOutboundResourceAdapter();
-            masterInbound = new RaInboundResourceAdapter();
-            masterMessageAdapter = new RaMessageAdapter();
+            // These will be set on the primaryRA as needed
+            primaryOutbound = new RaOutboundResourceAdapter();
+            primaryInbound = new RaInboundResourceAdapter();
+            primaryMessageAdapter = new RaMessageAdapter();
 
             // -> BEGIN process resource adapter XXXXXXXXXXXXXXXXXXXXXXXXXX
             // Set resource adapter class to the annotated class
             if (annoConnector != null) {
-                masterRA.setResourceAdapterClass(annoConnector.getResourceAdapter().getResourceAdapterClass());
+                primaryRA.setResourceAdapterClass(annoConnector.getResourceAdapter().getResourceAdapterClass());
 
                 if (annoConnector.getDescriptions() != null) {
-                    masterConnector.setDescription(annoConnector.getDescription());
+                    primaryConnector.setDescription(annoConnector.getDescription());
                 }
 
                 if (annoConnector.getDisplayName() != null) {
-                    masterConnector.setDisplayName(annoConnector.getDisplayName());
+                    primaryConnector.setDisplayName(annoConnector.getDisplayName());
                 }
 
                 if (annoConnector.getResourceAdapterVersion() != null) {
-                    masterConnector.setResourceAdapterVersion(annoConnector.getResourceAdapterVersion());
+                    primaryConnector.setResourceAdapterVersion(annoConnector.getResourceAdapterVersion());
                 }
 
                 // security permissions must be copied.  It's not used but an Info
                 // message will be logged that this is not supported
                 if (annoConnector.getResourceAdapter().getSecurityPermissions() != null) {
-                    masterConnector.getResourceAdapter().setSecurityPermissions(annoConnector.getResourceAdapter().getSecurityPermissions());
+                    primaryConnector.getResourceAdapter().setSecurityPermissions(annoConnector.getResourceAdapter().getSecurityPermissions());
                 }
 
                 if (annoConnector.getRequiredWorkContext() != null)
-                    masterConnector.setRequiredWorkContext(annoConnector.getRequiredWorkContext());
+                    primaryConnector.setRequiredWorkContext(annoConnector.getRequiredWorkContext());
             }
 
             // copy annotated top level resource adapter config properties
             if (!annoRAConfigProperties.isEmpty())
-                masterRA.getConfigProperties().addAll(annoRAConfigProperties);
+                primaryRA.getConfigProperties().addAll(annoRAConfigProperties);
             // -> END process resource adapter XXXXXXXXXXXXXXXXXXXXXXXXXX
 
             // -> BEGIN process outbound resource adapter XXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -511,7 +513,7 @@ public class RAAnnotationProcessor {
                     Tr.debug(this, tc, "transaction support from @Connector: " +
                                        annoConnector.getResourceAdapter().getOutboundResourceAdapter().getTransactionSupport());
                 if (annoConnector.getResourceAdapter().getOutboundResourceAdapter().getTransactionSupport() != null) {
-                    masterOutbound.setTransactionSupport(annoConnector.getResourceAdapter().getOutboundResourceAdapter().getTransactionSupport());
+                    primaryOutbound.setTransactionSupport(annoConnector.getResourceAdapter().getOutboundResourceAdapter().getTransactionSupport());
                     outboundWasFound = true;
                 }
 
@@ -527,7 +529,7 @@ public class RAAnnotationProcessor {
                     Tr.debug(this, tc, "authentication mechanism from @Connector: " +
                                        annoConnector.getResourceAdapter().getOutboundResourceAdapter().getAuthenticationMechanisms());
                 if (!annoConnector.getResourceAdapter().getOutboundResourceAdapter().getAuthenticationMechanisms().isEmpty()) {
-                    masterOutbound.setAuthenticationMechanisms(annoConnector.getResourceAdapter().getOutboundResourceAdapter().getAuthenticationMechanisms());
+                    primaryOutbound.setAuthenticationMechanisms(annoConnector.getResourceAdapter().getOutboundResourceAdapter().getAuthenticationMechanisms());
                     outboundWasFound = true;
                 }
 
@@ -535,40 +537,40 @@ public class RAAnnotationProcessor {
                     Tr.debug(this, tc, "reauthentication support from @Connector: " +
                                        annoConnector.getResourceAdapter().getOutboundResourceAdapter().getReauthenticationSupport());
                 if (annoConnector.getResourceAdapter().getOutboundResourceAdapter().getReauthenticationSupport() != null) {
-                    masterOutbound.setReauthenticationSupport(annoConnector.getResourceAdapter().getOutboundResourceAdapter().getReauthenticationSupport());
+                    primaryOutbound.setReauthenticationSupport(annoConnector.getResourceAdapter().getOutboundResourceAdapter().getReauthenticationSupport());
                     outboundWasFound = true;
                 }
             }
 
             // copy annotated connection definitions
             if (!annoDefinitions.isEmpty()) {
-                masterOutbound.getConnectionDefinitions().addAll(annoDefinitions);
+                primaryOutbound.getConnectionDefinitions().addAll(annoDefinitions);
                 outboundWasFound = true;
             }
 
             if (outboundWasFound)
-                masterRA.setOutboundResourceAdapter(masterOutbound);
+                primaryRA.setOutboundResourceAdapter(primaryOutbound);
             // <- END process outbound resource adapter XXXXXXXXXXXXXXXXXXXXXXXXXX
 
             // <- BEGIN process inbound resource adapter XXXXXXXXXXXXXXXXXXXXXXXXXX
             // copy annotated message listeners
             if (!annoMsgListeners.isEmpty()) {
-                masterMessageAdapter.getMessageListeners().addAll(annoMsgListeners);
-                if (masterRA.getInboundResourceAdapter() == null)
-                    masterRA.setInboundResourceAdapter(masterInbound);
-                masterInbound.setMessageAdapter(masterMessageAdapter);
-                masterRA.setInboundResourceAdapter(masterInbound);
+                primaryMessageAdapter.getMessageListeners().addAll(annoMsgListeners);
+                if (primaryRA.getInboundResourceAdapter() == null)
+                    primaryRA.setInboundResourceAdapter(primaryInbound);
+                primaryInbound.setMessageAdapter(primaryMessageAdapter);
+                primaryRA.setInboundResourceAdapter(primaryInbound);
             }
             // <- END process inbound resource adapter XXXXXXXXXXXXXXXXXXXXXXXXXX
 
             // <- BEGIN process rest of resource adapter XXXXXXXXXXXXXXXXXXXXXXXXXX
             // copy annotated admin objects
             if (!annoAdminObjects.isEmpty())
-                masterRA.getAdminObjects().addAll(annoAdminObjects);
+                primaryRA.getAdminObjects().addAll(annoAdminObjects);
             // <- END process rest of resource adapter XXXXXXXXXXXXXXXXXXXXXXXXXX
         }
 
-        return masterConnector;
+        return primaryConnector;
     }
 
     private String getAdapterVersion(RaConnector rxConnector) throws ResourceAdapterInternalException {
@@ -588,10 +590,10 @@ public class RAAnnotationProcessor {
         }
 
         // Check for supported JCA versions
-        if ((!jcaVersion.equals("2.0")) && (!jcaVersion.equals("1.7")) && (!jcaVersion.equals("1.6"))
+        if ((!jcaVersion.equals("2.1")) && (!jcaVersion.equals("2.0")) && (!jcaVersion.equals("1.7")) && (!jcaVersion.equals("1.6"))
             && (!jcaVersion.equals("1.5") && (!jcaVersion.equals("1.0"))))
             throw new ResourceAdapterInternalException(Tr.formatMessage(tc, "J2CA9934.not.a.valid.option",
-                                                                        jcaVersion, "<version>, <spec-version>", "2.0, 1.7, 1.6, 1.5, 1.0"));
+                                                                        jcaVersion, "<version>, <spec-version>", "2.1, 2.0, 1.7, 1.6, 1.5, 1.0"));
 
         return jcaVersion;
     }
@@ -870,7 +872,7 @@ public class RAAnnotationProcessor {
             if (annoAdminObject != null) {
                 // remove the admin object from the list so we know at the end if
                 // there are any additional annotated-only admin objects that we need
-                // to copy into the master
+                // to copy into the primary
                 annoAdminObjects.remove(annoAdminObject);
 
                 // considering these should be the exact same in terms of attributes,
@@ -900,7 +902,7 @@ public class RAAnnotationProcessor {
         }
 
         if (!annoAdminObjects.isEmpty()) {
-            // add the leftover annotated admin objects to the master
+            // add the leftover annotated admin objects to the primary
             adminObjects.addAll(annoAdminObjects);
         }
 
@@ -954,7 +956,7 @@ public class RAAnnotationProcessor {
 
                     // remove the message listener from the list so we know at the end if
                     // there are any additional annotated-only listeners that we need to
-                    // copy into the master
+                    // copy into the primary
                     copyAnnoListeners.remove(aListener);
 
                     // ra.xml overrides @Activation, but still process the config properties
@@ -1000,7 +1002,7 @@ public class RAAnnotationProcessor {
             if (trace && tc.isDebugEnabled())
                 Tr.debug(this, tc, "remaining anno listeners after merge", copyAnnoListeners);
             // there are annotated message listeners (activations) that do not already
-            // exist in the ra.xml, add them to the master
+            // exist in the ra.xml, add them to the primary
             for (RaMessageListener msgListener : copyAnnoListeners)
                 listeners.add(msgListener);
         }
@@ -1040,7 +1042,7 @@ public class RAAnnotationProcessor {
             if (annoDef != null) {
                 // remove the connection definition from the list so we know at the end if
                 // there are any additional annotated-only definitions that we need to
-                // copy into the master
+                // copy into the primary
                 annoDefinitions.remove(annoDef);
 
                 // ra.xml overrides @ConnectionDefinition, but still process the config properties
@@ -1076,7 +1078,7 @@ public class RAAnnotationProcessor {
 
         if (!annoDefinitions.isEmpty()) {
             // there are annotated connection definitions that do not exist already in
-            // the ra.xml, thus add them to the master
+            // the ra.xml, thus add them to the primary
             for (RaConnectionDefinition r : annoDefinitions) {
                 if (trace && tc.isDebugEnabled()) {
                     Tr.debug(tc, "Add annotated connection definition to list of connection definitions");
@@ -1133,7 +1135,7 @@ public class RAAnnotationProcessor {
 
                     // remove the config property from the list so we know at the end if there
                     // are any additional annotated-only config properties that we need to copy
-                    // into the master
+                    // into the primary
                     annoConfigProperties.remove(annoConfigProp);
 
                     // merge the two config properties
@@ -1164,7 +1166,7 @@ public class RAAnnotationProcessor {
 
         if (!annoConfigProperties.isEmpty()) {
             // there are annotated config properties that do not exist already in the ra.xml,
-            // thus add them to the master
+            // thus add them to the primary
             for (RaConfigProperty configProp : annoConfigProperties)
                 configProperties.add(configProp);
         }

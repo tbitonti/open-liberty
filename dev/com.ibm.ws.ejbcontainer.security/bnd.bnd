@@ -1,32 +1,31 @@
 #*******************************************************************************
-# Copyright (c) 2017, 2019 IBM Corporation and others.
+# Copyright (c) 2017, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
+
+-sub: *.bnd
+
 bVersion=1.0
 
-Bundle-Name: EJB container Application Security Collaborator
-Bundle-Description: EJB container Application Security Collaborator, version=${bVersion}
-Bundle-SymbolicName: com.ibm.ws.ejbcontainer.security
 
 #
 # Produce a JakartaEE compliant JAR.
 #
-jakartaeeMe: true
-#jakartaee.transform.jar.name=io.openliberty.ejbcontainer.security.internal.jar
-#JakartaEE-Bundle-Name: EJB container Security Collaborator internal
-#JakartaEE-Bundle-Symbolic-Name: io.openliberty.ejbcontainer.security.internal
-#JakartaEE-Bundle-Description: EJB container Security Collaborator internal; Jakarta enabled
-#JakartaEE-Bundle-Version: 2.0
 
 WS-TraceGroup: \
   SecurityCollaborator
+
+Export-Package: \
+  com.ibm.ws.ejbcontainer.security.jacc
 
 Private-Package: \
   com.ibm.ws.ejbcontainer.security.internal.*
@@ -35,23 +34,9 @@ Include-Resource: \
   OSGI-INF/metatype=resources/OSGI-INF/metatype, \
   OSGI-INF/l10n=resources/OSGI-INF/l10n
 
-Service-Component: \
-  com.ibm.ws.ejbcontainer.security.internal.EJBSecurityCollaboratorImpl; \
-    implementation:=com.ibm.ws.ejbcontainer.security.internal.EJBSecurityCollaboratorImpl; \
-    provide:='com.ibm.ws.ejbcontainer.EJBSecurityCollaborator,\
-              com.ibm.ws.container.service.metadata.ComponentMetaDataListener'; \
-    activate:=activate; \
-    deactivate:=deactivate; \
-    modified:='modified'; \
-    immediate:=true; \
-    configuration-policy:=optional; \
-    securityService=com.ibm.ws.security.SecurityService; \
-    unauthenticatedSubjectService=com.ibm.ws.security.authentication.UnauthenticatedSubjectService; \
-    credentialsService=com.ibm.ws.security.credentials.CredentialsService; \
-    jaccService=com.ibm.ws.security.authorization.jacc.JaccService;\
-    dynamic:='jaccService'; \
-    optional:='jaccService'; \
-    properties:="service.vendor=IBM"
+-dsannotations: \
+  com.ibm.ws.ejbcontainer.security.internal.EJBSecurityCollaboratorImpl, \
+  com.ibm.ws.ejbcontainer.security.internal.EJBDeclaredRolesService
 
 instrument.classesExcludes: com/ibm/ws/ejbcontainer/security/internal/resources/*.class
 
@@ -63,6 +48,7 @@ instrument.classesExcludes: com/ibm/ws/ejbcontainer/security/internal/resources/
 	com.ibm.websphere.security;version=latest,\
 	com.ibm.ws.security;version=latest,\
 	com.ibm.ws.security.credentials;version=latest,\
+	com.ibm.ws.security.ready.service;version=latest,\
 	com.ibm.ws.security.registry;version=latest,\
 	com.ibm.ws.kernel.service,\
 	com.ibm.ws.ejbcontainer.core;version=latest,\
@@ -70,4 +56,21 @@ instrument.classesExcludes: com/ibm/ws/ejbcontainer/security/internal/resources/
 	com.ibm.websphere.javaee.ejb.3.1;version=latest,\
 	com.ibm.websphere.org.osgi.core,\
 	com.ibm.websphere.org.osgi.service.component,\
+    com.ibm.ws.kernel.security.thread,\
+	com.ibm.wsspi.org.osgi.service.component.annotations;version=latest,\
 	com.ibm.ws.org.osgi.annotation.versioning;version=latest
+
+-testpath: \
+	com.ibm.ws.kernel.boot.common;version=latest, \
+	com.ibm.ws.kernel.boot.logging;version=latest,\
+	com.ibm.ws.kernel.security.thread;version=latest, \
+	com.ibm.ws.ejbcontainer;version=latest,\
+	../build.sharedResources/lib/junit/old/junit.jar;version=file, \
+	com.ibm.ws.junit.extensions;version=latest, \
+	org.jmock:jmock-legacy;version=2.5.0, \
+	org.jmock:jmock-junit4;strategy=exact;version=2.5.1, \
+	org.jmock:jmock;strategy=exact;version=2.5.1, \
+	cglib:cglib;version=3.3.0, \
+	com.ibm.ws.org.objectweb.asm;version=latest, \
+	org.mockito:mockito-all;version=1.9.5, \
+	org.hamcrest:hamcrest-all;version=1.3, \

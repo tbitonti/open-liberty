@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2010 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -23,14 +25,7 @@ import com.ibm.websphere.channelfw.osgi.ChannelFactoryProvider;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.sip.stack.transport.sip.SipChannelFactory;
-import com.ibm.ws.sip.stack.transport.sip.SipInboundChannel;
-import com.ibm.ws.sip.stack.transport.sip.SipInboundChannelFactoryWs;
-import com.ibm.ws.sip.stack.transport.sip.SipTcpOutboundChannel;
-import com.ibm.ws.sip.stack.transport.sip.SipTcpOutboundChannelFactory;
-import com.ibm.ws.sip.stack.transport.sip.SipTlsOutboundChannel;
-import com.ibm.ws.sip.stack.transport.sip.SipTlsOutboundChannelFactory;
-import com.ibm.ws.sip.stack.transport.sip.SipUdpOutboundChannel;
-import com.ibm.ws.sip.stack.transport.sip.SipUdpOutboundChannelFactory;
+import com.ibm.ws.sip.stack.transport.sip.chfw.*;
 import com.ibm.wsspi.channelfw.ChannelFactory;
 
 /**
@@ -57,7 +52,7 @@ public class GenericChannelProvider implements ChannelFactoryProvider {
         this.factories = new HashMap<String, Class<? extends ChannelFactory>>();
 		
         bundleContext = context;
-        // Save all the facotries which are used by the Channel Framework implementation 
+        // Save all the factories which are used by the Channel Framework implementation 
         // in stack.
         // They will be later pulled by the ChannelFramework component by getTypes() method
         this.factories.put("SipChannel", SipChannelFactory.class);

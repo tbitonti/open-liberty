@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2006 IBM Corporation and others.
+ * Copyright (c) 2005, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,9 +18,11 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.ibm.websphere.channelfw.osgi.CHFWBundle;
 import com.ibm.websphere.ras.Tr;
@@ -69,13 +73,13 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
     // removes from the queues are only performed by the single selector thread
     private Queue<Object> workQueue1 = null;
     private Queue<Object> workQueue2 = null;
-    private final Object queueLock = new QueueLock();
+    private final ReadWriteLock queueLock = new ReentrantReadWriteLock();
 
     protected boolean wakeupPending = false;
 
     boolean checkCancel = false;
 
-    boolean waitToAccept = false;
+    boolean startSelectorImmediately = false;
 
     /**
      * Create a new ChannelSelector.
@@ -87,8 +91,8 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
         this.selector = Selector.open();
         this.selectorYield = TCPFactoryConfiguration.getSelectorYield();
         this.checkCancel = _checkCancel;
-        this.workQueue1 = new LinkedList<Object>();
-        this.workQueue2 = new LinkedList<Object>();
+        this.workQueue1 = new ConcurrentLinkedQueue<Object>();
+        this.workQueue2 = new ConcurrentLinkedQueue<Object>();
     }
 
     /**
@@ -97,13 +101,13 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
      * @param _checkCancel
      * @throws IOException
      */
-    public ChannelSelector(boolean _checkCancel, boolean _waitToAccept) throws IOException {
+    public ChannelSelector(boolean _checkCancel, boolean _startImmediately) throws IOException {
         this.selector = Selector.open();
         this.selectorYield = TCPFactoryConfiguration.getSelectorYield();
         this.checkCancel = _checkCancel;
-        this.workQueue1 = new LinkedList<Object>();
-        this.workQueue2 = new LinkedList<Object>();
-        waitToAccept = _waitToAccept;
+        this.workQueue1 = new ConcurrentLinkedQueue<Object>();
+        this.workQueue2 = new ConcurrentLinkedQueue<Object>();
+        this.startSelectorImmediately = _startImmediately;
     }
 
     /**
@@ -124,10 +128,10 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
         long lastEmptySelectorFFDCTime = 0L;
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-            Tr.debug(this, tc, "selector thread started for " + Thread.currentThread().getName() + " ");
+            Tr.debug(this, tc, "selector thread started for " + Thread.currentThread().getName() + " . StartImmediately: " + startSelectorImmediately);
         }
 
-        if (!waitToAccept) {
+        if (!startSelectorImmediately) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                 Tr.debug(this, tc, "waiting for server started signal");
             }
@@ -172,7 +176,7 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
                     }
                     selector.selectNow();
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                      Tr.debug(this, tc, "selectNow() returned. quit="+quit);
+                        Tr.debug(this, tc, "selectNow() returned. quit=" + quit);
                     }
                     nothingTimedOut = false;
                     numEmptySelects = 0;
@@ -262,7 +266,7 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
                 updateCount();
 
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                  Tr.debug(this, tc, "ChannelSelector.quit="+quit+" before call to checkForTimeouts()");
+                    Tr.debug(this, tc, "ChannelSelector.quit=" + quit + " before call to checkForTimeouts()");
                 }
                 checkForTimeouts();
                 updateSelector();
@@ -331,10 +335,11 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
 
     protected void shutDown() {
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-          StringBuilder sb = new StringBuilder();
-          StackTraceElement st[] = Thread.currentThread().getStackTrace();
-          for (StackTraceElement ste:st) sb.append(ste+"\n");
-          Tr.debug(this, tc, "ChannelSelector.shutDown called from "+sb.toString());
+            StringBuilder sb = new StringBuilder();
+            StackTraceElement st[] = Thread.currentThread().getStackTrace();
+            for (StackTraceElement ste : st)
+                sb.append(ste + "\n");
+            Tr.debug(this, tc, "ChannelSelector.shutDown called from " + sb.toString());
         }
         this.quit = true;
         this.selector.wakeup();
@@ -346,9 +351,12 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
      * @return boolean
      */
     private boolean areQueuesEmpty() {
-        synchronized (this.queueLock) {
+        queueLock.readLock().lock();
+        try {
             return this.workQueue1.isEmpty() && this.workQueue2.isEmpty();
-        } // end-sync
+        } finally {
+            queueLock.readLock().unlock();
+        }
     }
 
     /**
@@ -357,9 +365,12 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
      * @param work
      */
     protected void addToWorkQueue(Object work) {
-        synchronized (this.queueLock) {
+        queueLock.readLock().lock();
+        try {
             this.workQueue1.add(work);
-        } // end-sync
+        } finally {
+            queueLock.readLock().unlock();
+        }
     }
 
     /**
@@ -384,13 +395,16 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
      * @return Queue<Object>
      */
     protected Queue<Object> getWorkQueue() {
-        synchronized (this.queueLock) {
+        queueLock.writeLock().lock();
+        try {
             // swap the primary and secondary queues
             Queue<Object> tmp = this.workQueue1;
             this.workQueue1 = this.workQueue2;
             this.workQueue2 = tmp;
             return tmp;
-        } // end-sync
+        } finally {
+            queueLock.writeLock().unlock();
+        }
     }
 
     /**
@@ -546,23 +560,6 @@ public abstract class ChannelSelector implements Runnable, FFDCSelfIntrospectabl
                 Tr.event(this, tc, "resetTimeout waking up selector");
             }
             wakeup();
-        }
-    }
-
-    /**
-     * Lock for the queue access.
-     */
-    private static class QueueLock {
-        protected QueueLock() {
-            // nothing to do
-        }
-
-        /*
-         * @see java.lang.Object#toString()
-         */
-        @Override
-        public String toString() {
-            return "Selector queue lock";
         }
     }
 }

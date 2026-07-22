@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,9 +14,11 @@
 package com.ibm.ws.ejbcontainer.security.test;
 
 import java.security.Principal;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import javax.ejb.SessionContext;
+import javax.security.jacc.PolicyContext;
 
 /**
  *
@@ -63,6 +67,12 @@ public abstract class SecurityEJBBeanBase {
             result.append("   isCallerInRole(**)=");
             result.append(context.isCallerInRole("**"));
             result.append("\n");
+            Set<String> handlerKeys = PolicyContext.getHandlerKeys();
+            for (String key : handlerKeys) {
+                result.append("handlerKey(");
+                result.append(key);
+                result.append(")=true\n");
+            }
             logger.info("result: " + result);
             return result.toString();
         }

@@ -1,12 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.sip.container.servlets;
 
@@ -114,10 +113,12 @@ public class WASXSipApplicationSessionImpl extends SipApplicationSessionImpl imp
      * @see javax.servlet.sip.SipApplicationSession#invalidate()
      */
     public void invalidate() {
-		synchronized (getSynchronizer()) {
+                //remove synchronized as it can cause deadlock
+                //see open-liberty issue #27282
+		//synchronized (getSynchronizer()) {
 			destoryHttpSession();
 			super.invalidate();
-		}
+		//}
     }
 
 	/**
@@ -538,7 +539,5 @@ public class WASXSipApplicationSessionImpl extends SipApplicationSessionImpl imp
 
 		@Override
 		public void sync() {
-			// TODO Auto-generated method stub
-			
 		}
 }

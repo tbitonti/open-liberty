@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,9 +27,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import com.ibm.websphere.simplicity.Machine;
-import com.ibm.websphere.simplicity.RemoteFile;
 import com.ibm.websphere.simplicity.log.Log;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.HttpUtils;
@@ -63,7 +64,7 @@ public class HandlerTestHelper {
         LibertyLogsFound logsFound = new LibertyLogsFound();
 
         Log.info(c, "findAllLogsFromRESTHandlerTraceLogger", "------> start waiting");
-        server.waitForStringInLog("[10]Received", 5000, new RemoteFile(Machine.getLocalMachine(), server.getLogsRoot() + "tracehandlerimpl.log"));
+        server.waitForStringInLog("[10]Received", 5000, Machine.getLocalMachine().getFile(server.getLogsRoot() + "tracehandlerimpl.log"));
         Log.info(c, "findAllLogsFromRESTHandlerTraceLogger", "------> wait completed");
 
         List<String> lines = null;
@@ -124,7 +125,7 @@ public class HandlerTestHelper {
         LibertyLogsFound logsFound = new LibertyLogsFound();
 
         Log.info(c, "findAllLogsFromRESTHandlerTraceLogger", "------> start waiting");
-        server.waitForStringInLog("[10]Received", 5000, new RemoteFile(Machine.getLocalMachine(), server.getLogsRoot() + "tracehandlerimpl.log"));
+        server.waitForStringInLog("[10]Received", 5000, Machine.getLocalMachine().getFile(server.getLogsRoot() + "tracehandlerimpl.log"));
         Log.info(c, "findAllLogsFromRESTHandlerTraceLogger", "------> wait completed");
 
         List<String> lines = null;
@@ -306,7 +307,7 @@ public class HandlerTestHelper {
         JULLogsFound logsFound = new JULLogsFound();
 
         Log.info(c, "findAllLogsForTestAppJUL_jsp", "------> start waiting");
-        server.waitForStringInLog("[11]Received", 5000, new RemoteFile(Machine.getLocalMachine(), server.getLogsRoot() + "tracehandlerimpl.log"));
+        server.waitForStringInLog("[11]Received", 5000, Machine.getLocalMachine().getFile(server.getLogsRoot() + "tracehandlerimpl.log"));
         Log.info(c, "findAllLogsForTestAppJUL_jsp", "------> wait completed");
 
         List<String> lines = null;

@@ -1,0 +1,239 @@
+#CMVCPATHNAME N/A
+#COMPONENTPREFIX CWMMC
+#COMPONENTNAMEFOR CWMMC MicroProfile Metrics API 
+#NLS_ENCODING=UNICODE
+#NLS_MESSAGEFORMAT_NONE
+#ISMESSAGEFILE true
+# #########################################################################
+###############################################################################
+# Copyright (c) 2009, 2024 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+###############################################################################
+# This file follows the WebSphere Message Guidelines.
+# For more information, visit: 
+# http://washome.austin.ibm.com/xwiki/bin/view/MessagesTeam/
+#
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Messages used by Metrics Impl -  range is 0000-2999, plus 9999 for the emergency message
+#-----------------------------------------------------------------------------------------------------------------------------
+
+#Accept Header not acceptable.
+notAcceptable.info.CWMMC0000I=CWMMC0000I: The accept header format {0} is incorrect.
+notAcceptable.info.CWMMC0000I.explanation=The accept header uses an unsupported format.
+notAcceptable.info.CWMMC0000I.useraction=Use appropriate headers.
+
+#Method Not Allowed
+requestType.info.CWMMC0001I=CWMMC0001I: The method request type must be GET or OPTIONS.
+requestType.info.CWMMC0001I.explanation=The request type is not supported. The type must be GET or OPTIONS.
+requestType.info.CWMMC0001I.useraction=Make GET or OPTIONS requests.
+
+#Metric was not found.
+metricNotFound.info.CWMMC0002I=CWMMC0002I: The {0} metric name was not found.
+metricNotFound.info.CWMMC0002I.explanation=The metric does not exist.
+metricNotFound.info.CWMMC0002I.useraction=Enter the correct metric name.
+
+#Registry was not found.
+registryNotFound.info.CWMMC0003I=CWMMC0003I: The {0} registry was not found.
+registryNotFound.info.CWMMC0003I.explanation=The registry does not exist.
+registryNotFound.info.CWMMC0003I.useraction=Enter the correct registry name.
+
+#Registry is empty.
+emptyRegistry.info.CWMMC0004I=CWMMC0004I: The {0} registry has no content.
+emptyRegistry.info.CWMMC0004I.explanation=The registry is empty.
+emptyRegistry.info.CWMMC0004I.useraction=Populate the registry with metrics.
+
+#An internal error occurred. The exception is {0}.
+internal.error.CWMMC0005E=CWMMC0005E: An internal error occurred: {0}
+internal.error.CWMMC0005E.explanation=The application server experienced an internal error.
+internal.error.CWMMC0005E.useraction=Gather a set of traces and open a new issue against your application server.
+
+#Generic error for internal failures. 
+internal.error.CWMMC0006E=CWMMC0006E: An internal error occurred.
+internal.error.CWMMC0006E.explanation=The application server experienced an internal error.
+internal.error.CWMMC0006E.useraction=Gather a set of traces and open a new issue against your application server.
+
+#Information regarding libraryRef attribute taking effect only after server restart
+configurationChange.info.CWMMC0007I=CWMMC0007I: A configuration change was detected for the MicroProfile Metrics feature. If a change was made to the libraryRef attribute, a server restart is required for the change to take effect.
+configurationChange.info.CWMMC0007I.explanation=MicroProfile Metrics requires a server restart to change libraries referenced by libraryRef.
+configurationChange.info.CWMMC0007I.useraction=If the libraryRef attribute was modified, restart the server for the change to take effect.
+
+#User configured mpMetrics to use user-defined library for Micrometer binaries without Prometheus Registry JAR
+noPrometheusRegistry.info.CWMMC0008I=CWMMC0008I: The /metrics endpoint is not available because no Prometheus Registry is available.
+noPrometheusRegistry.info.CWMMC0008I.explanation=The MicroProfile Metrics feature is loading Micrometer libraries that are defined through the libraryRef attribute, but the referenced Library does not contain a Micrometer Prometheus Registry.
+noPrometheusRegistry.info.CWMMC0008I.useraction=If the unavailability of the Prometheus Registry is not intentional, modify the contents of the library that is referenced by the libraryRef attribute to contain a Micrometer Prometheus Registry JAR.
+
+#Prometheus Registry was disabled through the mp.metrics.prometheus.enabled MicroProfile Config property
+disabled.info.CWMMC0009I=CWMMC0009I: The /metrics endpoint is not available because the Prometheus Registry is disabled.
+disabled.info.CWMMC0009I.explanation=The mp.metrics.prometheus.enabled MicroProfile Config property is set to false.
+disabled.info.CWMMC0009I.useraction=If the disabling of the Prometheus Registry is not intentional, remove the configuration of mp.metrics.prometheus.enabled MicroProfile Config property or explicitly set the property to true.
+
+#Embedded SmallRye Metrics or Micrometer JAR not found in the lib directory
+fileNotFound.error.CWMMC0010E=CWMMC0010E: The MicroProfile Metrics feature was unable to initialize. The required JAR file {0} was not found in the <wlp_home>/lib directory.
+fileNotFound.error.CWMMC0010E.explanation=The JAR file was not found in the <wlp_home>/lib directory. The file might be deleted or renamed.
+fileNotFound.error.CWMMC0010E.useraction=The JAR, normally found in <wlp_home>/lib directory, is not present. Redeploy the application server installation.
+
+#Bundle add-on class loader was null
+nullBundleAddOnClassLoader.error.CWMMC0011E=CWMMC0011E: The MicroProfile Metrics feature was unable to initialize. The MicroProfile Metrics runtime was unable to create a required class loader.
+nullBundleAddOnClassLoader.error.CWMMC0011E.explanation=An internal error occured while creating a required class loader.
+nullBundleAddOnClassLoader.error.CWMMC0011E.useraction=Review the FFDC logs and exception text to identify the problem.
+
+#SmallRye Metrics classes not found when loading through reflection
+missingSmallRyeClasses.error.CWMMC0012E=CWMMC0012E: The MicroProfile Metrics feature was unable to initialize. A class from SmallRye Metrics was not loaded.
+missingSmallRyeClasses.error.CWMMC0012E.explanation=A class or classes from the packaged SmallRye Metrics JAR from the <wlp_home>/lib directory was not loaded or is missing.
+missingSmallRyeClasses.error.CWMMC0012E.useraction=Review the FFDC logs and exception text to identify the missing class and verify that it exists in the <wlp_home>/lib/io.openliberty.io.smallrye.metrics JAR.
+
+#Configured Micrometer Library is missing dependencies
+missingDependencyClasses.error.CWMMC0013E=CWMMC0013E: The MicroProfile Metrics feature was unable to initialize. A class that is required for a user-provided Micrometer Library is missing.
+missingDependencyClasses.error.CWMMC0013E.explanation=The MicroProfile Metrics feature is loading Micrometer libraries that are defined through the libraryRef attribute and must contain all the dependencies.
+missingDependencyClasses.error.CWMMC0013E.useraction=Provide the necessary dependencies with the Micrometer Libraries.
+
+#MicroProfile Metrics 5.0 has been configured to use a libraryRef attribute
+libraryRefConfigured.info.CWMMC0014I=CWMMC0014I: The MicroProfile Metrics feature is configured to use the following libraryRef: [{0}]
+libraryRefConfigured.info.CWMMC0014I.explanation=The MicroProfile Metrics feature is configured to use a libraryRef. This referenced library must contain the Micrometer core library, target Micrometer libraries and dependencies.
+libraryRefConfigured.info.CWMMC0014I.useraction=No action is required.
+
+#MicroProfile Metrics 3.0/4.0 configuration errors
+invalidHistogramValueConfigured.warning.CWMMC0015W=CWMMC0015W: The value {0} is invalid for the {1} property. Only integer and decimal values are accepted.
+invalidHistogramValueConfigured.warning.CWMMC0015W.explanation=The configured histogram values are invalid.
+invalidHistogramValueConfigured.warning.CWMMC0015W.useraction=Configure the values with integers and decimals only.
+
+#MicroProfile Metrics 3.0/4.0 configuration errors
+invalidTimerValueConfigured.warning.CWMMC0016W=CWMMC0016W: The value {0} is invalid for the {1} property. Only integer values with a time unit (for example ms,s,m,h) are accepted.
+invalidTimerValueConfigured.warning.CWMMC0016W.explanation=The configured timer values are invalid.
+invalidTimerValueConfigured.warning.CWMMC0016W.useraction=Configure with integer values and time units (for example ms,s,m,h).
+
+#MicroProfile Metrics 3.0/4.0 configuration errors
+invalidPercentileValueConfigured.warning.CWMMC0017W=CWMMC0017W: The value {0} is invalid for the {1} property. Values must be in the range of 0.0 to 1.0 inclusive to be accepted.
+invalidPercentileValueConfigured.warning.CWMMC0017W.explanation=The configured percentile values are invalid.
+invalidPercentileValueConfigured.warning.CWMMC0017W.useraction=Configure the values in the 0.0 to 1.0 inclusive range to be accepted.
+
+#Memory usedHeap message
+memory.usedHeap.description=Displays the amount of used heap memory in bytes.
+
+#Memory committedHeap message
+memory.committedHeap.description=Displays the amount of memory in bytes that is committed for the Java virtual machine to use. This amount of memory is guaranteed for the Java virtual machine to use.
+
+#Memory maxHeap message
+memory.maxHeap.description=Displays the maximum amount of heap memory in bytes that can be used for memory management. This attribute displays -1 if the maximum heap memory size is undefined. This amount of memory is not guaranteed to be available for memory management if it is greater than the amount of committed memory. The Java virtual machine may fail to allocate memory even if the amount of used memory does not exceed this maximum size.
+
+#Memory heapUtilization message
+memory.heapUtilization.description=The portion of the maximum heap memory that is currently in use. This metric displays -1 if the maximum heap memory size is undefined.
+
+#Jvm uptime message
+jvm.uptime.description=Displays the start time of the Java virtual machine in milliseconds. This attribute displays the approximate time when the Java virtual machine started.
+
+#Thread count message
+thread.count.description=Displays the current number of live threads including both daemon and non-daemon threads.
+
+#Thread daemon count message
+thread.daemon.count.description=Displays the current number of live daemon threads.
+
+#Thread max count message
+thread.max.count.description=Displays the peak live thread count since the Java virtual machine started or peak was reset. This includes daemon and non-daemon threads.
+
+#Classloader currentLoadedClass count message
+classloader.currentLoadedClass.count.description=Displays the number of classes that are currently loaded in the Java virtual machine.
+
+#Classloader totalLoadedClass count message
+classloader.totalLoadedClass.count.description=Displays the total number of classes that have been loaded since the Java virtual machine has started execution.
+
+#Classloader totalUnloadedClass count message
+classloader.totalUnloadedClass.count.description=Displays the total number of classes unloaded since the Java virtual machine has started execution.
+
+#Cpu availableProcessors message
+cpu.availableProcessors.description=Displays the number of processors available to the Java virtual machine. This value may change during a particular invocation of the virtual machine.
+
+#Cpu systemLoadAverage message
+cpu.systemLoadAverage.description=Displays the system load average for the last minute. The system load average is the sum of the number of runnable entities queued to the available processors and the number of runnable entities running on the available processors averaged over a period of time. The way in which the load average is calculated is operating system specific but is typically a damped time-dependent average. If the load average is not available, a negative value is displayed. This attribute is designed to provide a hint about the system load and may be queried frequently. The load average may be unavailable on some platform where it is expensive to implement this method.
+
+#Cpu processCpuLoad message
+cpu.processCpuLoad.description=Displays the 'recent cpu usage' for the Java Virtual Machine process.
+
+#Cpu processCpuTime message
+cpu.processCpuTime.description=Displays the CPU time used by the process on which the Java virtual machine is running.
+
+#Cpu processCpuUtilization message
+cpu.processCpuUtilization.description=The recent CPU time that is used by the JVM process from all processors that are available to the JVM.
+
+#Garbage collection count message
+garbageCollectionCount.description=Displays the total number of collections that have occurred. This attribute lists -1 if the collection count is undefined for this collector.
+
+#Garbage collection time message
+garbageCollectionTime.description=Displays the approximate accumulated collection elapsed time in milliseconds. This attribute displays -1 if the collection elapsed time is undefined for this collector. The Java virtual machine implementation may use a high resolution timer to measure the elapsed time. This attribute may display the same value even if the collection count has been incremented if the collection elapsed time is very short.
+
+#Garbage collection time per garbage collection cycle message
+gc.time.per.cycle.description=The recent average time spent per garbage collection cycle. This metric displays -1 if the garbage collection elapsed time or count is undefined for this collector.
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Monitor Metrics messages
+#-----------------------------------------------------------------------------------------------------------------------------
+threadpool.activeThreads.description=The number of threads that are running tasks.
+threadpool.size.description=The size of the thread pool.
+
+servlet.request.total.description=The number of visits to this servlet since the start of the server.
+servlet.responseTime.total.description=The total response time of this servlet since the start of the server.
+servlet.request.elapsedTime.per.request.description=The recent average elapsed response time per servlet request.
+
+connectionpool.create.total.description=The total number of managed connections that have been created since the pool creation.
+connectionpool.destroy.total.description=The total number of managed connections that have been destroyed since the pool creation.
+connectionpool.managedConnections.description=The number of managed connections in the free, shared, and unshared pools.
+connectionpool.connectionHandles.description=The number of connections that are in use. This number might include multiple connections that are shared from a single managed connection.
+connectionpool.freeConnections.description=The number of managed connections in the free pool.
+connectionpool.waitTime.total.description=The total wait time on all connection requests since the start of the server.
+connectionpool.inUseTime.total.description=The total time that all connections are in use since the start of the server.
+connectionpool.usedConnections.total.description=The total number of connection requests that waited because of a full connection pool or did not have to wait since the start of the server. Any connections that are currently in use are not included in this total.
+connectionpool.queuedRequests.total.description=The total number of connection requests that had to wait for a connection because of a full connection pool since the start of the server.
+connectionpool.inUseTime.per.usedConnection.description=The recent average time that connections are in use.
+connectionpool.waitTime.per.queuedRequest.description=The recent average wait time for queued connection requests.
+
+session.create.total.description=The number of sessions that have logged in since this metric was enabled.
+session.liveSessions.description=The number of users that are currently logged in.
+session.activeSessions.description=The number of concurrently active sessions. (A session is active if the product is currently processing a request that uses that user session).
+session.invalidated.total.description=The number of sessions that have logged out since this metric was enabled.
+session.invalidatedbyTimeout.total.description=The number of sessions that have logged out by timeout since this metric was enabled.
+
+grpc.server.rpcStarted.total.description=The total number of RPCs started on the server.
+grpc.server.rpcCompleted.total.description=The total number of RPCs completed on the server, regardless of success or failure.
+grpc.server.sentMessages.total.description=The total number of stream messages sent by the server.
+grpc.server.receivedMessages.total.description=The total number of stream messages received from the client.
+grpc.server.responseTime.total.description=The total response time of completed RPCs.
+
+grpc.client.rpcStarted.total.description=The total number of RPCs started on the client.
+grpc.client.rpcCompleted.total.description=The total number of RPCs completed on the client, regardless of success or failure.
+grpc.client.sentMessages.total.description=The total number of stream messages sent by the client.
+grpc.client.receivedMessages.total.description=The total number of stream messages received from the server.
+grpc.client.responseTime.total.description=The total response time of completed RPCs.
+
+REST.request.description=The number of invocations and total response time of this RESTful resource method since the start of the server. The metric will not record the elapsed time nor count of a REST request if it resulted in an unmapped exception. Also tracks the highest recorded time duration within the previous completed full minute and lowest recorded time duration within the previous completed full minute.
+REST.request.unmappedException.description=The total number of unmapped exceptions that occur from this RESTful resource method since the start of the server.
+REST.request.elapsedTime.per.request.description: The recent average elapsed response time per RESTful resource method request.
+
+requestTiming.requestCount.description=The number of servlet requests since the server started.
+requestTiming.activeRequestCount.description=The number of servlet requests currently running.
+requestTiming.slowRequestCount.description=The number of servlet requests that are currently running but are slow.
+requestTiming.hungRequestCount.description=The number of servlet requests that are currently running but are hung.
+
+jaxws.invocations.total.description=The number of invocations to this endpoint or operation.
+jaxws.checkedApplicationFaults.total.description=The number of checked application faults.
+jaxws.logicalRuntimeFaults.total.description=The number of logical runtime faults.
+jaxws.runtimeFaults.total.description=The number of runtime faults.
+jaxws.uncheckedApplicationFaults.total.description=The number of unchecked application faults.
+jaxws.responseTime.total.description=The total response handling time since the start of the server.
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Emergency Metrics error message
+#-----------------------------------------------------------------------------------------------------------------------------
+
+# A Metrics API error has occurred: {0}
+temporary.CWMMC9999E=CWMMC9999E: A Metrics API error occurred: {0}
+temporary.CWMMC9999E.explanation=A Metrics API error prevents normal operation.
+temporary.CWMMC9999E.useraction=Review the FFDC logs and exception text to identify the problem.

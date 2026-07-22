@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -45,6 +47,7 @@ public class BasicClientEP implements TestHelper {
         @OnMessage
         public String echoText(String data) {
 
+            LOG.info("DEBUG: BasicClientEP$TestOnOpen.echoText Recieving data -> " + data);
             _wtr.addMessage(data);
 
             if (_wtr.limitReached()) {
@@ -60,6 +63,7 @@ public class BasicClientEP implements TestHelper {
         public void onOpen(Session sess) {
             try {
                 String s = _data[_counter++];
+                LOG.info("DEBUG: BasicClientEP$TestOnOpen.onOpen Sending data to Remote -> " + s);
                 sess.getBasicRemote().sendText(s);
             } catch (Exception e) {
                 _wtr.addExceptionAndTerminate("Error publishing initial message", e);
@@ -85,7 +89,7 @@ public class BasicClientEP implements TestHelper {
 
         @OnMessage
         public String echoText(String data) {
-
+            LOG.info("DEBUG: BasicClientEP$TestOnClose.echoText Recieving data -> " + data);
             _wtr.addMessage(data);
 
             if (_wtr.limitReached()) {
@@ -101,6 +105,7 @@ public class BasicClientEP implements TestHelper {
         public void onOpen(Session sess) {
             try {
                 String s = _data[_counter++];
+                LOG.info("DEBUG: BasicClientEP$TestOnClose.onOpen Sending data to Remote -> " + s);
                 sess.getBasicRemote().sendText(s);
             } catch (Exception e) {
                 _wtr.addExceptionAndTerminate("Error publishing initial message", e);
@@ -127,7 +132,7 @@ public class BasicClientEP implements TestHelper {
 
         @OnMessage
         public String echoText(String data) {
-            LOG.info("BasicClientEP.TestOnError.echoText() " + data);
+            LOG.info("DEBUG: BasicClientEP.TestOnError.echoText Recieving data -> " + data);
 
             _wtr.addMessage(data);
 
@@ -145,6 +150,7 @@ public class BasicClientEP implements TestHelper {
             try {
                 String s = _data[_counter++];
                 sess.getBasicRemote().sendText(s);
+                LOG.info("DEBUG: BasicClientEP.TestOnError.onOpen Sending data to Remote -> " + s);
             } catch (Exception e) {
                 _wtr.addExceptionAndTerminate("Error publishing initial message", e);
 

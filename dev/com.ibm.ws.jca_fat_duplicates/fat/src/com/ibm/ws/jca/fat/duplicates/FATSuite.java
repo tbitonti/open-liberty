@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2021 IBM Corporation and others.
+ * Copyright (c) 2013, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jca.fat.duplicates;
 
@@ -15,17 +14,16 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
-import componenttest.rules.repeater.EmptyAction;
+import componenttest.custom.junit.runner.AlwaysPassesTest;
 import componenttest.rules.repeater.FeatureReplacementAction;
 import componenttest.rules.repeater.RepeatTests;
 
 @RunWith(Suite.class)
-@SuiteClasses(DuplicateResourceAdaptersTest.class)
+@SuiteClasses({ AlwaysPassesTest.class,
+                DuplicateResourceAdaptersTest.class })
 public class FATSuite {
-    /*
-     * EE7 and EE9 will be run with lite and full fat since this fat is very quick.
-     */
+    //this tests the EE10 connectors version 2.1 resource adapter and should not be repeated for previous versions
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(new EmptyAction())
-                    .andWith(FeatureReplacementAction.EE9_FEATURES());
+    public static RepeatTests repeat = RepeatTests.with(FeatureReplacementAction.NO_REPLACEMENT())
+                    .andWith(FeatureReplacementAction.EE11_FEATURES().setSkipTransformation(true).alwaysAddFeature("servlet-6.1"));
 }

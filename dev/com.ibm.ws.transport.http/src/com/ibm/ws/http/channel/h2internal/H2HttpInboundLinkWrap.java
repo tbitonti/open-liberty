@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution,  and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,6 +22,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.http.channel.h2internal.Constants.Direction;
 import com.ibm.ws.http.channel.h2internal.exceptions.FlowControlException;
 import com.ibm.ws.http.channel.h2internal.exceptions.Http2Exception;
@@ -100,7 +103,7 @@ public class H2HttpInboundLinkWrap extends HttpInboundLink {
             }
         }
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
-            String currentURL = this.pseudoHeaders.get(HpackConstants.PATH);
+            String currentURL = this.pseudoHeaders == null ? "UNSET_HEADERS" : this.pseudoHeaders.get(HpackConstants.PATH);
             Tr.exit(tc, "setAndGetIsGrpc returning " + isGrpc + " for request path " + currentURL);
         }
         return isGrpc;
@@ -465,6 +468,7 @@ public class H2HttpInboundLinkWrap extends HttpInboundLink {
         }
     }
 
+    @FFDCIgnore(IOException.class)
     public void writeFramesSync(CopyOnWriteArrayList<Frame> frames) throws IOException {
 
         if (frames == null) {
@@ -500,7 +504,9 @@ public class H2HttpInboundLinkWrap extends HttpInboundLink {
             }
 
             catch (FlowControlException | StreamClosedException e) {
-                //  throw IOE so channel code knows the write failed and can deal with the app/servlet facing output stream.
+                // Throw IOE so channel code knows the write failed and can deal with the app/servlet facing output stream.
+                // The FFDC will be suppressed since the IEO is rethrown by the caller, depending on the value of
+                // ThrowIOEForInboundConnections
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                     Tr.debug(tc, "write failed with a FlowControlException: " + e.getErrorString());
                 }
@@ -513,12 +519,6 @@ public class H2HttpInboundLinkWrap extends HttpInboundLink {
                     Tr.debug(tc, "processRead an error occurred processing a frame: " + e.getErrorString());
                 }
                 muxLink.close(vc, e);
-
-            } catch (Exception e) {
-                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "writeFramesSync, Exception occurred while writing the data : " + e);
-                }
-                e.printStackTrace(System.out);
             }
         }
 

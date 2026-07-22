@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2004 IBM Corporation and others.
+ * Copyright (c) 1997, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,8 +13,9 @@
 
 package com.ibm.ws.recoverylog.spi;
 
-import com.ibm.tx.util.logging.Tr;
-import com.ibm.tx.util.logging.TraceComponent;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
 
 //------------------------------------------------------------------------------
 // Class: FileFailureScope
@@ -25,19 +28,18 @@ import com.ibm.tx.util.logging.TraceComponent;
  * running on application server 1 is operating under the failure scope for
  * server 1.
  * </p>
- * 
+ *
  * <p>
  * This implementation provides the WebSphere Distributed version of a failure
  * scope.
  * </p>
  */
-public class FileFailureScope implements FailureScope
-{
+public class FileFailureScope implements FailureScope {
     /**
      * WebSphere RAS TraceComponent registration.
      */
     private static final TraceComponent tc = Tr.register(FileFailureScope.class,
-                                                         TraceConstants.TRACE_GROUP, null);
+                                                         TraceConstants.TRACE_GROUP, TraceConstants.NLS_FILE);
 
     /**
      * The name of the server that this failure scope represents.
@@ -61,6 +63,7 @@ public class FileFailureScope implements FailureScope
     /**
      * @return the _leaseInfo
      */
+    @Trivial
     public LeaseInfo getLeaseInfo() {
         return _leaseInfo;
     }
@@ -72,14 +75,9 @@ public class FileFailureScope implements FailureScope
      * Constructor to create a new failure scope that encompasses the current point
      * of execution. In WebSphere distributed, this means the current server.
      */
-    public FileFailureScope()
-    {
+    @Trivial
+    public FileFailureScope() {
         this(Configuration.fqServerName());
-
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "FileFailureScope");
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "FileFailureScope", this);
     }
 
     //------------------------------------------------------------------------------
@@ -88,35 +86,27 @@ public class FileFailureScope implements FailureScope
     /**
      * Constructor to create a new failure scope that represents the specified servers
      * execution scope.
-     * 
+     *
      * @param serverName The target server name
      */
-    public FileFailureScope(String serverName)
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "FileFailureScope", new Object[] { serverName });
-
+    @Trivial
+    public FileFailureScope(String serverName) {
         _serverName = serverName;
         _hashCode = _serverName.hashCode();
 
-        char[] chars = _serverName.toCharArray();
-
         _stringForm = "FileFailureScope: " + _serverName + " [" + _hashCode + "]";
 
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "FileFailureScope", this);
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "FileFailureScope {0}", _stringForm);
     }
 
-    public FileFailureScope(String serverName, LeaseInfo leaseInfo)
-    {
+    public FileFailureScope(String serverName, LeaseInfo leaseInfo) {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "FileFailureScope", new Object[] { serverName, leaseInfo });
 
         _serverName = serverName;
         _leaseInfo = leaseInfo;
         _hashCode = _serverName.hashCode();
-
-        char[] chars = _serverName.toCharArray();
 
         _stringForm = "FileFailureScope: " + _serverName + " [" + _hashCode + "]";
 
@@ -131,25 +121,24 @@ public class FileFailureScope implements FailureScope
      * Returns true if the target failure scope is encompassed by failureScope. For
      * example, if the target failure scope identifies a server region inside a z/OS
      * scalable server identified by failureScope then this method returns true.
-     * 
+     *
      * @param failureScope Failure scope to test
-     * 
+     *
      * @return boolean Flag indicating if the target failure scope is contained by the
      *         specified failure scope
      */
     @Override
-    public boolean isContainedBy(FailureScope failureScope)
-    {
+    public boolean isContainedBy(FailureScope failureScope) {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "isContainedBy", new Object[] { failureScope, this });
 
         // Since the failure scope is always an application server only the same
         // failure scope, i.e. one that is equal, can be considered to contain
-        // this failure scope. 
+        // this failure scope.
         final boolean contains = equals(failureScope);
 
         if (tc.isEntryEnabled())
-            Tr.exit(tc, "isContainedBy", new Boolean(contains));
+            Tr.exit(tc, "isContainedBy", contains);
         return contains;
     }
 
@@ -159,15 +148,14 @@ public class FileFailureScope implements FailureScope
     /**
      * Returns true if the target failure scope represents the same logcial failure
      * scope as the supplied failure scope.
-     * 
+     *
      * @param anotherScope Failure scope to test
-     * 
+     *
      * @return boolean Flag indicating if the target failure scope represents the
      *         same logical failure scope as the specified failure scope.
      */
     @Override
-    public boolean equals(Object anotherScope)
-    {
+    public boolean equals(Object anotherScope) {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "equals", new Object[] { anotherScope, this });
 
@@ -175,23 +163,19 @@ public class FileFailureScope implements FailureScope
 
         // If they are the same object instance then they must be the same
         // failure scope.
-        if (anotherScope == this)
-        {
+        if (anotherScope == this) {
             result = true;
-        }
-        else if (anotherScope instanceof FileFailureScope)
-        {
+        } else if (anotherScope instanceof FileFailureScope) {
             // They are different physical instances, but they can still
             // represent the same scope. Compare the server names to find
             // out if they are logically the same.
-            if (((FileFailureScope) anotherScope)._serverName.equals(_serverName))
-            {
+            if (((FileFailureScope) anotherScope)._serverName.equals(_serverName)) {
                 result = true;
             }
         }
 
         if (tc.isEntryEnabled())
-            Tr.exit(tc, "equals", new Boolean(result));
+            Tr.exit(tc, "equals", result);
         return result;
     }
 
@@ -200,12 +184,11 @@ public class FileFailureScope implements FailureScope
     //------------------------------------------------------------------------------
     /**
      * Returns a hashing code for the target failure scope.
-     * 
+     *
      * @return int The hashing code
      */
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return _hashCode;
     }
 
@@ -214,12 +197,11 @@ public class FileFailureScope implements FailureScope
     //------------------------------------------------------------------------------
     /**
      * Returns a string representation of the target failure scope.
-     * 
+     *
      * @return String string representation of the target failure scope.
      */
     @Override
-    public String toString()
-    {
+    public String toString() {
         return _stringForm;
     }
 
@@ -228,16 +210,14 @@ public class FileFailureScope implements FailureScope
     //------------------------------------------------------------------------------
     /**
      * Returns the server name that this failure scope represents
-     * 
+     *
      * @return String server name
      */
     @Override
-    public String serverName()
-    {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "serverName", this);
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "serverName", _serverName);
+    @Trivial
+    public String serverName() {
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "serverName: {0}", _serverName);
         return _serverName;
     }
 
@@ -248,22 +228,21 @@ public class FileFailureScope implements FailureScope
      * Returns true if this failure scope represents the same general recovery scope as
      * the input parameter. For instance, if more than one FailureScope was created
      * which referenced the same server, they would be in the same execution zone.
-     * 
+     *
      * @param anotherScope Failure scope to test
-     * 
+     *
      * @return boolean Flag indicating if the target failure scope represents the
      *         same logical failure scope as the specified failure scope.
      */
     @Override
-    public boolean isSameExecutionZone(FailureScope anotherScope)
-    {
+    public boolean isSameExecutionZone(FailureScope anotherScope) {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "isSameExecutionZone", anotherScope);
 
         boolean isSameZone = equals(anotherScope);
 
         if (tc.isEntryEnabled())
-            Tr.exit(tc, "isSameExecutionZone", new Boolean(isSameZone));
+            Tr.exit(tc, "isSameExecutionZone", isSameZone);
 
         return isSameZone;
     }

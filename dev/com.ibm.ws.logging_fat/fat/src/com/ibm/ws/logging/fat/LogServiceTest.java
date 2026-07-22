@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,8 +19,12 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.net.URL;
+import java.time.chrono.Chronology;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.FormatStyle;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -46,6 +52,7 @@ public class LogServiceTest {
     private static final String KEY_THROW = "throw";
     private static final String KEY_SERVICE = "service";
     private static final String KEY_EVENT = "event";
+    private static final String KEY_CLASSLOAD = "classload";
 
     private static final String LEVEL_TRACE = "TRACE";
     private static final String LEVEL_DEBUG = "DEBUG";
@@ -116,12 +123,11 @@ public class LogServiceTest {
     }
 
     private static void event(String type) throws IOException {
-        StringBuilder urlBuilder = new StringBuilder();
-        urlBuilder.append("http://").append(server.getHostname()).append(':').append(server.getHttpDefaultPort());
-        urlBuilder.append("/logServiceTester/log?" + KEY_EVENT + "=" + type);
-        URL url = new URL(urlBuilder.toString());
-        String resp = HttpUtils.getHttpResponseAsString(url);
-        assertTrue("Unexpected resp: " + resp, resp.contains("DONE"));
+        callTestServlet(KEY_EVENT, type);
+    }
+
+    private static void classload(String className) throws IOException {
+        callTestServlet(KEY_CLASSLOAD, className);
     }
 
     private static void log(String msg, String level, String throwMsg, boolean includeService) throws IOException {
@@ -150,6 +156,83 @@ public class LogServiceTest {
         URL url = new URL(urlBuilder.toString());
         String resp = HttpUtils.getHttpResponseAsString(url);
         assertTrue("Unexpected resp: " + resp, resp.contains("DONE"));
+    }
+
+    private static void callTestServlet(String paramKey, String paramValue) throws IOException {
+        StringBuilder urlBuilder = new StringBuilder();
+        urlBuilder.append("http://").append(server.getHostname()).append(':').append(server.getHttpDefaultPort());
+        urlBuilder.append("/logServiceTester/log?" + paramKey + "=" + paramValue);
+        URL url = new URL(urlBuilder.toString());
+        String resp = HttpUtils.getHttpResponseAsString(url);
+        assertTrue("Unexpected resp: " + resp, resp.contains("DONE"));
+    }
+
+    // If this test fails, there is likely an update needed to the getFormatter method, BurstDateFormatterTest and to
+    // DateFormatHelper and DataFormatHelper.
+    // This test was added due to a change in Java 20 to add an additional space character to the format.  It is a duplicate
+    // of the BurstDateFormatterTest, but that is a unit test which is only run on one Java version until new LTS release and
+    // gradle is updated to support that Java version, etc.
+    // See https://bugs.openjdk.org/browse/JDK-8304925
+    @Test
+    public void testEnglishUnchanged() {
+        boolean aboveJava8 = !System.getProperty("java.version").startsWith("1.");
+        String pattern = DateTimeFormatterBuilder.getLocalizedDateTimePattern(FormatStyle.SHORT, FormatStyle.MEDIUM, Chronology.ofLocale(Locale.ENGLISH), Locale.ENGLISH);
+        pattern = getFormatter(pattern);
+        StringBuilder sb = new StringBuilder();
+        sb.append("M/d/yy");
+        if (aboveJava8) {
+            sb.append(',');
+        }
+        sb.append(" H:mm:ss:SSS z");
+        assertEquals(sb.toString(), pattern);
+    }
+
+    private String getFormatter(String pattern) {
+        // Append milliseconds and timezone after seconds
+        int patternLength = pattern.length();
+        int endOfSecsIndex = pattern.lastIndexOf('s') + 1;
+        String newPattern = pattern.substring(0, endOfSecsIndex) + ":SSS z";
+        if (endOfSecsIndex < patternLength)
+            newPattern += pattern.substring(endOfSecsIndex, patternLength);
+        // 0-23 hour clock (get rid of any other clock formats and am/pm)
+        newPattern = newPattern.replace('h', 'H');
+        newPattern = newPattern.replace('K', 'H');
+        newPattern = newPattern.replace('k', 'H');
+        newPattern = newPattern.replace('a', ' ');
+        // Java 20 added a narrow no-break space character into the format (Unicode 202F character)
+        newPattern = newPattern.replace('\u202f', ' ');
+        newPattern = newPattern.trim();
+        return newPattern;
+    }
+
+    @Test
+    public void testFrameworkLoaderTrace() throws Exception {
+        setTraceSpecification("org.eclipse.osgi/debug/loader=all");
+        classload("org.osgi.framework.Bundle");
+        List<String> found = server.findStringsInLogsAndTraceUsingMark("LoggerName:org.eclipse.osgi/debug/loader");
+        assertFalse("Expected to find debug/loader LoggerName.", found.isEmpty());
+    }
+
+    @Test
+    public void testFrameworkLoaderPackagesTrace() throws Exception {
+        // test intentionally sets one pacakge to info and another to debug to make sure one doeesn't override the other
+        setTraceSpecification("org.eclipse.osgi/debug/loader/packages=debug:org.eclipse.osgi/debug/loader/packages/+/org.osgi.framework.wiring=debug:org.eclipse.osgi/debug/loader/packages/+/org.osgi.framework=info");
+
+        classload("org.osgi.framework.wiring.BundleWiring");
+        List<String> found = server.findStringsInLogsAndTraceUsingMark("LoggerName:org.eclipse.osgi/debug/loader/packages");
+        assertFalse("Expected to find debug/loader/packages LoggerName.", found.isEmpty());
+        // need to escape parenthises for regex here.  Expecting to not have trace for the org.osgi.framework package
+        found = server.findStringsInLogsAndTraceUsingMark("findClass\\(org.osgi.framework.wiring.BundleWiring\\)");
+        assertFalse("Expected to find debug for loading the BundleWiring class.", found.isEmpty());
+
+        server.setMarkToEndOfLog();
+        server.setMarkToEndOfLog(server.getConsoleLogFile());
+        server.setTraceMarkToEndOfDefaultTrace();
+
+        classload("org.osgi.framework.Filter");
+        // need to escape parenthises for regex here.  Expecting to not have trace for the org.osgi.framework package
+        found = server.findStringsInLogsAndTraceUsingMark("findClass\\(org.osgi.framework.Filter\\)");
+        assertTrue("Expected not to find debug for loading the Filter class.", found.isEmpty());
     }
 
     @Test

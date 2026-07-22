@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.rsadapter.jdbc;
 
@@ -19,21 +18,22 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import javax.resource.ResourceException;
-import javax.resource.spi.ConnectionRequestInfo;
 import javax.sql.DataSource;
+import javax.sql.XADataSource;
 
 import com.ibm.websphere.csi.J2EEName;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.rsadapter.JDBCConnectionSpec;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.ffdc.FFDCSelfIntrospectable;
 import com.ibm.ws.jca.adapter.WSConnectionManager;
-import com.ibm.ws.jdbc.WSDataSource;
 import com.ibm.ws.resource.ResourceRefConfig;
 import com.ibm.ws.resource.ResourceRefConfigFactory;
 import com.ibm.ws.resource.ResourceRefInfo;
 import com.ibm.ws.rsadapter.AdapterUtil;
 import com.ibm.ws.rsadapter.DSConfig;
+import com.ibm.ws.rsadapter.impl.DatabaseHelper;
 import com.ibm.ws.rsadapter.impl.WSConnectionRequestInfoImpl;
 import com.ibm.ws.rsadapter.impl.WSManagedConnectionFactoryImpl;
 import com.ibm.ws.runtime.metadata.ComponentMetaData;
@@ -44,7 +44,9 @@ import com.ibm.wsspi.resource.ResourceFactory;
 /**
  * This class wraps a JDBC DataSource. It is used as a Connection Factory.
  */
-public class WSJdbcDataSource extends WSJdbcWrapper implements DataSource, FFDCSelfIntrospectable, WSDataSource {
+public class WSJdbcDataSource extends WSJdbcWrapper implements DataSource,
+    FFDCSelfIntrospectable, com.ibm.ws.jdbc.WSDataSource, com.ibm.websphere.rsadapter.WSDataSource {
+
     private static final TraceComponent tc =
                     Tr.register(
                                 WSJdbcDataSource.class,
@@ -123,7 +125,7 @@ public class WSJdbcDataSource extends WSJdbcWrapper implements DataSource, FFDCS
      * 
      * @throws SQLException if an error occurs while obtaining a Connection.
      */
-    protected Connection getConnection(ConnectionRequestInfo connInfo) throws SQLException {
+    protected Connection getConnection(WSConnectionRequestInfoImpl connInfo) throws SQLException {
         final boolean isTraceOn = TraceComponent.isAnyTracingEnabled(); 
 
         if (isTraceOn && tc.isEntryEnabled()) 
@@ -173,6 +175,46 @@ public class WSJdbcDataSource extends WSJdbcWrapper implements DataSource, FFDCS
         return c;
     }
 
+    /**
+     * Requests a connection that matches the JDBCConnectionSpec.
+     *
+     * @param connSpec requested connection attributes.
+     * @return the Connection
+     * @throws SQLException if an error occurs while obtaining a Connection.
+     */
+    public Connection getConnection(JDBCConnectionSpec connSpec) throws SQLException {
+        final boolean isTraceOn = TraceComponent.isAnyTracingEnabled();
+
+        if (isTraceOn && tc.isDebugEnabled())
+            Tr.debug(this, tc, "getConnection", connSpec);
+
+        // Get the isolation level from the resource reference, or if that is not specified, use the
+        // configured isolationLevel value, otherwise use a default that we choose for the database.
+        int isolationLevelForCRI = connSpec.getTransactionIsolation();
+        if (isolationLevelForCRI == Connection.TRANSACTION_NONE)
+            isolationLevelForCRI = getDefaultIsolationLevel();
+
+        @SuppressWarnings("unchecked")
+        WSConnectionRequestInfoImpl _connInf = new WSConnectionRequestInfoImpl(
+                        connSpec.getUserName(),
+                        connSpec.getPassword(),
+                        isolationLevelForCRI,
+                        connSpec.getCatalog(),
+                        connSpec.isReadOnly(),
+                        null, // sharding key
+                        null, // super sharding key
+                        connSpec.getTypeMap(),
+                        connSpec.getHoldability(),
+                        connSpec.getSchema(),
+                        connSpec.getNetworkTimeout(),
+                        mcf.instanceID,
+                        mcf.getHelper().isIsolationLevelSwitchingSupport());
+
+        _connInf.markAsChangable();
+
+        return getConnection(_connInf);
+    }
+
     public final Connection getConnection(String user, String pwd)
                     throws SQLException {
         final boolean isTraceOn = TraceComponent.isAnyTracingEnabled(); 
@@ -204,6 +246,10 @@ public class WSJdbcDataSource extends WSJdbcWrapper implements DataSource, FFDCS
      */
     public final String getDatabaseProductName() {
         return mcf.getHelper().getDatabaseProductName();
+    }
+    
+    public final DatabaseHelper getDatabaseHelper() {
+        return mcf.getHelper();
     }
 
     /**
@@ -305,6 +351,7 @@ public class WSJdbcDataSource extends WSJdbcWrapper implements DataSource, FFDCS
                     throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
                     SQLException {
         final boolean isTraceOn = TraceComponent.isAnyTracingEnabled(); 
+        final boolean disableForH2 = "org.h2.jdbcx.JdbcDataSource".equals(implObject.getClass().getName()) && "getReference".equals(method.getName());
 
         if (isTraceOn && tc.isEntryEnabled())
             Tr.entry(this, tc, "invokeOperation: " + method.getName(), args); 
@@ -328,8 +375,18 @@ public class WSJdbcDataSource extends WSJdbcWrapper implements DataSource, FFDCS
         }
 
         if (isTraceOn && tc.isEntryEnabled())
-            Tr.exit(this, tc, "invokeOperation: " + method.getName(), result); 
+            Tr.exit(this, tc, "invokeOperation: " + method.getName(), disableForH2 ? "******" : result); 
         return result;
+    }
+
+    /**
+     * Legacy operation that indicates if the underlying data source is an XADataSource,
+     * capable of two phase commit.
+     *
+     * @return true if an XADataSource, otherwise false.
+     */
+    public final boolean isXADataSource() {
+        return XADataSource.class.equals(mcf.type);
     }
 
     /**

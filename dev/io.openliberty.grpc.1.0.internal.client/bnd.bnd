@@ -1,22 +1,23 @@
 #*******************************************************************************
-# Copyright (c) 2020 IBM Corporation and others.
+# Copyright (c) 2020, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
-bVersion=1.0
-nettyVersion=4.1.62.Final
 
-Bundle-Name: gRPC Client
-Bundle-SymbolicName: io.openliberty.grpc.1.0.internal.client
-Bundle-Description: Liberty gRPC Client, version ${bVersion}
+-sub: *.bnd
+
+bVersion=1.0
+grpcVersion=1.69.0
 
 Import-Package: \
+  !com.google.errorprone.*,\
+  !com.aayushatharva.brotli4j*,\
+  !com.github.luben.zstd,\
   !com.google.protobuf.nano,\
   !com.google.code.gson,\
   !org.checkerframework,\
@@ -24,7 +25,6 @@ Import-Package: \
   !com.jcraft.jzlib,\
   !com.ning.*,\
   !com.oracle.svm.core.annotate,\
-  !io.netty.internal.tcnative,\
   !lzma.*,\
   !net.jpountz.*,\
   !org.apache.log4j.*,\
@@ -39,8 +39,7 @@ Import-Package: \
   *
 
 Export-Package: \
-  !io.netty.handler.ssl,\
-  io.netty.*;version=${nettyVersion},\
+  io.grpc.netty;version=${grpcVersion}, \
   io.openliberty.grpc.internal.client.*,\
   io.openliberty.grpc.client.monitor
 
@@ -50,22 +49,8 @@ Export-Package: \
 
 # include the service providers and metatype
 Include-Resource: \
-  META-INF=@src/META-INF, \
   OSGI-INF=resources/OSGI-INF, \
   OSGI-INF/metatype/metatype.xml=resources/OSGI-INF/metatype/metatype.xml
-
-# expose the service providers to be consumed by grpc-common bundle
-Service-Component: \
-  io.openliberty.grpc.internal.client.ResourceProvider; \
-    implementation:=com.ibm.wsspi.classloading.ResourceProvider; \
-    provide:=com.ibm.wsspi.classloading.ResourceProvider; \
-    configuration-policy:=optional; \
-    properties:="resources=${app-resources}"
-
-app-resources= \
-  META-INF/services/io.grpc.ManagedChannelProvider
-
-Provide-Capability: osgi.serviceloader;osgi.serviceloader=io.grpc.ManagedChannelProvider
 
 instrument.disabled: true
 
@@ -86,19 +71,11 @@ instrument.disabled: true
   com.ibm.ws.kernel.boot;version=latest,\
   com.ibm.ws.kernel.service;version=latest,\
   com.ibm.ws.kernel.feature;version=latest,\
-  io.netty:netty-buffer;version=${nettyVersion},\
-  io.netty:netty-codec;version=${nettyVersion},\
-  io.netty:netty-codec-http;version=${nettyVersion},\
-  io.netty:netty-codec-http2;version=${nettyVersion},\
-  io.netty:netty-codec-socks;version=${nettyVersion},\
-  io.netty:netty-common;version=${nettyVersion},\
-  io.netty:netty-handler;version=${nettyVersion},\
-  io.netty:netty-handler-proxy;version=${nettyVersion},\
-  io.netty:netty-resolver;version=${nettyVersion},\
-  io.netty:netty-transport;version=${nettyVersion},\
-  io.openliberty.grpc.client.1.0.thirdparty;version=latest,\
+  io.grpc:grpc-netty;version=${grpcVersion},\
   io.openliberty.grpc.1.0.internal.common;version=latest,\
   io.openliberty.io.grpc.1.0;version=latest,\
+  io.openliberty.io.netty;version=latest,\
+  io.openliberty.io.netty.ssl;version=latest,\
   org.osgi.service.component.annotations;version=latest
 
 -testpath: \
@@ -107,9 +84,8 @@ instrument.disabled: true
   org.jmock:jmock;strategy=exact;version=2.5.1, \
   ../build.sharedResources/lib/junit/old/junit.jar;version=file, \
   com.ibm.ws.junit.extensions;version=latest, \
-  cglib:cglib-nodep;version=3.3.0, \
+  cglib:cglib;version=3.3.0, \
+  com.ibm.ws.org.objectweb.asm;version=latest, \
   org.jmock:jmock-legacy;version=2.5.0, \
   com.ibm.ws.org.objenesis:objenesis;version=1.0, \
-  com.ibm.ws.logging;version=latest, \
-  com.ibm.ws.kernel.boot;version=latest,\
-  com.ibm.websphere.org.osgi.core;version=latest
+  com.ibm.ws.logging;version=latest

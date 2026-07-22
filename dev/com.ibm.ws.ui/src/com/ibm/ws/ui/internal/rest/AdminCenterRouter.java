@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2019 IBM Corporation and others.
+ * Copyright (c) 2013, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -38,13 +40,14 @@ import com.ibm.ws.ui.internal.v1.ICatalogService;
 import com.ibm.ws.ui.internal.v1.IFeatureToolService;
 import com.ibm.ws.ui.internal.v1.IToolDataService;
 import com.ibm.ws.ui.internal.v1.IToolboxService;
+import com.ibm.ws.ui.internal.v1.utils.Utils;
 import com.ibm.wsspi.rest.handler.RESTHandler;
 import com.ibm.wsspi.rest.handler.RESTRequest;
 import com.ibm.wsspi.rest.handler.RESTResponse;
 
 /**
  * <p>Defines the URL router for adminCenter REST API.</p>
- * 
+ *
  * <p>Maps to host:port/ibm/api/adminCenter</p>
  */
 @Component(service = { RESTHandler.class },
@@ -107,7 +110,7 @@ public class AdminCenterRouter implements RESTHandler, HTTPConstants {
 
     /**
      * The injection point for the IFeatureToolService that allows us to get feature tools.
-     * 
+     *
      * @param variableRegistryService - The variableRegistry service
      */
     @Reference(service = IFeatureToolService.class)
@@ -123,7 +126,7 @@ public class AdminCenterRouter implements RESTHandler, HTTPConstants {
 
     /**
      * Add the specified handler to the set of default handlers.
-     * 
+     *
      * @param defaultHandlers
      * @param handler
      */
@@ -161,7 +164,7 @@ public class AdminCenterRouter implements RESTHandler, HTTPConstants {
 
     /**
      * For unit testing.
-     * 
+     *
      * @param handlers
      */
     AdminCenterRouter(Map<String, AdminCenterRestHandler> handlers) {
@@ -171,7 +174,7 @@ public class AdminCenterRouter implements RESTHandler, HTTPConstants {
     /**
      * Try to find the appropriate rest handler for the given URL.
      * Return null if no match found.
-     * 
+     *
      * @param requestURL The URL from the HTTP request. This is the URL that needs to be matched.
      * @return The RESTHandler for the given URL.
      */
@@ -242,14 +245,15 @@ public class AdminCenterRouter implements RESTHandler, HTTPConstants {
     @Override
     public void handleRequest(final RESTRequest request, final RESTResponse response) throws IOException {
         if (tc.isEventEnabled()) {
-            Tr.event(tc, "REST request received from " + request.getRemoteHost() + ":" + request.getRemotePort() + " - path: " + request.getPath());
+            Tr.event(tc, "REST request received from " + request.getRemoteHost() + ":" + request.getRemotePort() + " - path: " + request.getPath() + " - URI: " + request.getURI());
         }
 
-        final RESTHandler handler = getHandler(request.getPath());
+        final RESTHandler handler = getHandler(Utils.getPath(request));
         if (handler != null) {
             try {
                 RequestNLS.setRESTRequest(request);
                 handler.handleRequest(request, response);
+                setSecurityHeaders(response);
             } finally {
                 RequestNLS.clearThreadLocal();
             }
@@ -259,9 +263,25 @@ public class AdminCenterRouter implements RESTHandler, HTTPConstants {
     }
 
     /**
+     * Set security headers on the RESTResponse resquest
+     *
+     * @param response The RESTResponse from handleRequest
+     */
+    protected void setSecurityHeaders(RESTResponse response) {
+        if (response != null) {
+            response.setResponseHeader("X-XSS-Protection", "1");
+            response.setResponseHeader("X-Content-Type-Options", "nosniff");
+            response.setResponseHeader("X-Frame-Options", "SAMEORIGIN");
+            response.setResponseHeader("Content-Security-Policy", "default-src 'self'; form-action 'self'; frame-ancestors 'self'");
+            response.setResponseHeader("Strict-Transport-Security", "max-age=99999999");
+            
+        }
+    }
+
+    /**
      * Returns a read-only view of the handlers map.
      * Primarily used for unit testing.
-     * 
+     *
      * @return a read-only view of the handlers map.
      */
     Map<String, AdminCenterRestHandler> getHandlers() {

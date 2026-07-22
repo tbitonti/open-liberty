@@ -1,13 +1,15 @@
-/*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+/*
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *******************************************************************************/
+ */
 package com.ibm.ws.sib.processor.gd;
 
 import java.util.ArrayList;
@@ -1361,8 +1363,7 @@ public class AIStream extends ControllableStream implements ControllableResource
     synchronized (_completedPrefix)
     {
       // wait for any thread that may have updated the completed prefix
-      if (_countOfOutstandingCPUpdates > 0)
-      {
+      while (_countOfOutstandingCPUpdates > 0) {
         _completedPrefix.wait();
       }
 
@@ -2516,10 +2517,10 @@ public class AIStream extends ControllableStream implements ControllableResource
       {
         // this update is not outstanding any more
         _countOfOutstandingCPUpdates--;
-        if (_countOfOutstandingCPUpdates == 0)
+        if (_countOfOutstandingCPUpdates <= 0)
         {
-          // notify a waiting thread that may be trying to remove the completed prefix
-          _completedPrefix.notify();
+          // notify any waiting threads that may be trying to remove the completed prefix
+          _completedPrefix.notifyAll();
         }
       }
 

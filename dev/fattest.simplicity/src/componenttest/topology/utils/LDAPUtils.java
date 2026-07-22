@@ -1,23 +1,26 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package componenttest.topology.utils;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map.Entry;
@@ -30,9 +33,10 @@ import javax.naming.NamingException;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
 
-import com.ibm.websphere.simplicity.RemoteFile;
+import com.ibm.websphere.simplicity.OperatingSystem;
 import com.ibm.websphere.simplicity.log.Log;
 
+import componenttest.common.apiservices.LocalMachine;
 import componenttest.topology.impl.LibertyServer;
 
 /**
@@ -45,7 +49,7 @@ public class LDAPUtils {
 
     public static String LDAP_SERVER_1_NAME;
     public static String LDAP_SERVER_2_NAME;
-    public static String LDAP_SERVER_3_NAME;
+    // public static String LDAP_SERVER_3_NAME;
     public static String LDAP_SERVER_4_NAME;
     public static String LDAP_SERVER_5_NAME;
     public static String LDAP_SERVER_6_NAME;
@@ -55,12 +59,12 @@ public class LDAPUtils {
     public static String LDAP_SERVER_10_NAME;
 //    public static String LDAP_SERVER_11_NAME;
     public static String LDAP_SERVER_12_NAME;
-    public static String LDAP_SERVER_13_NAME;
+    // public static String LDAP_SERVER_13_NAME;
     public static String LDAP_SERVER_1_PORT;
     public static String LDAP_SERVER_2_PORT;
     public static String LDAP_SERVER_2_SSL_PORT;
-    public static String LDAP_SERVER_3_PORT;
-    public static String LDAP_SERVER_3_SSL_PORT;
+    //public static String LDAP_SERVER_3_PORT;
+    //public static String LDAP_SERVER_3_SSL_PORT;
     public static String LDAP_SERVER_4_PORT;
     public static String LDAP_SERVER_4_SSL_PORT;
     public static String LDAP_SERVER_5_PORT;
@@ -74,13 +78,13 @@ public class LDAPUtils {
     public static String LDAP_SERVER_10_PORT;
 //    public static String LDAP_SERVER_11_PORT;
     public static String LDAP_SERVER_12_PORT;
-    public static String LDAP_SERVER_13_PORT;
-    public static String LDAP_SERVER_13_SSL_PORT;
+    //public static String LDAP_SERVER_13_PORT;
+    //public static String LDAP_SERVER_13_SSL_PORT;
 
     public static String LDAP_SERVER_2_BINDDN;
     public static String LDAP_SERVER_2_BINDPWD;
-    public static String LDAP_SERVER_3_BINDDN;
-    public static String LDAP_SERVER_3_BINDPWD;
+    //public static String LDAP_SERVER_3_BINDDN;
+    //public static String LDAP_SERVER_3_BINDPWD;
 
     public static String LDAP_SERVER_4_BINDDN;
     public static String LDAP_SERVER_4_BINDPWD;
@@ -97,8 +101,8 @@ public class LDAPUtils {
     public static String LDAP_SERVER_12_BINDDN;
     public static String LDAP_SERVER_12_BINDPWD;
 
-    public static String LDAP_SERVER_13_BINDDN;
-    public static String LDAP_SERVER_13_BINDPWD;
+    //public static String LDAP_SERVER_13_BINDDN;
+    //public static String LDAP_SERVER_13_BINDPWD;
 
     /** Service name for SVT's Active Directory servers. */
     private static final String CONSUL_LDAP_AD_SVT_SERVICE = "ldap-ad-svt";
@@ -112,8 +116,8 @@ public class LDAPUtils {
     /** Service name for Security's IBM / Tivoli servers. */
     private static final String CONSUL_LDAP_IBM_SECURITY_SERVICE = "ldap-ibm-security";
 
-    /** Service name for SVT's Oracle servers. */
-    private static final String CONSUL_LDAP_ORACLE_SVT_SERVICE = "ldap-oracle-svt";
+    /** Service name for SVT's Oracle servers. Servers 3 and 13 */
+    // private static final String CONSUL_LDAP_ORACLE_SVT_SERVICE = "ldap-oracle-svt";
 
     /** Key to retrieve LDAP port from Consul LDAP service. */
     private static final String CONSUL_LDAP_PORT_KEY = "ldapPort";
@@ -135,6 +139,9 @@ public class LDAPUtils {
 
     /** Did we fail to find the physical LDAP servers in Consul? */
     private static boolean CONSUL_LOOKUP_FAILED = false;
+
+    private static boolean isZOS = false;
+
     static {
 
         /*
@@ -142,27 +149,37 @@ public class LDAPUtils {
          */
         boolean uselocalLDAP = isLocalLdapExpectedToBeUsed();
 
+        try {
+            isZOS = LocalMachine.getInstance().getOperatingSystem() == OperatingSystem.ZOS;
+        } catch (Exception e) {
+            Log.error(c, "<clinit>", e,
+                      "Could not detect OS, assume it is not z/OS.");
+        }
+
         /*
          * Get the remote LDAP configuration from Consul
          */
-        try {
-            initializeRemoteLdapServers();
-        } catch (Exception e) {
-            /*
-             * Failed to get all the remote LDAP servers, so fail back to local LDAP.
-             */
-            String os = System.getProperty("os.name").toLowerCase();
-            if (os.startsWith("z/os")) {
-                Log.error(c, "<clinit>", e, "*******REMOTE LDAP FAILED ON Z/OS RUN ******* Any remote Ldap tests trying to run local will fail.");
-            }
+        if (!uselocalLDAP) {
+            try {
+                initializeRemoteLdapServers(isZOS);
+            } catch (Exception e) {
+                /*
+                 * Failed to get all the remote LDAP servers, so fail back to local LDAP.
+                 */
+                if (isZOS) {
+                    Log.error(c, "<clinit>", e,
+                              "*******REMOTE LDAP FAILED ON Z/OS RUN ******* Some failures setting up remote LDAPs, but local ApacheDS will not run on z/OS, doing remote anyway.");
+                } else {
 
-            Log.error(c, "<clinit>", e, "Failed setting up remote LDAP servers. Failing back to local LDAP servers. " +
-                                        "To run against the remote LDAP servers, ensure that the tests are being run " +
-                                        "on the IBM network, that you have added your global IBM GHE access token " +
-                                        "(global.ghe.access.token) to the user.build.properties file in your home directory " +
-                                        "and that you are a member of the 'websphere' organization in IBM GHE.");
-            CONSUL_LOOKUP_FAILED = true;
-            uselocalLDAP = true;
+                    Log.error(c, "<clinit>", e, "Failed setting up remote LDAP servers. Failing back to local LDAP servers. " +
+                                                "To run against the remote LDAP servers, ensure that the tests are being run " +
+                                                "on the IBM network, that you have added your global IBM GHE access token " +
+                                                "(global.ghe.access.token) to the user.build.properties file in your home directory " +
+                                                "and that you are a member of the 'websphere' organization in IBM GHE.");
+                    CONSUL_LOOKUP_FAILED = true;
+                    uselocalLDAP = true;
+                }
+            }
         }
 
         USE_LOCAL_LDAP_SERVER = uselocalLDAP;
@@ -188,7 +205,15 @@ public class LDAPUtils {
         });
     }
 
-    private static void initializeRemoteLdapServers() throws Exception {
+    /**
+     * Populate with remote LDAP servers. If the run is on zOS, catch and populate any failing
+     * LDAP types with dummy values. z/OS currently doesn't run with our local failover option,
+     * ApacheDS so prefill with as many valid LDAPs as possibly.
+     *
+     * @param  isZOS
+     * @throws Exception
+     */
+    private static void initializeRemoteLdapServers(boolean isZOS) throws Exception {
         //Note: Servers 9 and 11 are dead
 
         /*
@@ -205,13 +230,21 @@ public class LDAPUtils {
             remoteServers[2].bindDn = services.get(0).getProperties().get(CONSUL_BIND_DN_KEY);
             remoteServers[2].bindPwd = services.get(0).getProperties().get(CONSUL_BIND_PASSWORD_KEY);
 
-            /* LDAP_SERVER_6 is dead, but was duplicate of LDAP_SERVER_2 */
             remoteServers[6] = new LdapServer();
             remoteServers[6].serverName = services.get(1).getAddress();
             remoteServers[6].ldapPort = services.get(1).getProperties().get(CONSUL_LDAP_PORT_KEY);
             remoteServers[6].ldapsPort = services.get(1).getProperties().get(CONSUL_LDAPS_PORT_KEY);
             remoteServers[6].bindDn = services.get(1).getProperties().get(CONSUL_BIND_DN_KEY);
             remoteServers[6].bindPwd = services.get(1).getProperties().get(CONSUL_BIND_PASSWORD_KEY);
+        } catch (Exception e) {
+            if (isZOS) {
+                Log.error(c, "<clinit>", e,
+                          "*******Could not fetch remote AD LDAP servers on a z/OS run. Remote AD server tests will fail. Work on migrating tests to InMemoryADLDAPServer, if possible");
+                processForEmptyLDAPServer(2);
+                processForEmptyLDAPServer(6);
+            } else {
+                throw e;
+            }
         } finally {
             releaseServices(services);
         }
@@ -227,6 +260,16 @@ public class LDAPUtils {
             remoteServers[5] = new LdapServer();
             remoteServers[5].serverName = services.get(1).getAddress();
             remoteServers[5].ldapPort = services.get(1).getProperties().get(CONSUL_LDAP_PORT_KEY);
+        } catch (Exception e) {
+            if (isZOS) {
+                Log.error(c, "<clinit>", e,
+                          "*******Could not fetch remote Tivoli LDAP servers on a z/OS run. Remote Tivoli server tests will fail. Work on migrating tests to InMemoryTDSLDAPServer, if possible.");
+
+                processForEmptyLDAPServer(1);
+                processForEmptyLDAPServer(5);
+            } else {
+                throw e;
+            }
         } finally {
             releaseServices(services);
         }
@@ -255,6 +298,17 @@ public class LDAPUtils {
             remoteServers[8].ldapsPort = services.get(2).getProperties().get(CONSUL_LDAPS_PORT_KEY);
             remoteServers[8].bindDn = services.get(2).getProperties().get(CONSUL_BIND_DN_KEY);
             remoteServers[8].bindPwd = services.get(2).getProperties().get(CONSUL_BIND_PASSWORD_KEY);
+        } catch (Exception e) {
+            if (isZOS) {
+                Log.error(c, "<clinit>", e,
+                          "*******Could not fetch remote Tivoli LDAP servers on a z/OS run. Remote Tivoli server tests will fail. Work on migrating tests to InMemoryTDSLDAPServer, if possible.");
+
+                processForEmptyLDAPServer(4);
+                processForEmptyLDAPServer(7);
+                processForEmptyLDAPServer(8);
+            } else {
+                throw e;
+            }
         } finally {
             releaseServices(services);
         }
@@ -274,31 +328,27 @@ public class LDAPUtils {
             remoteServers[12].ldapPort = services.get(1).getProperties().get(CONSUL_LDAP_PORT_KEY);
             remoteServers[12].bindDn = services.get(1).getProperties().get(CONSUL_BIND_DN_KEY);
             remoteServers[12].bindPwd = services.get(1).getProperties().get(CONSUL_BIND_PASSWORD_KEY);
+        } catch (Exception e) {
+            if (isZOS) {
+                Log.error(c, "<clinit>", e,
+                          "*******Could not fetch remote Tivoli LDAP servers on a z/OS run. Remote Tivoli server tests will fail. Work on migrating tests to InMemoryTDSLDAPServer, if possible.");
+                processForEmptyLDAPServer(10);
+                processForEmptyLDAPServer(12);
+            } else {
+                throw e;
+            }
         } finally {
             releaseServices(services);
         }
 
-        services = null;
-        try {
-            services = getLdapServices(1, CONSUL_LDAP_ORACLE_SVT_SERVICE);
+    }
 
-            remoteServers[3] = new LdapServer();
-            remoteServers[3].serverName = services.get(0).getAddress();
-            remoteServers[3].ldapPort = services.get(0).getProperties().get(CONSUL_LDAP_PORT_KEY);
-            remoteServers[3].ldapsPort = services.get(0).getProperties().get(CONSUL_LDAPS_PORT_KEY);
-            remoteServers[3].bindDn = services.get(0).getProperties().get(CONSUL_BIND_DN_KEY);
-            remoteServers[3].bindPwd = services.get(0).getProperties().get(CONSUL_BIND_PASSWORD_KEY);
-
-            /* Server 13 is dead. Reuse server 3. */
-            remoteServers[13] = new LdapServer();
-            remoteServers[13].serverName = remoteServers[3].serverName;
-            remoteServers[13].ldapPort = remoteServers[3].ldapPort;
-            remoteServers[13].ldapsPort = remoteServers[3].ldapsPort;
-            remoteServers[13].bindDn = remoteServers[3].bindDn;
-            remoteServers[13].bindPwd = remoteServers[3].bindPwd;
-        } finally {
-            releaseServices(services);
-        }
+    private static void processForEmptyLDAPServer(int position) {
+        remoteServers[position] = new LdapServer();
+        remoteServers[position].serverName = "Remote_LDAP_was_down";
+        remoteServers[position].ldapPort = "389";
+        remoteServers[position].bindDn = "fauxBindDN";
+        remoteServers[position].bindPwd = "fauxBindPwd";
     }
 
     private static void initializeLocalLdapServers() {
@@ -466,16 +516,6 @@ public class LDAPUtils {
         LDAP_SERVER_12_BINDDN = (USE_LOCAL_LDAP_SERVER ? localServers[12] : remoteServers[12]).bindDn;
         LDAP_SERVER_12_BINDPWD = (USE_LOCAL_LDAP_SERVER ? localServers[12] : remoteServers[12]).bindPwd;
 
-        LDAP_SERVER_3_NAME = (USE_LOCAL_LDAP_SERVER ? localServers[3] : remoteServers[3]).serverName;
-        LDAP_SERVER_3_PORT = (USE_LOCAL_LDAP_SERVER ? localServers[3] : remoteServers[3]).ldapPort;
-        LDAP_SERVER_3_SSL_PORT = (USE_LOCAL_LDAP_SERVER ? localServers[3] : remoteServers[3]).ldapsPort;
-        LDAP_SERVER_3_BINDDN = (USE_LOCAL_LDAP_SERVER ? localServers[3] : remoteServers[3]).bindDn;
-        LDAP_SERVER_3_BINDPWD = (USE_LOCAL_LDAP_SERVER ? localServers[3] : remoteServers[3]).bindPwd;
-        LDAP_SERVER_13_NAME = (USE_LOCAL_LDAP_SERVER ? localServers[13] : remoteServers[13]).serverName;
-        LDAP_SERVER_13_PORT = (USE_LOCAL_LDAP_SERVER ? localServers[13] : remoteServers[13]).ldapPort;
-        LDAP_SERVER_13_SSL_PORT = (USE_LOCAL_LDAP_SERVER ? localServers[13] : remoteServers[13]).ldapsPort;
-        LDAP_SERVER_13_BINDDN = (USE_LOCAL_LDAP_SERVER ? localServers[13] : remoteServers[13]).bindDn;
-        LDAP_SERVER_13_BINDPWD = (USE_LOCAL_LDAP_SERVER ? localServers[13] : remoteServers[13]).bindPwd;
     }
 
     /*
@@ -484,62 +524,81 @@ public class LDAPUtils {
      */
     private static void logLdapServerInfo() {
         final String METHOD_NAME = "logLDAPServerInfo";
-        Log.info(c, METHOD_NAME, "USE_LOCAL_LDAP_SERVER=" + USE_LOCAL_LDAP_SERVER);
+        Log.info(c, METHOD_NAME, "USE_LOCAL_LDAP_SERVER=" + USE_LOCAL_LDAP_SERVER + '\n' +
 
-        Log.info(c, METHOD_NAME, "Active Directory WAS SVT LDAP Servers");
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_2_NAME=" + LDAP_SERVER_2_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_2_PORT=" + LDAP_SERVER_2_PORT + '\n');
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_2_SSL_PORT=" + LDAP_SERVER_2_SSL_PORT + '\n');
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_6_NAME=" + LDAP_SERVER_6_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_6_PORT=" + LDAP_SERVER_6_PORT + '\n');
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_6_SSL_PORT=" + LDAP_SERVER_6_SSL_PORT + '\n');
+                                 "Active Directory WAS SVT LDAP Servers\n" +
+                                 "\tLDAP_SERVER_2_NAME=" + LDAP_SERVER_2_NAME + '\n' +
+                                 "\tLDAP_SERVER_2_PORT=" + LDAP_SERVER_2_PORT + '\n' +
+                                 "\tLDAP_SERVER_2_SSL_PORT=" + LDAP_SERVER_2_SSL_PORT + '\n' +
+                                 "\tLDAP_SERVER_6_NAME=" + LDAP_SERVER_6_NAME + '\n' +
+                                 "\tLDAP_SERVER_6_PORT=" + LDAP_SERVER_6_PORT + '\n' +
+                                 "\tLDAP_SERVER_6_SSL_PORT=" + LDAP_SERVER_6_SSL_PORT + "\n\n" +
 
-        Log.info(c, METHOD_NAME, "IBM Continuous Delivery LDAP Servers");
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_1_NAME=" + LDAP_SERVER_1_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_1_PORT=" + LDAP_SERVER_1_PORT + '\n');
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_5_NAME=" + LDAP_SERVER_5_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_5_PORT=" + LDAP_SERVER_5_PORT + '\n');
+                                 "IBM Continuous Delivery LDAP Servers\n" +
+                                 "\tLDAP_SERVER_1_NAME=" + LDAP_SERVER_1_NAME + '\n' +
+                                 "\tLDAP_SERVER_1_PORT=" + LDAP_SERVER_1_PORT + '\n' +
+                                 "\tLDAP_SERVER_5_NAME=" + LDAP_SERVER_5_NAME + '\n' +
+                                 "\tLDAP_SERVER_5_PORT=" + LDAP_SERVER_5_PORT + "\n\n" +
 
-        Log.info(c, METHOD_NAME, "IBM WAS Security FVT LDAP Servers");
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_4_NAME=" + LDAP_SERVER_4_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_4_PORT=" + LDAP_SERVER_4_PORT);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_4_SSL_PORT=" + LDAP_SERVER_4_SSL_PORT + '\n');
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_7_NAME=" + LDAP_SERVER_7_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_7_PORT=" + LDAP_SERVER_7_PORT);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_7_SSL_PORT=" + LDAP_SERVER_7_SSL_PORT + '\n');
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_8_NAME=" + LDAP_SERVER_8_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_8_PORT=" + LDAP_SERVER_8_PORT);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_8_SSL_PORT=" + LDAP_SERVER_8_SSL_PORT + '\n');
+                                 "IBM WAS Security FVT LDAP Servers\n" +
+                                 "\tLDAP_SERVER_4_NAME=" + LDAP_SERVER_4_NAME + '\n' +
+                                 "\tLDAP_SERVER_4_PORT=" + LDAP_SERVER_4_PORT + '\n' +
+                                 "\tLDAP_SERVER_4_SSL_PORT=" + LDAP_SERVER_4_SSL_PORT + '\n' +
+                                 "\tLDAP_SERVER_7_NAME=" + LDAP_SERVER_7_NAME + '\n' +
+                                 "\tLDAP_SERVER_7_PORT=" + LDAP_SERVER_7_PORT + '\n' +
+                                 "\tLDAP_SERVER_7_SSL_PORT=" + LDAP_SERVER_7_SSL_PORT + '\n' +
+                                 "\tLDAP_SERVER_8_NAME=" + LDAP_SERVER_8_NAME + '\n' +
+                                 "\tLDAP_SERVER_8_PORT=" + LDAP_SERVER_8_PORT + '\n' +
+                                 "\tLDAP_SERVER_8_SSL_PORT=" + LDAP_SERVER_8_SSL_PORT + "\n\n" +
 
-        Log.info(c, METHOD_NAME, "IBM WAS Security LDAP Servers");
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_10_NAME=" + LDAP_SERVER_10_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_10_PORT=" + LDAP_SERVER_10_PORT + '\n');
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_12_NAME=" + LDAP_SERVER_12_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_12_PORT=" + LDAP_SERVER_12_PORT + '\n');
+                                 "IBM WAS Security LDAP Servers\n" +
+                                 "\tLDAP_SERVER_10_NAME=" + LDAP_SERVER_10_NAME + '\n' +
+                                 "\tLDAP_SERVER_10_PORT=" + LDAP_SERVER_10_PORT + '\n' +
+                                 "\tLDAP_SERVER_12_NAME=" + LDAP_SERVER_12_NAME + '\n' +
+                                 "\tLDAP_SERVER_12_PORT=" + LDAP_SERVER_12_PORT);
 
-        Log.info(c, METHOD_NAME, "Oracle WAS SVT LDAP Servers");
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_3_NAME=" + LDAP_SERVER_3_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_3_PORT=" + LDAP_SERVER_3_PORT);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_3_SSL_PORT=" + LDAP_SERVER_3_SSL_PORT + '\n');
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_13_NAME=" + LDAP_SERVER_13_NAME);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_13_PORT=" + LDAP_SERVER_13_PORT);
-        Log.info(c, METHOD_NAME, "           LDAP_SERVER_13_SSL_PORT=" + LDAP_SERVER_13_SSL_PORT + '\n');
     }
 
     /**
      * Get a list of LDAP services from Consul.
      *
-     * @param count The number of services requested. If unable to get unique 'count' instances,
-     * the returned List will contain duplicate entries.
-     * @param service The service to return.
-     * @return A list of services returned. This list may return duplicates if unable to return enough
-     * unique service instances.
+     * @param  count   The number of services requested. If unable to get unique 'count' instances,
+     *                     the returned List will contain duplicate entries.
+     * @param  service The service to return.
+     * @return         A list of services returned. This list may return duplicates if unable to return enough
+     *                 unique service instances.
      */
     private static List<ExternalTestService> getLdapServices(int count, String service) throws Exception {
 
         for (int requested = count; requested > 0; requested--) {
             try {
                 List<ExternalTestService> services = new ArrayList<ExternalTestService>(ExternalTestService.getServices(requested, service));
+
+                /*
+                 * Remove services that are not available.
+                 */
+                Set<ExternalTestService> toRemove = new HashSet<ExternalTestService>();
+                for (ExternalTestService serviceToPing : services) {
+                    try {
+                        if (!isLdapServerAvailable(serviceToPing.getAddress(),
+                                                   serviceToPing.getProperties().get(CONSUL_LDAP_PORT_KEY), false,
+
+                                                   serviceToPing.getProperties().get(CONSUL_BIND_DN_KEY),
+                                                   serviceToPing.getProperties().get(CONSUL_BIND_PASSWORD_KEY))) {
+                            Log.warning(c, "For service, " + service + ", Ldap at " + serviceToPing.getAddress() + " failed to ping");
+                            toRemove.add(serviceToPing);
+                        }
+                    } catch (Exception e) {
+                        Log.warning(c, "For service, " + service + ", Ldap at " + serviceToPing.getAddress() + " failed to ping with exception: " + e.getMessage());
+                        toRemove.add(serviceToPing);
+                    }
+                }
+                if (services.size() == toRemove.size()) {
+                    throw new Exception("For service, " + service + ", no LDAPs responded to ping, follow regular failover path which will run local LDAP if possible.");
+                } else if (!toRemove.isEmpty()) {
+                    Log.warning(c, "For service, " + service + ", some LDAPS failed to ping, will remove from services list and run with good LDAPs only.");
+                    services.removeAll(toRemove);
+                }
 
                 /*
                  * Copy unique instances to fill out the requested count of services.
@@ -610,77 +669,38 @@ public class LDAPUtils {
      * <li>ldap.server.13.port - the port of the thirteen LDAP server</li>
      * </ul>
      *
-     * @param server
-     * server for which bootstrap properties file needs updating with LDAP server host/ports
+     * @param  server
+     *                       server for which bootstrap properties file needs updating with LDAP server host/ports
      * @throws Exception
      */
     public static void addLDAPVariables(LibertyServer server) throws Exception {
-        addLDAPVariables(server, true);
+        addLDAPVariables(server, false);
     }
 
-    /**
-     * Adds LDAP variables for various servers and ports to the bootstrap.properties file for use in server.xml.
-     *
-     * @param server
-     * @param isInMemoryAllowed If false, physical LDAP servers and ports will be used as the property values.
-     * @throws Exception
-     */
-    public static void addLDAPVariables(LibertyServer server, boolean isInMemoryAllowed) throws Exception {
+    public static void addLDAPVariables(LibertyServer server, boolean asEnv) throws Exception {
         String method = "addLDAPVariables";
-        Log.entering(c, method, new Object[] { server, isInMemoryAllowed });
+        Log.entering(c, method, new Object[] { server });
 
         Properties props = new Properties();
 
-        // Get bootstrap properties file from server
-        RemoteFile bootstrapPropFile = null;
-        try {
-            bootstrapPropFile = server.getServerBootstrapPropertiesFile();
-        } catch (Exception e) {
-            Log.error(c, method, e, "Error while getting the bootstrap properties file from liberty server");
-            throw new Exception("Error while getting the bootstrap properties file from liberty server");
-        }
-
-        // Open the remote file for reading
-        FileInputStream in = null;
-        try {
-            in = (FileInputStream) bootstrapPropFile.openForReading();
-        } catch (Exception e) {
-            Log.error(c, method, e, "Error while reading the remote bootstrap properties file");
-            throw new Exception("Error while reading the remote bootstrap properties file");
-        }
-
-        // Load properties from bootstrap
-        try {
-            props.load(in);
-        } catch (IOException e) {
-            Log.error(c, method, e, "Error while loading properties from file input stream");
-            throw new IOException("Error while loading properties from file input stream");
-        } finally {
-            //Close the input stream
-            try {
-                in.close();
-            } catch (IOException e1) {
-                Log.error(c, method, e1, "Error while closing the input stream");
-                throw new IOException("Error while closing the input stream");
+        if (!asEnv) {
+            // Load properties from bootstrap
+            try (InputStream in = server.getServerBootstrapPropertiesFile().openForReading()) {
+                props.load(in);
+            } catch (IOException e) {
+                Log.error(c, method, e, "Error while loading properties from file input stream");
+                throw new IOException("Error while loading properties from file input stream");
             }
-        }
-
-        // Open the remote file for writing with append as false
-        FileOutputStream out = null;
-        try {
-            out = (FileOutputStream) bootstrapPropFile.openForWriting(false);
-        } catch (Exception e) {
-            Log.error(c, method, e, "Error while writing to remote bootstrap properties file");
-            throw new Exception("Error while writing to remote bootstrap properties file");
+        } else {
+            props.putAll(server.getServerEnv());
         }
 
         Log.info(c, "addLDAPVariables", "USE_LOCAL_LDAP_SERVER=" + USE_LOCAL_LDAP_SERVER);
-        Log.info(c, "addLDAPVariables", "isInMemoryAllowed=" + isInMemoryAllowed);
 
         /*
          * Create a Properties instance with the remote or the local server properties.
          */
-        if (USE_LOCAL_LDAP_SERVER && isInMemoryAllowed) {
+        if (USE_LOCAL_LDAP_SERVER) {
             Log.info(c, "addLDAPVariables", "Setting in-memory LDAP server properties");
         } else {
             /*
@@ -694,25 +714,18 @@ public class LDAPUtils {
             Log.info(c, "addLDAPVariables", "Setting physical LDAP server properties");
         }
         for (int idx = 1; idx < remoteServers.length; idx++) {
-            setServerProperties(idx, props, isInMemoryAllowed);
+            setServerProperties(idx, props, asEnv);
         }
 
         // Write above LDAP variables to remote bootstrap properties file
-        try {
+        try (OutputStream out = asEnv ? //
+                        server.getFileFromLibertyServerRoot("server.env").openForWriting(false) : //
+                        server.getServerBootstrapPropertiesFile().openForWriting(false)) {
             props.store(out, null);
             Log.info(c, method, "added ldap variables to bootstrap file");
         } catch (IOException e) {
             Log.error(c, method, e, "Error while reading the remote bootstrap properties file");
             throw new Exception("Error while reading the remote bootstrap properties file");
-        } finally {
-            //Close the output stream
-            try {
-                out.close();
-                Log.info(c, method, "closed output stream");
-            } catch (IOException e) {
-                Log.error(c, method, e, "Error while closing the output stream");
-                throw new IOException("Error while closing the output stream");
-            }
         }
         Log.info(c, method, "about to exit routine");
 
@@ -724,30 +737,31 @@ public class LDAPUtils {
      *
      * @param serverNumber The LDAP server number.
      * @param props
-     * @param isInMemoryAllowed
      */
-    private static void setServerProperties(int serverNumber, Properties props, boolean isInMemoryAllowed) {
+    private static void setServerProperties(int serverNumber, Properties props, boolean asEnv) {
         /*
          * Determine whether we should use the local or remote server.
          */
-        LdapServer server = (USE_LOCAL_LDAP_SERVER && isInMemoryAllowed) ? localServers[serverNumber] : remoteServers[serverNumber];
+        LdapServer server = (USE_LOCAL_LDAP_SERVER) ? localServers[serverNumber] : remoteServers[serverNumber];
 
+        char sep = asEnv ? '_' : '.';
+        String prefix = "ldap" + sep + "server" + sep;
         if (server != null) {
-            setProp(props, "ldap.server." + serverNumber + ".name", server.serverName);
-            setProp(props, "ldap.server." + serverNumber + ".port", server.ldapPort);
-            setProp(props, "ldap.server." + serverNumber + ".ssl.port", server.ldapsPort);
-            setProp(props, "ldap.server." + serverNumber + ".bindDN", server.bindDn);
-            setProp(props, "ldap.server." + serverNumber + ".bindPassword", server.bindPwd);
+            setProp(props, prefix + serverNumber + sep + "name", server.serverName);
+            setProp(props, prefix + serverNumber + sep + "port", server.ldapPort);
+            setProp(props, prefix + serverNumber + sep + "ssl" + sep + "port", server.ldapsPort);
+            setProp(props, prefix + serverNumber + sep + "bindDN", server.bindDn);
+            setProp(props, prefix + serverNumber + sep + "bindPassword", server.bindPwd);
         }
     }
 
     /**
      * Set a property value in the Properties instance if the value is not null.
      *
-     * @param props The Properties instance.
-     * @param key The key for the value.
-     * @param value The value to set.
-     * @return The previous value if it was set, null if it was not set.
+     * @param  props The Properties instance.
+     * @param  key   The key for the value.
+     * @param  value The value to set.
+     * @return       The previous value if it was set, null if it was not set.
      */
     private static Object setProp(Properties props, String key, String value) {
         // java.util.Properties does not allow null values, so only set the prop if value is non-null
@@ -768,13 +782,14 @@ public class LDAPUtils {
     }
 
     public static boolean isLdapServerAvailable(String hostname, String port, boolean useSsl, String bindDn, String bindPwd) throws Exception {
-        String method = "isLdapServerAvaialble";
+        String method = "isLdapServerAvailable";
         Log.entering(c, method);
 
         Hashtable<String, String> env = new Hashtable<String, String>();
         env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
         env.put(Context.PROVIDER_URL, "ldap://" + hostname + ":" + port);
         env.put(Context.SECURITY_AUTHENTICATION, "none");
+        env.put("com.sun.jndi.ldap.connect.timeout", "5000");
         if (useSsl) {
             env.put(Context.PROVIDER_URL, "ldaps://" + hostname + ":" + port);
             if (bindDn != null && bindPwd != null) {

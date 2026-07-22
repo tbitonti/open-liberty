@@ -22,6 +22,7 @@ package org.apache.cxf.binding.soap.interceptor;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.cxf.attachment.AttachmentDeserializer;
@@ -44,10 +45,18 @@ import org.apache.cxf.service.model.BindingOperationInfo;
 import org.apache.cxf.service.model.OperationInfo;
 import org.apache.cxf.ws.addressing.JAXWSAConstants;
 
+import com.ibm.websphere.ras.annotation.Trivial; // Liberty code change
+
+@Trivial // Liberty code change
+// Liberty Change; This class has no Liberty specific changes other than the Trivial annotation 
+// It is required as an overlay because of Liberty specific changes to MessageImpl.put(). Any call
+// to SoapMessage.put() will cause a NoSuchMethodException in the calling class if the class is not recompiled.
+// If a solution to this compilation issue can be found, this class should be removed as an overlay. 
 public class SoapActionInInterceptor extends AbstractSoapInterceptor {
 
     private static final Logger LOG = LogUtils.getL7dLogger(SoapActionInInterceptor.class);
     private static final String ALLOW_NON_MATCHING_TO_DEFAULT = "allowNonMatchingToDefaultSoapAction";
+    private static final String ALLOW_NON_MATCHING = "allowNonMatchingSoapAction";
     private static final String CALCULATED_WSA_ACTION = SoapActionInInterceptor.class.getName() + ".ACTION";
 
     public SoapActionInInterceptor() {
@@ -251,6 +260,7 @@ public class SoapActionInInterceptor extends AbstractSoapInterceptor {
             if (boi == null) {
                 return;
             }
+            LOG.finest("boi = " + boi + " action = " + action + " message = " + message); // Liberty code change
             if (StringUtils.isEmpty(action)) {
                 return;
             }
@@ -271,13 +281,37 @@ public class SoapActionInInterceptor extends AbstractSoapInterceptor {
         SoapOperationInfo soi = boi.getExtensor(SoapOperationInfo.class);
         if (soi == null) {
             return false;
-        }
+        } 
+        
+        // Liberty Change Start
+        
         boolean allowNoMatchingToDefault = MessageUtils.getContextualBoolean(message,
                                                                     ALLOW_NON_MATCHING_TO_DEFAULT,
                                                                     false);
-        return action.equals(soi.getAction())
-               || (allowNoMatchingToDefault && StringUtils.isEmpty(soi.getAction())
-               || (message.getVersion() instanceof Soap12) && StringUtils.isEmpty(soi.getAction()));
+        
+        boolean allowNonMatching = MessageUtils.getContextualBoolean(message,
+                                                                             ALLOW_NON_MATCHING,
+                                                                             false);
+        if(allowNonMatching) {
+            if(LOG.isLoggable(Level.FINEST)) {
+                LOG.finest("All non-matching SOAPActions are allowed, because allowNonMatching is set to = " + allowNonMatching);
+            }
+            return true;
+        }
+                 
+        
+        boolean isActionMatch =  action.equals(soi.getAction())
+                        || (allowNoMatchingToDefault && StringUtils.isEmpty(soi.getAction())
+                                        || (message.getVersion() instanceof Soap12) && StringUtils.isEmpty(soi.getAction()));
+        
+        if(LOG.isLoggable(Level.FINEST)) {
+            LOG.finest("isActionMatch is returning - " + isActionMatch +
+                       " because allowNoMatchingToDefault is set to " + allowNoMatchingToDefault +  " and action.equals(soi.getAction() = " + action.equals(soi.getAction()) + " or allowNoMatchingToDefault && StringUtils.isEmpty(soi.getAction() = " + allowNoMatchingToDefault + " && "  + StringUtils.isEmpty(soi.getAction()) + " or (message.getVersion() instanceof Soap12) && StringUtils.isEmpty(soi.getAction()) = " + (message.getVersion() instanceof Soap12) + " && " + StringUtils.isEmpty(soi.getAction()));
+        }
+        
+        
+        return isActionMatch;
+        // Liberty Change End
     }
 
 }

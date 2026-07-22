@@ -1,30 +1,31 @@
 #*******************************************************************************
-# Copyright (c) 2020, 2021 IBM Corporation and others.
+# Copyright (c) 2020, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
 bVersion=1.0
 
 Bundle-SymbolicName: io.openliberty.jakarta.expressionLanguage.4.0; singleton:=true
 Bundle-Description: Jakarta Expression Language, version 4.0
+Implementation-Version: 10.0.27
+Api-Version = 4.0.0
 
 Export-Package: \
- jakarta.el;thread-context=true; version="4.0.0", \
- com.ibm.wsspi.el;thread-context=true; version="4.0.0"
+ jakarta.el;thread-context=true; version=${Api-Version}
 
  Provide-Capability: \
    osgi.contract;\
        osgi.contract=JavaEL;\
-       version:Version=4.0.0;\
+       version:Version=${Api-Version};\
        uses:="jakarta.el"
 
-Include-Resource: \
+-includeresource: \
+    @\${repo;org.apache.tomcat:tomcat-el-api;${Implementation-Version};EXACT}!/!(META-INF/maven/*|module-info.class),\
     jakarta=resources/jakarta
 
 instrument.disabled: true
@@ -32,4 +33,4 @@ instrument.disabled: true
 publish.wlp.jar.suffix: dev/api/spec
 
 -buildpath: \
-  org.apache.tomcat:tomcat-el-api;version=10.0.2
+  org.apache.tomcat:tomcat-el-api;strategy=exact;version=${Implementation-Version}

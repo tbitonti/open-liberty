@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2018 IBM Corporation and others.
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,12 +15,13 @@ package com.ibm.ws.recoverylog.custom.jdbc.impl;
 
 import javax.sql.DataSource;
 
-import com.ibm.tx.util.logging.Tr;
-import com.ibm.tx.util.logging.TraceComponent;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.recoverylog.spi.CustomLogProperties;
 import com.ibm.ws.recoverylog.spi.InternalLogException;
 import com.ibm.ws.recoverylog.spi.TraceConstants;
+import com.ibm.wsspi.resource.ResourceConfig;
 import com.ibm.wsspi.resource.ResourceFactory;
 
 //------------------------------------------------------------------------------
@@ -56,7 +59,7 @@ public class SQLNonTransactionalDataSource {
      * SQLNonTransactionalDataSource objects.
      * </p>
      *
-     * @param dsName The name of the Data Source.
+     * @param dsName              The name of the Data Source.
      * @param customLogProperties The custom properties of the log.
      */
     public SQLNonTransactionalDataSource(String dsName, CustomLogProperties customLogProperties) {
@@ -72,18 +75,19 @@ public class SQLNonTransactionalDataSource {
      * Locates a DataSource in config
      *
      * @return The DataSource.
+     * @throws InternalLogException
      *
      * @exception
      */
     @FFDCIgnore(Exception.class)
-    public DataSource getDataSource() throws Exception {
+    public DataSource getDataSource() throws InternalLogException {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "getDataSource");
 
         // Retrieve the data source factory from the CustomLogProperties. This Factory should be set in the JTMConfigurationProvider
         // by the jdbc component using DeclarativeServices. TxRecoveryAgentImpl gets the factory from the ConfigurationProvider and
         // then sets it into CustomLogProperties.
-        ResourceFactory dataSourceFactory = _customLogProperties.resourceFactory();
+        final ResourceFactory dataSourceFactory = _customLogProperties.resourceFactory();
 
         if (dataSourceFactory != null) {
             if (tc.isDebugEnabled())
@@ -95,56 +99,21 @@ public class SQLNonTransactionalDataSource {
         }
 
         try {
-            nonTranDataSource = (DataSource) dataSourceFactory.createResource(null);
+            // Retrieve the resourceConfig from the custom log properties. This may be null, in which case the "old"
+            // behaviour will pertain with application authentication. A non-null resourceConfig will have been
+            // configured if container authentication has been specified.
+            ResourceConfig resourceConfig = _customLogProperties.resourceConfig();
+            if (tc.isDebugEnabled())
+                Tr.debug(tc, "create resource with ResourceConfig ", resourceConfig);
+            nonTranDataSource = (DataSource) dataSourceFactory.createResource(resourceConfig);
         } catch (Exception e) {
-            //e.printStackTrace();
             if (tc.isEntryEnabled())
-                Tr.exit(tc, "getDataSource", "Caught exception " + e + "throw InternalLogException");
-            throw new InternalLogException("Failed to locate DataSource, caught exception ", null);
+                Tr.exit(tc, "getDataSource", "Caught exception " + e + ", throw InternalLogException");
+            throw new InternalLogException("Failed to locate DataSource, caught exception", e);
         }
-
-/*
- * TEMPORARY This is waiting on fixes to DeclarativeServices which impact the jdbc component. At present it is
- * possible that the DataSource will have been set but that its associated jdbc driver service will still be initialising
- */
-//        boolean refSet = false;
-//        while (!refSet)
-//        {
-//            if (tc.isDebugEnabled())
-//                Tr.debug(tc, "getDataSource after sleep");
-//            try {
-//
-//                nonTranDataSource = (DataSource) dataSourceFactory.createResource(null);
-//                if (tc.isDebugEnabled())
-//                    Tr.debug(tc, "Non Tran dataSource is " + nonTranDataSource);
-//                Connection conn = nonTranDataSource.getConnection();
-//                if (tc.isDebugEnabled())
-//                    Tr.debug(tc, "Established connection " + conn);
-//
-//                DatabaseMetaData mdata = conn.getMetaData();
-//
-//                String dbName = mdata.getDatabaseProductName();
-//                if (tc.isDebugEnabled())
-//                    Tr.debug(tc, "Database name " + dbName);
-//
-//                String dbVersion = mdata.getDatabaseProductVersion();
-//                if (tc.isDebugEnabled())
-//                    Tr.debug(tc, "Database version " + dbVersion);
-//                refSet = true;
-//            } catch (Exception e) {
-//                // We will catch an exception if the DataSource is not yet fully formed
-//                if (tc.isDebugEnabled())
-//                    Tr.debug(tc, "Caught exception: " + e);
-//            }
-//
-//            if (!refSet)
-//                Thread.sleep(200);
-//        }
-// eof TEMPORARY
 
         if (tc.isEntryEnabled())
             Tr.exit(tc, "getDataSource", nonTranDataSource);
         return nonTranDataSource;
     }
-
 }

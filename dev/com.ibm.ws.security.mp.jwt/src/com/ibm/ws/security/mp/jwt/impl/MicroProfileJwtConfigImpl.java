@@ -1,17 +1,22 @@
 /*******************************************************************************
- * Copyright (c) 2017 - 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.mp.jwt.impl;
 
+import java.security.GeneralSecurityException;
+import java.security.Key;
 import java.security.PublicKey;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +43,7 @@ import com.ibm.ws.security.common.config.CommonConfigUtils;
 import com.ibm.ws.security.common.jwk.impl.JWKSet;
 import com.ibm.ws.security.jwt.config.ConsumerUtils;
 import com.ibm.ws.security.jwt.config.JwtConsumerConfig;
+import com.ibm.ws.security.jwt.utils.Constants;
 import com.ibm.ws.security.jwt.utils.JwtUtils;
 import com.ibm.ws.security.mp.jwt.MicroProfileJwtConfig;
 import com.ibm.ws.security.mp.jwt.MicroProfileJwtService;
@@ -86,7 +92,7 @@ public class MicroProfileJwtConfigImpl implements MicroProfileJwtConfig {
     boolean ignoreAudClaimIfNotConfigured = false;
 
     public static final String CFG_KEY_HOST_NAME_VERIFICATION_ENABLED = "hostNameVerificationEnabled";
-    protected boolean hostNameVerificationEnabled = false;
+    protected boolean hostNameVerificationEnabled = true;
 
     public static final String KEY_TRUSTED_ALIAS = "keyName";
     private String trustAliasName = null;
@@ -106,6 +112,12 @@ public class MicroProfileJwtConfigImpl implements MicroProfileJwtConfig {
     public static final String CFG_KEY_CLOCK_SKEW = "clockSkew";
     private long clockSkewMilliSeconds;
 
+    public static final String CFG_KEY_TOKEN_AGE = "tokenAge";
+    private long tokenAgeMilliSeconds;
+
+    public static final String CFG_KEY_DECRYPT_KEY_ALGORITHM = "keyManagementKeyAlgorithm";
+    private String keyManagementKeyAlgorithm = null;
+
     public static final String CFG_KEY_IGNORE_APP_AUTH_METHOD = "ignoreApplicationAuthMethod";
     protected boolean ignoreApplicationAuthMethod = true;
 
@@ -115,6 +127,9 @@ public class MicroProfileJwtConfigImpl implements MicroProfileJwtConfig {
     public static final String CFG_KEY_SIGALG = "signatureAlgorithm";
 
     String signatureAlgorithm = null;
+
+    public static final String CFG_KEY_ALLOWEDSIGNATUREALGS = "allowedSignatureAlgorithms";
+    String[] allowedSignatureAlgorithms = null;
 
     public static final String KEY_authFilterRef = "authFilterRef";
     protected String authFilterRef;
@@ -198,6 +213,7 @@ public class MicroProfileJwtConfigImpl implements MicroProfileJwtConfig {
         jwkSet = null; // the jwkEndpoint may have been changed during dynamic update
         consumerUtils = null; // the parameters in consumerUtils may have been changed during dynamic changing
         this.signatureAlgorithm = configUtils.getConfigAttribute(props, CFG_KEY_SIGALG);
+        this.allowedSignatureAlgorithms = configUtils.getStringArrayConfigAttribute(props, CFG_KEY_ALLOWEDSIGNATUREALGS);
         sharedKey = JwtUtils.processProtectedString(props, JwtUtils.CFG_KEY_SHARED_KEY);
 
         loadConfigValuesForHigherVersions(cc, props);
@@ -221,6 +237,13 @@ public class MicroProfileJwtConfigImpl implements MicroProfileJwtConfig {
         // Ensure that for MP JWT 1.2 and above that "aud" claim is allowed in tokens even if audiences or
         // mp.jwt.verify.audiences are not configured
         ignoreAudClaimIfNotConfigured = true;
+
+        if (!isRuntimeVersionAtLeast(MpJwtRuntimeVersion.VERSION_2_1)) {
+            return;
+        }
+        this.tokenAgeMilliSeconds = configUtils.getLongConfigAttribute(props, CFG_KEY_TOKEN_AGE, tokenAgeMilliSeconds);
+        this.keyManagementKeyAlgorithm = configUtils.getConfigAttribute(props, CFG_KEY_DECRYPT_KEY_ALGORITHM);
+
     }
 
     boolean isRuntimeVersionAtLeast(Version minimumVersionRequired) {
@@ -309,6 +332,11 @@ public class MicroProfileJwtConfigImpl implements MicroProfileJwtConfig {
     @Override
     public String getSignatureAlgorithm() {
         return this.signatureAlgorithm;
+    }
+
+    @Override
+    public String[] getAllowedSignatureAlgorithms() {
+        return this.allowedSignatureAlgorithms;
     }
 
     /** {@inheritDoc} */
@@ -564,6 +592,18 @@ public class MicroProfileJwtConfigImpl implements MicroProfileJwtConfig {
 
     /** {@inheritDoc} */
     @Override
+    public long getTokenAge() {
+        return tokenAgeMilliSeconds;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getKeyManagementKeyAlgorithm() {
+        return this.keyManagementKeyAlgorithm;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public boolean getTokenReuse() {
         return this.tokenReuse;
     }
@@ -612,6 +652,16 @@ public class MicroProfileJwtConfigImpl implements MicroProfileJwtConfig {
     @Override
     public String getKeyManagementKeyAlias() {
         return keyManagementKeyAlias;
+    }
+
+    @Override
+    public Key getJweDecryptionKey() throws GeneralSecurityException {
+        String keyAlias = getKeyManagementKeyAlias();
+        if (keyAlias != null) {
+            String keyStoreRef = getKeyStoreRef();
+            return JwtUtils.getPrivateKey(keyAlias, keyStoreRef);
+        }
+        return null;
     }
 
 }

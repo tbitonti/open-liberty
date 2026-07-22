@@ -1,3 +1,12 @@
+/*******************************************************************************
+ * Copyright (c) 2020, 2023 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ *******************************************************************************/
 package com.ibm.ws.microprofile.graphql.metrics.component;
 
 import java.time.Duration;
@@ -5,12 +14,9 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-import com.ibm.ws.microprofile.metrics.cdi23.producer.MetricRegistryFactory;
-
 import org.eclipse.microprofile.metrics.Metadata;
 import org.eclipse.microprofile.metrics.MetricRegistry;
 import org.eclipse.microprofile.metrics.MetricType;
-import org.eclipse.microprofile.metrics.annotation.RegistryType;
 
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.cdi.config.ConfigKey;
@@ -21,10 +27,14 @@ public class MetricsService implements EventingService {
 
 	private static final String PRE = "mp_graphql_";
     private static final String UNDERSCORE = "_";
-    
-    private final MetricRegistry metricRegistry = MetricRegistryFactory.getVendorRegistry();
+
+    private final MetricRegistry metricRegistry;
 
     private final Map<Context, Long> startTimes = Collections.synchronizedMap(new IdentityHashMap<>());
+
+    public MetricsService() {
+        metricRegistry = MetricsServiceComponent.getSharedMetricRegistries().getOrCreate(MetricRegistry.Type.VENDOR.getName());
+    }
 
     @Override
     public Operation createOperation(Operation operation) {
@@ -51,7 +61,7 @@ public class MetricsService implements EventingService {
         if (startTime != null) {
             long duration = System.nanoTime() - startTime;
             metricRegistry.simpleTimer(getName(context))
-                    .update(Duration.ofNanos(duration));
+            .update(Duration.ofNanos(duration));
         }
     }
 
@@ -75,8 +85,4 @@ public class MetricsService implements EventingService {
                 + operation.getName()
                 + "'";
     }
-
-    
-
 }
-

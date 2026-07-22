@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2020 IBM Corporation and others.
+# Copyright (c) 2020, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -14,10 +16,10 @@ bVersion=1.0
 
 src: \
 	fat/src,\
-	test-application/demotimers/src,
+	test-application/demotimers/src
 
 fat.project: true
-fat.test.databases: true
+tested.features: databaseRotation
 
 # Uncomment to test against alternative databases
 # Options: Derby, Postgre, DB2, Oracle, SQLServer
@@ -27,16 +29,10 @@ fat.test.databases: true
 #fat.test.use.remote.docker: true
 
 -buildpath: \
-    com.github.docker-java:docker-java-api;version=latest,\
 	com.ibm.ws.componenttest.2.0;version=latest,\
-	fattest.simplicity;version=latest,\
 	io.openliberty.jakarta.annotation.2.0;version=latest,\
 	io.openliberty.jakarta.concurrency.2.0;version=latest,\
 	io.openliberty.jakarta.enterpriseBeans.4.0,\
 	io.openliberty.jakarta.servlet.5.0;version=latest,\
 	io.openliberty.jakarta.transaction.2.0;version=latest,\
-	org.testcontainers:database-commons;version=1.15.1,\
-	org.testcontainers:jdbc;version=1.15.1,\
-	org.testcontainers:testcontainers;version=1.15.1,\
-	org.rnorth.duct-tape:duct-tape;version=1.0.8,\
-	org.slf4j:slf4j-api;version=1.7.7
+	io.openliberty.org.testcontainers;version=latest

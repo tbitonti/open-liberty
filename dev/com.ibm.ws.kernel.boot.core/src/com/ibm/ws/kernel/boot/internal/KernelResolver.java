@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013 IBM Corporation and others.
+ * Copyright (c) 2013, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -248,7 +250,7 @@ public class KernelResolver {
      * Given the list of files, add the URL for each file to the list of URLs
      *
      * @param jarFiles List of Files (source)
-     * @param urlList List of URLs (target)
+     * @param urlList  List of URLs (target)
      */
     private void addBootJars(List<File> jarFiles, List<URL> urlList) {
         for (File jarFile : jarFiles) {
@@ -476,7 +478,7 @@ public class KernelResolver {
                         writer.write(NL);
                         for (BundleCacheElement bEntry : entry.getBundleElements()) {
                             writer.write(BUNDLE_LINE); // bundle line marker
-                            writer.write(entry.mfSymbolicName); // sanity check
+                            writer.write(entry.mfSymbolicName); // validation
                             writer.write('|');
                             bEntry.write(writer);
                             writer.write(NL);
@@ -523,7 +525,7 @@ public class KernelResolver {
          * environment that has a plethora of them.
          *
          * @param mfFile *.mf file to retrieve boot.jar files from. The returned
-         *            list will include any elements provided by an included *.mf file.
+         *                   list will include any elements provided by an included *.mf file.
          */
         public ManifestCacheElement checkEntry(File mfFile, boolean followIncludes, NameBasedLocalBundleRepository repo) {
             ManifestCacheElement entry = cacheEntries.get(mfFile.getName());
@@ -571,7 +573,7 @@ public class KernelResolver {
 
                                 if (libertyBoot) {
                                     // Marking these as start-phase LIBERTY_BOOT to indicate that they are not really bundles
-                                    // com.ibm.ws.logging; version="[1,1.0.100)"; type="boot.jar"; start-phase:=LIBERTY_BOOT
+                                    // com.ibm.ws.logging; version="[1,1.1)"; type="boot.jar"; start-phase:=LIBERTY_BOOT
                                     SubsystemContentElement element = new SubsystemContentElement(line + "; start-phase:=LIBERTY_BOOT");
 
                                     // this might throw an IllegalArgumentException (unknown start phase)
@@ -582,7 +584,7 @@ public class KernelResolver {
 
                                 } else {
 
-                                    // com.ibm.ws.logging; version="[1,1.0.100)"; type="boot.jar"
+                                    // com.ibm.ws.logging; version="[1,1.1)"; type="boot.jar"
                                     SubsystemContentElement element = new SubsystemContentElement(line);
 
                                     // Now we do the work to find the right jar given the version range.
@@ -626,7 +628,7 @@ public class KernelResolver {
                                 // the default subsystem content type is "osgi.bundle".. so if we don't have a type,
                                 // we assume it's one of these.
 
-                                // com.ibm.ws.org.objectweb.asm.all.4.0; version="[1,1.0.100)"; start-phase:=BOOTSTRAP,
+                                // com.ibm.ws.org.objectweb.asm.all.4.0; version="[1,1.1)"; start-phase:=BOOTSTRAP,
                                 SubsystemContentElement element = new SubsystemContentElement(line);
 
                                 // this might throw an IllegalArgumentException (unknown start phase)
@@ -840,7 +842,7 @@ public class KernelResolver {
         private File bestMatchFile;
 
         /**
-         * @param cache Owning cache
+         * @param cache   Owning cache
          * @param element SubsystemContentElement read from the kernel manifest
          * @throws IOException If the value read from the cache is an invalid start phase
          */
@@ -864,7 +866,7 @@ public class KernelResolver {
 
         /**
          * @param cache Owning cache
-         * @param str String from the kernel feature manifest
+         * @param str   String from the kernel feature manifest
          * @throws IOException
          */
         BundleCacheElement(ResolverCache cache, String str) throws IOException {
@@ -961,7 +963,7 @@ public class KernelResolver {
          * Parse a subsystem content element. Assumes leading/trailing spaces have been trimmed
          *
          * <pre>
-         * org.apache.aries.util; version="[1,1.0.100)"; type="boot.jar"
+         * org.apache.aries.util; version="[1,1.1)"; type="boot.jar"
          * com.ibm.wsspi.org.osgi.cmpn; location="dev/spi/spec/"; version="[5.0, 5.1)"; start-phase:=BOOTSTRAP
          * </pre>
          *

@@ -1,18 +1,23 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2020 IBM Corporation and others.
+ * Copyright (c) 2004, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.http.channel.internal.values;
 
-import com.ibm.ws.http.channel.internal.HttpResponseMessageImpl;
+import java.util.Objects;
+
 import com.ibm.wsspi.http.channel.HttpRequestMessage;
 import com.ibm.wsspi.http.channel.HttpResponseMessage;
+
+import io.openliberty.http.constants.HttpGenerics;
 
 public class AccessLogResponseSizeB extends AccessLogData {
 
@@ -28,25 +33,18 @@ public class AccessLogResponseSizeB extends AccessLogData {
 
         long responseSize = getBytesReceived(response, request, data);
 
-        if (responseSize != -999) {
+        if (responseSize != HttpGenerics.NOT_SET) {
             accessLogEntry.append(responseSize);
         } else {
             accessLogEntry.append("0");
         }
 
-        return true;
+        return Boolean.TRUE;
     }
 
     public static long getBytesReceived(HttpResponseMessage response, HttpRequestMessage request, Object data) {
-        long responseSize = -999;
-        HttpResponseMessageImpl responseMessageImpl = null;
-        if (response != null) {
-            responseMessageImpl = (HttpResponseMessageImpl) response;
-        }
 
-        if (responseMessageImpl != null) {
-            responseSize = responseMessageImpl.getServiceContext().getNumBytesWritten();
-        }
-        return responseSize;
+        return Objects.nonNull(response) ? response.getBytesWritten() : HttpGenerics.NOT_SET;
+
     }
 }

@@ -1,21 +1,22 @@
 #*******************************************************************************
-# Copyright (c) 2017 IBM Corporation and others.
+# Copyright (c) 2017,2022 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
+
+-sub: *.bnd
+
 bVersion=1.0
 
-Bundle-Name: Database Connectivity
-Bundle-SymbolicName: com.ibm.ws.jdbc
-Bundle-Description: Database connectivity infrastructure, version ${bVersion}
 
-jakartaeeMe: true
 
 WS-TraceGroup: RRA
 
@@ -23,13 +24,13 @@ IBM-Default-Config: OSGI-INF/wlp/defaultInstances.xml
 
 Export-Package: \
     com.ibm.ws.jdbc;provide:=true, \
-    com.ibm.ws.jdbc.heritage, \
     com.ibm.ws.jdbc.osgi; provide:=true, \
     com.ibm.ws.jdbc.timedoperations, \
     com.ibm.ws.rsadapter, \
     com.ibm.ws.rsadapter.jdbc, \
     com.ibm.ws.rsadapter.impl, \
-    com.ibm.websphere.ce.cm
+    com.ibm.websphere.ce.cm, \
+    com.ibm.websphere.rsadapter
 
 Import-Package: \
     com.ibm.ws.jca.adapter, \
@@ -126,7 +127,8 @@ instrument.disabled: true
 	com.ibm.ws.container.service;version=latest,\
 	com.ibm.ws.javaee.dd.common;version=latest,\
 	com.ibm.ws.serialization;version=latest, \
-	com.ibm.ws.org.osgi.annotation.versioning;version=latest
+	com.ibm.ws.org.osgi.annotation.versioning;version=latest, \
+	com.ibm.ws.kernel.boot.core;version=latest
 
 -testpath: \
 	../build.sharedResources/lib/junit/old/junit.jar;version=file, \

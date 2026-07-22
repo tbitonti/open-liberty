@@ -1,73 +1,25 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jaxrs20.fat;
+
+import java.util.Locale;
 
 import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
-import com.ibm.ws.jaxrs20.fat.annotationscan.AnnotationScanTest;
-import com.ibm.ws.jaxrs20.fat.beanparam.BeanParamTest;
-import com.ibm.ws.jaxrs20.fat.beanvalidation.JAXRSClientServerValidationTest;
-import com.ibm.ws.jaxrs20.fat.beanvalidation.JAXRSPerRequestValidationTest;
-import com.ibm.ws.jaxrs20.fat.beanvalidation.JAXRSValidationDisabledTest;
-import com.ibm.ws.jaxrs20.fat.bookcontinuationstore.JAXRSContinuationsTest;
-import com.ibm.ws.jaxrs20.fat.bookstore.JAXRS20ClientServerBookTest;
-import com.ibm.ws.jaxrs20.fat.callback.JAXRS20CallBackTest;
-import com.ibm.ws.jaxrs20.fat.checkFeature.CheckFeature12Test;
-import com.ibm.ws.jaxrs20.fat.class_as_provider_resource.SameClassAsProviderAndResourceTest;
-import com.ibm.ws.jaxrs20.fat.client.ClientTest;
-import com.ibm.ws.jaxrs20.fat.context.ContextTest;
-import com.ibm.ws.jaxrs20.fat.contextresolver.DepartmentTest;
-import com.ibm.ws.jaxrs20.fat.exceptionmappers.ExceptionMappersTest;
-import com.ibm.ws.jaxrs20.fat.exceptionmappingWithOT.ExceptionMappingWithOTTest;
-import com.ibm.ws.jaxrs20.fat.extraproviders.ExtraProvidersTest;
-import com.ibm.ws.jaxrs20.fat.getClasses_getSingletons.SameClassInGetClassesAndGetSingletonsTest;
-import com.ibm.ws.jaxrs20.fat.helloworld.HelloWorldTest;
-import com.ibm.ws.jaxrs20.fat.ibm.json.IBMJSON4JTest;
-import com.ibm.ws.jaxrs20.fat.jackson.JacksonPOJOTest;
-import com.ibm.ws.jaxrs20.fat.jackson1x.JacksonPOJOwithUserJacksonLib1xTest;
-import com.ibm.ws.jaxrs20.fat.jackson2x.JacksonPOJOwithUserJacksonLib2xTest;
-import com.ibm.ws.jaxrs20.fat.jacksonJsonIgnore.JacksonJsonIgnoreTest;
-import com.ibm.ws.jaxrs20.fat.json.UTF8Test;
-import com.ibm.ws.jaxrs20.fat.link.LinkHeaderTest;
-import com.ibm.ws.jaxrs20.fat.managedbeans.ManagedBeansTest;
-import com.ibm.ws.jaxrs20.fat.multipart.MultipartTest;
-import com.ibm.ws.jaxrs20.fat.options.OptionsTest;
-import com.ibm.ws.jaxrs20.fat.paramconverter.ParamConverterTest;
-import com.ibm.ws.jaxrs20.fat.params.ParamsTest;
-import com.ibm.ws.jaxrs20.fat.providercache.ProviderCacheTest;
-import com.ibm.ws.jaxrs20.fat.readerwriterprovider.ReaderWriterProvidersTest;
-import com.ibm.ws.jaxrs20.fat.resourcealgorithm.SearchPolicyTest;
-import com.ibm.ws.jaxrs20.fat.resourceinfo.ResourceInfoTest;
-import com.ibm.ws.jaxrs20.fat.response.ResponseAPITest;
-import com.ibm.ws.jaxrs20.fat.restmetrics.RestMetricsTest;
-import com.ibm.ws.jaxrs20.fat.security.annotations.SecurityAnnotationsTest;
-import com.ibm.ws.jaxrs20.fat.security.ssl.SecuritySSLTest;
-import com.ibm.ws.jaxrs20.fat.securitycontext.CustomSecurityContextTest;
-import com.ibm.ws.jaxrs20.fat.securitycontext.SecurityContextTest;
-import com.ibm.ws.jaxrs20.fat.service.scope.ServiceScopeTest;
-import com.ibm.ws.jaxrs20.fat.servletcoexist.JAXRSServletCoexistTest;
-import com.ibm.ws.jaxrs20.fat.standard.StandardProvidersTest;
-import com.ibm.ws.jaxrs20.fat.subresource.ExceptionsSubresourcesTest;
-import com.ibm.ws.jaxrs20.fat.thirdpartyjersey.JerseyTest;
-import com.ibm.ws.jaxrs20.fat.thirdpartyjerseywithinjection.JerseyInjectionTest;
-import com.ibm.ws.jaxrs20.fat.uriInfo.UriInfoTest;
-import com.ibm.ws.jaxrs20.fat.wadl.WADLTest;
-import com.ibm.ws.jaxrs20.fat.webcontainer.JAXRSWebContainerTest;
-
 import componenttest.custom.junit.runner.AlwaysPassesTest;
+import componenttest.custom.junit.runner.FATRunner;
+import componenttest.rules.repeater.EmptyAction;
 import componenttest.rules.repeater.FeatureReplacementAction;
-import componenttest.rules.repeater.JakartaEE9Action;
 import componenttest.rules.repeater.RepeatTests;
 
 @RunWith(Suite.class)
@@ -80,6 +32,7 @@ import componenttest.rules.repeater.RepeatTests;
                 ContextTest.class,
                 CustomSecurityContextTest.class,
                 DepartmentTest.class,
+                EjbInjectionTest.class,
                 ExceptionMappersTest.class,
                 ExceptionMappingWithOTTest.class,
                 ExceptionsSubresourcesTest.class,
@@ -101,11 +54,14 @@ import componenttest.rules.repeater.RepeatTests;
                 JerseyTest.class,
                 JerseyInjectionTest.class,
                 LinkHeaderTest.class,
+                MediaTypeTest.class,
                 MultipartTest.class,
+                SecurityLimitsTest.class,
                 ManagedBeansTest.class,
                 OptionsTest.class,
                 ParamConverterTest.class,
                 ParamsTest.class,
+                PrototypeTest.class,
                 ProviderCacheTest.class,
                 ReaderWriterProvidersTest.class,
                 ResourceInfoTest.class,
@@ -122,12 +78,31 @@ import componenttest.rules.repeater.RepeatTests;
                 StandardProvidersTest.class,
                 UriInfoTest.class,
                 UTF8Test.class,
-                //ValidationTest.class, //TODO: fix up and reenable tests - 6325
+                ValidationTest.class,
                 WADLTest.class
 })
+
 public class FATSuite {
+    private static final boolean isWindows = System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("win");
+
+    // To avoid going over 3 hour test limit on slow hardware, run only the first and last versions
+    // on slow hardware.
     @ClassRule
-    public static RepeatTests r = RepeatTests.withoutModification()
-                    .andWith(FeatureReplacementAction.EE8_FEATURES().withID("JAXRS-2.1"))
-                    .andWith(new JakartaEE9Action().alwaysAddFeature("jsonb-2.0"));
+    public static RepeatTests r;
+    static {
+        if (!(isWindows) || FATRunner.FAT_TEST_LOCALRUN) {
+            r = RepeatTests.withoutModificationInFullMode()
+                    .andWith(FeatureReplacementAction.EE8_FEATURES().withID("JAXRS-2.1").fullFATOnly())
+                    .andWith(FeatureReplacementAction.EE9_FEATURES().alwaysAddFeature("jsonb-2.0").removeFeature("mpMetrics-2.3").addFeature("mpMetrics-4.0")
+                        .removeFeature("microProfile-1.3").addFeature("microProfile-5.0").conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11))
+                    .andWith(FeatureReplacementAction.EE10_FEATURES().alwaysAddFeature("jsonb-3.0").removeFeature("jsonb-2.0").removeFeature("mpMetrics-2.3").removeFeature("mpMetrics-4.0").removeFeature("microProfile-1.3").addFeature("mpMetrics-5.0")
+                             .removeFeature("microProfile-5.0").addFeature("microProfile-6.0").conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17))
+                    .andWith(FeatureReplacementAction.EE11_FEATURES().alwaysAddFeature("jsonb-3.0").removeFeature("jsonb-2.0").removeFeature("mpMetrics-2.3").removeFeature("mpMetrics-4.0").removeFeature("microProfile-1.3").removeFeature("mpMetrics-5.0")
+                             .addFeature("mpMetrics-5.1").removeFeature("microProfile-5.0").addFeature("microProfile-6.0"));
+        } else {
+            r = RepeatTests.with(FeatureReplacementAction.NO_REPLACEMENT().conditionalFullFATOnly(EmptyAction.GREATER_THAN_OR_EQUAL_JAVA_11))
+                            .andWith(FeatureReplacementAction.EE11_FEATURES().alwaysAddFeature("jsonb-3.0").removeFeature("jsonb-2.0").removeFeature("mpMetrics-2.3").removeFeature("mpMetrics-4.0").removeFeature("microProfile-1.3").removeFeature("mpMetrics-5.0")
+                                     .addFeature("mpMetrics-5.1").removeFeature("microProfile-5.0").addFeature("microProfile-6.0"));
+        }
+    }
 }

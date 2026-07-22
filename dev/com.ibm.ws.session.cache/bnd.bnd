@@ -1,20 +1,20 @@
 #*******************************************************************************
-# Copyright (c) 2018 IBM Corporation and others.
+# Copyright (c) 2018, 2022 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
+
+-sub: *.bnd
+
 bVersion=1.0
-
-Bundle-Name: JCache Store for HTTP Sessions
-Bundle-SymbolicName: com.ibm.ws.session.cache
-Bundle-Description: Allows persistence of sessions via a JCache provider, version ${bVersion}
-
 
 
 Private-Package: \
@@ -24,6 +24,10 @@ Private-Package: \
 Include-Resource: \
     OSGI-INF=resources/OSGI-INF
 
+instrument.classesExcludes: com/ibm/ws/session/store/cache/resources/*.class
+
+Bundle-Activator: com.ibm.ws.session.store.cache.Activator
+
 -dsannotations: \
   com.ibm.ws.session.store.cache.DefaultCachingProviderSupport,\
   com.ibm.ws.session.store.cache.RuntimeUpdateListenerImpl
@@ -32,19 +36,23 @@ Service-Component=com.ibm.ws.session.cache;\
   implementation:="com.ibm.ws.session.store.cache.CacheStoreService";\
   provide:="com.ibm.ws.session.SessionStoreService,com.ibm.wsspi.logging.Introspector";\
   configuration-policy:=optional;\
+  modified:=modified;\
   library=com.ibm.wsspi.library.Library;\
   monitor=com.ibm.ws.monitor.internal.MonitoringFrameworkExtender;\
   serializationService=com.ibm.ws.serialization.SerializationService;\
   userTransaction=javax.transaction.UserTransaction;\
-  dynamic:="monitor,userTransaction";\
-  greedy:="library,monitor,userTransaction";\
-  optional:="monitor,userTransaction";\
-  properties:="library.target=(id=unbound),monitor.target=(id=unbound)"
+  cacheManagerService=io.openliberty.jcache.CacheManagerService;\
+  configCondition=org.osgi.service.condition.Condition;\
+  runningCondition=org.osgi.service.condition.Condition;\
+  dynamic:="monitor,userTransaction,runningCondition";\
+  greedy:="library,monitor,userTransaction,runningCondition";\
+  optional:="monitor,userTransaction,cacheManagerService,runningCondition";\
+  properties:="library.target=(id=unbound),monitor.target=(id=unbound),cacheManagerService.target=(id=unbound),configCondition.target=(osgi.condition.id=session.cache.config),runningCondition.target=(osgi.condition.id=io.openliberty.process.running)"
 
 -buildpath: \
 	com.ibm.websphere.appserver.spi.kernel.service,\
 	com.ibm.websphere.appserver.spi.logging,\
-    com.ibm.websphere.javaee.jcache.1.1;version=latest,\
+    com.ibm.websphere.javaee.jcache.1.1.core;version=latest,\
     com.ibm.websphere.javaee.servlet.3.0;version=latest,\
     com.ibm.websphere.javaee.transaction.1.1;version=latest,\
 	com.ibm.websphere.org.osgi.core,\
@@ -58,6 +66,8 @@ Service-Component=com.ibm.ws.session.cache;\
 	com.ibm.ws.session;version=latest,\
 	com.ibm.ws.session.store;version=latest,\
 	com.ibm.ws.kernel.service;version=latest,\
-	com.ibm.ws.runtime.update;version=latest
+	com.ibm.ws.runtime.update;version=latest,\
+	io.openliberty.jcache.internal;version=latest,\
+	com.ibm.ws.kernel.boot.common;version=latest,\
+	com.ibm.ws.threading;version=latest
 
-jakartaeeMe: true

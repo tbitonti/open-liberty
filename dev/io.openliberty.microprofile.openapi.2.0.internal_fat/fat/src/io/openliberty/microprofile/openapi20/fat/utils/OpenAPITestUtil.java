@@ -1,28 +1,41 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2018 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package io.openliberty.microprofile.openapi20.fat.utils;
 
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
+import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 import org.junit.Assert;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -31,6 +44,8 @@ import com.ibm.websphere.simplicity.config.Application;
 import com.ibm.websphere.simplicity.config.HttpEndpoint;
 import com.ibm.websphere.simplicity.config.ServerConfiguration;
 
+import componenttest.custom.junit.runner.RepeatTestFilter;
+import componenttest.rules.repeater.FeatureReplacementAction;
 import componenttest.topology.impl.LibertyServer;
 
 /**
@@ -40,6 +55,8 @@ public class OpenAPITestUtil {
 
     private final static int TIMEOUT = 30000;
 
+    private final static Logger LOG = Logger.getLogger("OpenAPITestUtil");
+
     /**
      * Change Liberty features (Mark is set first on log. Then wait for feature updated message using mark)
      *
@@ -47,18 +64,22 @@ public class OpenAPITestUtil {
      * @param features - Liberty features to enable
      * @throws Exception
      */
-    public static void changeFeatures(LibertyServer server, String... features) throws Exception {
+    public static void changeFeatures(LibertyServer server,
+                                      String... features)
+                    throws Exception {
         List<String> featuresList = Arrays.asList(features);
         server.setMarkToEndOfLog();
         server.changeFeatures(featuresList);
-        assertNotNull("Features weren't updated successfully", server.waitForStringInLogUsingMark("CWWKG0017I.* | CWWKG0018I.*"));
+        assertNotNull("Features weren't updated successfully",
+                      server.waitForStringInLogUsingMark("CWWKG0017I.* | CWWKG0018I.*"));
     }
 
     /**
      * @param server - Liberty server
      * @param name - The name of a feature to remove e.g. openapi-3.0
      */
-    public static void removeFeature(LibertyServer server, String name) {
+    public static void removeFeature(LibertyServer server,
+                                     String name) {
         try {
             server.setMarkToEndOfLog();
             ServerConfiguration config = server.getServerConfiguration();
@@ -78,7 +99,8 @@ public class OpenAPITestUtil {
      * @param server - Liberty server
      * @param name - The name of a feature to add e.g. openapi-3.0
      */
-    public static void addFeature(LibertyServer server, String name) {
+    public static void addFeature(LibertyServer server,
+                                  String name) {
         try {
             server.setMarkToEndOfLog();
             ServerConfiguration config = server.getServerConfiguration();
@@ -100,8 +122,10 @@ public class OpenAPITestUtil {
      * @param server - Liberty server
      * @throws Exception
      */
-    public static void waitForApplicationProcessorAddedEvent(LibertyServer server, String appName) {
-        String s = server.waitForStringInTraceUsingMark("Application Processor: Adding application ended: appInfo=.*\\[" + appName + "\\]", TIMEOUT);
+    public static void waitForApplicationProcessorAddedEvent(LibertyServer server,
+                                                             String appName) {
+        String s = server.waitForStringInTraceUsingMark(
+                                                        "Application Processor: Adding application ended: appInfo=.*\\[" + appName + "\\]", TIMEOUT);
         assertNotNull("FAIL: Application processor didn't successfully finish adding the app " + appName, s);
     }
 
@@ -111,8 +135,10 @@ public class OpenAPITestUtil {
      * @param server - Liberty server
      * @throws Exception
      */
-    public static void waitForApplicationProcessorProcessedEvent(LibertyServer server, String appName) {
-        String s = server.waitForStringInTraceUsingMark("Application Processor: Processing application ended: appInfo=.*[" + appName + "]", TIMEOUT);
+    public static void waitForApplicationProcessorProcessedEvent(LibertyServer server,
+                                                                 String appName) {
+        String s = server.waitForStringInTraceUsingMark(
+                                                        "Application Processor: Processing application ended: appInfo=.*[" + appName + "]", TIMEOUT);
         assertNotNull("FAIL: Application processor didn't successfully finish adding the app " + appName, s);
     }
 
@@ -122,17 +148,22 @@ public class OpenAPITestUtil {
      * @param server - Liberty server
      * @throws Exception
      */
-    public static void waitForApplicationProcessorRemovedEvent(LibertyServer server, String appName) {
-        String s = server.waitForStringInTraceUsingMark("Application Processor: Removing application ended: appInfo=.*[" + appName + "]", TIMEOUT);
+    public static void waitForApplicationProcessorRemovedEvent(LibertyServer server,
+                                                               String appName) {
+        String s = server.waitForStringInTraceUsingMark(
+                                                        "Application Processor: Removing application ended: appInfo=.*[" + appName + "]", TIMEOUT);
         assertNotNull("FAIL: Application processor didn't successfully finish removing the app " + appName, s);
     }
 
-    public static void waitForApplicationAdded(LibertyServer server, String appName) {
-        String s = server.waitForStringInTraceUsingMark("Processign application ended: appInfo=.*[" + appName + "]", TIMEOUT);
+    public static void waitForApplicationAdded(LibertyServer server,
+                                               String appName) {
+        String s = server.waitForStringInTraceUsingMark("Processign application ended: appInfo=.*[" + appName + "]",
+                                                        TIMEOUT);
         assertNotNull("FAIL: Application processor didn't successfully process the app " + appName, s);
     }
 
-    public static Application removeApplication(LibertyServer server, String appName) {
+    public static Application removeApplication(LibertyServer server,
+                                                String appName) {
         Application webApp = null;
         try {
             ServerConfiguration config = server.getServerConfiguration();
@@ -158,7 +189,12 @@ public class OpenAPITestUtil {
      * @param waitForUpdate boolean controlling if the method should wait for the configuration update event before returning
      * @return the deployed application
      */
-    public static Application addApplication(LibertyServer server, String name, String path, String type, boolean waitForAppProcessor) throws Exception {
+    public static Application addApplication(LibertyServer server,
+                                             String name,
+                                             String path,
+                                             String type,
+                                             boolean waitForAppProcessor)
+                    throws Exception {
         ServerConfiguration config = server.getServerConfiguration();
         Application app = config.addApplication(name, path, type);
         server.updateServerConfiguration(config);
@@ -169,7 +205,11 @@ public class OpenAPITestUtil {
         return app;
     }
 
-    public static Application addApplication(LibertyServer server, String name, String path, String type) throws Exception {
+    public static Application addApplication(LibertyServer server,
+                                             String name,
+                                             String path,
+                                             String type)
+                    throws Exception {
         return addApplication(server, name, path, type, true);
     }
 
@@ -182,17 +222,24 @@ public class OpenAPITestUtil {
      * @param name the name of the application
      * @return the deployed application
      */
-    public static Application addApplication(LibertyServer server, String name) throws Exception {
+    public static Application addApplication(LibertyServer server,
+                                             String name)
+                    throws Exception {
         return addApplication(server, name, "${server.config.dir}/apps/" + name + ".war", "war", true);
     }
 
-    public static Application addApplication(LibertyServer server, String name, boolean waitForAppProcessor) throws Exception {
+    public static Application addApplication(LibertyServer server,
+                                             String name,
+                                             boolean waitForAppProcessor)
+                    throws Exception {
         return addApplication(server, name, "${server.config.dir}/apps/" + name + ".war", "war", waitForAppProcessor);
     }
 
     public static JsonNode readYamlTree(String contents) {
-        org.yaml.snakeyaml.Yaml yaml = new org.yaml.snakeyaml.Yaml(new SafeConstructor());
-        return new ObjectMapper().convertValue(yaml.load(contents), JsonNode.class);
+        org.yaml.snakeyaml.Yaml yaml = new org.yaml.snakeyaml.Yaml(new SafeConstructor(new LoaderOptions()));
+        JsonNode node = new ObjectMapper().convertValue(yaml.load(contents), JsonNode.class);
+        LOG.info(node.toPrettyString());
+        return node;
     }
 
     /**
@@ -202,46 +249,114 @@ public class OpenAPITestUtil {
      * @throws Exception
      */
     public static void removeAllApplication(LibertyServer server) throws Exception {
-        server.getServerConfiguration().getApplications().stream().forEach(app -> removeApplication(server, app.getName()));
+        server.getServerConfiguration().getApplications().stream()
+              .forEach(app -> removeApplication(server, app.getName()));
     }
 
-    public static void checkServer(JsonNode root, String... expectedUrls) {
+    public static void checkServer(JsonNode root,
+                                   String... expectedUrls) {
         JsonNode serversNode = root.get("servers");
         assertNotNull(serversNode);
         assertTrue(serversNode.isArray());
         ArrayNode servers = (ArrayNode) serversNode;
 
         List<String> urls = Arrays.asList(expectedUrls);
-        servers.findValues("url").forEach(url -> assertTrue("FAIL: Unexpected server URL " + url, urls.contains(url.asText())));
+        servers.findValues("url")
+               .forEach(url -> assertTrue("FAIL: Unexpected server URL " + url, urls.contains(url.asText())));
         assertEquals("FAIL: Found incorrect number of server objects.", urls.size(), servers.size());
     }
 
-    public static void checkPaths(JsonNode root, int expectedCount, String... containedPaths) {
+    public static void checkPaths(JsonNode root,
+                                  int expectedCount,
+                                  String... containedPaths) {
         JsonNode pathsNode = root.get("paths");
         assertNotNull(pathsNode);
         assertTrue(pathsNode.isObject());
         ObjectNode paths = (ObjectNode) pathsNode;
 
-        assertEquals("FAIL: Found incorrect number of server objects.", expectedCount, paths.size());
-        List<String> expected = Arrays.asList(containedPaths);
-        expected.stream().forEach(path -> assertNotNull("FAIL: OpenAPI document does not contain the expected path " + path, paths.get(path)));
+        List<String> pathNames = asList(paths.fieldNames());
+        assertThat("Path names", pathNames, hasItems(containedPaths));
+        assertThat("Path names", pathNames, hasSize(expectedCount));
     }
 
-    public static void checkInfo(JsonNode root, String defaultTitle, String defaultVersion) {
+    /**
+     * Test that the path of each server URL matches the expected context root.
+     * <p>
+     * {@code root} can be @{code ""} to test that no context root was appended,
+     * in the case where we're merging applications and the context root should be
+     * prepended to paths instead.
+     * 
+     * @param root the root JSON node for the OpenAPI document
+     * @param expectedContextRoot the context root we expect to find in the path of every server in the document
+     */
+    public static void checkServersForContextRoot(JsonNode root, String expectedContextRoot) {
+        JsonNode serversNode = root.get("servers");
+        assertNotNull(serversNode);
+        assertTrue(serversNode.isArray());
+        ArrayNode servers = (ArrayNode) serversNode;
+        assertThat("Server count", servers.size(), greaterThan(0));
+        servers.findValues("url")
+               .forEach(url -> {
+                   URI uri = URI.create(url.asText());
+                   assertThat("Path of " + url, uri.getPath(), equalTo(expectedContextRoot));
+               });
+    }
+
+    /**
+     * Find the given path in the document and prepend the path from a relevant server to it and return the result
+     *
+     * @param root the document
+     * @param pathName the path name
+     * @return the prepended path name
+     */
+    public static String expandPath(JsonNode root,
+                                    String pathName) {
+        ObjectNode paths = getFieldObject(root, "paths");
+        ObjectNode path = getFieldObject(paths, pathName);
+
+        JsonNode servers = path.get("servers");
+        if (servers == null) {
+            servers = root.get("servers");
+        }
+        assertNotNull(servers);
+
+        URI uri = findServerUrl(servers);
+        return uri.getPath() + pathName;
+    }
+
+    private static URI findServerUrl(JsonNode serversNode) {
+        assertTrue(serversNode.isArray());
+        ArrayNode servers = (ArrayNode) serversNode;
+        assertFalse(servers.isEmpty());
+
+        JsonNode serverNode = servers.get(0);
+        assertNotNull(serverNode);
+        JsonNode urlNode = serverNode.get("url");
+        assertNotNull(urlNode);
+        return URI.create(urlNode.asText());
+    }
+
+    public static void checkInfo(JsonNode root,
+                                 String defaultTitle,
+                                 String defaultVersion)
+                    throws JsonProcessingException {
         JsonNode infoNode = root.get("info");
         assertNotNull(infoNode);
 
-        assertNotNull("Title is not specified to the default value", infoNode.get("title"));
-        assertNotNull("Version is not specified to the default value", infoNode.get("version"));
+        assertNotNull("Title is not specified to the default value; " + new ObjectMapper().writeValueAsString(root), infoNode.get("title"));
+        assertNotNull("Version is not specified to the default value" + new ObjectMapper().writeValueAsString(root), infoNode.get("version"));
 
         String title = infoNode.get("title").textValue();
         String version = infoNode.get("version").textValue();
 
-        assertTrue("Incorrect default value for title", title.equals(defaultTitle));
-        assertTrue("Incorrect default value for version", version.equals(defaultVersion));
+        assertEquals("Incorrect default value for title" + new ObjectMapper().writeValueAsString(root), defaultTitle, title);
+        assertEquals("Incorrect default value for version" + new ObjectMapper().writeValueAsString(root), defaultVersion, version);
     }
 
-    public static void changeServerPorts(LibertyServer server, int httpPort, int httpsPort) throws Exception {
+    public static void changeServerPorts(LibertyServer server,
+                                         int httpPort,
+                                         int httpsPort)
+                    throws Exception {
         ServerConfiguration config = server.getServerConfiguration();
         HttpEndpoint http = config.getHttpEndpoints().getById("defaultHttpEndpoint");
         if (http == null) {
@@ -250,7 +365,8 @@ public class OpenAPITestUtil {
             http.setHttpPort(Integer.toString(httpPort));
             http.setHttpsPort(Integer.toString(httpsPort));
             config.getHttpEndpoints().add(http);
-        } else if (Integer.parseInt(http.getHttpPort()) == httpPort && Integer.parseInt(http.getHttpsPort()) == httpsPort) {
+        } else if (Integer.parseInt(http.getHttpPort()) == httpPort
+                   && Integer.parseInt(http.getHttpsPort()) == httpsPort) {
             return;
         }
 
@@ -263,7 +379,8 @@ public class OpenAPITestUtil {
 
             // Save the config and wait for message that was a result of the config change
             server.updateServerConfiguration(config);
-            assertNotNull("FAIL: Didn't get expected config update log messages.", server.waitForConfigUpdateInLogUsingMark(null, false));
+            assertNotNull("FAIL: Didn't get expected config update log messages.",
+                          server.waitForConfigUpdateInLogUsingMark(null, false));
             String regex = "Updated server information.*"
                            + "httpPort=" + (httpPort == -1 ? 0 : httpPort) + ", httpsPort=" + (httpsPort == -1 ? 0 : httpsPort);
             server.waitForStringInTrace(regex, TIMEOUT);
@@ -272,11 +389,16 @@ public class OpenAPITestUtil {
         }
     }
 
-    public static String[] getServerURLs(LibertyServer server, int httpPort, int httpsPort) {
+    public static String[] getServerURLs(LibertyServer server,
+                                         int httpPort,
+                                         int httpsPort) {
         return getServerURLs(server, httpPort, httpsPort, null);
     }
 
-    public static String[] getServerURLs(LibertyServer server, int httpPort, int httpsPort, String contextRoot) {
+    public static String[] getServerURLs(LibertyServer server,
+                                         int httpPort,
+                                         int httpsPort,
+                                         String contextRoot) {
         List<String> servers = new ArrayList<>();
         contextRoot = contextRoot == null ? "" : contextRoot.startsWith("/") ? contextRoot : "/" + contextRoot;
         if (httpPort != -1) {
@@ -292,4 +414,113 @@ public class OpenAPITestUtil {
         server.setMarkToEndOfLog(server.getDefaultLogFile());
         server.setMarkToEndOfLog(server.getMostRecentTraceFile());
     }
+
+    private static <T> List<T> asList(Iterator<? extends T> i) {
+        List<T> result = new ArrayList<>();
+        while (i.hasNext()) {
+            T item = i.next();
+            result.add(item);
+        }
+        return result;
+    }
+
+    private static ObjectNode getFieldObject(JsonNode parent,
+                                             String fieldName) {
+        JsonNode childNode = parent.get(fieldName);
+        assertNotNull(childNode);
+        assertTrue(childNode.isObject());
+        return (ObjectNode) childNode;
+    }
+
+    /**
+     * Checks if two JsonNode objects are recursively equal, ignoring the order of object properties
+     * 
+     * @param n1 the first node to compare
+     * @param n2 the second node to compare
+     * @return whether they are equal ignoring property order
+     */
+    public static boolean equalIgnoringPropertyOrder(JsonNode n1, JsonNode n2) {
+        if (n1 == n2) {
+            return true;
+        }
+
+        if (n1 == null || n2 == null) {
+            return false;
+        }
+
+        if (n1.getNodeType() != n2.getNodeType()) {
+            return false;
+        }
+
+        if (n1.isArray()) {
+            ArrayNode a1 = (ArrayNode) n1;
+            ArrayNode a2 = (ArrayNode) n2;
+            if (a1.size() != a2.size()) {
+                return false;
+            }
+            for (int i = 0; i < a1.size(); i++) {
+                if (!equalIgnoringPropertyOrder(a1.get(i), a2.get(i))) {
+                    return false;
+                }
+            }
+        } else if (n1.isObject()) {
+            ObjectNode o1 = (ObjectNode) n1;
+            ObjectNode o2 = (ObjectNode) n2;
+            if (o1.size() != o2.size()) {
+                return false;
+            }
+            for (Entry<String, JsonNode> entry : o1.properties()) {
+                JsonNode v1 = entry.getValue();
+                JsonNode v2 = o2.get(entry.getKey());
+                if (!equalIgnoringPropertyOrder(v1, v2)) {
+                    return false;
+                }
+            }
+        } else {
+            if (!Objects.equals(n1, n2)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static void assertEqualIgnoringPropertyOrder(JsonNode expected, JsonNode actual) {
+        assertEqualIgnoringPropertyOrder("", expected, actual);
+    }
+
+    public static void assertEqualIgnoringPropertyOrder(String message, JsonNode expected, JsonNode actual) {
+        if (!equalIgnoringPropertyOrder(expected, actual)) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(message).append("\n");
+            sb.append("Expected:\n").append(expected.toPrettyString()).append("\n");
+            sb.append("Actual:\n").append(actual.toPrettyString()).append("\n");
+            throw new AssertionError(sb.toString());
+        }
+    }
+
+    /**
+     * Get the version of the mpOpenAPI feature under test.
+     * <p>
+     * Retrieves the current {@code FeatureReplacementAction} and checks which version of the mpOpenAPI feature it adds
+     * 
+     * @return the mpOpenAPI feature version
+     * @throws IllegalStateException if the current repeat action does not add any mpOpenAPI feature
+     */
+    public static float getOpenAPIFeatureVersion() {
+        FeatureReplacementAction action = (FeatureReplacementAction) RepeatTestFilter.getMostRecentRepeatAction();
+        String feature = Stream.concat(action.getAddFeatures().stream(),
+                                       action.getAlwaysAddFeatures().stream())
+                               .map(String::toLowerCase)
+                               .filter(f -> f.startsWith("mpopenapi"))
+                               .findFirst()
+                               .orElseThrow(() -> new IllegalStateException("Current repeat does not add mpOpenAPI"));
+
+        String[] parts = feature.split("-");
+        if (parts.length != 2) {
+            throw new IllegalStateException("Malformed mpOpenAPI feature name: " + feature);
+        }
+
+        return Float.parseFloat(parts[1]);
+    }
+
 }

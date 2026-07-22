@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -21,6 +23,7 @@ import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.microprofile.appConfig.cdi.libertyTests.LibertyBuiltInConverterTestServlet;
 import com.ibm.ws.microprofile.appConfig.cdi.libertyTests.LibertyFieldTestServlet;
 import com.ibm.ws.microprofile.appConfig.classLoaders.test.libertyTests.LibertyClassLoadersTestServlet;
@@ -100,10 +103,10 @@ public class LibertySpecificConfigTests extends FATServletClient {
                                                  .addAsManifestResource(new File("test-applications/" + DEFAULT_SOURCES_APP_NAME + ".war/resources/META-INF/permissions.xml"),
                                                                         "permissions.xml");
 
-        ShrinkHelper.exportDropinAppToServer(server, cdiConfigWar);
-        ShrinkHelper.exportDropinAppToServer(server, convertersWar);
-        ShrinkHelper.exportDropinAppToServer(server, classLoadersWar);
-        ShrinkHelper.exportDropinAppToServer(server, defaultSourcesWar);
+        ShrinkHelper.exportDropinAppToServer(server, cdiConfigWar, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportDropinAppToServer(server, convertersWar, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportDropinAppToServer(server, classLoadersWar, DeployOptions.SERVER_ONLY);
+        ShrinkHelper.exportDropinAppToServer(server, defaultSourcesWar, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }

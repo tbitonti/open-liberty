@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2020 IBM Corporation and others.
+ * Copyright (c) 2003, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,6 +17,7 @@ import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
@@ -121,8 +124,8 @@ public class SSLUtils {
      * up the SSL connection. Since this method is called as a result of a
      * VC.close or VC.destroy method, the writing to the network is done synchronously.
      *
-     * @param engine SSL engine associated with connection
-     * @param outputBuffer buffer to contain data to be flushed
+     * @param engine               SSL engine associated with connection
+     * @param outputBuffer         buffer to contain data to be flushed
      * @param deviceWriteInterface handle to channel on device side where write will be handled
      */
     private static void flushCloseDown(SSLEngine engine, WsByteBuffer outputBuffer, SSLConnectionLink xConnLink) {
@@ -316,8 +319,8 @@ public class SSLUtils {
      * is markIndex and the mark is not zero, then the position will of
      * that buffer will be set to mark. All other buffers will be flipped.
      *
-     * @param buffers buffers on which flip to mark
-     * @param mark the mark to be set on the indexed buffer in the array
+     * @param buffers         buffers on which flip to mark
+     * @param mark            the mark to be set on the indexed buffer in the array
      * @param markBufferIndex the index into the array where the mark should be placed
      */
     public static void flipBuffersToMark(WsByteBuffer buffers[], int mark, int markBufferIndex) {
@@ -422,7 +425,7 @@ public class SSLUtils {
     /**
      * Allocate a ByteBuffer per the SSL config at least as big as the input size.
      *
-     * @param size Minimum size of the resulting buffer.
+     * @param size           Minimum size of the resulting buffer.
      * @param allocateDirect flag to indicate if allocation should be done with direct byte buffers.
      * @return Newly allocated ByteBuffer
      */
@@ -529,9 +532,9 @@ public class SSLUtils {
      * Allocate a buffer array large enough to contain totalDataSize bytes, but with the limit
      * of perBufferSize bytes per buffer.
      *
-     * @param requestedBufferSize size of the buffers that will be created.
-     * @param totalDataSize minimum bytes required in resulting buffer array
-     * @param allocateDirect type of allocation to do
+     * @param requestedBufferSize  size of the buffers that will be created.
+     * @param totalDataSize        minimum bytes required in resulting buffer array
+     * @param allocateDirect       type of allocation to do
      * @param enforceRequestedSize specifies if each buffer must not have its limit set to requestedSize
      * @return buffer array
      */
@@ -568,7 +571,10 @@ public class SSLUtils {
                          + actualBufferSize + ", totSize=" + totalDataSize
                          + ", numBufs=" + numBuffersToAllocate);
         }
-        // Create the array of the determined size.
+        // Create the array of the determined size, if the size is 0, allocate at least 1
+        if (numBuffersToAllocate == 0) {
+            numBuffersToAllocate = 1;
+        }
         WsByteBuffer newBuffers[] = new WsByteBuffer[numBuffersToAllocate];
         newBuffers[0] = firstBuffer;
         for (int i = 1; i < newBuffers.length; i++) {
@@ -620,13 +626,13 @@ public class SSLUtils {
     /**
      * Handle all the tasks involved in performing the SSL handshake.
      *
-     * @param connLink The connection link associated with current connection.
-     * @param netBuffer Buffer coming off the network.
+     * @param connLink           The connection link associated with current connection.
+     * @param netBuffer          Buffer coming off the network.
      * @param decryptedNetBuffer Buffer for results of decrypted network buffer.
      * @param encryptedAppBuffer Buffer to be sent out on network.
-     * @param inResult Output of the last call into the ssl engine. Null if it hasn't happened yet.
-     * @param handshakeCallback non null when function here should be asynchronous
-     * @param fromCallback Whether or not this method was called from the read or write callback.
+     * @param inResult           Output of the last call into the ssl engine. Null if it hasn't happened yet.
+     * @param handshakeCallback  non null when function here should be asynchronous
+     * @param fromCallback       Whether or not this method was called from the read or write callback.
      * @throws IOException
      * @throws ReadOnlyBufferException
      * @return status after handshake or null if it is being handled asynchronously.
@@ -1151,9 +1157,9 @@ public class SSLUtils {
     /**
      * Setup the SSL engine for the given context.
      *
-     * @param context used to build the engine
-     * @param type to determine if connection is inbound or outbound
-     * @param config SSL channel configuration
+     * @param context  used to build the engine
+     * @param type     to determine if connection is inbound or outbound
+     * @param config   SSL channel configuration
      * @param connLink
      * @return SSLEngine
      */
@@ -1186,9 +1192,9 @@ public class SSLUtils {
         sslParameters.setCipherSuites(config.getEnabledCipherSuites(engine));
 
         //Set the configured protocol on the SSLEngine
-        String protocol = config.getSSLProtocol();
-        if (protocol != null) {
-            sslParameters.setProtocols(new String[] { protocol });
+        String[] protocols = config.getSSLProtocol();
+        if (protocols != null) {
+            sslParameters.setProtocols(protocols);
         }
 
         if (type == FlowType.INBOUND) {
@@ -1264,6 +1270,10 @@ public class SSLUtils {
             // Update engine with client side specific config parameters.
             engine.setUseClientMode(true);
 
+            // Set hostname verification
+            String endpointIdentificationAlgorithm = getEndpointIdentificationAlgorithm(config.getProperties(), engine);
+            sslParameters.setEndpointIdentificationAlgorithm(endpointIdentificationAlgorithm);
+
             //set the ssl parameters collected on the engine
             engine.setSSLParameters(sslParameters);
         }
@@ -1281,13 +1291,40 @@ public class SSLUtils {
         }
     }
 
+    private static String getEndpointIdentificationAlgorithm(Properties properties, SSLEngine engine) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.entry(tc, "getEndpointIdentificationAlgorithm");
+        String endpointId = "HTTPS";
+
+        String verifyHostname = properties.getProperty(Constants.SSLPROP_HOSTNAME_VERIFICATION, "true");
+        if ("true".equalsIgnoreCase(verifyHostname)) {
+            String allowHostList = properties.getProperty(Constants.SSLPROP_SKIP_HOSTNAME_VERIFICATION_FOR_HOSTS, "");
+            String remoteHostname = engine.getPeerHost();
+            if (remoteHostname == null) {
+                if (tc.isDebugEnabled())
+                    Tr.debug(tc,
+                             "remoteHostname is NULL, SSLEngine is not connected at this moment. " + Constants.SSLPROP_SKIP_HOSTNAME_VERIFICATION_FOR_HOSTS + " property is not used.");
+            }
+            if (Constants.isSkipHostnameVerificationForHosts(remoteHostname, allowHostList)) {
+                endpointId = null;
+            }
+        } else {
+            endpointId = null;
+        }
+
+        // endpointId == null means Hostname Verification is DISABLED
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.exit(tc, "getEndpointIdentificationAlgorithm " + endpointId);
+        return endpointId;
+    }
+
     /**
      * The purpose of this method is to prepare the input buffers to be sent
      * into a call to wrap or unwrap in the JSSE considering the limitations
      * about how much data can be present in each buffer. This amount is determined
      * by the amount of data between position and limit.
      *
-     * @param buffers array of buffers being examined which will be sent into the JSSE
+     * @param buffers       array of buffers being examined which will be sent into the JSSE
      * @param maxBufferSize maximum size allowed for each buffer in the array
      * @return int array of size 2. The first entry is the index of the buffer changed
      *         in the array. The second entry is the actual limit that will be saved
@@ -1328,7 +1365,7 @@ public class SSLUtils {
      * about how much data can be present in each buffer. This amount is determined
      * by the amount of data between position and limit.
      *
-     * @param buffer being examined which will be sent into the JSSE
+     * @param buffer        being examined which will be sent into the JSSE
      * @param maxBufferSize maximum size allowed
      * @return int - limit to restore later, -1 if no changes required
      */
@@ -1355,9 +1392,9 @@ public class SSLUtils {
      * that was modified. A few extra checks are done here to prevent any problems during
      * odd code paths in the future.
      *
-     * @param buffers array of buffers containing the buffer whose limit should be reset.
+     * @param buffers   array of buffers containing the buffer whose limit should be reset.
      * @param limitInfo array of 2. The first entry is the index of the buffer whose limit
-     *            will be restored in the array. The second entry is the actual limit to be restored.
+     *                      will be restored in the array. The second entry is the actual limit to be restored.
      */
     public static void resetBuffersAfterJSSE(WsByteBuffer[] buffers, int[] limitInfo) {
         // Handle case where not changes were made in recent call to adjustBuffersForJSSE
@@ -1515,5 +1552,4 @@ public class SSLUtils {
         output.toArray(data);
         return data;
     }
-
 }

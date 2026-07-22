@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.ejbcontainer.remote.client.fat.tests;
 
@@ -14,6 +13,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.EnterpriseArchive;
@@ -35,7 +35,6 @@ import com.ibm.websphere.simplicity.log.Log;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.rules.repeater.FeatureReplacementAction;
-import componenttest.rules.repeater.JakartaEE9Action;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyClient;
 import componenttest.topology.impl.LibertyClientFactory;
@@ -60,6 +59,8 @@ public class EjbLinkTest extends FATServletClient {
         }
     };
 
+    private static final boolean isWindows = System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("win");
+
     private static Class<?> c = EjbLinkTest.class;
 
     private static LibertyClient client = LibertyClientFactory.getLibertyClient("com.ibm.ws.ejbcontainer.remote.client.fat.clientInjection");
@@ -67,8 +68,22 @@ public class EjbLinkTest extends FATServletClient {
     @Server("com.ibm.ws.ejbcontainer.remote.client.fat.serverInjection")
     public static LibertyServer server;
 
+    /*@formatter:off*/
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().fullFATOnly().forServers("com.ibm.ws.ejbcontainer.remote.client.fat.serverInjection")).andWith(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.ejbcontainer.remote.client.fat.serverInjection")).andWith(new JakartaEE9Action().forServers("com.ibm.ws.ejbcontainer.remote.client.fat.serverInjection"));
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.remote.client.fat.serverInjection"))
+                                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.remote.client.fat.serverInjection"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.remote.client.fat.serverInjection")
+                                                    .fullFATOnly())
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.remote.client.fat.serverInjection")
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17))
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.remote.client.fat.serverInjection"));
+    /*@formatter:on*/
 
     @BeforeClass
     public static void beforeClass() throws Exception {
@@ -108,7 +123,8 @@ public class EjbLinkTest extends FATServletClient {
 
         // verify the appSecurity-2.0 feature is ready
         assertNotNull("Security service did not report it was ready", server.waitForStringInLogUsingMark("CWWKS0008I"));
-        assertNotNull("LTPA configuration did not report it was ready", server.waitForStringInLogUsingMark("CWWKS4105I"));
+        server.waitForLTPAConfigReady();
+        assertNotNull("ORB did not report it was ready", server.waitForStringInLogUsingMark("CWWKI0001I"));
         server.setMarkToEndOfLog();
 
         //#################### InitTxRecoveryLogApp.ear (Automatically initializes transaction recovery logs)
@@ -124,12 +140,18 @@ public class EjbLinkTest extends FATServletClient {
         // CWNEN1001E - testStyle1BeanInJarAndWarFromClient; ambiguous, cannot lookup
         // CWNEN0030E - testStyle1BeanInJarAndWarFromClient; ambiguous, cannot lookup
         client.addIgnoreErrors("CWWKC0105W", "CWNEN1001E", "CWNEN0030E");
+
+        // CWWKZ0022W: Application ______ has not started in 30 seconds.
+        if (isWindows) {
+            client.addIgnoreErrors("CWWKZ0022W");
+        }
+
         client.startClient();
     }
 
     @AfterClass
     public static void afterClass() throws Exception {
-        server.stopServer("CWWKG0033W", "CNTR0019E", "CWNEN0030E", "CWWKO0221E");
+        server.stopServer("CWWKG0033W", "CNTR0019E", "CWNEN0030E", "CWWKO0221E", "CWWKS9582E");
     }
 
     private void check() throws Exception {

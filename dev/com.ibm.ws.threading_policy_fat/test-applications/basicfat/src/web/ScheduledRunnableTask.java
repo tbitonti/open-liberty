@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020,2021 IBM Corporation and others.
+ * Copyright (c) 2020,2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,13 +18,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import com.ibm.ws.threading.PolicyExecutor;
-import com.ibm.ws.threading.ScheduledPolicyExecutorTask;
+import com.ibm.ws.threading.ScheduledCustomExecutorTask;
 
 /**
  * A task that directs its execution to the specified PolicyExecutor
  * when submitted to the Liberty scheduled executor.
  */
-public class ScheduledRunnableTask implements Runnable, ScheduledPolicyExecutorTask {
+public class ScheduledRunnableTask implements Runnable, ScheduledCustomExecutorTask {
     private final CountDownLatch beginLatch;
     private final CountDownLatch continueLatch;
     private final PolicyExecutor executor;

@@ -1,12 +1,11 @@
 ###############################################################################
-# Copyright (c) 1997, 2020 IBM Corporation and others.
+# Copyright (c) 1997, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 
 # This file has been modified to follow the WebSphere Message Guidelines.
@@ -21,8 +20,6 @@
 #ISMESSAGEFILE TRUE
 #NLS_MESSAGEFORMAT_VAR
 #NLS_ENCODING=UNICODE
-
-
 
 # --------------------------------
 Illegal.Argument.Trying.to.write.chars=SRVE0011E: Excep\u0163ie argument ilegal: \u00cencercarea de a scrie < 0 caractere
@@ -215,7 +212,7 @@ failed.to.load.converter.properties.explanation=Nu s-a putut \u00eenc\u0103rca f
 failed.to.load.converter.properties.useraction=Asigura\u0163i-v\u0103 c\u0103 fi\u015fierul specificat exist\u0103 \u015fi este \u00een formatul corect conform java.utils.Properties.
 
 # --------------------------------
-setbuffer.size.called.after.write=SRVE0157E: setBufferSize() a fost apelat\u0103 dup\u0103 prima scriere \u00een Output Stream/Writer
+setbuffer.size.called.after.write=SRVE0157E:setBufferSize( ) este apelat\u0103 dup\u0103 confirmarea primei opera\u021biuni de scriere sau a primului r\u0103spuns
 setbuffer.size.called.after.write.explanation=A fost f\u0103cut\u0103 o \u00eencercare de setare dimensiune buffer de r\u0103spuns dup\u0103 ce r\u0103spunsul a fost deja comis. Aceasta este o eroare de aplica\u0163ie.
 setbuffer.size.called.after.write.useraction=\u00cenl\u0103tura\u0163i apelul setBufferSize() sau muta\u0163i-l la o pozi\u0163ie anterioar\u0103 comiterii r\u0103spunsului.
 
@@ -1560,8 +1557,8 @@ servlet.with.same.name.already.exists.explanation=Exist\u0103 deja un servlet cu
 servlet.with.same.name.already.exists.useraction=Nu e necesar\u0103 nicio ac\u0163iune.  Verifica\u0163i conflictele din descriptorul de implementare, adnot\u0103ri \u015fi codul surs\u0103 care ar putea ad\u0103uga dinamic aceast\u0103 configura\u0163ie de servlet. 
 
 servlet.feature.not.loaded.correctly=SRVE8501E: Containerul de servlet nu s-a \u00eenc\u0103rcat cu o versiune acceptabil\u0103.
-servlet.feature.not.loaded.correctly.explanation=Containerul de servlet este \u00eenc\u0103rcat cu o versiune care corespunde specifica\u0163iei Java EE a acelei caracteristici de servlet. Containerul nu a fost \u00eenc\u0103rcat cu nicio versiune definit\u0103.
-servlet.feature.not.loaded.correctly.useraction=Verifica\u0163i fi\u015fierul server.xml pentru existen\u0163a fie a unui servlet-3.0 sau a unei caracteristici servlet-3.1. Una din aceste caracteristici ar trebui s\u0103 fie definit\u0103, dar nu ambele.
+servlet.feature.not.loaded.correctly.explanation=Containerul servlet a fost \u00eenc\u0103rcat f\u0103r\u0103 o versiune acceptabil\u0103. Este posibil ca aplica\u021bia s\u0103 nu se comporte a\u0219a cum era de a\u0219teptat.
+servlet.feature.not.loaded.correctly.useraction=Verific\u0103 server.xml fi\u0219ier pentru existen\u021ba mai multor caracteristici de servlet.  Fi\u0219ierul trebuie s\u0103 specifice nu mai mult de o caracteristic\u0103 servlet.
 
 filter.failed.app.destroyed=SRVE8502W: Cererea pentru {0} nu poate fi finalizat\u0103, deoarece aplica\u0163ia s-a oprit.
 filter.failed.app.destroyed.explanation=Aplica\u0163ia web este \u00een curs de oprire \u015fi cererea nu poate fi finalizat\u0103. Aceast\u0103 ac\u0163iune ar putea fi cauzat\u0103 de oprirea serverului \u00een timpul trat\u0103rii cererii.
@@ -1581,10 +1578,7 @@ uncaught.exception.during.AsyncListener.onComplete.explanation=AsyncListener car
 uncaught.exception.during.AsyncListener.onComplete.useraction=Verifica\u0163i codul surs\u0103 AsyncListener \u015fi istoricele de server pentru cauza r\u0103d\u0103cin\u0103 a erorii de aplica\u0163ie.
 
 # Since servlet 4.0.  Use the registered and reserved prefix CWWWC from now on.  
-# 0001 - 0199 for Base
-# 0200 - 0299 for Servlet 3.0
-# 0300 - 0399 for Servlet 3.1
-# 0400 - 0499 for Servlet 4
+# Sequential increment the message number for all new releases and services
 
 #name.is.null=CWWWC0400E: An attribute name, or initial parameter name, is null.
 #name.is.null.explanation=This is an application error.  The name is null in either context getAttribute(), setAttribute(), getInitParameter(), or setInitParameter().
@@ -1614,3 +1608,46 @@ duplicate.samesite.attribute.for.cookie.name.useraction=Verifica\u0163i configur
 duplicate.reported.for.samesite.attribute.cookie.name=CWWWC0004W: Un nume de cookie {0} care este configurat pentru valoarea de atribut SameSite {1} a fost identificat anterior ca un duplicat. Niciun atribut SameSite nu este ad\u0103ugat pentru acest cookie.
 duplicate.reported.for.samesite.attribute.cookie.name.explanation=Un nume de cookie nu poate fi configurat pentru mai multe valori de atribute SameSite. Numele de cookie a fost identificat deja ca un duplicat.
 duplicate.reported.for.samesite.attribute.cookie.name.useraction=Verifica\u0163i configura\u0163ia descriptorului de implementare pentru a v\u0103 asigura c\u0103 numele de cookie este configurat doar pentru una din urm\u0103toarele valori ale atributului SameSite: 'SameSiteCookies_Lax', 'SameSiteCookies_None' sau 'SameSiteCookies_Strict'. 
+
+bad.request.uri\:.{0}=CWWWC0005I: URI-ul cererii are caractere invalide sau codate necorespunz\u0103tor: [{0}]
+bad.request.uri\:.{0}.explanation=URI-ul cererii are parametri de cale invalizi, segmente de punct invalide sau caractere codate necorespunz\u0103tor.
+bad.request.uri\:.{0}.useraction=Verifica\u021bi URI-ul cererii, astfel \u00eenc\u00e2t s\u0103 nu con\u021bin\u0103 un punct sau o combina\u021bie de parametri de cale invalid\u0103 sau caractere codate necorespunz\u0103tor.
+
+uri.has.fragment.character=URI-ul are un caracter [#] de fragment; codat [%23] sau nu.
+uri.has.dot.character=URI-ul are un caracter [%2E] de punct codat.
+uri.has.forwarslash.character=URI-ul are un caracter [%2F] de slash \u00eenainte.
+uri.has.backslash.character=URI-ul are un caracter [%5C] de backslash, codat sau nu.
+
+multipart.file.count.max.exceeded=CWWWC0006E: Cererea con\u021binea mai multe fi\u0219iere pentru \u00eenc\u0103rcare dec\u00e2t este permis. Num\u0103rul maxim de fi\u0219iere este [{0}].
+multipart.file.count.max.exceeded.explanation=Num\u0103rul de fi\u0219iere care sunt \u00eenc\u0103rcate de cererea multipart/form-data a dep\u0103\u0219it limita stabilit\u0103.
+multipart.file.count.max.exceeded.useraction=M\u0103ri\u021bi num\u0103rul maxim de fi\u0219iere care pot fi \u00eenc\u0103rcate pentru o cerere, prin setarea propriet\u0103\u021bii personalizate maxFileCount webContainer \u00een fi\u0219ierul server.xml. Valoarea implicit\u0103 este de 5000. Pentru \u00eenc\u0103rca un num\u0103r nelimitat de fi\u0219iere, seta\u021bi valoarea la -1.
+
+cannot.sendRedirect.response.already.committed=CWWWC0007E: R\u0103spunsul " sendRedirect este permis dup\u0103 ce r\u0103spunsul este comis.
+cannot.sendRedirect.response.already.committed.explanation=C\u00e2nd un r\u0103spuns este comis, nu poate trimite o redirec\u021bionare.
+cannot.sendRedirect.response.already.committed.useraction=Verifica\u021bi logica de la sendRedirect pentru a v\u0103 asigura c\u0103 r\u0103spunsul nu este comis, fie manual, fie automat, \u00eenainte sendRedirect fie numit.
+
+redirect.location.cannot.be.null=CWWWC0008E: Loca\u021bia redirec\u021bion\u0103rii nu poate fi nul\u0103.
+redirect.location.cannot.be.null.explanation=URL-ul de loca\u021bie redirec\u021bionare trebuie s\u0103 fie o rud\u0103 sau un URL absolut. 
+redirect.location.cannot.be.null.useraction=Actualiza\u021bi loca\u021bia redirec\u021bionare prin specificarea unei valori URL care nu este goal\u0103. URL-ul poate fi relativ sau absolut.
+
+sendRedirect.hyper.text.url=<html><body><p>Redirecting to <a href="{0}"></a></p></body></html>
+
+query.or.post.is.null=CWWWC0009E: The HTTP request query string or HTTP POST request data is null.
+query.or.post.is.null.explanation=Aplica\u021bia a \u00eencercat s\u0103 parseze un null HTTP interogare sau un null HTTP corp cerere POST.
+query.or.post.is.null.useraction=Clientul trebuie s\u0103 trimit\u0103 un non-null HTTP interogare sau un non-null HTTP POST corp cerere.
+
+read.write.bytebuffer.null=CWWWC0010E: O \u00eencercare de a citi dintr-o opera\u021biune de tip InputStream a lui InputStream sau de a scrie o opera\u021biune OutputStream e\u0219uat deoarece un argument variabil ByteBuffer
+read.write.bytebuffer.null.explanation=Argumentul variabil ByteBuffer care este trecut la citit sau scrie API nu trebuie s\u0103 fie nul.
+read.write.bytebuffer.null.useraction=Modifica\u021bi codul de aplicare pentru a crea o instan\u021b\u0103 non-nul\u0103 ByteBuffer exemplu pentru a trece la opera\u021biunea de tip " InputStream sau OutputStream .
+
+read.write.failed.isReady.false=CWWWC0011E: O \u00eencercare de a citi dintr-o InputStream sau de a scrie la o OutputStream e\u0219uat, deoarece API-ul isReady \u00eentoarce fals.
+read.write.failed.isReady.false.explanation=\u00cen cazul isReady \u00eentoarce fals, nu pute\u021bi apela o metod\u0103 de citire sau scriere.
+read.write.failed.isReady.false.useraction=Modifica\u021bi logica aplica\u021biei pentru a v\u0103 asigura c\u0103 fluxul este gata pentru o InputStream sau " OutputStream .
+
+sendRedirect.cannot.convert.relative.url=CWWWC0012E: sendRedirect relativ URL din cerere nu poate fi convertit \u00eentr-un URL valabil.
+sendRedirect.cannot.convert.relative.url.explanation=Adresa relativ\u0103 URL furnizat\u0103 ar putea con\u021bine caractere sau indexuri de traversare a c\u0103ii invalide.
+sendRedirect.cannot.convert.relative.url.useraction=Verifica\u021bi loca\u021bia sendRedirect URL \u00een aplica\u021bie \u00eenainte de a apela metoda response.sendRedirect( )
+
+invalid.accept.language.length=CWWWC0013E: Valoarea antetului \u201eAccept-Language\u201d din cererea de tip \u201e HTTP \u201d este prea lung\u0103.
+invalid.accept.language.length.explanation=Clientul trimite un antet \u201eAccept-Language\u201d prea lung.
+invalid.accept.language.length.useraction=Clientul trebuie s\u0103 trimit\u0103 un antet \u201eAccept-Language\u201d cu o lungime a valorii de cel mult 4096 de octe\u021bi.

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 1997, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,6 +18,7 @@ import java.security.SecureRandom;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.common.crypto.CryptoUtils;
 
 public class MessageDigestUtil {
 
@@ -29,7 +32,7 @@ public class MessageDigestUtil {
     private static final SecureRandom srandom = new SecureRandom();
     static {
         try {
-            md = MessageDigest.getInstance("SHA-1");
+            md = MessageDigest.getInstance(CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA_256);
         } catch (NoSuchAlgorithmException e) {
             if (tc.isDebugEnabled()) {
                 Tr.debug(tc, "Internal error initializing message digest", e);

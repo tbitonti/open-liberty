@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -640,6 +642,58 @@ public class FormLoginClient extends ServletClientImpl {
     }
 
     /**
+     * Access a protected URL pattern that is part of the context root with 
+     * authorized credentials. However, Access is not granted and the client 
+     * is directed to the form login page due to decrytion failure.
+     *
+     * @param urlPattern
+     *                       URL pattern that is under of the context root.
+     * @param user
+     *                      User to authenticate as.
+     * @param password
+     *                     Password to authenticate with.
+     * @return true if access was redirected to the form login page
+     */
+    public boolean accessProtectedServletWithAuthorizedCredentialsExpectsFailure(String urlPattern, String user, String password) {
+        String url = servletURL + urlPattern;
+        logger.info("accessProtectedServletWithAuthorizedCredentials: "
+                    + url + " user=" + user + " password="
+                    + password);
+        try {
+            accessFormLoginPage(client, url);
+            String location = performFormLogin(client, url, user, password, 200);
+            Map<String, String> addlHeaders = null;
+            int expectedStatusCode = 200;
+
+            // Get method on form login page
+            HttpGet getMethod = new HttpGet(location);
+            if (addlHeaders != null) {
+                for (Entry<String, String> entry : addlHeaders.entrySet()) {
+                    getMethod.setHeader(entry.getKey(), entry.getValue());
+                }
+            }
+            HttpResponse response = client.execute(getMethod);
+
+            logger.info("getMethod status: " + response.getStatusLine());
+            assertEquals("Expected " + expectedStatusCode + " was not returned",
+                         expectedStatusCode, response.getStatusLine().getStatusCode());
+
+            String content = EntityUtils.toString(response.getEntity());
+            logger.info("Servlet content: " + content);
+            EntityUtils.consume(response.getEntity());
+
+            // Verify we get the form login JSP
+            assertTrue("Did not find expected form login page: " + FORM_LOGIN_PAGE,
+                       content.contains(FORM_LOGIN_PAGE));
+            return true;
+
+        } catch (IOException e) {
+            failWithMessage("Caught unexpected exception: " + e);
+            return false;
+        }
+    }
+
+    /**
      *
      * Constructs the URL to be used to find the logout page - logout.html.
      *
@@ -652,6 +706,7 @@ public class FormLoginClient extends ServletClientImpl {
      * Performs a form login to PROTECTED_SIMPLE then a form logout,
      * all using the same HttpClient.
      *
+     * @param logoutOption
      * @param user
      * @param password
      */
@@ -659,13 +714,22 @@ public class FormLoginClient extends ServletClientImpl {
         logger.info("formLogout: logoutOption=" + logoutOption
                     + " user=" + user + " password=" + password);
 
-        try {
-            accessAndAuthenticate(client, servletURL + PROTECTED_SIMPLE, user, password, 200);
-            // Ensure we have a non-null, populated cookie value
-            assertNotNull("The SSO cookie was null", getCookieFromLastLogin());
-            assertFalse("The SSO cookie had an empty String value", "".equals(getCookieFromLastLogin()));
+        accessAndAuthenticate(client, servletURL + PROTECTED_SIMPLE, user, password, 200);
+        // Ensure we have a non-null, populated cookie value
+        assertNotNull("The SSO cookie was null", getCookieFromLastLogin());
+        assertFalse("The SSO cookie had an empty String value", "".equals(getCookieFromLastLogin()));
 
-            // Validate we have the form login page
+        formLogout(logoutOption);
+    }
+
+    /**
+     * Performs a form logout.
+     *
+     * @param logoutOption
+     */
+    public void formLogout(LogoutOption logoutOption) {
+        try {
+            //  Get the form logout page
             HttpGet getMethod = new HttpGet(servletURLForLogout());
             HttpResponse response = client.execute(getMethod);
 

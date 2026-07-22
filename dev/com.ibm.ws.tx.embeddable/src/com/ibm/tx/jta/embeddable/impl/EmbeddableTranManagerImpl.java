@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2020 IBM Corporation and others.
+ * Copyright (c) 2009, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,11 +18,11 @@ import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionRolledbackException;
 
-import com.ibm.ejs.ras.Tr;
-import com.ibm.ejs.ras.TraceComponent;
 import com.ibm.tx.TranConstants;
 import com.ibm.tx.config.ConfigurationProviderManager;
 import com.ibm.tx.jta.impl.TranManagerImpl;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.Transaction.UOWCoordinator;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.wsspi.tx.UOWEventListener;
@@ -33,7 +35,7 @@ public class EmbeddableTranManagerImpl extends TranManagerImpl {
         final boolean traceOn = TraceComponent.isAnyTracingEnabled();
 
         if (traceOn && tc.isEntryEnabled())
-            Tr.entry(tc, "begin", "(SPI)");
+            Tr.entry(tc, "begin (SPI)");
 
         if (tx != null) {
             if (tx.getTxType() != UOWCoordinator.TXTYPE_NONINTEROP_GLOBAL) {
@@ -42,7 +44,7 @@ public class EmbeddableTranManagerImpl extends TranManagerImpl {
 
                 FFDCFilter.processException(nse, "com.ibm.tx.jta.embeddable.impl.EmbeddableTranManagerImpl.begin", "63", this);
                 if (traceOn && tc.isEntryEnabled())
-                    Tr.exit(tc, "begin", new Object[] {"(SPI)", nse});
+                    Tr.exit(tc, "begin (SPI)", nse);
                 throw nse;
             } else {
                 if (tc.isDebugEnabled())
@@ -65,7 +67,7 @@ public class EmbeddableTranManagerImpl extends TranManagerImpl {
         invokeEventListener(tx, UOWEventListener.POST_BEGIN, null);
 
         if (traceOn && tc.isEntryEnabled())
-            Tr.exit(tc, "begin", "(SPI)");
+            Tr.exit(tc, "begin (SPI)");
     }
 
     @Override
@@ -118,11 +120,12 @@ public class EmbeddableTranManagerImpl extends TranManagerImpl {
             final EmbeddableTransactionImpl t = (EmbeddableTransactionImpl) tx;
 
             if (!t.isResumable()) {
+                final Thread thread = t.getThread(); // avoid race condition where value becomes null after first check
                 final IllegalStateException ise;
-                if (t.getThread() != null) {
-                    ise = new IllegalStateException("Transaction already active on thread " + String.format("%08X", t.getThread().getId()));
+                if (thread != null) {
+                    ise = new IllegalStateException(Tr.formatMessage(tc, "WTRN0156_CANNOT_RESUME", String.format("%08X", thread.getId())));
                 } else {
-                    ise = new IllegalStateException("Transaction cannot be resumed on this thread");
+                    ise = new IllegalStateException(Tr.formatMessage(tc, "WTRN0157_CANNOT_RESUME"));
                 }
 
                 if (traceOn && tc.isEntryEnabled())

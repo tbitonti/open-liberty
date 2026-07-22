@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -65,7 +67,7 @@ public class JSPPrepareJSPThreadCountDefaultValueTests {
      * @throws Exception
      */
     @Test
-    public void testPrepareJSPThreadCountDeault() throws Exception {
+    public void testPrepareJSPThreadCountDefault() throws Exception {
         // We need to wait for the server to finish processing before looking for the files to ensure we don't hit intermittent timing issues.
         assertNotNull("The JSPs were not processed during server startup.", server
                         .waitForStringInLog("PrepareJspHelper in group \\[SimpleJSPApp\\]: All 1 jsp files have been processed."));
@@ -76,7 +78,7 @@ public class JSPPrepareJSPThreadCountDefaultValueTests {
         assertTrue("The HelloWorld.java file was not found.",
                    server.fileExistsInLibertyServerRoot("scratchdir/default_node/SMF_WebContainer/SimpleJSPApp/SimpleJSPApp/_HelloWorld.java"));
 
-        // Ensure that there are two threads listed in the trace.
+        // Ensure that there is one thread listed in the trace.
         assertNotNull("The JSP trace did not show that one thread was being used.",
                       server.waitForStringInTraceUsingMark("PrepareJspHelper run PrepareJspHelper: Number of threads: 1"));
 

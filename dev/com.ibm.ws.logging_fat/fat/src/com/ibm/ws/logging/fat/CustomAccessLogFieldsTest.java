@@ -1,15 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.logging.fat;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -36,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -67,8 +71,8 @@ public class CustomAccessLogFieldsTest {
     private static Class<?> c = CustomAccessLogFieldsTest.class;
 
     private static final String MESSAGE_LOG = "logs/messages.log";
-    private static final long LOG_TIMEOUT = 30 * 1000;
-    private static final int WAIT_TIMEOUT = 15 * 1000;
+    private static final int LOG_TIMEOUT = 60 * 1000;
+    private static final int WAIT_TIMEOUT = 60 * 1000;
 
     @Server("CustomAccessLogFieldsEnv")
     public static LibertyServer envServer;
@@ -99,7 +103,7 @@ public class CustomAccessLogFieldsTest {
     public static LibertyServer multipleHttpEndpointServer;
 
     private final String[] newFields = { "ibm_remoteIP", "ibm_bytesSent", "ibm_cookie", "ibm_requestElapsedTime", "ibm_requestHeader",
-                                         "ibm_responseHeader", "ibm_requestFirstLine", "ibm_requestStartTime", "ibm_accessLogDatetime", "ibm_remoteUserID" };
+                                         "ibm_responseHeader", "ibm_requestFirstLine", "ibm_requestStartTime", "ibm_accessLogDatetime", "ibm_remoteUserID", "ibm_remotePort" };
 
     private final String[] defaultFields = { "ibm_remoteHost", "ibm_requestProtocol", "ibm_requestHost", "ibm_bytesReceived", "ibm_requestMethod", "ibm_requestPort",
                                              "ibm_queryString", "ibm_elapsedTime", "ibm_responseCode", "ibm_uriPath", "ibm_userAgent" };
@@ -175,8 +179,8 @@ public class CustomAccessLogFieldsTest {
     @Test
     public void testAccessLogFieldNamesEnv() throws Exception {
         setUp(envServer);
-        waitForSecurityPrerequisites(envServer, WAIT_TIMEOUT);
-        waitForMetricsToStart(envServer, WAIT_TIMEOUT);
+        waitForSecurityPrerequisites(envServer);
+        waitForMetricsToStart(envServer);
         hitHttpsEndpointSecure("/metrics", envServer);
         String line = envServer.waitForStringInLog("liberty_accesslog.*/metrics");
         assertNotNull("No liberty_accesslog found in the output JSON log.", line);
@@ -191,8 +195,8 @@ public class CustomAccessLogFieldsTest {
     @Test
     public void testAccessLogFieldNamesBootstrap() throws Exception {
         setUp(bootstrapServer);
-        waitForSecurityPrerequisites(bootstrapServer, WAIT_TIMEOUT);
-        waitForMetricsToStart(bootstrapServer, WAIT_TIMEOUT);
+        waitForSecurityPrerequisites(bootstrapServer);
+        waitForMetricsToStart(bootstrapServer);
         hitHttpsEndpointSecure("/metrics", bootstrapServer);
         String line = bootstrapServer.waitForStringInLog("liberty_accesslog.*/metrics");
         assertNotNull("No liberty_accesslog found in the output JSON log.", line);
@@ -208,9 +212,9 @@ public class CustomAccessLogFieldsTest {
     public void testAccessLogFieldNamesXml() throws Exception {
         setUp(xmlServerWithMetrics);
         if (isFirstTimeUsingXmlServerWithMetrics) {
-            waitForSecurityPrerequisites(xmlServerWithMetrics, WAIT_TIMEOUT);
+            waitForSecurityPrerequisites(xmlServerWithMetrics);
         }
-        waitForMetricsToStart(xmlServerWithMetrics, WAIT_TIMEOUT);
+        waitForMetricsToStart(xmlServerWithMetrics);
 
         isFirstTimeUsingXmlServerWithMetrics = false;
         hitHttpsEndpointSecure("/metrics", xmlServer);
@@ -281,9 +285,9 @@ public class CustomAccessLogFieldsTest {
         xmlServerWithMetrics.setServerConfigurationFile("accessLogging/server-all-fields.xml");
         waitForConfigUpdate(xmlServerWithMetrics);
         if (isFirstTimeUsingXmlServerWithMetrics) {
-            waitForSecurityPrerequisites(xmlServerWithMetrics, WAIT_TIMEOUT);
+            waitForSecurityPrerequisites(xmlServerWithMetrics);
         }
-        waitForMetricsToStart(xmlServerWithMetrics, WAIT_TIMEOUT);
+        waitForMetricsToStart(xmlServerWithMetrics);
 
         isFirstTimeUsingXmlServerWithMetrics = false;
 
@@ -336,9 +340,9 @@ public class CustomAccessLogFieldsTest {
     public void testFieldsInAccessLogAreSameInJSON() throws Exception {
         setUp(xmlServerWithMetrics);
         if (isFirstTimeUsingXmlServerWithMetrics) {
-            waitForSecurityPrerequisites(xmlServerWithMetrics, WAIT_TIMEOUT);
+            waitForSecurityPrerequisites(xmlServerWithMetrics);
         }
-        waitForMetricsToStart(xmlServerWithMetrics, WAIT_TIMEOUT);
+        waitForMetricsToStart(xmlServerWithMetrics);
 
         isFirstTimeUsingXmlServerWithMetrics = false;
 
@@ -394,8 +398,8 @@ public class CustomAccessLogFieldsTest {
     @Test
     public void testChangeJsonAccessLogFieldsConfigValue() throws Exception {
         setUp(changeConfigServer);
-        waitForSecurityPrerequisites(changeConfigServer, WAIT_TIMEOUT);
-        waitForMetricsToStart(changeConfigServer, WAIT_TIMEOUT);
+        waitForSecurityPrerequisites(changeConfigServer);
+        waitForMetricsToStart(changeConfigServer);
 
         hitHttpsEndpointSecure("/metrics", changeConfigServer);
         String line = changeConfigServer.waitForStringInLogUsingMark("liberty_accesslog.*/metrics");
@@ -567,6 +571,61 @@ public class CustomAccessLogFieldsTest {
         hitHttpEndpoint(multipleHttpEndpointServer);
         assertNull("SetterFormatter was found in trace log for secondary http endpoint, but should not have been created a second time.",
                    multipleHttpEndpointServer.waitForStringInTraceUsingMark("createSetterFormatter", WAIT_TIMEOUT));
+    }
+
+    /*
+     * Test port specifications such as %p and %{remote}p
+     */
+    @Test
+    public void testDifferentPortSpecifications() throws Exception {
+        setUp(xmlServer);
+
+        // Test %p and %{remote}p in both orders
+        runPortsTest("accessLogging/server-logformat-ports.xml");
+        runPortsTest("accessLogging/server-logformat-ports2.xml");
+    }
+
+    /**
+     * @throws Exception
+     * @throws MalformedURLException
+     * @throws IOException
+     * @throws ProtocolException
+     */
+    private void runPortsTest(String configFile) throws Exception, MalformedURLException, IOException, ProtocolException {
+        xmlServer.setServerConfigurationFile(configFile);
+        waitForConfigUpdate(xmlServer);
+
+        xmlServer.setMarkToEndOfLog(xmlServer.getDefaultLogFile());
+        xmlServer.setTraceMarkToEndOfDefaultTrace();
+
+        hitHttpEndpoint(xmlServer);
+        String line = xmlServer.waitForStringInLogUsingMark("liberty_accesslog");
+
+        String[] expectedFields = { "ibm_requestPort", "ibm_remotePort" };
+        assertTrue("Expecting two different ports.", areFieldsPresent(line, expectedFields));
+
+        String traceLine = xmlServer.waitForStringInTraceUsingMark(Pattern.quote("read (async) requested for local"));
+        assertNotNull("Expecting TCP trace statement", traceLine);
+
+        // Example:
+        // [8/17/21, 9:31:58:070 PDT] 0000003a id=00000000 com.ibm.ws.tcpchannel.internal.TCPReadRequestContextImpl     1 read (async) requested for local: /127.0.0.1:8010 remote: /127.0.0.1:52709
+
+        int localIndex = traceLine.indexOf("local: ");
+        assertTrue(localIndex != -1);
+
+        int remoteIndex = traceLine.indexOf("remote: ");
+        assertTrue(remoteIndex != -1 && remoteIndex > localIndex);
+
+        String localPort = traceLine.substring(localIndex, remoteIndex);
+        localPort = localPort.substring(localPort.lastIndexOf(':') + 1).trim();
+
+        String remotePort = traceLine.substring(remoteIndex);
+        remotePort = remotePort.substring(remotePort.lastIndexOf(':') + 1);
+
+        HashMap<String, String> accessLogResults = parseIntoKvp(line);
+
+        assertEquals("Local port doesn't match", localPort, accessLogResults.get("ibm_requestPort"));
+        assertEquals("Remote port doesn't match", remotePort, accessLogResults.get("ibm_remotePort"));
     }
 
     // *** Helper functions ***
@@ -749,18 +808,16 @@ public class CustomAccessLogFieldsTest {
         assertNotNull("Wrong number of updates have occurred", result);
     }
 
-    private void waitForSecurityPrerequisites(LibertyServer server, long logTimeout) {
-        // Need to ensure LTPA keys and configuration are created before hitting a secure endpoint
-        assertNotNull("LTPA keys are not created within timeout period of " + logTimeout + "ms.", server.waitForStringInLog("CWWKS4104A", logTimeout));
-        assertNotNull("LTPA configuration is not ready within timeout period of " + logTimeout + "ms.", server.waitForStringInLog("CWWKS4105I", logTimeout));
+    private void waitForSecurityPrerequisites(LibertyServer server) throws Exception {
+        // Need to ensure LTPA configuration is ready before hitting a secure endpoint
+        server.waitForLTPAConfigReady(CustomAccessLogFieldsTest.WAIT_TIMEOUT);
+        // Wait for port 8020 to be ready
+        server.waitForDefaultHTTPEndpointSSLStart(CustomAccessLogFieldsTest.WAIT_TIMEOUT);
     }
 
-    private void waitForMetricsToStart(LibertyServer server, long logTimeout) {
-        // Wait for port 8020 to be ready
-        assertNotNull("TCP Channel defaultHttpEndpoint-ssl has not started (CWWKO0219I not found)",
-                      server.waitForStringInLog("CWWKO0219I.*defaultHttpEndpoint-ssl", logTimeout));
+    private void waitForMetricsToStart(LibertyServer server) {
         // Wait for /metrics to be initialized
         assertNotNull("/metrics was not initialized (SRVE0242I not found)",
-                      server.waitForStringInLog("SRVE0242I.*/metrics", logTimeout));
+                      server.waitForStringInLog("SRVE0242I.*/metrics", CustomAccessLogFieldsTest.WAIT_TIMEOUT));
     }
 }

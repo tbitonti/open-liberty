@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -76,6 +78,7 @@ public class ProductFeatureTest {
     private static final String PRODUCT_FEATURE_PATH = "producttest/lib/features/";
     private static final String PRODUCT_BUNDLE_PATH = "producttest/lib/";
     private static final String PRODUCT_EXTENSIONS_PATH = "etc/extensions/";
+    private static final String LIB_EXTRACT = "lib/extract/";
 
     private static final String CACHE_DIRECTORY = "workarea/platform/";
     private static final String FEATURE_BUNDLE_CACHE = CACHE_DIRECTORY + "feature.bundles.cache";
@@ -819,6 +822,10 @@ public class ProductFeatureTest {
             }
 
         } finally {
+            // remove /lib/extract if created manually
+            if (minifyUtils.isManifestOrLibExtractCreatedForTest())
+                server.deleteFileFromLibertyInstallRoot(LIB_EXTRACT);
+
             //be sure to clean up
             minifyUtils.tearDown();
         }

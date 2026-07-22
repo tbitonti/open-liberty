@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,10 +18,12 @@ import java.util.List;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.container.service.app.deploy.ContainerInfo;
-import com.ibm.ws.container.service.app.deploy.ManifestClassPathUtils;
+import com.ibm.ws.container.service.app.deploy.ModuleClassesContainerInfo;
 import com.ibm.ws.container.service.app.deploy.WebModuleClassesInfo;
+import com.ibm.ws.container.service.app.deploy.extended.ManifestClassPathHelper;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.adaptable.module.Entry;
+import com.ibm.wsspi.adaptable.module.NonPersistentCache;
 import com.ibm.wsspi.adaptable.module.UnableToAdaptException;
 import com.ibm.wsspi.adaptable.module.adapters.ContainerAdapter;
 import com.ibm.wsspi.artifact.ArtifactContainer;
@@ -34,7 +38,7 @@ public class WebModuleClassesInfoAdapter implements ContainerAdapter<WebModuleCl
 
     /*
      * This adapter processes JEE classpath locations..
-     * 
+     *
      * OSGi classpath locations are managed by the WAB installer,
      * and pre-cached to the overlay, to be returned by this adapter
      */
@@ -46,14 +50,30 @@ public class WebModuleClassesInfoAdapter implements ContainerAdapter<WebModuleCl
             //either we created this already, or OSGi prepopulated it.
             return classesInfo;
         }
+        NonPersistentCache cache = containerToAdapt.adapt(NonPersistentCache.class);
+        final ModuleClassesContainerInfo classesContainerInfo = (ModuleClassesContainerInfo) cache.getFromCache(ModuleClassesContainerInfo.class);
+        if (classesContainerInfo != null) {
+            classesInfo = new WebModuleClassesInfo() {
+                @Override
+                public List<ContainerInfo> getClassesContainers() {
+                    return classesContainerInfo.getClassesContainerInfo();
+                }
+            };
+        } else {
+            classesInfo = computeWebModuleClassesInfo(containerToAdapt);
+        }
+        rootOverlay.addToNonPersistentCache(artifactContainer.getPath(), WebModuleClassesInfo.class, classesInfo);
+        return classesInfo;
+    }
 
+    private WebModuleClassesInfo computeWebModuleClassesInfo(Container containerToAdapt) throws UnableToAdaptException {
         ArrayList<String> resolved = new ArrayList<String>();
         final List<ContainerInfo> containerInfos = new ArrayList<ContainerInfo>();
 
-        //This should possibly be processing manifest classpath locations, like the old classloader did.. 
+        //This should possibly be processing manifest classpath locations, like the old classloader did..
         Entry moduleEntry = containerToAdapt.adapt(Entry.class);
         if (moduleEntry != null && !moduleEntry.getPath().isEmpty()) {
-            ManifestClassPathUtils.processMFClasspath(moduleEntry, containerInfos, resolved, true);
+            ManifestClassPathHelper.processMFClasspath(moduleEntry, containerToAdapt, containerInfos, resolved, true);
         }
 
         Entry classesEntry = containerToAdapt.getEntry("WEB-INF/classes");
@@ -84,11 +104,15 @@ public class WebModuleClassesInfoAdapter implements ContainerAdapter<WebModuleCl
         if (libEntry != null) {
             Container libContainer = libEntry.adapt(Container.class);
             if (libContainer != null) {
+                StringBuilder infoNameBuilder = new StringBuilder("WEB-INF/lib/");
+                int prefixLength = infoNameBuilder.length();
                 for (Entry entry : libContainer) {
                     if (entry.getName().toLowerCase().endsWith(".jar")) {
                         final String jarEntryName = entry.getName();
                         final Container jarContainer = entry.adapt(Container.class);
                         if (jarContainer != null) {
+                            infoNameBuilder.setLength(prefixLength);
+                            final String infoName = infoNameBuilder.append(jarEntryName).toString();
                             ContainerInfo containerInfo = new ContainerInfo() {
                                 @Override
                                 public Type getType() {
@@ -97,7 +121,7 @@ public class WebModuleClassesInfoAdapter implements ContainerAdapter<WebModuleCl
 
                                 @Override
                                 public String getName() {
-                                    return "WEB-INF/lib/" + jarEntryName;
+                                    return infoName;
                                 }
 
                                 @Override
@@ -107,22 +131,19 @@ public class WebModuleClassesInfoAdapter implements ContainerAdapter<WebModuleCl
                             };
                             containerInfos.add(containerInfo);
 
-                            ManifestClassPathUtils.addCompleteJarEntryUrls(containerInfos, entry, resolved);
+                            ManifestClassPathHelper.addCompleteJarEntryUrls(containerInfos, entry, jarContainer, resolved);
                         }
                     }
                 }
             }
         }
 
-        classesInfo = new WebModuleClassesInfo() {
+        return new WebModuleClassesInfo() {
             @Override
             public List<ContainerInfo> getClassesContainers() {
                 return containerInfos;
             }
         };
-
-        rootOverlay.addToNonPersistentCache(artifactContainer.getPath(), WebModuleClassesInfo.class, classesInfo);
-        return classesInfo;
     }
 
 }

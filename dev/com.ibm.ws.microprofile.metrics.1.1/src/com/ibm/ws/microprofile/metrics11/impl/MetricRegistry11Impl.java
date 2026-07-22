@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,6 +17,7 @@ import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import javax.enterprise.inject.Vetoed;
 
@@ -71,12 +74,15 @@ public class MetricRegistry11Impl extends MetricRegistryImpl {
         //Append global tags to the metric
         Config config = configResolver.getConfig(getThreadContextClassLoader());
         try {
-            String[] globaltags = config.getValue("MP_METRICS_TAGS", String.class).split(",");
-            String currentTags = metadataCopy.getTagsAsString();
-            for (String tag : globaltags) {
-                if (!(tag == null || tag.isEmpty() || !tag.contains("="))) {
-                    if (!currentTags.contains(tag.split("=")[0])) {
-                        metadataCopy.addTag(tag);
+            Optional<String> val = config.getOptionalValue("MP_METRICS_TAGS", String.class);
+            if (val != null && val.isPresent()) {
+                String[] globaltags = val.get().split(",");
+                String currentTags = metadataCopy.getTagsAsString();
+                for (String tag : globaltags) {
+                    if (!(tag == null || tag.isEmpty() || !tag.contains("="))) {
+                        if (!currentTags.contains(tag.split("=")[0])) {
+                            metadataCopy.addTag(tag);
+                        }
                     }
                 }
             }
@@ -90,6 +96,33 @@ public class MetricRegistry11Impl extends MetricRegistryImpl {
         } else {
             throw new IllegalArgumentException("A metric named " + metadata.getName() + " already exists");
         }
+
+        /*
+         * This is the method used by monitor metrics to register metrics.
+         * Previously, connectionpool metrics will be associated with an application
+         * as the initial creation of a connection pool occurs under an application context thread.
+         *
+         * We must avoid associating connection pool metrics to an application
+         * so that it is not deregistered. The metric is to remain until the datasource
+         * is removed via mbean deregistration (i.e., server shut down or jbc-x.x is removed or thee datasource
+         * element in sever.xml is removed.
+         *
+         * mpMetrics-1.1 uses connecitonpool.%s.<rest_of_metric> so we'll check for startsWith and endsWith
+         */
+        String metricName = metadata.getName();
+        if (metricName.startsWith("connectionpool.")
+            && (metricName.endsWith(".create.total") ||
+                metricName.endsWith(".destroy.total") ||
+                metricName.endsWith(".managedConnections") ||
+                metricName.endsWith(".connectionHandles") ||
+                metricName.endsWith(".freeConnections") ||
+                metricName.endsWith(".waitTime.total") ||
+                metricName.endsWith(".inUseTime.total") ||
+                metricName.endsWith(".queuedRequests.total") ||
+                metricName.endsWith(".usedConnections.total"))) {
+            return metric;
+        }
+
         addNameToApplicationMap(metadata.getName());
         return metric;
     }

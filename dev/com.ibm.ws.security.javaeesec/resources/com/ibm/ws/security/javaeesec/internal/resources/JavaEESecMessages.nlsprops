@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 2017, 2018 IBM Corporation and others.
+# Copyright (c) 2017, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -27,6 +29,10 @@ JAVAEESEC_ERROR_NO_HAM=CWWKS1912E: The HttpAuthenticationMechanism object for th
 JAVAEESEC_ERROR_NO_HAM.explanation=The reason that the HttpAuthenticationMechanism object cannot be created varies. The error messages for the HttpAuthenticationMechanism object provide information on why the the HttpAuthenticationMechanism object cannot be created.
 JAVAEESEC_ERROR_NO_HAM.useraction=Investigate any error messages from the HttpAuthenticationMechanism object and make corrections based on the error messages.
 
+JAVAEESEC_ERROR_NO_HAM_SERVICE_IMPL=CWWKS1913E: The HttpAuthenticationMechanismService implementation object for the {0} module in the {1} application was not found as an OSGi bundle.
+JAVAEESEC_ERROR_NO_HAM_SERVICE_IMPL.explanation=The HttpAuthenticationMechanismService implementation object was not found because one of the dependent bundles that contains this implementation is missing from the features manifest file.
+JAVAEESEC_ERROR_NO_HAM_SERVICE_IMPL.useraction=Ensure that the feature manifest references a bundle that contains an implementation of the HttpAuthenticationMechanismService.
+
 #Note to translator, do not translate EL.
 JAVAEESEC_WARNING_IDSTORE_CONFIG=CWWKS1916W: The Expression Language (EL) expression for the ''{0}'' attribute of the identity store annotation cannot be resolved to a valid value. Ensure that the EL expression and the result are valid and ensure that any referenced beans that are used in the expression are resolvable. The default attribute value of ''{1}'' is used instead.
 JAVAEESEC_WARNING_IDSTORE_CONFIG.explanation=The cause of the error is a mismatch of the type between the EL result and the expected attribute value. For example, if the expected attribute type is String, the EL result needs to be String.
@@ -44,9 +50,9 @@ JAVAEESEC_WARNING_EXCEPTION_ON_GROUPS=CWWKS1919W: The DatabaseIdentityStore fail
 JAVAEESEC_WARNING_EXCEPTION_ON_GROUPS.explanation=A partial list of groups for the caller is returned instead of a complete list of groups because of an error in the query.
 JAVAEESEC_WARNING_EXCEPTION_ON_GROUPS.useraction=Review the provided error and make corrections to the query so that the complete list of groups for the caller can be returned. 
 
-JAVAEESEC_ERROR_WRONG_CRED=CWWKS1920E: The credential provided to the IdentityStore object is not a UsernamePasswordCredential and cannot be validated.
-JAVAEESEC_ERROR_WRONG_CRED.explanation=The credential provided to the IdentityStore object is not a UsernamePasswordCredential class and cannot be validated.
-JAVAEESEC_ERROR_WRONG_CRED.useraction=Review the type of credential passed into the IdentityStore object by the HttpAuthMechanism implementation.
+JAVAEESEC_ERROR_WRONG_CRED=CWWKS1920E: The credential provided to the IdentityStore object is neither a UsernamePasswordCredential nor a CallerOnlyCredential and cannot be validated.
+JAVAEESEC_ERROR_WRONG_CRED.explanation=The credential provided to the IdentityStore object is neither a UsernamePasswordCredential class nor a CallerOnlyCredential and cannot be validated.
+JAVAEESEC_ERROR_WRONG_CRED.useraction=Review the type of credential passed into the IdentityStore object by the HttpAuthenticationMechanism implementation.
 
 JAVAEESEC_ERROR_HASH_NOTFOUND=CWWKS1922E: The hash algorithm bean was not found for class {0}.
 JAVAEESEC_ERROR_HASH_NOTFOUND.explanation=The hash algorithm listed in the hashAlgorithm element on the DatabaseIdentityStoreDefinition annotation was not found.

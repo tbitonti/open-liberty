@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2009 IBM Corporation and others.
+ * Copyright (c) 2004, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -55,6 +57,17 @@ public interface CompressionHandler {
      * @return List<WsByteBuffer> - any final data not yet passed back
      */
     List<WsByteBuffer> finish();
+
+    /**
+     * Flushes compressed data. If isFinal is true, performs the
+     * complete finish operation. If isFinal is false, performs an
+     * intermediate flush suitable for streaming (e.g., SSE)
+     * without terminating the compression stream.
+     *
+     * @param isFinal true to perform finalization, false for intermediate flush.
+     * @return List<WsByteBuffer> - byte buffers containing flushed/finished data.
+     */
+    List<WsByteBuffer> flush(boolean isFinal);
 
     /**
      * Query whether the finish() api has already been called.

@@ -1,20 +1,21 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2014 IBM Corporation and others.
+ * Copyright (c) 2009, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.http.internal;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -63,12 +64,23 @@ public class DefaultWelcomePage implements WelcomePage {
         }
         versionJs.append("\"\r\n");
         versionJs.append("}");
-        try {
-          return new ByteArrayInputStream(versionJs.toString().getBytes("UTF-8"));
-        } catch (UnsupportedEncodingException e) {
-          // This should never happen because UTF-8 is required in Java. #famouslastwords
-          return null;
+        return new ByteArrayInputStream(versionJs.toString().getBytes(StandardCharsets.UTF_8));
+    } else if ("/index.html".equals(url)) {
+      InputStream in = safeOpen("/OSGI-INF/welcome/index.html");
+      if (in != null) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+          StringBuilder builder = new StringBuilder();
+          String line;
+          while ((line = reader.readLine()) != null) {
+            builder.append(line.replace("{VERSION}", version != null ? version : ""));
+            builder.append("\r\n");
+          }
+          return new ByteArrayInputStream(builder.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (IOException ioe) {
+          // Do nothing, return null, will result in 404.
         }
+      }
+      return null;
     } else {
       return safeOpen("/OSGI-INF/welcome" + url);
     }

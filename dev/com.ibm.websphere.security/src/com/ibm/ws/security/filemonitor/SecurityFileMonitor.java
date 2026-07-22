@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -28,8 +30,8 @@ import com.ibm.wsspi.kernel.service.utils.FrameworkState;
  */
 public class SecurityFileMonitor implements FileMonitor {
 
-    private final FileBasedActionable actionable;
-    private final Collection<File> currentlyDeletedFiles;
+    protected final FileBasedActionable actionable;
+    protected final Collection<File> currentlyDeletedFiles;
 
     public SecurityFileMonitor(FileBasedActionable fileBasedActionable) {
         this.actionable = fileBasedActionable;
@@ -39,7 +41,7 @@ public class SecurityFileMonitor implements FileMonitor {
     /**
      * Registers this file monitor to start monitoring the specified files at the specified interval.
      *
-     * @param paths the paths of the files to monitor.
+     * @param paths           the paths of the files to monitor.
      * @param monitorInterval the rate to monitor the files.
      *
      * @return the <code>FileMonitor</code> service registration.
@@ -53,23 +55,63 @@ public class SecurityFileMonitor implements FileMonitor {
     }
 
     /**
+     * Registers this file monitor to start monitoring the specified files at the specified interval.
+     *
+     * @param paths           the paths of the files to monitor.
+     * @param monitorInterval the rate to monitor the files.
+     *
+     * @return the <code>FileMonitor</code> service registration.
+     */
+    public ServiceRegistration<FileMonitor> monitorFiles(Collection<String> paths, long monitorInterval, String updateTrigger) {
+        return monitorFiles(null, null, paths, monitorInterval, updateTrigger);
+    }
+
+    /**
      * Registers this file monitor to start monitoring the specified files either by mbean
      * notification or polling rate.
-     * 
-     * @param id of the config element
-     * @param paths the paths of the files to monitor.
+     *
+     * @param id          of the config element
+     * @param paths       the paths of the files to monitor.
      * @param pollingRate the rate to pole he file for a change.
-     * @param trigger what trigger the file update notification mbean or poll
+     * @param trigger     what trigger the file update notification mbean or poll
      * @return The <code>FileMonitor</code> service registration.
      */
     public ServiceRegistration<FileMonitor> monitorFiles(String ID, Collection<String> paths, long pollingRate, String trigger) {
+        return monitorFiles(ID, null, paths, pollingRate, trigger);
+    }
+
+    /**
+     * Registers this file monitor to start monitoring the specified files either by mbean
+     * notification or polling rate.
+     *
+     * @param id          of the config element
+     * @param dirs        the paths of the directories to monitor.
+     * @param paths       the paths of the files to monitor.
+     * @param pollingRate the rate to pole he file for a change.
+     * @param trigger     what trigger the file update notification mbean or poll
+     * @return The <code>FileMonitor</code> service registration.
+     */
+    public ServiceRegistration<FileMonitor> monitorFiles(String ID, Collection<String> dirs, Collection<String> paths, long pollingRate, String trigger) {
         BundleContext bundleContext = actionable.getBundleContext();
         final Hashtable<String, Object> fileMonitorProps = new Hashtable<String, Object>();
         fileMonitorProps.put(FileMonitor.MONITOR_FILES, paths);
-        //Adding INTERNAL parameter MONITOR_IDENTIFICATION_NAME to identify this monitor.
-        fileMonitorProps.put(com.ibm.ws.kernel.filemonitor.FileMonitor.MONITOR_IDENTIFICATION_NAME, com.ibm.ws.kernel.filemonitor.FileMonitor.SECURITY_MONITOR_IDENTIFICATION_VALUE);
-        //Adding parameter MONITOR_IDENTIFICATION_CONFIG_ID to identify this monitor by the ID.
-        fileMonitorProps.put(com.ibm.ws.kernel.filemonitor.FileMonitor.MONITOR_KEYSTORE_CONFIG_ID, ID);
+
+        //the ID is currently only set for the keytstore monitor, not the LTPA monitor
+        if (ID != null && !ID.isEmpty()) {
+            //Adding INTERNAL parameter MONITOR_IDENTIFICATION_NAME to identify this monitor.
+            fileMonitorProps.put(com.ibm.ws.kernel.filemonitor.FileMonitor.MONITOR_IDENTIFICATION_NAME,
+                                 com.ibm.ws.kernel.filemonitor.FileMonitor.SECURITY_MONITOR_IDENTIFICATION_VALUE);
+            //Adding parameter MONITOR_IDENTIFICATION_CONFIG_ID to identify this monitor by the ID.
+            fileMonitorProps.put(com.ibm.ws.kernel.filemonitor.FileMonitor.MONITOR_KEYSTORE_CONFIG_ID, ID);
+        }
+
+        // Currently MONITOR_DIRECTORIES is only used for the LTPAFileMonitor
+        // this is not used for other securityFileMonitors(keystore)
+        if (dirs != null && !dirs.isEmpty()) {
+            fileMonitorProps.put(FileMonitor.MONITOR_DIRECTORIES, dirs);
+            fileMonitorProps.put(FileMonitor.MONITOR_FILTER, ".*\\.keys");
+        }
+
         if (!(trigger.equalsIgnoreCase("disabled"))) {
             if (trigger.equals("mbean")) {
                 fileMonitorProps.put(FileMonitor.MONITOR_TYPE, FileMonitor.MONITOR_TYPE_EXTERNAL);
@@ -116,6 +158,7 @@ public class SecurityFileMonitor implements FileMonitor {
     /**
      * Action is needed if a file is modified or if it is recreated after it was deleted.
      *
+     * @param createdFiles
      * @param modifiedFiles
      */
     private Boolean isActionNeeded(Collection<File> createdFiles, Collection<File> modifiedFiles) {
@@ -133,5 +176,4 @@ public class SecurityFileMonitor implements FileMonitor {
         }
         return actionNeeded;
     }
-
 }

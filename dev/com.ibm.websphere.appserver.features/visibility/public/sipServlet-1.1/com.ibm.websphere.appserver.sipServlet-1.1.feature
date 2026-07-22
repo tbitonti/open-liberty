@@ -13,17 +13,24 @@ IBM-API-Package: javax.servlet.sip.annotation;  type="spec", \
  com.ibm.websphere.sip.resolver;  type="ibm-api", \
  com.ibm.websphere.sip.unmatchedMessages.events;  type="ibm-api", \
  com.ibm.websphere.sip.unmatchedMessages;  type="ibm-api", \
- com.ibm.websphere.sip;  type="ibm-api"
+ com.ibm.websphere.sip;  type="ibm-api", \
+ com.ibm.websphere.endpoint; type="ibm-api"
 IBM-ShortName: sipServlet-1.1
 Subsystem-Name: SIP Servlet 1.1
 -features=\
-  com.ibm.websphere.appserver.servlet-3.1; ibm.tolerates:="3.0,4.0", \
-  com.ibm.websphere.appserver.channelfw-1.0
+  com.ibm.websphere.appserver.eeCompatible-6.0; ibm.tolerates:="7.0, 8.0", \
+  com.ibm.websphere.appserver.channelfw-1.0, \
+  com.ibm.websphere.appserver.servlet-3.1; ibm.tolerates:="3.0,4.0"
 -bundles=\
   com.ibm.websphere.javaee.jaxb.2.2; apiJar=false; require-java:="9"; location:="dev/api/spec/,lib/",\
   com.ibm.websphere.javaee.jaxws.2.2; apiJar=false; require-java:="9"; location:="dev/api/spec/,lib/",\
   com.ibm.ws.sipcontainer, \
-  com.ibm.ws.app.manager.sar
+  com.ibm.ws.app.manager.sar, \
+  io.openliberty.transport.config.internal, \
+  io.openliberty.endpoint, \
+  io.openliberty.netty.internal, \
+  io.openliberty.netty.internal.impl, \
+  io.openliberty.io.netty
 -jars=com.ibm.websphere.appserver.api.sipServlet.1.1; location:="dev/api/ibm/,lib/", \
  com.ibm.websphere.javaee.servlet.sip.1.1; location:="dev/api/spec/,lib/"; mavenCoordinates="com.ibm.ws.java:com.ibm.ws.java.sipServlet.1.1:1.0.14"
 -files=dev/api/ibm/javadoc/com.ibm.websphere.appserver.api.sipServlet.1.1_1.0-javadoc.zip

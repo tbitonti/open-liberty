@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -63,6 +65,7 @@ public class JwtMessageConstants extends com.ibm.ws.security.fat.common.MessageC
     public static final String CWWKS6063E_JWS_REQUIRED_BUT_TOKEN_NOT_JWS = "CWWKS6063E";
     public static final String CWWKS6064E_JWE_REQUIRED_BUT_TOKEN_NOT_JWE = "CWWKS6064E";
     public static final String CWWKS6065E_JWE_DOES_NOT_CONTAIN_JWS = "CWWKS6065E";
+    public static final String CWWKS6066E_JWE_DECRYPTION_KEY_MISSING = "CWWKS6066E";
 
     public static final String CWPKI0812E_CANT_FIND_KEY = "CWPKI0812E";
 

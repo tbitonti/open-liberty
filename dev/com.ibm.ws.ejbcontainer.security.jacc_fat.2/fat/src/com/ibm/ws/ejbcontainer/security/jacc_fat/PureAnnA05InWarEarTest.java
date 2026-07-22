@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,6 +14,7 @@
 package com.ibm.ws.ejbcontainer.security.jacc_fat;
 
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
@@ -21,6 +24,7 @@ import com.ibm.websphere.simplicity.log.Log;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.repeater.RepeatTests;
 
 /**
  * This test variation covers packaging of EJB in WAR with all packaged in an EAR file such
@@ -38,6 +42,9 @@ public class PureAnnA05InWarEarTest extends PureAnnA05Base {
 
     @Rule
     public TestName name = new TestName();
+
+    @ClassRule
+    public static RepeatTests r = FATSuite.defaultRepeat(Constants.SERVER_EJB);
 
     @BeforeClass
     public static void setUp() throws Exception {

@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2018 IBM Corporation and others.
+ * Copyright (c) 2006, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.ejbcontainer.injection.fat.tests;
 
@@ -20,6 +19,7 @@ import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.ejbcontainer.injection.ann.web.SFEnvInjectionServlet;
 import com.ibm.ws.ejbcontainer.injection.ann.web.SFRemoteEnvInjectionServlet;
 import com.ibm.ws.ejbcontainer.injection.ann.web.SLEnvInjectionServlet;
@@ -42,8 +42,22 @@ public class RemoteInjectionTest {
                     @TestServlet(servlet = SLRmtServEnvInjectionServlet.class, contextRoot = "EJB3INJSAWeb") })
     public static LibertyServer server;
 
+    /*@formatter:off*/
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().forServers("com.ibm.ws.ejbcontainer.injection.fat.server")).andWith(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.ejbcontainer.injection.fat.server"));
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.injection.fat.server"))
+                                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.injection.fat.server"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11)
+                                                    .forServers("com.ibm.ws.ejbcontainer.injection.fat.server"))
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17)
+                                                    .forServers("com.ibm.ws.ejbcontainer.injection.fat.server"))
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.injection.fat.server"));
+    /*@formatter:on*/
 
     @BeforeClass
     public static void beforeClass() throws Exception {
@@ -56,7 +70,7 @@ public class RemoteInjectionTest {
         EJB3INJSATestApp.addAsModule(EJB3INJSABeanJar).addAsModule(EJB3INJSAWeb);
         EJB3INJSATestApp = (EnterpriseArchive) ShrinkHelper.addDirectory(EJB3INJSATestApp, "test-applications/EJB3INJSATestApp.ear/resources");
 
-        ShrinkHelper.exportDropinAppToServer(server, EJB3INJSATestApp);
+        ShrinkHelper.exportDropinAppToServer(server, EJB3INJSATestApp, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014 IBM Corporation and others.
+ * Copyright (c) 2014, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,6 +18,8 @@ import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -30,6 +34,7 @@ import com.ibm.ws.security.oauth20.error.impl.BrowserAndServerLogMessage;
 import com.ibm.ws.security.oauth20.util.OIDCConstants;
 import com.ibm.ws.security.oauth20.util.OidcOAuth20Util;
 import com.ibm.ws.security.oauth20.web.AbstractOidcEndpointServices;
+import com.ibm.ws.security.oauth20.web.OAuth20RequestFilter;
 import com.ibm.ws.security.oauth20.web.TraceConstants;
 
 /**
@@ -101,6 +106,8 @@ public class OidcBaseClientValidator {
 
         validateOutputParameters();
 
+        validateBackchannelLogoutUri();
+
         return this.client;
     }
 
@@ -108,6 +115,8 @@ public class OidcBaseClientValidator {
      * check for disallowed characters that could allow javascript to be fed back to ui.
      */
     private void detectIllegalChars() throws OidcServerException {
+        detectNonVSCHARCharacters(client.getClientId(), OAuth20Constants.CLIENT_ID);
+        detectNonVSCHARCharacters(client.getClientSecret(), OAuth20Constants.CLIENT_SECRET);
         detectIllegalCharacters(client.getClientId());
         detectIllegalCharacters(client.getClientSecret());
         detectIllegalCharacters(client.getRedirectUris());
@@ -116,6 +125,34 @@ public class OidcBaseClientValidator {
         detectIllegalCharacters(client.getPreAuthorizedScope());
         detectIllegalCharacters(client.getFunctionalUserId());
         detectIllegalCharacters(client.getFunctionalUserGroupIds());
+    }
+
+    void detectNonVSCHARCharacters(@Sensitive String s, String parameterName) throws OidcServerException {
+        if (s == null || s.length() == 0) {
+            return;
+        }
+        String badChars = getIllegalChars(s, OAuth20RequestFilter.REGEX_RANGE_VSCHAR);
+        if (badChars != null && !badChars.isEmpty()) {
+            BrowserAndServerLogMessage errorMsg = new BrowserAndServerLogMessage(tc, "OAUTH_CLIENT_REGISTRATION_ILLEGAL_CHAR", new Object[] { badChars });
+            Tr.error(tc, errorMsg.getServerErrorMessage());
+            throw new OidcServerException(errorMsg, OIDCConstants.ERROR_INVALID_CLIENT_METADATA, HttpServletResponse.SC_BAD_REQUEST);
+        }
+    }
+
+    String getIllegalChars(@Sensitive String input, String regexAllowableChars) {
+        if (input == null || input.length() == 0) {
+            return null;
+        }
+        String badChars = "";
+        for (int i = 0; i < input.length(); i++) {
+            Pattern vscharRegex = Pattern.compile(regexAllowableChars);
+            String currentChar = input.substring(i, i + 1);
+            Matcher matcher = vscharRegex.matcher(currentChar);
+            if (!matcher.matches()) {
+                badChars += currentChar;
+            }
+        }
+        return badChars;
     }
 
     // detect illegal chars
@@ -164,16 +201,16 @@ public class OidcBaseClientValidator {
     public OidcBaseClient validate() throws OidcServerException {
         return validateCommons(false);
     }
-    
+
     public OidcBaseClient validateAndSetDefaultsOnErrors() {
         try {
             return validateCommons(true);
         } catch (OidcServerException e) {
         } //This will not occur
-    
+
         return null; //This will not occur
     }
-    
+
     private OidcBaseClient validateCommons(boolean setDefaultsOnError) throws OidcServerException {
         //application_type - defaults to web if omitted
         try {
@@ -185,7 +222,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         try {
             validateResponseTypes();
         } catch (OidcServerException e) {
@@ -196,7 +233,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         Set<String> grantTypes = new HashSet<String>();
         try {
             grantTypes = validateGrantTypes();
@@ -208,7 +245,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         try {
             //response_types and grant_types need to match
             validateResponseAndGrantMatch(grantTypes);
@@ -221,7 +258,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         try {
             validateRedirectUris();
         } catch (OidcServerException e) {
@@ -232,7 +269,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         try {
             //scope (space separated, if omitted can register default scope)
             validateScopes();
@@ -244,7 +281,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         try {
             validateSujectType();
         } catch (OidcServerException e) {
@@ -255,7 +292,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         try {
             //token_endpoint_auth_method - if omitted, defaults to client_secret_basic
             validateTokenEndpointAuthMethod();
@@ -267,7 +304,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         try {
             validatePostLogoutRedirectUris();
         } catch (OidcServerException e) {
@@ -278,7 +315,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         try {
             validatePreAuthorizedScopes();
         } catch (OidcServerException e) {
@@ -289,7 +326,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         try {
             validateTrustedUriPrefixes();
         } catch (OidcServerException e) {
@@ -300,7 +337,7 @@ public class OidcBaseClientValidator {
                 throw e;
             }
         }
-    
+
         try {
             validateOutputParameters();
         } catch (OidcServerException e) {
@@ -312,12 +349,12 @@ public class OidcBaseClientValidator {
                 if (this.client.getClientIdIssuedAt() < 0) {
                     this.client.setClientIdIssuedAt(0);
                 }
-    
+
             } else {
                 throw e;
             }
         }
-    
+
         return this.client;
     }
     **/
@@ -525,10 +562,10 @@ public class OidcBaseClientValidator {
             throw new OidcServerException(description, OIDCConstants.ERROR_INVALID_CLIENT_METADATA, HttpServletResponse.SC_BAD_REQUEST);
         } else if (!OidcOAuth20Util.isNullEmpty(client.getPreAuthorizedScope()) && !OidcOAuth20Util.isNullEmpty(client.getScope())) {
             String errorMsg = "The value \"%s\" for the client registration metadata field \"%s\" should also be specified as a value in the client registration metadata field \"scope\".";
-        
+
             String[] scopeArr = client.getScope().split(" ");
             Set<String> scopeSet = getSetFromArr(scopeArr);
-        
+
             String[] preAuthorizedScopeArr = client.getPreAuthorizedScope().split(" ");
             for (String preAuthorizedScope : preAuthorizedScopeArr) {
                 if (!scopeSet.contains(preAuthorizedScope)) {
@@ -536,7 +573,7 @@ public class OidcBaseClientValidator {
                     throw new OidcServerException(description, OIDCConstants.ERROR_INVALID_CLIENT_METADATA, HttpServletResponse.SC_BAD_REQUEST);
                 }
             }
-        
+
         }
         **/
 
@@ -623,4 +660,48 @@ public class OidcBaseClientValidator {
             }
         }
     }
+
+    /**
+     * Validates the backchannelLogoutUri/backchannel_logout_uri attribute of the client. Per Section 2.2 of
+     * https://openid.net/specs/openid-connect-backchannel-1_0.html:
+     * 1. The back-channel logout URI MUST be an absolute URI as defined by Section 4.3 of [RFC3986].
+     * 2. The back-channel logout URI MAY include an application/x-www-form-urlencoded formatted query component, per Section 3.4 of [RFC3986], which MUST be retained when adding additional query parameters.
+     * 3. The back-channel logout URI MUST NOT include a fragment component.
+     * 4. This URL SHOULD use the https scheme and MAY contain port, path, and query parameter components; however, it MAY use the http scheme, provided that the Client Type is confidential, as defined in Section 2.1 of OAuth 2.0 [RFC6749], and provided the OP allows the use of http RP URIs.
+     */
+    void validateBackchannelLogoutUri() throws OidcServerException {
+        String logoutUri = client.getBackchannelLogoutUri();
+        if (logoutUri == null) {
+            return;
+        }
+        validateBackchannelLogoutUri(client, logoutUri);
+    }
+
+    public static void validateBackchannelLogoutUri(OidcBaseClient client, String logoutUri) throws OidcServerException {
+        URI uri;
+        try {
+            uri = new URI(logoutUri);
+        } catch (URISyntaxException e) {
+            throw new OidcServerException(new BrowserAndServerLogMessage(tc, "OAUTH_CLIENT_REGISTRATION_VALUE_MALFORMED_URI", new Object[] { logoutUri, OidcBaseClient.SN_BACKCHANNEL_LOGOUT_URI }),
+                    OIDCConstants.ERROR_INVALID_CLIENT_METADATA, HttpServletResponse.SC_BAD_REQUEST, e);
+        }
+        if (!uri.isAbsolute()) {
+            throw new OidcServerException(new BrowserAndServerLogMessage(tc, "OAUTH_CLIENT_REGISTRATION_VALUE_NOT_ABSOLUTE_URI", new Object[] { logoutUri, OidcBaseClient.SN_BACKCHANNEL_LOGOUT_URI }),
+                    OIDCConstants.ERROR_INVALID_CLIENT_METADATA, HttpServletResponse.SC_BAD_REQUEST);
+        }
+        if (uri.getFragment() != null) {
+            throw new OidcServerException(new BrowserAndServerLogMessage(tc, "OAUTH_CLIENT_REGISTRATION_VALUE_URI_CONTAINS_FRAGMENT", new Object[] { logoutUri, OidcBaseClient.SN_BACKCHANNEL_LOGOUT_URI }),
+                    OIDCConstants.ERROR_INVALID_CLIENT_METADATA, HttpServletResponse.SC_BAD_REQUEST);
+        }
+        String scheme = uri.getScheme();
+        if (scheme == null || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
+            throw new OidcServerException(new BrowserAndServerLogMessage(tc, "OAUTH_CLIENT_REGISTRATION_VALUE_URI_INVALID_SCHEME", new Object[] { logoutUri, OidcBaseClient.SN_BACKCHANNEL_LOGOUT_URI }),
+                    OIDCConstants.ERROR_INVALID_CLIENT_METADATA, HttpServletResponse.SC_BAD_REQUEST);
+        }
+        if (scheme.equalsIgnoreCase("http") && client.isPublicClient()) {
+            throw new OidcServerException(new BrowserAndServerLogMessage(tc, "OAUTH_CLIENT_REGISTRATION_VALUE_URI_HTTP_SCHEME_CLIENT_NOT_CONFIDENTIAL", new Object[] { logoutUri, OidcBaseClient.SN_BACKCHANNEL_LOGOUT_URI, client.getClientId() }),
+                    OIDCConstants.ERROR_INVALID_CLIENT_METADATA, HttpServletResponse.SC_BAD_REQUEST);
+        }
+    }
+
 }

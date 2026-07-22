@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,22 +14,20 @@
 package com.ibm.ws.logging.internal.osgi;
 
 import static com.ibm.ws.logging.internal.osgi.OsgiLogConstants.EQUINOX_METATYPE_BSN;
+import static com.ibm.ws.logging.internal.osgi.OsgiLogConstants.EQUINOX_TRACE;
 import static com.ibm.ws.logging.internal.osgi.OsgiLogConstants.LOGGER_EVENTS;
 import static com.ibm.ws.logging.internal.osgi.OsgiLogConstants.LOG_SERVICE_GROUP;
-import static com.ibm.ws.logging.internal.osgi.OsgiLogConstants.TRACE_SPEC_OSGI_EVENTS;
 import static com.ibm.ws.logging.internal.osgi.OsgiLogConstants.TRACE_ENABLED;
+import static com.ibm.ws.logging.internal.osgi.OsgiLogConstants.TRACE_SPEC_OSGI_EVENTS;
 
 import java.util.Collections;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
@@ -42,6 +42,7 @@ import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TrConfigurator;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.ffdc.FFDCConfigurator;
+import com.ibm.ws.logging.internal.osgi.stackjoiner.StackJoinerManager;
 
 /**
  * This class is instantiated during RAS bundle activation. It registers itself
@@ -67,7 +68,8 @@ public class LoggingConfigurationService implements ManagedService {
     private final LoggerAdmin loggerAdmin;
 
     private final Map<String, Map<String, LogLevel>> contextLogLevels = Collections.synchronizedMap(new HashMap<String, Map<String, LogLevel>>());
-
+    
+    private static final StackJoinerManager STACK_JOINER_MGR= StackJoinerManager.getInstance();
     /**
      * Constructor.
      * 
@@ -86,6 +88,7 @@ public class LoggingConfigurationService implements ManagedService {
 
         loggerAdmin = getService(LoggerAdmin.class, context);
         configureLoggerAdmin();
+        
     }
 
     <T> T getService(Class<T> type, BundleContext context) {
@@ -113,30 +116,32 @@ public class LoggingConfigurationService implements ManagedService {
     @Override
     @SuppressWarnings({ "unchecked" })
     public synchronized void updated(Dictionary properties) throws ConfigurationException {
+
         if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled())
             Tr.event(tc, "properties updated " + properties);
 
-        if (properties == null) {
-            return;
-        }
-
         Map<String, Object> newMap = null;
-        if (properties instanceof Map) {
-            newMap = (Map<String, Object>) properties;
-        } else {
-            newMap = new HashMap<String, Object>();
-            Enumeration<String> keys = properties.keys();
-            while (keys.hasMoreElements()) {
-                String key = keys.nextElement();
-                newMap.put(key, properties.get(key));
-            }
-        }
+        if (properties != null) {
 
-        // Update Tr and/or FFDC configurations.
-        // --> of concern is changing the log directory.
-        TrConfigurator.update(newMap);
-        FFDCConfigurator.update(newMap);
-        configureLoggerAdmin();
+            if (properties instanceof Map) {
+                newMap = (Map<String, Object>) properties;
+            } else {
+                newMap = new HashMap<String, Object>();
+                Enumeration<String> keys = properties.keys();
+                while (keys.hasMoreElements()) {
+                    String key = keys.nextElement();
+                    newMap.put(key, properties.get(key));
+                }
+            }
+
+            // Update Tr and/or FFDC configurations.
+            // --> of concern is changing the log directory.
+            TrConfigurator.update(newMap);
+            FFDCConfigurator.update(newMap);
+            configureLoggerAdmin();
+
+        }
+        STACK_JOINER_MGR.resolveStackJoinFeature(newMap);
     }
 
     private void configureLoggerAdmin() {
@@ -150,6 +155,14 @@ public class LoggingConfigurationService implements ManagedService {
             String[] comps = spec.split("=");
             if (comps.length >= 2) {
                 String comp = comps[0];
+                String loggerName = Logger.ROOT_LOGGER_NAME;
+                int isEquinoxTrace = comp.indexOf('/');
+                if (isEquinoxTrace >= 0) {
+                    // Equinox trace options use bsn/<trace key> as the logger name
+                    loggerName = comp;
+                    // set the component just to the bsn part of the trace option
+                    comp = comp.substring(0, isEquinoxTrace);
+                }
                 LogLevel logLevel = mapLogLevel(comps[1]);
                 String enabled = (comps.length > 2) ? comps[2] : TRACE_ENABLED;
                 if (logLevel != null && TRACE_ENABLED.equalsIgnoreCase(enabled)) {
@@ -162,7 +175,12 @@ public class LoggingConfigurationService implements ManagedService {
                     } else {
                         if (comp.indexOf('*') == -1) {
                             // only do fully qualified BSNs
-                            add(newContextLogLevels, comp, Logger.ROOT_LOGGER_NAME, logLevel, true);
+                            add(newContextLogLevels, comp, loggerName, logLevel, true);
+                            if (isEquinoxTrace >= 0) {
+                                // we are enabling equinox trace options;
+                                // we need to set the EQUINOX.TRACE level to enable the equinox trace logging
+                                add(newContextLogLevels, comp, EQUINOX_TRACE, logLevel, true);
+                            }
                         }
                         if (logLevel.implies(LogLevel.DEBUG)) {
                             // If any level is set to debug then enable all events, but
@@ -217,7 +235,9 @@ public class LoggingConfigurationService implements ManagedService {
             logLevels = new HashMap<>();
             contextLogLevels.put(contextName, logLevels);
         }
-        if (replace || !logLevels.containsKey(loggerName)) {
+        LogLevel existing = logLevels.get(loggerName);
+        // only replace existing if it doesn't imply the new logLevel
+        if (existing == null || (replace && !existing.implies(logLevel))) {
             logLevels.put(loggerName, logLevel);
         }
     }
@@ -265,5 +285,6 @@ public class LoggingConfigurationService implements ManagedService {
         Hashtable<String, String> ht = new Hashtable<String, String>();
         ht.put(org.osgi.framework.Constants.SERVICE_PID, RAS_TR_CFG_PID);
         return ht;
-    }
+    }    
+    
 }

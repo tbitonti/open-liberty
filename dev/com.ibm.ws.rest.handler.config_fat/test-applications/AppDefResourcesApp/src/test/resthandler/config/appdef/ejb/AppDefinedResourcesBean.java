@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019,2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -44,10 +46,9 @@ import javax.resource.ConnectionFactoryDefinitions;
 })
 
 @DataSourceDefinition(name = "java:comp/env/jdbc/ds3", // same JNDI name is used in WAR module, but okay because different scope
-                      className = "org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource",
-                      databaseName = "memory:ejbdb",
+                      className = "org.h2.jdbcx.JdbcDataSource",
+                      url = "jdbc:h2:mem:ejbdb;DB_CLOSE_DELAY=-1",
                       properties = {
-                                     "createDatabase=create"
                       })
 
 @JMSConnectionFactoryDefinition(name = "java:app/env/jms/tcf",

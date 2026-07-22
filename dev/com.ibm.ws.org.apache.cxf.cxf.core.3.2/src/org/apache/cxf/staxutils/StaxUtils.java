@@ -87,6 +87,7 @@ import org.w3c.dom.UserDataHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
+// Liberty Change
 import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 
@@ -99,7 +100,8 @@ import org.apache.cxf.helpers.DOMUtils;
 import org.apache.cxf.message.Message;
 
 // Liberty change -- must be trivial to avoid StackOverflow when tracing methods like createXMLStreamReader -
-//                   which creates/logs the W3CDOMStreamReader class that can print a stack trace.
+//                   which creates/logs the W3CDOMStreamReader class that can print a stack trace. (Could have instrumentation disabled)
+// Liberty Changes - Could potentially be removed when updating to CXF 3.5.5
 @Trivial
 public final class StaxUtils {
     // System properties for defaults, but also contextual properties usable
@@ -159,7 +161,9 @@ public final class StaxUtils {
             getLong(MAX_XML_CHARACTERS, Long.MAX_VALUE);
     private static final int PARSER_POOL_SIZE_VAL =
             getInteger("org.apache.cxf.staxutils.pool-size", 20);
-    private static final boolean ALLOW_INSECURE_PARSER_VAL;
+    
+    // Liberty Change: set to public to allow Liberty's StAXUtils to look up this value
+    public static final boolean ALLOW_INSECURE_PARSER_VAL;
     private static final boolean AUTO_CLOSE_INPUT_SOURCE;
 
     // Here we check old names first and then new names for the threshold properties
@@ -207,7 +211,6 @@ public final class StaxUtils {
             }
         } catch (Throwable t) {
             //ignore, can always drop down to the pooled factories
-            xif = null;
         }
         SAFE_INPUT_FACTORY = xif;
 
@@ -240,6 +243,9 @@ public final class StaxUtils {
             }
             return i;
         } catch (Throwable t) {
+            if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                LOG.finest("getInteger: Ignoring exception: " + t);  // Liberty Change
+            }
             //ignore
         }
         return def;
@@ -256,6 +262,9 @@ public final class StaxUtils {
             }
             return i;
         } catch (Throwable t) {
+            if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                LOG.finest("getLong: Ignoring exception: " + t);  // Liberty Change
+            }
             //ignore
         }
         return def;
@@ -303,6 +312,7 @@ public final class StaxUtils {
      * @param nsAware
      * @throws XMLStreamException
      */
+	 // Liberty Change
     @FFDCIgnore(Throwable.class)
     public static XMLInputFactory createXMLInputFactory(boolean nsAware) {
         XMLInputFactory factory = null;
@@ -312,7 +322,6 @@ public final class StaxUtils {
             if (LOG.isLoggable(Level.FINE)) {
                 LOG.log(Level.FINE, "XMLInputFactory.newInstance() failed with: ", t);
             }
-            factory = null;
         }
         if (factory == null || !setRestrictionProperties(factory)) {
             try {
@@ -320,8 +329,10 @@ public final class StaxUtils {
             } catch (Throwable t) {
                 if (LOG.isLoggable(Level.FINE)) {
                     LOG.log(Level.FINE, "Cannot create Woodstox XMLInputFactory ");
+					// Liberty Change Start:
                     if(t instanceof NoClassDefFoundError)
                         LOG.log(Level.FINE, "The WoodStox API is not availible on the classpath");
+				    // Liberty Change End
                 }
             }
 
@@ -331,7 +342,9 @@ public final class StaxUtils {
 
             if (!setRestrictionProperties(factory)) {
                 if (ALLOW_INSECURE_PARSER_VAL) {
-                    LOG.log(Level.WARNING, "INSECURE_PARSER_DETECTED", factory.getClass().getName());
+                    //Liberty change start:  Comment out warning since Liberty does not ship Woodstox
+                    // LOG.log(Level.WARNING, "INSECURE_PARSER_DETECTED", factory.getClass().getName());
+                    //Liberty change end
                 } else {
                     throw new RuntimeException("Cannot create a secure XMLInputFactory, "
                         + "you should either add woodstox or set " + ALLOW_INSECURE_PARSER
@@ -376,12 +389,16 @@ public final class StaxUtils {
             && setProperty(factory, P_MIN_TEXT_SEGMENT, MIN_TEXT_SEGMENT_VAL);
     }
 
+    // Liberty Change
     @FFDCIgnore(Throwable.class)
     private static boolean setProperty(XMLInputFactory f, String p, Object o) {
         try {
             f.setProperty(p,  o);
             return true;
         } catch (Throwable t) {
+            if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                LOG.finest("setProperty: Ignoring exception: " + t);  // Liberty Change
+            }
             //ignore
         }
         return false;
@@ -586,6 +603,9 @@ public final class StaxUtils {
             try {
                 writer.flush();
             } catch (XMLStreamException ex) {
+                if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                    LOG.finest("copy: Ignoring XMLStreamException: " + ex); // Liberty Change
+                }
                 //ignore
             }
             StaxUtils.close(writer);
@@ -616,10 +636,16 @@ public final class StaxUtils {
                             reader.setFeature("http://xml.org/sax/features/namespaces", true);
                         } catch (Throwable t) {
                             //ignore
+                            if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                                LOG.finest("copy: Ignoring reader.setFeature exception: " + t);  // Liberty Change
+                            }
                         }
                         try {
                             reader.setProperty("http://xml.org/sax/properties/lexical-handler", ch);
                         } catch (Throwable t) {
+                            if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                                LOG.finest("copy: Ignoring reader.setProperty exception: " + t); // Liberty Change
+                            }
                             //ignore
                         }
                         reader.parse(((SAXSource)source).getInputSource());
@@ -658,6 +684,9 @@ public final class StaxUtils {
             d.setDocumentURI(doc.getDocumentURI());
         } catch (Exception ex) {
             //ignore - probably not DOM level 3
+            if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                LOG.finest("copy Doc: Ignoring d.setDocumentURI exception: " + ex);  // Liberty Change
+            }
         }
         return d;
     }
@@ -1108,6 +1137,9 @@ public final class StaxUtils {
                     writer.writeDTD(((DocumentType)n).getTextContent());
                 }
             } catch (UnsupportedOperationException ex) {
+                if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                    LOG.finest("writeNode: Ignoring exception: " + ex);  // Liberty Change
+                }
                 //can we ignore?  DOM writers really don't allow this
                 //as there isn't a way to write a DTD in dom
             }
@@ -1125,6 +1157,9 @@ public final class StaxUtils {
             try {
                 reader.close();
             } catch (Exception ex) {
+                if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                    LOG.finest("read Src: Ignoring exception: " + ex);  // Liberty Change
+                }
                 //ignore
             }
         }
@@ -1137,6 +1172,9 @@ public final class StaxUtils {
             try {
                 reader.close();
             } catch (Exception ex) {
+                if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                    LOG.finest("read IS: Ignoring exception: " + ex);  // Liberty Change
+                }
                 //ignore
             }
         }
@@ -1149,6 +1187,7 @@ public final class StaxUtils {
             try {
                 reader.close();
             } catch (Exception ex) {
+	        LOG.finest("read Reader: Ignoring exception: " + ex);  // Liberty Change
                 //ignore
             }
         }
@@ -1176,6 +1215,9 @@ public final class StaxUtils {
             try {
                 doc.setDocumentURI(reader.getLocation().getSystemId());
             } catch (Exception e) {
+                if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                    LOG.finest("read: Ignoring exception 1: " + e);  // Liberty Change
+                }
                 //ignore - probably not DOM level 3
             }
         }
@@ -1191,6 +1233,9 @@ public final class StaxUtils {
             try {
                 doc.setDocumentURI(reader.getLocation().getSystemId());
             } catch (Exception e) {
+                if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                    LOG.finest("read: Ignoring exception 2: " + e);  // Liberty Change
+                }
                 //ignore - probably not DOM level 3
             }
         }
@@ -1711,6 +1756,9 @@ public final class StaxUtils {
                 ss.setPublicId(pubId);
                 return new AutoCloseableXMLStreamReader(createXMLStreamReader(ss), is);
             } catch (Exception ex) {
+                if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                    LOG.finest("createXMLStreamReader: Ignoring exception: " + ex);  // Liberty Change
+                }
                 //ignore - not a valid URL
             }
         }
@@ -1801,6 +1849,9 @@ public final class StaxUtils {
                 try {
                     reader = factory.createXMLStreamReader(source);
                 } catch (UnsupportedOperationException e) {
+                    if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                        LOG.finest("createXMLStreamReader: Ignoring exception 2: " + e);	// Liberty Change
+                    }
                     //ignore
                 }
                 if (reader == null && source instanceof StreamSource) {
@@ -1928,9 +1979,12 @@ public final class StaxUtils {
             } finally {
                 StaxUtils.close(writer);
             }
-            LOG.info(sw.toString());
+			// Liberty Change - Prevent from going to message logs
+            if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                LOG.finest(sw.toString());
+            }
         } catch (XMLStreamException e) {
-            LOG.severe(e.getMessage());
+                LOG.severe(e.getMessage());
         }
     }
 
@@ -2120,6 +2174,9 @@ public final class StaxUtils {
             try {
                 writer.close();
             } catch (Exception e) {
+                if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                    LOG.finest("close writer: Ignoring exception: " + e);	// Liberty Change
+                }
                 //ignore
             }
         }
@@ -2134,6 +2191,9 @@ public final class StaxUtils {
                 return true;
             }
         } catch (Exception ex) {
+            if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                LOG.finest("isSecureReader: Ignoring exception: " + ex);	// Liberty Change
+            }
             //ignore
         }
         return false;
@@ -2213,7 +2273,9 @@ public final class StaxUtils {
         } catch (ClassCastException cce) {
             //not an XMLStreamReader2
             if (ALLOW_INSECURE_PARSER_VAL) {
-                LOG.warning("INSTANCE_NOT_XMLSTREAMREADER2");
+                if (LOG.isLoggable(Level.FINEST)) { // Liberty Change
+                    LOG.finest("INSTANCE_NOT_XMLSTREAMREADER2");  // Liberty Change
+                }
             } else {
                 throw new XMLStreamException(cce.getMessage(), cce);
             }

@@ -1,13 +1,12 @@
-/*
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+/*******************************************************************************
+ * Copyright (c) 2015, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
- */
+ * SPDX-License-Identifier: EPL-2.0
+ *******************************************************************************/
 package com.ibm.ws.jsf22.fat.tests;
 
 import static org.junit.Assert.assertEquals;
@@ -38,6 +37,7 @@ import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
 
 /**
@@ -63,11 +63,16 @@ public class JSF22FlashEventsTests {
 
     @BeforeClass
     public static void setup() throws Exception {
-        ShrinkHelper.defaultDropinApp(jsfTestServer1, "JSF22FlashEvents.war", "com.ibm.ws.jsf22.fat.flashevents.*");
+        boolean isEE10 = JakartaEEAction.isEE10OrLaterActive();
 
-        jsfTestServer1.startServer(JSF22FlashEventsTests.class.getSimpleName() + ".log");
+        ShrinkHelper.defaultDropinApp(jsfTestServer1, "JSF22FlashEvents.war",
+                                      "com.ibm.ws.jsf22.fat.flashevents.factory",
+                                      isEE10 ? "com.ibm.ws.jsf22.fat.flashevents.flash.faces40" : "com.ibm.ws.jsf22.fat.flashevents.flash.jsf22",
+                                      "com.ibm.ws.jsf22.fat.flashevents.listener");
 
-        RemoteFile traceFile = new RemoteFile(jsfTestServer1.getMachine(), jsfTestServer1.getLogsRoot() + "trace.log");
+        jsfTestServer1.startServer(c.getSimpleName() + ".log");
+
+        RemoteFile traceFile = jsfTestServer1.getMachine().getFile(jsfTestServer1.getLogsRoot() + "trace.log");
 
         // Set up log files
         Log.info(c, "setup", "setupLogFiles - defaultLogFile: " + jsfTestServer1.getDefaultLogFile());

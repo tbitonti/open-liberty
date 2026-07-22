@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2018 IBM Corporation and others.
+ * Copyright (c) 2013, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,7 +13,6 @@
 package com.ibm.ws.kernel.feature.internal.generator;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.Map;
 
@@ -22,7 +23,7 @@ public class FeatureListWriter {
     private final XMLStreamWriter writer;
     private final Indenter i;
 
-    public FeatureListWriter(FeatureListUtils utils) throws XMLStreamException, UnsupportedEncodingException {
+    public FeatureListWriter(FeatureListUtils utils) throws XMLStreamException {
         this.writer = utils.getXMLStreamWriter();
         this.i = utils.getIndenter();
     }

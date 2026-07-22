@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -93,19 +95,34 @@ public class ConsumerImpl implements Consumer {
     public int getNumCars(long personId) {
         EntityManager em = _activePu.createEntityManager();
         try {
+            em.getEntityManagerFactory().getCache().evict(Person.class, personId);
+            // Clear the persistence context to ensure a clean state after cache eviction
+            em.clear();
             Person p = em.find(Person.class, personId);
             if (p == null) {
                 throw new RuntimeException("null person.id=" + personId);
             }
             System.err.println("loaded person " + p.getId());
-            PersistenceUtil util = Persistence.getPersistenceUtil();
-            System.err.println("PersistenceUtil = " + util.getClass());
-            if (util.isLoaded(p, "cars")) {
-                throw new RuntimeException("Cars should not have been eagerly loaded.");
+            java.util.List<Car> cars = p.getCars();
+
+            if (!(cars instanceof org.eclipse.persistence.indirection.IndirectList)) {
+                throw new RuntimeException("Expected EclipseLink IndirectList but got: " + cars.getClass());
             }
-            System.err.println("calling person.getCars()");
-            p.getCars().get(0);
-            return p.getCars().size();
+
+            org.eclipse.persistence.indirection.IndirectList indirect =
+                            (org.eclipse.persistence.indirection.IndirectList) cars;
+
+            if (indirect.isInstantiated()) {
+                throw new RuntimeException("Cars collection was instantiated before first access.");
+            }
+
+            cars.get(0);
+
+            if (!indirect.isInstantiated()) {
+                throw new RuntimeException("Cars collection was not instantiated after access.");
+            }
+
+            return cars.size();
         } finally {
             em.close();
         }

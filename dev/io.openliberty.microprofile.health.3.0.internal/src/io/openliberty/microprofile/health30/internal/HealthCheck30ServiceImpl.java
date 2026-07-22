@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -34,6 +36,7 @@ import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.microprofile.health.internal.AppTracker;
 import com.ibm.ws.microprofile.health.services.HealthCheckBeanCallException;
 
+import io.openliberty.microprofile.health.internal.common.HealthCheckConstants;
 import io.openliberty.microprofile.health30.services.HealthCheck30Executor;
 
 /**
@@ -97,22 +100,40 @@ public class HealthCheck30ServiceImpl implements HealthCheck30Service {
     public void performHealthCheck(HttpServletRequest request, HttpServletResponse httpResponse, String healthCheckProcedure) {
         Set<HealthCheckResponse> hcResponses = null;
         Set<String> unstartedAppsSet = new HashSet<String>();
-        Set<String> apps = appTracker.getAllAppNames();
-        Iterator<String> appsIt = apps.iterator();
         boolean anyAppsInstalled = false;
 
         HealthCheck30HttpResponseBuilder hcHttpResponseBuilder = new HealthCheck30HttpResponseBuilder();
 
         // Verify if the default overall Readiness status is configured
-        String defaultReadinessProp = ConfigProvider.getConfig().getOptionalValue(HealthCheckConstants.defaultOverallReadinessStatusPropertyName, String.class).orElse("");
+        String defaultReadinessProp = ConfigProvider.getConfig().getOptionalValue(HealthCheckConstants.DEFAULT_OVERALL_READINESS_STATUS, String.class).orElse("");
         if (tc.isDebugEnabled())
             Tr.debug(tc, "In performHealthCheck(): The default overall Readiness status was configured to be overriden: mp.health.default.readiness.empty.response="
                          + defaultReadinessProp);
         Status defaultOverallReadiness = defaultReadinessProp.equalsIgnoreCase("UP") ? Status.UP : Status.DOWN;
 
+        Set<String> apps = appTracker.getAllAppNames();
+
+        Set<String> configApps = appTracker.getAllConfigAppNames();
+        Iterator<String> configAppsIt = configApps.iterator();
+
+        while (configAppsIt.hasNext()) {
+            String nextAppName = configAppsIt.next();
+            if (apps.contains(nextAppName)) {
+                if (tc.isDebugEnabled())
+                    Tr.debug(tc, "In performHealthCheck(): configAdmin found an application that the applicationStateListener already found. configAdminAppName = " + nextAppName);
+            } else {
+                if (tc.isDebugEnabled())
+                    Tr.debug(tc, "In performHealthCheck(): applicationStateListener couldn't find application. configAdmin added appName = " + nextAppName);
+                appTracker.addAppName(nextAppName);
+            }
+        }
+
+        apps = appTracker.getAllAppNames();
+        Iterator<String> appsIt = apps.iterator();
+
         while (appsIt.hasNext()) {
             String appName = appsIt.next();
-            if(appTracker.isInstalled(appName)) {
+            if (appTracker.isInstalled(appName)) {
                 anyAppsInstalled = true;
                 if (!healthCheckProcedure.equals(HealthCheckConstants.HEALTH_CHECK_LIVE) && !unstartedAppsSet.contains(appName)) {
                     unstartedAppsSet.add(appName);

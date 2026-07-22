@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2016, 2020 IBM Corporation and others.
+ * Copyright (c) 2016, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,13 +14,17 @@ package com.ibm.ws.logstash.collector.tests;
 
 import static org.junit.Assert.assertNotNull;
 
+import java.util.Arrays;
+
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.testcontainers.containers.GenericContainer;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.log.Log;
@@ -36,6 +42,10 @@ import componenttest.topology.impl.LibertyServerFactory;
 @RunWith(FATRunner.class)
 @Mode(TestMode.LITE)
 public class LogStashWithBinaryLoggingTest extends LogstashCollectorTest {
+
+    /*
+     * Current model must acquire server this way, we need server "early" so that the static initialization of the generic container can resolve
+     */
     private static LibertyServer server = LibertyServerFactory.getLibertyServer("LibertyHPELServer");
     private String testName;
     private static Class<?> c = LogstashSSLTest.class;
@@ -43,8 +53,20 @@ public class LogStashWithBinaryLoggingTest extends LogstashCollectorTest {
 
     protected static boolean runTest = true;
 
+    @ClassRule
+    public static GenericContainer<?> logstashContainer = createExpLogstashContainer();
+
+    private static GenericContainer<?> createExpLogstashContainer() {
+        try {
+            return prepareServerSSLAndConstructContainer(server);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to setup server and/or container", e);
+        }
+    }
+
     @BeforeClass
     public static void setUp() throws Exception {
+        server.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
 
         Log.info(c, "setUp", "runTest = " + runTest);
 
@@ -53,7 +75,7 @@ public class LogStashWithBinaryLoggingTest extends LogstashCollectorTest {
         }
 
         clearContainerOutput();
-        String host = logstashContainer.getContainerIpAddress();
+        String host = logstashContainer.getHost();
         String port = String.valueOf(logstashContainer.getMappedPort(5043));
         Log.info(c, "setUp", "Logstash container: host=" + host + "  port=" + port);
         server.addEnvVar("LOGSTASH_HOST", host);

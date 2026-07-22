@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017,2021 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package db2.web;
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
@@ -21,23 +24,28 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.sql.Statement;
 
 import javax.annotation.Resource;
+import javax.naming.InitialContext;
 import javax.naming.RefAddr;
 import javax.naming.Reference;
 import javax.naming.Referenceable;
+import javax.net.ssl.SSLHandshakeException;
 import javax.servlet.annotation.WebServlet;
 import javax.sql.ConnectionPoolDataSource;
 import javax.sql.DataSource;
 import javax.sql.XADataSource;
 import javax.transaction.UserTransaction;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.ibm.db2.jcc.DB2JccDataSource;
 
 import componenttest.annotation.ExpectedFFDC;
+import componenttest.annotation.SkipIfSysProp;
 import componenttest.app.FATServlet;
 
 @SuppressWarnings("serial")
@@ -49,14 +57,8 @@ public class DB2TestServlet extends FATServlet {
     @Resource(lookup = "jdbc/db2", authenticationType = Resource.AuthenticationType.APPLICATION)
     private DataSource ds_db2;
 
-    @Resource(lookup = "jdbc/db2-inferred")
-    private DataSource db2_inferred_ds;
-
     @Resource(lookup = "jdbc/db2-using-driver")
     private DataSource db2_using_driver;
-
-    @Resource(lookup = "jdbc/db2-using-driver-type")
-    private DataSource db2_using_driver_type;
 
     @Resource(lookup = "jdbc/db2-secure")
     DataSource db2_secure;
@@ -66,6 +68,27 @@ public class DB2TestServlet extends FATServlet {
 
     @Resource(name = "java:comp/jdbc/env/unsharable-ds-xa-tightly-coupled", shareable = false)
     private DataSource unsharable_ds_xa_tightly_coupled;
+
+    @Resource(lookup = "jdbc/ds-no-url-defaults")
+    private DataSource ds_no_url_defaults;
+
+    @Resource(lookup = "jdbc/ds-type-2-remote")
+    private DataSource ds_type_2_remote;
+
+    @Resource(lookup = "jdbc/ds-type-2-override")
+    private DataSource ds_type_2_override;
+
+    @Resource(lookup = "jdbc/ds-client-reroute")
+    private DataSource ds_client_reroute;
+
+    @Resource(lookup = "jdbc/ds-client-reroute-cert")
+    private DataSource ds_client_reroute_cert;
+
+    @Resource(lookup = "jdbc/ds-client-reroute-wrong-cert")
+    private DataSource ds_client_reroute_wrong_cert;
+
+    @Resource(lookup = "jdbc/ds-custom-trace")
+    private DataSource ds_custom_trace;
 
     @Resource
     private UserTransaction tran;
@@ -185,7 +208,10 @@ public class DB2TestServlet extends FATServlet {
     //Test that a datasource backed by Driver can be used with both the generic properties element and properties.db2.jcc
     //element when type="java.sql.Driver"
     @Test
+    @SkipIfSysProp(SkipIfSysProp.OS_IBMI) //Skip on IBM i due to Db2 native driver in JDK
     public void testDSUsingDriver() throws Exception {
+        //Lookup instead of resource injection so this datasource is not looked up when running on IBMi
+        DataSource db2_using_driver_type = InitialContext.doLookup("jdbc/db2-using-driver-type");
         Connection conn = db2_using_driver_type.getConnection();
         assertFalse("db2_using_driver_type should not wrap DB2JccDataSource", db2_using_driver_type.isWrapperFor(DB2JccDataSource.class));
 
@@ -215,7 +241,11 @@ public class DB2TestServlet extends FATServlet {
     //Test that the proper implementation classes are used for the various datasources configured in this test bucket
     //since the JDBC Driver used is named so as not to be recognized by the built-in logic
     @Test
+    @SkipIfSysProp(SkipIfSysProp.OS_IBMI) //Skip on IBM i due to Db2 native driver in JDK
     public void testInferDB2DataSource() throws Exception {
+        //Lookup instead of resource injection so this datasource is not looked up when running on IBMi
+        DataSource db2_inferred_ds = InitialContext.doLookup("jdbc/db2-inferred");
+
         //The default datasource should continue to be inferred as an XADataSource, since it has properties.db2.jcc configured
         assertTrue("default datasource should wrap XADataSource", ds.isWrapperFor(XADataSource.class));
 
@@ -288,6 +318,123 @@ public class DB2TestServlet extends FATServlet {
             }
         } finally {
             tran.commit();
+        }
+    }
+
+    @Test
+    @SkipIfSysProp(SkipIfSysProp.OS_IBMI) //Tests JCC driver behavior, not valid for DB2 on i driver
+    public void testVerifyConnectionPrecedence() throws Throwable {
+        DataSource driver_property_perferred = InitialContext.doLookup("jdbc/driver-property-preferred");
+        try (Connection con = driver_property_perferred.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 33);
+            stmt.setString(2, "thirty-three");
+            stmt.execute();
+        }
+    }
+
+    @Test
+    @SkipIfSysProp(SkipIfSysProp.OS_IBMI) //Tests JCC driver behavior, not valid for DB2 on i driver
+    public void testVerifyDefaultDoesNotOverride() throws Throwable {
+        DataSource driver_no_override = InitialContext.doLookup("jdbc/driver-no-override");
+        try (Connection con = driver_no_override.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 34);
+            stmt.setString(2, "thirty-four");
+            stmt.execute();
+        }
+    }
+
+    @Test
+    @ExpectedFFDC({ "com.ibm.db2.jcc.am.DisconnectNonTransientConnectionException",
+                    "javax.resource.spi.ResourceAllocationException",
+                    "com.ibm.ws.rsadapter.exceptions.DataStoreAdapterException" })
+    public void testVerifyDefaultWithoutURL() throws Throwable {
+        try (Connection con = ds_no_url_defaults.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 35);
+            stmt.setString(2, "thirty-five");
+            stmt.execute();
+            fail("Should not have been able to create a connection using default serverName.");
+        } catch (SQLException e) {
+            if (e.getCause() == null) {
+                throw e; // unexpected
+            }
+
+            if (e.getCause() instanceof java.net.SocketException)
+                return; // expected -- but error message does not contain serverName thus no assertion
+            else if (e.getCause() instanceof java.net.ConnectException)
+                assertTrue("serverName was not correctly defaulted to localhost", e.getMessage().contains("Error opening socket to server localhost"));
+            else
+                throw e; // unexpected
+        }
+    }
+
+    @Test
+    public void testClientReroute() throws Throwable {
+        try (Connection con = ds_client_reroute.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 36);
+            stmt.setString(2, "thirty-six");
+            stmt.execute();
+        }
+    }
+
+    @Test
+    public void testClientRerouteWithCert() throws Throwable {
+        try (Connection con = ds_client_reroute_cert.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 37);
+            stmt.setString(2, "thirty-seven");
+            stmt.execute();
+        }
+    }
+
+    @Test
+    @ExpectedFFDC({ "javax.resource.spi.ResourceAllocationException",
+                    "com.ibm.ws.rsadapter.exceptions.DataStoreAdapterException" })
+    public void testClientRerouteWithWrongCert() throws Throwable {
+        try (Connection con = ds_client_reroute_wrong_cert.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 38);
+            stmt.setString(2, "thirty-eight");
+            stmt.execute();
+        } catch (SQLNonTransientException e) {
+            // java.sql.SQLNonTransientException: [jcc][t4][2030][11211][4.25.13]
+            // A communication error occurred during operations on the connection's underlying socket, socket input stream, or socket output stream.
+
+            // Caused by: javax.net.ssl.SSLHandshakeException: PKIX path building failed
+            Throwable cause = e.getCause();
+            assertNotNull(cause);
+            assertTrue(cause instanceof SSLHandshakeException);
+
+            // Caused by: sun.security.validator.ValidatorException
+            // Caused by: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+        }
+    }
+
+    public void testCustomTrace() throws Throwable {
+        try (Connection con = ds_custom_trace.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 39);
+            stmt.setString(2, "thirty-nine");
+            stmt.execute();
+        }
+    }
+
+    // Note: cannot run these tests without a z/OS system which supports the use
+    // of the type 2 driver and client catalog.
+
+    @Test
+    @Ignore("Cannot run without a configured z/OS system")
+    public void testVerifyDriverType2Remote() throws Throwable {
+        try (Connection con = ds_type_2_remote.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 40);
+            stmt.setString(2, "fourty");
+            stmt.execute();
+        }
+    }
+
+    @Test
+    @Ignore("Cannot run without a configured z/OS system")
+    public void testVerifyDriverType2Defaults() throws Throwable {
+        try (Connection con = ds_type_2_override.getConnection(); PreparedStatement stmt = con.prepareStatement("INSERT INTO MYTABLE VALUES (?, ?)");) {
+            stmt.setInt(1, 41);
+            stmt.setString(2, "fourty-one");
+            stmt.execute();
         }
     }
 }

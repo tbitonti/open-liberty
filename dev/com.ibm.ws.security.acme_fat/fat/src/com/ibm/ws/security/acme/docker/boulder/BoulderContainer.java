@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020,2021 IBM Corporation and others.
+ * Copyright (c) 2020, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -61,7 +63,7 @@ public class BoulderContainer extends CAContainer {
 	private static final long LONG_SLEEP = 120000;
 
 	private static final long SHORT_SLEEP = 1000;
-	
+
 	private static final long WAITING_FOR_RUNNING_BOULDER = 15;
 
 	public Network bluenet = Network.builder().createNetworkCmdModifier(cmd -> {
@@ -81,6 +83,7 @@ public class BoulderContainer extends CAContainer {
 	 * Image as the base container.
 	 */
 	public GenericContainer<?> bhsm = null;
+	
 	/**
 	 * Container that runs MariaDB
 	 */
@@ -88,8 +91,9 @@ public class BoulderContainer extends CAContainer {
 
 	/**
 	 * Docker image that contains all the files from boulder-tools-go.
+	 * TODO publish Dockerfile for this custom image
 	 */
-	private static final String DOCKER_IMAGE = "ryanesch/acme-boulder:1.1";
+	private static final String DOCKER_IMAGE = "ryanesch/acme-boulder:1.2";
 
 	/**
 	 * Log the output from this testcontainer.
@@ -134,26 +138,30 @@ public class BoulderContainer extends CAContainer {
 			throw new IllegalStateException("Failed to set default mock DNS A and AAAA record IP addresses.", e);
 		}
 
-		Log.info(BoulderContainer.class, "BoulderContainer", "ContainerIpAddress: " + getContainerIpAddress());
+		Log.info(BoulderContainer.class, "BoulderContainer", "ContainerIpAddress: " + getHost());
 		Log.info(BoulderContainer.class, "BoulderContainer", "DockerImageName:    " + getDockerImageName());
 		Log.info(BoulderContainer.class, "BoulderContainer", "ContainerInfo:      " + getContainerInfo());
 	}
 
 	@Override
 	protected void configure() {
-		this.withEnv("FAKE_DNS", "172.17.0.68").withEnv("PKCS11_PROXY_SOCKET", "tcp://boulder-hsm:5657")
-				.withEnv("BOULDER_CONFIG_DIR", "test/config").withEnv("GO111MODULE", "on")
-				.withEnv("GOFLAGS", "-mod=vendor").withEnv("PYTHONIOENCODING", "utf-8")
-				.withCreateContainerCmdModifier(cmd -> {
-					cmd.withDns("10.77.77.77");
-				})
+		this.withEnv("FAKE_DNS", "172.17.0.68");
+		this.withEnv("PKCS11_PROXY_SOCKET", "tcp://boulder-hsm:5657");
+		this.withEnv("BOULDER_CONFIG_DIR", "test/config");
+		this.withEnv("GO111MODULE", "on");
+		this.withEnv("GOFLAGS", "-mod=vendor");
+		this.withEnv("PYTHONIOENCODING", "utf-8");
+		this.withCreateContainerCmdModifier(cmd -> {
+			cmd.withDns("10.77.77.77");
+		});
 
-				.withWorkingDirectory("/go/src/github.com/letsencrypt/boulder")
-				.withCommand("/go/src/github.com/letsencrypt/boulder/test/entrypoint.sh").withNetworkAliases("boulder")
-				.withCreateContainerCmdModifier(cmd -> cmd.withHostName("boulder"))
-				.withExposedPorts(getDnsManagementPort(), getAcmeListenPort(), OCSP_PORT)
-				.withLogConsumer(BoulderContainer::log)
-				.withStartupTimeout(Duration.ofMinutes(10));
+		this.withWorkingDirectory("/go/src/github.com/letsencrypt/boulder");
+		this.withCommand("/go/src/github.com/letsencrypt/boulder/test/entrypoint.sh");
+		this.withNetworkAliases("boulder");
+		this.withCreateContainerCmdModifier(cmd -> cmd.withHostName("boulder"));
+		this.withExposedPorts(getDnsManagementPort(), getAcmeListenPort(), OCSP_PORT);
+		this.withLogConsumer(BoulderContainer::log);
+		this.withStartupTimeout(Duration.ofMinutes(10));
 	}
 
 	@Override
@@ -269,7 +277,7 @@ public class BoulderContainer extends CAContainer {
 						 */
 						Thread.sleep(LONG_SLEEP);
 					} catch (InterruptedException e) {
-
+						/* Ignore. */
 					}
 				}
 			}
@@ -388,9 +396,11 @@ public class BoulderContainer extends CAContainer {
 						 */
 						Thread.sleep(t instanceof NoClassDefFoundError ? SHORT_SLEEP : (LONG_SLEEP * i));
 					} catch (InterruptedException e) {
+						/* Ignore. */
 					}
 				}
 			}
+			
 			if (!super.isRunning()) {
 				super.start();
 			}
@@ -405,26 +415,25 @@ public class BoulderContainer extends CAContainer {
 				stop();
 			}
 		}
-
 	}
 
 	@Override
 	public void stop() {
 		Log.info(BoulderContainer.class, "stop", "Stopping Boulder services");
+
 		/*
 		 * Stop all the containers, the challenge server, and the networks. Do our best
 		 * to stop and clean everything, otherwise if we leave artifacts on the docker
 		 * containers, we can be prevented from started on them in the future with
 		 * "Pool overlaps with other one on this address space" exception
 		 */
-
 		try {
 			if (bmysql != null) {
 				bmysql.stop();
 				bmysql.close();
 			}
 		} catch (Exception e) {
-
+			Log.error(BoulderContainer.class, "stop", e, "Error stopping MariaDB container.");
 		}
 
 		try {
@@ -432,17 +441,16 @@ public class BoulderContainer extends CAContainer {
 			if (bhsm != null) {
 				bhsm.stop();
 				bhsm.close();
-
 			}
 		} catch (Exception e) {
-
+			Log.error(BoulderContainer.class, "stop", e, "Error stopping Hardware Security Module (HSM) container.");
 		}
 
 		try {
 			super.getDockerClient().disconnectFromNetworkCmd().withNetworkId(bluenet.getId()).exec();
 			super.getDockerClient().disconnectFromNetworkCmd().withNetworkId(rednet.getId()).exec();
 		} catch (Exception e) {
-
+			Log.error(BoulderContainer.class, "stop", e, "Error disconnecting from networks.");
 		}
 
 		try {
@@ -450,14 +458,14 @@ public class BoulderContainer extends CAContainer {
 				bluenet.close();
 			}
 		} catch (Exception e) {
-
+			Log.error(BoulderContainer.class, "stop", e, "Error closing bluenet.");
 		}
 		try {
 			if (rednet != null) {
 				rednet.close();
 			}
 		} catch (Exception e) {
-
+			Log.error(BoulderContainer.class, "stop", e, "Error closing rednet.");
 		}
 
 		super.stop();
@@ -474,12 +482,12 @@ public class BoulderContainer extends CAContainer {
 
 	@Override
 	protected String getDnsManagementAddress() {
-		return "http://" + this.getContainerIpAddress() + ":" + this.getMappedPort(getDnsManagementPort());
+		return "http://" + this.getHost() + ":" + this.getMappedPort(getDnsManagementPort());
 	}
 
 	@Override
 	public String getAcmeDirectoryURI(boolean useAcmeURI) {
-		return "https://" + this.getContainerIpAddress() + ":" + this.getMappedPort(getAcmeListenPort()) + "/directory";
+		return "https://" + this.getHost() + ":" + this.getMappedPort(getAcmeListenPort()) + "/directory";
 	}
 
 	@Override
@@ -497,7 +505,7 @@ public class BoulderContainer extends CAContainer {
 
 	@Override
 	public String getOcspResponderUrl() {
-		return "http://" + this.getContainerIpAddress() + ":" + this.getMappedPort(OCSP_PORT);
+		return "http://" + this.getHost() + ":" + this.getMappedPort(OCSP_PORT);
 	}
 
 	@Override
@@ -547,7 +555,7 @@ public class BoulderContainer extends CAContainer {
 		try {
 			super.getDockerClient().pruneCmd(PruneType.NETWORKS).exec();
 		} catch (Exception e) {
-			Log.info(BoulderContainer.class, "pruneNetwork", "Ignoring exception on prune: " + e);			
+			Log.info(BoulderContainer.class, "pruneNetwork", "Ignoring exception on prune: " + e);
 		}
 	}
 }

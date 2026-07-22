@@ -1,15 +1,15 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.rest.handler.config.fat;
 
+import static com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions.SERVER_ONLY;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -33,6 +33,7 @@ import org.jboss.shrinkwrap.api.spec.ResourceAdapterArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -40,15 +41,36 @@ import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.Server;
+import componenttest.annotation.SkipIfSysProp;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.FeatureReplacementAction;
+import componenttest.rules.repeater.JakartaEEAction;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
-import componenttest.topology.utils.HttpsRequest;
 
 @RunWith(FATRunner.class)
 public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
     private static final String APP_NAME = "AppDefResourcesApp";
+    private static final String H2Version = "2.1.214 (2022-06-13)";
+
+    @ClassRule
+    public static RepeatTests r = RepeatTests.withoutModificationInFullMode() // servlet-3.1
+                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.appdef.fat")
+                                    .alwaysAddFeature("servlet-4.0")
+                                    .fullFATOnly())
+                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.appdef.fat")
+                                    .alwaysAddFeature("servlet-5.0")
+                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11))
+                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.appdef.fat")
+                                    .alwaysAddFeature("servlet-6.0")
+                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17))
+                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.appdef.fat")
+                                    .alwaysAddFeature("servlet-6.1"));
 
     @Server("com.ibm.ws.rest.handler.config.appdef.fat")
     public static LibertyServer server;
@@ -64,7 +86,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
                         .addAsModule(ejb)
                         .addAsModule(web)
                         .addAsModule(emb_rar);
-        ShrinkHelper.exportToServer(server, "apps", app);
+        ShrinkHelper.exportToServer(server, "apps", app, SERVER_ONLY);
         server.addInstalledAppForValidation(APP_NAME);
 
         ResourceAdapterArchive tca_rar = ShrinkWrap.create(ResourceAdapterArchive.class, "ConfigTestAdapter.rar")
@@ -76,7 +98,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
                                         .addClass("org.test.config.jmsadapter.JMSTopicConnectionImpl")
                                         .addClass("org.test.config.jmsadapter.ManagedJMSTopicConnectionFactoryImpl")
                                         .addClass("org.test.config.jmsadapter.NoOpSessionImpl"));
-        ShrinkHelper.exportToServer(server, "connectors", tca_rar);
+        ShrinkHelper.exportToServer(server, "connectors", tca_rar, SERVER_ONLY);
 
         FATSuite.setupServerSideAnnotations(server);
 
@@ -107,7 +129,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedAdminObject() throws Exception {
-        JsonObject cspec = new HttpsRequest(server, "/ibm/api/config/adminObject/adminObject%5Bjava:global%2Fenv%2Feis%2FconSpec1%5D")
+        JsonObject cspec = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/adminObject/adminObject%5Bjava:global%2Fenv%2Feis%2FconSpec1%5D")
                         .run(JsonObject.class);
         String err = "unexpected response: " + cspec;
 
@@ -135,7 +157,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedAdminObjectsQueryByComponent() throws Exception {
-        JsonArray ispecs = new HttpsRequest(server, "/ibm/api/config/adminObject?component=AppDefinedResourcesBean")
+        JsonArray ispecs = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/adminObject?component=AppDefinedResourcesBean")
                         .run(JsonArray.class);
         String err = "unexpected response: " + ispecs;
         assertEquals(err, 1, ispecs.size());
@@ -165,7 +187,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedConnectionFactoriesByJndiName() throws Exception {
-        JsonArray cfs = new HttpsRequest(server, "/ibm/api/config/connectionFactory?jndiName=java:module%2Fenv%2Feis%2Fcf1")
+        JsonArray cfs = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/connectionFactory?jndiName=java:module%2Fenv%2Feis%2Fcf1")
                         .run(JsonArray.class);
         String err = "unexpected response: " + cfs;
         assertEquals(2, cfs.size());
@@ -254,7 +276,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedConnectionFactoryFromEmbeddedResourceAdapter() throws Exception {
-        JsonArray array = new HttpsRequest(server, "/ibm/api/config/connectionFactory?component=AppDefinedResourcesBean")
+        JsonArray array = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/connectionFactory?component=AppDefinedResourcesBean")
                         .run(JsonArray.class);
         String err = "unexpected response: " + array;
         assertEquals(err, 1, array.size());
@@ -310,7 +332,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
     @AllowedFFDC("java.lang.IllegalArgumentException") // java:app/env/ds1's connectionManager has duration value that is not valid
     @Test
     public void testAppDefinedConnectionManager() throws Exception {
-        JsonObject cm = new HttpsRequest(server, "/ibm/api/config/connectionManager/application%5BAppDefResourcesApp%5D%2FdataSource%5Bjava:app%2Fenv%2Fjdbc%2Fds1%5D%2FconnectionManager")
+        JsonObject cm = FATSuite
+                        .createHttpsRequestWithAdminUser(server,
+                                                         "/ibm/api/config/connectionManager/application%5BAppDefResourcesApp%5D%2FdataSource%5Bjava:app%2Fenv%2Fjdbc%2Fds1%5D%2FconnectionManager")
                         .run(JsonObject.class);
         String err = "unexpected response: " + cm;
 
@@ -333,7 +357,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedDataSource() throws Exception {
-        JsonObject ds = new HttpsRequest(server, "/ibm/api/config/dataSource/application%5BAppDefResourcesApp%5D%2Fmodule%5BAppDefResourcesApp.war%5D%2FdataSource%5Bjava:module%2Fenv%2Fjdbc%2Fds2%5D")
+        JsonObject ds = FATSuite
+                        .createHttpsRequestWithAdminUser(server,
+                                                         "/ibm/api/config/dataSource/application%5BAppDefResourcesApp%5D%2Fmodule%5BAppDefResourcesApp.war%5D%2FdataSource%5Bjava:module%2Fenv%2Fjdbc%2Fds2%5D")
                         .run(JsonObject.class);
         String err = "unexpected response: " + ds;
 
@@ -366,8 +392,8 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         JsonObject authData;
         assertNotNull(err, authData = ds.getJsonObject("containerAuthDataRef"));
         assertEquals(err, "authData", authData.getString("configElementName"));
-        assertEquals(err, "derbyAuth1", authData.getString("uid"));
-        assertEquals(err, "derbyAuth1", authData.getString("id"));
+        assertEquals(err, "h2Auth1", authData.getString("uid"));
+        assertEquals(err, "h2Auth1", authData.getString("id"));
         assertEquals(err, "dbuser1", authData.getString("user"));
         assertEquals(err, "******", authData.getString("password"));
 
@@ -379,13 +405,13 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertEquals(err, "jdbcDriver", driver.getString("configElementName"));
         assertEquals(err, "application[AppDefResourcesApp]/module[AppDefResourcesApp.war]/dataSource[java:module/env/jdbc/ds2]/jdbcDriver", driver.getString("uid"));
         assertEquals(err, "application[AppDefResourcesApp]/module[AppDefResourcesApp.war]/dataSource[java:module/env/jdbc/ds2]/jdbcDriver", driver.getString("id"));
-        assertEquals(err, "org.apache.derby.jdbc.EmbeddedXADataSource", driver.getString("javax.sql.XADataSource"));
+        assertEquals(err, "org.h2.jdbcx.JdbcDataSource", driver.getString("javax.sql.XADataSource"));
 
         JsonObject library;
         assertNotNull(err, library = driver.getJsonObject("libraryRef"));
         assertEquals(err, "library", library.getString("configElementName"));
-        assertEquals(err, "Derby", library.getString("uid"));
-        assertEquals(err, "Derby", library.getString("id"));
+        assertEquals(err, "H2", library.getString("uid"));
+        assertEquals(err, "H2", library.getString("id"));
         assertEquals(err, "spec,ibm-api,api,stable", library.getString("apiTypeVisibility"));
 
         JsonArray files;
@@ -393,31 +419,27 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertNotNull(err, files = library.getJsonArray("fileRef"));
         assertNotNull(err, file = files.getJsonObject(0));
         assertEquals(err, "file", file.getString("configElementName"));
-        assertEquals(err, "library[Derby]/file[default-0]", file.getString("uid"));
+        assertEquals(err, "library[H2]/file[default-0]", file.getString("uid"));
         assertNull(err, file.get("id"));
-        assertTrue(err, file.getString("name").endsWith("derby.jar"));
+        assertTrue(err, file.getString("name").endsWith("h2.jar"));
 
         JsonArray onConnect;
         assertNotNull(err, onConnect = ds.getJsonArray("onConnect"));
         assertEquals(err, 1, onConnect.size());
-        assertEquals(err, "DECLARE GLOBAL TEMPORARY TABLE TEMP2 (COL1 VARCHAR(80)) ON COMMIT PRESERVE ROWS NOT LOGGED", onConnect.getString(0));
+        assertEquals(err, "CREATE TABLE IF NOT EXISTS TEMP2 (COL1 VARCHAR(80))", onConnect.getString(0));
 
         JsonObject props;
         assertNotNull(err, props = ds.getJsonObject("properties"));
-        assertEquals(err, 3, props.size());
-        assertEquals(err, "create", props.getString("createDatabase"));
-        String databaseName;
-        assertNotNull(err, databaseName = props.getString("databaseName"));
-        assertTrue(err, databaseName.endsWith("configRHTestDB"));
-        assertTrue(err, databaseName.contains("resources")); // must expand ${shared.resource.dir}
+        assertEquals(err, 2, props.size());
+        assertEquals(err, "******", props.getString("URL"));
         assertEquals(err, 220, props.getInt("loginTimeout"));
 
         assertEquals(err, 82, ds.getInt("queryTimeout"));
 
         assertNotNull(err, authData = ds.getJsonObject("recoveryAuthDataRef"));
         assertEquals(err, "authData", authData.getString("configElementName"));
-        assertEquals(err, "derbyAuth2", authData.getString("uid"));
-        assertEquals(err, "derbyAuth2", authData.getString("id"));
+        assertEquals(err, "h2Auth2", authData.getString("uid"));
+        assertEquals(err, "h2Auth2", authData.getString("id"));
         assertEquals(err, "dbuser2", authData.getString("user"));
         assertEquals(err, "******", authData.getString("password"));
 
@@ -440,8 +462,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      * output to test a connection.
      */
     @Test
+    @SkipIfSysProp(SkipIfSysProp.OS_IBMI) //Skip on IBM i due to additional Db2 JDBC driver in JDK
     public void testAppDefinedDataSourceInJavaGlobalAndTestConnection() throws Exception {
-        JsonObject ds = new HttpsRequest(server, "/ibm/api/config/dataSource/dataSource%5Bjava:global%2Fenv%2Fjdbc%2Fds4%5D")
+        JsonObject ds = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource/dataSource%5Bjava:global%2Fenv%2Fjdbc%2Fds4%5D")
                         .run(JsonObject.class);
         String err = "unexpected response: " + ds;
 
@@ -478,13 +501,13 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertEquals(err, "jdbcDriver", driver.getString("configElementName"));
         assertEquals(err, "dataSource[java:global/env/jdbc/ds4]/jdbcDriver", driver.getString("uid"));
         assertEquals(err, "dataSource[java:global/env/jdbc/ds4]/jdbcDriver", driver.getString("id"));
-        assertTrue(err, driver.getString("javax.sql.XADataSource").startsWith("org.apache.derby.jdbc."));
+        assertTrue(err, driver.getString("java.sql.Driver").equals("org.h2.Driver"));
 
         JsonObject library;
         assertNotNull(err, library = driver.getJsonObject("libraryRef"));
         assertEquals(err, "library", library.getString("configElementName"));
-        assertEquals(err, "Derby", library.getString("uid"));
-        assertEquals(err, "Derby", library.getString("id"));
+        assertEquals(err, "H2", library.getString("uid"));
+        assertEquals(err, "H2", library.getString("id"));
         assertEquals(err, "spec,ibm-api,api,stable", library.getString("apiTypeVisibility"));
 
         JsonArray files;
@@ -492,22 +515,21 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertNotNull(err, files = library.getJsonArray("fileRef"));
         assertNotNull(err, file = files.getJsonObject(0));
         assertEquals(err, "file", file.getString("configElementName"));
-        assertEquals(err, "library[Derby]/file[default-0]", file.getString("uid"));
+        assertEquals(err, "library[H2]/file[default-0]", file.getString("uid"));
         assertNull(err, file.get("id"));
-        assertTrue(err, file.getString("name").endsWith("derby.jar"));
+        assertTrue(err, file.getString("name").endsWith("h2.jar"));
 
         JsonObject props;
         assertNotNull(err, props = ds.getJsonObject("properties"));
-        assertEquals(err, 4, props.size());
-        assertEquals(err, "create", props.getString("createDatabase"));
-        assertEquals(err, "memory:fourthdb", props.getString("databaseName"));
+        assertEquals(err, 3, props.size());
+        assertEquals(err, "******", props.getString("URL"));
         assertEquals(err, "dbuser4", props.getString("user"));
         assertEquals(err, "******", props.getString("password"));
 
         assertEquals(err, 10, ds.getInt("statementCacheSize"));
         assertFalse(err, ds.getBoolean("syncQueryTimeoutWithTransactionTimeout"));
         assertTrue(err, ds.getBoolean("transactional"));
-        assertEquals(err, "javax.sql.XADataSource", ds.getString("type"));
+        assertEquals(err, "java.sql.Driver", ds.getString("type"));
 
         JsonArray api;
         assertNotNull(err, api = ds.getJsonArray("api"));
@@ -517,7 +539,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
                      api.getString(0));
 
         // Use validation API
-        JsonObject json = new HttpsRequest(server, api.getString(0)).run(JsonObject.class);
+        JsonObject json = FATSuite.createHttpsRequestWithAdminUser(server, api.getString(0)).run(JsonObject.class);
         err = "unexpected response: " + json;
 
         assertEquals(err, "dataSource[java:global/env/jdbc/ds4]", json.getString("uid"));
@@ -526,12 +548,12 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertTrue(err, json.getBoolean("successful"));
         assertNull(err, json.get("failure"));
         assertNotNull(err, json = json.getJsonObject("info"));
-        assertEquals(err, "Apache Derby", json.getString("databaseProductName"));
+        assertEquals(err, "H2", json.getString("databaseProductName"));
         assertNotNull(err, json.getString("databaseProductVersion"));
-        assertEquals(err, "Apache Derby Embedded JDBC Driver", json.getString("jdbcDriverName"));
+        assertEquals(err, "H2 JDBC Driver", json.getString("jdbcDriverName"));
         assertNotNull(err, json.getString("jdbcDriverVersion"));
-        assertEquals(err, "DBUSER4", json.getString("schema"));
-        assertEquals(err, "dbuser4", json.getString("user"));
+        assertEquals(err, "PUBLIC", json.getString("schema"));
+        assertEquals(err, "DBUSER4", json.getString("user"));
     }
 
     /**
@@ -541,7 +563,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
     @AllowedFFDC("java.lang.IllegalArgumentException") // java:app/env/ds1's connectionManager has duration value that is not valid
     @Test
     public void testAppDefinedDataSourcesAreIncluded() throws Exception {
-        JsonArray dataSources = new HttpsRequest(server, "/ibm/api/config/dataSource").run(JsonArray.class);
+        JsonArray dataSources = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource").run(JsonArray.class);
         String err = "unexpected response: " + dataSources;
         assertEquals(err, 6, dataSources.size());
     }
@@ -552,7 +574,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedDataSourcesWithSameJndiName() throws Exception {
-        JsonArray dataSources = new HttpsRequest(server, "/ibm/api/config/dataSource?jndiName=java:comp%2Fenv%2Fjdbc%2Fds3").run(JsonArray.class);
+        JsonArray dataSources = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource?jndiName=java:comp%2Fenv%2Fjdbc%2Fds3").run(JsonArray.class);
         String err = "unexpected response: " + dataSources;
         assertEquals(err, 2, dataSources.size());
 
@@ -612,9 +634,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
                      ejb_ds_driver.getString("id"));
 
         assertNull(err, web_ds_driver.get("javax.sql.ConnectionPoolDataSource"));
-        assertEquals(err, "org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource", ejb_ds_driver.getString("javax.sql.ConnectionPoolDataSource"));
+        assertEquals(err, "org.h2.jdbcx.JdbcDataSource", ejb_ds_driver.getString("javax.sql.XADataSource"));
 
-        assertEquals(err, "org.apache.derby.jdbc.EmbeddedDataSource", web_ds_driver.getString("javax.sql.DataSource"));
+        assertEquals(err, "org.h2.jdbcx.JdbcDataSource", web_ds_driver.getString("javax.sql.XADataSource"));
         assertNull(err, ejb_ds_driver.get("javax.sql.DataSource"));
 
         assertNotNull(err, web_ds_driver.getJsonObject("libraryRef"));
@@ -625,13 +647,10 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertNotNull(err, ejb_ds_props = ejb_ds.getJsonObject("properties"));
 
         assertEquals(err, 1, web_ds_props.size());
-        assertEquals(err, 2, ejb_ds_props.size());
+        assertEquals(err, 1, ejb_ds_props.size());
 
-        assertNull(err, web_ds_props.get("createDatabase"));
-        assertEquals(err, "create", ejb_ds_props.getString("createDatabase"));
-
-        assertEquals(err, "memory:thirddb;create=true", web_ds_props.getString("databaseName"));
-        assertEquals(err, "memory:ejbdb", ejb_ds_props.getString("databaseName"));
+        assertEquals(err, "******", web_ds_props.getString("URL"));
+        assertEquals(err, "******", ejb_ds_props.getString("URL"));
 
         assertEquals(err, 10, web_ds.getInt("statementCacheSize"));
         assertEquals(err, 10, ejb_ds.getInt("statementCacheSize"));
@@ -642,8 +661,8 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertTrue(err, web_ds.getBoolean("transactional"));
         assertTrue(err, ejb_ds.getBoolean("transactional"));
 
-        assertEquals(err, "javax.sql.DataSource", web_ds.getString("type"));
-        assertEquals(err, "javax.sql.ConnectionPoolDataSource", ejb_ds.getString("type"));
+        assertEquals(err, "javax.sql.XADataSource", web_ds.getString("type"));
+        assertEquals(err, "javax.sql.XADataSource", ejb_ds.getString("type"));
 
         JsonArray web_ds_api, ejb_ds_api;
         assertNotNull(err, web_ds_api = web_ds.getJsonArray("api"));
@@ -665,7 +684,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedDestination() throws Exception {
-        JsonObject q = new HttpsRequest(server, "/ibm/api/config/jmsDestination/jmsDestination%5Bjava:global%2Fenv%2Fjms%2Fdest1%5D")
+        JsonObject q = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/jmsDestination/jmsDestination%5Bjava:global%2Fenv%2Fjms%2Fdest1%5D")
                         .run(JsonObject.class);
         String err = "unexpected response: " + q;
 
@@ -689,7 +708,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedJDBCDriver() throws Exception {
-        JsonObject driver = new HttpsRequest(server, "/ibm/api/config/jdbcDriver/application%5BAppDefResourcesApp%5D%2Fmodule%5BAppDefResourcesApp.war%5D%2FdataSource%5Bjava:comp%2Fenv%2Fjdbc%2Fds3%5D%2FjdbcDriver")
+        JsonObject driver = FATSuite
+                        .createHttpsRequestWithAdminUser(server,
+                                                         "/ibm/api/config/jdbcDriver/application%5BAppDefResourcesApp%5D%2Fmodule%5BAppDefResourcesApp.war%5D%2FdataSource%5Bjava:comp%2Fenv%2Fjdbc%2Fds3%5D%2FjdbcDriver")
                         .run(JsonObject.class);
         String err = "unexpected response: " + driver;
 
@@ -699,13 +720,13 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertEquals(err, "application[AppDefResourcesApp]/module[AppDefResourcesApp.war]/dataSource[java:comp/env/jdbc/ds3]/jdbcDriver",
                      driver.getString("id"));
         assertNull(err, driver.get("jndiName"));
-        assertEquals(err, "org.apache.derby.jdbc.EmbeddedDataSource", driver.getString("javax.sql.DataSource"));
+        assertEquals(err, "org.h2.jdbcx.JdbcDataSource", driver.getString("javax.sql.XADataSource"));
 
         JsonObject library;
         assertNotNull(err, library = driver.getJsonObject("libraryRef"));
         assertEquals(err, "library", library.getString("configElementName"));
-        assertEquals(err, "Derby", library.getString("uid"));
-        assertEquals(err, "Derby", library.getString("id"));
+        assertEquals(err, "H2", library.getString("uid"));
+        assertEquals(err, "H2", library.getString("id"));
         assertEquals(err, "spec,ibm-api,api,stable", library.getString("apiTypeVisibility"));
 
         JsonArray files;
@@ -713,9 +734,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertNotNull(err, files = library.getJsonArray("fileRef"));
         assertNotNull(err, file = files.getJsonObject(0));
         assertEquals(err, "file", file.getString("configElementName"));
-        assertEquals(err, "library[Derby]/file[default-0]", file.getString("uid"));
+        assertEquals(err, "library[H2]/file[default-0]", file.getString("uid"));
         assertNull(err, file.get("id"));
-        assertTrue(err, file.getString("name").endsWith("derby.jar"));
+        assertTrue(err, file.getString("name").endsWith("h2.jar"));
     }
 
     /**
@@ -723,7 +744,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedJMSConnectionFactory() throws Exception {
-        JsonArray cfs = new HttpsRequest(server, "/ibm/api/config/jmsConnectionFactory?application=AppDefResourcesApp&module=AppDefResourcesApp.war")
+        JsonArray cfs = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/jmsConnectionFactory?application=AppDefResourcesApp&module=AppDefResourcesApp.war")
                         .run(JsonArray.class);
         String err = "unexpected response: " + cfs;
         assertEquals(1, cfs.size());
@@ -786,7 +807,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedJMSQueueConnectionFactory() throws Exception {
-        JsonObject cf = new HttpsRequest(server, "/ibm/api/config/jmsQueueConnectionFactory/application[AppDefResourcesApp]%2Fmodule[AppDefResourcesApp.war]%2FjmsQueueConnectionFactory[java:module%2Fenv%2Fjms%2Fqcf]")
+        JsonObject cf = FATSuite
+                        .createHttpsRequestWithAdminUser(server,
+                                                         "/ibm/api/config/jmsQueueConnectionFactory/application%5BAppDefResourcesApp%5D%2Fmodule%5BAppDefResourcesApp.war%5D%2FjmsQueueConnectionFactory%5Bjava:module%2Fenv%2Fjms%2Fqcf%5D")
                         .run(JsonObject.class);
         String err = "unexpected response: " + cf;
 
@@ -844,7 +867,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedJMSTopicConnectionFactory() throws Exception {
-        JsonObject cf = new HttpsRequest(server, "/ibm/api/config/jmsTopicConnectionFactory/application[AppDefResourcesApp]%2FjmsTopicConnectionFactory[java:app%2Fenv%2Fjms%2Ftcf]")
+        JsonObject cf = FATSuite
+                        .createHttpsRequestWithAdminUser(server,
+                                                         "/ibm/api/config/jmsTopicConnectionFactory/application%5BAppDefResourcesApp%5D%2FjmsTopicConnectionFactory%5Bjava:app%2Fenv%2Fjms%2Ftcf%5D")
                         .run(JsonObject.class);
         String err = "unexpected response: " + cf;
 
@@ -894,7 +919,8 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedQueue() throws Exception {
-        JsonObject q = new HttpsRequest(server, "/ibm/api/config/jmsQueue/application%5BAppDefResourcesApp%5D%2FjmsQueue%5Bjava:app%2Fenv%2Fjms%2Fqueue1%5D")
+        JsonObject q = FATSuite
+                        .createHttpsRequestWithAdminUser(server, "/ibm/api/config/jmsQueue/application%5BAppDefResourcesApp%5D%2FjmsQueue%5Bjava:app%2Fenv%2Fjms%2Fqueue1%5D")
                         .run(JsonObject.class);
         String err = "unexpected response: " + q;
 
@@ -922,7 +948,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testAppDefinedTopicsQueryByModuleAndComponent() throws Exception {
-        JsonArray topics = new HttpsRequest(server, "/ibm/api/config/jmsTopic?module=AppDefResourcesEJB.jar&component=AppDefinedResourcesBean")
+        JsonArray topics = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/jmsTopic?module=AppDefResourcesEJB.jar&component=AppDefinedResourcesBean")
                         .run(JsonArray.class);
         String err = "unexpected response: " + topics;
         assertEquals(err, 1, topics.size());
@@ -958,7 +984,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testConnectionFactoryFromEmbeddedResourceAdapter() throws Exception {
-        JsonArray cfs = new HttpsRequest(server, "/ibm/api/config/connectionFactory?jndiName=eis/cf3")
+        JsonArray cfs = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/connectionFactory?jndiName=eis/cf3")
                         .run(JsonArray.class);
         String err = "unexpected response: " + cfs;
         assertEquals(err, 1, cfs.size());
@@ -1015,7 +1041,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testNestedDataSourceCase() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/DATASOURCE").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/DATASOURCE").run(JsonArray.class);
         String err = "unexpected response: " + json;
 
         assertEquals(err, 1, json.size());
@@ -1056,20 +1082,20 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertNull(err, jj.get("id"));
         assertNotNull(err, jj = jj.getJsonObject("libraryRef"));
         assertEquals(err, "library", jj.getString("configElementName"));
-        assertEquals(err, "Derby", jj.getString("uid"));
-        assertEquals(err, "Derby", jj.getString("id"));
+        assertEquals(err, "H2", jj.getString("uid"));
+        assertEquals(err, "H2", jj.getString("id"));
         assertEquals(err, "spec,ibm-api,api,stable", jj.getString("apiTypeVisibility"));
         assertNotNull(err, json = jj.getJsonArray("fileRef"));
         assertEquals(err, 1, json.size());
         assertNotNull(err, jj = json.getJsonObject(0));
         assertEquals(err, "file", jj.getString("configElementName"));
-        assertEquals(err, "library[Derby]/file[default-0]", jj.getString("uid"));
-        assertTrue(err, jj.getString("name").endsWith("derby.jar"));
+        assertEquals(err, "library[H2]/file[default-0]", jj.getString("uid"));
+        assertTrue(err, jj.getString("name").endsWith("h2.jar"));
         assertEquals(err, 10, j.getInt("statementCacheSize"));
         assertEquals(err, false, j.getBoolean("syncQueryTimeoutWithTransactionTimeout"));
         assertEquals(err, false, j.getBoolean("transactional"));
-        assertNotNull(err, j = j.getJsonObject("properties.derby.embedded"));
-        assertEquals(err, "memory:recoverydb", j.getString("databaseName"));
+        assertNotNull(err, j = j.getJsonObject("properties.h2"));
+        assertEquals(err, "jdbc:h2:mem:recoverydb;DB_CLOSE_DELAY=-1", j.getString("URL"));
     }
 
     /**
@@ -1078,7 +1104,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testValidateAppDefinedConnectionFactories() throws Exception {
-        JsonArray array = new HttpsRequest(server, "/ibm/api/validation/connectionFactory")
+        JsonArray array = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/connectionFactory")
                         .run(JsonArray.class);
         String err = "unexpected response: " + array;
         assertEquals(err, 4, array.size());
@@ -1170,8 +1196,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
                    "jakarta.resource.ResourceException" // expected: Value 1:05:30 is not supported for agedTimeout
     })
     @Test
+    @SkipIfSysProp(SkipIfSysProp.OS_IBMI) //Skip on IBM i due to additional Db2 JDBC driver in JDK
     public void testValidateAppDefinedDataSources() throws Exception {
-        JsonArray array = new HttpsRequest(server, "/ibm/api/validation/dataSource?auth=container&authAlias=derbyAuth3")
+        JsonArray array = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/dataSource?auth=container&authAlias=h2Auth3")
                         .run(JsonArray.class);
         String err = array.toString();
         assertEquals(err, 6, array.size());
@@ -1197,7 +1224,8 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertNotNull(stack.get(1));
         assertNotNull(stack.get(2));
         assertNotNull(err, cause = failure.getJsonObject("cause"));
-        assertEquals(err, JakartaEE9Action.isActive() ? "jakarta.resource.ResourceException" : "javax.resource.ResourceException", cause.getString("class"));
+        assertEquals(err, JakartaEEAction.isEE9OrLaterActive() ? "jakarta.resource.ResourceException" : "javax.resource.ResourceException",
+                     cause.getString("class"));
         assertNotNull(err, message = cause.getString("message"));
         assertTrue(err, message.startsWith("J2CA8011E") && message.contains("1:05:30"));
         assertNotNull(err, stack = cause.getJsonArray("stack"));
@@ -1226,12 +1254,12 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertTrue(err, v.getBoolean("successful"));
         assertNull(err, v.get("failure"));
         assertNotNull(err, info = v.getJsonObject("info"));
-        assertEquals(err, "Apache Derby", info.getString("databaseProductName"));
-        assertEquals(err, "10.11.1.1 - (1616546)", info.getString("databaseProductVersion"));
-        assertEquals(err, "Apache Derby Embedded JDBC Driver", info.getString("jdbcDriverName"));
-        assertEquals(err, "10.11.1.1 - (1616546)", info.getString("jdbcDriverVersion"));
-        assertEquals(err, "DBUSER3", info.getString("schema"));
-        assertEquals(err, "dbuser3", info.getString("user"));
+        assertEquals(err, "H2", info.getString("databaseProductName"));
+        assertTrue(err, info.getString("databaseProductVersion").contains(H2Version));
+        assertEquals(err, "H2 JDBC Driver", info.getString("jdbcDriverName"));
+        assertTrue(err, info.getString("jdbcDriverVersion").contains(H2Version));
+        assertEquals(err, "PUBLIC", info.getString("schema"));
+        assertEquals(err, "DBUSER3", info.getString("user"));
 
         assertNotNull(err, v = array.getJsonObject(2));
         assertEquals(err, "application[AppDefResourcesApp]/module[AppDefResourcesApp.war]/dataSource[java:module/env/jdbc/ds2]", v.getString("uid"));
@@ -1243,12 +1271,12 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertTrue(err, v.getBoolean("successful"));
         assertNull(err, v.get("failure"));
         assertNotNull(err, info = v.getJsonObject("info"));
-        assertEquals(err, "Apache Derby", info.getString("databaseProductName"));
-        assertEquals(err, "10.11.1.1 - (1616546)", info.getString("databaseProductVersion"));
-        assertEquals(err, "Apache Derby Embedded JDBC Driver", info.getString("jdbcDriverName"));
-        assertEquals(err, "10.11.1.1 - (1616546)", info.getString("jdbcDriverVersion"));
-        assertEquals(err, "DBUSER3", info.getString("schema"));
-        assertEquals(err, "dbuser3", info.getString("user"));
+        assertEquals(err, "H2", info.getString("databaseProductName"));
+        assertTrue(err, info.getString("databaseProductVersion").contains(H2Version));
+        assertEquals(err, "H2 JDBC Driver", info.getString("jdbcDriverName"));
+        assertTrue(err, info.getString("jdbcDriverVersion").contains(H2Version));
+        assertEquals(err, "PUBLIC", info.getString("schema"));
+        assertEquals(err, "DBUSER3", info.getString("user"));
 
         assertNotNull(err, v = array.getJsonObject(3));
         assertEquals(err, "application[AppDefResourcesApp]/module[AppDefResourcesEJB.jar]/component[AppDefinedResourcesBean]/dataSource[java:comp/env/jdbc/ds3]",
@@ -1262,12 +1290,12 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertTrue(err, v.getBoolean("successful"));
         assertNull(err, v.get("failure"));
         assertNotNull(err, info = v.getJsonObject("info"));
-        assertEquals(err, "Apache Derby", info.getString("databaseProductName"));
-        assertEquals(err, "10.11.1.1 - (1616546)", info.getString("databaseProductVersion"));
-        assertEquals(err, "Apache Derby Embedded JDBC Driver", info.getString("jdbcDriverName"));
-        assertEquals(err, "10.11.1.1 - (1616546)", info.getString("jdbcDriverVersion"));
-        assertEquals(err, "DBUSER3", info.getString("schema"));
-        assertEquals(err, "dbuser3", info.getString("user"));
+        assertEquals(err, "H2", info.getString("databaseProductName"));
+        assertTrue(err, info.getString("databaseProductVersion").contains(H2Version));
+        assertEquals(err, "H2 JDBC Driver", info.getString("jdbcDriverName"));
+        assertTrue(err, info.getString("jdbcDriverVersion").contains(H2Version));
+        assertEquals(err, "PUBLIC", info.getString("schema"));
+        assertEquals(err, "DBUSER3", info.getString("user"));
 
         assertNotNull(err, v = array.getJsonObject(4));
         assertEquals(err, "DefaultDataSource", v.getString("uid"));
@@ -1291,12 +1319,12 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertTrue(err, v.getBoolean("successful"));
         assertNull(err, v.get("failure"));
         assertNotNull(err, info = v.getJsonObject("info"));
-        assertEquals(err, "Apache Derby", info.getString("databaseProductName"));
-        assertEquals(err, "10.11.1.1 - (1616546)", info.getString("databaseProductVersion"));
-        assertEquals(err, "Apache Derby Embedded JDBC Driver", info.getString("jdbcDriverName"));
-        assertEquals(err, "10.11.1.1 - (1616546)", info.getString("jdbcDriverVersion"));
-        assertEquals(err, "DBUSER3", info.getString("schema"));
-        assertEquals(err, "dbuser3", info.getString("user"));
+        assertEquals(err, "H2", info.getString("databaseProductName"));
+        assertTrue(err, info.getString("databaseProductVersion").contains(H2Version));
+        assertEquals(err, "H2 JDBC Driver", info.getString("jdbcDriverName"));
+        assertTrue(err, info.getString("jdbcDriverVersion").contains(H2Version));
+        assertEquals(err, "PUBLIC", info.getString("schema"));
+        assertEquals(err, "DBUSER3", info.getString("user"));
     }
 
     /**
@@ -1304,7 +1332,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testValidateAppDefinedJMSConnectionFactory() throws Exception {
-        JsonObject j = new HttpsRequest(server, "/ibm/api/validation/jmsConnectionFactory/application%5BAppDefResourcesApp%5D%2Fmodule%5BAppDefResourcesApp.war%5D%2FjmsConnectionFactory%5Bjava%3Acomp%2Fenv%2Fjms%2Fcf%5D")
+        JsonObject j = FATSuite
+                        .createHttpsRequestWithAdminUser(server,
+                                                         "/ibm/api/validation/jmsConnectionFactory/application%5BAppDefResourcesApp%5D%2Fmodule%5BAppDefResourcesApp.war%5D%2FjmsConnectionFactory%5Bjava%3Acomp%2Fenv%2Fjms%2Fcf%5D")
                         .run(JsonObject.class);
         String err = "unexpected response: " + j;
 
@@ -1319,7 +1349,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertNotNull(err, j = j.getJsonObject("info"));
         assertEquals(err, "IBM", j.getString("jmsProviderName"));
         assertEquals(err, "1.0", j.getString("jmsProviderVersion"));
-        assertEquals(err, JakartaEE9Action.isActive() ? "3.0" : "2.0", j.getString("jmsProviderSpecVersion"));
+        assertEquals(err, getExpectedJmsProviderSpecVersion(), j.getString("jmsProviderSpecVersion"));
         assertEquals(err, "clientID", j.getString("clientID"));
     }
 
@@ -1328,7 +1358,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testValidateAppDefinedJMSQueueConnectionFactory() throws Exception {
-        JsonObject j = new HttpsRequest(server, "/ibm/api/validation/jmsQueueConnectionFactory/application%5BAppDefResourcesApp%5D%2Fmodule%5BAppDefResourcesApp.war%5D%2FjmsQueueConnectionFactory%5Bjava%3Amodule%2Fenv%2Fjms%2Fqcf%5D")
+        JsonObject j = FATSuite
+                        .createHttpsRequestWithAdminUser(server,
+                                                         "/ibm/api/validation/jmsQueueConnectionFactory/application%5BAppDefResourcesApp%5D%2Fmodule%5BAppDefResourcesApp.war%5D%2FjmsQueueConnectionFactory%5Bjava%3Amodule%2Fenv%2Fjms%2Fqcf%5D")
                         .run(JsonObject.class);
         String err = "unexpected response: " + j;
 
@@ -1340,7 +1372,7 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertNotNull(err, j = j.getJsonObject("info"));
         assertEquals(err, "IBM", j.getString("jmsProviderName"));
         assertEquals(err, "1.0", j.getString("jmsProviderVersion"));
-        assertEquals(err, JakartaEE9Action.isActive() ? "3.0" : "2.0", j.getString("jmsProviderSpecVersion"));
+        assertEquals(err, getExpectedJmsProviderSpecVersion(), j.getString("jmsProviderSpecVersion"));
     }
 
     /**
@@ -1348,7 +1380,9 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
      */
     @Test
     public void testValidateAppDefinedJMSTopicConnectionFactory() throws Exception {
-        JsonObject j = new HttpsRequest(server, "/ibm/api/validation/jmsTopicConnectionFactory/application%5BAppDefResourcesApp%5D%2FjmsTopicConnectionFactory%5Bjava%3Aapp%2Fenv%2Fjms%2Ftcf%5D")
+        JsonObject j = FATSuite
+                        .createHttpsRequestWithAdminUser(server,
+                                                         "/ibm/api/validation/jmsTopicConnectionFactory/application%5BAppDefResourcesApp%5D%2FjmsTopicConnectionFactory%5Bjava%3Aapp%2Fenv%2Fjms%2Ftcf%5D")
                         .run(JsonObject.class);
         String err = "unexpected response: " + j;
 
@@ -1365,5 +1399,15 @@ public class ConfigRESTHandlerAppDefinedResourcesTest extends FATServletClient {
         assertEquals(err, "88.105.137", j.getString("jmsProviderVersion"));
         assertEquals(err, "2.0", j.getString("jmsProviderSpecVersion"));
         assertEquals(err, "AppDefinedClientId", j.getString("clientID"));
+    }
+
+    private String getExpectedJmsProviderSpecVersion() {
+        if (JakartaEEAction.isEE10OrLaterActive()) {
+            return "3.1";
+        } else if (JakartaEEAction.isEE9Active()) {
+            return "3.0";
+        } else {
+            return "2.0";
+        }
     }
 }

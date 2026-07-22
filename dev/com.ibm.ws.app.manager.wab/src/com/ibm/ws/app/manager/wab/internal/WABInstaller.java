@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -170,7 +172,7 @@ import com.ibm.wsspi.webcontainer.servlet.IServletContext;
  * _no actions taken on wabgroup / wab
  *
  * --Deactivate wab installer--
- * disable master tracker
+ * disable primary tracker
  * __iterate wabGroups
  * ___iterate wabs in each wabGroup
  * ____invokes wab.removeWab
@@ -182,7 +184,7 @@ import com.ibm.wsspi.webcontainer.servlet.IServletContext;
  */
 @Component(configurationPolicy = ConfigurationPolicy.IGNORE,
            immediate = true,
-           service = { EventHandler.class, RuntimeUpdateListener.class, ServerQuiesceListener.class, ServerReadyStatus.class },
+           service = { WABInstaller.class, EventHandler.class, RuntimeUpdateListener.class, ServerQuiesceListener.class, ServerReadyStatus.class },
            property = { "service.vendor=IBM", "event.topics=org/osgi/service/web/UNDEPLOYED" })
 public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpdateListener, ServerQuiesceListener, ServerReadyStatus {
 
@@ -288,7 +290,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
 
         tracker = getTracker(customizer);
         tracker.open();
-        wabLifecycleDebug("Master WAB Tracker has opened.");
+        wabLifecycleDebug("Primary WAB Tracker has opened.");
     }
 
     /**
@@ -307,7 +309,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
         //turn off the tracker if we are shutting down
         if (tracker != null) {
             tracker.close();
-            wabLifecycleDebug("Master WAB Tracker has closed.");
+            wabLifecycleDebug("Primary WAB Tracker has closed.");
         }
         if (configurableTracker != null) {
             configurableTracker.close();
@@ -330,7 +332,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
             wabGroupsLock.unlock();
         }
         for (WABGroup wabGroup : toRemoveGroups) {
-            wabLifecycleDebug("Master WAB Tracker uninstalling WABGroup during deactivate", wabGroup);
+            wabLifecycleDebug("Primary WAB Tracker uninstalling WABGroup during deactivate", wabGroup);
             wabGroup.uninstallGroup(this);
         }
 
@@ -347,7 +349,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
             knownPaths.clear();
         }
 
-        wabLifecycleDebug("Master WAB Tracker no longer tracking wabs");
+        wabLifecycleDebug("Primary WAB Tracker no longer tracking wabs");
 
         if (ebaProviderTracker != null)
             ebaProviderTracker.close();
@@ -942,7 +944,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
             //if we got here then this bundle is a WAB, so we need to create a WAB tracking object
             WAB addedWAB = new WAB(bundle, webContextPath, WABInstaller.this);
 
-            wabLifecycleDebug("Master WAB Tracker processing new WAB", addedWAB);
+            wabLifecycleDebug("Primary WAB Tracker processing new WAB", addedWAB);
 
             //change the state to deploying and fire the event
             if (addedWAB.moveToDeploying()) {
@@ -976,7 +978,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
                         for (WAB w : collisions) {
                             Bundle collidingBundle = w.getBundle();
                             if (collidingBundle.getBundleId() == bundle.getBundleId()) {
-                                wabLifecycleDebug("Master WAB Tracker cleaning up old known WAB for bundleId ", w, bundle.getBundleId());
+                                wabLifecycleDebug("Primary WAB Tracker cleaning up old known WAB for bundleId ", w, bundle.getBundleId());
                                 //the bundle ids matched.. this is odd, since we haven't added our wab
                                 //to the known collisions set yet. Most likely we have an entry for this wab
                                 //in a prior stage of its lifecycle.. so remove that one, as we'll add the new
@@ -1032,7 +1034,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
                             collisionIds[i] = collidingBundle.getBundleId();
                             i++;
                             if (collidingBundle.getBundleId() == bundle.getBundleId()) {
-                                wabLifecycleDebug("Master WAB Tracker cleaning up old colliding WAB for bundleId ", w, bundle.getBundleId());
+                                wabLifecycleDebug("Primary WAB Tracker cleaning up old colliding WAB for bundleId ", w, bundle.getBundleId());
                                 //the bundle ids matched. Most likely we have an entry for this wab
                                 //in a prior stage of its lifecycle.. so remove that one, as we'll
                                 // add the new one in a mo.
@@ -1058,7 +1060,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
                         knownCollisionsHolder.getWABs().add(addedWAB);
                     }
 
-                    wabLifecycleDebug("Master WAB Tracker adding WAB to collision set.", addedWAB);
+                    wabLifecycleDebug("Primary WAB Tracker adding WAB to collision set.", addedWAB);
                     //we know there is a collision so for this case so post a
                     //failed event
                     postEvent(addedWAB.createFailedEvent(webContextPath, collisionIds));
@@ -1066,7 +1068,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
                     //the holder will already have the wab in its list from construction
                     //no collision, just tell the wab's internal tracker to take over
                     //it will synchronously handle the deploy/undeploy
-                    wabLifecycleDebug("Master WAB Tracker enabling SubTracker for new WAB", addedWAB);
+                    wabLifecycleDebug("Primary WAB Tracker enabling SubTracker for new WAB", addedWAB);
                     addedWAB.enableTracker();
                 }
 
@@ -1096,7 +1098,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
                 if (wab == null) {
                     return;
                 }
-                wabLifecycleDebug("Master WAB Tracker processing shutdown for ", wab);
+                wabLifecycleDebug("Primary WAB Tracker processing shutdown for ", wab);
 
                 //this WAB is being removed
                 synchronized (knownPaths) {
@@ -1190,7 +1192,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
     }
 
     public void attemptRedeployOfPreviouslyCollidedContextPath(String contextPath) {
-        wabLifecycleDebug("Master WAB Tracker performing collision resolution for ", contextPath);
+        wabLifecycleDebug("Primary WAB Tracker performing collision resolution for ", contextPath);
 
         //tidy up the known wabs for this context path
         WABPathSpecificItemHolder knownHolder;
@@ -1244,7 +1246,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
                 //(comment left here after I already made this change twice.. doh)
             }
             if (collidingWabToDeploy != null) {
-                wabLifecycleDebug("Master WAB Tracker selected WAB to deploy from collision resolution ", collidingWabToDeploy);
+                wabLifecycleDebug("Primary WAB Tracker selected WAB to deploy from collision resolution ", collidingWabToDeploy);
                 collidingWabToDeploy.attemptDeployOfPreviouslyBlockedWab();
             }
         }
@@ -1464,6 +1466,9 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                         Tr.debug(tc, "Found WAB matching context path", iServletContext.getContextPath());
                     BundleContext wabBC = wab.getBundle().getBundleContext();
+                    if (wabBC == null) {
+                        return null;
+                    }
                     //Register the BundleContext as an attribute on the ServletContext
                     iServletContext.setAttribute("osgi-bundlecontext", wabBC);
                     // For Spring DM based applications register BundleContext under attribute that
@@ -1483,7 +1488,7 @@ public class WABInstaller implements EventHandler, ExtensionFactory, RuntimeUpda
                     esc.addMappingFilter("/*", fc);
                     //iServletContext.addFilter("/*", new OsgiDirectoryProtectionFilter());
                     //Register the ServletContext in the service registry
-                    wab.registerServletContext(iServletContext);
+                    wab.registerServletContext(iServletContext, wabBC);
                 }
                 return null;
             } else {

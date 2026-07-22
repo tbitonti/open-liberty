@@ -1,25 +1,24 @@
 /*******************************************************************************
- * Copyright (c) 2017,2019 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.rest.handler.config.fat;
 
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
-import componenttest.rules.repeater.JakartaEE9Action;
-import componenttest.rules.repeater.RepeatTests;
+import com.ibm.ws.rest.handler.config.fat.audit.ConfigRESTHandlerAuditTest;
+import com.ibm.ws.rest.handler.config.fat.audit.ConfigRestHandlerAuditFeatureTest;
+
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
-import componenttest.topology.utils.HttpUtils;
+import componenttest.topology.utils.HttpsRequest;
 
 @RunWith(Suite.class)
 @SuiteClasses({
@@ -27,24 +26,19 @@ import componenttest.topology.utils.HttpUtils;
                 ConfigRESTHandlerJCATest.class,
                 ConfigRESTHandlerJMSTest.class,
                 ConfigRESTHandlerTest.class,
-                ConfigOpenApiSchemaTest.class
+                ConfigOpenApiSchemaTest.class,
+                ConfigRESTHandlerAuditTest.class,
+                ConfigRestHandlerAuditFeatureTest.class
 })
 
 public class FATSuite {
 
-    @ClassRule
-    public static RepeatTests r = RepeatTests.withoutModification() // run all tests as-is (e.g. EE8 features)
-                    .andWith(new JakartaEE9Action()); // run all tests again with EE9 features+packages
-
-    @BeforeClass
-    public static void setup() throws Exception {
-        HttpUtils.trustAllCertificates();
-        HttpUtils.trustAllHostnames();
-        HttpUtils.setDefaultAuth("adminuser", "adminpwd");
+    public static HttpsRequest createHttpsRequestWithAdminUser(LibertyServer server, String path) {
+        return new HttpsRequest(server, path).allowInsecure().basicAuth("adminuser", "adminpwd");
     }
 
     public static void setupServerSideAnnotations(LibertyServer server) {
-        if (JakartaEE9Action.isActive()) {
+        if (JakartaEEAction.isEE9OrLaterActive()) {
             server.addEnvVar("CONNECTION_FACTORY", "jakarta.resource.cci.ConnectionFactory");
             server.addEnvVar("QUEUE_FACTORY", "jakarta.jms.QueueConnectionFactory");
             server.addEnvVar("TOPIC_FACTORY", "jakarta.jms.TopicConnectionFactory");

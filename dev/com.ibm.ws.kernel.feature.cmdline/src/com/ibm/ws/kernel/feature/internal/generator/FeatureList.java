@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,12 +14,13 @@ package com.ibm.ws.kernel.feature.internal.generator;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
@@ -79,6 +82,7 @@ public class FeatureList {
     private final static boolean writingJavaVersion = Boolean.getBoolean("ibm.javaVersion");
     private static final List<Map<String, Object>> possibleJavaVersions = new ArrayList<Map<String, Object>>();
     private static final Map<String, Collection<GenericMetadata>> eeToCapability = new HashMap<String, Collection<GenericMetadata>>();
+    private static final Map<String, List<MetaTypeInformationSpecification>> metaTypes = new HashMap<>();
 
     private static File installDir;
     private static boolean gaBuild = true;
@@ -88,7 +92,11 @@ public class FeatureList {
             addJVM(possibleJavaVersions, "1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1");
             addJVM(possibleJavaVersions, "1.8", "1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1");
             addJVM(possibleJavaVersions, "11", "10", "9", "1.8", "1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1");
-            addJVM(possibleJavaVersions, "15", "14", "13", "12", "11", "10", "9", "1.8", "1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1");
+            addJVM(possibleJavaVersions, "17", "16", "15", "14", "13", "12", "11", "10", "9", "1.8", "1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1");
+            addJVM(possibleJavaVersions, "21", "20", "19", "18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "1.8", "1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1");
+            addJVM(possibleJavaVersions, "25", "24", "23", "22", "21", "20", "19", "18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "1.8", "1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1");
+            addJVM(possibleJavaVersions, "26", "25", "24", "23", "22", "21", "20", "19", "18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "1.8", "1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1");
+            
 
             List<GenericMetadata> mostGeneralRange = ManifestHeaderProcessor.parseCapabilityString("osgi.ee; filter:=\"(&(osgi.ee=JavaSE)(version=1.7))\"");
 
@@ -100,7 +108,10 @@ public class FeatureList {
             eeToCapability.put("JavaSE-1.7", mostGeneralRange);
             eeToCapability.put("JavaSE-1.8", ManifestHeaderProcessor.parseCapabilityString("osgi.ee; filter:=\"(&(osgi.ee=JavaSE)(version=1.8))\""));
             eeToCapability.put("JavaSE-11", ManifestHeaderProcessor.parseCapabilityString("osgi.ee; filter:=\"(&(osgi.ee=JavaSE)(version=11))\""));
-            eeToCapability.put("JavaSE-15", ManifestHeaderProcessor.parseCapabilityString("osgi.ee; filter:=\"(&(osgi.ee=JavaSE)(version=15))\""));
+            eeToCapability.put("JavaSE-17", ManifestHeaderProcessor.parseCapabilityString("osgi.ee; filter:=\"(&(osgi.ee=JavaSE)(version=17))\""));
+            eeToCapability.put("JavaSE-21", ManifestHeaderProcessor.parseCapabilityString("osgi.ee; filter:=\"(&(osgi.ee=JavaSE)(version=21))\""));
+            eeToCapability.put("JavaSE-25", ManifestHeaderProcessor.parseCapabilityString("osgi.ee; filter:=\"(&(osgi.ee=JavaSE)(version=25))\""));
+            eeToCapability.put("JavaSE-26", ManifestHeaderProcessor.parseCapabilityString("osgi.ee; filter:=\"(&(osgi.ee=JavaSE)(version=26))\""));
         }
 
         gaBuild = isGABuild();
@@ -291,19 +302,25 @@ public class FeatureList {
                     elements.add("variable");
                 }
                 boolean includeInternal = options.getIncludeInternals();
-                SchemaMetaTypeParser parser = new SchemaMetaTypeParser(Locale.getDefault(), new ArrayList<File>(bundles), productName);
-                List<MetaTypeInformationSpecification> info = parser.getMetatypeInformation();
-                for (MetaTypeInformationSpecification spec : info) {
-                    for (ObjectClassDefinitionSpecification ocds : spec.getObjectClassSpecifications()) {
-                        if (includeInternal || !!!"internal".equals(ocds.getName())) {
-                            if (ocds.getExtensionUris().contains(XMLConfigConstants.METATYPE_EXTENSION_URI)) {
-                                Map<String, String> attribs = ocds.getExtensionAttributes(XMLConfigConstants.METATYPE_EXTENSION_URI);
-                                if (attribs != null) {
-                                    String isBeta = attribs.get("beta");
-                                    if ( ! (gaBuild && "true".equals(isBeta))) {
-                                        String alias = attribs.get("alias");
-                                        if (alias != null && !attribs.containsKey("childAlias")) {
-                                            elements.add(alias);
+                for (File bundle : bundles) {
+                    List<MetaTypeInformationSpecification> info = metaTypes.get(bundle.getAbsolutePath());
+                    if (info == null) {
+                        SchemaMetaTypeParser parser = new SchemaMetaTypeParser(Locale.getDefault(), Collections.singletonList(bundle), productName);
+                        info = parser.getMetatypeInformation();
+                        metaTypes.put(bundle.getAbsolutePath(), info);
+                    }
+                    for (MetaTypeInformationSpecification spec : info) {
+                        for (ObjectClassDefinitionSpecification ocds : spec.getObjectClassSpecifications()) {
+                            if (includeInternal || !!!"internal".equals(ocds.getName())) {
+                                if (ocds.getExtensionUris().contains(XMLConfigConstants.METATYPE_EXTENSION_URI)) {
+                                    Map<String, String> attribs = ocds.getExtensionAttributes(XMLConfigConstants.METATYPE_EXTENSION_URI);
+                                    if (attribs != null) {
+                                        String isBeta = attribs.get("beta");
+                                        if ( ! (gaBuild && "true".equals(isBeta))) {
+                                            String alias = attribs.get("alias");
+                                            if (alias != null && !attribs.containsKey("childAlias")) {
+                                                elements.add(alias);
+                                            }
                                         }
                                     }
                                 }
@@ -315,6 +332,11 @@ public class FeatureList {
                     writer.writeTextElement("configElement", configElement);
                 }
             }
+        }
+        
+        //Add platforms if exist
+        for (String platformElement : fd.getPlatformNames()) {
+            writer.writeTextElement("platform", platformElement);
         }
 
         for (FeatureResource included : fd.getConstituents(SubsystemContentType.FEATURE_TYPE)) {
@@ -364,7 +386,13 @@ public class FeatureList {
 
             for (FeatureResource res : fd.getConstituents(SubsystemContentType.BUNDLE_TYPE)) {
                 ContentBasedLocalBundleRepository repo = mfp.getBundleRepository(fd.getBundleRepositoryType(), null);
-
+                
+                if(res.getJavaRange() != null) {
+                	// Bundles & Jars with the java range attribute should not be considered for the supported java versions 
+                    // as they are only enabled once the java runtime matches that particular range.
+                	continue;
+                }
+                
                 File bundleFile = repo.selectBundle(res.getLocation(), res.getSymbolicName(), res.getVersionRange());
 
                 List<Map<String, Object>> bundleMatches = cachedJavaVersionsByBundle.get(bundleFile);
@@ -559,8 +587,8 @@ public class FeatureList {
 
                 APIType apiType = APIType.getAPIType(fr);
                 Map<String,String> attrs = new HashMap<String,String>(1);
-                if (fr.getRequireJava() != null)
-                    attrs.put("require-java", fr.getRequireJava().toString());
+                if (fr.getJavaRange() != null)
+                    attrs.put("require-java", fr.getJavaRange().toString());
                 if (apiType == APIType.API) {
                     if (apiJars != null) {
                         apiJars.put(f, attrs);
@@ -589,7 +617,7 @@ public class FeatureList {
             public Object run() {
                 try {
                     final File version = new File(getInstallDir(), "lib/versions/WebSphereApplicationServer.properties");
-                    Reader r = new InputStreamReader(new FileInputStream(version), "UTF-8");
+                    Reader r = new InputStreamReader(new FileInputStream(version), StandardCharsets.UTF_8);
                     props.load(r);
                     r.close();
                 } catch (IOException e) {

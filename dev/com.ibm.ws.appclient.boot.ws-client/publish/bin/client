@@ -2,10 +2,13 @@
 ###############################################################################
 # WebSphere Application Client liberty launch script
 #
-# Copyright IBM Corp. 2011, 2014
-# The source code for this program is not published or other-
-# wise divested of its trade secrets, irrespective of what has
-# been deposited with the U.S. Copyright Office.
+# Copyright (c) 2011, 2026 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+#  are made available under the terms of the Eclipse Public License 2.0
+#  which accompanies this distribution, and is available at
+#  http://www.eclipse.org/legal/epl-2.0/
+# 
+#  SPDX-License-Identifier: EPL-2.0
 # 
 # ----------------------------------------------------------------------------
 #
@@ -387,7 +390,7 @@ clientEnvDefaults()
       JVM_ARGS="${JVM_ARGS} -Dfile.encoding=$defaultFileEncoding"
     fi
   fi
-  
+
   clientUmask
 }
 
@@ -405,6 +408,7 @@ clientEnv()
 ##
 ## clientEnvAndJVMOptions: Read client.env files and set environment variables.
 ##                         Read client.jvm.options file into ${JVM_OPTIONS_QUOTED}
+##                         Set JAVA_VERSION_MAJOR from ${JAVA_HOME}/release file, if found
 clientEnvAndJVMOptions()
 {
   clientEnv
@@ -424,10 +428,49 @@ clientEnvAndJVMOptions()
     mergeJVMOptions "${WLP_INSTALL_DIR}/etc/client.jvm.options"
   fi
   
-  # If we are running on Java 9, apply Liberty's built-in java 9 options
-  if [ -f "${JAVA_HOME}/lib/modules" ]; then
-    mergeJVMOptions "${WLP_INSTALL_DIR}/lib/platform/java/java9.options"
+  if [ -z "${JAVA_HOME}" ]; then
+    JAVA_PATH_FROM_PATH=$(command -v java)
+    if [ -n "${JAVA_PATH_FROM_PATH}" ] ; then
+      JPMS_MODULE_FILE_LOCATION=$(dirname $(dirname $JAVA_PATH_FROM_PATH))/lib/modules
+    fi
+  else
+    JPMS_MODULE_FILE_LOCATION="${JAVA_HOME}/lib/modules"
   fi
+
+  # If we are running on Java 9 or higher, apply one of Liberty's built-in java options files  
+  if [ -f "${JPMS_MODULE_FILE_LOCATION}" ]; then
+  
+    # If there is a 'release' file under JAVA_HOME, examine it to see if JAVA_VERSION is set.  If so, determine which version of Java we will be using.
+    if [ -f "$(dirname $(dirname ${JPMS_MODULE_FILE_LOCATION})..)/release" ]; then
+      JAVA_VERSION_MAJOR=$(readNativeFile "$(dirname $(dirname ${JPMS_MODULE_FILE_LOCATION})..)/release" '[A-Za-z0-9]' | LC_ALL=C tr -d '\r' | grep ^JAVA_VERSION\s*= | tr -d '"' | awk -F= '{print $2}' | awk -F. '{if ($1 > 1) {print $1} else {print $2}}')
+    fi
+        
+    if [ -n "${JAVA_VERSION_MAJOR}" ]; then
+      if [ ${JAVA_VERSION_MAJOR} -ge 24 ] 2>/dev/null; then
+        mergeJVMOptions "${WLP_INSTALL_DIR}/lib/platform/java/java24.options"
+      else
+        mergeJVMOptions "${WLP_INSTALL_DIR}/lib/platform/java/java9.options"
+      fi
+    else
+      mergeJVMOptions "${WLP_INSTALL_DIR}/lib/platform/java/java9.options"
+    fi
+    
+    # In Java 24+, JNI usage must be explicitly granted when starting the JVM - https://openjdk.org/jeps/472 (needed for z/OS)
+    if [ -n "${JAVA_VERSION_MAJOR}" ] && [ "${uname}" = "OS/390" ]; then
+        if [ "${JAVA_VERSION_MAJOR}" -ge 24 ] 2>/dev/null; then
+            case "${JVM_OPTIONS_QUOTED}" in
+                *--enable-native-access=ALL-UNNAMED*)
+                    :  # already present, do nothing
+                    ;;
+                *)
+                    JVM_OPTIONS_QUOTED="${JVM_OPTIONS_QUOTED} '--enable-native-access=ALL-UNNAMED'"
+                    ;;
+            esac
+        fi
+    fi
+  fi
+
+  enableFIPS140_3
 
   return $rc
 }
@@ -441,7 +484,7 @@ mergeJVMOptions()
       saveIFS=$IFS
       IFS=$newline
       
-      for option in `readNativeFile "$jvmOptions" '[#-]' | tr -d '\r'`; do
+      for option in `readNativeFile "$jvmOptions" '[#-]' | LC_ALL=C tr -d '\r'`; do
         if [ -n "$option" ]; then
           case $option in
           \#*);;
@@ -456,6 +499,39 @@ mergeJVMOptions()
     fi
 }
 
+enableFIPS140_3()
+{
+  if [ -n "${ENABLE_FIPS140_3+set}" ] && [ "$ENABLE_FIPS140_3" != false ]; then
+    if [ -d "${JAVA_HOME}/jre/fips140-3" ] || [ -d "${JAVA_HOME}/fips140-3" ] || [ -d "$(dirname $(dirname $(command -v java)))/jre/fips140-3" ]; then
+      JVM_ARGS="${JVM_ARGS} -Xenablefips140-3 -Dcom.ibm.jsse2.usefipsprovider=true -Dcom.ibm.jsse2.usefipsProviderName=IBMJCEPlusFIPS"
+    else
+      if [ -f "${JAVA_HOME}/conf/security/java.security" ]; then
+        if grep -q "OpenJCEPlusFIPS.FIPS140-3-Strongly-Enforced" "${JAVA_HOME}/conf/security/java.security" ; then
+          SEMERU_FIPS=true
+        elif grep -q "OpenJCEPlusFIPS.FIPS140-3-Strongly-Enforced" "$(dirname $(dirname $(command -v java)))/conf/security/java.security" ; then
+          SEMERU_FIPS=true
+        fi
+        if [ -n "${SEMERU_FIPS}" ]; then
+          saveIFS=$IFS
+          IFS=":"
+          ENABLE_FIPS140_3="${WLP_INSTALL_DIR}/lib/security/fips140_3/FIPS140-3-Liberty.properties:${ENABLE_FIPS140_3}"
+          for file in ${ENABLE_FIPS140_3}; do
+            profileFile=$file
+          done
+          IFS=$saveIFS
+          for line in $(readNativeFile "$profileFile" '[#_A-Za-z=]' | tr -d '\r'); do
+            match=$(echo "$line" | sed -n 's/.*RestrictedSecurity\.\([a-zA-Z0-9\.-]*\)\.extends$/\1/p')
+            if [ -n "$match" ]; then
+              profile=$match
+            fi
+          done
+          JVM_ARGS="${JVM_ARGS} -Dsemeru.fips=true -Dsemeru.customprofile=${profile} -Djava.security.propertiesList=\"${ENABLE_FIPS140_3}\""
+        fi
+      fi
+    fi
+  fi
+}
+
 ##
 ## readClientEnv: Read client.env file and export environment variables.
 readClientEnv()
@@ -468,7 +544,7 @@ readClientEnv()
       \#*);;
       *=*)
         # Only accept alphanumeric variable names to avoid eval complexities.
-        if var=`safeEcho "$line" | sed -e 's/^\([a-zA-Z0-9_][a-zA-Z0-9_]*\)=.*/\1/'`; then
+        if var=`safeEcho "$line" | sed -e 's/^\([_[:alnum:]][_[:alnum:]]*\)=.*/\1/'`; then
           extractValueAndEscapeForEval "${line}"
           eval "${var}=${escapeForEvalResult}; export ${var}"
         fi

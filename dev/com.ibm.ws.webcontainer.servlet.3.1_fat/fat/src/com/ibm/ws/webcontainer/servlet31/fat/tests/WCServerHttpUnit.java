@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2021 IBM Corporation and others.
+ * Copyright (c) 2013, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.servlet31.fat.tests;
 
@@ -27,6 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.ws.webcontainer.servlet31.fat.FATSuite;
 import com.meterware.httpunit.GetMethodWebRequest;
 import com.meterware.httpunit.WebConversation;
 import com.meterware.httpunit.WebRequest;
@@ -74,6 +74,10 @@ public class WCServerHttpUnit {
 
         // Start the server and use the class name so we can find logs easily.
         server.startServer(WCServerHttpUnit.class.getSimpleName() + ".log");
+
+        if (FATSuite.isWindows) {
+            FATSuite.setDynamicTrace(server, "*=info=enabled");
+        }
     }
 
     @AfterClass
@@ -92,6 +96,7 @@ public class WCServerHttpUnit {
     // Integer.MAX_VALUE is 2^31-1, or 2,147,483,647.
     // 'sendPostRequest' does writes of the requested length,
     // making for a very, very, long test.
+    // Fails in netty due to https://github.com/OpenLiberty/open-liberty/issues/30702
     @Test
     @Mode(TestMode.FULL)
     public void testSendContentLengthLongLong_test() throws Exception {

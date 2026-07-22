@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -28,6 +30,8 @@ import componenttest.annotation.ExpectedFFDC;
 import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.repeater.EmptyAction;
+import componenttest.rules.repeater.JakartaEE9Action;
 import componenttest.topology.impl.LibertyServerWrapper;
 
 @LibertyServerWrapper
@@ -70,7 +74,7 @@ public class RSSamlBasicTests extends SAMLCommonTest {
      */
 
     @ExpectedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException" })
-    @AllowedFFDC(value = { "java.lang.NullPointerException", "org.opensaml.xml.parse.XMLParserException", "org.opensaml.ws.message.decoder.MessageDecodingException" })
+    @AllowedFFDC(value = { "java.lang.NullPointerException", "net.shibboleth.utilities.java.support.xml.XMLParserException", "org.opensaml.messaging.decoder.MessageDecodingException" })
     @Test
     public void RSSamlBasicTests_mangleSAMLToken_sendGarbage() throws Exception {
 
@@ -109,7 +113,7 @@ public class RSSamlBasicTests extends SAMLCommonTest {
      * Tests removes the saml token, but the config allows an unsigned token, so it's ok
      */
 
-    @ExpectedFFDC(value = { "org.opensaml.ws.security.SecurityPolicyException", "com.ibm.ws.security.saml.error.SamlException" })
+    @ExpectedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.handler.MessageHandlerException" })
     @Test
     public void RSSamlBasicTests_mangleSAMLToken_userNameInAssertion() throws Exception {
 
@@ -132,7 +136,7 @@ public class RSSamlBasicTests extends SAMLCommonTest {
      *
      * @throws Exception
      */
-    @AllowedFFDC(value = { "org.opensaml.ws.security.SecurityPolicyException", "com.ibm.ws.security.saml.error.SamlException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.handler.MessageHandlerException" })
     @Mode(TestMode.LITE)
     @Test
     public void RSSamlBasicTests_samlCertNotInDefaultTrust_wantAssertionsSigned_true() throws Exception {
@@ -162,7 +166,7 @@ public class RSSamlBasicTests extends SAMLCommonTest {
      *
      * @throws Exception
      */
-    @AllowedFFDC(value = { "org.opensaml.ws.security.SecurityPolicyException", "com.ibm.ws.security.saml.error.SamlException" })
+    @AllowedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "com.ibm.wsspi.channelfw.exception.InvalidChainNameException", "org.opensaml.messaging.handler.MessageHandlerException" })
     @Mode(TestMode.LITE)
     @Test
     public void RSSamlBasicTests_samlCertNotInDefaultTrust_wantAssertionsSigned_false() throws Exception {
@@ -194,7 +198,7 @@ public class RSSamlBasicTests extends SAMLCommonTest {
      *
      * @throws Exception
      */
-    @ExpectedFFDC(value = { "org.opensaml.ws.security.SecurityPolicyException", "com.ibm.ws.security.saml.error.SamlException" })
+    @ExpectedFFDC(value = {"com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.handler.MessageHandlerException"})
     @Mode(TestMode.LITE)
     @Test
     public void RSSamlBasicTests_samlCertNotInRSSamlTrust_wantAssertionsSigned_true() throws Exception {
@@ -217,7 +221,7 @@ public class RSSamlBasicTests extends SAMLCommonTest {
      *
      * @throws Exception
      */
-    @ExpectedFFDC(value = { "org.opensaml.ws.security.SecurityPolicyException", "com.ibm.ws.security.saml.error.SamlException" })
+    @ExpectedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException","org.opensaml.messaging.handler.MessageHandlerException" })
     @Mode(TestMode.LITE)
     @Test
     public void RSSamlBasicTests_samlCertNotInRSSamlTrust_wantAssertionsSigned_false() throws Exception {
@@ -272,9 +276,9 @@ public class RSSamlBasicTests extends SAMLCommonTest {
      * Tests
      */
 
-    @ExpectedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.ws.security.SecurityPolicyException" })
-    @Mode(TestMode.LITE)
-    @Test
+    //@ExpectedFFDC(value = { "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.messaging.handler.MessageHandlerException" })
+    //@Mode(TestMode.LITE)
+    //@Test - IdP is updated to use sha256 signature algorithm , this test is not valid anymore. when we update samlWeb to support more signature algorithms , use this test
     public void RSSamlBasicTests_signatureAlgorithNotSatisfied() throws Exception {
 
         WebClient webClient = getAndSaveWebClient();
@@ -416,7 +420,7 @@ public class RSSamlBasicTests extends SAMLCommonTest {
      * @throws Exception
      */
     //	@Mode(TestMode.LITE)
-    @SkipForRepeat(SkipForRepeat.EE9_FEATURES)
+    @SkipForRepeat({SkipForRepeat.EE9_FEATURES, SkipForRepeat.EE10_FEATURES})
     @Test
     public void RSSamlBasicTests_unprotectedApp() throws Exception {
 

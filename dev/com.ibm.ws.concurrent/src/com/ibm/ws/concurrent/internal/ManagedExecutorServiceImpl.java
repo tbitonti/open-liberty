@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2021 IBM Corporation and others.
+ * Copyright (c) 2012, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -36,8 +38,10 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
+import javax.enterprise.concurrent.ContextService;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.enterprise.concurrent.ManagedTask;
 
@@ -90,6 +94,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
         // control issues since ForkJoinPool doesn't have doPriv calls for getting some properties
         AccessController.doPrivileged(new PrivilegedAction<Void>() {
             @Override
+            @Trivial
             public Void run() {
                 ForkJoinPool.commonPool();
                 return null;
@@ -114,6 +119,15 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
      */
     private static final Map<String, String> JAVAX_SUSPEND_TRAN = Collections.singletonMap("javax.enterprise.concurrent.TRANSACTION", "SUSPEND");
 
+    /**
+     * Execution properties that specify to suspend the current transaction.
+     */
+    private static final Map<String, String> XPROPS_SUSPEND_TRAN = new TreeMap<String, String>();
+    static {
+        XPROPS_SUSPEND_TRAN.putAll(JAKARTA_SUSPEND_TRAN);
+        XPROPS_SUSPEND_TRAN.putAll(JAVAX_SUSPEND_TRAN);
+    }
+
     private final boolean allowLifeCycleMethods;
 
     /**
@@ -124,22 +138,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
     /**
      * Collects common dependencies, including the ConcurrencyExtensionProvider, if any is available.
      */
-    private ConcurrencyService concurrencySvc;
-
-    /**
-     * Privileged action to lazily obtain the context service. Available only on the OSGi code path.
-     */
-    private final PrivilegedAction<WSContextService> contextSvcAccessor = new PrivilegedAction<WSContextService>() {
-        @Override
-        @Trivial
-        public WSContextService run() {
-            try {
-                return contextSvcRef.getServiceWithException();
-            } catch (IllegalStateException x) {
-                throw new RejectedExecutionException(x);
-            }
-        }
-    };
+    ConcurrencyService concurrencySvc;
 
     /**
      * Reference to the context service for this managed executor service. Available only on the OSGi code path.
@@ -172,15 +171,17 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
     private final AtomicReference<String> jndiNameRef = new AtomicReference<String>();
 
     /**
-     * Reference to the executor that runs tasks according to the long running concurrency policy for this managed executor.
-     * Null if longRunningPolicy is not configured, in which case the executor for the normal concurrency policy should be used instead.
+     * ConcurrencyPolicy and PolicyExecutor for long running tasks.
+     * Null if longRunningPolicy is not configured, in which case the executor for
+     * the normal concurrency policy should be used instead.
      */
-    final AtomicReference<PolicyExecutor> longRunningPolicyExecutorRef = new AtomicReference<PolicyExecutor>();
+    private final AtomicReference<PolicyAndExecutor> longRunningPolicyAndExecutorRef = //
+                    new AtomicReference<>();
 
     /**
      * Available only on the MicroProfile code path (CDI injection or ManagedExecutorBuilder).
      */
-    private final WSContextService mpContextService;
+    private final ContextServiceImpl mpContextService;
 
     /**
      * Reference to the name of this managed executor service.
@@ -189,20 +190,18 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
     final AtomicReference<String> name = new AtomicReference<String>();
 
     /**
-     * Executor that runs tasks against the general concurrency policy for this managed executor.
+     * ConcurrencyPolicy and PolicyExecutor for normal tasks.
+     * It can also be used for long running tasks if longRunningPolicy is
+     * not configured.
      */
-    volatile PolicyExecutor policyExecutor;
+    private final AtomicReference<PolicyAndExecutor> normalPolicyAndExecutorRef = //
+                    new AtomicReference<>();
 
     /**
-     * Privileged action to lazily obtain the transaction context provider.
+     * The service.pid of the managed executor service config.
+     * Null if created by a MicroProfile builder or not activated yet.
      */
-    private final PrivilegedAction<ThreadContextProvider> tranContextProviderAccessor = new PrivilegedAction<ThreadContextProvider>() {
-        @Override
-        @Trivial
-        public ThreadContextProvider run() {
-            return tranContextProviderRef.getService();
-        }
-    };
+    private String servicePid;
 
     /**
      * Reference to the transaction context provider.
@@ -221,16 +220,19 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
     /**
      * Constructor for ManagedExecutorBuilder (from MicroProfile Context Propagation).
      */
-    public ManagedExecutorServiceImpl(String name, int hash, PolicyExecutor policyExecutor, ThreadContextImpl mpThreadContext,
+    public ManagedExecutorServiceImpl(String name, int hash, int eeVersion,
+                                      PolicyExecutor policyExecutor, ContextServiceImpl mpThreadContext,
                                       AtomicServiceReference<com.ibm.wsspi.threadcontext.ThreadContextProvider> tranContextProviderRef) {
         this.name.set(name);
         this.hash = hash;
-        this.policyExecutor = policyExecutor;
-        this.longRunningPolicyExecutorRef.set(policyExecutor);
+        this.eeVersion = eeVersion;
+        PolicyAndExecutor shared = new PolicyAndExecutor(null, policyExecutor);
+        this.longRunningPolicyAndExecutorRef.set(shared);
+        this.normalPolicyAndExecutorRef.set(shared);
         this.mpContextService = mpThreadContext;
         this.tranContextProviderRef = tranContextProviderRef;
         allowLifeCycleMethods = true;
-        mpThreadContext.managedExecutor = this;
+        mpThreadContext.managedExecutorRef.set(this);
     }
 
     /**
@@ -241,6 +243,8 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
     protected void activate(ComponentContext context, Map<String, Object> properties) {
         contextSvcRef.activate(context);
         tranContextProviderRef.activate(context);
+
+        servicePid = (String) properties.get("service.pid");
 
         String jndiName = (String) properties.get("jndiName");
         jndiNameRef.set(jndiName);
@@ -291,11 +295,18 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
     @Deactivate
     protected void deactivate(ComponentContext context) {
         // Cancel submitted or running tasks
-        int count = policyExecutor.cancel(getIdentifier(policyExecutor.getIdentifier()), true);
+        int count = 0;
+        PolicyAndExecutor normal = normalPolicyAndExecutorRef.get();
+        if (normal != null && normal.executor != null) {
+            String identifier = getIdentifier(normal.executor.getIdentifier());
+            count = normal.executor.cancel(identifier, true);
+        }
 
-        PolicyExecutor longRunningExecutor = longRunningPolicyExecutorRef.get();
-        if (longRunningExecutor != null)
-            count += longRunningExecutor.cancel(getIdentifier(longRunningExecutor.getIdentifier()), true);
+        PolicyAndExecutor longRunning = longRunningPolicyAndExecutorRef.get();
+        if (longRunning != null && longRunning.executor != null) {
+            String identifier = getIdentifier(longRunning.executor.getIdentifier());
+            count += longRunning.executor.cancel(identifier, true);
+        }
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
             Tr.debug(this, tc, count + " submitted tasks canceled");
@@ -311,6 +322,40 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
             return getNormalPolicyExecutor().awaitTermination(timeout, unit);
         else // Section 3.1.6.1 of the Concurrency Utilities spec requires IllegalStateException
             throw new IllegalStateException(new UnsupportedOperationException("awaitTermination"));
+    }
+
+    @Override
+    public ThreadContextDescriptor captureThreadContext(Map<String, String> props) {
+        ContextServiceImpl contextSvc;
+        if (mpContextService == null)
+            contextSvc = (ContextServiceImpl) contextSvcRef.getServiceWithException();
+        else
+            contextSvc = mpContextService;
+
+        if (props == null)
+            props = contextSvc.execProps.isEmpty() ? XPROPS_SUSPEND_TRAN : contextSvc.execProps;
+
+        @SuppressWarnings("unchecked")
+        ThreadContextDescriptor threadContext = contextSvc.captureThreadContext(props);
+        return threadContext;
+    }
+
+    @Trivial
+    public void close() {
+        if (allowLifeCycleMethods) {
+            PolicyExecutor executor = getNormalPolicyExecutor();
+            if (executor instanceof AutoCloseable)
+                try {
+                    ((AutoCloseable) executor).close();
+                } catch (Exception e) {
+                    // Shouldn't happen -- The Java 19 executor's close method does not throw an exception, but AutoCloseable does.
+                    throw new IllegalStateException(e);
+                }
+            else // Java 18 or earlier
+                throw new UnsupportedOperationException("close");
+        } else { // Section 3.1.6.1 of the Concurrency Utilities spec requires IllegalStateException
+            throw new IllegalStateException(new UnsupportedOperationException("close"));
+        }
     }
 
     @Override
@@ -341,7 +386,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
      */
     @Override
     public <T> CompletionStage<T> copy(CompletionStage<T> stage) {
-        if (mpContextService == null || !MPContextPropagationVersion.atLeast(MPContextPropagationVersion.V1_1))
+        if (!MPContextPropagationVersion.atLeast(MPContextPropagationVersion.V1_1))
             throw new UnsupportedOperationException();
 
         final CompletableFuture<T> copy = ManagedCompletableFuture.JAVA8 //
@@ -383,7 +428,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
                 task = a.getAction();
                 taskUpdates = Arrays.asList(task);
             } else {
-                contextDescriptor = getContextService().captureThreadContext(getExecutionProperties(task));
+                contextDescriptor = captureThreadContext(getExecutionProperties(task));
             }
 
             callbacks[0] = new TaskLifeCycleCallback(this, contextDescriptor);
@@ -402,8 +447,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
                     Map<String, String> execProps = getExecutionProperties(task);
                     TaskLifeCycleCallback callback = execPropsToCallback.get(execProps);
                     if (callback == null) {
-                        contextSvc = contextSvc == null ? getContextService() : contextSvc;
-                        execPropsToCallback.put(execProps, callback = new TaskLifeCycleCallback(this, contextSvc.captureThreadContext(execProps)));
+                        execPropsToCallback.put(execProps, callback = new TaskLifeCycleCallback(this, captureThreadContext(execProps)));
                     }
                     callbacks[t++] = callback;
                 }
@@ -442,9 +486,11 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
         return null;
     }
 
-    @Override
-    public WSContextService getContextService() {
-        return mpContextService == null ? AccessController.doPrivileged(contextSvcAccessor) : mpContextService;
+    // Concurrency 3.0 / Jakarta EE 10
+    public ContextService getContextService() {
+        return mpContextService == null //
+                        ? ((ContextServiceImpl) contextSvcRef.getServiceWithException()).forManagedExecutor(this, servicePid) //
+                        : mpContextService;
     }
 
     @Override
@@ -452,16 +498,6 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
         Set<String> members = new HashSet<String>(applications);
         applications.removeAll(members);
         return members;
-    }
-
-    @Override
-    public PolicyExecutor getLongRunningPolicyExecutor() {
-        return longRunningPolicyExecutorRef.get();
-    }
-
-    @Override
-    public PolicyExecutor getNormalPolicyExecutor() {
-        return policyExecutor;
     }
 
     /** {@inheritDoc} */
@@ -482,21 +518,36 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
             throw new NullPointerException(Tr.formatMessage(tc, "CWWKC1111.task.invalid", (Object) null));
 
         Map<String, String> execProps = task instanceof ManagedTask ? ((ManagedTask) task).getExecutionProperties() : null;
-        if (execProps == null)
-            execProps = defaultExecutionProperties.get();
-        else {
-            execProps = new TreeMap<String, String>(execProps);
-            String tranPropKey;
-            String tranProp = execProps.remove(tranPropKey = "jakarta.enterprise.concurrent.TRANSACTION");
-            if (tranProp == null)
-                tranProp = execProps.remove(tranPropKey = "javax.enterprise.concurrent.TRANSACTION");
-            if (tranProp != null && !"SUSPEND".equals(tranProp)) // USE_TRANSACTION_OF_EXECUTION_THREAD not valid for managed tasks
-                throw new RejectedExecutionException(Tr.formatMessage(tc, "CWWKC1130.xprop.value.invalid", name, tranPropKey, tranProp));
-            if (!execProps.containsKey(WSContextService.DEFAULT_CONTEXT))
+
+        ServiceReference<?> ref = contextSvcRef.getReference();
+        if (ref == null || "file".equals(ref.getProperty("config.source"))) {
+            if (execProps == null)
+                execProps = defaultExecutionProperties.get();
+            else {
+                execProps = new TreeMap<String, String>(execProps);
+                String tranPropKey;
+                String tranProp = execProps.remove(tranPropKey = "jakarta.enterprise.concurrent.TRANSACTION");
+                if (tranProp == null)
+                    tranProp = execProps.remove(tranPropKey = "javax.enterprise.concurrent.TRANSACTION");
+                if (tranProp != null && !"SUSPEND".equals(tranProp)) // USE_TRANSACTION_OF_EXECUTION_THREAD not valid for managed tasks
+                    throw new RejectedExecutionException(Tr.formatMessage(tc, "CWWKC1130.xprop.value.invalid", name, tranPropKey, tranProp));
+                if (!execProps.containsKey(WSContextService.DEFAULT_CONTEXT))
+                    execProps.put(WSContextService.DEFAULT_CONTEXT, WSContextService.UNCONFIGURED_CONTEXT_TYPES);
+                if (!execProps.containsKey(WSContextService.TASK_OWNER))
+                    execProps.put(WSContextService.TASK_OWNER, name.get());
+            }
+        } else { // ContextServiceDefinition is used
+            if (execProps != null) {
+                execProps = new TreeMap<String, String>(execProps);
                 execProps.put(WSContextService.DEFAULT_CONTEXT, WSContextService.UNCONFIGURED_CONTEXT_TYPES);
-            if (!execProps.containsKey(WSContextService.TASK_OWNER))
-                execProps.put(WSContextService.TASK_OWNER, name.get());
+                String contextToSkip = (String) ref.getProperty("context.unchanged");
+                if (contextToSkip != null)
+                    execProps.put(WSContextService.SKIP_CONTEXT_PROVIDERS, contextToSkip);
+                if (!execProps.containsKey(WSContextService.TASK_OWNER))
+                    execProps.put(WSContextService.TASK_OWNER, name.get());
+            }
         }
+
         return execProps;
     }
 
@@ -517,6 +568,64 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
     }
 
     /**
+     * If a long-running ConcurrencyPolicy is configured, obtains its
+     * long-running PolicyExecutor, otherwise null.
+     *
+     * @return PolicyExecutor for long-running tasks, or null.
+     */
+    @Override
+    @Trivial
+    public PolicyExecutor getLongRunningPolicyExecutor() {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.entry(this, tc, "getLongRunningPolicyExecutor",
+                     longRunningPolicyAndExecutorRef);
+
+        PolicyAndExecutor longRunning;
+        while ((longRunning = longRunningPolicyAndExecutorRef.get()) != null &&
+               longRunning.executor == null &&
+               longRunning.policy != null &&
+               !longRunningPolicyAndExecutorRef.compareAndSet(longRunning, longRunning = //
+                               new PolicyAndExecutor( //
+                                               longRunning.policy, //
+                                               longRunning.policy.getExecutor())));
+
+        PolicyExecutor executor = longRunning == null ? null : longRunning.executor;
+
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.exit(this, tc, "getLongRunningPolicyExecutor", executor);
+        return executor;
+    }
+
+    /**
+     * Obtains the PolicyExecutor for normal tasks.
+     *
+     * @return the PolicyExecutor for normal tasks.
+     */
+    @Override
+    @Trivial
+    public PolicyExecutor getNormalPolicyExecutor() {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.entry(this, tc, "getNormalPolicyExecutor",
+                     normalPolicyAndExecutorRef);
+
+        PolicyAndExecutor normal;
+        while ((normal = normalPolicyAndExecutorRef.get()) != null &&
+               normal.executor == null &&
+               normal.policy != null &&
+               !normalPolicyAndExecutorRef.compareAndSet(normal, normal = //
+                               new PolicyAndExecutor( //
+                                               normal.policy, //
+                                               normal.policy.getExecutor())));
+
+        if (normal == null) // Impossible due to declarative services dependency
+            throw new IllegalStateException();
+
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled())
+            Tr.exit(this, tc, "getNormalPolicyExecutor", normal.executor);
+        return normal.executor;
+    }
+
+    /**
      * This method was added to MicroProfile Context Propagation after v1.0.
      *
      * @return the backing instance of MicroProfile ThreadContext.
@@ -526,7 +635,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
         if (mpContextService == null || !MPContextPropagationVersion.atLeast(MPContextPropagationVersion.V1_1))
             throw new UnsupportedOperationException();
         else
-            return (org.eclipse.microprofile.context.ThreadContext) mpContextService;
+            return mpContextService;
     }
 
     @Override
@@ -543,8 +652,11 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
         tasks = entry.getKey();
         TaskLifeCycleCallback[] callbacks = entry.getValue();
 
-        // Policy executor can optimize the last task in the list to run on the current thread if we submit under the same executor,
-        PolicyExecutor executor = callbacks.length > 0 ? callbacks[callbacks.length - 1].policyExecutor : policyExecutor;
+        // Policy executor can optimize the last task in the list to
+        // run on the current thread if we submit under the same executor,
+        PolicyExecutor executor = callbacks.length > 0 //
+                        ? callbacks[callbacks.length - 1].policyExecutor //
+                        : getNormalPolicyExecutor();
         return (List) executor.invokeAll(tasks, callbacks);
     }
 
@@ -556,7 +668,9 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
         tasks = entry.getKey();
         TaskLifeCycleCallback[] callbacks = entry.getValue();
 
-        PolicyExecutor executor = callbacks.length > 0 ? callbacks[0].policyExecutor : policyExecutor;
+        PolicyExecutor executor = callbacks.length > 0 //
+                        ? callbacks[0].policyExecutor //
+                        : getNormalPolicyExecutor();
         return (List) executor.invokeAll(tasks, callbacks, timeout, unit);
     }
 
@@ -567,7 +681,9 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
         tasks = entry.getKey();
         TaskLifeCycleCallback[] callbacks = entry.getValue();
 
-        PolicyExecutor executor = callbacks.length > 0 ? callbacks[0].policyExecutor : policyExecutor;
+        PolicyExecutor executor = callbacks.length > 0 //
+                        ? callbacks[0].policyExecutor //
+                        : getNormalPolicyExecutor();
         return executor.invokeAny(tasks, callbacks);
     }
 
@@ -578,7 +694,9 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
         tasks = entry.getKey();
         TaskLifeCycleCallback[] callbacks = entry.getValue();
 
-        PolicyExecutor executor = callbacks.length > 0 ? callbacks[0].policyExecutor : policyExecutor;
+        PolicyExecutor executor = callbacks.length > 0 //
+                        ? callbacks[0].policyExecutor //
+                        : getNormalPolicyExecutor();
         return executor.invokeAny(tasks, callbacks, timeout, unit);
     }
 
@@ -603,6 +721,11 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
     }
 
     @Override
+    public <I, T> CompletableFuture<T> newAsyncMethod(BiFunction<I, CompletableFuture<T>, CompletionStage<T>> invoker, I invocation) {
+        return new AsyncMethod<>(invoker, invocation, this);
+    }
+
+    @Override
     public <U> CompletableFuture<U> newIncompleteFuture() {
         if (ManagedCompletableFuture.JAVA8)
             return new ManagedCompletableFuture<U>(new CompletableFuture<U>(), this, null);
@@ -622,7 +745,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
      */
     @Reference(policy = ReferencePolicy.DYNAMIC, target = "(id=unbound)")
     protected void setConcurrencyPolicy(ConcurrencyPolicy svc) {
-        policyExecutor = svc.getExecutor();
+        normalPolicyAndExecutorRef.set(new PolicyAndExecutor(svc, null));
     }
 
     /**
@@ -641,6 +764,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
      * @param ref reference to the service
      */
     @Reference(policy = ReferencePolicy.DYNAMIC, target = "(id=unbound)")
+    //     protected void setContextService(ServiceReference<ContextServiceImpl> ref) {
     protected void setContextService(ServiceReference<WSContextService> ref) {
         contextSvcRef.setReference(ref);
     }
@@ -673,7 +797,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
      */
     @Reference(policy = ReferencePolicy.DYNAMIC, cardinality = ReferenceCardinality.OPTIONAL, target = "(id=unbound)")
     protected void setLongRunningPolicy(ConcurrencyPolicy svc) {
-        longRunningPolicyExecutorRef.set(svc.getExecutor());
+        longRunningPolicyAndExecutorRef.set(new PolicyAndExecutor(svc, null));
     }
 
     /**
@@ -718,8 +842,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
             contextDescriptor = a.getContextDescriptor();
             task = a.getAction();
         } else {
-            WSContextService contextSvc = getContextService();
-            contextDescriptor = contextSvc.captureThreadContext(execProps);
+            contextDescriptor = captureThreadContext(execProps);
         }
 
         TaskLifeCycleCallback callback = new TaskLifeCycleCallback(this, contextDescriptor);
@@ -738,8 +861,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
             contextDescriptor = a.getContextDescriptor();
             task = a.getAction();
         } else {
-            WSContextService contextSvc = getContextService();
-            contextDescriptor = contextSvc.captureThreadContext(execProps);
+            contextDescriptor = captureThreadContext(execProps);
         }
 
         TaskLifeCycleCallback callback = new TaskLifeCycleCallback(this, contextDescriptor);
@@ -766,7 +888,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
     @SuppressWarnings("deprecation")
     ThreadContext suspendTransaction() {
         Map<String, String> XPROPS_SUSPEND_TRAN = eeVersion < 9 ? JAVAX_SUSPEND_TRAN : JAKARTA_SUSPEND_TRAN;
-        ThreadContextProvider tranContextProvider = AccessController.doPrivileged(tranContextProviderAccessor);
+        ThreadContextProvider tranContextProvider = tranContextProviderRef.getService(); // doPriv is covered by AtomicServiceReference
         ThreadContext suspendedTranSnapshot = tranContextProvider == null ? null : tranContextProvider.captureThreadContext(XPROPS_SUSPEND_TRAN, null);
         if (suspendedTranSnapshot != null)
             suspendedTranSnapshot.taskStarting();
@@ -777,7 +899,7 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
     @Trivial
     public String toString() {
         String s = name.get();
-        return s.startsWith("ManagedExecutor@") ? s : ("ManagedExecutor@" + Integer.toHexString(hashCode()) + ' ' + s);
+        return s != null && s.startsWith("ManagedExecutor@") ? s : ("ManagedExecutor@" + Integer.toHexString(hashCode()) + ' ' + s);
     }
 
     /**
@@ -786,6 +908,9 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
      * @param svc the service
      */
     protected void unsetConcurrencyPolicy(ConcurrencyPolicy svc) {
+        PolicyAndExecutor current, none = new PolicyAndExecutor(null, null);
+        while ((current = normalPolicyAndExecutorRef.get()).policy == svc &&
+               !normalPolicyAndExecutorRef.compareAndSet(current, none));
     }
 
     /**
@@ -824,7 +949,9 @@ public class ManagedExecutorServiceImpl implements ExecutorService, //
      * @param svc the service
      */
     protected void unsetLongRunningPolicy(ConcurrencyPolicy svc) {
-        longRunningPolicyExecutorRef.compareAndSet(svc.getExecutor(), null);
+        PolicyAndExecutor current, none = new PolicyAndExecutor(null, null);
+        while ((current = longRunningPolicyAndExecutorRef.get()).policy == svc &&
+               !longRunningPolicyAndExecutorRef.compareAndSet(current, none));
     }
 
     /**

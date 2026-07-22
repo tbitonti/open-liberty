@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -19,8 +21,12 @@ import com.ibm.websphere.channelfw.EndPointInfo;
 import com.ibm.websphere.channelfw.osgi.CHFWBundle;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
-import com.ibm.ws.sip.stack.transport.sip.SipInboundChannel;
+import com.ibm.ws.sip.stack.transport.*;
+import com.ibm.ws.sip.stack.transport.GenericChainBase.Type;
+import com.ibm.ws.sip.stack.transport.sip.chfw.SipInboundChannel;
 import com.ibm.wsspi.channelfw.ChainEventListener;
+
+import jain.protocol.ip.sip.ListeningPoint;
 
 /**
  * Encapsulation of steps for starting/stopping an http chain in a controlled/predictable
@@ -178,4 +184,15 @@ public class GenericTCPChain extends GenericChain implements ChainEventListener 
         eventProps.put(GenericServiceConstants.ENDPOINT_IS_TLS, isTLS);
     }
 
+
+    @Override
+    public Type getType() {
+        return isTLS ? Type.TLS : Type.TCP;
+    }
+
+
+    @Override
+    public String getTransport() {
+        return ListeningPoint.TRANSPORT_TCP;
+    }
 }

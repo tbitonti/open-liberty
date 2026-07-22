@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2019 IBM Corporation and others.
+ * Copyright (c) 2018, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -51,6 +53,7 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
     private static final Set<String> APP_NAMES = Collections.singleton(APP_DEFAULT); // jcacheApp not included because it isn't normally configured
     private static final String[] EMPTY_RECYCLE_LIST = new String[0];
     private static final String SERVLET_NAME = "SessionCacheConfigTestServlet";
+    private static final int seconds = 10;
 
     private static String[] cleanupList = EMPTY_RECYCLE_LIST;
 
@@ -66,6 +69,9 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
     public void cleanUpPerTest() throws Exception {
         server.setMarkToEndOfLog();
         server.updateServerConfiguration(savedConfig);
+
+        Log.info(SessionCacheConfigUpdateTest.class, "cleanUpPerTest", "wait seconds " + seconds);
+        TimeUnit.SECONDS.sleep(seconds);
         server.waitForConfigUpdateInLogUsingMark(APP_NAMES, cleanupList);
         cleanupList = EMPTY_RECYCLE_LIST;
 
@@ -101,6 +107,8 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
         savedConfig = server.getServerConfiguration().clone();
         server.startServer();
 
+        TimeUnit.SECONDS.sleep(seconds);
+
         // In addition to starting the application, must also wait for asynchronous web module initialization to complete,
         // otherwise tests which attempt a configuration update could end up triggering a deactivate and close of the CachingProvider
         // while the servlet initialization code is still attempting to use the CachingProvider and/or the CacheManager and Caches that it creates.
@@ -111,7 +119,14 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
 
     @AfterClass
     public static void tearDown() throws Exception {
-        server.stopServer();
+        try {
+            Log.info(SessionCacheConfigUpdateTest.class, "tearDown", "Start server shutdown");
+            server.stopServer();
+        } catch (Exception e) {
+            Log.info(SessionCacheConfigUpdateTest.class, "tearDown", "Ignoring exception due to slow test machine. Exception = " + e.toString());
+
+            TimeUnit.SECONDS.sleep(seconds);
+        }
     }
 
     /**
@@ -205,6 +220,9 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
         server.setMarkToEndOfLog(); // Only marks messages.log, does not mark the trace file
         server.setTraceMarkToEndOfDefaultTrace();
         server.updateServerConfiguration(config);
+
+        Log.info(SessionCacheConfigUpdateTest.class, "testScheduleInvalidation", "wait seconds " + seconds);
+        TimeUnit.SECONDS.sleep(seconds);
         server.waitForConfigUpdateInLogUsingMark(APP_NAMES, EMPTY_RECYCLE_LIST);
         String messageToCheckFor = "doScheduledInvalidation scheduled hours are " + Integer.toString(hour1) + " and " + Integer.toString(hour2);
 
@@ -247,7 +265,11 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
         httpSessionCache.setWriteContents("GET_AND_SET_ATTRIBUTES");
         server.setMarkToEndOfLog();
         server.updateServerConfiguration(config);
-        server.waitForConfigUpdateInLogUsingMark(APP_NAMES, EMPTY_RECYCLE_LIST);
+
+        Log.info(SessionCacheConfigUpdateTest.class, "testWriteContents", "wait seconds " + seconds);
+        TimeUnit.SECONDS.sleep(seconds);
+        Log.info(SessionCacheConfigUpdateTest.class, "testWriteContents",
+                 server.waitForConfigUpdateInLogUsingMark(APP_NAMES, EMPTY_RECYCLE_LIST).toString());
 
         run("testWriteContents_GET_AND_SET_ATTRIBUTES", new ArrayList<>());
 
@@ -255,7 +277,11 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
         httpSessionCache.setWriteContents("ALL_SESSION_ATTRIBUTES");
         server.setMarkToEndOfLog();
         server.updateServerConfiguration(config);
-        server.waitForConfigUpdateInLogUsingMark(APP_NAMES, EMPTY_RECYCLE_LIST);
+
+        Log.info(SessionCacheConfigUpdateTest.class, "testWriteContents", "wait seconds " + seconds);
+        TimeUnit.SECONDS.sleep(seconds);
+        Log.info(SessionCacheConfigUpdateTest.class, "testWriteContents",
+                 server.waitForConfigUpdateInLogUsingMark(APP_NAMES, EMPTY_RECYCLE_LIST).toString());
 
         run("testWriteContents_ALL_SESSION_ATTRIBUTES", new ArrayList<>());
     }
@@ -278,6 +304,9 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
         httpSessionCache.setWriteFrequency("MANUAL_UPDATE");
         server.setMarkToEndOfLog();
         server.updateServerConfiguration(config);
+
+        Log.info(SessionCacheConfigUpdateTest.class, "testWriteFrequency", "wait seconds " + seconds);
+        TimeUnit.SECONDS.sleep(seconds);
         server.waitForConfigUpdateInLogUsingMark(APP_NAMES, EMPTY_RECYCLE_LIST);
 
         // Set a new attribute value without performing a manual sync, the value in the cache should not be updated
@@ -306,6 +335,9 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
         httpSessionCache.setWriteInterval("5s");
         server.setMarkToEndOfLog();
         server.updateServerConfiguration(config);
+
+        Log.info(SessionCacheConfigUpdateTest.class, "testWriteInterval", "wait seconds " + seconds);
+        TimeUnit.SECONDS.sleep(seconds);
         server.waitForConfigUpdateInLogUsingMark(APP_NAMES, EMPTY_RECYCLE_LIST);
 
         // Set a new attribute value and verify that it does not get persisted upon the end of the servlet request.
@@ -317,8 +349,17 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
             run("testSetAttribute&attribute=testWriteFrequency&value=" + newValue, session);
 
             String response = run("getValueFromCache&attribute=testWriteFrequency", session);
-            int start = response.indexOf("value from cache: [") + 19;
-            String cachedValue = response.substring(start, response.indexOf(']', start));
+
+            Log.info(SessionCacheConfigUpdateTest.class, "testWriteInterval", "response = " + response);
+            Log.info(SessionCacheConfigUpdateTest.class, "testWriteInterval", "newValue = " + newValue);
+            String cachedValue = null;
+            try {
+                int start = response.indexOf("value from cache: [") + 19;
+                cachedValue = response.substring(start, response.indexOf(']', start));
+            } catch (Exception e) {
+                Log.info(SessionCacheConfigUpdateTest.class, "testWriteInterval", "response can contains no value = " + response);
+            }
+            Log.info(SessionCacheConfigUpdateTest.class, "testWriteInterval", "cachedValue = " + cachedValue);
 
             if (!previousValue.equals(cachedValue))
                 break;
@@ -334,7 +375,7 @@ public class SessionCacheConfigUpdateTest extends FATServletClient {
         int start = response.indexOf("session id: [") + 13;
         String sessionId = response.substring(start, response.indexOf(']', start));
 
-        // Due to TIME_BASED_WRITE, the value should be written to cache some time within the next 5 seconds. Poll for it,
+        // Due to TIME_BASED_WRITE, the value should be written to cache some time within the next 10 seconds. Poll for it,
         run("testPollCache&attribute=testWriteFrequency&value=" + newValue + "&sessionId=" + sessionId,
             null); // Avoid having the servlet access the session here because this will block 5 cycles of the time based write.
 

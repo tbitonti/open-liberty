@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2004, 2010 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -180,7 +182,7 @@ public class SIXAResourceProxy extends BaseSIXAResourceProxy
       
       // Now decide whether to do the end() or not. If this resource was joined to another one then
       // we perform the end now only if there are no more joined resources and if end() has been
-      // called on the master XAResource.
+      // called on the primary XAResource.
       boolean performEndNow = false;
       if (joinedResource != null)
       {

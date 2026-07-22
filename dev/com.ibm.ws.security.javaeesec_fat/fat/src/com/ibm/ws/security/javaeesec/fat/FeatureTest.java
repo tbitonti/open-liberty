@@ -1,22 +1,27 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.security.javaeesec.fat;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletResponse;
 
+import componenttest.custom.junit.runner.RepeatTestFilter;
 import org.apache.http.client.params.ClientPNames;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.BasicHttpParams;
@@ -61,8 +66,8 @@ public class FeatureTest extends JavaEESecTestBase {
     protected static String EJB_WAR2_PATH = "/EjbinWarServletISLdap/";
     protected static String EJB_EAR_NAME = "securityejbinwar2.ear";
     protected static String EJB_EAR_NAME_noPermission = "securityejbinwar3.ear";
-    protected static String EJB_APP_NAME = EJB_EAR_NAME;
-    protected static String EJB_APP_NAME_noPermission = EJB_EAR_NAME_noPermission;
+    protected static String EJB_APP_NAME = "securityejbinwar2";
+    protected static String EJB_APP_NAME_noPermission = "securityejbinwar3";
     protected static String XML_NAME = "ejbprotectedserver.xml";
     protected static String APP_SEC_1_XML_NAME = "ejbprotectedserverAppSecurity1.xml";
     protected static String APP_SEC_2_XML_NAME = "ejbprotectedserverAppSecurity2.xml";
@@ -76,6 +81,8 @@ public class FeatureTest extends JavaEESecTestBase {
 
     protected static LocalLdapServer ldapServer;
 
+    protected static final Map<String, String> FEATURE_MAP = new HashMap<>();
+
     public FeatureTest() {
         super(myServer, logClass);
     }
@@ -88,6 +95,12 @@ public class FeatureTest extends JavaEESecTestBase {
         Log.info(logClass, "setUp()", "-----setting up test");
         ldapServer = new LocalLdapServer();
         ldapServer.start();
+
+        // Add appSecurity-3.0+ mappings
+        FEATURE_MAP.put("NO_MODIFICATION_ACTION","appSecurity-3.0");
+        FEATURE_MAP.put("EE9_FEATURES","appSecurity-4.0");
+        FEATURE_MAP.put("EE10_FEATURES","appSecurity-5.0");
+        FEATURE_MAP.put("EE11_FEATURES","appSecurity-6.0");
 
     }
 
@@ -116,14 +129,21 @@ public class FeatureTest extends JavaEESecTestBase {
         return name.getMethodName();
     }
 
-    protected static void startServer(String config, String appName) throws Exception {
+    protected static void startServer(String config, String... appNames) throws Exception {
+        myServer.removeAllInstalledAppsForValidation(); // We're changing the config, so the list of which apps should be installed goes out the window
         myServer.setServerConfigurationFile(config);
         myServer.startServer(true);
-        myServer.addInstalledAppForValidation(appName);
+        for (String appName : appNames) {
+            myServer.addInstalledAppForValidation(appName);
+        }
         urlBase = "http://" + myServer.getHostname() + ":" + myServer.getHttpDefaultPort();
     }
 
     /**
+     * Repeat Test that applies to all versions of the appSecurity-3.0 onwards
+     *
+     * The Repeat action will modify the supplied server config with the correct versions
+     *
      * Verify the following:
      * <OL>
      * <LI> An ear file that contains two war files.
@@ -139,7 +159,8 @@ public class FeatureTest extends JavaEESecTestBase {
      * </OL>
      */
     @Test
-    public void testEJBAppSecurity30() throws Exception {
+    public void testEJBAppSecurityJakarta() throws Exception {
+        assumeNotWindowsEe9Plus();
         String response;
         String queryString;
         //create app and setup server
@@ -162,26 +183,38 @@ public class FeatureTest extends JavaEESecTestBase {
         WCApplicationHelper.addWarToServerApps(myServer, "dbfat2.war", true, JAR_NAME, false, "web.jar.base", "web.war.db2");
         Log.info(logClass, "setUp()", "-----EAR app created");
 
-        Log.info(logClass, getCurrentTestName(), "-----Accessing Application to test scenarios...");
-        startServer(XML_NAME, EJB_APP_NAME);
+        try {
+            Log.info(logClass, getCurrentTestName(), "-----Accessing Application to test scenarios...");
+            startServer(XML_NAME, EJB_APP_NAME);
 
-        //Test case isUserInRoleLDAPISWar1
-        //Access WAR 1 and check UserInRole, sending user1 which exist in the Annotated LDAP IS.
-        Log.info(logClass, getCurrentTestName(), "-------Running isUserInRoleLDAPISWar1 scenario");
-        queryString = EJB_WAR_PATH + SIMPLE_SERVLET + "?testInstance=ejb03&testMethod=manager";
-        Log.info(logClass, getCurrentTestName(), "-------------Executing BasicAuthCreds");
-        response = executeGetRequestBasicAuthCreds(httpclient, urlBase + queryString, LocalLdapServer.USER1,
-                                                   LocalLdapServer.PASSWORD,
-                                                   HttpServletResponse.SC_OK);
-        Log.info(logClass, getCurrentTestName(), "-------------End of Response");
-        Log.info(logClass, getCurrentTestName(), "-------------Verifying Response");
-        verifyEjbUserResponse(response, Constants.getEJBBeanResponse + Constants.ejb03Bean, Constants.getEjbBeanMethodName + Constants.ejbBeanMethodManager,
-                              Constants.getEjbCallerPrincipal + LocalLdapServer.USER1);
-        Log.info(logClass, getCurrentTestName(), "-------------End of Verification of Response");
-        Log.info(logClass, getCurrentTestName(), "-----Exiting isUserInRoleLDAPISWar1");
+            List<Set<String>> allFeaturesInstalled = myServer.getInstalledFeatures();
+            boolean correctFeature = false;
+            String expectedAppSecurityVersion = FEATURE_MAP.get(RepeatTestFilter.getMostRecentRepeatAction().getID());
+            for(Set<String> features: allFeaturesInstalled){
+                if (features.contains(expectedAppSecurityVersion)){
+                    correctFeature = true;
+                }
+            }
+            assertTrue("Did not find the expected version of appSecurity. Expected: "+ expectedAppSecurityVersion, correctFeature);
 
-        myServer.removeInstalledAppForValidation(EJB_APP_NAME);
-        myServer.stopServer();
+            //Test case isUserInRoleLDAPISWar1
+            //Access WAR 1 and check UserInRole, sending user1 which exist in the Annotated LDAP IS.
+            Log.info(logClass, getCurrentTestName(), "-------Running isUserInRoleLDAPISWar1 scenario");
+            queryString = EJB_WAR_PATH + SIMPLE_SERVLET + "?testInstance=ejb03&testMethod=manager";
+            Log.info(logClass, getCurrentTestName(), "-------------Executing BasicAuthCreds");
+            response = executeGetRequestBasicAuthCreds(httpclient, urlBase + queryString, LocalLdapServer.USER1,
+                                                       LocalLdapServer.PASSWORD,
+                                                       HttpServletResponse.SC_OK);
+            Log.info(logClass, getCurrentTestName(), "-------------End of Response");
+            Log.info(logClass, getCurrentTestName(), "-------------Verifying Response");
+            verifyEjbUserResponse(response, Constants.getEJBBeanResponse + Constants.ejb03Bean, Constants.getEjbBeanMethodName + Constants.ejbBeanMethodManager,
+                                  Constants.getEjbCallerPrincipal + LocalLdapServer.USER1);
+            Log.info(logClass, getCurrentTestName(), "-------------End of Verification of Response");
+            Log.info(logClass, getCurrentTestName(), "-----Exiting isUserInRoleLDAPISWar1");
+        } finally {
+            myServer.stopServer();
+        }
+
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 
@@ -201,7 +234,7 @@ public class FeatureTest extends JavaEESecTestBase {
      * <LI>
      * </OL>
      */
-    @SkipForRepeat(SkipForRepeat.EE9_FEATURES) // EE9 can't run with appSecurity-2.0
+    @SkipForRepeat({SkipForRepeat.EE9_FEATURES,SkipForRepeat.EE10_FEATURES,SkipForRepeat.EE11_FEATURES}) // EE9, EE10 and EE11 can't run with appSecurity-2.0
     @Test
     @ExpectedFFDC(value = { "java.lang.NoClassDefFoundError", "com.ibm.ws.container.service.state.StateChangeException" })
     public void testEJBAppSecurity20() throws Exception {
@@ -225,15 +258,18 @@ public class FeatureTest extends JavaEESecTestBase {
         WCApplicationHelper.addWarToServerApps(myServer, "dbfat2.war", true, JAR_NAME, false, "web.jar.base", "web.war.db2");
         Log.info(logClass, "setUp()", "-----EAR app created");
 
-        Log.info(logClass, getCurrentTestName(), "-----Accessing Application to test scenarios...");
-        startServer(APP_SEC_2_XML_NAME, EJB_APP_NAME_noPermission);
-        assertNotNull("Expected class not found error",
-                      myServer.waitForStringInLog("CWNEN00\\d\\dW: Resource annotations on the methods of the web.ejb.jar.bean..*"));
-        assertNotNull("Application was able not able to start",
-                      myServer.waitForStringInLog("CWWKZ0002E: An exception occurred while starting the application securityejbinwar3."));
+        try {
+            Log.info(logClass, getCurrentTestName(), "-----Accessing Application to test scenarios...");
+            startServer(APP_SEC_2_XML_NAME);
+            assertNotNull("Expected class not found error",
+                          myServer.waitForStringInLog("CWNEN00\\d\\dW: Resource annotations on the methods of the web.ejb.jar.bean..*"));
+            assertNotNull("Application was able not able to start",
+                          myServer.waitForStringInLog("CWWKZ0002E: An exception occurred while starting the application securityejbinwar3."));
 
-        myServer.removeInstalledAppForValidation(EJB_APP_NAME_noPermission);
-        myServer.stopServer("CWNEN0049W:*", "CWNEN0050W:*", "CWWKZ0106E:*", "CWWKZ0002E:*");
+        } finally {
+            myServer.stopServer("CWNEN0049W:*", "CWNEN0050W:*", "CWWKZ0106E:*", "CWWKZ0002E:*");
+        }
+
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 
@@ -253,7 +289,7 @@ public class FeatureTest extends JavaEESecTestBase {
      * <LI>
      * </OL>
      */
-    @SkipForRepeat(SkipForRepeat.EE9_FEATURES) // EE9 can't run with appSecurity-1.0
+    @SkipForRepeat({SkipForRepeat.EE9_FEATURES,SkipForRepeat.EE10_FEATURES,SkipForRepeat.EE11_FEATURES}) // EE9, EE10 and EE11 can't run with appSecurity-1.0
     @Test
     @ExpectedFFDC(value = { "java.lang.NoClassDefFoundError", "com.ibm.ws.container.service.state.StateChangeException" })
     public void testEJBAppSecurity10() throws Exception {
@@ -277,25 +313,27 @@ public class FeatureTest extends JavaEESecTestBase {
         WCApplicationHelper.addWarToServerApps(myServer, "dbfat2.war", true, JAR_NAME, false, "web.jar.base", "web.war.db2");
         Log.info(logClass, "setUp()", "-----EAR app created");
 
-        Log.info(logClass, getCurrentTestName(), "-----Accessing Application to test scenarios...");
-        startServer(APP_SEC_1_XML_NAME, EJB_APP_NAME_noPermission);
-        assertNotNull("Expected class not found error",
-                      myServer.waitForStringInLog("CWNEN00\\d\\dW: Resource annotations on the methods of the web.ejb.jar.bean..*"));
-        assertNotNull("Application was able not able to start",
-                      myServer.waitForStringInLog("CWWKZ0002E: An exception occurred while starting the application securityejbinwar3."));
+        try {
+            Log.info(logClass, getCurrentTestName(), "-----Accessing Application to test scenarios...");
+            startServer(APP_SEC_1_XML_NAME);
+            assertNotNull("Expected class not found error",
+                          myServer.waitForStringInLog("CWNEN00\\d\\dW: Resource annotations on the methods of the web.ejb.jar.bean..*"));
+            assertNotNull("Application was able not able to start",
+                          myServer.waitForStringInLog("CWWKZ0002E: An exception occurred while starting the application securityejbinwar3."));
+        } finally {
+            myServer.stopServer("CWNEN0049W:*", "CWNEN0050W:*", "CWWKZ0106E:*", "CWWKZ0002E:*");
+        }
 
-        myServer.removeInstalledAppForValidation(EJB_APP_NAME_noPermission);
-        myServer.stopServer("CWNEN0049W:*", "CWNEN0050W:*", "CWWKZ0106E:*", "CWWKZ0002E:*");
         Log.info(logClass, getCurrentTestName(), "-----Exiting " + getCurrentTestName());
     }
 
     /* ------------------------ support methods ---------------------- */
     protected String getViewState(String form) {
-        Pattern p = Pattern.compile("[\\s\\S]*value=\"(.+)\".*autocomplete[\\s\\S]*");
+        Pattern p = Pattern.compile("[\\s\\S]*id=.*(javax.faces.ViewState|jakarta.faces.ViewState).*value=\"(.*?)\"[\\s\\S]*");
         Matcher m = p.matcher(form);
         String viewState = null;
         if (m.matches()) {
-            viewState = m.group(1);
+            viewState = m.group(2);
         }
         return viewState;
     }

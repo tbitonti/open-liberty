@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020, 2021 IBM Corporation and others.
+ * Copyright (c) 2020, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,21 +14,21 @@
 apply plugin: 'war'
 
 // We aren't making a war for the entire project
-war { enabled false }
+war { enabled = false }
 
 
 repositories {
   if (isUsingArtifactory) {
     maven {
       credentials {
-        username userProps.getProperty("artifactory.download.user")
-        password userProps.getProperty("artifactory.download.token")
+        username = userProps.getProperty("artifactory.download.user")
+        password = userProps.getProperty("artifactory.download.token")
       }
-      url ("https://" + gradle.userProps.getProperty("artifactory.download.server") + "/artifactory/wasliberty-maven-remote")
+      url = "https://" + gradle.userProps.getProperty("artifactory.download.server") + "/artifactory/wasliberty-maven-remote"
     }
   } else {
     mavenCentral()
-    maven { url "https://build.shibboleth.net/nexus/content/repositories/releases" }
+    maven { url = "https://build.shibboleth.net/nexus/content/repositories/releases" }
   }
 }
 
@@ -73,14 +75,11 @@ dependencies {
      */
     collectedDeps project(':io.openliberty.org.apache.commons.codec'),
                   project(':io.openliberty.org.apache.commons.logging'),
-                  'com.unboundid:unboundid-ldapsdk:5.1.0',
 //                  'jdom:1.1.2',                                     NOT USED IN OPEN LIBERTY YET
                   project(':com.ibm.json4j'),
-                  project(':com.ibm.ws.com.unboundid'),
                   project(':com.ibm.ws.com.meterware.httpunit.1.7'),
 //                  project(':com.ibm.ws.org.apache.commons.lang'),   NOT IN OPEN LIBERTY
-                  project(':com.ibm.ws.org.joda.time'),
-                  project(':com.ibm.ws.org.opensaml.xmltooling')
+                  project(':com.ibm.ws.org.joda.time')
 }
 
 /*
@@ -108,8 +107,8 @@ def fixed410Files = "${projectDir}/shibboleth-idp/4.1.0/fixedFiles"
  ******************************************************************
  ******************************************************************/
 task SAML_Demo_WAR(type: War, dependsOn: classes) {
-  destinationDir file(appBuildDir)
-  archiveName "SAML_Demo.war"
+  destinationDirectory = file(appBuildDir)
+  archiveFileName = "SAML_Demo.war"
   classpath = classpath.filter{ false }
 
   manifest {
@@ -136,8 +135,8 @@ task SAML_Demo_WAR(type: War, dependsOn: classes) {
 task SAML_Demo_EAR(type: Jar) {
   dependsOn 'SAML_Demo_WAR'
 
-  destinationDir file(appBuildDir)
-  archiveName "SAML_Demo.ear"
+  destinationDirectory = file(appBuildDir)
+  archiveFileName = "SAML_Demo.ear"
 
   manifest {
     attributes("Class-Path": "")
@@ -160,8 +159,8 @@ task SAML_Demo_EAR(type: Jar) {
  ******************************************************************
  ******************************************************************/
 task samlclient_WAR(type: War, dependsOn: classes) {
-  destinationDir file(appBuildDir)
-  archiveName "samlclient.war"
+  destinationDirectory = file(appBuildDir)
+  archiveFileName = "samlclient.war"
   classpath = classpath.filter{ false }
   
   manifest {
@@ -188,8 +187,8 @@ task samlclient_WAR(type: War, dependsOn: classes) {
  ******************************************************************
  ******************************************************************/
 task httpServletRequestApp_WAR(type: War, dependsOn: classes) {
-  destinationDir file(appBuildDir)
-  archiveName "httpServletRequestApp.war"
+  destinationDirectory = file(appBuildDir)
+  archiveFileName = "httpServletRequestApp.war"
   classpath = classpath.filter{ false }
   
   manifest {
@@ -246,7 +245,7 @@ task copy_41x_IDP {
 task updateIdp_3_x_WAR(type: Zip, dependsOn: copy_331_IDP) {
   def originalWar = new File(downloadDir, 'idp-war-3.3.1.war')
   
-  destinationDir file(appBuildDir)
+  destinationDirectory = file(appBuildDir)
   archiveFileName = 'idp-war-3.3.1.war'
 
   from (zipTree(originalWar))
@@ -262,7 +261,7 @@ task updateIdp_3_x_WAR(type: Zip, dependsOn: copy_331_IDP) {
 task updateIdp_4_0_x_WAR(type: Zip, dependsOn: copy_40x_IDP) {
   def originalWar = new File(downloadDir, 'idp-war-4.0.1.war')
   
-  destinationDir file(appBuildDir)
+  destinationDirectory = file(appBuildDir)
   archiveFileName = 'idp-war-4.0.1.war'
 
   from (zipTree(originalWar)) 
@@ -284,15 +283,18 @@ task updateIdp_4_0_x_WAR(type: Zip, dependsOn: copy_40x_IDP) {
 
 task updateIdp_4_1_x_WAR(type: Zip, dependsOn: copy_41x_IDP) {
 
-  println "In updateIdp_4_1_x_WAR"
-  
+  doLast {
+    println "In updateIdp_4_1_x_WAR"
+  }
+
   def originalWar = new File(downloadDir, 'idp-war-4.1.0.war')
   
-  destinationDir file(appBuildDir)
+  destinationDirectory = file(appBuildDir)
   archiveFileName = 'idp-war-4.1.0.war'
 
   from (zipTree(originalWar)) {
   		exclude("WEB-INF/web.xml") // fix <auth-constraint/> - looks likr 4.1 isn't fixed yet
+  		exclude("WEB-INF/jsp/status.jsp")
   }
  
   from (downloadDir) {
@@ -304,10 +306,16 @@ task updateIdp_4_1_x_WAR(type: Zip, dependsOn: copy_41x_IDP) {
     include 'rhino-1.7.13.jar', 'idp-plugin-scripting-api-1.0.0.jar', 'idp-plugin-rhino-impl-1.0.0.jar'
     into 'WEB-INF/lib'
   }
-   from (fixed410Files) {
+  from (fixed410Files) {
     include 'web.xml'
     into 'WEB-INF'
   }
+  // update the status.jsp to work around "'<>' operator is not allowed for source level below 1.7" failure
+  from (fixed410Files) {
+    include 'jsp/status.jsp'
+    into 'WEB-INF'
+  }
+  
 }
 
 assemble.dependsOn SAML_Demo_EAR
@@ -322,23 +330,21 @@ assemble.dependsOn httpServletRequestApp_WAR
  * Configure any other additional artifacts.
  */
 assemble.doLast {
-  /* 
+  /*
    * Collect all the required jars and put them in one uniform place
    * so that we don't need to keep adding them in each external
    * project.
    */
-  copy { 
+  copy {
     from configurations.collectedDeps
     into "${buildDir}/collectedJars"
   }
-
 
   /*
    * Copy the Shibboleth configuration to the build directory
    */
   copy {
-  	from new File(projectDir, 'shibboleth-idp')
+    from new File(projectDir, 'shibboleth-idp')
     into new File(buildDir, 'shibboleth-idp')
   }
-
 }

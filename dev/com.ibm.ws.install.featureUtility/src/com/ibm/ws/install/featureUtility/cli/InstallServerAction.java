@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,13 +13,17 @@
 package com.ibm.ws.install.featureUtility.cli;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -29,7 +35,9 @@ import com.ibm.ws.install.featureUtility.FeatureUtility;
 import com.ibm.ws.install.featureUtility.FeatureUtilityExecutor;
 import com.ibm.ws.install.internal.InstallLogUtils;
 import com.ibm.ws.install.internal.InstallUtils;
+import com.ibm.ws.install.internal.InstallUtils.FeaturesPlatforms;
 import com.ibm.ws.install.internal.ProgressBar;
+import com.ibm.ws.install.internal.InstallLogUtils.Messages;
 import com.ibm.ws.install.internal.asset.ServerAsset;
 import com.ibm.ws.kernel.boot.ReturnCode;
 import com.ibm.ws.kernel.boot.cmdline.ActionHandler;
@@ -38,9 +46,11 @@ import com.ibm.ws.kernel.boot.cmdline.ExitCode;
 import com.ibm.ws.kernel.feature.internal.cmdline.ArgumentsImpl;
 import com.ibm.ws.kernel.provisioning.BundleRepositoryRegistry;
 import com.ibm.ws.product.utility.CommandConsole;
+import com.ibm.ws.product.utility.CommandConstants;
 import com.ibm.ws.product.utility.CommandTaskRegistry;
 import com.ibm.ws.product.utility.ExecutionContext;
 import com.ibm.ws.product.utility.extension.ValidateCommandTask;
+import com.ibm.ws.kernel.boot.cmdline.Utils;
 
 public class InstallServerAction implements ActionHandler {
 
@@ -50,11 +60,16 @@ public class InstallServerAction implements ActionHandler {
         private Logger logger;
         private List<String> argList;
         private List<String> featureNames;
+        private List<String> platformNames;
         private String fromDir;
         private String toDir;
+        private String featuresBom;
+        private List<String> additionalJsons;
         private Boolean noCache;
         private Boolean acceptLicense;
         private ProgressBar progressBar;
+        private Map<String, String> featureToExt;
+	private String verify;
 
 
         @Override public ExitCode handleTask(PrintStream stdout, PrintStream stderr, Arguments args) {
@@ -79,6 +94,7 @@ public class InstallServerAction implements ActionHandler {
                 this.logger = InstallLogUtils.getInstallLogger();
                 this.installKernel = InstallKernelFactory.getInteractiveInstance();
                 this.featureNames = new ArrayList<String>();
+                this.platformNames = new ArrayList<String>();
                 this.servers = new HashSet<>();
 
                 this.argList = args.getPositionalArguments();
@@ -87,13 +103,25 @@ public class InstallServerAction implements ActionHandler {
                         return rc;
                 }
 
-                this.noCache = args.getOption("nocache") != null;
-                
+		this.noCache = args.getOption("nocache") != null;
                 this.acceptLicense = args.getOption("acceptlicense") != null;
+                this.featuresBom = args.getOption("featuresbom");
+                this.additionalJsons = new ArrayList<String>();
+		this.verify = args.getOption("verify");
+                try {
+		    if (featuresBom != null && checkValidCoord(featuresBom)) {
+			additionalJsons.add(bomCoordToJsonCoord(featuresBom));
+		    }
+		} catch (InstallException e1) {
+		    logger.log(Level.SEVERE, e1.getMessage(), e1);
+                    return FeatureUtilityExecutor.returnCode(e1.getRc());
+		}
                 
                 this.toDir = args.getOption("to");
 
                 this.progressBar = ProgressBar.getInstance();
+                this.featureToExt = new HashMap<String, String>();
+
 
                 HashMap<String, Double> methodMap = new HashMap<>();
                 // initialize feature utility and install kernel map
@@ -104,7 +132,8 @@ public class InstallServerAction implements ActionHandler {
                 methodMap.put("fetchArtifacts", 10.00);
                 methodMap.put("downloadArtifacts", 25.00);
                 // 10 + 15 = 35 for download artifact
-                methodMap.put("installFeatures", 35.00);
+		methodMap.put("verifyFeatures", 10.00);
+		methodMap.put("installFeatures", 25.00);
                 methodMap.put("cleanUp", 5.00);
 
                 progressBar.setMethodMap(methodMap);
@@ -125,6 +154,26 @@ public class InstallServerAction implements ActionHandler {
                 }
 
         }
+        
+        private String bomCoordToJsonCoord(String bomCoordinate) {
+			String[] coordSplit = bomCoordinate.split(":");
+			String groupId = coordSplit[0];
+			String artifactId = "features";
+			String version = coordSplit[2];
+			return String.format("%s:%s:%s", groupId, artifactId, version);
+		}
+
+
+		private boolean checkValidCoord(String bomCoordinate) throws InstallException {
+        	boolean result = false;
+			if(bomCoordinate.split(":").length == 3) {
+				result = true;
+			} else {
+				throw new InstallException(Messages.INSTALL_KERNEL_MESSAGES.getMessage("ERROR_INVALID_FEATURE_BOM_COORDINATE", featuresBom));
+			}
+			return result;
+		}
+        
         private ReturnCode serverInit(String fileName) throws InstallException, IOException {
 
                 File serverXML = (fileName.toLowerCase().endsWith(InstallUtils.SERVER_XML)) ? new File(fileName)
@@ -171,61 +220,55 @@ public class InstallServerAction implements ActionHandler {
                 Collection<String> featuresToInstall = new HashSet<String>();
 
                 try {
-                        featuresToInstall.addAll(installKernel.getServerFeaturesToInstall(servers, false));
-                        // get original server features now
-
-                        //TODO
-                        //featuresToInstall.addAll(InstallUtils.getAllServerFeatures());
+					// get original server features now
+                    FeaturesPlatforms fp = installKernel.getServerFeaturesAndPlatformsToInstall(servers, false);
+					featuresToInstall.addAll(fp.getFeatures());
+					platformNames.addAll(fp.getPlatforms());
                         logger.fine("all server features: " + featuresToInstall);
                 } catch (InstallException ie) {
                         logger.log(Level.SEVERE, ie.getMessage(), ie);
                         return FeatureUtilityExecutor.returnCode(ie.getRc());
                 } catch (Exception e) {
                         logger.log(Level.SEVERE, e.getMessage(), e);
-                        rc = ReturnCode.RUNTIME_EXCEPTION;
+                        return ReturnCode.RUNTIME_EXCEPTION;
                 }
-                if(featuresToInstall.isEmpty()){
-                        logger.info(InstallLogUtils.Messages.INSTALL_KERNEL_MESSAGES.getMessage("MSG_SERVER_NEW_FEATURES_NOT_REQUIRED"));
-                } else {
-                        logger.log(Level.FINE, "Additional server features required.");
-                        rc = assetInstallInit(featuresToInstall);
-                }
+
+				if (featuresToInstall.isEmpty()) {
+					logger.info(InstallLogUtils.Messages.INSTALL_KERNEL_MESSAGES
+							.getMessage("MSG_SERVER_NEW_FEATURES_NOT_REQUIRED"));
+				} else {
+					rc = assetInstallInit(featuresToInstall);
+				}
 
                 return rc;
         }
 
-
+        
         private ExitCode assetInstallInit(Collection<String> assetIds) {
                 List<String> features = new ArrayList<>();
                 List<String> userFeatures = new ArrayList<>();
                 // find all user features in server.xml
                 for(String asset : assetIds){
-                        if(asset.startsWith("usr:")){
-                                userFeatures.add(asset.substring("usr:".length()));
-                        } else {
-                                features.add(asset);
-                        }
+            		if(asset.contains(":")){
+                		String[] assetSplit = asset.split(":");
+                		featureToExt.put(assetSplit[1], assetSplit[0]);
+                    	featureNames.add(assetSplit[1]);
+                	} else {
+                		featureToExt.put(asset, "");
+                		featureNames.add(asset);
+                	}
                 }
-                if(!userFeatures.isEmpty()){
-                        logger.info(InstallLogUtils.Messages.INSTALL_KERNEL_MESSAGES.getMessage("MSG_USER_FEATURE_SERVER_XML", userFeatures.toString()));
-
-                        // remove any user features before installation.
-                        for(String feature : features){
-                                if(!userFeatures.contains(feature)){
-                                    featureNames.add(feature);
-                                }
-                        }
-                } else {
-                        featureNames.addAll(features);
-                }
-
                 return ReturnCode.OK;
         }
 
         private ExitCode install() {
                 try {
                         featureUtility = new FeatureUtility.FeatureUtilityBuilder().setFromDir(fromDir)
-                                        .setFeaturesToInstall(featureNames).setNoCache(noCache).setlicenseAccepted(acceptLicense).build();
+				.setFeaturesToInstall(featureNames).setNoCache(noCache).setPlatforms(platformNames)
+				.setlicenseAccepted(acceptLicense).setAdditionalJsons(additionalJsons).setVerify(verify)
+				.build();
+                        featureUtility.setFeatureToExt(featureToExt);
+                        featureUtility.setIsInstallServerFeature(true);
                         featureUtility.installFeatures();
                 } catch (InstallException e) {
                         logger.log(Level.SEVERE, e.getMessage(), e);
@@ -343,6 +386,9 @@ public class InstallServerAction implements ActionHandler {
 
                         @Override
                         public <T> T getAttribute(String name, Class<T> cls) {
+						if (name.equals(CommandConstants.WLP_INSTALLATION_LOCATION)) {
+							return (T) Utils.getInstallDir();
+						}
                                 return null;
                         }
 

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,10 +17,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.transaction.xa.XAResource;
 
+import org.apache.cxf.ws.addressing.EndpointReferenceType;
 import org.osgi.service.component.annotations.Component;
 
 import com.ibm.tx.jta.DestroyXAResourceException;
@@ -27,7 +31,6 @@ import com.ibm.tx.jta.XAResourceNotAvailableException;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.jaxws.wsat.Constants;
-import com.ibm.ws.wsat.common.impl.WSATCoordinatorTran;
 import com.ibm.ws.wsat.common.impl.WSATEndpoint;
 import com.ibm.ws.wsat.common.impl.WSATParticipant;
 import com.ibm.ws.wsat.common.impl.WSATTransaction;
@@ -41,21 +44,19 @@ import com.ibm.ws.wsat.service.impl.RegistrationImpl;
 @Component(property = { Constants.WS_FACTORY_PART, "service.vendor=IBM" })
 public class ParticipantFactoryService implements XAResourceFactory {
 
-    private static final String CLASS_NAME = ParticipantFactoryService.class.getName();
     private static final TraceComponent TC = Tr.register(ParticipantFactoryService.class);
+
+    private static Map<String, EndpointReferenceType> recoveryAddressMap = new HashMap<String, EndpointReferenceType>();
 
     private final RegistrationImpl registrationService = RegistrationImpl.getInstance();
 
     /*
      * The xaResInfo objects we pass to and from the transaction manager cannot contain
      * serialized references to classes from our bundle, as the tran mgr will not have
-     * access to them. So we have to perform a 'pre-serialization' to a simple list of
-     * bytes, as a hokey work-around. We use a List<Byte> here, rathter than byte[] to
-     * ensure that if two WSATParticipant instances compare equal, the serialized form
-     * also compares equal.
+     * access to them.
      */
     public static <T extends WSATEndpoint> Serializable serialize(T endpoint) {
-        ArrayList<Byte> data = null;
+        byte[] bb = null;
         try {
             ByteArrayOutputStream bout = new ByteArrayOutputStream();
             ObjectOutputStream out = new ObjectOutputStream(bout);
@@ -63,31 +64,21 @@ public class ParticipantFactoryService implements XAResourceFactory {
             out.flush();
             out.close();
 
-            byte[] bb = bout.toByteArray();
-            data = new ArrayList<Byte>(bb.length);
-            for (byte b : bb) {
-                data.add(b);
-            }
+            bb = bout.toByteArray();
         } catch (Exception e) {
             if (TC.isDebugEnabled()) {
                 Tr.debug(TC, "Serialization problem: {0}", e);
             }
         }
 
-        return data;
+        return bb;
     }
 
     public static <T extends WSATEndpoint> T deserialize(Serializable key) {
         T endpoint = null;
-        if (key instanceof ArrayList<?>) {
+        if (key instanceof byte[]) {
             try {
-                ArrayList<Byte> data = (ArrayList<Byte>) key;
-                byte[] bb = new byte[data.size()];
-                for (int i = 0; i < data.size(); i++) {
-                    bb[i] = data.get(i);
-                }
-
-                ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bb));
+                ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream((byte[]) key));
                 endpoint = (T) in.readObject();
             } catch (Exception e) {
                 if (TC.isDebugEnabled()) {
@@ -105,7 +96,7 @@ public class ParticipantFactoryService implements XAResourceFactory {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.ibm.tx.jta.XAResourceFactory#getXAResource(java.io.Serializable)
      */
     @Override
@@ -113,7 +104,7 @@ public class ParticipantFactoryService implements XAResourceFactory {
         XAResource xaRes = null;
         WSATParticipant part = deserialize(xaResInfo);
         if (part != null) {
-            WSATCoordinatorTran wsatTran = reconstructTran(part);
+            WSATTransaction wsatTran = reconstructTran(part);
             WSATParticipant participant = reconstructParticipant(wsatTran, part);
             xaRes = new ParticipantResource(participant);
         } else {
@@ -125,7 +116,7 @@ public class ParticipantFactoryService implements XAResourceFactory {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.ibm.tx.jta.XAResourceFactory#destroyXAResource(javax.transaction.xa.XAResource)
      */
     @Override
@@ -136,9 +127,9 @@ public class ParticipantFactoryService implements XAResourceFactory {
     }
 
     // Rebuild the WSATTransaction details from the serialized representation
-    private WSATCoordinatorTran reconstructTran(WSATParticipant part) throws XAResourceNotAvailableException {
+    private WSATTransaction reconstructTran(WSATParticipant part) throws XAResourceNotAvailableException {
         String globalId = part.getGlobalId();
-        WSATCoordinatorTran wsatTran = WSATTransaction.getCoordTran(globalId);
+        WSATTransaction wsatTran = WSATTransaction.getCoordTran(globalId);
         if (wsatTran == null) {
             if (TC.isDebugEnabled()) {
                 Tr.debug(TC, "Cannot locate coordinator transaction, recovering state: {0}", globalId);
@@ -155,7 +146,7 @@ public class ParticipantFactoryService implements XAResourceFactory {
     }
 
     // Rebuild the WSATParticipant details from a serialized representation.
-    private WSATParticipant reconstructParticipant(WSATCoordinatorTran wsatTran, WSATParticipant part) throws XAResourceNotAvailableException {
+    private WSATParticipant reconstructParticipant(WSATTransaction wsatTran, WSATParticipant part) throws XAResourceNotAvailableException {
         WSATParticipant participant = wsatTran.getParticipant(part.getId());
         if (participant == null) {
             if (TC.isDebugEnabled()) {
@@ -165,5 +156,18 @@ public class ParticipantFactoryService implements XAResourceFactory {
         }
 
         return participant;
+    }
+
+    /**
+     * @param globalId
+     * @param id
+     * @return
+     */
+    public static EndpointReferenceType getRecoveryAddress(String globalId, String id) {
+        return recoveryAddressMap.remove(globalId + "/" + id);
+    }
+
+    public static void putRecoveryAddress(String globalId, String id, EndpointReferenceType recoveryAddress) {
+        recoveryAddressMap.put(globalId + "/" + id, recoveryAddress);
     }
 }

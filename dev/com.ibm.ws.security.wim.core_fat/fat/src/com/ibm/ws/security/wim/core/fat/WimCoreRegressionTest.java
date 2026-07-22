@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -77,7 +79,8 @@ public class WimCoreRegressionTest {
     public static void teardownClass() throws Exception {
         try {
             if (libertyServer != null) {
-                libertyServer.stopServer();
+                libertyServer.stopServer("CWWKE1102W");
+                //added "CWWKE1102W" to ignore server quiesce timeouts due to slow test machines
             }
         } finally {
             try {
@@ -97,6 +100,12 @@ public class WimCoreRegressionTest {
      * @throws Exception If there was an issue setting up the Liberty server.
      */
     private static void setupLibertyServer() throws Exception {
+
+        /*
+         * Transform any applications into EE9 when necessary.
+         */
+        FATSuite.transformApps(libertyServer, "dropins/userRegistry.war");
+
         /*
          * Add LDAP variables to bootstrap properties file
          */

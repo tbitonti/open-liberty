@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2016, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -78,8 +80,15 @@ public class FieldTestServlet extends AbstractBeanServlet {
         test("DISCOVERED_KEY", "DISCOVERED_VALUE");
     }
 
+    // TODO: The intended behaviour for this is not defined in the MP Config spec. It may be covered by the answer to this: https://github.com/eclipse/microprofile-config/issues/608
     @Test
-    @SkipForRepeat(MicroProfileActions.MP40_ID) // TODO: The intended behaviour for this is not defined in the MP Config spec. It may be covered by the answer to this: https://github.com/eclipse/microprofile-config/issues/608
+    @SkipForRepeat({ MicroProfileActions.MP40_ID,
+                     MicroProfileActions.MP41_ID,
+                     MicroProfileActions.MP50_ID,
+                     MicroProfileActions.MP60_ID,
+                     MicroProfileActions.MP61_ID,
+                     MicroProfileActions.MP70_EE10_ID,
+                     MicroProfileActions.MP70_EE11_ID })
     public void testNullWithDefault() throws Exception {
         test("NULL_WITH_DEFAULT_KEY", "null");
     }

@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2021 IBM Corporation and others.
+ * Copyright (c) 1997, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
 // Change History
@@ -73,7 +72,6 @@ import com.ibm.ws.jsp.JspCoreException;
 import com.ibm.ws.jsp.JspOptions;
 import com.ibm.ws.jsp.configuration.JspConfigurationManager;
 import com.ibm.ws.jsp.configuration.JspXmlExtConfig;
-import com.ibm.ws.jsp.inmemory.context.InMemoryJspTranslationContext;
 import com.ibm.ws.jsp.inputsource.JspInputSourceFactoryImpl;
 import com.ibm.ws.jsp.runtime.ContextListener;
 import com.ibm.ws.jsp.taglib.GlobalTagLibraryCache;
@@ -136,8 +134,6 @@ public abstract class AbstractJSPExtensionProcessor extends com.ibm.ws.webcontai
     protected JspClassloaderContext jspClassloaderContext = null;
     protected JspCompilerFactory jspCompilerFactory = null;
     protected IServletContextExtended webapp = null;
-    
-    protected final String loadedPagesVersion;
 
     // defect 238792: begin list of JSP mapped servlets.
     protected HashMap jspFileMappings = new HashMap();
@@ -146,12 +142,12 @@ public abstract class AbstractJSPExtensionProcessor extends com.ibm.ws.webcontai
     public AbstractJSPExtensionProcessor(IServletContext webapp, 
                                          JspXmlExtConfig webAppConfig, 
                                          GlobalTagLibraryCache globalTagLibraryCache,
-                                         JspClassloaderContext jspClassloaderContext, String loadedPagesVersion) throws Exception {
+                                         JspClassloaderContext jspClassloaderContext) throws Exception {
         super(webapp);
         final boolean isAnyTraceEnabled = com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled();
         this.webapp = (IServletContextExtended) webapp;
         this.jspOptions = webAppConfig.getJspOptions();
-        this.loadedPagesVersion = loadedPagesVersion;
+
         //497716.2
         //always adding the lifecycle listener so we can cleanup the AnnotationHandler
         //doing logic for using ThreadTagPool within listener
@@ -196,27 +192,12 @@ public abstract class AbstractJSPExtensionProcessor extends com.ibm.ws.webcontai
                 //DEFAULT CASE
             	jspCompilerFactory = new JDTCompilerFactory(jspClassloaderContext.getClassLoader(), jspOptions);
             }
-            if (jspOptions.isUseInMemory()) {
-            	DocumentRootUtils dru=null;
-                if (extDocumentRoot != null || preFragmentExtendedDocumentRoot !=null) {
-                    dru = new DocumentRootUtils(webapp, extDocumentRoot,preFragmentExtendedDocumentRoot);
-                }
-                context = new InMemoryJspTranslationContext(webapp, jspOptions, extDocumentRoot, preFragmentExtendedDocumentRoot);
-                URL contextURL = new File(webapp.getRealPath("/")).toURL();
-                if (!docRootRealPathCalled) docRoot = webapp.getRealPath("/");
-                JspInputSourceFactory tempInputSourceFactory = new JspInputSourceFactoryImpl(docRoot,contextURL, dru, false, webapp.getModuleContainer(), jspClassloaderContext.getClassLoader(),webapp);
-                JspResourcesFactoryImpl tempResourceFactory = new JspResourcesFactoryImpl(jspOptions, context, webapp.getModuleContainer());
-                JspTranslationEnvironmentImpl jspEnvironment = new JspTranslationEnvironmentImpl(jspOptions.getOutputDir().getPath(), webapp.getContextPath(), tempInputSourceFactory,
-                                                                                                 tempResourceFactory, jspClassloaderContext, jspCompilerFactory);
-       			context.setJspTranslationEnviroment(jspEnvironment);
-                
-            } else {
-	            if (jspOptions.getTranslationContextClass() != null) {
-	                context = loadTranslationContext(jspOptions.getTranslationContextClass(), webapp, jspOptions.getOutputDir().getPath(), webapp.getContextPath());
-	            } else {
-	                context = new JSPExtensionContext(webapp, jspOptions, extDocumentRoot, preFragmentExtendedDocumentRoot, jspClassloaderContext, jspCompilerFactory);
-	            }
-            }
+
+	        if (jspOptions.getTranslationContextClass() != null) {
+	            context = loadTranslationContext(jspOptions.getTranslationContextClass(), webapp, jspOptions.getOutputDir().getPath(), webapp.getContextPath());
+	        } else {
+	            context = new JSPExtensionContext(webapp, jspOptions, extDocumentRoot, preFragmentExtendedDocumentRoot, jspClassloaderContext, jspCompilerFactory);
+	        }
             List eventListenerList = new ArrayList();
             eventListenerList.addAll(globalTagLibraryCache.getEventListenerList());
 
@@ -334,7 +315,7 @@ public abstract class AbstractJSPExtensionProcessor extends com.ibm.ws.webcontai
                                                                                       tlc,
                                                                                       context,
                                                                                       codeSource);
-        jspServletWrapper.initialize(config, this.loadedPagesVersion);
+        jspServletWrapper.initialize(config);
         if (isAnyTraceEnabled && logger.isLoggable(Level.FINER))
             logger.exiting(CLASS_NAME, "createServletWrapper"); //d651265
         return jspServletWrapper;
@@ -377,6 +358,10 @@ public abstract class AbstractJSPExtensionProcessor extends com.ibm.ws.webcontai
                 Throwable rootCause = e;
                 while ((t = rootCause.getCause()) != null) {
                     rootCause = t;
+                }
+                //log it only if JSPG0077E
+                if (e.getMessage().contains("JSPG0077E")) {
+                   logger.logp(Level.SEVERE, CLASS_NAME, "getServletWrapper", rootCause.getLocalizedMessage());
                 }
                 // Defect 211450
                 JSPErrorReport jser = new JSPErrorReport(rootCause.getLocalizedMessage(), rootCause);
@@ -452,10 +437,7 @@ public abstract class AbstractJSPExtensionProcessor extends com.ibm.ws.webcontai
         }
         //PK81387 end
 
-        if (jspOptions.isDisableJspRuntimeCompilation() == false && // 223399
-            (jspOptions.getTranslationContextClass() == null // 225901 
-            || (jspOptions.getTranslationContextClass() != null && // 415289
-            jspOptions.getTranslationContextClass().equals(Constants.IN_MEMORY_TRANSLATION_CONTEXT_CLASS)))) {
+        if (jspOptions.isDisableJspRuntimeCompilation() == false && jspOptions.getTranslationContextClass() == null) { 
             success = handleCaseSensitivityCheck(filename, checkWEBINF); //PK81387 - added checkWEBINF param
         }
         if (success == false) { // case sensitivity match failed

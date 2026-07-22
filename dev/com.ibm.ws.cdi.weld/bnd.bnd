@@ -1,19 +1,21 @@
 #*******************************************************************************
-# Copyright (c) 2017, 2018 IBM Corporation and others.
+# Copyright (c) 2017, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
+
+-sub: *.bnd
+
 bVersion=1.0
 
-Bundle-Name: com.ibm.ws.cdi.weld
-Bundle-SymbolicName: com.ibm.ws.cdi.weld
-Bundle-Description:CDI Common Weld Integration, version ${bVersion}
 
 
 
@@ -23,7 +25,9 @@ Bundle-Description:CDI Common Weld Integration, version ${bVersion}
   com.ibm.ws.cdi.impl.managedobject.CDIManagedObjectService,\
   com.ibm.ws.cdi.impl.inject.InjectProcessorProvider,\
   com.ibm.ws.cdi.config.liberty.CDI12ContainerConfig,\
-  com.ibm.ws.cdi.liberty.CDIDeferredMetaDataFactoryImpl
+  com.ibm.ws.cdi.config.liberty.CDIContainerConfig,\
+  com.ibm.ws.cdi.liberty.CDIDeferredMetaDataFactoryImpl,\
+  com.ibm.ws.cdi.liberty.CDIIntrospector
 
 Service-Component: \
  com.ibm.ws.cdi.weld.deserializationClassProvider;\
@@ -37,7 +41,8 @@ Service-Component: \
         |com.ibm.ws.cdi.impl.inject"
       
        
-Private-Package: com.ibm.ws.cdi.impl.*,\
+Private-Package: !com.ibm.ws.cdi.impl.weld.validation,\
+                com.ibm.ws.cdi.impl.*,\
                 com.ibm.ws.cdi.config.liberty, \
                 com.ibm.ws.cdi.liberty.*
                 
@@ -49,13 +54,16 @@ Dynamic-Import: sun.misc, sun.nio.cs
 # Using version=! in order to not have a version attached to the import for packages that were removed
 # from Java after Java 8.  Doing this keeps the import like before Java 11 support. It will get the 
 # packages from Java when using Java 8 or earlier and from the new shipped bundles for Java 9 and later.
+
+#wlp-jakartaee-transform changes the version numbers for weld packages
 Import-Package: !org.scannotation.archiveiterator, \
                 !sun.reflect, \
-                com.ibm.ws.util, \
                 !sun.misc, \
                 !sun.nio.cs, \
                 !service, \
                 !sun.security.util, \
+                !org.jboss.weld.probe, \
+                com.ibm.ws.util, \
                 javax.persistence;version="[1.1,3)", \
                 javax.enterprise.context; version="[1.1.0,3.0.0)", \
                 javax.enterprise.context.spi; version="[1.1.0,3.0.0)", \
@@ -77,9 +85,9 @@ Import-Package: !org.scannotation.archiveiterator, \
                 org.jboss.weld.exceptions;version="[2.4,4)",\
                 org.jboss.weld.injection;version="[2.4,4)",\
                 org.jboss.weld.injection.spi;version="[2.4,4)",\
+                org.jboss.weld.logging;version="[2.4,4)",\
                 org.jboss.weld.manager;version="[2.4,4)",\
                 org.jboss.weld.manager.api;version="[2.4,4)",\
-                org.jboss.weld.probe;version="[2.4,4)",\
                 org.jboss.weld.resolution;version="[2.4,4)",\
                 org.jboss.weld.resources;version="[2.4,4)",\
                 org.jboss.weld.resources.spi;version="[2.4,4)",\
@@ -87,14 +95,11 @@ Import-Package: !org.scannotation.archiveiterator, \
                 org.jboss.weld.serialization.spi;version="[2.4,4)",\
                 org.jboss.weld.transaction.spi;version="[2.4,4)",\
                 org.jboss.weld.util.collections;version="[2.4,4)",\
-                com.google.common.*;version="[14.0,30)",\
-                com.google.thirdparty.*;version="[14.0,30)",\
                 javax.xml.ws;version=!,\
                 *
  
 WS-TraceGroup: JCDI
 
-jakartaeeMe: true
 
 -buildpath: \
 	com.ibm.websphere.javaee.annotation.1.2;version=latest,\
@@ -113,7 +118,6 @@ jakartaeeMe: true
 	com.ibm.ws.cdi.1.2.weld;version=latest,\
 	com.ibm.ws.injection;version=latest,\
 	com.ibm.ws.resource;version=latest,\
-	com.ibm.ws.com.google.guava;version=latest,\
 	com.ibm.ws.javaee.dd.common;version=latest,\
 	com.ibm.ws.logging.core,\
 	com.ibm.websphere.javaee.persistence.2.1;version=latest,\
@@ -126,8 +130,9 @@ jakartaeeMe: true
 	com.ibm.ws.classloading;version=latest,\
 	com.ibm.ws.kernel.boot,\
 	com.ibm.websphere.javaee.interceptor.1.2;version=latest,\
-	com.ibm.ws.org.jboss.weld.2.4.8;version=latest, \
-	com.ibm.ws.org.osgi.annotation.versioning;version=latest
+	com.ibm.ws.org.jboss.weld;version=latest,\
+	com.ibm.ws.org.osgi.annotation.versioning;version=latest,\
+	com.ibm.ws.kernel.service
 
 -testpath: \
 	../build.sharedResources/lib/junit/old/junit.jar;version=file, \

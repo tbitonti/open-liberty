@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2008, 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -76,7 +78,7 @@ public class MPAPCounter extends LoadCounterAbs {
 	 *  @see com.ibm.ws.sip.container.load.LoadCounterAbs#reset()
 	 */
 	void reset() {
-		// This couner shoudl be nullified after each timer execution.
+		// This counter should be nullified after each timer execution.
 		_numberOfMsg = 0;
 	}
 

@@ -1,12 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
- *     IBM Corporation - initial API and implementation
+ * IBM Corporation - initial API and implementation
  *******************************************************************************/
 
 package com.ibm.ws.security.openidconnect.client.internal;
@@ -16,6 +18,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
@@ -65,6 +68,9 @@ public class OidcClientConfigImplTest extends CommonTestClass {
     final String MY_SSL_REF = "mySSLRef";
     private final String SSL_CONFIGURATION_NAME = "mySSLConfig";
     final String SHA256 = "HS256";//"SHA256";
+    final String RS256 = "RS256";
+    final String ES256 = "ES256";
+    final String NONE = "none";
     //final String DISCOVERY_ENDPOINT_URL = "authorizationEndpointUrl";
     final String AUTHORIZATION_ENDPOINT_URL = "authorizationEndpointUrl";
     final String TOKEN_ENDPOINT_URL = "tokenEndpointUrl";
@@ -114,6 +120,10 @@ public class OidcClientConfigImplTest extends CommonTestClass {
     final String discoveryjsonString_3 = "{\"introspection_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/introspect\",\"coverage_map_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/coverage_map\",\"issuer\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample\",\"authorization_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/authorize\",\"token_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/token\",\"jwks_uri\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/jwk\",\"response_types_supported\":[\"code\",\"token\",\"id_token token\"],\"subject_types_supported\":[\"public\"],\"id_token_signing_alg_values_supported\":[\"ES256\"],\"userinfo_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/userinfo\",\"registration_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/registration\",\"scopes_supported\":[\"profile\",\"general\",\"email\",\"address\",\"phone\"],\"claims_supported\":[\"sub\",\"groupIds\",\"name\",\"preferred_username\",\"picture\",\"locale\",\"email\",\"profile\"],\"response_modes_supported\":[\"query\",\"fragment\",\"form_post\"],\"grant_types_supported\":[\"authorization_code\",\"implicit\",\"refresh_token\",\"client_credentials\",\"password\",\"urn:ietf:params:oauth:grant-type:jwt-bearer\"],\"token_endpoint_auth_methods_supported\":[\"client_secret_somethingelse\"],\"display_values_supported\":[\"page\"],\"claim_types_supported\":[\"normal\"],\"claims_parameter_supported\":false,\"request_parameter_supported\":false,\"request_uri_parameter_supported\":false,\"require_request_uri_registration\":false,\"check_session_iframe\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/check_session_iframe\",\"end_session_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/end_session\"}";
     final String discoveryjsonString_4 = "{\"introspection_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/introspect\",\"coverage_map_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/coverage_map\",\"issuer\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample\",\"authorization_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/authorize\",\"token_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/token\",\"jwks_uri\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/jwk\",\"response_types_supported\":[\"code\",\"token\",\"id_token token\"],\"subject_types_supported\":[\"public\"],\"id_token_signing_alg_values_supported\":[\"ES256\"],\"userinfo_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/userinfo\",\"registration_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/registration\",\"scopes_supported\":[\"general\",\"email\",\"address\",\"phone\"],\"claims_supported\":[\"sub\",\"groupIds\",\"name\",\"preferred_username\",\"picture\",\"locale\",\"email\",\"profile\"],\"response_modes_supported\":[\"query\",\"fragment\",\"form_post\"],\"grant_types_supported\":[\"authorization_code\",\"implicit\",\"refresh_token\",\"client_credentials\",\"password\",\"urn:ietf:params:oauth:grant-type:jwt-bearer\"],\"token_endpoint_auth_methods_supported\":[\"client_secret_post\",\"client_secret_basic\"],\"display_values_supported\":[\"page\"],\"claim_types_supported\":[\"normal\"],\"claims_parameter_supported\":false,\"request_parameter_supported\":false,\"request_uri_parameter_supported\":false,\"require_request_uri_registration\":false,\"check_session_iframe\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/check_session_iframe\",\"end_session_endpoint\":\"http://localhost:8940/oidc/endpoint/OidcConfigSample/end_session\"}";
 
+    // Store original beta edition state to restore after tests
+    private static final String BETA_EDITION_PROPERTY = "com.ibm.ws.beta.edition";
+    private String originalBetaEdition;
+
     @Before
     public void setUp() throws Exception {
         System.out.println("Entering test: " + testName.getMethodName());
@@ -124,6 +134,9 @@ public class OidcClientConfigImplTest extends CommonTestClass {
             createSSLExpectations();
             final Map<String, Object> props = createProps(true);
             oidcClientConfig.activate(cc, props);
+
+            // Store original beta edition state
+            originalBetaEdition = System.getProperty(BETA_EDITION_PROPERTY);
         } catch (Exception e) {
             e.printStackTrace(System.out);
             throw e;
@@ -134,6 +147,13 @@ public class OidcClientConfigImplTest extends CommonTestClass {
     @After
     public void afterTest() throws Exception {
         System.out.println("Exiting test: " + testName.getMethodName());
+
+        // Restore original beta edition state
+        if (originalBetaEdition != null) {
+            System.setProperty(BETA_EDITION_PROPERTY, originalBetaEdition);
+        } else {
+            System.clearProperty(BETA_EDITION_PROPERTY);
+        }
         outputMgr.resetStreams();
         mock.assertIsSatisfied();
     }
@@ -281,7 +301,8 @@ public class OidcClientConfigImplTest extends CommonTestClass {
         }
     }
 
-    // rp has HS256 (default), supports HS256, RS256 and NONE and op supports RS256 and ES256, adjust should set algorithm to RS256 which is supported by both in this case
+    // rp has HS256 (default), supports HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, ES512, NONE and op supports ES256 and RS256
+    // adjust should set algorithm to ES256 which is supported by both in this case
     @Test
     public void testAdjustSignatureAlgorithm() throws Exception {
         try {
@@ -289,7 +310,7 @@ public class OidcClientConfigImplTest extends CommonTestClass {
             oidcClientConfig.parseJsonResponse(discoveryjsonString);
             oidcClientConfig.adjustSignatureAlgorithm();
 
-            assertEquals("Signature Algorithm should be  " + "RS256", "RS256", oidcClientConfig.getSignatureAlgorithm());
+            assertEquals("Signature Algorithm should be  " + "ES256", "ES256", oidcClientConfig.getSignatureAlgorithm());
         } catch (Throwable t) {
             outputMgr.failWithThrowable(testName.getMethodName(), t);
         }
@@ -314,7 +335,8 @@ public class OidcClientConfigImplTest extends CommonTestClass {
         }
     }
 
-    // rp has HS256 (default), supports HS256, RS256 and NONE and op supports ES256 only, adjust should not set algorithm to ES256 since rp cannot support this
+    // rp has HS256 (default), supports supports HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, ES512, NONE and op supports ES256 only
+    // adjust should set algorithm to ES256 since rp supports this
     @Test
     public void testNoAdjustSignatureAlgorithm_es() throws Exception {
         try {
@@ -327,7 +349,7 @@ public class OidcClientConfigImplTest extends CommonTestClass {
             oidcClientConfig2.parseJsonResponse(discoveryjsonString_2);
             oidcClientConfig2.adjustSignatureAlgorithm();
 
-            assertEquals("Signature Algorithm should be  " + "HS256", "HS256", oidcClientConfig2.getSignatureAlgorithm());
+            assertEquals("Signature Algorithm should be  " + "ES256", "ES256", oidcClientConfig2.getSignatureAlgorithm());
         } catch (Throwable t) {
             outputMgr.failWithThrowable(testName.getMethodName(), t);
         }
@@ -803,6 +825,222 @@ public class OidcClientConfigImplTest extends CommonTestClass {
         }
     }
 
+    /**
+     * Test that protectedResourceMetadata sub-element is properly processed
+     * when configured with both advertisedScopes and jwtBuilderRef in beta mode.
+     * With ibm:flat="true" the child properties are present directly on props as
+     * "protectedResourceMetadata.0.{childProp}".
+     */
+    @Test
+    public void testProtectedResourceMetadata_BetaMode_WithBothFields_ReturnsConfiguredValues() {
+        try {
+            // Simulate running in beta mode
+            System.setProperty(BETA_EDITION_PROPERTY, "true");
+
+            final Map<String, Object> props = createProps(false);
+            final String advertisedScopes = "openid,profile,email";
+            final String jwtBuilderRef = "myCustomJwtBuilder";
+
+            // ibm:flat=true flattens child properties directly onto the parent props map
+            props.put(OidcClientConfigImpl.CFG_KEY_PROTECTED_RESOURCE_METADATA + ".0." + OidcClientConfigImpl.CFG_KEY_ADVERTISED_SCOPES, advertisedScopes);
+            props.put(OidcClientConfigImpl.CFG_KEY_PROTECTED_RESOURCE_METADATA + ".0." + OidcClientConfigImpl.CFG_KEY_JWT_BUILDER_REF, jwtBuilderRef);
+
+            mock.checking(new Expectations() {
+                {
+                    one(configAdmin).getConfiguration(authFilterId, null);
+                    will(returnValue(config));
+                    one(config).getProperties();
+                    will(returnValue(adminProps));
+                }
+            });
+            oidcClientConfig.modify(props);
+
+            // Verify: advertisedScopes and jwtBuilderRef should be set
+            assertEquals("advertisedScopes should match configured scopes", Arrays.asList("openid", "profile", "email"),
+                    oidcClientConfig.getProtectedResourceMetadataAdvertisedScopes());
+            assertEquals("jwtBuilderRef should be " + jwtBuilderRef, jwtBuilderRef,
+                    oidcClientConfig.getProtectedResourceMetadataJwtBuilderRef());
+            assertTrue("serveProtectedResourceMetadata should be true when sub-element is configured in beta mode",
+                    oidcClientConfig.getServeProtectedResourceMetadata());
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
+    /**
+     * Test that protectedResourceMetadata sub-element uses default jwtBuilderRef
+     * when only advertisedScopes is configured in beta mode.
+     * With ibm:flat="true" the child properties are present directly on props.
+     */
+    @Test
+    public void testProtectedResourceMetadata_BetaMode_OnlyAdvertisedScopes_UsesDefaultJwtBuilderRef() {
+        try {
+            // Simulate running in beta mode
+            System.setProperty(BETA_EDITION_PROPERTY, "true");
+
+            final Map<String, Object> props = createProps(false);
+            final String advertisedScopes = "openid,profile";
+
+            // Only advertisedScopes is present; jwtBuilderRef is absent so the default is used
+            props.put(OidcClientConfigImpl.CFG_KEY_PROTECTED_RESOURCE_METADATA + ".0." + OidcClientConfigImpl.CFG_KEY_ADVERTISED_SCOPES, advertisedScopes);
+
+            mock.checking(new Expectations() {
+                {
+                    one(configAdmin).getConfiguration(authFilterId, null);
+                    will(returnValue(config));
+                    one(config).getProperties();
+                    will(returnValue(adminProps));
+                }
+            });
+            oidcClientConfig.modify(props);
+
+            // Verify: advertisedScopes should be set, jwtBuilderRef should be default
+            assertEquals("advertisedScopes should match configured scopes", Arrays.asList("openid", "profile"),
+                    oidcClientConfig.getProtectedResourceMetadataAdvertisedScopes());
+            assertEquals("jwtBuilderRef should be default", "defaultProtectedResourceMetadataJwtBuilder",
+                    oidcClientConfig.getProtectedResourceMetadataJwtBuilderRef());
+            assertTrue("serveProtectedResourceMetadata should be true when sub-element is configured in beta mode",
+                    oidcClientConfig.getServeProtectedResourceMetadata());
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
+    /**
+     * Test that protectedResourceMetadata sub-element is ignored when NOT in beta mode,
+     * even when flat properties are present on props.
+     */
+    @Test
+    public void testProtectedResourceMetadata_NotBetaMode_ConfiguredButIgnored_ReturnsNull() {
+        try {
+            // Simulate NOT running in beta mode
+            System.clearProperty(BETA_EDITION_PROPERTY);
+
+            final Map<String, Object> props = createProps(false);
+
+            // Put flat properties onto props — they must be ignored due to beta fencing
+            props.put(OidcClientConfigImpl.CFG_KEY_PROTECTED_RESOURCE_METADATA + ".0." + OidcClientConfigImpl.CFG_KEY_ADVERTISED_SCOPES, "openid,profile");
+            props.put(OidcClientConfigImpl.CFG_KEY_PROTECTED_RESOURCE_METADATA + ".0." + OidcClientConfigImpl.CFG_KEY_JWT_BUILDER_REF, "myJwtBuilder");
+
+            mock.checking(new Expectations() {
+                {
+                    one(configAdmin).getConfiguration(authFilterId, null);
+                    will(returnValue(config));
+                    one(config).getProperties();
+                    will(returnValue(adminProps));
+                }
+            });
+            oidcClientConfig.modify(props);
+
+            // Verify: both fields should be null because beta fencing prevents processing
+            assertEquals("advertisedScopes should be null when not in beta mode", null,
+                    oidcClientConfig.getProtectedResourceMetadataAdvertisedScopes());
+            assertEquals("jwtBuilderRef should be null when not in beta mode", null,
+                    oidcClientConfig.getProtectedResourceMetadataJwtBuilderRef());
+            assertFalse("serveProtectedResourceMetadata should be false when not in beta mode",
+                    oidcClientConfig.getServeProtectedResourceMetadata());
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
+    /**
+     * Test that protectedResourceMetadata fields are null when sub-element is not configured in beta mode.
+     */
+    @Test
+    public void testProtectedResourceMetadata_BetaMode_NotConfigured_ReturnsNull() {
+        try {
+            // Simulate running in beta mode
+            System.setProperty(BETA_EDITION_PROPERTY, "true");
+
+            final Map<String, Object> props = createProps(false);
+            // No protectedResourceMetadata flat keys present
+
+            mock.checking(new Expectations() {
+                {
+                    one(configAdmin).getConfiguration(authFilterId, null);
+                    will(returnValue(config));
+                    one(config).getProperties();
+                    will(returnValue(adminProps));
+                }
+            });
+            oidcClientConfig.modify(props);
+
+            // Verify: both fields should be null
+            assertEquals("advertisedScopes should be null when not configured", null,
+                    oidcClientConfig.getProtectedResourceMetadataAdvertisedScopes());
+            assertEquals("jwtBuilderRef should be null when not configured", null,
+                    oidcClientConfig.getProtectedResourceMetadataJwtBuilderRef());
+            assertFalse("serveProtectedResourceMetadata should be false when sub-element is not configured",
+                    oidcClientConfig.getServeProtectedResourceMetadata());
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
+    /**
+     * Test that advertisedScopes values separated by ", " (comma + space) are trimmed correctly.
+     * e.g. "a, b, c" should produce ["a", "b", "c"], not ["a", " b", " c"].
+     */
+    @Test
+    public void testProtectedResourceMetadata_BetaMode_AdvertisedScopesWithSpaces_TrimsValues() {
+        try {
+            System.setProperty(BETA_EDITION_PROPERTY, "true");
+
+            final Map<String, Object> props = createProps(false);
+            // Scopes separated by ", " (comma followed by space)
+            props.put(OidcClientConfigImpl.CFG_KEY_PROTECTED_RESOURCE_METADATA + ".0." + OidcClientConfigImpl.CFG_KEY_ADVERTISED_SCOPES, "a, b, c");
+
+            mock.checking(new Expectations() {
+                {
+                    one(configAdmin).getConfiguration(authFilterId, null);
+                    will(returnValue(config));
+                    one(config).getProperties();
+                    will(returnValue(adminProps));
+                }
+            });
+            oidcClientConfig.modify(props);
+
+            assertEquals("advertisedScopes values separated by \", \" should be trimmed",
+                    Arrays.asList("a", "b", "c"),
+                    oidcClientConfig.getProtectedResourceMetadataAdvertisedScopes());
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
+    /**
+     * Test that a trailing comma in advertisedScopes produces an empty string as the last element.
+     * e.g. "a,b,c," should produce ["a", "b", "c", ""] reflecting Java's split() default behaviour.
+     */
+    @Test
+    public void testProtectedResourceMetadata_BetaMode_AdvertisedScopesWithTrailingComma_ProducesExpectedList() {
+        try {
+            System.setProperty(BETA_EDITION_PROPERTY, "true");
+
+            final Map<String, Object> props = createProps(false);
+            // Scopes with a trailing comma
+            props.put(OidcClientConfigImpl.CFG_KEY_PROTECTED_RESOURCE_METADATA + ".0." + OidcClientConfigImpl.CFG_KEY_ADVERTISED_SCOPES, "a,b,c,");
+
+            mock.checking(new Expectations() {
+                {
+                    one(configAdmin).getConfiguration(authFilterId, null);
+                    will(returnValue(config));
+                    one(config).getProperties();
+                    will(returnValue(adminProps));
+                }
+            });
+            oidcClientConfig.modify(props);
+
+            // Java's split(",") drops trailing empty strings by default, so "a,b,c," -> ["a","b","c"]
+            assertEquals("advertisedScopes with a trailing comma should produce list without trailing empty element",
+                    Arrays.asList("a", "b", "c"),
+                    oidcClientConfig.getProtectedResourceMetadataAdvertisedScopes());
+        } catch (Throwable t) {
+            outputMgr.failWithThrowable(testName.getMethodName(), t);
+        }
+    }
+
     public Map<String, Object> createProps(boolean value) {
         final Map<String, Object> props = new Hashtable<String, Object>();
 
@@ -834,7 +1072,7 @@ public class OidcClientConfigImplTest extends CommonTestClass {
         props.put(OidcClientConfigImpl.CFG_KEY_AUTO_AUTHORIZE_PARAM, AUTO_AUTHORIZE_PARAM);
         props.put(OidcClientConfigImpl.CFG_KEY_HOST_NAME_VERIFICATION_ENABLED, value);
         props.put(OidcClientConfigImpl.CFG_KEY_INCLUDE_CUSTOM_CACHE_KEY_IN_SUBJECT, value);
-        props.put(OidcClientConfigImpl.CFG_KEY_ALLOW_CUSTOM_CACHE_KEY , value);
+        props.put(OidcClientConfigImpl.CFG_KEY_ALLOW_CUSTOM_CACHE_KEY, value);
         props.put(OidcClientConfigImpl.CFG_KEY_INCLUDE_ID_TOKEN_IN_SUBJECT, value);
         props.put(OidcClientConfigImpl.CFG_KEY_AUTH_CONTEXT_CLASS_REFERENCE, ACR_VALUES);
         props.put(OidcClientConfigImpl.CFG_KEY_AUTH_FILTER_REF, authFilterId);

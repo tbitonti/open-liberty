@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2015 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,7 +19,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Dictionary;
 import java.util.EnumSet;
 
@@ -32,6 +33,8 @@ import org.osgi.util.tracker.ServiceTracker;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.classloading.internal.ClassLoadingServiceImpl;
+import com.ibm.ws.library.spi.SpiLibrary;
 import com.ibm.wsspi.artifact.ArtifactContainer;
 import com.ibm.wsspi.artifact.factory.ArtifactContainerFactory;
 import com.ibm.wsspi.classloading.ApiType;
@@ -46,10 +49,8 @@ import com.ibm.wsspi.library.LibraryChangeListener;
  * This class defines the <library> element implementation in the server.xml allowing users
  * to specify shared libraries used by web applications
  */
-public class SharedLibraryImpl implements Library {
+public class SharedLibraryImpl implements Library, SpiLibrary {
     private static final TraceComponent tc = Tr.register(SharedLibraryImpl.class);
-
-    private static final LibraryChangeListener[] EMPTY_LIBRARY_LISTENERS = {};
 
     private volatile boolean deleted;
 
@@ -178,6 +179,11 @@ public class SharedLibraryImpl implements Library {
     }
 
     @Override
+    public ClassLoader getSpiClassLoader(final String ownerId) {
+        return ((ClassLoadingServiceImpl)classLoadingService).getSharedLibrarySpiClassLoader(this, ownerId);
+    }
+
+    @Override
     public EnumSet<ApiType> getApiTypeVisibility() {
         final LibraryGeneration currentGen = currentGeneration;
         return currentGen == null ? null : currentGen.getApiTypeVisibility();
@@ -245,7 +251,12 @@ public class SharedLibraryImpl implements Library {
             return;
         }
 
-        for (LibraryChangeListener listener : ls.getServices(EMPTY_LIBRARY_LISTENERS)) {
+        // Call method getTracked() to obtain the map of listeners (ServiceReferences)
+        // sorted in order of {descending SERVICE_RANKING X ascending SERVICE_ID}.
+        // That is, the first entry is the service with the highest ranking and the
+        // lowest service id. Use SERVICE_RANKING to define a partial order for library
+        // change notifications.
+        for (LibraryChangeListener listener : ls.getTracked().values()) {
             if (deleted) {
                 return;
             }
@@ -268,84 +279,74 @@ public class SharedLibraryImpl implements Library {
         }
     }
 
-    Collection<File> retrieveFiles(String[] pids, String displayId) {
-        if (pids == null || pids.length == 0) {
-            return Collections.emptyList();
+    enum ClasspathType {
+        FOLDER("Folders", "dir", "cls.library.folder.invalid", true, false),
+        FILE("Files", "name", "cls.library.file.invalid", false, true),
+        PATH("Paths", "name", "cls.library.path.invalid", true, true);
+        final String debugLabel;
+        final String attrKey;
+        private final String messageId;
+        private final boolean allowFolders;
+        private final boolean allowFiles;
+        boolean accept(File f) {
+            if (!f.exists()) {
+                return false;
+            }
+            if (!allowFiles) {
+                return f.isDirectory();
+            }
+            if (!allowFolders) {
+                return !f.isDirectory();
+            }
+            return true;
         }
-
-        ArrayList<File> result = new ArrayList<File>();
-        for (String pid : pids) {
-            try {
-                Configuration config = configAdmin.getConfiguration(pid, ctx.getBundle().getLocation());
-                Dictionary<String, Object> configProps = config.getProperties();
-                if (configProps == null) {
-                    if (tc.isDebugEnabled()) {
-                        Tr.debug(tc, "setFiles: Configuration not found for " + pid);
-                    }
-                    config.delete();
-                } else {
-                    String fileName = (String) configProps.get("name");
-                    File f = null;
-                    if (fileName != null && !!!fileName.isEmpty()) {
-                        if (tc.isDebugEnabled()) {
-                            Tr.debug(tc, "setFiles: found" + fileName);
-                        }
-
-                        f = new File(normalizePath(fileName));
-                        if (f.exists() && !!!f.isDirectory()) {
-                            result.add(f);
-                        }
-                    }
-
-                    if (tc.isWarningEnabled()) {
-                        if (f == null || f.isDirectory() || !!!f.exists()) {
-                            Tr.warning(tc, "cls.library.file.invalid", displayId, fileName);
-                        }
-                    }
-                }
-            } catch (IOException ignored) {
-                // auto-FFDC this exception
+        void warn(String displayId, String libraryId, String fileName) {
+            if (tc.isWarningEnabled() && !!! GLOBAL_SHARED_LIBRARY_ID.equals(libraryId)) {
+                Tr.warning(tc, messageId, displayId, fileName);
             }
         }
-        return result;
+        private ClasspathType(String debugLabel, String attrKey, String messageId, boolean allowFolders, boolean allowFiles) {
+            this.debugLabel = debugLabel;
+            this.attrKey = attrKey;
+            this.messageId = messageId;
+            this.allowFolders = allowFolders;
+            this.allowFiles = allowFiles;
+        }
     }
 
-    Collection<File> retrieveFolders(String instanceId, String[] pids, String displayId) {
-        if (pids == null || pids.length == 0) {
-            return Collections.emptyList();
-        }
-
+    Collection<File> retrieveClasspaths(ClasspathType type, String libraryId, String[] pids, String displayId) {
         ArrayList<File> result = new ArrayList<File>();
+        if (pids == null || pids.length == 0) {
+            return result;
+        }
         for (String pid : pids) {
             try {
                 Configuration config = configAdmin.getConfiguration(pid, ctx.getBundle().getLocation());
                 Dictionary<String, Object> configProps = config.getProperties();
                 if (configProps == null) {
                     if (tc.isDebugEnabled()) {
-                        Tr.debug(tc, "setFolders: Configuration not found for " + pid);
+                        Tr.debug(tc, type.debugLabel + ": configuration not found for " + pid);
                     }
                     config.delete();
                 } else {
-                    String dir = (String) configProps.get("dir");
-                    if (tc.isDebugEnabled()) {
-                        Tr.debug(tc, "setFolders: Found " + dir);
-                    }
-
-                    File f = null;
-                    if (dir != null && false == "".equals(dir)) {
-                        f = new File(normalizePath(dir));
-                        if (f.isDirectory()) {
-                            result.add(f);
+                    String name = (String) configProps.get(type.attrKey);
+                    if (name != null && !!!name.isEmpty()) {
+                        if (tc.isDebugEnabled()) {
+                            Tr.debug(tc, type.debugLabel + ": configuration found" + name);
                         }
-                    }
 
-                    // Issue a warning if any library defines a folder which isn't a directory,
-                    // or if any library other than the global one defines a folder which doesn't exist.
-                    if (tc.isWarningEnabled()) {
-                        if (f == null
-                            || (f.exists() && !!!f.isDirectory())
-                            || (!!!f.exists() && !!!GLOBAL_SHARED_LIBRARY_ID.equals(instanceId)))
-                            Tr.warning(tc, "cls.library.folder.invalid", displayId, dir);
+                        String path = normalizePath(name);
+                        File f = new File(path);
+                        if (type.accept(f)) {
+                            if (tc.isDebugEnabled()) {
+                                Tr.debug(tc, type.debugLabel + ": added path" + path);
+                            }
+                            result.add(f);
+                        } else {
+                            type.warn(displayId, libraryId, path);
+                        }
+                    } else {
+                        type.warn(displayId, libraryId, name);
                     }
                 }
             } catch (IOException ignored) {
@@ -378,4 +379,6 @@ public class SharedLibraryImpl implements Library {
         setLibraryServiceProperties(libraryGeneration.getProperties());
         notifyListeners();
     }
+
+
 }

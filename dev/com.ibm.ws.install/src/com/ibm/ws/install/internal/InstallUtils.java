@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -104,7 +106,7 @@ public class InstallUtils {
     private static final int LINE_WRAP_COLUMNS = 72;
     public static final String NEWLINE = System.getProperty("line.separator");
     public static final boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
-
+    public static boolean isOptional = false;
     public static final String SERVER_DIR_NAME = "servers";
     public static final String SERVER_XML = "server.xml";
     public static final List<String> ALL_EDITIONS = Arrays.asList("BASE", "LIBERTY_CORE", "DEVELOPERS", "EXPRESS", "ND",
@@ -113,6 +115,50 @@ public class InstallUtils {
 
     private static boolean isServerXmlInstallation = false;
     private static Set<String> serverFeatures = new HashSet<>();
+
+    public static class FeaturesPlatforms {
+
+        /**
+         * @param features
+         * @param platforms
+         */
+        public FeaturesPlatforms(Set<String> features, Set<String> platforms) {
+            super();
+            this.features = features;
+            this.platforms = platforms;
+        }
+
+        private Set<String> features;
+        private Set<String> platforms;
+
+        /**
+         * @return the features
+         */
+        public Set<String> getFeatures() {
+            return features;
+        }
+
+        /**
+         * @param features the features to set
+         */
+        public void setFeatures(Set<String> features) {
+            this.features = features;
+        }
+
+        /**
+         * @return the platforms
+         */
+        public Set<String> getPlatforms() {
+            return platforms;
+        }
+
+        /**
+         * @param platforms the platforms to set
+         */
+        public void setPlatforms(Set<String> platforms) {
+            this.platforms = platforms;
+        }
+    }
 
     public static final File getServersDir() {
         return new File(Utils.getUserDir(), SERVER_DIR_NAME);
@@ -512,6 +558,8 @@ public class InstallUtils {
             targetFileName.contains("/lafiles/") ||
             targetFileName.contains("/checksums/")) {
             // skip check md5
+            // FIPS 140-3: Algorithm assessment complete; no changes required.
+            // because it uses SHA-1 or MD5 for file checksums, this likely can't be changed
             return true;
         }
         if (inputChecksum != null) {
@@ -667,8 +715,9 @@ public class InstallUtils {
         return null;
     }
 
-    public static Set<String> getFeatures(String serverXml, String xml, Set<String> visitedServerXmls) throws IOException {
+    public static FeaturesPlatforms getFeatures(String serverXml, String xml, Set<String> visitedServerXmls) throws IOException {
         Set<String> features = new HashSet<String>();
+        Set<String> platforms = new HashSet<String>();
         List<String> newLocations = new ArrayList<>();
         boolean isUrl = false;
         HttpURLConnection conn = null;
@@ -682,7 +731,7 @@ public class InstallUtils {
         } catch (MalformedURLException malf) {
             realServerXml = Paths.get(serverXml).normalize();
             if (visitedServerXmls.contains(realServerXml.toString())) {
-                return features;
+                return new FeaturesPlatforms(features, platforms);
             }
         }
 
@@ -697,18 +746,27 @@ public class InstallUtils {
                 Node vl = varList.item(j);
                 Element vlElement = (Element) vl;
                 String varName = vlElement.getAttribute("name");
-                String varVal = vlElement.getAttribute("value");
+                String varVal;
+                if (vlElement.getAttribute("value").isEmpty()) {
+                    varVal = vlElement.getAttribute("defaultValue");
+                } else {
+                    varVal = vlElement.getAttribute("value");
+                }
+//                String varVal = vlElement.getAttribute("value");
                 varMap.put(varName, varVal);
             }
             ConfigParser cp = new ConfigParser(realServerXml, varMap);
 
             // parse include tag
             NodeList includeList = element.getElementsByTagName("include");
+
             for (int i = 0; i < includeList.getLength(); i++) {
                 Node il = includeList.item(i);
                 Element ilElement = (Element) il;
                 String location = ilElement.getAttribute("location");
-
+                if (ilElement.getAttribute("optional").equals("true")) {
+                    isOptional = true;
+                }
                 File f = new File(location);
                 if (!f.isAbsolute()) { // include location is relative
                     if (!isUrl && location.contains("${")) {
@@ -720,6 +778,7 @@ public class InstallUtils {
                 if (!newLocations.contains(location) && !visitedServerXmls.contains(location)) {
                     newLocations.add(location);
                 }
+
             }
 
             // parse featureManager tag
@@ -732,17 +791,36 @@ public class InstallUtils {
                     Node f = fList.item(j);
                     features.add(f.getTextContent().trim());
                 }
+                NodeList pList = fmElement.getElementsByTagName("platform");
+                for (int j = 0; j < pList.getLength(); j++) {
+                    Node f = pList.item(j);
+                    platforms.add(f.getTextContent().trim());
+                }
             }
         } catch (Exception e) {
-            logger.log(Level.FINE, Messages.INSTALL_KERNEL_MESSAGES.getLogMessage("ERROR_INVALID_SERVER_XML", xml, e.getMessage()));
+            if (isOptional == false) {
+                throw new RuntimeException(Messages.INSTALL_KERNEL_MESSAGES.getLogMessage("ERROR_INVALID_SERVER_XML", xml, e.getMessage()), e);
+            } else {
+                logger.log(Level.FINE, Messages.INSTALL_KERNEL_MESSAGES.getLogMessage("ERROR_INVALID_SERVER_XML", xml, e.getMessage()));
+            }
+
         }
         visitedServerXmls.add(isUrl ? serverXml : realServerXml.toString());
         for (String filepath : newLocations) {
             Path path = Paths.get(filepath);
-            features.addAll(getFeatures(path.toString(), path.getFileName().toString(), visitedServerXmls));
+            if (Files.exists(path)) {
+                FeaturesPlatforms fp = getFeatures(path.toString(), path.getFileName().toString(), visitedServerXmls);
+                features.addAll(fp.getFeatures());
+                platforms.addAll(fp.getPlatforms());
+            } else if (isOptional == true) {
+                logger.log(Level.FINE, Messages.INSTALL_KERNEL_MESSAGES.getLogMessage("ERROR_INVALID_SERVER_XML", path, "File not found"));
+            } else {
+                throw new FileNotFoundException(Messages.INSTALL_KERNEL_MESSAGES.getLogMessage("ERROR_INVALID_SERVER_XML", path, "File not found"));
+            }
+
         }
 
-        return features;
+        return new FeaturesPlatforms(features, platforms);
     }
 
     /**

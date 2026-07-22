@@ -1,11 +1,11 @@
-/* ************************************************************************** */
-/* ********************************************************************************* */
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,12 +15,14 @@ package com.ibm.ws.recoverylog.custom.jdbc.impl;
 
 import java.util.ArrayList;
 
-import com.ibm.tx.util.logging.FFDCFilter;
-import com.ibm.tx.util.logging.Tr;
-import com.ibm.tx.util.logging.TraceComponent;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
+import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.recoverylog.spi.InternalLogException;
 import com.ibm.ws.recoverylog.spi.LogCursor;
 import com.ibm.ws.recoverylog.spi.LogCursorImpl;
+import com.ibm.ws.recoverylog.spi.LogsUnderlyingTablesMissingException;
 import com.ibm.ws.recoverylog.spi.PeerLostLogOwnershipException;
 import com.ibm.ws.recoverylog.spi.RLSUtils;
 import com.ibm.ws.recoverylog.spi.RecoverableUnitSection;
@@ -80,7 +82,7 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
      * WebSphere RAS TraceComponent registration.
      */
     private static final TraceComponent tc = Tr.register(SQLRecoverableUnitSectionImpl.class,
-                                                         TraceConstants.TRACE_GROUP, null);
+                                                         TraceConstants.TRACE_GROUP, TraceConstants.NLS_FILE);
 
     /**
      * Initial size of the ArrayLists holding both written and unwritten data. The
@@ -98,14 +100,14 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
      * written to the underlying recovery log. These data items are stored in the
      * order that they were added.
      */
-    private ArrayList _unwrittenData = null;
+    private ArrayList<byte[]> _unwrittenData = null;
 
     /**
      * An array of data items written to the recoverable unit section and subsequently
      * written to the underlying recovery log. These data items are stored in the
      * order that they were added.
      */
-    private ArrayList _writtenData = null;
+    private ArrayList<byte[]> _writtenData = null;
 
     /**
      * Flag to indicate if a recoverable unit section should hold only a single
@@ -187,23 +189,23 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
      * creation of a recoverable unit section or recreation during server startup.
      * </p>
      *
-     * @param recLog The recovery log that contains this recoverable unit section.
-     * @param recUnit The recoverable unit that contains this recoverable unit section.
+     * @param recLog                  The recovery log that contains this recoverable unit section.
+     * @param recUnit                 The recoverable unit that contains this recoverable unit section.
      * @param recoverableUnitIdentity The identity of the recoverable unit that contains
-     *            this recoverable unit section)
-     * @param identity The identity of the new recoverable unit section (unique within
-     *            the recoverable unit)
-     * @param singleData Boolean flag to indicate if this recoverable unit section can
-     *            hold just a single item of data at a time. If this is true
-     *            then the recoverable unit section will replace any current
-     *            data item with a new item on an addData call. If this is
-     *            false, the recoverable unit section will accumulate data
-     *            items on successive addData calls.
+     *                                    this recoverable unit section)
+     * @param identity                The identity of the new recoverable unit section (unique within
+     *                                    the recoverable unit)
+     * @param singleData              Boolean flag to indicate if this recoverable unit section can
+     *                                    hold just a single item of data at a time. If this is true
+     *                                    then the recoverable unit section will replace any current
+     *                                    data item with a new item on an addData call. If this is
+     *                                    false, the recoverable unit section will accumulate data
+     *                                    items on successive addData calls.
      */
     SQLRecoverableUnitSectionImpl(SQLMultiScopeRecoveryLog recLog, SQLRecoverableUnitImpl recUnit, long recoverableUnitIdentity, int identity, boolean singleData) {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "SQLRecoverableUnitSectionImpl",
-                     new java.lang.Object[] { recLog, recUnit, new Long(recoverableUnitIdentity), new Integer(identity), new Boolean(singleData) });
+                     new java.lang.Object[] { recLog, recUnit, recoverableUnitIdentity, identity, singleData });
 
         // Cache the supplied information
         _recLog = recLog;
@@ -213,8 +215,8 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
         _recUnit = recUnit;
 
         // Prepare the two array lists used to hold DataItems.
-        _unwrittenData = new ArrayList(INITIAL_DATA_CAPACITY);
-        _writtenData = new ArrayList(INITIAL_DATA_CAPACITY);
+        _unwrittenData = new ArrayList<byte[]>(INITIAL_DATA_CAPACITY);
+        _writtenData = new ArrayList<byte[]>(INITIAL_DATA_CAPACITY);
 
         // Cache details about the identity of the associated client / recovery log
         _serverName = recLog.serverName();
@@ -335,7 +337,7 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
 // recovery method to add data directly to _writtenData array
     public void addData(int index, byte[] data) throws InternalLogException {
         if (tc.isEntryEnabled())
-            Tr.entry(tc, "addData", new java.lang.Object[] { new Integer(index), RLSUtils.toHexString(data, RLSUtils.MAX_DISPLAY_BYTES), this });
+            Tr.entry(tc, "addData", new java.lang.Object[] { index, RLSUtils.toHexString(data, RLSUtils.MAX_DISPLAY_BYTES), this });
 
         // If the parent recovery log instance has experienced a serious internal error then prevent
         // this operation from executing.
@@ -355,6 +357,9 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
         if (index == currentSize)
             _writtenData.add(/* index, */ data);
         else if (index < currentSize) {
+            // This debug is a legacy to "NM". Please retain as it is useful when testing for the presence of duplicate db
+            // tranlog records. Duplicates are handled successfully, but this bit of debug is evidence for their presence
+            // and is used in the com.ibm.ws.transaction.<DBTYPE>HADB_FAT tests.
             if (tc.isDebugEnabled())
                 Tr.debug(tc, "NMTEST: Replacing item (expect trace 'null') at index: " + index, _writtenData.get(index));
             _writtenData.set(index, data);
@@ -372,7 +377,7 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
         // any data until all log records are read.  So set lastdata to be the item at the current size
         // of the array.  Items may be added in random order, so lastitem will be correct when
         // all items have been added
-        _lastDataItem = (byte[]) _writtenData.get(_writtenData.size() - 1);
+        _lastDataItem = _writtenData.get(_writtenData.size() - 1);
 
         if (tc.isEntryEnabled())
             Tr.exit(tc, "addData");
@@ -421,7 +426,7 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
         // to go via the parent because this class has no knowledge of the parents recovery log
         // record structure etc..
         while (_unwrittenData.size() > 0) {
-            final byte[] data = (byte[]) _unwrittenData.get(0);
+            final byte[] data = _unwrittenData.get(0);
             final int index = _writtenData.size();
             try {
                 if (_singleData) {
@@ -437,6 +442,11 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
                 if (tc.isEntryEnabled())
                     Tr.exit(tc, "write", ple);
                 throw ple;
+            } catch (LogsUnderlyingTablesMissingException lutme) {
+                // No FFDC in this case
+                if (tc.isEntryEnabled())
+                    Tr.exit(tc, "write", lutme);
+                throw lutme;
             } catch (InternalLogException exc) {
                 FFDCFilter.processException(exc, "com.ibm.ws.recoverylog.spi.SQLRecoverableUnitSectionImpl.write", "437", this);
                 if (tc.isEntryEnabled())
@@ -508,6 +518,11 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "force", ple);
             throw ple;
+        } catch (LogsUnderlyingTablesMissingException lutme) {
+            // No FFDC in this case
+            if (tc.isEntryEnabled())
+                Tr.exit(tc, "force", lutme);
+            throw lutme;
         } catch (InternalLogException exc) {
             FFDCFilter.processException(exc, "com.ibm.ws.recoverylog.spi.SQLRecoverableUnitSectionImpl.force", "509", this);
             if (tc.isEntryEnabled())
@@ -592,7 +607,7 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
         }
 
         if (tc.isEntryEnabled())
-            Tr.exit(tc, "data", new Integer(cursor.initialSize()));
+            Tr.exit(tc, "data", cursor.initialSize());
 
         return cursor;
     }
@@ -606,11 +621,10 @@ public class SQLRecoverableUnitSectionImpl implements RecoverableUnitSection {
      * @return The identity of the recoverable unit section.
      */
     @Override
+    @Trivial
     public int identity() {
-        if (tc.isEntryEnabled())
-            Tr.entry(tc, "identity", this);
-        if (tc.isEntryEnabled())
-            Tr.exit(tc, "identity", new Integer(_identity));
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "identity {0} {1}", this, _identity);
         return _identity;
     }
 

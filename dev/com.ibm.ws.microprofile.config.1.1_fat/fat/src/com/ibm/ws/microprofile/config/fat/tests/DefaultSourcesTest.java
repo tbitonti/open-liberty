@@ -1,12 +1,11 @@
 /*******************************************************************************
-* Copyright (c) 2016, 2020 IBM Corporation and others.
+* Copyright (c) 2016, 2024 IBM Corporation and others.
 * All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v1.0
+* are made available under the terms of the Eclipse Public License 2.0
 * which accompanies this distribution, and is available at
-* http://www.eclipse.org/legal/epl-v10.html
-*
-* Contributors:
-*     IBM Corporation - initial API and implementation
+* http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
 *******************************************************************************/
 
 package com.ibm.ws.microprofile.config.fat.tests;
@@ -23,6 +22,7 @@ import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.microprofile.appConfig.defaultSources.tests.DefaultSourcesTestServlet;
 import com.ibm.ws.microprofile.config.fat.suite.SharedShrinkWrapApps;
 
@@ -31,10 +31,10 @@ import componenttest.annotation.TestServlet;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
-import componenttest.rules.repeater.MicroProfileActions;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
+import io.openliberty.microprofile.config.fat.repeat.ConfigRepeatActions;
 
 /**
  *
@@ -43,14 +43,15 @@ import componenttest.topology.utils.FATServletClient;
 @Mode(TestMode.FULL)
 public class DefaultSourcesTest extends FATServletClient {
 
+    public static final String SERVER_NAME = "SimpleConfigSourcesServer";
     public static final String APP_NAME = "defaultSources";
 
-    @Server("SimpleConfigSourcesServer")
+    @Server(SERVER_NAME)
     @TestServlet(servlet = DefaultSourcesTestServlet.class, contextRoot = APP_NAME)
     public static LibertyServer server;
 
     @ClassRule
-    public static RepeatTests r = MicroProfileActions.repeat("SimpleConfigSourcesServer", MicroProfileActions.MP33, MicroProfileActions.LATEST);
+    public static RepeatTests r = ConfigRepeatActions.repeatDefault(SERVER_NAME);
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -109,7 +110,7 @@ public class DefaultSourcesTest extends FATServletClient {
                                                          .addAsModule(warVisibility_war)
                                                          .addAsLibrary(earlib_jar);
 
-        ShrinkHelper.exportDropinAppToServer(server, defaultSources_ear);
+        ShrinkHelper.exportDropinAppToServer(server, defaultSources_ear, DeployOptions.SERVER_ONLY);
 
         server.startServer();
     }

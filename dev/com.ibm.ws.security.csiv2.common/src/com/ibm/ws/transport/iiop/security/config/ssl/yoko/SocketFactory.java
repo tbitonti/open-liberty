@@ -1,13 +1,15 @@
-/*******************************************************************************
- * Copyright (c) 2015, 2017 IBM Corporation and others.
+/*
+ * Copyright 2015,2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *******************************************************************************/
+ */
 /*
  * Some of the code was derived from code supplied by the Apache Software Foundation licensed under the Apache License, Version 2.0.
  */
@@ -18,14 +20,13 @@ import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.AccessController;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
 import java.security.cert.Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
@@ -36,16 +37,17 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 import org.apache.yoko.orb.OCI.IIOP.Util;
+import org.omg.CORBA.Policy;
+import org.omg.CORBA.TRANSIENT;
 import org.omg.CSIIOP.EstablishTrustInClient;
 import org.omg.CSIIOP.NoProtection;
 import org.omg.CSIIOP.TAG_CSI_SEC_MECH_LIST;
 import org.omg.CSIIOP.TransportAddress;
-import org.omg.CORBA.Policy;
-import org.omg.CORBA.TRANSIENT;
 import org.omg.IOP.TaggedComponent;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ssl.Constants;
 import com.ibm.websphere.ssl.SSLException;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.security.csiv2.config.CompatibleMechanisms;
@@ -364,7 +366,11 @@ public class SocketFactory extends SocketFactoryHelper {
      */
     private void configureServerSocket(SSLServerSocket serverSocket, SSLServerSocketFactory serverSocketFactory, String sslConfigName, OptionsKey options) throws IOException {
         try {
-            String[] cipherSuites = sslConfig.getCipherSuites(sslConfigName, serverSocketFactory.getSupportedCipherSuites());
+
+            // Get the ssl properties, need information form the properties to set socket information
+            Properties sslProps = sslConfig.getSSLCfgProperties(sslConfigName);
+
+            String[] cipherSuites = sslConfig.getCipherSuites(sslConfigName, serverSocketFactory.getSupportedCipherSuites(), sslProps);
 
             SSLParameters sslParameters = serverSocket.getSSLParameters();
 
@@ -372,13 +378,13 @@ public class SocketFactory extends SocketFactoryHelper {
             sslParameters.setCipherSuites(cipherSuites);
 
             // set use cipher order on the ssl parameters
-            boolean enforceCipherOrder = sslConfig.getEnforceCipherOrder(sslConfigName);
+            boolean enforceCipherOrder = Boolean.valueOf(sslProps.getProperty(Constants.SSLPROP_ENFORCE_CIPHER_ORDER, "false"));
             sslParameters.setUseCipherSuitesOrder(enforceCipherOrder);
 
             // set the SSL protocol on the server socket
-            String protocol = sslConfig.getSSLProtocol(sslConfigName);
-            if (protocol != null) {
-                sslParameters.setProtocols(new String[] { protocol });
+            String[] protocols = sslConfig.getSSLProtocol(sslProps);
+            if (protocols != null) {
+                sslParameters.setProtocols(protocols);
             }
 
             boolean clientAuthRequired = ((options.requires & EstablishTrustInClient.value) == EstablishTrustInClient.value);
@@ -425,28 +431,49 @@ public class SocketFactory extends SocketFactoryHelper {
 
         socket.setSoTimeout(60 * 1000);
 
+        // Get the ssl properties, need information form the properties to set socket information
+        Properties sslProps = sslConfig.getSSLCfgProperties(clientSSLConfigName);
+
         // get a set of cipher suites appropriate for this connections requirements.
         // We request this for each connection, since the outgoing IOR's requirements may be different from
         // our server listener requirements.
         String[] iorSuites;
         try {
-            iorSuites = (String[]) AccessController.doPrivileged(new PrivilegedExceptionAction<Object>() {
-                @Override
-                public Object run() throws Exception {
-                    return sslConfig.getCipherSuites(clientSSLConfigName, factory.getSupportedCipherSuites());
-                }
-            });
-        } catch (PrivilegedActionException pae) {
-            throw new IOException("Could not configure client socket", pae.getCause());
+            iorSuites = sslConfig.getCipherSuites(clientSSLConfigName, factory.getSupportedCipherSuites(), sslProps);
+        } catch (SSLException e) {
+            throw new IOException("Could not set ciphers on socket:", e);
         }
+
         SSLParameters params = socket.getSSLParameters();
 
         // Check to see if hostname verification needs to be enabled
-        if (sslConfig.enableVerifyHostname(clientSSLConfigName)) {
-            params.setEndpointIdentificationAlgorithm("HTTPS");
+        boolean verifyHostname = Boolean.valueOf(sslProps.getProperty(Constants.SSLPROP_HOSTNAME_VERIFICATION, "true"));
+        if (verifyHostname) {
+            String skipHostList = sslProps.getProperty(Constants.SSLPROP_SKIP_HOSTNAME_VERIFICATION_FOR_HOSTS);
+            if (!Constants.isSkipHostnameVerificationForHosts(host, skipHostList)) {
+                params.setEndpointIdentificationAlgorithm("HTTPS");
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Hostname verification is enabled");
+                }
+            } else {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Hostname verification is disabled");
+                }
+            }
         }
 
         params.setCipherSuites(iorSuites);
+
+        try {
+            // set the SSL protocol on the server socket
+            String[] protocols = sslConfig.getSSLProtocol(sslProps);
+            if (protocols != null) {
+                params.setProtocols(protocols);
+            }
+        } catch (SSLException e) {
+            throw new IOException("Could not set protocols on socket:", e);
+        }
+
         socket.setSSLParameters(params);
         if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
             Tr.debug(tc, "Created SSL socket to " + host + ":" + port);
@@ -491,6 +518,7 @@ public class SocketFactory extends SocketFactoryHelper {
 
     @Override
     public TransportAddress[] getEndpoints(TaggedComponent tagComponent, Policy[] policies) {
+        final boolean DEBUG = TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled();
 
         final CSSConfig cssConfig = getCssConfig(policies);
         List<TransportAddress> addresses = new ArrayList<TransportAddress>();
@@ -510,8 +538,7 @@ public class SocketFactory extends SocketFactoryHelper {
                 String sslConfigName = compatibleMechanisms.getCSSCompoundSecMechConfig().getTransport_mech().getSslConfigName();
 
                 for (TransportAddress addr : transportConfig.getTransportAddresses()) {
-                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
-                        Tr.debug(tc, "IOR to target " + addr.host_name + ":" + (int) (char) addr.port + " using client sslConfig " + sslConfigName);
+                    if (DEBUG) Tr.debug(tc, "IOR to target " + addr.host_name + ":" + (int) (char) addr.port + " using client sslConfig " + sslConfigName);
                     addresses.add(useProtection ? createSslTransportAddress(addr.host_name, addr.port, sslConfigName) : createPlainTransportAddress(addr.host_name, addr.port));
                 }
             } else {
@@ -522,14 +549,25 @@ public class SocketFactory extends SocketFactoryHelper {
 
                     String sslConfigName = mech_cfg.getSslConfigName();
 
-                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
-                        Tr.debug(tc, "IOR to target " + addr.getHost() + ":" + (int) (char) addr.getPort() + " using client sslConfig " + sslConfigName);
+                    if (DEBUG) Tr.debug(tc, "IOR to target " + addr.getHost() + ":" + (int) (char) addr.getPort() + " using client sslConfig " + sslConfigName);
                     addresses.add(useProtection ? createSslTransportAddress(addr.getHost(), addr.getPort(), sslConfigName) : createPlainTransportAddress(addr.getHost(),
                                                                                                                                                          addr.getPort()));
                 }
             }
         }
-        return addresses.toArray(new TransportAddress[addresses.size()]);
-    }
 
+        // return a de-duplicated array of Transport addresses
+        return addresses.stream().sequential()
+                // wrap in a ServerTransportAddress to get hashCode(), equals() and toString()
+                .map(ServerTransportAddress::new)
+                // trace the transport address
+                .peek(DEBUG ? sta -> Tr.debug(tc, "Considering received endpoint: " + sta) : sta -> {})
+                // Set::add to filter out duplicates
+                .filter(new HashSet<>()::add)
+                // trace if it was NOT a duplicate
+                .peek(DEBUG ? sta -> Tr.debug(tc, "Accepting unique endpoint: " + sta) : sta -> {})
+                // recover the original object
+                .map(ServerTransportAddress::getTransportAddress)
+                .toArray(TransportAddress[]::new);
+    }
 }

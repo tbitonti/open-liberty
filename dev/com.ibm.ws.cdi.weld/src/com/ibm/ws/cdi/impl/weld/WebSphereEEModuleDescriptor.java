@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,6 +14,7 @@ package com.ibm.ws.cdi.impl.weld;
 
 import org.jboss.weld.bootstrap.spi.helpers.EEModuleDescriptorImpl;
 
+import com.ibm.websphere.csi.J2EEName;
 import com.ibm.ws.cdi.internal.interfaces.ArchiveType;
 
 /**
@@ -19,12 +22,20 @@ import com.ibm.ws.cdi.internal.interfaces.ArchiveType;
  */
 public class WebSphereEEModuleDescriptor extends EEModuleDescriptorImpl {
 
+    private final J2EEName j2eeName;
+
     /**
      * @param id
      * @param archiveType
      */
     public WebSphereEEModuleDescriptor(String id, ArchiveType archiveType) {
         super(id, getModuleType(archiveType));
+        j2eeName = null;
+    }
+
+    public WebSphereEEModuleDescriptor(String id, J2EEName j2eeName, ArchiveType archiveType) {
+        super(id, getModuleType(archiveType));
+        this.j2eeName = j2eeName;
     }
 
     private static ModuleType getModuleType(ArchiveType archiveType) {
@@ -65,5 +76,17 @@ public class WebSphereEEModuleDescriptor extends EEModuleDescriptorImpl {
                 break;
         }
         return moduleType;
+    }
+
+    public J2EEName getJ2eeName() {
+        return j2eeName;
+    }
+
+    @Override
+    public String toString() {
+        String j2eeName = getJ2eeName() != null ? getJ2eeName().toString() : "null";
+        ModuleType type = getType();
+
+        return ("WebSphereEEModuleDescriptor. Id: " + this.getId() + " J2EEName: " + j2eeName + " type: " + type.toString());
     }
 }

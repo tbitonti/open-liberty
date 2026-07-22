@@ -1,0 +1,7 @@
+<server>
+    <include location="../fatTestPorts.xml"/>
+    <featureManager>
+        <feature>concurrent-1.0</feature>
+        <feature>test.iiop.interceptor-1.0</feature>
+    </featureManager>
+</server>

@@ -1,12 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.sip.container.was;
 
@@ -78,7 +77,6 @@ public class DummySipServletRequestResponse implements
 	}
 
 	public String getCharacterEncoding() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
@@ -91,12 +89,10 @@ public class DummySipServletRequestResponse implements
 	}
 
 	public ServletOutputStream getOutputStream() throws IOException {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	public PrintWriter getWriter() throws IOException {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
@@ -234,37 +230,31 @@ public class DummySipServletRequestResponse implements
 
 	@Override
 	public AsyncContext getAsyncContext() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public DispatcherType getDispatcherType() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public ServletContext getServletContext() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public boolean isAsyncStarted() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public AsyncContext startAsync() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public AsyncContext startAsync(ServletRequest arg0, ServletResponse arg1) {
-		// TODO Auto-generated method stub
 		return null;
 	}
 

@@ -1,12 +1,11 @@
 ###############################################################################
-# Copyright (c) 2016, 2020 IBM Corporation and others.
+# Copyright (c) 2016, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 # -------------------------------------------------------------------------------------------------
 #CMVCPATHNAME com.ibm.ws.security/resources/com/ibm/ws/security/social/resources/SocialMessages.nlsprops
@@ -16,7 +15,7 @@
 #NLS_MESSAGEFORMAT_VAR
 #NLS_ENCODING=UNICODE
 # -------------------------------------------------------------------------------------------------
-# Message prefix block: CWWKS5370 - CWWKS5499
+# Message prefix block: CWWKS5370 - CWWKS5499, CWWKS2350 - CWWKS2399
 ADD_ID={0} ({1})
 ADD_ID.explanation=Pouze pro vnit\u0159n\u00ed pou\u017eit\u00ed.
 ADD_ID.useraction=Nen\u00ed pot\u0159eba \u017e\u00e1dn\u00e1 akce.
@@ -53,7 +52,7 @@ KUBERNETES_ACCESS_TOKEN_MISSING.useraction=Ov\u011b\u0159te, \u017ee koncov\u00f
 # 0=HTTP response code, 1=Response body
 KUBERNETES_USER_API_BAD_STATUS=CWWKS5373E: Rozhran\u00ed API u\u017eivatele Kubernetes vr\u00e1tilo neo\u010dek\u00e1van\u00fd k\u00f3d odezvy [{0}]. Ov\u011b\u0159te, \u017ee po\u017eadavek na rozhran\u00ed API obsahuje v\u0161echny nezbytn\u00e9 informace a \u017ee token servisn\u00edho \u00fa\u010dtu Kubernetes byl vytvo\u0159en se spr\u00e1vn\u00fdmi opr\u00e1vn\u011bn\u00edmi. Odezva z rozhran\u00ed API je [{1}].
 KUBERNETES_USER_API_BAD_STATUS.explanation=Rozhran\u00ed API u\u017eivatele Kubernetes nevr\u00e1tilo o\u010dek\u00e1van\u00fd stavov\u00fd k\u00f3d.
-KUBERNETES_USER_API_BAD_STATUS.useraction=Zkontrolujte odezvu rozhran\u00ed API, \u017ee je v chybov\u00e9 zpr\u00e1v\u011b, kde jsou uvedeny dal\u0161\u00ed informace. Ov\u011b\u0159te, \u017ee po\u017eadavek na rozhran\u00ed API obsahuje v\u0161echny nezbytn\u00e9 informace. Ujist\u011bte se, \u017ee token servisn\u00edho \u00fa\u010dtu Kubernetes byl vytvo\u0159en se spr\u00e1vn\u00fdmi opr\u00e1vn\u011bn\u00edmi.
+KUBERNETES_USER_API_BAD_STATUS.useraction=Zkontrolujte odezvu rozhran\u00ed API, \u017ee je v chybov\u00e9 zpr\u00e1v\u011b, kde jsou uvedeny dal\u0161\u00ed informace. Ov\u011b\u0159te, \u017ee po\u017eadavek na rozhran\u00ed API obsahuje v\u0161echny nezbytn\u00e9 informace. Ujist\u011bte se, \u017ee token servisn\u00edho \u00fa\u010dtu Kubernetes byl vytvo\ufffd\ufffden se spr\u00e1vn\u00fdmi opr\u00e1vn\u011bn\u00edmi.
 
 # 0=JSON key string, 1=User API response string
 KUBERNETES_USER_API_RESPONSE_MISSING_KEY=CWWKS5374E: Odezv\u011b rozhran\u00ed API u\u017eivatele Kubernetes chyb\u00ed o\u010dek\u00e1van\u00fd kl\u00ed\u010d: [{0}]. \u00dapln\u00e1 odezva je [{1}].
@@ -132,6 +131,19 @@ INTROSPECT_USER_API_INACTIVE.useraction=Zkontrolujte odezvu, kter\u00e1 je sou\u
 USER_API_RESPONSE_NOT_AUTHENTICATED=CWWKS5389E: Odezva API u\u017eivatele ozna\u010duje, \u017ee po\u017eadavek na rozhran\u00ed API u\u017eivatele nen\u00ed ov\u011b\u0159en. Ov\u011b\u0159te, zda je p\u0159\u00edstupov\u00fd token, kter\u00fd je sou\u010d\u00e1st\u00ed po\u017eadavku na u\u017eivatelsk\u00e9ho rozhran\u00ed API, platn\u00fd a je p\u0159idru\u017een ke zn\u00e1m\u00e9mu u\u017eivateli.
 USER_API_RESPONSE_NOT_AUTHENTICATED.explanation=P\u0159\u00edstupov\u00fd token, kter\u00fd je v po\u017eadavku u\u017eivatelsk\u00e9ho rozhran\u00ed API, m\u016f\u017ee chyb\u011bt, vypr\u0161el, je chybn\u00fd nebo jinak neplatn\u00fd. Token nemus\u00ed b\u00fdt p\u0159idru\u017een k u\u017eivateli zn\u00e1m\u00e9mu pro u\u017eivatelsk\u00e9 rozhran\u00ed API.
 USER_API_RESPONSE_NOT_AUTHENTICATED.useraction=Ov\u011b\u0159te, \u017ee je p\u0159\u00edstupov\u00fd token sou\u010d\u00e1st\u00ed po\u017eadavku u\u017eivatelsk\u00e9ho rozhran\u00ed API. Ujist\u011bte se, \u017ee token nevypr\u0161el nebo nen\u00ed chybn\u00fd. Ov\u011b\u0159te, \u017ee je u\u017eivatel p\u0159idru\u017een k p\u0159\u00edstupov\u00e9mu tokenu, kter\u00fd je zn\u00e1m u\u017eivatelsk\u00e9mu rozhran\u00ed API.
+
+INVALID_CONFIG_PARAM=CWWKS5390E: Povinn\u00fd konfigura\u010dn\u00ed parametr {0} chyb\u00ed nebo m\u00e1 neplatnou hodnotu {1}
+INVALID_CONFIG_PARAM.explanation=B\u011bhov\u00fd k\u00f3d p\u0159ihl\u00e1\u0161en\u00ed do soci\u00e1ln\u00ed s\u00edt\u011b nena\u0161el p\u0159i zpracov\u00e1n\u00ed po\u017eadavku klienta povinn\u00fd parametr.
+INVALID_CONFIG_PARAM.useraction=Zkontrolujte chyb\u011bj\u00edc\u00ed parametr v konfiguraci a ujist\u011bte se, \u017ee je zad\u00e1n a je spr\u00e1vn\u00fd.
+
+OIDC_CLIENT_DISCOVERY_SSL_ERROR=CWWKS5391E: Klientovi pro soci\u00e1ln\u00ed p\u0159ihl\u00e1\u0161en\u00ed [{0}] se nezda\u0159ilo z\u00edskat informace o koncov\u00e9m bodu poskytovatele OpenID Connect prost\u0159ednictv\u00edm adresy URL koncov\u00e9ho bodu zji\u0161\u0165ov\u00e1n\u00ed [{1}]. Aktualizujte konfiguraci klienta pro soci\u00e1ln\u00ed p\u0159ihl\u00e1\u0161en\u00ed (konfigurace oidcLogin) pomoc\u00ed spr\u00e1vn\u00e9 adresy URL koncov\u00e9ho bodu zji\u0161\u0165ov\u00e1n\u00ed HTTPS.
+OIDC_CLIENT_DISCOVERY_SSL_ERROR.explanation=Konfigurace oidcLogin je nakonfigurov\u00e1na tak, aby zji\u0161\u0165ovala koncov\u00e9 body poskytovatele OpenID Connect prost\u0159ednictv\u00edm adresy URL pro zji\u0161\u0165ov\u00e1n\u00ed, ale zji\u0161\u0165ovac\u00ed proces se nezda\u0159il. Klient nebude moci zpracovat \u017e\u00e1dosti o ov\u011b\u0159en\u00ed, dokud nebude opravena konfigurace discoveryEndpoint nebo dokud nebude zji\u0161\u0165ov\u00e1n\u00ed \u00fasp\u011b\u0161n\u00e9.
+OIDC_CLIENT_DISCOVERY_SSL_ERROR.useraction=Opravte konfiguraci oidcLogin a ujist\u011bte se, \u017ee 1) adresa URL koncov\u00e9ho bodu zji\u0161\u0165ov\u00e1n\u00ed odkazuje na spr\u00e1vn\u00e9ho poskytovatele OpenID Connect, 2) adresa URL koncov\u00e9ho bodu zji\u0161\u0165ov\u00e1n\u00ed je HTTPS, 3) funkce SSL a prvky \u00falo\u017ei\u0161t\u011b kl\u00ed\u010d\u016f jsou spr\u00e1vn\u011b nakonfigurov\u00e1ny s d\u016fv\u011bryhodnost\u00ed pro poskytovatele OpenID Connect a 4) ujist\u011bte se, \u017ee koncov\u00fd bod zji\u0161\u0165ov\u00e1n\u00ed poskytovatele OpenID Connect je funk\u010dn\u00ed.
+
+#0=social login client ID, 1="none"
+SOCIAL_LOGIN_NONE_ALG=CWWKS5392W: Adresa signatureAlgorithm klienta pro p\u0159ihl\u00e1\u0161en\u00ed p\u0159es soci\u00e1ln\u00ed s\u00edt\u011b [ {0} ] je nastavena na [ {1} ].
+SOCIAL_LOGIN_NONE_ALG.explanation=Jeliko\u017e je parametr \u201e signatureAlgorithm \u201c nastaven na hodnotu \u201enone\u201c, o\u010dek\u00e1v\u00e1 se token bez podpisu, co\u017e nen\u00ed b\u011b\u017en\u00fd p\u0159\u00edpad pou\u017eit\u00ed.
+SOCIAL_LOGIN_NONE_ALG.useraction=Pokud neo\u010dek\u00e1v\u00e1te, \u017ee p\u0159\u00edchoz\u00ed tokeny budou podepsan\u00e9, nemus\u00edte nic d\u011blat. Jinak vyberte podporovan\u00fd atribut signatureAlgorithm, nap\u0159. RS256 nebo HS256.
 
 SOCIAL_LOGIN_CONFIG_PROCESSED=CWWKS5400I: Konfigurace soci\u00e1ln\u00edho p\u0159ihl\u00e1\u0161en\u00ed [{0}] byla \u00fasp\u011b\u0161n\u011b zpracov\u00e1na.
 SOCIAL_LOGIN_CONFIG_PROCESSED.explanation=Uveden\u00e1 konfigurace soci\u00e1ln\u00edho p\u0159ihl\u00e1\u0161en\u00ed byla \u00fasp\u011b\u0161n\u011b zpracov\u00e1na.
@@ -639,10 +651,18 @@ REQUEST_URL_NOT_VALID=CWWKS5499E: Funkce p\u0159ihl\u00e1\u0161en\u00ed do soci\
 REQUEST_URL_NOT_VALID.explanation=P\u016fvodn\u00ed adresa URL po\u017eadavku nen\u00ed platnou adresou URL. Adresa URL m\u016f\u017ee obsahovat znaky, kter\u00e9 nejsou platn\u00e9, nebo adresa URL m\u016f\u017ee b\u00fdt chybn\u00e1.
 REQUEST_URL_NOT_VALID.useraction=Ov\u011b\u0159te, \u017ee adresa URL po\u017eadavku, kter\u00fd je uvedena ve zpr\u00e1v\u011b, odpov\u00edd\u00e1 p\u016fvodn\u00ed adrese URL po\u017eadavku na chr\u00e1n\u011bn\u00fd prost\u0159edek. Ov\u011b\u0159te, \u017ee adresa URL je dob\u0159e formovan\u00e1 a obsahuje pouze platn\u00e9 znaky identifik\u00e1toru URI.
 
-INVALID_CONFIG_PARAM=CWWKS5500E: Povinn\u00fd konfigura\u010dn\u00ed parametr {0} chyb\u00ed nebo m\u00e1 neplatnou hodnotu {1}
-INVALID_CONFIG_PARAM.explanation=B\u011bhov\u00fd k\u00f3d p\u0159ihl\u00e1\u0161en\u00ed do soci\u00e1ln\u00ed s\u00edt\u011b nena\u0161el p\u0159i zpracov\u00e1n\u00ed po\u017eadavku klienta povinn\u00fd parametr.
-INVALID_CONFIG_PARAM.useraction=Zkontrolujte chyb\u011bj\u00edc\u00ed parametr v konfiguraci a ujist\u011bte se, \u017ee je zad\u00e1n a je spr\u00e1vn\u00fd.
+# NOTE: Start of new message prefix CWWKS2350 - 2399
 
-OIDC_CLIENT_DISCOVERY_SSL_ERROR=CWWKS5501E: Klientovi pro soci\u00e1ln\u00ed p\u0159ihl\u00e1\u0161en\u00ed [{0}] se nezda\u0159ilo z\u00edskat informace o koncov\u00e9m bodu poskytovatele OpenID Connect prost\u0159ednictv\u00edm adresy URL koncov\u00e9ho bodu zji\u0161\u0165ov\u00e1n\u00ed [{1}]. Aktualizujte konfiguraci klienta pro soci\u00e1ln\u00ed p\u0159ihl\u00e1\u0161en\u00ed (konfigurace oidcLogin) pomoc\u00ed spr\u00e1vn\u00e9 adresy URL koncov\u00e9ho bodu zji\u0161\u0165ov\u00e1n\u00ed HTTPS. 
-OIDC_CLIENT_DISCOVERY_SSL_ERROR.explanation=Konfigurace oidcLogin je nakonfigurov\u00e1na tak, aby zji\u0161\u0165ovala koncov\u00e9 body poskytovatele OpenID Connect prost\u0159ednictv\u00edm adresy URL pro zji\u0161\u0165ov\u00e1n\u00ed, ale zji\u0161\u0165ovac\u00ed proces se nezda\u0159il. Klient nebude moci zpracovat \u017e\u00e1dosti o ov\u011b\u0159en\u00ed, dokud nebude opravena konfigurace discoveryEndpoint nebo dokud nebude zji\u0161\u0165ov\u00e1n\u00ed \u00fasp\u011b\u0161n\u00e9.
-OIDC_CLIENT_DISCOVERY_SSL_ERROR.useraction=Opravte konfiguraci oidcLogin a ujist\u011bte se, \u017ee 1) adresa URL koncov\u00e9ho bodu zji\u0161\u0165ov\u00e1n\u00ed odkazuje na spr\u00e1vn\u00e9ho poskytovatele OpenID Connect, 2) adresa URL koncov\u00e9ho bodu zji\u0161\u0165ov\u00e1n\u00ed je HTTPS, 3) funkce SSL a prvky \u00falo\u017ei\u0161t\u011b kl\u00ed\u010d\u016f jsou spr\u00e1vn\u011b nakonfigurov\u00e1ny s d\u016fv\u011bryhodnost\u00ed pro poskytovatele OpenID Connect a 4) ujist\u011bte se, \u017ee koncov\u00fd bod zji\u0161\u0165ov\u00e1n\u00ed poskytovatele OpenID Connect je funk\u010dn\u00ed.
+BACKCHANNEL_REQUEST_NOT_SUPPORTED_CONFIG=CWWKS2350E: Po\u017eadavek na odhl\u00e1\u0161en\u00ed zadn\u00edho kan\u00e1lu odeslan\u00fd do [{0}] nen\u00ed podporov\u00e1n konfigurac\u00ed p\u0159ihl\u00e1\u0161en\u00ed do soci\u00e1ln\u00edch m\u00e9di\u00ed [{1}].
+BACKCHANNEL_REQUEST_NOT_SUPPORTED_CONFIG.explanation=Konfigurace p\u0159ihl\u00e1\u0161en\u00ed do soci\u00e1ln\u00edch m\u00e9di\u00ed nen\u00ed klientem OpenID Connect, tak\u017ee nepodporuje odhl\u00e1\u0161en\u00ed zadn\u00edho kan\u00e1lu.
+BACKCHANNEL_REQUEST_NOT_SUPPORTED_CONFIG.useraction=Pou\u017eijte koncov\u00fd bod odhl\u00e1\u0161en\u00ed, kter\u00fd odpov\u00edd\u00e1 konfiguraci p\u0159ihl\u00e1\u0161en\u00ed do soci\u00e1ln\u00edch m\u00e9di\u00ed.
+
+CLIENT_SECRET_MISSING_BUT_REQUIRED_BY_TOKEN_AUTH_METHOD=CWWKS2351E: Klient {0} OpenID Connect pou\u017e\u00edv\u00e1 metodu ov\u011b\u0159en\u00ed koncov\u00e9ho bodu tokenu {1}. Tato metoda ov\u011b\u0159en\u00ed vy\u017eaduje utajen\u00fd tajn\u00fd kl\u00ed\u010d klienta, ale tajn\u00fd kl\u00ed\u010d klienta nen\u00ed nakonfigurov\u00e1n.
+CLIENT_SECRET_MISSING_BUT_REQUIRED_BY_TOKEN_AUTH_METHOD.explanation=Metoda ov\u011b\u0159en\u00ed koncov\u00e9ho bodu tokenu uveden\u00e1 ve zpr\u00e1v\u011b po\u017eaduje tajn\u00fd kl\u00ed\u010d klienta pro ov\u011b\u0159en\u00ed s koncov\u00fdm bodem tokenu poskytovatele OpenID Connect.
+CLIENT_SECRET_MISSING_BUT_REQUIRED_BY_TOKEN_AUTH_METHOD.useraction=Nakonfigurujte tajn\u00fd kl\u00ed\u010d klienta pro klienta OpenID Connect, nebo p\u0159epn\u011bte metodu ov\u011b\u0159en\u00ed koncov\u00e9ho bodu tokenu klienta na metodu nevy\u017eaduj\u00edc\u00ed tajn\u00fd kl\u00ed\u010d klienta.
+
+# do not translate hostname, sameSiteCookie, webAppSecurity, Strict, Lax, None
+# used by client
+OIDC_CLIENT_BAD_REQUEST_NO_COOKIE=CWWKS2352E: Po\u017eadavek na [{0}] nen\u00ed platn\u00fd. Chyb\u00ed po\u017eadovan\u00fd soubor cookie s n\u00e1zvem, kter\u00fd za\u010d\u00edn\u00e1 hodnotou WASReqURLOidc. N\u00e1zev hostitele, kter\u00fd se pou\u017e\u00edv\u00e1 pro p\u0159\u00edstup ke klientovi, se nemus\u00ed shodovat s n\u00e1zvem, kter\u00fd je registrov\u00e1n u poskytovatele.
+OIDC_CLIENT_BAD_REQUEST_NO_COOKIE.explanation=Klient p\u0159ijal po\u017eadavek, kter\u00fd neobsahoval po\u017eadovan\u00fd soubor cookie.
+OIDC_CLIENT_BAD_REQUEST_NO_COOKIE.useraction=Ov\u011b\u0159te poskytovatele OpenID Connect a konfigurace klienta. Chyb\u011bj\u00edc\u00ed soubor cookie m\u016f\u017ee b\u00fdt zp\u016fsoben p\u0159\u00edstupem ke klientovi s n\u00e1zvem hostitele, kter\u00fd se li\u0161\u00ed od n\u00e1zvu hostitele p\u0159esm\u011brov\u00e1n\u00ed registrovan\u00e9ho u poskytovatele. Jestli\u017ee je atribut sameSiteCookie v prvku webAppSecurity v konfiguraci serveru nastaven na Strict, zkuste nastavit hodnotu na Lax nebo None.

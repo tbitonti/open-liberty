@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2018 IBM Corporation and others.
+ * Copyright (c) 2011, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,11 +15,11 @@ package componenttest.topology.utils;
 import static org.junit.Assert.assertEquals;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.net.Authenticator;
 import java.net.HttpURLConnection;
@@ -29,6 +31,7 @@ import java.security.AccessController;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -118,6 +121,9 @@ public class HttpUtils {
      */
     public static BufferedReader getErrorStream(HttpURLConnection con) throws IOException {
         InputStream is = con.getErrorStream();
+        if (is == null) {
+            return new BufferedReader(new StringReader(""));
+        }
         return getBufferedReader(is);
     }
 
@@ -131,6 +137,9 @@ public class HttpUtils {
      */
     public static BufferedReader getErrorStream(HttpURLConnection con, String charsetName) throws IOException {
         InputStream is = con.getErrorStream();
+        if (is == null) {
+            return new BufferedReader(new StringReader(""));
+        }
         return getBufferedReader(is, charsetName);
     }
 
@@ -658,13 +667,12 @@ public class HttpUtils {
             // See if we can get the stream for the response, may be an input or error stream
             try {
                 is = con.getInputStream();
-            } catch (FileNotFoundException e) {
+            } catch (IOException e) {
                 // No input stream so try the error
                 is = con.getErrorStream();
-            } catch (IOException ioe) {
-                String errStream = read(con.getErrorStream());
-                Log.info(c, method, "rc=" + con.getResponseCode() + " response=" + LS + errStream);
-                throw new IOException(ioe.getMessage() + ": " + errStream, ioe);
+                if (is == null) {
+                    throw e;
+                }
             }
 
             String output = read(is);
@@ -680,7 +688,22 @@ public class HttpUtils {
         }
     }
 
-    private static String read(InputStream in) throws IOException {
+    /**
+     * @deprecated We should not be using SSLv3 or DSA certificates, this is for legacy tests only
+     */
+    @Deprecated
+    public static void enableSSLv3() {
+        String protocols = "SSLv3,TLSv1";
+        protocols += ",TLSv1.1,TLSv1.2";
+
+        System.setProperty("com.ibm.jsse2.disableSSLv3", "false");
+        System.setProperty("https.protocols", protocols);
+        Security.setProperty("jdk.tls.disabledAlgorithms", "");
+
+        Log.info(c, "enableSSLv3", "Enabled SSLv3.  https.protocols=" + protocols);
+    }
+
+    public static String read(InputStream in) throws IOException {
         if (in == null) {
             return null;
         }

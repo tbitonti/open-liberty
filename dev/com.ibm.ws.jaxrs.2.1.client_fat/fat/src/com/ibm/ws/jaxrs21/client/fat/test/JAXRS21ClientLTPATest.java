@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -26,12 +28,10 @@ import org.junit.runner.RunWith;
 import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.annotation.Server;
-import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
 
 @RunWith(FATRunner.class)
-@SkipForRepeat("EE9_FEATURES") // Continue to skip this test for EE9 as com.ibm.ws.jaxrs.client.ltpa.handler is not supported
 public class JAXRS21ClientLTPATest extends JAXRS21AbstractTest {
     @Server("jaxrs21.client.JAXRS21ClientLTPATest")
     public static LibertyServer server;
@@ -51,6 +51,7 @@ public class JAXRS21ClientLTPATest extends JAXRS21AbstractTest {
         // already started server
         try {
             server.startServer(true);
+            server.waitForDefaultHTTPEndpointSSLStart();
         } catch (Exception e) {
             System.out.println(e.toString());
         }

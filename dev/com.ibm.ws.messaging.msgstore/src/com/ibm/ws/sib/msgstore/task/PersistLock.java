@@ -2,9 +2,11 @@ package com.ibm.ws.sib.msgstore.task;
 /*******************************************************************************
  * Copyright (c) 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -34,13 +36,13 @@ public final class PersistLock extends Task
     {
         private long _cachedLockId;
 
-        public CachedPersistable(Persistable masterPersistable)
+        public CachedPersistable(Persistable primaryPersistable)
         {
-            super(masterPersistable);
+            super(primaryPersistable);
 
             if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) SibTr.entry(this, tc, "<init>$CachedPersistable");
 
-            _cachedLockId = _masterPersistable.getLockID();
+            _cachedLockId = _primaryPersistable.getLockID();
 
             if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) SibTr.exit(this, tc, "<init>$CachedPersistable");
         }
@@ -60,14 +62,14 @@ public final class PersistLock extends Task
     private static TraceComponent tc =
     SibTr.register(PersistLock.class, MessageStoreConstants.MSG_GROUP, MessageStoreConstants.MSG_BUNDLE);
     private Persistable _cachedPersistable = null;
-    private Persistable _masterPersistable;
+    private Persistable _primaryPersistable;
 
     public PersistLock(AbstractItemLink link) throws SevereMessageStoreException
     {
         super(link);
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) SibTr.entry(this, tc, "<init>", link);
 
-        _masterPersistable = super.getPersistable();
+        _primaryPersistable = super.getPersistable();
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) SibTr.exit(this, tc, "<init>", this);
     }
@@ -111,7 +113,7 @@ public final class PersistLock extends Task
 
         if (_cachedPersistable == null)
         {
-            _cachedPersistable = new CachedPersistable(_masterPersistable);
+            _cachedPersistable = new CachedPersistable(_primaryPersistable);
         }
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) SibTr.exit(this, tc, "copyDataIfVulnerable");
@@ -129,7 +131,7 @@ public final class PersistLock extends Task
         }
         else
         {
-            return _masterPersistable;
+            return _primaryPersistable;
         }
     }
 

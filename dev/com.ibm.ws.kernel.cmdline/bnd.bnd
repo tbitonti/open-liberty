@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2017 IBM Corporation and others.
+# Copyright (c) 2017, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -26,7 +28,7 @@ Private-Package: com.ibm.ws.kernel.boot.cmdline;-split-package:=merge-last, \
  com.ibm.ws.kernel.boot.resources.*
 
 -includeresource: \
- @${repo;com.ibm.websphere.org.osgi.core}!/org/osgi/framework/Version*.class
+ @\${repo;com.ibm.websphere.org.osgi.core}!/org/osgi/framework/Version*.class
 
 instrument.disabled: true
 
@@ -43,5 +45,4 @@ instrument.disabled: true
 	org.jmock:jmock;strategy=exact;version=2.5.1,\
     javax.activation:activation;version=1.1,\
     com.ibm.websphere.javaee.jaxb.2.2;version=latest,\
-    com.sun.xml.bind:jaxb-core;version=2.2.10,\
-    com.sun.xml.bind:jaxb-impl;version=2.2.10
+    com.ibm.ws.jaxb.tools;version=latest

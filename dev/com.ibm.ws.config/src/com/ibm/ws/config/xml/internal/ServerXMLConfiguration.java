@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2021 IBM Corporation and others.
+ * Copyright (c) 2013, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -27,7 +29,6 @@ import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.config.xml.ConfigVariables;
 import com.ibm.ws.config.xml.LibertyVariable;
-import com.ibm.ws.config.xml.internal.validator.XMLConfigValidator;
 import com.ibm.ws.config.xml.internal.variables.ConfigVariableRegistry;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.wsspi.kernel.service.location.WsLocationAdmin;
@@ -84,6 +85,10 @@ class ServerXMLConfiguration {
 
     boolean hasConfigRoot() {
         return configRoot != null;
+    }
+
+    File configRootFile() {
+        return configRoot.asFile();
     }
 
     private static long getInitialConfigReadTime(BundleContext bundleContext) {
@@ -211,7 +216,7 @@ class ServerXMLConfiguration {
 
     // Remove milliseconds from timestamp values to address inconsistencies in container file systems
     long reduceTimestampPrecision(long value) {
-      return (value / 1000) * 1000;
+        return (value / 1000) * 1000;
     }
 
     /**
@@ -253,6 +258,48 @@ class ServerXMLConfiguration {
     }
 
     /**
+     * Gets all monitored config files, this contains the server.xml, all files within <include> tags
+     * and all files within configDropins/defaults and configDropins/overrides
+     * 
+     * @return
+     */
+    public Collection<String> getAllMonitoredConfigFiles(){
+        Collection<String> files = new HashSet<String>();
+
+        if (configDropinDefaults != null) {
+            File[] defaultFiles = getChildXMLFiles(configDropinDefaults);
+            if (defaultFiles != null) {
+                for (File f : defaultFiles) {
+                    String name = f.getName();
+                    WsResource resource = configDropinDefaults.resolveRelative(name);
+                    String path = resource.toRepositoryPath();
+                    if (path != null) {
+                        files.add(path);
+                    }
+                }
+            }
+        }
+
+        files.addAll(getFilesToMonitor());
+
+        if (configDropinOverrides != null) {
+            File[] overrideFiles = getChildXMLFiles(configDropinOverrides);
+            if (overrideFiles != null) {
+                for (File f : overrideFiles) {
+                    String name = f.getName();
+                    WsResource resource = configDropinOverrides.resolveRelative(name);
+                    String path = resource.toRepositoryPath();
+                    if (path != null) {
+                        files.add(path);
+                    }
+                }
+            }
+        }
+
+        return files;
+    }
+
+    /**
      * To maintain the same order across platforms, we have to implement our own comparator.
      * Otherwise, "aardvark.xml" would come before "Zebra.xml" on windows, and vice versa on unix.
      */
@@ -273,7 +320,7 @@ class ServerXMLConfiguration {
     @FFDCIgnore({ ConfigParserException.class, ConfigParserTolerableException.class })
     private ServerConfiguration loadServerConfiguration() throws ConfigValidationException, ConfigParserException {
         ServerConfiguration configuration = null;
-        XMLConfigValidator configValidator = parser.getConfigValidator();
+
         try {
             try {
                 // Initialize the configuration object here, so that as the parser progresses
@@ -291,7 +338,6 @@ class ServerXMLConfiguration {
 
                 configuration.updateLastModified(configRoot.getLastModified());
 
-                configValidator.validateConfig(configuration);
             } catch (ConfigParserTolerableException ex) {
                 // We know what this is, so no need to retry
                 throw ex;
@@ -306,7 +352,7 @@ class ServerXMLConfiguration {
                     // Reset the server configuration so that we can start over from the beginning.
                     configuration = new ServerConfiguration();
                     parser.parseServerConfiguration(configRoot, configuration);
-                    configValidator.validateConfig(configuration);
+
                 }
             }
         } catch (ConfigParserException ex) {

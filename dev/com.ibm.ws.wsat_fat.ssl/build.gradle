@@ -1,19 +1,27 @@
 /*******************************************************************************
- * Copyright (c) 2020,2021 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 
+configurations {
+  requiredLibs {
+    transitive = false
+  }
+}
+
 // Define G:A:V coordinates of each dependency
 dependencies {
   requiredLibs project(":com.ibm.ws.tx.embeddable"),
                project(":com.ibm.ws.wsat_fat.db"),
-               project(':io.openliberty.org.apache.commons.logging')
+               project(":com.ibm.ws.transaction.fat.util")
 }
 
 
@@ -25,60 +33,25 @@ task addDerbyToSharedDir(type: Copy) {
   rename 'derby-.*.jar', 'derby.jar'
 }
 
-task copyFAT {
-    copy {
-      from project(':com.ibm.ws.wsat_fat.db').file('fat/src/com/ibm/ws/wsat/fat/tests')
-      into new File('fat/src/com/ibm/ws/wsat/fat/tests')
-    }
-}
-
-task copyCommonFiles {
-  doLast {
-    /*
-     * Copy test application resources.
-     */
-    copy {
-      from project(':com.ibm.ws.wsat_fat.db').file('test-applications')
-      into new File('test-applications')
-    }
-    copy {
-      from project(':com.ibm.ws.wsat_fat.db').file('test-bundles')
-      into new File('test-bundles')
-    }
-
-    /*
-     * Copy common publish files.
-     */
-    copy {
-      from project(':com.ibm.ws.wsat_fat.db').file('publish')
-      into new File('publish')
-    }
-  }
-}
-
-addRequiredLibraries.dependsOn copyFAT
 addRequiredLibraries.dependsOn addDerbyToSharedDir
 
-jar {
-  dependsOn copyCommonFiles
+autoFVT.dependsOn project(':com.ibm.ws.wsat_fat.db').autoFVT
+
+autoFVT {
+  def baseProject = project(':com.ibm.ws.wsat_fat.db')
+  doLast {
+  copy {
+    from baseProject.autoFvtDir
+    into autoFvtDir
+    include 'test-applications/**'
+  }
+  }
 }
 
-autoFVT.dependsOn copyCommonFiles
-
 clean.doLast {
-  if (file('test-applications').exists()){
-    file('test-applications').deleteDir()
-  }
-  if (file('test-bundles').exists()){
-    file('test-bundles').deleteDir()
-  }
-  if (file('publish').exists()){
-    file('publish').deleteDir()
-  }
   if (file('build').exists()){
     file('build').deleteDir()
   }
-  if (file('fat/src/com/ibm/ws/wsat/fat/tests').exists()){
-    file('fat/src/com/ibm/ws/wsat/fat/tests').deleteDir()
-  }
 }
+
+addRequiredLibraries.dependsOn addJakartaTransformer

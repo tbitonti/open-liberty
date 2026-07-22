@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2011, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,7 +14,6 @@ package com.ibm.ws.rsadapter;
 
 import java.sql.SQLException; 
 import java.sql.SQLNonTransientException;
-import java.util.ArrayList;
 import java.util.Arrays; 
 import java.util.Collections;
 import java.util.List; 
@@ -24,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.ffdc.FFDCSelfIntrospectable;
-import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.jca.cm.ConnectorService;
 import com.ibm.ws.jdbc.internal.DataSourceDef;
 import com.ibm.ws.jdbc.internal.PropertyService;
@@ -166,9 +166,6 @@ public class DSConfig implements FFDCSelfIntrospectable {
      */
     public final boolean enableBeginEndRequest;
 
-    // TODO remove this once branch coupling support is GA
-    public final boolean enableBranchCouplingExtension;
-
     /**
      * Indicates to automatically create a dynamic proxy for interfaces implemented by the connection. 
      */
@@ -306,7 +303,6 @@ public class DSConfig implements FFDCSelfIntrospectable {
         CommitOrRollbackOnCleanup commitOrRollback = remove(COMMIT_OR_ROLLBACK_ON_CLEANUP, null, CommitOrRollbackOnCleanup.class);
         connectionSharing = remove(CONNECTION_SHARING, ConnectionSharing.MatchOriginalRequest, ConnectionSharing.class);
         enableBeginEndRequest = remove(ENABLE_BEGIN_END_REQUEST, false); // Not a supported property. Only for internal testing/experimentation.
-        enableBranchCouplingExtension = remove("enableBranchCouplingExtension", false); // TODO remove once GA
         enableConnectionCasting = remove(ENABLE_CONNECTION_CASTING, false);
         enableMultithreadedAccessDetection = false;
         heritageHelperClass = remove(HELPER_CLASS, (String) null);

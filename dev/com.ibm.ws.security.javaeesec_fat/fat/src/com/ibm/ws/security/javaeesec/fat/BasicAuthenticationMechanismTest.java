@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2019 IBM Corporation and others.
+ * Copyright (c) 2017, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -78,6 +80,11 @@ public class BasicAuthenticationMechanismTest extends JavaEESecTestBase {
         myServer.startServer(true);
         urlHttp = "http://" + myServer.getHostname() + ":" + myServer.getHttpDefaultPort();
         urlHttps = "https://" + myServer.getHostname() + ":" + myServer.getHttpDefaultSecurePort();
+
+        /*
+         * Wait for the SSL endpoint to start.
+         */
+        myServer.waitForDefaultHTTPEndpointSSLStart();
     }
 
     @AfterClass
@@ -179,6 +186,29 @@ public class BasicAuthenticationMechanismTest extends JavaEESecTestBase {
     public void testBasicAuthValidUserInRole_DeniedAccess_WrongPassword() throws Exception {
         executeGetRequestBasicAuthCreds(httpclient, urlHttp + queryString, Constants.javaeesec_basicRoleUser, Constants.jaspi_invalidPwd,
                                         HttpServletResponse.SC_FORBIDDEN);
+    }
+
+    /**
+     * Verify the following:
+     * <OL>
+     * <LI> Attempt to access a protected servlet configured for basic HAM using annotation, Decorator, and HttpMessageContextWrapper.
+     * <LI> Submit the request with no authorization header and verify a challenge 401 is sent back.
+     * </OL>
+     * <P> Expected Results:
+     * <OL>
+     * <LI> Return code 401
+     * <LI> Verify response contains:
+     * <LI> 1. the 401 challenge
+     * <LI> 2. the HttpMessageContextWrapper Header {"BasicHAMMessageContextWrapper", "I have been wrapped!"}
+     * <LI> 3. the BasicHAMDecorator Header {"BasicHAMDecorator", "I have been decorated!"}
+     * </OL>
+     */
+    @Test
+    public void testBasicAuth_challenge401_noUser() throws Exception {
+        httpclient.getCredentialsProvider().clear();
+        HttpResponse response = accessPageWithChallenge(httpclient, urlHttp + "/JavaEESecAnnotatedBasicAuthServlet/JavaEESecAnnotatedBasic", HttpServletResponse.SC_UNAUTHORIZED);
+        checkHeader(response, "BasicHAMMessageContextWrapper", "I have been wrapped!");
+        checkHeader(response, "BasicHAMDecorator", "I have been decorated!");
     }
 
     @Test

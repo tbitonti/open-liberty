@@ -1,22 +1,27 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2019 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.wsspi.persistence.internal;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Dictionary;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.sql.DataSource;
 import javax.transaction.Transaction;
@@ -34,7 +39,6 @@ import org.osgi.service.component.annotations.ReferencePolicyOption;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
-import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.websphere.security.auth.data.AuthData;
 import com.ibm.ws.LocalTransaction.LocalTransactionCoordinator;
 import com.ibm.ws.LocalTransaction.LocalTransactionCurrent;
@@ -48,6 +52,8 @@ import com.ibm.wsspi.persistence.PersistenceServiceUnitConfig;
 import com.ibm.wsspi.resource.ResourceConfig;
 import com.ibm.wsspi.resource.ResourceConfigFactory;
 import com.ibm.wsspi.resource.ResourceFactory;
+
+import io.openliberty.checkpoint.spi.CheckpointPhase;
 
 /**
  * Uses a database as a persistent store.
@@ -63,7 +69,7 @@ public class DatabaseStoreImpl implements DatabaseStore {
     private static final String PERSISTENT_EXECUTOR_PKG_PREFIX = "com.ibm.ws.concurrent.persistent.";
 
     private static enum SpecialEntitySet {
-        BATCH, PERSISTENT_EXECUTOR
+        BATCH, PERSISTENT_EXECUTOR, NONE
     };
 
     private SpecialEntitySet recognizeSpecialEntityPackage(String className) {
@@ -72,19 +78,19 @@ public class DatabaseStoreImpl implements DatabaseStore {
         } else if (className.startsWith(PERSISTENT_EXECUTOR_PKG_PREFIX)) {
             return SpecialEntitySet.PERSISTENT_EXECUTOR;
         } else {
-            return null;
+            return SpecialEntitySet.NONE;
         }
     }
 
     /**
      * Reference to the default authentication data.
      */
-    private ServiceReference<?> authDataRef;
+    private final ServiceReference<?> authDataRef;
 
     /**
      * Resource factory for the data source.
      */
-    private ResourceFactory dataSourceFactory;
+    private final ResourceFactory dataSourceFactory;
 
     /**
      * Indicates if this database store instance has been deactivated.
@@ -94,71 +100,103 @@ public class DatabaseStoreImpl implements DatabaseStore {
     /**
      * A service that controls local transactions.
      */
-    private LocalTransactionCurrent localTranCurrent;
+    private final LocalTransactionCurrent localTranCurrent;
 
     /**
      * Resource factory for the non-transactional data source.
      */
-    private ResourceFactory nonJTADataSourceFactory;
+    private final ResourceFactory nonJTADataSourceFactory;
 
     /**
      * The persistence service.
      */
-    private PersistenceService persistenceService;
+    private final PersistenceService persistenceService;
 
     /**
      * Configuration properties for this instance.
      */
-    private Dictionary<String, ?> properties;
+    private final Map<String, ?> properties;
 
     /**
      * Schema from config
      */
-    private String schema;
+    private final String schema;
 
     /**
      * Table prefix from config
      */
-    private String tablePrefix;
+    private final String tablePrefix;
 
     /**
      * Key generation strategy from config
      */
-    private String strategy;
+    private final String strategyConfig;
 
     /**
      * Length of schema String
      */
-    int schemaLength;
+    final int schemaLength;
 
     /**
      * Length of tablePrefix String
      */
-    int tablePrefixLength;
+    final int tablePrefixLength;
 
     /**
      * Resource config factory.
      */
-    private ResourceConfigFactory resourceConfigFactory;
+    private final ResourceConfigFactory resourceConfigFactory;
 
     /**
      * Transaction manager.
      */
-    private EmbeddableWebSphereTransactionManager tranMgr;
+    private final EmbeddableWebSphereTransactionManager tranMgr;
 
     @Activate
-    @Trivial
-    protected void activate(ComponentContext context) throws Exception {
-        properties = context.getProperties();
-        final boolean trace = TraceComponent.isAnyTracingEnabled();
-        if (trace && tc.isEntryEnabled())
-            Tr.entry(this, tc, "activate", properties);
+    public DatabaseStoreImpl(Map<String, ?> properties, //
+
+                             // static mandatory references
+                             @Reference(name = "DataSourceFactory", target = "(id=unbound)") ResourceFactory dataSourceFactory, //
+                             @Reference LocalTransactionCurrent localTranCurrent, //
+                             @Reference PersistenceService persistenceService, //
+                             @Reference ResourceConfigFactory resourceConfigFactory, //
+                             @Reference EmbeddableWebSphereTransactionManager tranMgr, //
+
+                             // static optional refereences
+                             @Reference(name = "AuthData",
+                                 service = AuthData.class,
+                                 cardinality = ReferenceCardinality.OPTIONAL,
+                                 policy = ReferencePolicy.STATIC,
+                                 target = "(id=unbound)",
+                                 policyOption = ReferencePolicyOption.GREEDY) ServiceReference<AuthData> authDataRef, //
+                             @Reference(name = "NonJTADataSourceFactory",
+                                 cardinality = ReferenceCardinality.OPTIONAL,
+                                 policy = ReferencePolicy.STATIC,
+                                 policyOption = ReferencePolicyOption.GREEDY,
+                                 target = "(id=unbound)") ResourceFactory nonJTADataSourceFactory
+                    ) throws Exception {
+
+        this.properties = properties;
+
+        // static mandatory references
+        this.dataSourceFactory = dataSourceFactory;
+        this.localTranCurrent = localTranCurrent;
+        this.persistenceService = persistenceService;
+        this.resourceConfigFactory = resourceConfigFactory;
+        this.tranMgr = tranMgr;
+
+        // static optional references
+        this.authDataRef = authDataRef;
+        this.nonJTADataSourceFactory = nonJTADataSourceFactory;
 
         // The database store should be lazily initialized by the components using it, so there is no need
         // for the database store implementation to have its own lazy initialization.
 
-        if (trace && tc.isEntryEnabled())
-            Tr.exit(this, tc, "activate");
+        schema = (String) this.properties.get("schema");
+        schemaLength = schema == null ? -1 : schema.length();
+        tablePrefix = (String) this.properties.get("tablePrefix");
+        tablePrefixLength = tablePrefix.length();
+        strategyConfig = (String) this.properties.get("keyGenerationStrategy");
     }
 
     /**
@@ -166,13 +204,19 @@ public class DatabaseStoreImpl implements DatabaseStore {
      */
     @Override
     public PersistenceServiceUnit createPersistenceServiceUnit(ClassLoader loader, String... entityClassNames) throws Exception {
+        return createPersistenceServiceUnit(loader, new HashMap<String, Object>(), entityClassNames);
+    }
+
+    /**
+     * @see com.ibm.wsspi.persistence.DatabaseStore#createPersistenceServiceUnit(java.lang.ClassLoader, java.util.Map properties, java.lang.String[])
+     */
+    @Override
+    public PersistenceServiceUnit createPersistenceServiceUnit(ClassLoader loader, Map properties, String... entityClassNames) throws Exception {
         final boolean trace = TraceComponent.isAnyTracingEnabled();
         if (trace && tc.isEntryEnabled())
             Tr.entry(this, tc, "createPersistenceServiceUnit", loader, Arrays.asList(entityClassNames));
 
         Map<String, Object> puProps = new HashMap<String, Object>();
-        tablePrefix = (String) properties.get("tablePrefix");
-        tablePrefixLength = tablePrefix.length();
         for (int i = 0; i < tablePrefixLength; i++) {
             int codepoint = tablePrefix.codePointAt(i);
             if (!Character.isLetterOrDigit(codepoint) && codepoint != 95) { // alphanumeric or _ character
@@ -181,8 +225,6 @@ public class DatabaseStoreImpl implements DatabaseStore {
             }
         }
 
-        schema = (String) properties.get("schema");
-        schemaLength = schema == null ? -1 : schema.length();
         for (int i = 0; i < schemaLength; i++) {
             int codepoint = schema.codePointAt(i);
             if (!Character.isLetterOrDigit(codepoint) && codepoint != 95) { // alphanumeric or _ character
@@ -192,19 +234,34 @@ public class DatabaseStoreImpl implements DatabaseStore {
         }
 
         // Look for EclipseLink persistence properties
-        if (properties.get("persistenceProperties.0.config.referenceType") != null) {
-            for (String key : Collections.list(properties.keys())) {
+        if (this.properties.get("persistenceProperties.0.config.referenceType") != null) {
+            for (String key : this.properties.keySet()) {
                 if (key.startsWith("persistenceProperties.0") && !key.equals("persistenceProperties.0.config.referenceType")) {
-                    Object value = properties.get(key);
+                    Object value = this.properties.get(key);
                     key = key.substring(24);
                     puProps.put(key, value);
                 }
             }
         }
 
+        // Look for additional configuration properties
+        int isolationLevel = Connection.TRANSACTION_READ_COMMITTED;
+        if (properties.get("transactionIsolationLevel") != null) {
+            Object configIsolationLevel = properties.get("transactionIsolationLevel");
+
+            if(configIsolationLevel instanceof Number) {
+                int newisolationLevel = ((Number) configIsolationLevel).intValue();
+                if(supportsIsolationLevel(newisolationLevel)) {
+                    isolationLevel = newisolationLevel;
+                } else {
+                    throw new UnsupportedOperationException(Tr.formatMessage(tc, "UNSUPPORTED_ISOLATION_LEVEL_CWWKD0293E", isolationLevel));
+                }
+            }
+        }
+
         ResourceConfig resourceInfo = resourceConfigFactory.createResourceConfig(DataSource.class.getName());
         resourceInfo.setSharingScope(ResourceConfig.SHARING_SCOPE_SHAREABLE);
-        resourceInfo.setIsolationLevel(Connection.TRANSACTION_READ_COMMITTED);
+        resourceInfo.setIsolationLevel(isolationLevel);
         resourceInfo.setResAuthType(ResourceConfig.AUTH_CONTAINER);
 
         if (authDataRef != null) {
@@ -219,15 +276,15 @@ public class DatabaseStoreImpl implements DatabaseStore {
             }
         }
 
+        // NOTE the order is important for the calls to createResource below on
+        // dataSourceFactory and nonJTADataSourceFactory.
+        // DO NOT change the order they are called here without addressing the fact
+        // that the sharing scope is modified to unshareable on the resourceInfo before calling
+        // nonJTADataSourceFactory.createResource
+        SpecialEntitySet entitySet = entityClassNames.length == 0 ? SpecialEntitySet.NONE : recognizeSpecialEntityPackage(entityClassNames[0]);
         DataSource dataSource = (DataSource) dataSourceFactory.createResource(resourceInfo);
-        String dbProductName = getDatabaseProductName(((WSDataSource) dataSource)).toLowerCase();
-        if (dbProductName.contains("informix") || dbProductName.startsWith("ids/")) {
-            // Defect 168450 - PersistenceService is currently disabled when running with Informix.
-            // Once the informix issues are fixed, this exception will be removed.
-            // When informix is using a DB2 driver, the product name is determined by db2 and is
-            // similar to: ids/nt64
-            throw new UnsupportedOperationException(dbProductName);
-        }
+        // Check the product name for support and compute strategy
+        String strategy = checkSupportedDBProductComputeStrategy(dataSource, entitySet);
 
         DataSource nonJTADataSource;
         if (nonJTADataSourceFactory == null)
@@ -246,34 +303,38 @@ public class DatabaseStoreImpl implements DatabaseStore {
             throw new IllegalStateException(errMsg);
         }
 
-        strategy = (String) properties.get("keyGenerationStrategy");
-        if ("AUTO".equals(strategy)) {
-            strategy = dbProductName.contains("oracle") ? "SEQUENCE"
-                            : dbProductName.contains("adaptive server") || dbProductName.contains("sybase") ? "TABLE"
-                                            : "IDENTITY";
-        }
-
         // TODO: replace temporary code specific to persistentExecutor with general solution that applies the
         // table prefix, schema, and keyGenerationStrategy to all entities
 
-        InMemoryMappingFile ormFile = null;
-        SpecialEntitySet entitySet = recognizeSpecialEntityPackage(entityClassNames[0]);
+        List<InMemoryMappingFile> inMemoryFiles;
         if (entitySet.equals(SpecialEntitySet.PERSISTENT_EXECUTOR)) {
-            String ormFileContents = createOrmFileContentsForPersistentExecutor();
-            ormFile = new InMemoryMappingFile(ormFileContents.getBytes("UTF-8"));
+            String ormFileContents = createOrmFileContentsForPersistentExecutor(strategy);
+            inMemoryFiles = Collections.singletonList(new InMemoryMappingFile(ormFileContents.getBytes(StandardCharsets.UTF_8)));
         } else if (entitySet.equals(SpecialEntitySet.BATCH)) {
-            String ormFileContents = createOrmFileContentsForBatch(entityClassNames);
-            ormFile = new InMemoryMappingFile(ormFileContents.getBytes("UTF-8"));
+            String ormFileContents = createOrmFileContentsForBatch(entityClassNames, strategy);
+            inMemoryFiles = Collections.singletonList(new InMemoryMappingFile(ormFileContents.getBytes(StandardCharsets.UTF_8)));
         } else {
-            ormFile = createOrmFile(schema, tablePrefix, entityClassNames);
+            // hidden internal non-ship property for experimenting with Jakarta Data
+            @SuppressWarnings("unchecked") // TODO if persistence service could read @Table from the entity class, we could remove this hack
+            LinkedHashSet<String> tableNames = (LinkedHashSet<String>) properties.get("io.openliberty.persistence.internal.tableNames");
+            String[] entityClassEntries = (String[]) properties.get("io.openliberty.persistence.internal.entityClassInfo");
+            InMemoryMappingFile ormFile = createOrmFile(schema, tablePrefix, tableNames, entityClassNames, entityClassEntries);
+            inMemoryFiles = (List<InMemoryMappingFile>) properties.get("io.openliberty.persistence.internal.generatedEntities");
+            if (ormFile != null)
+                if (inMemoryFiles == null) {
+                    inMemoryFiles = Collections.singletonList(ormFile);
+                } else {
+                    inMemoryFiles = new ArrayList<>(inMemoryFiles);
+                    inMemoryFiles.add(ormFile);
+                }
         }
 
         PersistenceServiceUnitConfig config = new PersistenceServiceUnitConfig();
         config.setClasses(Arrays.asList(entityClassNames));
         config.setConsumerLoader(loader);
         config.setProperties(puProps);
-        if (ormFile != null)
-            config.setInMemoryMappingFiles(Collections.singletonList(ormFile));
+        if (inMemoryFiles != null)
+            config.setInMemoryMappingFiles(inMemoryFiles);
         config.setJtaDataSource(dataSource);
         if (nonJTADataSource != null)
             config.setNonJtaDataSource(nonJTADataSource);
@@ -292,20 +353,25 @@ public class DatabaseStoreImpl implements DatabaseStore {
             if (deactivated) {
                 if (trace && tc.isEntryEnabled())
                     Tr.exit(this, tc, "createPersistenceServiceUnit", "deactivated");
-                throw new IllegalStateException();
+                String errMsg = Tr.formatMessage(tc, "DEACTIVATED_CWWKD0202E");
+                throw new IllegalStateException(errMsg);
             }
 
-            if ((Boolean) properties.get("createTables"))
-                if (entitySet.equals(SpecialEntitySet.PERSISTENT_EXECUTOR) && entityClassNames.length == 1)
-                    ; // ignore table creation for extra PersistenceServiceUnit that persistent executor creates to allow TRANSACTION_READ_UNCOMMITTED
-                      // TODO is there a better way to accomplish this?
-                else
-                    createTables(persistenceServiceUnit);
+            // ignore table creation for extra PersistenceServiceUnit that persistent executor creates to allow TRANSACTION_READ_UNCOMMITTED
+            // TODO is there a better way to accomplish this?
+            if (!(entitySet.equals(SpecialEntitySet.PERSISTENT_EXECUTOR) && entityClassNames.length == 1)) {
+                boolean createTables = (Boolean) this.properties.get("createTables");
+                boolean dropTables = (Boolean) this.properties.get("dropTables");
+                if (createTables || dropTables) {
+                    CheckpointPhase.onRestore(() -> dropAndOrCreateTables(persistenceServiceUnit, createTables, dropTables));
+                }
+            }
 
             if (deactivated) {
                 if (trace && tc.isEntryEnabled())
                     Tr.exit(this, tc, "createPersistenceServiceUnit", "deactivated");
-                throw new IllegalStateException();
+                String errMsg = Tr.formatMessage(tc, "DEACTIVATED_CWWKD0202E");
+                throw new IllegalStateException(errMsg);
             }
 
             successful = true;
@@ -319,7 +385,41 @@ public class DatabaseStoreImpl implements DatabaseStore {
         return persistenceServiceUnit;
     }
 
-    protected String createOrmFileContentsForPersistentExecutor() {
+    private String checkSupportedDBProductComputeStrategy(DataSource dataSource, SpecialEntitySet entitySet) throws Exception {
+        boolean isAutoStrategy = "AUTO".equals(strategyConfig);
+        AtomicReference<String> strategy = new AtomicReference<>(isAutoStrategy ? "CHECKPOINT" : strategyConfig);
+        CheckpointPhase.onRestore(() -> {
+            String dbProductName = getDatabaseProductName(((WSDataSource) dataSource)).toLowerCase();
+            if (dbProductName.contains("informix") || dbProductName.startsWith("ids/")) {
+                // Defect 168450 - PersistenceService is currently disabled when running with Informix.
+                // Once the informix issues are fixed, this exception will be removed.
+                // When informix is using a DB2 driver, the product name is determined by db2 and is
+                // similar to: ids/nt64
+                throw new UnsupportedOperationException(dbProductName);
+            }
+            if (isAutoStrategy) {
+                String autoStrategy = dbProductName.contains("oracle") || dbProductName.contains("h2") ? "SEQUENCE"
+                                : dbProductName.contains("adaptive server") || dbProductName.contains("sybase") ? "TABLE"
+                                                : "IDENTITY";
+                strategy.set(autoStrategy);
+            }
+        });
+        String result = strategy.get();
+        if ((entitySet  == SpecialEntitySet.BATCH || entitySet == SpecialEntitySet.PERSISTENT_EXECUTOR) && "CHECKPOINT".equals(result)) {
+            // BATCH and PERSISTENT_EXECUTOR currently require a strategy so we must find one somehow
+            // without requiring a connection to the DataSource
+
+            // TODO need to add logic that checks the driver class name or other config
+            // to determine a strategy without connecting to the DB here
+
+            // TODO need to add an error message saying that for InstantOn (checkpoint)
+            // a strategy must be configured with the 'keyGenerationStrategy' attribute
+            throw new UnsupportedOperationException();
+        }
+        return result;
+    }
+
+    protected String createOrmFileContentsForPersistentExecutor(String strategy) {
 
         final boolean trace = TraceComponent.isAnyTracingEnabled();
 
@@ -399,7 +499,7 @@ public class DatabaseStoreImpl implements DatabaseStore {
         return orm.toString();
     }
 
-    protected String createOrmFileContentsForBatch(String[] entityClassNames) {
+    protected String createOrmFileContentsForBatch(String[] entityClassNames, String strategy) {
 
         final boolean trace = TraceComponent.isAnyTracingEnabled();
 
@@ -604,17 +704,22 @@ public class DatabaseStoreImpl implements DatabaseStore {
      */
     protected InMemoryMappingFile createOrmFile(String schemaName,
                                                 String tablePrefix,
-                                                String[] entityClassNames)
-                    throws UnsupportedEncodingException {
-        return (entityClassNames == null || entityClassNames.length == 0)
+                                                LinkedHashSet<String> tableNames, // entries correspond to entityClassNames
+                                                String[] entityClassNames,
+                                                String[] entityClassEntries) {
+        return ((entityClassNames == null || entityClassNames.length == 0) && (entityClassEntries == null || entityClassEntries.length == 0))
                         ? null
-                        : new InMemoryMappingFile(createOrm(schemaName, tablePrefix, entityClassNames).getBytes("UTF-8"));
+                        : new InMemoryMappingFile(createOrm(schemaName, tablePrefix, tableNames, entityClassNames, entityClassEntries).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
      * @return a generic ORM xml file, in string form, using the given schema, tablePrefix, and entity classes.
      */
-    protected String createOrm(String schemaName, String tablePrefix, String[] entityClassNames) {
+    protected String createOrm(String schemaName,
+                               String tablePrefix,
+                               LinkedHashSet<String> tableNames, // entries correspond to entityClassNames
+                               String[] entityClassNames,
+                               String[] entityClassEntries) {
         StringBuilder builder = new StringBuilder();
 
         // Add header information
@@ -633,13 +738,19 @@ public class DatabaseStoreImpl implements DatabaseStore {
         // Add the entities and apply tablePrefix
         tablePrefix = (tablePrefix == null) ? "" : tablePrefix.trim();
 
-        for (String entityClassName : entityClassNames) {
-            String simpleName = parseSimpleName(entityClassName);
-
-            builder.append(" <entity class=" + enquote(entityClassName) + ">" + EOLN)
-                            .append("  <table name=" + enquote(tablePrefix + simpleName) + "/>" + EOLN)
-                            .append(" </entity>" + EOLN);
+        if (entityClassNames != null) {
+            int i = 0;
+            for (String tableName : tableNames) {
+                builder.append(" <entity class=" + enquote(entityClassNames[i++]) + ">" + EOLN)
+                                .append("  <table name=" + enquote(tablePrefix + tableName) + "/>" + EOLN)
+                                .append(" </entity>" + EOLN);
+            }
         }
+
+        if (entityClassEntries != null)
+            for (String entityClassEntry : entityClassEntries) {
+                builder.append(entityClassEntry);
+            }
 
         builder.append("</entity-mappings>" + EOLN);
         return builder.toString();
@@ -660,12 +771,13 @@ public class DatabaseStoreImpl implements DatabaseStore {
     }
 
     /**
-     * Automatic table creation.
+     * Automatic table creation and/or deletion. If both creation and deletion are requested,
+     * deletion is performed first.
      *
      * @param persistenceServiceUnit persistence service unit
      * @throws Exception if an error occurs creating tables.
      */
-    private void createTables(PersistenceServiceUnit persistenceServiceUnit) throws Exception {
+    private void dropAndOrCreateTables(PersistenceServiceUnit persistenceServiceUnit, boolean createTables, boolean dropTables) throws Exception {
         // Run under a new transaction and commit right away
         LocalTransactionCurrent localTranCurrent = this.localTranCurrent;
         LocalTransactionCoordinator suspendedLTC = localTranCurrent.suspend();
@@ -678,7 +790,14 @@ public class DatabaseStoreImpl implements DatabaseStore {
                 if (psuIsPUSI) {
                     ((PersistenceServiceUnitImpl) persistenceServiceUnit).setTransactionManager(tranMgr);
                 }
-                persistenceServiceUnit.createTables();
+                if (createTables) {
+                    if (dropTables)
+                        persistenceServiceUnit.dropAndCreateTables();
+                    else
+                        persistenceServiceUnit.createTables();
+                } else if (dropTables) {
+                    persistenceServiceUnit.dropTables();
+                }
             } finally {
                 // resume
                 if (psuIsPUSI) {
@@ -705,179 +824,100 @@ public class DatabaseStoreImpl implements DatabaseStore {
      * @throws Exception if unable to obtain the database product name.
      */
     private String getDatabaseProductName(WSDataSource dataSource) throws Exception {
-        String dbProductName = dataSource.getDatabaseProductName();
-        if (dbProductName == null) {
-            // Query the metadata under a new transaction and commit right away
-            LocalTransactionCurrent localTranCurrent = this.localTranCurrent;
-            LocalTransactionCoordinator suspendedLTC = localTranCurrent.suspend();
-            EmbeddableWebSphereTransactionManager tranMgr = this.tranMgr;
-            Transaction suspendedTran = suspendedLTC == null ? tranMgr.suspend() : null;
-            boolean tranStarted = false;
-            try {
-                tranMgr.begin();
-                tranStarted = true;
-                Connection con = dataSource.getConnection();
+
+        //Synchronized to avoid a race condition in tests where attempting to boot two
+        //derby instances simultaneously causes tests to fail
+        synchronized (DatabaseStoreImpl.class) {
+
+            String dbProductName = dataSource.getDatabaseProductName();
+            if (dbProductName == null) {
+                // Query the metadata under a new transaction and commit right away
+                LocalTransactionCurrent localTranCurrent = this.localTranCurrent;
+                LocalTransactionCoordinator suspendedLTC = localTranCurrent.suspend();
+                EmbeddableWebSphereTransactionManager tranMgr = this.tranMgr;
+                Transaction suspendedTran = suspendedLTC == null ? tranMgr.suspend() : null;
+                boolean tranStarted = false;
                 try {
-                    dbProductName = con.getMetaData().getDatabaseProductName();
+                    tranMgr.begin();
+                    tranStarted = true;
+                    Connection con = dataSource.getConnection();
+                    try {
+                        dbProductName = con.getMetaData().getDatabaseProductName();
+                    } finally {
+                        con.close();
+                    }
                 } finally {
-                    con.close();
-                }
-            } finally {
-                try {
-                    if (tranStarted)
-                        tranMgr.commit();
-                } finally {
-                    // resume
-                    if (suspendedTran != null)
-                        tranMgr.resume(suspendedTran);
-                    else if (suspendedLTC != null)
-                        localTranCurrent.resume(suspendedLTC);
+                    try {
+                        if (tranStarted)
+                            tranMgr.commit();
+                    } finally {
+                        // resume
+                        if (suspendedTran != null)
+                            tranMgr.resume(suspendedTran);
+                        else if (suspendedLTC != null)
+                            localTranCurrent.resume(suspendedLTC);
+                    }
                 }
             }
+            return dbProductName;
         }
-        return dbProductName;
     }
 
     /**
-     * Declarative Services method for setting the service reference for the default auth data
+     * Attempt to ascertain if the given isolation level is supported for this DatabaseStore.
+     * Creates a temporary DataSource and Connection in order to check database support.
+     *<p>
+     *{@link java.sql.DatabaseMetaData#supportsTransactionIsolationLevel()}
      *
-     * @param ref reference to the service
+     * @param isolationLevel valid isolation level value.
+     * @return 'true' if the driver DatabaseMetaData indicates the given transaction isolation is supported; 'false' otherwise
+     * @throws Exception if a failure occurs
      */
+    private boolean supportsIsolationLevel(int isolationLevel) throws Exception {
+        //Create a temporary DataSource to check the isolation level support
+        ResourceConfig tempResourceInfo = resourceConfigFactory.createResourceConfig(DataSource.class.getName());
+        tempResourceInfo.setSharingScope(ResourceConfig.SHARING_SCOPE_SHAREABLE);
+        // Use READ_COMMITTED first to determine if the configured isolation level is supported
+        tempResourceInfo.setIsolationLevel(Connection.TRANSACTION_READ_COMMITTED);
+        tempResourceInfo.setResAuthType(ResourceConfig.AUTH_CONTAINER);
 
-    @Reference(service = AuthData.class,
-               cardinality = ReferenceCardinality.OPTIONAL,
-               policy = ReferencePolicy.STATIC,
-               target = "(id=unbound)",
-               policyOption = ReferencePolicyOption.GREEDY)
-    protected void setAuthData(ServiceReference<AuthData> ref) {
-        authDataRef = ref;
-    }
+        if (authDataRef != null) {
+            String authDataId = (String) authDataRef.getProperty("id");
+            tempResourceInfo.addLoginProperty("DefaultPrincipalMapping",
+                                          authDataId.matches(".*(\\]/).*(\\[default-\\d*\\])")
+                                                          ? (String) authDataRef.getProperty("config.displayId")
+                                                          : authDataId);
+        }
 
-    /**
-     * Declarative Services method for setting the resource factory for the data source.
-     *
-     * @param svc the service
-     */
-    @Reference(target = "(id=unbound)")
-    protected void setDataSourceFactory(ResourceFactory svc) {
-        dataSourceFactory = svc;
-    }
+        DataSource tempDataSource = (DataSource) dataSourceFactory.createResource(tempResourceInfo);
 
-    /**
-     * Declarative Services method for setting the LocalTransactionCurrent.
-     *
-     * @param ref the service
-     */
-    @Reference
-    protected void setLocalTransactionCurrent(LocalTransactionCurrent svc) {
-        localTranCurrent = svc;
-    }
-
-    /**
-     * Declarative Services method for setting the resource factory for the non-transactional data source.
-     *
-     * @param svc the service
-     */
-    @Reference(cardinality = ReferenceCardinality.OPTIONAL,
-               policy = ReferencePolicy.STATIC,
-               policyOption = ReferencePolicyOption.GREEDY,
-               target = "(id=unbound)")
-    protected void setNonJTADataSourceFactory(ResourceFactory svc) {
-        nonJTADataSourceFactory = svc;
-    }
-
-    /**
-     * Declarative Services method for setting the persistence service.
-     *
-     * @param svc the service
-     */
-    @Reference
-    protected void setPersistenceService(PersistenceService svc) {
-        persistenceService = svc;
-    }
-
-    /**
-     * Declarative services method for setting the resource config factory.
-     *
-     * @param svc the service
-     */
-    @Reference(service = ResourceConfigFactory.class)
-    protected void setResourceConfigFactory(ResourceConfigFactory svc) {
-        resourceConfigFactory = svc;
-    }
-
-    /**
-     * Declarative Services method for setting the transaction manager
-     *
-     * @param svc the service
-     */
-    @Reference
-    protected void setTransactionManager(EmbeddableWebSphereTransactionManager svc) {
-        tranMgr = svc;
-    }
-
-    /**
-     * Declarative Services method for unsetting the service reference for default auth data
-     *
-     * @param ref reference to the service
-     */
-
-    protected void unsetAuthData(ServiceReference<AuthData> ref) {
-        authDataRef = null;
-    }
-
-    /**
-     * Declarative Services method for unsetting the resource factory for the data source.
-     *
-     * @param svc the service
-     */
-    protected void unsetDataSourceFactory(ResourceFactory svc) {
-        dataSourceFactory = null;
-    }
-
-    /**
-     * Declarative Services method for unsetting the LocalTransactionCurrent.
-     *
-     * @param svc the service
-     */
-    protected void unsetLocalTransactionCurrent(LocalTransactionCurrent svc) {
-        localTranCurrent = null;
-    }
-
-    /**
-     * Declarative Services method for unsetting the resource factory for the non-transactional data source.
-     *
-     * @param svc the service
-     */
-    protected void unsetNonJTADataSourceFactory(ResourceFactory svc) {
-        nonJTADataSourceFactory = null;
-    }
-
-    /**
-     * Declarative Services method for unsetting the persistence service.
-     *
-     * @param svc the service
-     */
-    protected void unsetPersistenceService(PersistenceService svc) {
-        persistenceService = null;
-    }
-
-    /**
-     * Declarative Services method for unsetting the resource config factory.
-     *
-     * @param svc the service
-     */
-    protected void unsetResourceConfigFactory(ResourceConfigFactory svc) {
-        resourceConfigFactory = null;
-    }
-
-    /**
-     * Declarative Services method for unsetting the transaction manager
-     *
-     * @param svc the service
-     */
-    protected void unsetTransactionManager(EmbeddableWebSphereTransactionManager svc) {
-        tranMgr = null;
+        // Query the metadata under a new transaction and commit right away
+        LocalTransactionCurrent localTranCurrent = this.localTranCurrent;
+        LocalTransactionCoordinator suspendedLTC = localTranCurrent.suspend();
+        EmbeddableWebSphereTransactionManager tranMgr = this.tranMgr;
+        Transaction suspendedTran = suspendedLTC == null ? tranMgr.suspend() : null;
+        boolean tranStarted = false;
+        try {
+            tranMgr.begin();
+            tranStarted = true;
+            Connection con = tempDataSource.getConnection();
+            try {
+                return con.getMetaData().supportsTransactionIsolationLevel(isolationLevel);
+            } finally {
+                con.close();
+            }
+        } finally {
+            try {
+                if (tranStarted)
+                    tranMgr.rollback();
+            } finally {
+                // resume
+                if (suspendedTran != null)
+                    tranMgr.resume(suspendedTran);
+                else if (suspendedLTC != null)
+                    localTranCurrent.resume(suspendedLTC);
+            }
+        }
     }
 
     @Override

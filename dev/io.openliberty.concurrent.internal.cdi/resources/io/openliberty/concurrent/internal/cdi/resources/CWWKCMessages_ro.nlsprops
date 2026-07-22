@@ -1,0 +1,39 @@
+###############################################################################
+# Copyright (c) 2022,2026 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+###############################################################################
+#CMVCPATHNAME io.openliberty.concurrent.internal.cdi/resources/io/openliberty/concurrent/internal/cdi/resources/CWWKCMessages.nlsprops
+#ISMESSAGEFILE TRUE
+#NLS_ENCODING=UNICODE
+#
+#COMPONENTPREFIX CWWKC
+#COMPONENTNAMEFOR CWWKC Jakarta EE Concurrency
+#
+# NLS_MESSAGEFORMAT_VAR
+#
+#   Strings in this file which contain replacement variables are processed by the MessageFormat 
+#   class (single quote must be coded as 2 consecutive single quotes ''). Strings in this file 
+#   which do NOT contain replacement variables are NOT processed by the MessageFormat class 
+#   (single quote must be coded as one single quote '). 
+
+# All messages must use the range CWWKC1410 to CWWKC1499
+
+CWWKC1410.schedule.lacks.seconds=CWWKC1410E: Adnotarea Schedule, {0}, specific\u0103 o list\u0103 goal\u0103 pentru secundele \u00een care se execut\u0103 sarcina. Specifica\u021bi o list\u0103 ne goal\u0103 pentru c\u00e2mpul secunde sau omite\u021bi c\u00e2mpul secunde din adnotarea Programare. Omisiunea c\u00e2mpului secundelor programeaz\u0103 sarcina s\u0103 se execute la \u00eenceputul minutului.
+CWWKC1410.schedule.lacks.seconds.explanation=Lista goal\u0103 indic\u0103 faptul c\u0103 c\u00e2mpul secundelor trebuie ignorat atunci c\u00e2nd se calculeaz\u0103 orele programate. Omisiunea c\u00e2mpului secundelor programeaz\u0103 sarcina s\u0103 se execute la \u00eenceputul minutului.
+CWWKC1410.schedule.lacks.seconds.useraction=Modifica\u021bi c\u00e2mpul secunde din adnotarea Programare pentru a specifica o list\u0103 care nu este goal\u0103 sau omite\u021bi c\u00e2mpul secunde din adnotarea Programare.
+
+CWWKC1411.qualified.res.err=CWWKC1411E: Serverul nu a creat un bean {0} pentru adnotarea {1} sau elementul descriptor de implementare {2} . Adnotarea sau elementul descriptor de implementare are numele {3} \u0219i calificatorii {4} \u0219i este definit \u00een artefactul aplica\u021biei {5} . Eroarea este {6}
+CWWKC1411.qualified.res.err.explanation=Codul nu a creat resursa sau nu a \u00eenregistrat resursa ca bean.
+CWWKC1411.qualified.res.err.useraction=Asigura\u021bi-v\u0103 c\u0103 resursa este configurat\u0103 corect.
+
+CWWKC1412.qualifier.conflict=CWWKC1412E: Artefactul aplica\u021biei {0} include mai multe defini\u021bii de resurse {1} care au calificatorii {2} . Numele defini\u021biilor de resurse {1} aflate \u00een conflict sunt {3} .
+CWWKC1412.qualifier.conflict.explanation=Fiecare defini\u021bie de resurs\u0103 de acela\u0219i tip care are un calificator trebuie s\u0103 aib\u0103 un calificator diferit.
+CWWKC1412.qualifier.conflict.useraction=Asigura\u021bi-v\u0103 c\u0103 fiecare defini\u021bie de resurs\u0103 de acela\u0219i tip are un calificator diferit sau nu are niciun calificativ.

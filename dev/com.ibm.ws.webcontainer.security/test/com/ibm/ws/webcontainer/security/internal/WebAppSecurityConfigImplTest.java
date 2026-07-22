@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2018 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -24,13 +26,17 @@ import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
 import org.jmock.lib.legacy.ClassImposteriser;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.ibm.ws.security.SecurityService;
 import com.ibm.ws.webcontainer.security.WebAppSecurityConfig;
 import com.ibm.wsspi.kernel.service.location.WsLocationAdmin;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
+
+import test.common.SharedOutputManager;
 
 public class WebAppSecurityConfigImplTest {
 
@@ -46,6 +52,7 @@ public class WebAppSecurityConfigImplTest {
 
     private final String USER_DIR = "userDir";
     private final String SERVER_NAME = "serverName";
+    static SharedOutputManager outputMgr;
 
     @Before
     public void setUp() {
@@ -59,6 +66,24 @@ public class WebAppSecurityConfigImplTest {
                 will(returnValue(SERVER_NAME));
             }
         });
+    }
+
+    @BeforeClass
+    public static void setUpBeforeClass() throws Exception {
+        // make stdout/stderr "quiet"-- no output will show up for test
+        // unless one of the copy methods or documentThrowable is called
+        outputMgr = SharedOutputManager.getInstance();
+        outputMgr.captureStreams();
+
+        System.setProperty("com.ibm.ws.beta.edition", "true");
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() throws Exception {
+        // Make stdout and stderr "normal"
+        outputMgr.restoreStreams();
+
+        System.clearProperty("com.ibm.ws.beta.edition");
     }
 
     @Test
@@ -168,7 +193,7 @@ public class WebAppSecurityConfigImplTest {
         WebAppSecurityConfig webCfg = new WebAppSecurityConfigImpl(createMapChanged(), locationAdminRef, securityServiceRef, null, null);
 
         assertEquals("When all settings have changed, all should be listed",
-                     "allowFailOverToBasicAuth=false,autoGenSsoCookieName=true,basicAuthenticationMechanismRealmName=newRealm,contextRootForFormAuthenticationMechanism=/modified,displayAuthenticationRealm=true,loginErrorURL=modifiedLoginError,overrideHttpAuthMethod=modified,ssoCookieName=mySSOCookie,ssoDomainNames=,webAlwaysLogin=false",
+                     "allowFailOverToBasicAuth=false,allowInMemoryIdentityStores=true,autoGenSsoCookieName=true,basicAuthenticationMechanismRealmName=newRealm,contextRootForFormAuthenticationMechanism=/modified,displayAuthenticationRealm=true,loginErrorURL=modifiedLoginError,overrideHttpAuthMethod=modified,ssoCookieName=mySSOCookie,ssoDomainNames=,webAlwaysLogin=false",
                      webCfg.getChangedProperties(webCfgOld));
     }
 
@@ -195,6 +220,7 @@ public class WebAppSecurityConfigImplTest {
                 put("contextRootForFormAuthenticationMechanism", "/original");
                 put("basicAuthenticationMechanismRealmName", "realm");
                 put("overrideHttpAuthMethod", "original");
+                put("allowInMemoryIdentityStores", Boolean.FALSE);
             }
         };
         return cfg;
@@ -213,6 +239,7 @@ public class WebAppSecurityConfigImplTest {
                 put("contextRootForFormAuthenticationMechanism", "/modified");
                 put("basicAuthenticationMechanismRealmName", "newRealm");
                 put("overrideHttpAuthMethod", "modified");
+                put("allowInMemoryIdentityStores", Boolean.TRUE);
             }
         };
         return cfg;
@@ -442,6 +469,77 @@ public class WebAppSecurityConfigImplTest {
         cfg.put("basicAuthenticationMechanismRealmName", REALM_NAME);
         WebAppSecurityConfig webCfg = new WebAppSecurityConfigImpl(cfg, locationAdminRef, securityServiceRef, null, null);
         assertEquals("Vallid value should be returned.", REALM_NAME, webCfg.getBasicAuthRealmName());
+    }
+
+    @Test
+    public void testPartitioned_notSet() {
+        Map<String, Object> cfg = new HashMap<String, Object>();
+        WebAppSecurityConfig webCfg = new WebAppSecurityConfigImpl(cfg, locationAdminRef, securityServiceRef, null, null);
+        assertNull("Partitioned value should be null, but is [" + webCfg.getPartitionedCookie() + "]", webCfg.getPartitionedCookie());
+        assertEquals("isPartitioned value should be false, but is [" + webCfg.isPartitionedCookie() + "]", false, webCfg.isPartitionedCookie());
+    }
+
+    //defer is same as not set
+    @Test
+    public void testPartitioned_defer() {
+        final String PART_NAME = "partitionedCookie";
+        final String PART_VALUE = "Defer";
+        Map<String, Object> cfg = new HashMap<String, Object>();
+        cfg.put(PART_NAME, PART_VALUE);
+        WebAppSecurityConfig webCfg = new WebAppSecurityConfigImpl(cfg, locationAdminRef, securityServiceRef, null, null);
+        assertNull("Partitioned value should be null, but is [" + webCfg.getPartitionedCookie() + "]", webCfg.getPartitionedCookie());
+        assertEquals("isPartitioned value should be false, but is [" + webCfg.isPartitionedCookie() + "]", false, webCfg.isPartitionedCookie());
+    }
+
+    @Test
+    public void testPartitioned_true() {
+        final String PART_NAME = "partitionedCookie";
+        final String PART_VALUE = "true";
+        Map<String, Object> cfg = new HashMap<String, Object>();
+        cfg.put(PART_NAME, PART_VALUE);
+        WebAppSecurityConfig webCfg = new WebAppSecurityConfigImpl(cfg, locationAdminRef, securityServiceRef, null, null);
+        assertEquals("Partitioned value should be TRUE, but is [" + webCfg.getPartitionedCookie() + "]", Boolean.TRUE, webCfg.getPartitionedCookie());
+        assertTrue("isPartitioned value should be true, but is [" + webCfg.isPartitionedCookie() + "]", webCfg.isPartitionedCookie());
+    }
+
+    @Test
+    public void testPartitioned_false() {
+        final String PART_NAME = "partitionedCookie";
+        final String PART_VALUE = "false";
+        Map<String, Object> cfg = new HashMap<String, Object>();
+        cfg.put(PART_NAME, PART_VALUE);
+        WebAppSecurityConfig webCfg = new WebAppSecurityConfigImpl(cfg, locationAdminRef, securityServiceRef, null, null);
+        assertEquals("Partitioned value should be FALSE, but is [" + webCfg.getPartitionedCookie() + "]", Boolean.FALSE, webCfg.getPartitionedCookie());
+        assertEquals("isPartitioned value should be false, but is [" + webCfg.isPartitionedCookie() + "]", false, webCfg.isPartitionedCookie());
+    }
+
+    @Test
+    public void getChangedProperties_allowInMemoryIdentityStores() {
+        driveSingleAttributeTest("allowInMemoryIdentityStores",
+                                 Boolean.TRUE, Boolean.FALSE);
+    }
+
+    @Test
+    public void testGetAllowInMemoryIdentityStores_NotSet() {
+        Map<String, Object> cfg = new HashMap<String, Object>();
+        WebAppSecurityConfig webCfg = new WebAppSecurityConfigImpl(cfg, locationAdminRef, securityServiceRef, null, null);
+        assertEquals("False should be returned since the value is not set.", false, webCfg.getAllowInMemoryIdentityStores());
+    }
+
+    @Test
+    public void testGetAllowInMemoryIdentityStores_True() {
+        Map<String, Object> cfg = new HashMap<String, Object>();
+        cfg.put("allowInMemoryIdentityStores", Boolean.TRUE);
+        WebAppSecurityConfig webCfg = new WebAppSecurityConfigImpl(cfg, locationAdminRef, securityServiceRef, null, null);
+        assertEquals("True should be returned.", true, webCfg.getAllowInMemoryIdentityStores());
+    }
+
+    @Test
+    public void testGetAllowInMemoryIdentityStores_False() {
+        Map<String, Object> cfg = new HashMap<String, Object>();
+        cfg.put("allowInMemoryIdentityStores", Boolean.FALSE);
+        WebAppSecurityConfig webCfg = new WebAppSecurityConfigImpl(cfg, locationAdminRef, securityServiceRef, null, null);
+        assertEquals("False should be returned.", false, webCfg.getAllowInMemoryIdentityStores());
     }
 
     /**

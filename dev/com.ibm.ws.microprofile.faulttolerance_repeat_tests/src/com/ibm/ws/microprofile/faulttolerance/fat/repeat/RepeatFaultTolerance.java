@@ -1,26 +1,43 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.microprofile.faulttolerance.fat.repeat;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.rules.repeater.FeatureReplacementAction;
 import componenttest.rules.repeater.FeatureSet;
 import componenttest.rules.repeater.MicroProfileActions;
+import componenttest.rules.repeater.RepeatActions;
 import componenttest.rules.repeater.RepeatTests;
 
 /**
  * Contains static methods for creating standard RepeatTests rules for Fault Tolerance tests
+ *
+ * MicroProfile 1.2 = Fault Tolerance 1.0 (Original Implementation)
+ * MicroProfile 1.3 = Fault Tolerance 1.0
+ * MicroProfile 1.4 = Fault Tolerance 1.1
+ * MicroProfile 2.0 = Fault Tolerance 1.1
+ * MicroProfile 2.1 = Fault Tolerance 1.1
+ * MicroProfile 2.2 = Fault Tolerance 2.0 (Improved Implementation)
+ * MicroProfile 3.0 = Fault Tolerance 2.0
+ * MicroProfile 3.2 = Fault Tolerance 2.0
+ * MicroProfile 3.3 = Fault Tolerance 2.1
+ * MicroProfile 4.0 = Fault Tolerance 3.0
+ * MicroProfile 4.1 = Fault Tolerance 3.0
+ * MicroProfile 5.0 = Fault Tolerance 4.0 (Transformed Impl for EE9)
+ * MicroProfile 6.0 = Fault Tolerance 4.0
  */
 public class RepeatFaultTolerance {
 
@@ -28,23 +45,24 @@ public class RepeatFaultTolerance {
 
     public static final FeatureSet MP21_METRICS20 = MicroProfileActions.MP21.removeFeature("mpMetrics-1.1").addFeature("mpMetrics-2.0").build(MP21_METRICS20_ID);
 
-    public static final Set<FeatureSet> ALL;
+    //All MicroProfile ReactiveMessaging FeatureSets - must be descending order
+    private static final List<FeatureSet> ALL;
+
     static {
-        ALL = new HashSet<>(MicroProfileActions.ALL);
-        ALL.add(MP21_METRICS20);
+        ALL = new ArrayList<>(MicroProfileActions.ALL);
+        //put the updated FeatureSet in just before MP21
+        ALL.add(ALL.indexOf(MicroProfileActions.MP21), MP21_METRICS20);
     }
 
     /**
-     * Get a RepeatTests instance for the given FeatureSets. The first FeatureSet will always be run in LITE mode. The others will run in the mode specified.
-     *
      * @param server                   The server to repeat on
-     * @param otherFeatureSetsTestMode The mode to repeate the other FeatureSets in
-     * @param firstFeatureSet          The first FeatureSet
-     * @param otherFeatureSets         The other FeatureSets
-     * @return a RepeatTests instance
+     * @param otherFeatureSetsTestMode The test mode to run the otherFeatureSets
+     * @param firstFeatureSet          The first FeatureSet to repeat with. This is run in LITE mode.
+     * @param otherFeatureSets         The other FeatureSets to repeat with. These are in the mode specified by otherFeatureSetsTestMode
+     * @return A RepeatTests instance
      */
-    public static RepeatTests repeat(String server, TestMode otherFeatureSetsTestMode, FeatureSet firstFeatureSet, FeatureSet... otherFeatureSets) {
-        return MicroProfileActions.repeat(server, otherFeatureSetsTestMode, ALL, firstFeatureSet, otherFeatureSets);
+    public static RepeatTests repeat(String serverName, TestMode otherFeatureSetsTestMode, FeatureSet firstFeatureSet, FeatureSet... otherFeatureSets) {
+        return RepeatActions.repeat(serverName, otherFeatureSetsTestMode, ALL, firstFeatureSet, otherFeatureSets);
     }
 
     /**
@@ -54,24 +72,32 @@ public class RepeatFaultTolerance {
      * @return the new action
      */
     public static FeatureReplacementAction ft11metrics20Features(String server) {
-        return MicroProfileActions.forFeatureSet(ALL, MP21_METRICS20, server, TestMode.LITE);
+        return RepeatActions.forFeatureSet(ALL, MP21_METRICS20, new String[] { server }, TestMode.LITE);
     }
 
     /**
-     * Return a rule to repeat tests for FT 1.1 and 3.0
+     * Return a rule to repeat tests for MicroProfile 7.0, 4.0 and 2.0.
+     * This translates to FT 4.1, 3.0 and 1.1 respectively.
      * <p>
-     * This is the default because FT 1.* and 2.*+ have a mostly separate implementation so we want to ensure both are tested
-     * mp20Features includes FT 1.1, and as it is an older version it will only run in full mode.
+     * FT 1.x has a mostly separate implementation from 2.x and higher.
+     * FT 4.0 is a transformed version of 3.0, which works on EE9.
+     * FT 4.1 is the same as 4.0 but with Telemetry integration added and support for EE10 and EE11.
+     *
+     * This is the default set of repeats for most FT tests. It provides good coverage of most code paths.
      *
      * @param server the server name
      * @return the RepeatTests rule
      */
     public static RepeatTests repeatDefault(String server) {
-        return repeat(server, TestMode.FULL, MicroProfileActions.MP40, MicroProfileActions.MP20);
+        return repeat(server, TestMode.FULL,
+                      MicroProfileActions.MP70_EE10, //FT 4.1
+                      MicroProfileActions.MP40, //FT 3.0
+                      MicroProfileActions.MP20); //FT 1.1
     }
 
     /**
-     * Return a rule to repeat tests for FT 1.0, 1.1, 2.0, 2.1 and 3.0
+     * Return a rule to repeat tests for FT 1.0, 1.1, 2.0, 2.1, 3.0 and 4.0.
+     * All will be run in LITE mode
      * <p>
      * We run a few tests using this rule so that we have some coverage of all implementations
      *
@@ -79,19 +105,38 @@ public class RepeatFaultTolerance {
      * @return the RepeatTests rule
      */
     public static RepeatTests repeatAll(String server) {
-        return repeat(server, TestMode.LITE, MicroProfileActions.MP13, MicroProfileActions.MP20, MicroProfileActions.MP22, MicroProfileActions.MP30, MicroProfileActions.MP32,
-                      MicroProfileActions.MP33, MicroProfileActions.MP40);
+        return repeat(server, TestMode.LITE,
+                      MicroProfileActions.MP70_EE10,
+                      MicroProfileActions.MP70_EE11,
+                      MicroProfileActions.MP61,
+                      MicroProfileActions.MP60,
+                      MicroProfileActions.MP13,
+                      MicroProfileActions.MP20,
+                      MicroProfileActions.MP22,
+                      MicroProfileActions.MP30,
+                      MicroProfileActions.MP32,
+                      MicroProfileActions.MP33,
+                      MicroProfileActions.MP40,
+                      MicroProfileActions.MP50);
     }
 
     /**
-     * Repeat on FaultTolerance 2.0 and above (MP22 and above). MP40 will be in LITE mode, the others in FULL mode.
+     * Repeat on FaultTolerance 2.0 and above (MP22 and above). MP60 (FT 4.0) will be in LITE mode, the others in FULL mode.
      *
      * @param server the server name
      * @return the RepeatTests rule
      */
     public static RepeatTests repeat20AndAbove(String server) {
-        return repeat(server, TestMode.FULL, MicroProfileActions.MP40, MicroProfileActions.MP22, MicroProfileActions.MP30, MicroProfileActions.MP32,
-                      MicroProfileActions.MP33);
+        return repeat(server, TestMode.FULL,
+                      MicroProfileActions.MP70_EE10,
+                      MicroProfileActions.MP70_EE11,
+                      MicroProfileActions.MP61,
+                      MicroProfileActions.MP60,
+                      MicroProfileActions.MP22,
+                      MicroProfileActions.MP30,
+                      MicroProfileActions.MP32,
+                      MicroProfileActions.MP33,
+                      MicroProfileActions.MP40,
+                      MicroProfileActions.MP50);
     }
-
 }

@@ -1,12 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2017, 2019 IBM Corporation and others.
+# Copyright (c) 2017, 2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
 bVersion=1.0
@@ -15,8 +14,6 @@ bSymbolicName=com.ibm.ws.jsf.2.2
 Bundle-Name: WAS JSF 2.2
 Bundle-SymbolicName: com.ibm.ws.jsf.2.2
 Bundle-Description: WAS JSF 2.2, version ${bVersion}
-WLP-ServerName: IBM WebSphere Application Server
-WLP-ServerVersion: ${libertyBetaVersion}
 
 app-resources= \
   META-INF/services/org.apache.myfaces.spi.WebConfigProviderFactory | \
@@ -40,6 +37,7 @@ Service-Component: \
     cdiJSFInitializerService=com.ibm.ws.jsf.shared.cdi.CDIJSFInitializer; \
     greedy:="cdiJSFInitializerService"; \
     optional:="cdiJSFInitializerService"; \
+    dynamic:="cdiJSFInitializerService"; \
     properties:="service.vendor=IBM", \
   com.ibm.ws.jsf_2_2.taglib; \
     implementation:=com.ibm.ws.jsf.extprocessor.JSFGlobalTagLibConfig; \
@@ -47,6 +45,10 @@ Service-Component: \
     properties:="service.vendor=IBM", \
   com.ibm.ws.myfaces.initializer; \
     implementation:=org.apache.myfaces.ee6.MyFacesContainerInitializer; \
+    provide:=javax.servlet.ServletContainerInitializer; \
+    properties:="service.vendor=IBM,service.ranking:Integer=101", \
+  com.ibm.ws.jsf.fips.initializer; \
+    implementation:=com.ibm.ws.jsf.fips.FIPSInitializer; \
     provide:=javax.servlet.ServletContainerInitializer; \
     properties:="service.vendor=IBM,service.ranking:Integer=101", \
   com.ibm.ws.jsf_2_2.injection.class.list.collaborator; \
@@ -79,18 +81,20 @@ Export-Package: \
   com.ibm.ws.jsf.cdi, \
   com.ibm.ws.jsf.config.*, \
   com.ibm.ws.jsf.ext, \
-  com.ibm.ws.jsf.spi.*, \
   com.ibm.ws.jsf.extprocessor, \
+  com.ibm.ws.jsf.fips, \
+  com.ibm.ws.jsf.spi.*, \
   org.apache.myfaces.application;thread-context=true, \
   org.apache.myfaces.application.viewstate;thread-context=true, \
-  org.apache.myfaces.cdi.view;thread-context=true, \
   org.apache.myfaces.cdi.util;thread-context=true, \
+  org.apache.myfaces.cdi.view;thread-context=true, \
   org.apache.myfaces.component;thread-context=true, \
   org.apache.myfaces.component.visit;thread-context=true, \
-  org.apache.myfaces.context;thread-context=true, \
-  org.apache.myfaces.context.servlet;thread-context=true, \
   org.apache.myfaces.config.annotation;thread-context=true, \
   org.apache.myfaces.config.impl.digester.elements;thread-context=true, \
+  org.apache.myfaces.context;thread-context=true, \
+  org.apache.myfaces.context.servlet;thread-context=true, \
+  org.apache.myfaces.el.convert;thread-context=true,\
   org.apache.myfaces.flow;thread-context=true, \
   org.apache.myfaces.flow.cdi;thread-context=true, \
   org.apache.myfaces.lifecycle;thread-context=true, \
@@ -127,17 +131,17 @@ Export-Package: \
 # from Java after Java 8.  Doing this keeps the import like before Java 11 support. It will get the 
 # packages from Java when using Java 8 or earlier and from the new shipped bundles for Java 9 and later.
 Import-Package: \
-  !org.apache.myfaces.ee6, \
   !com.google.inject, \
+  javax.annotation;version=!,\
   !javax.ejb, \
   !javax.persistence, \
-  javax.annotation;version=!,\
+  !org.apache.myfaces.ee6, \
   *
 
 Include-Resource: \
   META-INF=@src/META-INF, \
-  @${repo;com.ibm.websphere.javaee.jsf.2.2}!/META-INF/resources/**, \
-  @${repo;com.ibm.websphere.javaee.jsf.2.2}!/META-INF/internal-resources/**, \
+  @\${repo;com.ibm.websphere.javaee.jsf.2.2}!/META-INF/resources/**, \
+  @\${repo;com.ibm.websphere.javaee.jsf.2.2}!/META-INF/internal-resources/**, \
   org/apache/myfaces/resource=resources/org/apache/myfaces/resource, \
   OSGI-INF=resources/OSGI-INF
     
@@ -158,8 +162,8 @@ instrument.ffdc: false
   com.ibm.websphere.javaee.jstl.1.2;version=latest,\
   com.ibm.websphere.javaee.persistence.2.1;version=latest,\
   io.openliberty.org.apache.commons.codec;version=latest,\
-  com.ibm.ws.org.apache.commons.digester.1.8;version=latest,\
-  com.ibm.ws.org.apache.commons.beanutils.1.9.4;version=latest,\
+  io.openliberty.org.apache.commons.digester;version=latest,\
+  com.ibm.ws.org.apache.commons.beanutils;version=latest,\
   com.ibm.ws.com.google.guice.2.0;version=latest,\
   com.ibm.ws.classloading;version=latest,\
   com.ibm.ws.webcontainer;version=latest,\
@@ -173,6 +177,7 @@ instrument.ffdc: false
   com.ibm.ws.jsf.shared;version=latest,\
   com.ibm.ws.jsp;version=latest,\
   com.ibm.ws.org.apache.commons.collections;version=latest,\
+  com.ibm.ws.kernel.service,\
   com.ibm.ws.beanvalidation.core;version=latest,\
   com.ibm.websphere.javaee.el.3.0;version=latest,\
   com.ibm.websphere.javaee.jsp.2.3;version=latest,\
@@ -185,4 +190,8 @@ instrument.ffdc: false
   com.ibm.websphere.appserver.spi.kernel.service,\
   com.ibm.websphere.org.osgi.core,\
   com.ibm.websphere.org.osgi.service.component, \
-  com.ibm.ws.org.osgi.annotation.versioning;version=latest
+  com.ibm.ws.org.osgi.annotation.versioning;version=latest, \
+  io.openliberty.el.internal.cdi;version=latest, \
+  com.ibm.ws.kernel.service;version=latest, \
+  com.ibm.ws.jsf.jsp.shared
+

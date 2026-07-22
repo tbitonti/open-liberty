@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -86,6 +88,8 @@ public class ServiceConfigTests extends FATServletClient {
 
     @BeforeClass
     public static void setUp() throws Exception {
+        
+        grpcServer.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         grpcServer.startServer(ServiceConfigTests.class.getSimpleName() + ".log");
 
         LOG.info("ServiceConfigTests : setUp() : add helloWorldService  app");
@@ -101,10 +105,15 @@ public class ServiceConfigTests extends FATServletClient {
 
     @AfterClass
     public static void tearDown() throws Exception {
-        worldChannel.shutdownNow();
+        // Setting serverConfigurationFile to null forces a server.xml update (when GrpcTestUtils.setServerConfiguration() is first called) on the repeat run
+        // If not set to null, test failures may occur (since the incorrect server.xml could be used)
+        serverConfigurationFile = null;
+
+        GrpcTestUtils.stopGrpcService(worldChannel);
         // The testInvalidMaxInboundMessageSize() test generates this log message, don't flag it as an error
         // CWWKT0203E: The maxInboundMessageSize -1 is not valid. Sizes must greater than 0.
-        grpcServer.stopServer("CWWKT0203E");
+        // SRVE9015E: This occurs during testInvalidMaxInboundMessageSize where the protocol error prevents the response body being accessed
+        grpcServer.stopServer("CWWKT0203E", "SRVE9015E");
     }
 
     /**
@@ -296,7 +305,7 @@ public class ServiceConfigTests extends FATServletClient {
         }
 
         // Stop only the FavoriteBeerService grpc application
-        beerChannel.shutdownNow();
+        GrpcTestUtils.stopGrpcService(beerChannel);
         LOG.info("ServiceConfigTests : testSingleWarWithGrpcService() : Stop the FavoriteBeerService application and remove it from dropins.");
         grpcServer.removeAndStopDropinsApplications("FavoriteBeerService.war");
 
@@ -395,7 +404,7 @@ public class ServiceConfigTests extends FATServletClient {
         assertTrue(test1Passed && rsp.getDone());
 
         // Stop only the FavoriteBeerService grpc application and remove the app from dropins
-        beerChannel.shutdownNow();
+        GrpcTestUtils.stopGrpcService(beerChannel);
         grpcServer.removeAndStopDropinsApplications("FavoriteBeerService.war");
         // removeAndStop above actually just renames the file, so really delete so the next tests have a clean slate
         grpcServer.deleteFileFromLibertyServerRoot("/FavoriteBeerService");

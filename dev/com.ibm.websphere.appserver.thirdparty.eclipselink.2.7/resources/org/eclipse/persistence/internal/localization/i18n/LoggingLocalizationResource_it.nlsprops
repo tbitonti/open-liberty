@@ -1,9 +1,11 @@
 ###############################################################################
 # Copyright (c) 2014 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -117,6 +119,10 @@ connected_user_database=Connesso: {3}{4} Utente: {0}{3}{4} Database: {1}  Versio
 
 connected_user_database_driver=Connesso: {0}{6} Utente: {1}{6} Database: {2}  Versione: {3}{6} Driver: {4}  Versione: {5}
 
+corrupt_object=oggetto danneggiato: {0}
+
+corrupt_object_referenced_through_mapping=oggetto danneggiato a cui si fa riferimento tramite associazione: {0}
+
 corrupted_session_announcement=ID sessione: {0} il gestore rilevamento ha ricevuto un annuncio di sessione corrotto, viene ignorato.
 
 create_default_dbms_tables_not_supported=L''impostazione CMP nativa  WLS "create-default-dbms-tables" non \u00e8 direttamente supportata in CMP EclipseLink. Per i dettagli consultare il documento sulla migrazione.
@@ -168,6 +174,16 @@ ejb_jar_xml_not_found_in_input=Il file ejb-jar.xml non \u00e8 presente nella dir
 elements={0}{1} elementi
 
 enable_batch_operations_as_true_not_supported=L''impostazione CMP nativa  WLS "enable-batch-operations-as-true" non \u00e8 direttamente supportata in CMP EclipseLink. Per i dettagli consultare il documento sulla migrazione.
+
+encryptor_decrypt_old_algorithm=La password del database utilizzata in {0} \u00e8 stata codificata da un algoritmo algorithm.Reencrypt mediante `passwordUpdate.sh ` dal pacchetto eclipselink.zip .
+
+encryptor_decrypt_old_algorithm_without_session_name=La password del database \u00e8 stata crittografata da un algoritmo algorithm.Reencrypt mediante `passwordUpdate.sh ` dal pacchetto eclipselink.zip .
+
+encryptor_script_description=Questa applicazione decodifica internamente una vecchia password codificata utilizzata da una precedente versione di EclipseLink e la codifica mediante l''ultimo algoritmo.
+
+encryptor_script_output=La password codificata \u00e8: {0}
+
+encryptor_script_usage=L''utilizzo \u00e8 `passwordUpdate.sh | .cmd -ip < vecchia password codificata> `
 
 entity_manager_ignores_jta_data_source=L''unit\u00e0 di persistenza non utilizza JTA, quindi l''EntityManager ignora l''origine dati jta. 
 
@@ -699,6 +715,8 @@ sop_object_wrong_version=Rimozione di sopObject serializzato dalla riga perch\u0
 
 src_pm_name_first_argument=\u00c8 necessario specificare il nome PM di origine al primo argomento di input come: -sOc4j-nativo o -sWeblogic.
 
+stack_of_visited_objects_that_refer_to_the_corrupt_object=stack di oggetti visitati che fanno riferimento all''oggetto danneggiato: {0}
+
 table_existed_during_creation=Creazione tabella non riuscita. Se gi\u00e0 esiste, deve essere prima eliminata. Ci\u00f2 pu\u00f2 essere eseguito manualmente o impostando l''attributo db-table-gen in orion-ejb-jar.xml.
 
 template_orion_ejb_jar_created=\u00c8 stato creato un file orion-ejb-jar.xml con template
@@ -727,6 +745,14 @@ toplink_severe=[EL Grave]:
 
 toplink_warning=[EL Avvertenza]: 
 
+unit_of_work_thread_info=L''unit\u00e0 di lavoro corrente nella sessione ({0}) \u00e8 stata creata da un altro thread (id: {1} nome: {2}), rispetto al thread corrente (id: {3} nome: {4})
+
+unit_of_work_thread_info_thread_dump=Creazione della traccia di stack del thread (id: {0} nome: {1}):
+#{2}
+
+Current traccia stack thread (id: {3} nome: {4}):
+#{5}
+
 unitofwork_identity_hashcode={0}Codice hash identit\u00e0 UnitOfWork: {1}
 
 update_all_fields_not_supported=La funzione CMP nativa Oc4j "update-all-fields" sull''entit\u00e0\u00a0({0}) non \u00e8 direttamente supportata in CMP  EclipseLink. Per i dettagli consultare il documento sulla migrazione.
@@ -736,6 +762,8 @@ update_all_query_cannot_use_binding_on_this_platform=UpdateAllQuery non pu\u00f2
 validate_db_schema_with_not_supported=L''impostazione CMP nativa  WLS "validate-db-schema-with" non \u00e8 direttamente supportata in CMP EclipseLink. Per i dettagli consultare il documento sulla migrazione.
 
 validate_ejb_jar=Avvio convalida ejb-jar.xml, pu\u00f2 richiedere del tempo...
+
+validate_object_space=convalidare lo spazio oggetto.
 
 validity_timeout_not_supported=L''impostazione CMP nativa Oc4j "validity-timeout" sull''entit\u00e0 ({0}) non \u00e8 direttamente supportata in CMP  EclipseLink. Per i dettagli consultare il documento sulla migrazione.
 

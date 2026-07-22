@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xml:lang="en">
   <head>
-    <title>Open Liberty</title>
+    <title>Open Liberty {VERSION}</title>
     <style>
 		* {
 			box-sizing: border-box;
@@ -10,16 +10,6 @@
 		@font-face {
 			font-family: IBMPlexSans;
 			src: url('fonts/IBMPlexSans-Regular.woff');
-		}
-
-		@font-face {
-			font-family: BunueloLight;
-			src: url("/fonts/BunueloCleanPro-Light.woff");
-		}
-
-		@font-face {
-			font-family: BunueloBold;
-			src: url("/fonts/BunueloCleanPro-SemiBold.woff");
 		}
 
 		body {
@@ -32,7 +22,7 @@
 
 		h1 {
 			color: white;
-			font-family: BunueloBold, Arial Narrow, Helvetica, Arial;
+			font-family: Arial Narrow, Helvetica, Arial;
 			font-size: 1.75rem;
 			line-height: 1.5;
 			margin: 0px;
@@ -41,7 +31,7 @@
 
 		h2 {
 			color: #3F4664;
-			font-family: BunueloBold, Arial Narrow, Helvetica, Arial;
+			font-family: Arial Narrow, Helvetica, Arial;
 			font-size: 1.5rem;
 			line-height: 1.5;
 			margin: 0px;
@@ -50,7 +40,6 @@
 
 		h3 {
 			color: white;
-			font-family: BunueloLight;
 			font-size: 1.25rem;
 			line-height: 1.5;
 			margin: 0px;
@@ -290,7 +279,7 @@
 		}
 
 		#inner-hero__subtitle {
-			font-family: BunueloBold, Arial Narrow, Helvetica, Arial;
+			font-family: Arial Narrow, Helvetica, Arial;
 			font-size: 20px;
 			color: #ffffff;
 			line-height: 1.2;
@@ -450,7 +439,7 @@
 		@media (min-width: 992px) {
 			#first_row {
 				float: left;
-				width: 50%;
+				width: 100%;
 				padding-top: 0px;
 			}
 
@@ -770,6 +759,7 @@
 						<h3 data-externalizedString="WELCOME_MESSAGE"></h3>
 						<img id="inner-hero__title" src="/img/open_liberty_title.png" alt="Open Liberty">
 						<p id="inner-hero__open_source" data-externalizedString="WELCOME_IBM_OPEN_SOURCE"></p>
+						<h2 id="inner-hero__subtitle">Open Liberty {VERSION}</h2>
 						<h2 id="inner-hero__subtitle" data-externalizedString="WELCOME_LIGHTWEIGHT"></h2>
 					</div>
 					<div id="inner-hero__img_container" class="column">
@@ -801,8 +791,6 @@
 						<p>Stack Overflow</p>
 					</a>
 				</div>
-			</div>
-			<div id="second_row" class="row">
 				<div class="resource">
 					<a href="https://groups.io/g/openliberty" target="_blank" rel="noopener">
 						<img class="resource__logo circle" src="/img/groups_io_logo.jpeg" data-externalizedAlt="GROUPS_IO">
@@ -810,13 +798,7 @@
 					</a>
 				</div>
 				<div class="resource">
-					<a href="https://twitter.com/OpenLibertyIO" target="_blank" rel="noopener">
-						<img class="resource__logo" src="/img/twitter_logo.png" data-externalizedAlt="TWITTER">
-						<p>Twitter</p>
-					</a>
-				</div>
-				<div class="resource">
-					<a href="https://gitter.im/OpenLiberty/" target="_blank" rel="noopener">
+					<a href="https://app.gitter.im/#/room/#OpenLiberty_development:gitter.im" target="_blank" rel="noopener">
 						<img id="gitter_logo" class="resource__logo" src="/img/gitter_logo.png" data-externalizedAlt="GITTER">
 						<p>Gitter</p>
 					</a>
@@ -837,7 +819,7 @@
 		</section>
 
 	</main>
-	
+
 	<footer class="footer">
 		<div class="footer__content row" data-externalizedAriaLabel="COPYRIGHT">
 			<img class="footer__img" src="/img/footer-img.png" data-externalizedAlt="OPEN_LIBERTY_FOOTER">

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -24,6 +26,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -47,15 +50,11 @@ public class CompletionStageRxInvokerTestServlet extends HttpServlet {
 
     private static final long serialVersionUID = 2880606295862546001L;
     private static final long TIMEOUT = 5000;
+    // The FUTURE_TIMEOUT was added so that CompletableFuture.get() operations will not sit until the hard
+    // FAT timeout of 3 hours.
+    private static final long FUTURE_TIMEOUT = 10000;
     private static final long SLEEP = 20000;
-
-    private static final boolean isZOS() {
-        String osName = System.getProperty("os.name");
-        if (osName.contains("OS/390") || osName.contains("z/OS") || osName.contains("zOS")) {
-            return true;
-        }
-        return false;
-}
+    private static final long clientBuilderTimeout = 15000;
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -578,11 +577,10 @@ public class CompletionStageRxInvokerTestServlet extends HttpServlet {
         c2.close();
     }
 
-    public void testCompletionStageRxInvoker_getReceiveTimeout(Map<String, String> param, StringBuilder ret) {
+    public void testCompletionStageRxInvoker_getCbReceiveTimeout(Map<String, String> param, StringBuilder ret) {
         String serverIP = param.get("serverIP");
         String serverPort = param.get("serverPort");
         ClientBuilder cb = ClientBuilder.newBuilder();
-//        cb.property("com.ibm.ws.jaxrs.client.receive.timeout", TIMEOUT);
         cb.readTimeout(TIMEOUT, TimeUnit.MILLISECONDS);
         Client c = cb.build();
         WebTarget t = c.target("http://" + serverIP + ":" + serverPort + "/jaxrs21bookstore/JAXRS21bookstore2/" + SLEEP);
@@ -593,9 +591,12 @@ public class CompletionStageRxInvokerTestServlet extends HttpServlet {
         long startTime = System.currentTimeMillis();
 
         try {
-            Response response = completableFuture.get();
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
             // Did not time out as expected
             ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
         } catch (InterruptedException e) {
             ret.append("InterruptedException");
             e.printStackTrace();
@@ -609,25 +610,100 @@ public class CompletionStageRxInvokerTestServlet extends HttpServlet {
         }
 
         long elapsed = System.currentTimeMillis() - startTime;
-        System.out.println("testCompletionStageRxInvoker_getReceiveTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get elapsed time " + elapsed);
+        System.out.println("testCompletionStageRxInvoker_getCbReceiveTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get elapsed time " + elapsed);
 
         c.close();
     }
 
+    public void testCompletionStageRxInvoker_getIbmReceiveTimeout(Map<String, String> param, StringBuilder ret) {
+        String serverIP = param.get("serverIP");
+        String serverPort = param.get("serverPort");
+        ClientBuilder cb = ClientBuilder.newBuilder();
+        cb.property("com.ibm.ws.jaxrs.client.receive.timeout", TIMEOUT);
+        Client c = cb.build();
+        WebTarget t = c.target("http://" + serverIP + ":" + serverPort + "/jaxrs21bookstore/JAXRS21bookstore2/" + SLEEP);
+        Builder builder = t.request();
+        CompletionStageRxInvoker completionStageRxInvoker = builder.rx();
+        CompletionStage<Response> completionStage = completionStageRxInvoker.get();
+        CompletableFuture<Response> completableFuture = completionStage.toCompletableFuture();
+        long startTime = System.currentTimeMillis();
 
-    public void testCompletionStageRxInvoker_getConnectionTimeout(Map<String, String> param, StringBuilder ret) {
-        String target = null;
-
-        if (isZOS()) {
-            // https://stackoverflow.com/a/904609/6575578
-            target = "http://example.com:81";
-        } else {
-            //Connect to telnet port - which should be disabled on all non-Z test machines - so we should expect a timeout
-            target = "http://localhost:23/blah";
+        try {
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
+            // Did not time out as expected
+            ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            ret.append("InterruptedException");
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            if (e.getCause().toString().contains("ProcessingException")) {
+                ret.append("Timeout as expected");
+            } else {
+                ret.append("ExecutionException");
+                e.printStackTrace();
+            }
         }
 
+        long elapsed = System.currentTimeMillis() - startTime;
+        System.out.println("testCompletionStageRxInvoker_getIbmReceiveTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get elapsed time " + elapsed);
+
+        c.close();
+    }
+
+    public void testCompletionStageRxInvoker_getIbmOverridesCbReceiveTimeout(Map<String, String> param, StringBuilder ret) {
+        String serverIP = param.get("serverIP");
+        String serverPort = param.get("serverPort");
         ClientBuilder cb = ClientBuilder.newBuilder();
-//        cb.property("com.ibm.ws.jaxrs.client.connection.timeout", TIMEOUT);
+        cb.readTimeout(clientBuilderTimeout, TimeUnit.MILLISECONDS);
+        cb.property("com.ibm.ws.jaxrs.client.receive.timeout", TIMEOUT);
+        Client c = cb.build();
+        WebTarget t = c.target("http://" + serverIP + ":" + serverPort + "/jaxrs21bookstore/JAXRS21bookstore2/" + SLEEP);
+        Builder builder = t.request();
+        CompletionStageRxInvoker completionStageRxInvoker = builder.rx();
+        CompletionStage<Response> completionStage = completionStageRxInvoker.get();
+        CompletableFuture<Response> completableFuture = completionStage.toCompletableFuture();
+        long startTime = System.currentTimeMillis();
+
+        try {
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
+            // Did not time out as expected
+            ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            ret.append("InterruptedException");
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            if (e.getCause().toString().contains("ProcessingException")) {
+                ret.append("Timeout as expected");
+            } else {
+                ret.append("ExecutionException");
+                e.printStackTrace();
+            }
+        }
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        System.out.println("testCompletionStageRxInvoker_getIbmOverridesCbReceiveTimeout with TIMEOUT " + TIMEOUT + " and clientBuilderTimeout " + clientBuilderTimeout + " completableFuture.get elapsed time " + elapsed);
+
+        if (elapsed >= clientBuilderTimeout)  {
+            ret.setLength(0);
+            ret.append("Failure used clientBuilderTimeout ").append(clientBuilderTimeout).append(" instead of IBM timeout ").append(TIMEOUT).append(" as the elapsed time was  ").append(elapsed);
+            System.out.println("testCompletionStageRxInvoker_getIbmOverridesCbReceiveTimeout " + ret);
+        }
+        c.close();
+    }
+
+    public void testCompletionStageRxInvoker_getCbConnectionTimeout(Map<String, String> param, StringBuilder ret) {
+        String target = null;
+
+        // https://stackoverflow.com/a/904609/6575578
+        target = "http://10.255.255.1/blah";
+
+        ClientBuilder cb = ClientBuilder.newBuilder();
         cb.connectTimeout(TIMEOUT, TimeUnit.MILLISECONDS);
         Client c = cb.build();
         WebTarget t = c.target(target);
@@ -636,14 +712,17 @@ public class CompletionStageRxInvokerTestServlet extends HttpServlet {
         long startTime = System.currentTimeMillis();
         CompletionStage<Response> completionStage = completionStageRxInvoker.get();
         long elapsed = System.currentTimeMillis() - startTime;
-        System.out.println("testCompletionStageRxInvoker_getConnectionTimeout with TIMEOUT " + TIMEOUT + " completionStageRxInvoker.get elapsed time " + elapsed);
+        System.out.println("testCompletionStageRxInvoker_getCbConnectionTimeout with TIMEOUT " + TIMEOUT + " completionStageRxInvoker.get elapsed time " + elapsed);
         CompletableFuture<Response> completableFuture = completionStage.toCompletableFuture();
         long startTime2 = System.currentTimeMillis();
 
         try {
-            Response response = completableFuture.get();
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
             // Did not time out as expected
             ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
         } catch (InterruptedException e) {
             ret.append("InterruptedException");
             e.printStackTrace();
@@ -657,17 +736,111 @@ public class CompletionStageRxInvokerTestServlet extends HttpServlet {
         }
 
         long elapsed2 = System.currentTimeMillis() - startTime2;
-        System.out.println("testCompletionStageRxInvoker_getConnectionTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get() elapsed2 time " + elapsed2);
+        System.out.println("testCompletionStageRxInvoker_getCbConnectionTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get() elapsed2 time " + elapsed2);
+
+        c.close();
+    }
+
+    public void testCompletionStageRxInvoker_getIbmConnectionTimeout(Map<String, String> param, StringBuilder ret) {
+        String target = null;
+
+        // https://stackoverflow.com/a/904609/6575578
+        target = "http://10.255.255.1/blah";
+
+        ClientBuilder cb = ClientBuilder.newBuilder();
+        cb.property("com.ibm.ws.jaxrs.client.connection.timeout", TIMEOUT);
+        Client c = cb.build();
+        WebTarget t = c.target(target);
+        Builder builder = t.request();
+        CompletionStageRxInvoker completionStageRxInvoker = builder.rx();
+        long startTime = System.currentTimeMillis();
+        CompletionStage<Response> completionStage = completionStageRxInvoker.get();
+        long elapsed = System.currentTimeMillis() - startTime;
+        System.out.println("testCompletionStageRxInvoker_getIbmConnectionTimeout with TIMEOUT " + TIMEOUT + " completionStageRxInvoker.get elapsed time " + elapsed);
+        CompletableFuture<Response> completableFuture = completionStage.toCompletableFuture();
+        long startTime2 = System.currentTimeMillis();
+
+        try {
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
+            // Did not time out as expected
+            ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            ret.append("InterruptedException");
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            if (e.getCause().toString().contains("ProcessingException")) {
+                ret.append("Timeout as expected");
+            } else {
+                ret.append("ExecutionException");
+                e.printStackTrace();
+            }
+        }
+
+        long elapsed2 = System.currentTimeMillis() - startTime2;
+        System.out.println("testCompletionStageRxInvoker_getIbmConnectionTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get() elapsed2 time " + elapsed2);
+
+        c.close();
+    }
+
+    public void testCompletionStageRxInvoker_getIbmOverridesCbConnectionTimeout(Map<String, String> param, StringBuilder ret) {
+        String target = null;
+
+        // https://stackoverflow.com/a/904609/6575578
+        target = "http://10.255.255.1/blah";
+
+        ClientBuilder cb = ClientBuilder.newBuilder();
+        cb.connectTimeout(clientBuilderTimeout, TimeUnit.MILLISECONDS);
+        cb.property("com.ibm.ws.jaxrs.client.connection.timeout", TIMEOUT);
+        Client c = cb.build();
+        WebTarget t = c.target(target);
+        Builder builder = t.request();
+        CompletionStageRxInvoker completionStageRxInvoker = builder.rx();
+        long startTime = System.currentTimeMillis();
+        CompletionStage<Response> completionStage = completionStageRxInvoker.get();
+        long elapsed = System.currentTimeMillis() - startTime;
+        System.out.println("testCompletionStageRxInvoker_getIbmOverridesCbConnectionTimeout with TIMEOUT " + TIMEOUT + " completionStageRxInvoker.get elapsed time " + elapsed);
+        CompletableFuture<Response> completableFuture = completionStage.toCompletableFuture();
+        long startTime2 = System.currentTimeMillis();
+
+        try {
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
+            // Did not time out as expected
+            ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            ret.append("InterruptedException");
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            if (e.getCause().toString().contains("ProcessingException")) {
+                ret.append("Timeout as expected");
+            } else {
+                ret.append("ExecutionException");
+                e.printStackTrace();
+            }
+        }
+
+        long elapsed2 = System.currentTimeMillis() - startTime2;
+        System.out.println("testCompletionStageRxInvoker_getIbmOverridesCbConnectionTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get() elapsed2 time " + elapsed2);
+
+        if (elapsed > clientBuilderTimeout ) {
+            ret.setLength(0);
+            ret.append("Failure used clientBuilderTimeout ").append(clientBuilderTimeout).append(" instead of IBM timeout ").append(TIMEOUT).append(" as the elapsed time was  ").append(elapsed);
+            System.out.println("testCompletionStageRxInvoker_getIbmOverridesCbConnectionTimeout " + ret);
+        }
 
         c.close();
     }
 
 
-    public void testCompletionStageRxInvoker_postReceiveTimeout(Map<String, String> param, StringBuilder ret) {
+    public void testCompletionStageRxInvoker_postCbReceiveTimeout(Map<String, String> param, StringBuilder ret) {
         String serverIP = param.get("serverIP");
         String serverPort = param.get("serverPort");
         ClientBuilder cb = ClientBuilder.newBuilder();
-//        cb.property("com.ibm.ws.jaxrs.client.receive.timeout", TIMEOUT);
         cb.readTimeout(TIMEOUT, TimeUnit.MILLISECONDS);
         Client c = cb.build();
         WebTarget t = c.target("http://" + serverIP + ":" + serverPort + "/jaxrs21bookstore/JAXRS21bookstore2/post/" + SLEEP);
@@ -678,9 +851,12 @@ public class CompletionStageRxInvokerTestServlet extends HttpServlet {
         long startTime = System.currentTimeMillis();
 
         try {
-            Response response = completableFuture.get();
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
             // Did not time out as expected
             ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
         } catch (InterruptedException e) {
             ret.append("InterruptedException");
             e.printStackTrace();
@@ -694,25 +870,101 @@ public class CompletionStageRxInvokerTestServlet extends HttpServlet {
         }
 
         long elapsed = System.currentTimeMillis() - startTime;
-        System.out.println("testCompletionStageRxInvoker_postReceiveTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get elapsed time " + elapsed);
+        System.out.println("testCompletionStageRxInvoker_postCbReceiveTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get elapsed time " + elapsed);
 
         c.close();
     }
 
+    public void testCompletionStageRxInvoker_postIbmReceiveTimeout(Map<String, String> param, StringBuilder ret) {
+        String serverIP = param.get("serverIP");
+        String serverPort = param.get("serverPort");
+        ClientBuilder cb = ClientBuilder.newBuilder();
+        cb.property("com.ibm.ws.jaxrs.client.receive.timeout", TIMEOUT);
+        Client c = cb.build();
+        WebTarget t = c.target("http://" + serverIP + ":" + serverPort + "/jaxrs21bookstore/JAXRS21bookstore2/post/" + SLEEP);
+        Builder builder = t.request();
+        CompletionStageRxInvoker completionStageRxInvoker = builder.rx();
+        CompletionStage<Response> completionStage = completionStageRxInvoker.post(Entity.xml(Long.toString(SLEEP)));
+        CompletableFuture<Response> completableFuture = completionStage.toCompletableFuture();
+        long startTime = System.currentTimeMillis();
 
-    public void testCompletionStageRxInvoker_postConnectionTimeout(Map<String, String> param, StringBuilder ret) {
-        String target = null;
-
-        if (isZOS()) {
-            // https://stackoverflow.com/a/904609/6575578
-            target = "http://example.com:81";
-        } else {
-            //Connect to telnet port - which should be disabled on all non-Z test machines - so we should expect a timeout
-            target = "http://localhost:23/blah";
+        try {
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
+            // Did not time out as expected
+            ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            ret.append("InterruptedException");
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            if (e.getCause().toString().contains("ProcessingException")) {
+                ret.append("Timeout as expected");
+            } else {
+                ret.append("ExecutionException");
+                e.printStackTrace();
+            }
         }
 
+        long elapsed = System.currentTimeMillis() - startTime;
+        System.out.println("testCompletionStageRxInvoker_postIbmReceiveTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get elapsed time " + elapsed);
+
+        c.close();
+    }
+
+    public void testCompletionStageRxInvoker_postIbmOverridesCbReceiveTimeout(Map<String, String> param, StringBuilder ret) {
+        String serverIP = param.get("serverIP");
+        String serverPort = param.get("serverPort");
         ClientBuilder cb = ClientBuilder.newBuilder();
-//        cb.property("com.ibm.ws.jaxrs.client.connection.timeout", TIMEOUT);
+        cb.readTimeout(clientBuilderTimeout, TimeUnit.MILLISECONDS);
+        cb.property("com.ibm.ws.jaxrs.client.receive.timeout", TIMEOUT);
+        Client c = cb.build();
+        WebTarget t = c.target("http://" + serverIP + ":" + serverPort + "/jaxrs21bookstore/JAXRS21bookstore2/post/" + SLEEP);
+        Builder builder = t.request();
+        CompletionStageRxInvoker completionStageRxInvoker = builder.rx();
+        CompletionStage<Response> completionStage = completionStageRxInvoker.post(Entity.xml(Long.toString(SLEEP)));
+        CompletableFuture<Response> completableFuture = completionStage.toCompletableFuture();
+        long startTime = System.currentTimeMillis();
+
+        try {
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
+            // Did not time out as expected
+            ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            ret.append("InterruptedException");
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            if (e.getCause().toString().contains("ProcessingException")) {
+                ret.append("Timeout as expected");
+            } else {
+                ret.append("ExecutionException");
+                e.printStackTrace();
+            }
+        }
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        System.out.println("testCompletionStageRxInvoker_postIbmOverridesCbReceiveTimeout with TIMEOUT " + TIMEOUT + " and clientBuilderTimeout " + clientBuilderTimeout + " completableFuture.get elapsed time " + elapsed);
+
+        if (elapsed >= clientBuilderTimeout)  {
+            ret.setLength(0);
+            ret.append("Failure used clientBuilderTimeout ").append(clientBuilderTimeout).append(" instead of IBM timeout ").append(TIMEOUT).append(" as the elapsed time was  ").append(elapsed);
+            System.out.println("testCompletionStageRxInvoker_postIbmOverridesCbReceiveTimeout " + ret);
+        }
+
+        c.close();
+    }
+
+    public void testCompletionStageRxInvoker_postCbConnectionTimeout(Map<String, String> param, StringBuilder ret) {
+        String target = null;
+
+        // https://stackoverflow.com/a/904609/6575578
+        target = "http://10.255.255.1/blah";
+
+        ClientBuilder cb = ClientBuilder.newBuilder();
         cb.connectTimeout(TIMEOUT, TimeUnit.MILLISECONDS);
         Client c = cb.build();
         WebTarget t = c.target(target);
@@ -721,14 +973,17 @@ public class CompletionStageRxInvokerTestServlet extends HttpServlet {
         long startTime = System.currentTimeMillis();
         CompletionStage<Response> completionStage = completionStageRxInvoker.post(Entity.xml(Long.toString(SLEEP)));
         long elapsed = System.currentTimeMillis() - startTime;
-        System.out.println("testCompletionStageRxInvoker_postConnectionTimeout with TIMEOUT " + TIMEOUT + " completionStageRxInvoker.post elapsed time " + elapsed);
+        System.out.println("testCompletionStageRxInvoker_postCbConnectionTimeout with TIMEOUT " + TIMEOUT + " completionStageRxInvoker.post elapsed time " + elapsed);
         CompletableFuture<Response> completableFuture = completionStage.toCompletableFuture();
         long startTime2 = System.currentTimeMillis();
 
         try {
-            Response response = completableFuture.get();
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
             // Did not time out as expected
             ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
         } catch (InterruptedException e) {
             ret.append("InterruptedException");
             e.printStackTrace();
@@ -742,7 +997,101 @@ public class CompletionStageRxInvokerTestServlet extends HttpServlet {
         }
 
         long elapsed2 = System.currentTimeMillis() - startTime2;
-        System.out.println("testCompletionStageRxInvoker_postConnectionTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get elapsed2 time " + elapsed2);
+        System.out.println("testCompletionStageRxInvoker_postCbConnectionTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get elapsed2 time " + elapsed2);
+
+        c.close();
+    }
+
+    public void testCompletionStageRxInvoker_postIbmConnectionTimeout(Map<String, String> param, StringBuilder ret) {
+        String target = null;
+
+        // https://stackoverflow.com/a/904609/6575578
+        target = "http://10.255.255.1/blah";
+
+        ClientBuilder cb = ClientBuilder.newBuilder();
+        cb.property("com.ibm.ws.jaxrs.client.connection.timeout", TIMEOUT);
+        Client c = cb.build();
+        WebTarget t = c.target(target);
+        Builder builder = t.request();
+        CompletionStageRxInvoker completionStageRxInvoker = builder.rx();
+        long startTime = System.currentTimeMillis();
+        CompletionStage<Response> completionStage = completionStageRxInvoker.post(Entity.xml(Long.toString(SLEEP)));
+        long elapsed = System.currentTimeMillis() - startTime;
+        System.out.println("testCompletionStageRxInvoker_postIbmConnectionTimeout with TIMEOUT " + TIMEOUT + " completionStageRxInvoker.post elapsed time " + elapsed);
+        CompletableFuture<Response> completableFuture = completionStage.toCompletableFuture();
+        long startTime2 = System.currentTimeMillis();
+
+        try {
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
+            // Did not time out as expected
+            ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            ret.append("InterruptedException");
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            if (e.getCause().toString().contains("ProcessingException")) {
+                ret.append("Timeout as expected");
+            } else {
+                ret.append("ExecutionException");
+            }
+            e.printStackTrace();
+        }
+
+        long elapsed2 = System.currentTimeMillis() - startTime2;
+        System.out.println("testCompletionStageRxInvoker_postIbmConnectionTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get elapsed2 time " + elapsed2);
+
+        c.close();
+    }
+
+    public void testCompletionStageRxInvoker_postIbmOverridesCbConnectionTimeout(Map<String, String> param, StringBuilder ret) {
+        String target = null;
+
+        // https://stackoverflow.com/a/904609/6575578
+        target = "http://10.255.255.1/blah";
+
+        ClientBuilder cb = ClientBuilder.newBuilder();
+        cb.property("com.ibm.ws.jaxrs.client.connection.timeout", TIMEOUT);
+        Client c = cb.build();
+        WebTarget t = c.target(target);
+        Builder builder = t.request();
+        CompletionStageRxInvoker completionStageRxInvoker = builder.rx();
+        long startTime = System.currentTimeMillis();
+        CompletionStage<Response> completionStage = completionStageRxInvoker.post(Entity.xml(Long.toString(SLEEP)));
+        long elapsed = System.currentTimeMillis() - startTime;
+        System.out.println("testCompletionStageRxInvoker_postIbmOverridesCbConnectionTimeout with TIMEOUT " + TIMEOUT + " completionStageRxInvoker.post elapsed time " + elapsed);
+        CompletableFuture<Response> completableFuture = completionStage.toCompletableFuture();
+        long startTime2 = System.currentTimeMillis();
+
+        try {
+            Response response = completableFuture.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS);
+            // Did not time out as expected
+            ret.append(response.readEntity(String.class));
+        } catch (TimeoutException e) {
+            ret.append("TimeoutException");
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            ret.append("InterruptedException");
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            if (e.getCause().toString().contains("ProcessingException")) {
+                ret.append("Timeout as expected");
+            } else {
+                ret.append("ExecutionException");
+            }
+            e.printStackTrace();
+        }
+
+        long elapsed2 = System.currentTimeMillis() - startTime2;
+        System.out.println("testCompletionStageRxInvoker_postIbmOverridesCbConnectionTimeout with TIMEOUT " + TIMEOUT + " completableFuture.get elapsed2 time " + elapsed2);
+
+        if (elapsed > clientBuilderTimeout ) {
+            ret.setLength(0);
+            ret.append("Failure used clientBuilderTimeout ").append(clientBuilderTimeout).append(" instead of IBM timeout ").append(TIMEOUT).append(" as the elapsed time was  ").append(elapsed);
+            System.out.println("testCompletionStageRxInvoker_postIbmOverridesCbConnectionTimeout " + ret);
+        }
 
         c.close();
     }

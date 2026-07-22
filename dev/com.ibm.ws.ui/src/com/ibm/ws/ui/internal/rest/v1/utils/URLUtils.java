@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013 IBM Corporation and others.
+ * Copyright (c) 2013, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -30,6 +32,7 @@ import com.ibm.ws.ui.internal.v1.utils.URLUtilityImpl;
 import com.ibm.ws.ui.internal.v1.utils.Utils;
 import com.ibm.wsspi.rest.handler.RESTRequest;
 import com.ibm.wsspi.rest.handler.RESTResponse;
+import com.ibm.ws.ui.internal.v1.utils.URLValidator;
 
 /**
  * <p>Defines the utility methods that different parts of the UI will need to use.</p>
@@ -62,8 +65,6 @@ public class URLUtils extends CommonJSONRESTHandler implements V1UtilsConstants 
     public boolean isKnownChildResource(String child, RESTRequest request) {
         if ("getTool".equals(child)) {
             return true;
-        } else if ("getStatus".equals(child)) {
-            return true;
         } else {
             return false;
         }
@@ -84,7 +85,6 @@ public class URLUtils extends CommonJSONRESTHandler implements V1UtilsConstants 
         Map<String, String> map = new HashMap<String, String>();
         String url = request.getURL();
         map.put("getTool", url + (url.endsWith("/") ? "getTool" : "/getTool"));
-        map.put("getStatus", url + (url.endsWith("/") ? "getStatus" : "/getStatus"));
 
         return map;
     }
@@ -97,35 +97,28 @@ public class URLUtils extends CommonJSONRESTHandler implements V1UtilsConstants 
      * @return
      * @throws BadRequestException
      */
-    @FFDCIgnore(MalformedURLException.class)
+    @FFDCIgnore({MalformedURLException.class, SecurityException.class})
     private URL getURLParameter(String operation, RESTRequest request) throws BadRequestException {
         String toolURL = request.getParameter("url");
-        if (toolURL == null) {
+        if (toolURL == null || toolURL.trim().isEmpty()) {
             Message error = new Message(HTTP_BAD_REQUEST, RequestNLS.formatMessage(tc, "OP_REQUIRES_URL", operation));
             throw new BadRequestException(MEDIA_TYPE_APPLICATION_JSON, error);
         }
 
         URL urlObj = null;
         try {
-            urlObj = Utils.getURL(toolURL);
+            // SECURITY: Validate URL during creation to prevent SSRF
+            urlObj = URLValidator.validateAndCreateURL(toolURL);
         } catch (MalformedURLException e) {
             Message error = new Message(HTTP_BAD_REQUEST, RequestNLS.formatMessage(tc, "OP_BAD_URL", operation, e.getMessage()));
             throw new BadRequestException(MEDIA_TYPE_APPLICATION_JSON, error);
+        } catch (SecurityException e) {
+            // SECURITY: Return 403 Forbidden for security violations
+            Tr.warning(tc, "CWWKX1059W: Security validation failed for URL in operation " + operation + ": " + e.getMessage());
+            Message error = new Message(403, "Access denied: " + e.getMessage());
+            throw new BadRequestException(MEDIA_TYPE_APPLICATION_JSON, error);
         }
         return urlObj;
-    }
-
-    /**
-     * Retrieve the HTTP status of a GET request for the provided URL.
-     * The URL to GET is specified in the parameter 'url'.
-     *
-     * @param request The RESTRequest from handleRequest
-     * @return
-     * @throws RESTException
-     */
-    private Object getStatus(RESTRequest request) throws RESTException {
-        final URL url = getURLParameter("getStatus", request);
-        return utils.getStatus(url);
     }
 
     /**
@@ -147,9 +140,7 @@ public class URLUtils extends CommonJSONRESTHandler implements V1UtilsConstants 
         if (!isAuthorizedDefault(request, response)) {
             throw new UserNotAuthorizedException();
         }
-        if ("getStatus".equals(childResource)) {
-            return getStatus(request);
-        } else if ("getTool".equals(childResource)) {
+        if ("getTool".equals(childResource)) {
             return getTool(request);
         } else {
             throw new NoSuchResourceException();

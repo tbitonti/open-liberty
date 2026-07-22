@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -27,11 +29,11 @@ public class StaticTraceTestTransformer extends LibertyTracePreprocessInstrument
     /**
      * Instrument the classes.
      */
-    public byte[] transform(byte[] classfileBuffer) throws IllegalClassFormatException {
+    public byte[] transform(String className, byte[] classfileBuffer) throws IllegalClassFormatException {
     	//setFfdc(true);
     	
         try {
-            return transform(new ByteArrayInputStream(classfileBuffer));
+            return transform(className, new ByteArrayInputStream(classfileBuffer));
         } catch (Throwable t) {
             t.printStackTrace();
             return null;

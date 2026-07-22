@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.microprofile.reactive.streams.test.basic;
 
@@ -16,7 +15,6 @@ import static org.junit.Assert.assertTrue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.ServiceLoader;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
@@ -32,6 +30,7 @@ import org.eclipse.microprofile.reactive.streams.operators.spi.Graph;
 import org.eclipse.microprofile.reactive.streams.operators.spi.ReactiveStreamsEngine;
 import org.eclipse.microprofile.reactive.streams.operators.spi.Stage;
 import org.eclipse.microprofile.reactive.streams.operators.spi.ToGraphable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import componenttest.app.FATServlet;
@@ -102,14 +101,20 @@ public class ReactiveStreamsTestServlet extends FATServlet {
         assertTrue("Reactive Streams Engine has been injected as null", engine1 != null);
     }
 
-    /**
-     * A simple test that checks that user code can
-     * SericeLoader.load a ReactiveStreamsEngine
-     */
     @Test
-    public void serviceLoadReactiveStreamsEngineTest() {
-        Iterator<ReactiveStreamsEngine> engines = ServiceLoader.load(ReactiveStreamsEngine.class).iterator();
-        assertTrue("Reactive Streams Engine is not service loadable", engines.hasNext());
+    public void loadFlowAdaptersTest() {
+        Class<?> cl = null;
+        try {
+            cl = ReactiveStreamsTestServlet.class.getClassLoader().loadClass("org.reactivestreams.FlowAdapters");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        if (System.getProperty("java.specification.version").startsWith("1.")) {
+            Assert.assertNull("Expected not to be able to load org.reactivestreams.FlowAdapters", cl);
+        } else {
+            Assert.assertNotNull("Expected to be able to load org.reactivestreams.FlowAdapters", cl);
+        }
     }
 
     private ProcessorBuilder<Integer, Integer> builder() {

@@ -100,8 +100,6 @@ IBM-API-Package: org.eclipse.persistence.descriptors.changetracking; type="inter
  org.eclipse.persistence.internal.libraries.asm.signature; type="third-party", \
  org.eclipse.persistence.internal.libraries.asm.tree.analysis; type="third-party", \
  org.eclipse.persistence.internal.libraries.asm.tree; type="third-party", \
- org.eclipse.persistence.internal.libraries.asm.util; type="third-party", \
- org.eclipse.persistence.internal.libraries.asm.xml; type="third-party", \
  org.eclipse.persistence.internal.libraries.asm; type="third-party", \
  org.eclipse.persistence.internal.localization.i18n; type="third-party", \
  org.eclipse.persistence.internal.localization; type="third-party", \
@@ -225,10 +223,11 @@ IBM-API-Package: org.eclipse.persistence.descriptors.changetracking; type="inter
 IBM-ShortName: jpa-2.1
 Subsystem-Name: Java Persistence API 2.1
 -features=com.ibm.websphere.appserver.transaction-1.2, \
- com.ibm.websphere.appserver.jdbc-4.1; ibm.tolerates:="4.2, 4.3", \
- com.ibm.websphere.appserver.jpaContainer-2.1, \
- com.ibm.websphere.appserver.org.eclipse.persistence-2.6
+  com.ibm.websphere.appserver.jpaContainer-2.1, \
+  com.ibm.websphere.appserver.jdbc-4.1; ibm.tolerates:="4.2,4.3", \
+  com.ibm.websphere.appserver.org.eclipse.persistence-2.6
 -bundles=com.ibm.websphere.appserver.thirdparty.eclipselink; location:=dev/api/third-party/; mavenCoordinates="org.eclipse.persistence:eclipselink:2.6.0", \
  com.ibm.ws.jpa.container.eclipselink
 kind=ga
 edition=core
+WLP-Platform: javaee-7.0

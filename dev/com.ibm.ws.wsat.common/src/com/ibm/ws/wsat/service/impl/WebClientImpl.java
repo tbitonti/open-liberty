@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,6 +18,7 @@ import java.security.PrivilegedExceptionAction;
 import java.util.concurrent.Callable;
 
 import javax.xml.ws.BindingProvider;
+import javax.xml.ws.EndpointReference;
 import javax.xml.ws.Service;
 import javax.xml.ws.soap.AddressingFeature;
 
@@ -24,15 +27,14 @@ import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.ws.addressing.AddressingProperties;
 import org.apache.cxf.ws.addressing.EndpointReferenceType;
 import org.apache.cxf.ws.addressing.JAXWSAConstants;
-import org.apache.cxf.ws.addressing.impl.AddressingPropertiesImpl;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.jaxws.wsat.Constants;
 import com.ibm.ws.wsat.common.impl.WSATEndpoint;
 import com.ibm.ws.wsat.service.WSATException;
 import com.ibm.ws.wsat.service.WebClient;
-import com.ibm.ws.wsat.tm.impl.TranManagerImpl;
 import com.ibm.ws.wsat.webservice.client.CoordinatorPortType;
 import com.ibm.ws.wsat.webservice.client.CoordinatorService;
 import com.ibm.ws.wsat.webservice.client.ParticipantPortType;
@@ -50,16 +52,18 @@ import com.ibm.ws.wsat.webservice.client.wscoor.RegisterType;
  */
 public class WebClientImpl extends WebClient {
 
-    private static final String CLASS_NAME = WebClientImpl.class.getName();
     private static final TraceComponent TC = Tr.register(WebClientImpl.class);
 
     private static final HandlerImpl handlerService = HandlerImpl.getInstance();
-    private static TranManagerImpl tranService = TranManagerImpl.getInstance();
 
     private static final AddressingFeature wsAddrFeat = new AddressingFeature(true);
 
+    private static volatile ClassLoader tccl;
+
     private final WSATEndpoint toEpr;
     private final WSATEndpoint fromEpr;
+
+    private boolean _misrouting = true;
 
     public WebClientImpl(WSATEndpoint toEpr, WSATEndpoint fromEpr) {
         this.toEpr = toEpr;
@@ -75,7 +79,14 @@ public class WebClientImpl extends WebClient {
             @Override
             public EndpointReferenceType call() throws Exception {
                 RegistrationService regService = new RegistrationService();
-                RegistrationPortType port = getPort(regService, RegistrationPortType.class);
+
+                RegistrationPortType port;
+                if (_misrouting) {
+/* ! */ port = getTestPort(regService, RegistrationPortType.class);
+                } else {
+                    port = getPort(regService, RegistrationPortType.class);
+                }
+
                 setTimeouts(port);
 
                 RegisterType regParm = new RegisterType();
@@ -96,7 +107,12 @@ public class WebClientImpl extends WebClient {
             @Override
             public Object call() throws Exception {
                 ParticipantService partService = new ParticipantService();
-                ParticipantPortType port = getPort(partService, ParticipantPortType.class);
+                ParticipantPortType port;
+                if (_misrouting) {
+/* ! */ port = getTestPort(partService, ParticipantPortType.class);
+                } else {
+                    port = getPort(partService, ParticipantPortType.class);
+                }
                 setTimeouts(port);
 
                 Notification parm = new Notification();
@@ -112,7 +128,12 @@ public class WebClientImpl extends WebClient {
             @Override
             public Object call() throws Exception {
                 ParticipantService partService = new ParticipantService();
-                ParticipantPortType port = getPort(partService, ParticipantPortType.class);
+                ParticipantPortType port;
+                if (_misrouting) {
+/* ! */ port = getTestPort(partService, ParticipantPortType.class);
+                } else {
+                    port = getPort(partService, ParticipantPortType.class);
+                }
                 setTimeouts(port);
 
                 Notification parm = new Notification();
@@ -129,7 +150,12 @@ public class WebClientImpl extends WebClient {
             @Override
             public Object call() throws Exception {
                 ParticipantService partService = new ParticipantService();
-                ParticipantPortType port = getPort(partService, ParticipantPortType.class);
+                ParticipantPortType port;
+                if (_misrouting) {
+/* ! */ port = getTestPort(partService, ParticipantPortType.class);
+                } else {
+                    port = getPort(partService, ParticipantPortType.class);
+                }
                 setTimeouts(port);
 
                 Notification parm = new Notification();
@@ -148,7 +174,12 @@ public class WebClientImpl extends WebClient {
             @Override
             public Object call() throws Exception {
                 CoordinatorService coordService = new CoordinatorService();
-                CoordinatorPortType port = getPort(coordService, CoordinatorPortType.class);
+                CoordinatorPortType port;
+                if (_misrouting) {
+/* ! */ port = getTestPort(coordService, CoordinatorPortType.class);
+                } else {
+                    port = getPort(coordService, CoordinatorPortType.class);
+                }
                 setTimeouts(port);
 
                 Notification parm = new Notification();
@@ -164,7 +195,12 @@ public class WebClientImpl extends WebClient {
             @Override
             public Object call() throws Exception {
                 CoordinatorService coordService = new CoordinatorService();
-                CoordinatorPortType port = getPort(coordService, CoordinatorPortType.class);
+                CoordinatorPortType port;
+                if (_misrouting) {
+/* ! */ port = getTestPort(coordService, CoordinatorPortType.class);
+                } else {
+                    port = getPort(coordService, CoordinatorPortType.class);
+                }
                 setTimeouts(port);
 
                 Notification parm = new Notification();
@@ -180,7 +216,12 @@ public class WebClientImpl extends WebClient {
             @Override
             public Object call() throws Exception {
                 CoordinatorService coordService = new CoordinatorService();
-                CoordinatorPortType port = getPort(coordService, CoordinatorPortType.class);
+                CoordinatorPortType port;
+                if (_misrouting) {
+/* ! */ port = getTestPort(coordService, CoordinatorPortType.class);
+                } else {
+                    port = getPort(coordService, CoordinatorPortType.class);
+                }
                 setTimeouts(port);
 
                 Notification parm = new Notification();
@@ -196,7 +237,12 @@ public class WebClientImpl extends WebClient {
             @Override
             public Object call() throws Exception {
                 CoordinatorService coordService = new CoordinatorService();
-                CoordinatorPortType port = getPort(coordService, CoordinatorPortType.class);
+                CoordinatorPortType port;
+                if (_misrouting) {
+/* ! */ port = getTestPort(coordService, CoordinatorPortType.class);
+                } else {
+                    port = getPort(coordService, CoordinatorPortType.class);
+                }
                 setTimeouts(port);
 
                 Notification parm = new Notification();
@@ -210,21 +256,20 @@ public class WebClientImpl extends WebClient {
     // to something that seems to keep jaxws/apache CXF happy.  Not sure why we need to do
     // this but it seems some threads (maybe worker threads processing inbound web service
     // calls?) do not get all the necessary jaxws classes on their classpath.
+    @Trivial
     private <T> T invoke(final Callable<T> action) throws WSATException {
         try {
             return AccessController.doPrivileged(new PrivilegedExceptionAction<T>() {
                 @Override
                 public T run() throws Exception {
                     ClassLoader saveLoader = Thread.currentThread().getContextClassLoader();
-                    ClassLoader localLoader = tranService.getThreadClassLoader(WebClientImpl.class);
                     try {
-                        Thread.currentThread().setContextClassLoader(localLoader);
+                        Thread.currentThread().setContextClassLoader(tccl);
                         handlerService.setWsatCall(true);
                         return action.call();
                     } finally {
                         handlerService.setWsatCall(false);
                         Thread.currentThread().setContextClassLoader(saveLoader);
-                        tranService.destroyThreadClassLoader(localLoader);
                     }
                 }
             });
@@ -235,17 +280,17 @@ public class WebClientImpl extends WebClient {
 
     // Obtain the web service port for a given service
     private <T> T getPort(Service service, Class<T> portType) {
-        T port = service.getPort(toEpr.getWsEpr(), portType, wsAddrFeat);
+        EndpointReference epr = toEpr.getWsEpr();
+        T port = service.getPort(epr, portType, wsAddrFeat);
 
         if (fromEpr != null) {
             // TODO: According to the WS-AT spec, section 8 we should set the wsa:From header to
             // indicate the sender and the wsa:replyTo should be http://www.w3.org/2005/08/addressing/none.
             // However, tWAS seems to expect the replyTo to be set (and it uses it when sending protocol
             // responses), so we had better set replyTo, as inter-op with tWAS is our prime use-case.
-
-            AddressingProperties wsAddr = new AddressingPropertiesImpl();
-            //wsAddr.setFrom(fromEpr.getEndpointReference());
+            AddressingProperties wsAddr = new AddressingProperties();
             wsAddr.setReplyTo(fromEpr.getEndpointReference());
+
             ((BindingProvider) port).getRequestContext().put(JAXWSAConstants.CLIENT_ADDRESSING_PROPERTIES, wsAddr);
         }
         if (toEpr.isSecure()) {
@@ -254,5 +299,50 @@ public class WebClientImpl extends WebClient {
         }
 
         return port;
+    }
+
+    // Obtain the web service port for a given service
+    private <T> T getTestPort(Service service, Class<T> portType) {
+        EndpointReference epr = toEpr.getTestEpr();
+        T port = service.getPort(epr, portType, wsAddrFeat);
+
+        if (fromEpr != null) {
+            // TODO: According to the WS-AT spec, section 8 we should set the wsa:From header to
+            // indicate the sender and the wsa:replyTo should be http://www.w3.org/2005/08/addressing/none.
+            // However, tWAS seems to expect the replyTo to be set (and it uses it when sending protocol
+            // responses), so we had better set replyTo, as inter-op with tWAS is our prime use-case.
+            AddressingProperties wsAddr = new AddressingProperties();
+            wsAddr.setReplyTo(fromEpr.getEndpointReference());
+
+            ((BindingProvider) port).getRequestContext().put(JAXWSAConstants.CLIENT_ADDRESSING_PROPERTIES, wsAddr);
+        }
+        if (toEpr.isSecure()) {
+            Client c = ClientProxy.getClient(port);
+            c.getOutInterceptors().add(new SSLClientInterceptor());
+        }
+
+        return port;
+    }
+
+    /**
+     * @return the tccl
+     */
+    @Trivial
+    public static ClassLoader getTccl() {
+        return tccl;
+    }
+
+    /**
+     * @param tccl the tccl to set
+     */
+    @Trivial
+    public static void setTccl(ClassLoader tccl) {
+        WebClientImpl.tccl = tccl;
+    }
+
+    @Override
+    @Trivial
+    public void setMisrouting(boolean b) {
+        _misrouting = b;
     }
 }

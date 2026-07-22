@@ -34,17 +34,20 @@ IBM-API-Package: \
     org.eclipse.microprofile.openapi.models.servers; type="stable",\
     org.eclipse.microprofile.openapi.models.tags; type="stable",\
     org.eclipse.microprofile.openapi.spi; type="stable"
--features=\
-    com.ibm.websphere.appserver.org.eclipse.microprofile.openapi-2.0, \
-    com.ibm.websphere.appserver.mpConfig-2.0, \
-    com.ibm.websphere.appserver.servlet-4.0, \
-    com.ibm.wsspi.appserver.webBundle-1.0, \
-    com.ibm.websphere.appserver.jaxrs-2.1, \
-    io.openliberty.mpCompatible-4.0
+-features=com.ibm.websphere.appserver.mpConfig-2.0, \
+  com.ibm.wsspi.appserver.webBundle-1.0, \
+  com.ibm.websphere.appserver.servlet-4.0, \
+  io.openliberty.servlet.internal-4.0, \
+  com.ibm.websphere.appserver.jaxrs-2.1, \
+  io.openliberty.mpCompatible-4.0, \
+  com.ibm.websphere.appserver.org.eclipse.microprofile.openapi-2.0, \
+  io.openliberty.jandex.internal-2.0
 -bundles=\
     io.openliberty.io.smallrye.openapi.core, \
     io.openliberty.io.smallrye.openapi.jaxrs, \
     io.openliberty.microprofile.openapi.2.0.internal, \
+    io.openliberty.microprofile.openapi.2.0.internal.servlet, \
+    io.openliberty.microprofile.openapi.2.0.internal.services, \
     com.ibm.ws.microprofile.openapi.ui, \
     io.openliberty.microprofile.openapi.internal.common,\
     io.openliberty.com.fasterxml.jackson, \
@@ -52,3 +55,5 @@ IBM-API-Package: \
 kind=ga
 edition=core
 WLP-Activation-Type: parallel
+WLP-InstantOn-Enabled: true
+WLP-Platform: microProfile-4.0,microProfile-4.1

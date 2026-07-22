@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2019 IBM Corporation and others.
+ * Copyright (c) 2004, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -27,21 +29,31 @@ import com.ibm.wsspi.http.channel.values.ContentEncodingValues;
  */
 public class DeflateOutputHandler implements CompressionHandler {
     /** RAS variable */
-    private static final TraceComponent tc = Tr.register(DeflateOutputHandler.class, HttpMessages.HTTP_TRACE_NAME, HttpMessages.HTTP_BUNDLE);
+    private static final TraceComponent tc = Tr.register(DeflateOutputHandler.class, HttpMessages.HTTP_TRACE_NAME,
+            HttpMessages.HTTP_BUNDLE);
 
     /** Deflater used for this output stream */
     private Deflater deflater = null;
     /** Output buffer used during the compression stage */
-    private final byte[] buf = new byte[32768];
+    private byte[] buf = null;
 
     /**
      * Create this deflate compression method output handler.
      *
      */
     public DeflateOutputHandler() {
+        this.buf = new byte[32768];
         this.deflater = new Deflater(Deflater.DEFAULT_COMPRESSION, false);
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-            Tr.debug(tc, "Created a deflate output handler; " + this);
+            Tr.debug(tc, "Created a deflate output handler; " + this + " with buffer size 32768");
+        }
+    }
+
+    public DeflateOutputHandler(Integer bufferSize) {
+        this.buf = new byte[bufferSize];
+        this.deflater = new Deflater(Deflater.DEFAULT_COMPRESSION, false);
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "Created a deflate output handler; " + this + " with buffer size " + bufferSize);
         }
     }
 
@@ -51,9 +63,10 @@ public class DeflateOutputHandler implements CompressionHandler {
      * requires that there is no deflate wrapper around the compressed bytes.
      *
      * @param useragent
-     *            - header from request
+     *                  - header from request
      */
     public DeflateOutputHandler(byte[] useragent) {
+        this.buf = new byte[32768];
         if (null != useragent && isIEBrowser(useragent)) {
             // IE cannot handle the compressed bytes wrapped with encryption
             // markers, so we need to create a Deflater with the nowrap enabled
@@ -65,7 +78,24 @@ public class DeflateOutputHandler implements CompressionHandler {
             this.deflater = new Deflater(Deflater.DEFAULT_COMPRESSION, false);
         }
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-            Tr.debug(tc, "Created a deflate output handler; " + this);
+            Tr.debug(tc, "Created a deflate output handler; " + this + " with buffer size 32768");
+        }
+    }
+
+    public DeflateOutputHandler(byte[] useragent, Integer bufferSize) {
+        this.buf = new byte[bufferSize];
+        if (null != useragent && isIEBrowser(useragent)) {
+            // IE cannot handle the compressed bytes wrapped with encryption
+            // markers, so we need to create a Deflater with the nowrap enabled
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "User-Agent indicates IE browser [" + GenericUtils.getEnglishString(useragent) + "]");
+            }
+            this.deflater = new Deflater(Deflater.DEFAULT_COMPRESSION, true);
+        } else {
+            this.deflater = new Deflater(Deflater.DEFAULT_COMPRESSION, false);
+        }
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "Created a deflate output handler; " + this + " with buffer size " + bufferSize);
         }
     }
 
@@ -163,7 +193,8 @@ public class DeflateOutputHandler implements CompressionHandler {
         while (!this.deflater.finished()) {
             int num = this.deflater.deflate(this.buf, 0, this.buf.length);
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                Tr.debug(tc, "Compressed amount=" + num + " read=" + this.deflater.getBytesRead() + " written=" + this.deflater.getBytesWritten());
+                Tr.debug(tc, "Compressed amount=" + num + " read=" + this.deflater.getBytesRead() + " written="
+                        + this.deflater.getBytesWritten());
             }
 
             if (0 < num) {
@@ -174,6 +205,72 @@ public class DeflateOutputHandler implements CompressionHandler {
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
             Tr.exit(tc, "finish, return list of size " + list.size());
         }
+        return list;
+    }
+
+    /*
+     * @see com.ibm.wsspi.http.channel.compression.CompressionHandler#flush(boolean
+     * isFinal)
+     */
+
+    public List<WsByteBuffer> flush(boolean isFinal) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.entry(tc, "flush");
+        }
+        List<WsByteBuffer> list = new LinkedList<WsByteBuffer>();
+
+        if (isFinished()) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+                Tr.exit(tc, "flush, already finished");
+            }
+            return list;
+        }
+
+        if (isFinal) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+                Tr.debug(tc, "flush for final write called, calling finish() on the compression handler");
+            }
+            // Delegate final flush to the finish() method
+            return this.finish();
+        } else {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+                Tr.debug(tc,
+                        "flush for non-final write called, performing intermediate flush without finishing the compression stream");
+            }
+
+            int offset = 0; // variable to track current position in buffer
+            int len;
+
+            // Loop until deflater has no more output for now
+            while ((len = this.deflater.deflate(this.buf, offset,
+                    this.buf.length - offset, Deflater.SYNC_FLUSH)) > 0) {
+
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Compressed amount=" + len +
+                            " read=" + this.deflater.getBytesRead() +
+                            " written=" + this.deflater.getBytesWritten());
+                }
+
+                offset += len;
+
+                if (offset == this.buf.length) {
+                    // Buffer is full, add it to list and reset offset
+                    list.add(makeBuffer(offset));
+                    offset = 0;
+                }
+            }
+
+            // If we have any remaining data in the buffer, create a final buffer
+            if (offset > 0) {
+                list.add(makeBuffer(offset));
+            }
+
+        }
+
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
+            Tr.exit(tc, "flush, return list of size " + list.size());
+        }
+
         return list;
     }
 
@@ -215,7 +312,8 @@ public class DeflateOutputHandler implements CompressionHandler {
         while (!this.deflater.needsInput()) {
             int len = this.deflater.deflate(this.buf, offset, this.buf.length - offset);
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                Tr.debug(tc, "Compressed amount=" + len + " read=" + this.deflater.getBytesRead() + " written=" + this.deflater.getBytesWritten());
+                Tr.debug(tc, "Compressed amount=" + len + " read=" + this.deflater.getBytesRead() + " written="
+                        + this.deflater.getBytesWritten());
             }
             if (0 == len) {
                 break; // out of while

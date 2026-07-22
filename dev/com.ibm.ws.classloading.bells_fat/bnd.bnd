@@ -1,0 +1,52 @@
+#*******************************************************************************
+# Copyright (c) 2021, 2025 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+#*******************************************************************************
+-include= ~../cnf/resources/bnd/bundle.props
+bVersion=1.0
+
+-sub: *.bnd
+
+src: \
+	fat/src, \
+	test-applications/testProperties.jar/src, \
+	test-applications/SpiVisibility.war/src, \
+	test-applications/testSpiVisible.jar/src, \
+	test-applications/testImplClassNotConstructible.jar/src, \
+	test-applications/testImplClassNotFound.jar/src, \
+	test-applications/testImplClassThrowsException.jar/src, \
+	test-applications/testInterfaceClassNotFound.jar/src, \
+	test-applications/testMultipleImplsOfSingleService.jar/src, \
+	test-applications/testMultipleValidServices.jar/src, \
+	test-applications/testNoEntry.jar/src, \
+	test-applications/testOneValidEntry.jar/src, \
+	test-applications/testReadingServicesFile.jar/src, \
+	test-bundles/exporting.metainf.services/src
+
+fat.project: true
+
+tested.features: \
+	bells-1.0, \
+	servlet-3.0, \
+	restConnector-2.0
+
+-buildpath: \
+	com.ibm.websphere.appserver.spi.restHandler;version=latest, \
+	com.ibm.websphere.javaee.annotation.1.1;version=latest, \
+	com.ibm.websphere.javaee.servlet.3.1;version=latest, \
+	com.ibm.websphere.org.osgi.core;version=latest, \
+	com.ibm.websphere.org.osgi.service.component;version=latest, \
+	com.ibm.wsspi.org.osgi.service.component.annotations;version=latest, \
+	com.ibm.ws.context, \
+	com.ibm.ws.logging, \
+	com.ibm.ws.kernel.boot.core;version=latest,\
+	com.ibm.ws.serialization, \
+	org.hamcrest:hamcrest-all;version=1.3

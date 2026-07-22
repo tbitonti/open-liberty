@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2019 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -33,6 +35,7 @@ import com.ibm.websphere.ssl.Constants;
 import com.ibm.websphere.ssl.JSSEHelper;
 import com.ibm.websphere.ssl.SSLConfigChangeListener;
 import com.ibm.ws.ffdc.FFDCFilter;
+import com.ibm.ws.ssl.config.ProtocolHelper;
 import com.ibm.ws.ssl.config.SSLConfigManager;
 
 /**
@@ -168,7 +171,7 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
      * etc.).
      * </p>
      *
-     * @param String alias
+     * @param String        alias
      * @param java.util.Map connectionInfo
      * @see com.ibm.websphere.ssl.JSSEHelper
      ***/
@@ -339,9 +342,9 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
      * </p>
      *
      * @param java.net.Socket s - existing socket
-     * @param String host - target host
-     * @param int port - target port
-     * @param boolean autoClose - close the underlying socket when this socket is closed
+     * @param String          host - target host
+     * @param int             port - target port
+     * @param boolean         autoClose - close the underlying socket when this socket is closed
      * @return java.net.Socket
      * @throws java.io.IOException
      ***/
@@ -377,7 +380,7 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
             socket = (javax.net.ssl.SSLSocket) factory.createSocket(s, host, port, autoClose);
 
             if (sslprops != null) {
-                SSLParameters p = createSSLParameters(sslprops, socket);
+                SSLParameters p = createSSLParameters(sslprops, socket, host);
                 socket.setSSLParameters(p);
             }
 
@@ -396,7 +399,7 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
      * </p>
      *
      * @param InetAddress host - target host
-     * @param int port - target port
+     * @param int         port - target port
      * @return java.net.Socket
      * @throws java.io.IOException
      ***/
@@ -409,9 +412,8 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
 
         // use the props set from the constructor
         java.util.Properties sslprops = props;
-
+        String remoteHostName = null;
         try {
-            String remoteHostName = null;
             final InetAddress host_final = host;
             final Integer port_final = Integer.valueOf(port);
             if (host_final != null) {
@@ -458,7 +460,7 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
             socket = (javax.net.ssl.SSLSocket) factory.createSocket(host, port);
 
             if (sslprops != null) {
-                SSLParameters p = createSSLParameters(sslprops, socket);
+                SSLParameters p = createSSLParameters(sslprops, socket, remoteHostName);
                 socket.setSSLParameters(p);
             }
 
@@ -481,9 +483,9 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
      * </p>
      *
      * @param InetAddress host - target host
-     * @param int port - target port
+     * @param int         port - target port
      * @param InetAddress localAddress - local host
-     * @param int localPort - local port
+     * @param int         localPort - local port
      * @return java.net.Socket
      * @throws java.io.IOException
      ***/
@@ -496,9 +498,8 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
 
         // use the props set from the constructor
         java.util.Properties sslprops = props;
-
+        String remoteHostName = null;
         try {
-            String remoteHostName = null;
             final InetAddress address_final = address;
             final Integer port_final = Integer.valueOf(port);
             final InetAddress localAddress_final = localAddress;
@@ -548,7 +549,7 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
             socket = (javax.net.ssl.SSLSocket) factory.createSocket(address, port, localAddress, localPort);
 
             if (sslprops != null) {
-                SSLParameters p = createSSLParameters(sslprops, socket);
+                SSLParameters p = createSSLParameters(sslprops, socket, remoteHostName);
                 socket.setSSLParameters(p);
             }
 
@@ -570,9 +571,9 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
      * </p>
      *
      * @param InetAddress host - target host
-     * @param int port - target port
+     * @param int         port - target port
      * @param InetAddress localAddress - local host
-     * @param int localPort - local port
+     * @param int         localPort - local port
      * @return java.net.Socket
      * @throws java.io.IOException
      ***/
@@ -609,7 +610,7 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
             socket = (javax.net.ssl.SSLSocket) factory.createSocket(host, port);
 
             if (sslprops != null) {
-                SSLParameters p = createSSLParameters(sslprops, socket);
+                SSLParameters p = createSSLParameters(sslprops, socket, host);
                 socket.setSSLParameters(p);
             }
         } else
@@ -630,10 +631,10 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
      * SSLSocketFactory constructor.
      * </p>
      *
-     * @param String host - target host
-     * @param int port - target port
+     * @param String      host - target host
+     * @param int         port - target port
      * @param InetAddress localAddress - local host
-     * @param int localPort - local port
+     * @param int         localPort - local port
      * @return java.net.Socket
      * @throws java.io.IOException
      ***/
@@ -670,7 +671,7 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
             socket = (javax.net.ssl.SSLSocket) factory.createSocket(host, port, localHost, localPort);
 
             if (sslprops != null) {
-                SSLParameters p = createSSLParameters(sslprops, socket);
+                SSLParameters p = createSSLParameters(sslprops, socket, host);
                 socket.setSSLParameters(p);
             }
 
@@ -702,18 +703,31 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
         }
     }
 
-    private static SSLParameters createSSLParameters(Properties sslprops, SSLSocket socket) {
+    private static SSLParameters createSSLParameters(Properties sslprops, SSLSocket socket, String remoteHostname) {
+        if (tc.isEntryEnabled())
+            Tr.entry(tc, "createSSLParameters", new Object[] { sslprops, socket });
 
         SSLParameters p = socket.getSSLParameters();
-        String[] ciphers = SSLConfigManager.getInstance().getCipherList(sslprops, socket);
-        p.setCipherSuites(ciphers);
+        ProtocolHelper protocolHelper = new ProtocolHelper();
 
-        //Enable hostname verification
-        String enableEndpointId = sslprops.getProperty(Constants.SSLPROP_HOSTNAME_VERIFICATION, "false");
-        if (enableEndpointId != null && enableEndpointId.equalsIgnoreCase("true")) {
-            p.setEndpointIdentificationAlgorithm(ENDPOINT_ALGORITHM);
+        if (sslprops != null) {
+            //Set ciphers
+            String[] ciphers = SSLConfigManager.getInstance().getCipherList(sslprops, socket);
+            p.setCipherSuites(ciphers);
+
+            //Set protocol
+            String protocol = sslprops.getProperty(Constants.SSLPROP_PROTOCOL);
+            String[] protocols = protocolHelper.getSSLProtocol(protocol);
+            if (protocols != null)
+                p.setProtocols(protocols);
+
+            //Set hostname verification
+            String endpointIdentificationAlgorithm = getEndpointIdentificationAlgorithm(sslprops, socket);
+            p.setEndpointIdentificationAlgorithm(endpointIdentificationAlgorithm);
         }
 
+        if (tc.isEntryEnabled())
+            Tr.exit(tc, "createSSLParameters", p);
         return p;
 
     }
@@ -736,9 +750,9 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
     /**
      * Convenience method to call {@link JSSEHelper#getProperties(String, Map, SSLConfigChangeListener))} with elevated privileges.
      *
-     * @param sslAliasName The alias name of the SSL configuration.
+     * @param sslAliasName          The alias name of the SSL configuration.
      * @param currentConnectionInfo Remote connection information.
-     * @param listener Listener for SSL configuration updates.
+     * @param listener              Listener for SSL configuration updates.
      * @return The properties.
      * @throws com.ibm.websphere.ssl.SSLException
      * @see JSSEHelper#getProperties(String, Map, SSLConfigChangeListener)
@@ -769,7 +783,7 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
      * Convenience method to call {@link JSSEHelper#getSSLSocketFactory(Map, java.util.Properties)} with elevated privileges.
      *
      * @param currentConnectionInfo Remote connection information.
-     * @param sslProps Properties used to configure the SSL socket factory.
+     * @param sslProps              Properties used to configure the SSL socket factory.
      * @return The {@link SSLSocketFactory}.
      * @throws com.ibm.websphere.ssl.SSLException
      * @see JSSEHelper#getSSLSocketFactory(Map, java.util.Properties)
@@ -794,5 +808,31 @@ public class LibertySSLSocketFactory extends javax.net.ssl.SSLSocketFactory {
                 throw (com.ibm.websphere.ssl.SSLException) cause;
             }
         }
+    }
+
+    private static String getEndpointIdentificationAlgorithm(Properties properties, SSLSocket socket) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) Tr.entry(tc, "getEndpointIdentificationAlgorithm");
+        String endpointId = "HTTPS";
+
+        String verifyHostname = properties.getProperty(Constants.SSLPROP_HOSTNAME_VERIFICATION, "true");
+        if ("true".equalsIgnoreCase(verifyHostname)) {
+            String allowHostList = properties.getProperty(Constants.SSLPROP_SKIP_HOSTNAME_VERIFICATION_FOR_HOSTS, "");
+            InetAddress remoteInetAddr = socket.getInetAddress();
+            if (remoteInetAddr != null) {
+                if (Constants.isSkipHostnameVerificationForHosts(remoteInetAddr.getHostName(), allowHostList) ||
+                    Constants.isSkipHostnameVerificationForHosts(remoteInetAddr.getHostAddress(), allowHostList)) {
+                    endpointId = null;
+                }
+            }
+            else {
+                if (tc.isDebugEnabled()) Tr.debug(tc, "remoteInetAddr is NULL, Socket is not connected at this moment. " + Constants.SSLPROP_SKIP_HOSTNAME_VERIFICATION_FOR_HOSTS + " property is not used.");
+            }
+        } else {
+            endpointId = null;
+        }
+
+        // endpointId == null means Hostname Verification is DISABLED
+        if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) Tr.exit(tc, "getEndpointIdentificationAlgorithm " + endpointId);
+        return endpointId;
     }
 }

@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,8 +14,11 @@ package com.ibm.ws.microprofile.reactive.messaging.fat.kafka.message;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.util.Optional;
 
 import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
@@ -28,7 +33,10 @@ public class ConsumerRecordBean {
     public static final String CHANNEL_OUT = "consumer-record-out";
     public static final String GROUP_ID = "consumer-record-app-group";
 
-    public static final String TOPIC = CHANNEL_IN;
+    @Inject
+    @ConfigProperty(name = "mp.messaging.incoming." + CHANNEL_IN + ".topic")
+    private Optional<String> topic;
+
     public static final String KEY = "test_key";
     public static final String VALUE = "hello";
     public static final int PARTITION = 9;
@@ -60,8 +68,8 @@ public class ConsumerRecordBean {
             return Message.of("Wrong ConsumerRecord Value. Expected: " + VALUE + " - Actual: " + incomingValue);
         }
 
-        if (!TOPIC.equals(incomingTopic)) {
-            return Message.of("Wrong ConsumerRecord Topic. Expected: " + TOPIC + " - Actual: " + incomingTopic);
+        if (!topic.orElse("non-existent-topic").equals(incomingTopic)) {
+            return Message.of("Wrong ConsumerRecord Topic. Expected: " + topic.orElse("non-existent-topic") + " - Actual: " + incomingTopic);
         }
 
         if (PARTITION != incomingPartition) {

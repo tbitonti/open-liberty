@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2005 IBM Corporation and others.
+ * Copyright (c) 1997, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -52,7 +54,8 @@ public interface JSSEProvider {
 
     /**
      * Query all encryption ciphers for the specified security level supported by
-     * this provider.
+     * this provider. This function will default to the effective JDK list 
+     * as we will be ignoring the security level.
      * 
      * @param isClient
      * @param securityLevel

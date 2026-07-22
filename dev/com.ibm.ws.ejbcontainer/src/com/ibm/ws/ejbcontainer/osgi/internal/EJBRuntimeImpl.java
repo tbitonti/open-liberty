@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -29,6 +31,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -132,6 +135,7 @@ import com.ibm.ws.ejbcontainer.osgi.JCDIHelperFactory;
 import com.ibm.ws.ejbcontainer.osgi.MDBRuntime;
 import com.ibm.ws.ejbcontainer.osgi.internal.metadata.OSGiBeanMetaData;
 import com.ibm.ws.ejbcontainer.osgi.internal.metadata.OSGiEJBApplicationMetaData;
+import com.ibm.ws.ejbcontainer.osgi.internal.metadata.OSGiEJBModuleComponentMetaData;
 import com.ibm.ws.ejbcontainer.osgi.internal.metadata.OSGiEJBModuleMetaDataImpl;
 import com.ibm.ws.ejbcontainer.osgi.internal.metadata.WCCMMetaDataImpl;
 import com.ibm.ws.ejbcontainer.osgi.internal.naming.EJBBinding;
@@ -143,11 +147,13 @@ import com.ibm.ws.ejbcontainer.runtime.EJBJPAContainer;
 import com.ibm.ws.ejbcontainer.runtime.EJBRuntimeConfig;
 import com.ibm.ws.ejbcontainer.runtime.NameSpaceBinder;
 import com.ibm.ws.ejbcontainer.util.ParsedScheduleExpression;
+import com.ibm.ws.exception.RuntimeError;
 import com.ibm.ws.exception.RuntimeWarning;
 import com.ibm.ws.exception.WsRuntimeFwException;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.javaee.dd.DeploymentDescriptor;
+import com.ibm.ws.kernel.feature.ServerStarted;
 import com.ibm.ws.kernel.security.thread.ThreadIdentityManager;
 import com.ibm.ws.managedobject.ManagedObjectContext;
 import com.ibm.ws.managedobject.ManagedObjectService;
@@ -172,9 +178,13 @@ import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 import com.ibm.wsspi.kernel.service.utils.OnErrorUtil.OnError;
 import com.ibm.wsspi.kernel.service.utils.ServerQuiesceListener;
 
+import io.openliberty.checkpoint.spi.CheckpointPhase;
+
 @Component(service = { ApplicationStateListener.class, DeferredMetaDataFactory.class, EJBRuntimeImpl.class, ServerQuiesceListener.class },
            configurationPid = "com.ibm.ws.ejbcontainer.runtime",
            configurationPolicy = ConfigurationPolicy.REQUIRE,
+           // EJB must shut down after CDI but the default service ranking achieves that. This is because EJBs can have a cdi application scope and according to the CDI spec "jakarta.enterprise.event.Shutdown is not after @BeforeDestroyed(ApplicationScoped.class)
+           // The default service.ranking of zero satisfies this requirement.
            property = { "deferredMetaData=EJB" })
 public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationStateListener, DeferredMetaDataFactory, ServerQuiesceListener {
     private static final String CLASS_NAME = EJBRuntimeImpl.class.getName();
@@ -237,6 +247,7 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
     private final AtomicServiceReference<ManagedObjectService> managedObjectServiceRef = new AtomicServiceReference<ManagedObjectService>(REFERENCE_MANAGED_OBJECT_SERVICE);
 
     private volatile CountDownLatch remoteFeatureLatch = null;
+    private volatile boolean remoteFeatureSupported = false;
     private volatile boolean ejbRuntimeActive = false;
     private volatile boolean serverStopping = false;
 
@@ -254,6 +265,34 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
     private static final String BIND_TO_JAVA_GLOBAL = "bindToJavaGlobal";
     private static final String DISABLE_SHORT_DEFAULT_BINDINGS = "disableShortDefaultBindings";
     private static final String CUSTOM_BINDINGS_ON_ERROR = "customBindingsOnError";
+
+    private final CheckpointPhase checkpointPhase;
+
+    private final ConcurrentHashMap<J2EEName, EJBModuleMetaDataImpl> moduleMetaDatas = new ConcurrentHashMap<J2EEName, EJBModuleMetaDataImpl>();
+
+    public EJBRuntimeImpl() {
+        checkpointPhase = CheckpointPhase.getPhase();
+
+        // For any Checkpoint phase, pause all non-persistent timers until checkpoint restored
+        if (!checkpointPhase.restored()) {
+            TimerNpRunnable.pause();
+        }
+    }
+
+    @Reference(service = ServerStarted.class, //
+               cardinality = ReferenceCardinality.OPTIONAL, //
+               policy = ReferencePolicy.DYNAMIC, //
+               unbind = "ignoreUnbindOnRestore")
+    protected final void resumeTimerNpOnRestore(ServiceReference<?> checkpoint) {
+        // Resume all non-persistent timers on checkpoint restore
+        if (checkpointPhase != CheckpointPhase.INACTIVE) {
+            TimerNpRunnable.resume();
+        }
+    }
+
+    protected final void ignoreUnbindOnRestore(ServiceReference<?> checkpoint) {
+        // we really don't care about this, but needed to avoid compile errors
+    }
 
     @Override
     public void serverStopping() {
@@ -514,7 +553,8 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
         this.j2eeNameFactory = ref;
     }
 
-    protected void unsetJ2EENameFactory(J2EENameFactory ref) {}
+    protected void unsetJ2EENameFactory(J2EENameFactory ref) {
+    }
 
     @Reference
     protected void setMetaDataService(MetaDataService ref) {
@@ -993,7 +1033,9 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
 
     @Override
     protected void fireMetaDataCreated(EJBModuleMetaDataImpl mmd) {
-        // Nothing (except log metadata dump).  This is done by the application handler.
+        // Save MMD for MetaData Service access and log metadata dump.
+        // Firing the event is done by the application handler.
+        moduleMetaDatas.put(mmd.getJ2EEName(), mmd);
         if (TraceComponent.isAnyTracingEnabled() & tc.isDebugEnabled())
             Tr.debug(tc, mmd.toDumpString());
     }
@@ -1088,11 +1130,12 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
             Tr.info(tc, "STARTING_MODULE_CNTR4000I", name, appName);
             ejbAMD.startingModule(mmd, true);
             super.startModule(mmd);
-            ejbAMD.startedModule(mmd);
+            startedModule(mmd);
             Tr.info(tc, "STARTED_MODULE_CNTR4001I", name, appName);
         } catch (WsRuntimeFwException t) {
             Tr.error(tc, "ERROR_STARTING_MODULE_CNTR4002E", name, appName, t);
             destroyContextClassLoader(mmd);
+            moduleMetaDatas.remove(mmd.getJ2EEName());
             throw new EJBRuntimeException(t);
         }
     }
@@ -1104,11 +1147,50 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
         try {
             ejbAMD.startingModule(mmd, true);
             super.startModule(mmd);
-            ejbAMD.startedModule(mmd);
+            startedModule(mmd);
             ejbAMD.started();
         } catch (WsRuntimeFwException t) {
             throw new EJBRuntimeException(t);
         }
+    }
+
+    @FFDCIgnore(RuntimeWarning.class)
+    private void startedModule(EJBModuleMetaDataImpl mmd) throws WsRuntimeFwException {
+        final boolean isTraceOn = TraceComponent.isAnyTracingEnabled();
+        if (isTraceOn && tc.isEntryEnabled())
+            Tr.entry(tc, "startedModule: " + mmd.getJ2EEName());
+
+        WsRuntimeFwException error = null;
+        EJBApplicationMetaData ejbAMD = mmd.getEJBApplicationMetaData();
+
+        try {
+            ejbAMD.startedModule(mmd);
+        } catch (RuntimeWarning rw) {
+            if (isTraceOn && tc.isDebugEnabled())
+                Tr.debug(tc, "startedModule: " + rw);
+            error = rw;
+        } catch (Throwable t) {
+            if (isTraceOn && tc.isDebugEnabled())
+                Tr.debug(tc, "startedModule: " + t);
+            error = new RuntimeError(t);
+        }
+
+        if (error != null) {
+            try {
+                ejbAMD.stoppingModule(mmd);
+                stopModule(mmd);
+            } catch (Throwable t) {
+                if (isTraceOn && tc.isDebugEnabled())
+                    Tr.debug(tc, "startedModule: stop failed: " + t);
+            }
+
+            if (isTraceOn && tc.isEntryEnabled())
+                Tr.exit(tc, "startedModule: " + error);
+            throw error;
+        }
+
+        if (isTraceOn && tc.isEntryEnabled())
+            Tr.exit(tc, "startedModule: " + mmd.getJ2EEName());
     }
 
     @Trivial
@@ -1226,6 +1308,7 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
                     metaDataService.fireComponentMetaDataDestroyed(bmd);
                 }
             }
+            moduleMetaDatas.remove(mmd.getJ2EEName());
         }
     }
 
@@ -1357,9 +1440,11 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
                         "(containerToType=com.ibm.ws.javaee.dd.ejbbnd.EJBJarBnd)" +
                         "(containerToType=com.ibm.ws.javaee.dd.managedbean.ManagedBeanBnd)" +
                         ")")
-    protected void setAdapterFactoryDependency(AdapterFactoryService afs) {}
+    protected void setAdapterFactoryDependency(AdapterFactoryService afs) {
+    }
 
-    protected void unsetAdapterFactoryDependency(AdapterFactoryService afs) {}
+    protected void unsetAdapterFactoryDependency(AdapterFactoryService afs) {
+    }
 
     @Override
     public boolean isRemoteUsingPortableServer() {
@@ -1373,7 +1458,9 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
 
     @Override
     public void unregisterServant(EJSRemoteWrapper remoteObject) {
-        // Ignore silently.
+        // Remove the cached stub and tie
+        remoteObject.instub = null;
+        remoteObject.intie = null;
     }
 
     @Override
@@ -1518,8 +1605,25 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
             remoteLatch.countDown();
         }
 
-        // bind any Remote interfaces to COS Naming for beans already started
-        bindAllRemoteInterfacesToContextRoot();
+        // Bind remote interfaces to COS Naming for beans already started. Use a separate thread
+        // to avoid delaying OSGi component activation.
+        ScheduledExecutorService executor = getScheduledExecutorService();
+        if (executor != null && ejbRuntimeActive && !serverStopping) {
+            Runnable bindAllRemoteInterfaces = new Runnable() {
+                @Override
+                public void run() {
+                    bindAllRemoteInterfacesToContextRoot();
+                }
+            };
+
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "Scheduling binding of all deferred remote interfaces");
+            // Use slight delay to provide an allowance for ORB to finish starting
+            executor.schedule(bindAllRemoteInterfaces, 250, TimeUnit.MILLISECONDS);
+        } else {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(tc, "Binding deferred remote interfaces skipped : " + executor + ", " + ejbRuntimeActive + ", " + serverStopping);
+        }
     }
 
     protected void unsetEJBRemoteRuntime(ServiceReference<EJBRemoteRuntime> ref) {
@@ -1659,25 +1763,57 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
     protected void setLibertyFeature(ServiceReference<LibertyFeature> feature) {
         // If the remote runtime hasn't come up yet, but remote is configured,
         // then create a latch to support a pause in starting remote EJBs.
-        if (remoteFeatureLatch == null && ejbRemoteRuntimeServiceRef.getReference() == null) {
+        if (!remoteFeatureSupported) {
             String featureName = (String) feature.getProperty("ibm.featureName");
-            if (featureName != null && featureName.startsWith("ejbRemote")) {
-                remoteFeatureLatch = new CountDownLatch(1);
+            if (featureName != null && (featureName.startsWith("enterpriseBeansRemote") || featureName.startsWith("ejbRemote"))) {
+                remoteFeatureSupported = true;
+                if (remoteFeatureLatch == null && ejbRemoteRuntimeServiceRef.getReference() == null) {
+                    remoteFeatureLatch = new CountDownLatch(1);
+                }
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(tc, "remoteFeatureSupported = " + remoteFeatureSupported + ", remoteFeatureLatch = " + remoteFeatureLatch);
             }
         }
     }
 
     protected void unsetLibertyFeature(ServiceReference<LibertyFeature> feature) {
         // If the remote feature was configured, but never came up, and now
-        // is being removed, then also remove the remote latch.
-        CountDownLatch remoteLatch = remoteFeatureLatch;
-        if (remoteLatch != null) {
+        // is being removed, then also remove the remote latch and clear remote supported
+        if (remoteFeatureSupported) {
             String featureName = (String) feature.getProperty("ibm.featureName");
-            if (featureName != null && featureName.startsWith("ejbRemote")) {
-                remoteFeatureLatch = null;
-                remoteLatch.countDown();
+            if (featureName != null && (featureName.startsWith("enterpriseBeansRemote") || featureName.startsWith("ejbRemote"))) {
+                remoteFeatureSupported = false;
+                CountDownLatch remoteLatch = remoteFeatureLatch;
+                if (remoteLatch != null) {
+                    remoteFeatureLatch = null;
+                    remoteLatch.countDown();
+                }
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(tc, "remoteFeatureSupported = " + remoteFeatureSupported + ", remoteFeatureLatch = " + remoteFeatureLatch);
             }
         }
+    }
+
+    /**
+     * Determines if application start should optimize for checkpoint after all configured applications
+     * have been identified, but before any application code has been called.
+     *
+     * @return true if application start should optimize for checkpoint deployment; false otherwise.
+     */
+    @Override
+    public boolean isCheckpointBeforeAppStart() {
+        return CheckpointPhase.BEFORE_APP_START == checkpointPhase && !checkpointPhase.restored();
+    }
+
+    /**
+     * Determines if application start should optimize for checkpoint after all configured applications
+     * have started.
+     *
+     * @return true if application start should optimize for checkpoint applications; false otherwise.
+     */
+    @Override
+    public boolean isCheckpointAfterAppStart() {
+        return CheckpointPhase.AFTER_APP_START == checkpointPhase && !checkpointPhase.restored();
     }
 
     @Override
@@ -1758,10 +1894,8 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
 
     @Override
     public boolean isRemoteSupported() {
-        if (remoteFeatureLatch != null || ejbRemoteRuntimeServiceRef.getReference() != null) {
-            return true;
-        }
-        return false;
+        // true if remote feature enabled in server.xml; may not be active yet
+        return remoteFeatureSupported;
     }
 
     @Override
@@ -1852,14 +1986,35 @@ public class EJBRuntimeImpl extends AbstractEJBRuntime implements ApplicationSta
     @Override
     public ComponentMetaData createComponentMetaData(String identifier) {
         String[] parts = identifier.split("#");
-        J2EEName beanName = j2eeNameFactory.create(parts[1], parts[2], parts[3]); // ignore parts[0] which is the prefix: EJB
-        try {
-            return container.getInstalledHome(beanName).getBeanMetaData();
-        } catch (EJBNotFoundException e) {
+        if (parts.length > 0 && !parts[0].equals("EJB")) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
-                Tr.debug(this, tc, "not found", e);
+                Tr.debug(this, tc, "not an EJB identifier : " + parts[0]);
             return null;
         }
+        if (parts.length == 4) {
+            J2EEName beanName = j2eeNameFactory.create(parts[1], parts[2], parts[3]); // ignore parts[0] which is the prefix: EJB
+            try {
+                return container.getInstalledHome(beanName).getBeanMetaData();
+            } catch (EJBNotFoundException e) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(this, tc, "EJB not found : " + e);
+                return null;
+            }
+        } else if (parts.length == 3) {
+            J2EEName moduleName = j2eeNameFactory.create(parts[1], parts[2], null); // ignore parts[0] which is the prefix: EJB
+            EJBModuleMetaDataImpl mmd = moduleMetaDatas.get(moduleName);
+            if (mmd != null) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                    Tr.debug(this, tc, "Found module : " + moduleName);
+                return new OSGiEJBModuleComponentMetaData(mmd);
+            }
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(this, tc, "Module not found : " + parts[1] + ", " + parts[2]);
+            return null;
+        }
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+            Tr.debug(this, tc, "identifier not supported : " + identifier);
+        return null;
     }
 
     /**

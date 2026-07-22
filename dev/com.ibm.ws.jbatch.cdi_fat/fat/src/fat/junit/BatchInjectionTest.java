@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package fat.junit;
 
@@ -27,7 +26,7 @@ import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.rules.repeater.FeatureReplacementAction;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
@@ -58,7 +57,9 @@ public class BatchInjectionTest extends FATServletClient {
     @ClassRule
     public static RepeatTests r = RepeatTests.withoutModification()
                     .andWith(FeatureReplacementAction.EE8_FEATURES().forServers("BatchInjection"))
-                    .andWith(new JakartaEE9Action().forServers("BatchInjection"));
+                    .andWith(FeatureReplacementAction.EE9_FEATURES().forServers("BatchInjection"))
+                    .andWith(FeatureReplacementAction.EE10_FEATURES().forServers("BatchInjection"))
+                    .andWith(FeatureReplacementAction.EE11_FEATURES().forServers("BatchInjection"));
 
     @Server("BatchInjection")
     @TestServlet(servlet = BatchInjectionServlet.class, path = "implicit/BatchInjectionServlet")
@@ -70,7 +71,15 @@ public class BatchInjectionTest extends FATServletClient {
                         .addPackages(true, "app.injection")
                         .addPackages(true, "fat.util");
 
+        if (!JakartaEEAction.isEE10OrLaterActive()) {
+            implicit.deletePackages(true, "app.injection.ee10");
+        }
+
         addBatchJob(implicit, "Injection.xml");
+
+        if (JakartaEEAction.isEE10OrLaterActive()) {
+            addBatchJob(implicit, "InjectionNonStringProps.xml");
+        }
 
         // Write the WebArchive to 'publish/servers/<server>/apps' and print the contents
         ShrinkHelper.exportAppToServer(server1, implicit);
@@ -80,7 +89,7 @@ public class BatchInjectionTest extends FATServletClient {
 
     /**
      * @param implicit archive
-     * @param jslName Batch Job JSL name
+     * @param jslName  Batch Job JSL name
      */
     private static void addBatchJob(WebArchive implicit, String jslName) {
         Log.info(BatchInjectionTest.class, "addBatchJob", "Adding jslName = " + jslName);
@@ -91,7 +100,7 @@ public class BatchInjectionTest extends FATServletClient {
 
     @AfterClass
     public static void tearDown() throws Exception {
-        server1.stopServer();
+        server1.stopServer("CWWKY0011W");
     }
 
 }

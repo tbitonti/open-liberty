@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -30,8 +32,13 @@ public class FindActionTest extends  FeatureUtilityToolTest {
         setupEnv();
 
         // rollback wlp version 2 times (e.g 20.0.0.5 -> 20.0.0.3)
-        replaceWlpProperties(getPreviousWlpVersion());
-        replaceWlpProperties(getPreviousWlpVersion());
+
+        replaceWlpProperties(libertyVersion);
+        //don't connect to Maven Central to reduce network issue
+        copyFileToMinifiedRoot("etc",
+    		    "publish/propertyFiles/publishRepoOverrideProps/featureUtility.properties");
+        writeToProps(minifiedRoot + "/etc/featureUtility.properties", "featureLocalRepo", mavenLocalRepo1);
+
         Log.exiting(c, methodName);
     }
 
@@ -124,8 +131,8 @@ public class FindActionTest extends  FeatureUtilityToolTest {
         assertEquals("Exit code should be 0",0, po.getReturnCode());
         String output = po.getStdout();
 
-        // check for apiDiscovery-1.0
-        assertTrue("Should contain apiDiscovery-1.0", output.contains("apiDiscovery-1.0"));
+        // check for openapi-1.0
+        assertTrue("Should contain openapi-3.1", output.contains("openapi-3.1"));
 
         Log.exiting(c, METHOD_NAME);
     }
@@ -139,7 +146,7 @@ public class FindActionTest extends  FeatureUtilityToolTest {
      */
     @Test
     public void testFindHiddenFeature() throws Exception {
-        final String METHOD_NAME = "testFindMultipleArgs";
+        final String METHOD_NAME = "testFindHiddenFeature";
         Log.entering(c, METHOD_NAME);
 
         // run the command

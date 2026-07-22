@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -36,6 +38,7 @@ import org.junit.Test;
 
 import com.ibm.ws.container.service.app.deploy.WebModuleInfo;
 import com.ibm.ws.webcontainer.security.ServletStartedListener;
+import com.ibm.ws.webcontainer.security.WebDeclaredRolesService;
 import com.ibm.ws.webcontainer.security.metadata.SecurityConstraint;
 import com.ibm.ws.webcontainer.security.metadata.SecurityConstraintCollection;
 import com.ibm.ws.webcontainer.security.metadata.SecurityMetadata;
@@ -91,7 +94,8 @@ public class ServletStartedListenerTest {
      * @throws java.lang.Exception
      */
     @AfterClass
-    public static void tearDownAfterClass() throws Exception {}
+    public static void tearDownAfterClass() throws Exception {
+    }
 
     /**
      * @throws java.lang.Exception
@@ -105,11 +109,12 @@ public class ServletStartedListenerTest {
      * @throws java.lang.Exception
      */
     @After
-    public void tearDown() throws Exception {}
+    public void tearDown() throws Exception {
+    }
 
     /**
      * Test method for {@link com.ibm.ws.webcontainer.security.ServletStartedListener#started(com.ibm.ws.container.service.app.deploy.DeployedMod)}.
-     * 
+     *
      * @throws UnableToAdaptException
      */
     @Test
@@ -125,15 +130,20 @@ public class ServletStartedListenerTest {
                 allowing(moduleContainer).adapt(WebAppConfig.class);
                 will(returnValue(webAppConfig));
 
+                one(webAppConfig).getApplicationName();
+                one(webAppConfig).getModuleName();
+                allowing(webModuleMetaDataMock).getSecurityMetaData();
+                will(returnValue(securityMetadataMock));
+                allowing(securityMetadataMock).getRoles();
+
                 allowing(webAppConfig).getServletInfos();
                 will(returnValue(servletConfigs));
                 allowing(webAppConfig).getMetaData();
                 will(returnValue(webModuleMetaDataMock));
-                allowing(webModuleMetaDataMock).getSecurityMetaData();
-                will(returnValue(securityMetadataMock));
             }
         });
 
+        servletStartedListener.setDeclaredRolesService(new WebDeclaredRolesService());
         servletStartedListener.started(deployedMod.getContainer());
         mock.assertIsSatisfied();
 
@@ -405,7 +415,7 @@ public class ServletStartedListenerTest {
     }
 
     /**
-     * 
+     *
      * @param urlPatterns
      * @param httpMethod
      * @param rolesAllowed

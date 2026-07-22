@@ -1,31 +1,37 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.classloading.internal;
 
-import static com.ibm.ws.classloading.internal.AppClassLoader.SearchLocation.DELEGATES;
+import static com.ibm.ws.classloading.configuration.GlobalClassloadingConfiguration.LibraryPrecedence.afterApp;
+import static com.ibm.ws.classloading.configuration.GlobalClassloadingConfiguration.LibraryPrecedence.beforeApp;
+import static com.ibm.ws.classloading.internal.AppClassLoader.SearchLocation.AFTER_DELEGATES;
+import static com.ibm.ws.classloading.internal.AppClassLoader.SearchLocation.BEFORE_DELEGATES;
 import static com.ibm.ws.classloading.internal.AppClassLoader.SearchLocation.PARENT;
 import static com.ibm.ws.classloading.internal.AppClassLoader.SearchLocation.SELF;
 import static com.ibm.ws.classloading.internal.ClassLoadingConstants.LS;
+import static com.ibm.ws.classloading.internal.LibertyLoader.DelegatePolicy.excludeParent;
+import static com.ibm.ws.classloading.internal.LibertyLoader.DelegatePolicy.includeParent;
+import static com.ibm.ws.classloading.internal.LibertyLoader.DelegatePolicy.searchedParent;
 import static com.ibm.ws.classloading.internal.Util.freeze;
 import static com.ibm.ws.classloading.internal.Util.list;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
-import java.net.JarURLConnection;
 import java.net.URL;
-import java.net.URLConnection;
 import java.security.AccessController;
+import java.security.AllPermission;
 import java.security.CodeSource;
+import java.security.PermissionCollection;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
@@ -36,27 +42,28 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.jar.Manifest;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.osgi.framework.Bundle;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Trivial;
-import com.ibm.ws.artifact.url.WSJarURLConnection;
 import com.ibm.ws.classloading.ClassGenerator;
 import com.ibm.ws.classloading.configuration.GlobalClassloadingConfiguration;
+import com.ibm.ws.classloading.configuration.GlobalClassloadingConfiguration.LibraryPrecedence;
 import com.ibm.ws.classloading.internal.providers.Providers;
+import com.ibm.ws.classloading.internal.providers.Providers.LoaderInfo;
 import com.ibm.ws.classloading.internal.util.ClassRedefiner;
 import com.ibm.ws.classloading.internal.util.FeatureSuggestion;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
-import com.ibm.ws.kernel.boot.classloader.ClassLoaderHook;
-import com.ibm.ws.kernel.boot.classloader.ClassLoaderHookFactory;
 import com.ibm.ws.kernel.security.thread.ThreadIdentityManager;
 import com.ibm.wsspi.adaptable.module.Container;
 import com.ibm.wsspi.classloading.ApiType;
@@ -71,18 +78,67 @@ import com.ibm.wsspi.library.Library;
  * to discover the special methods:
  */
 public class AppClassLoader extends ContainerClassLoader implements SpringLoader {
-    static {
-        ClassLoader.registerAsParallelCapable();
-    }
     static final TraceComponent tc = Tr.register(AppClassLoader.class);
 
+    private static final Set<String> forbiddenClassNames = Collections.unmodifiableSet( loadForbidden() );
+
+    private static final String FORBIDDEN_PROPERTIES = "forbidden.properties";
+
+    public static final String NOTHING_FORBIDDEN_PROPERTY = "io.openliberty.classloading.nothing.forbidden";
+
+    /**
+     * Load all available {@link #FORBIDDEN_PROPERTIES} resources, answering
+     * property keys as forbidden class names.  Forbidden class names must be
+     * specified as fully qualified class names.
+     *
+     * Load failures will result in either an empty collection of forbidden
+     * class names, or partially loaded forbidden class names.  A null collection
+     * will never be returned.  A load failure will not throw a non-runtime
+     * exception.
+     *
+     * @return The keys of all available forbidden properties resources.
+     */
+    private static Set<String> loadForbidden() {
+        if ( TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled() ) {
+            Tr.debug(tc, "Loading forbidden.properties");
+        }
+
+        if (Boolean.getBoolean(NOTHING_FORBIDDEN_PROPERTY)) {
+            return Collections.emptySet();
+        }
+
+        Set<String> forbidden = new HashSet<>();
+        try (InputStream inputStream = AppClassLoader.class.getResourceAsStream(FORBIDDEN_PROPERTIES)) {
+            Properties props = new Properties();
+            props.load(inputStream);
+            @SuppressWarnings({ "unchecked", "rawtypes" })
+            Map<String, String> castProps = (Map) props;
+            forbidden.addAll(castProps.keySet());
+        } catch (IOException e) {
+            // AutoFFDC
+        }
+        if ( TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled() ) {
+            Tr.debug(tc, "Loaded Forbidden Set" + forbidden);
+        }
+        return forbidden;
+    }
+
+    private static final PermissionCollection ALLPERMISSIONS;
+
+    static {
+        ClassLoader.registerAsParallelCapable();
+        AllPermission allPerm = new AllPermission();
+        ALLPERMISSIONS = allPerm.newPermissionCollection();
+        if (ALLPERMISSIONS != null) {
+            ALLPERMISSIONS.add(allPerm);
+        }
+    }
+
     enum SearchLocation {
-        PARENT, SELF, DELEGATES
+        BEFORE_DELEGATES, PARENT, SELF, AFTER_DELEGATES
     };
 
-    private static final boolean disableSharedClassesCache = Boolean.getBoolean("liberty.disableApplicationClassSharing");
-
-    static final List<SearchLocation> PARENT_FIRST_SEARCH_ORDER = freeze(list(PARENT, SELF, DELEGATES));
+    static final List<SearchLocation> PARENT_FIRST_SEARCH_ORDER = freeze(list(BEFORE_DELEGATES, PARENT, SELF, AFTER_DELEGATES));
 
     private final Set<String> packagesDefined = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>()); 
 
@@ -102,32 +158,64 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
     }
 
     protected final ClassLoaderConfiguration config;
-    private volatile List<Library> privateLibraries;
-    private final Iterable<LibertyLoader> delegateLoaders;
+    private final AtomicReference<List<Library>> overrideLibraries;
+    private final AtomicReference<List<Library>> privateLibraries;
+    private final Iterable<LibertyLoader> beforeAppDelegateLoaders;
+    private final Iterable<LibertyLoader> afterAppDelegateLoaders;
     private final List<File> nativeLibraryFiles = new ArrayList<File>();
     private final List<ClassFileTransformer> transformers = new ArrayList<ClassFileTransformer>();
+    private final List<ClassFileTransformer> systemTransformers;
     private final DeclaredApiAccess apiAccess;
     private final ClassGenerator generator;
     private final ConcurrentHashMap<String, ProtectionDomain> protectionDomains = new ConcurrentHashMap<String, ProtectionDomain>();
-    protected final ClassLoader parent;
-    private final ClassLoaderHook hook;
+    private final LibraryPrecedence libraryPrecedence;
+    private final String toStringCache;
 
-    AppClassLoader(ClassLoader parent, ClassLoaderConfiguration config, List<Container> containers, DeclaredApiAccess access, ClassRedefiner redefiner, ClassGenerator generator, GlobalClassloadingConfiguration globalConfig) {
+    AppClassLoader(ClassLoader parent, ClassLoaderConfiguration config, List<Container> containers, DeclaredApiAccess access, ClassRedefiner redefiner, ClassGenerator generator, GlobalClassloadingConfiguration globalConfig, List<ClassFileTransformer> systemTransformers) {
         super(containers, parent, redefiner, globalConfig);
-        this.parent = parent;
+        this.libraryPrecedence = globalConfig.libraryPrecedence();
+        this.systemTransformers = systemTransformers;
         this.config = config;
         this.apiAccess = access;
         for (Container container : config.getNativeLibraryContainers())
             addNativeLibraryContainer(container);
-        this.privateLibraries = Providers.getPrivateLibraries(config);
-        this.delegateLoaders = Providers.getDelegateLoaders(config, apiAccess);
+
+        this.overrideLibraries = new AtomicReference<>(Providers.getOverrideLibraries(config));
+        this.privateLibraries = new AtomicReference<>(Providers.getPrivateLibraries(config));
+
+        List<LibertyLoader> tmpBeforeApp = new ArrayList<>();
+        List<LibertyLoader> tmpAfterApp = new ArrayList<>();
+        for (LoaderInfo loaderInfo : Providers.getDelegateLoaders(config, apiAccess, libraryPrecedence)) {
+            switch (loaderInfo.precedence) {
+                case afterApp:
+                    tmpAfterApp.add(loaderInfo.loader);
+                    break;
+                case beforeApp:
+                    tmpBeforeApp.add(loaderInfo.loader);
+                    break;
+                default:
+                    break;
+            }
+        }
+        this.beforeAppDelegateLoaders = tmpBeforeApp.isEmpty() ? Collections.emptyList() : Collections.unmodifiableList(tmpBeforeApp);
+        this.afterAppDelegateLoaders = tmpAfterApp.isEmpty() ? Collections.emptyList() : Collections.unmodifiableList(tmpAfterApp);
         this.generator = generator;
-        hook = disableSharedClassesCache ? null : ClassLoaderHookFactory.getClassLoaderHook(this);
+        
+        this.toStringCache = buildToString();
+        
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "Created AppClassLoader: " + this);
+        }
     }
 
-    /** Provides the delegate loaders so the {@link ShadowClassLoader} can mimic the structure. */
-    Iterable<LibertyLoader> getDelegateLoaders() {
-        return delegateLoaders;
+    /** Provides the before delegate loaders so the {@link ShadowClassLoader} can mimic the structure. */
+    Iterable<LibertyLoader> getBeforeAppDelegateLoaders() {
+        return beforeAppDelegateLoaders;
+    }
+
+    /** Provides the before delegate loaders so the {@link ShadowClassLoader} can mimic the structure. */
+    Iterable<LibertyLoader> getAfterAppDelegateLoaders() {
+        return afterAppDelegateLoaders;
     }
 
     /** Provides the search order so the {@link ShadowClassLoader} can use it. */
@@ -168,6 +256,18 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
         return apiAccess.getApiTypeVisibility();
     }
 
+    @Override
+    public URL getResource(String name) {
+        URL result = findResourceCommonLibraryClassLoaders(name, beforeApp);
+        if (result == null) {
+            result = parent.getResource(name);
+        }
+        if (result == null) {
+            result = findResource(name);
+        }
+        return result;
+    }
+
     /**
      * Search order:
      * 1. This classloader.
@@ -179,13 +279,29 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
      * and strip the / from the resulting URL.
      */
     @Override
+    @Trivial
     public final URL findResource(String name) {
+        return findResourceInternal(name, false);
+    }
+
+    @Override
+    @Trivial
+    protected URL delegateFindResource(String name) {
+        return findResourceInternal(name, true);
+    }
+
+    private URL findResourceInternal(String name, boolean delegate) {
         URL result = null;
         Object token = ThreadIdentityManager.runAsServer();
         try {
-            result = super.findResource(name);
+            if (delegate) {
+                result = findResourceCommonLibraryClassLoaders(name, beforeApp);
+            }
             if (result == null) {
-                result = findResourceCommonLibraryClassLoaders(name);
+                result = super.findResource(name);
+            }
+            if (result == null) {
+                result = findResourceCommonLibraryClassLoaders(name, afterApp);
             }
         } finally {
             ThreadIdentityManager.reset(token);
@@ -205,10 +321,23 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
     @Override
     @Trivial
     public CompositeEnumeration<URL> findResources(String name) throws IOException {
+        return findResourcesInternal(name, false);
+    }
+
+    @Override
+    protected Enumeration<URL> delegateFindResources(String name) throws IOException {
+        return findResourcesInternal(name, true);
+    }
+    @Trivial
+    private CompositeEnumeration<URL> findResourcesInternal(String name, boolean delegate) throws IOException {
         Object token = ThreadIdentityManager.runAsServer();
         try {
-            CompositeEnumeration<URL> enumerations = new CompositeEnumeration<URL>(super.findResources(name));
-            return findResourcesCommonLibraryClassLoaders(name, enumerations);
+            CompositeEnumeration<URL> enumerations = new CompositeEnumeration<URL>();
+            if (delegate) {
+                findResourcesCommonLibraryClassLoaders(name, enumerations, beforeApp);
+            }
+            enumerations.add(super.findResources(name));
+            return findResourcesCommonLibraryClassLoaders(name, enumerations, afterApp);
         } finally {
             ThreadIdentityManager.reset(token);
         }
@@ -220,28 +349,9 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
     @Override
     @Trivial
     public Enumeration<URL> getResources(String name) throws IOException {
-        /*
-         * The default implementation of getResources never calls getResources on its parent, instead it just calls findResources on all of the loaders parents. We know that our
-         * parent will be a gateway class loader that changes the order that resources are loaded but it does this in getResources (as that is where the order *should* be changed
-         * according to the JavaDoc). Therefore call getResources on our parent and then findResources on ourself.
-         */
-        // Note we don't need to worry about getSystemResources as our parent will do that for us
-        try {
-            final String f_name = name;
-            final ClassLoader f_parent = parent;
-
-            Enumeration<URL> eURL = AccessController.doPrivileged(new java.security.PrivilegedExceptionAction<Enumeration<URL>>() {
-                @Override
-                public Enumeration<URL> run() throws Exception {
-                    return f_parent.getResources(f_name);
-                }
-            });
-
-            return new CompositeEnumeration<URL>(eURL).add(this.findResources(name));
-
-        } catch (PrivilegedActionException pae) {
-            return null;
-        }
+        return findResourcesCommonLibraryClassLoaders(name, new CompositeEnumeration<>(), beforeApp) //
+                        .add(this.parent.getResources(name)) //
+                        .add(this.findResources(name));
     }
 
     /** Returns the Bundle of the Top Level class loader */
@@ -269,180 +379,198 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
      *              don't override this method and lose the common library classloader support.
      */
     @Override
-    protected final Class<?> findClass(String name) throws ClassNotFoundException {
-        if (transformers.isEmpty()) {
-            Class<?> clazz = null;
-            Object token = ThreadIdentityManager.runAsServer();
-            try {
-                synchronized (getClassLoadingLock(name)) {
-                    // This method may be invoked directly instead of via loadClass
-                    // (e.g. when doing a "shallow" scan of the common library classloaders).
-                    // So we first must check whether we've already defined/loaded the class.
-                    // Otherwise we'll get a LinkageError on the second findClass call because
-                    // it will attempt to define the class a 2nd time.
-                    clazz = findLoadedClass(name);
-                    if (clazz == null) {
-                        String resourceName = Util.convertClassNameToResourceName(name);
-                        ByteResourceInformation byteResInfo = this.findClassBytes(name, resourceName);
-                        if (byteResInfo != null) {
-                            clazz = definePackageAndClass(name, resourceName, byteResInfo, byteResInfo.getBytes());
-                        } else {
-                            // Check the common libraries.
-                            clazz = findClassCommonLibraryClassLoaders(name);
-                        }
-                    }
-                }
-            } finally {
-                ThreadIdentityManager.reset(token);
-            }
-            return clazz;
+    @FFDCIgnore(ClassNotFoundException.class)
+    protected final Class<?> findClass(String name, DelegatePolicy delegatePolicy, boolean returnNull) throws ClassNotFoundException {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "Finding class " + name + " in classloader: " + this);
         }
-
+        
         String resourceName = Util.convertClassNameToResourceName(name);
-        ByteResourceInformation byteResourceInformation = findClassBytes(name, resourceName);
-        if (byteResourceInformation == null) {
+        ByteResourceInformation byteResInfo = findClassBytes(name, resourceName);
+        if (byteResInfo == null) {
             // Check the common libraries.
-            return findClassCommonLibraryClassLoaders(name);
+            return findClassCommonLibraryClassLoaders(name, returnNull, afterApp, delegatePolicy);
         }
 
-        // If a class is loaded from the shared classes cache it cannot be transformed.  The bytes are not in 
-        // the normal class bytes format, but rather a cookie to where the bytes are stored in the classes cache.
-        // Since the class was put into the classes cache, it was not transformed previously.  We are
-        // inferring it will not be transformed this time either.  If there is a change requiring the class
-        // to be transformed the user will need to delete the shared classes cache.  If we do not make this
-        // inference, the transform code will fail to process the class bytes resulting in a number of different
-        // types of exceptions or quitting out of the transformation code which will result in the class not being
-        // transformed anyway.
-        byte[] bytes;
-        if (byteResourceInformation.foundInClassCache()) {
-            bytes = byteResourceInformation.getBytes(); 
-            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                Tr.debug(tc, "Not transforming class " + name + " because it was found in the shared classes cache.");
+        if (isParentFirst() && delegatePolicy != searchedParent && parent != null) {
+            // This loader is parent first but was delegated to without first checking the parent;
+            // Check now before allowing the class to be defined in this loader's class space.
+            Class<?> checkParentResult = null;
+            if (parent instanceof NoClassNotFoundLoader) {
+                checkParentResult = ((NoClassNotFoundLoader) parent).loadClassNoException(name);
+            } else {
+                try {
+                    checkParentResult = parent.loadClass(name);
+                } catch (ClassNotFoundException e) {
+                    // move on to defining the local class for this loader
+                }
             }
-        } else {
-            bytes = transformClassBytes(byteResourceInformation.getBytes(), name);
+            if (checkParentResult != null) {
+                return checkParentResult;
+            }
         }
+        byte[] bytes = transformers.isEmpty() && systemTransformers.isEmpty() ?
+                        byteResInfo.getBytes() : transformClassBytes(name, byteResInfo);
 
-        return definePackageAndClass(name, resourceName, byteResourceInformation, bytes);
+        return definePackageAndClass(name, resourceName, byteResInfo, bytes);
     }
 
-    byte[] transformClassBytes(final byte[] originalBytes, String name) throws ClassNotFoundException {
-        byte[] bytes = originalBytes;
-        for (ClassFileTransformer transformer : transformers) {
+    byte[] transformClassBytes(String name, ByteResourceInformation toTransform) throws ClassNotFoundException {
+        byte[] originalBytes;
+        boolean fromSCC = toTransform.foundInClassCache();
+        if (!fromSCC) {
+            originalBytes = toTransform.getBytes();
+        } else {
+            // Since the class was stored to the shared class cache (SCC), it was not transformed previously.
+            // Transforming the actual class bytes ensures the expected bytes and alleviates the need for the
+            // user to delete the SCC when there is a change requiring the class be transformed.
+            // By not transforming bytes loaded from the SCC we avoid numerous types of exceptions or quitting
+            // out of the transformation code, which will result in the class not being transformed anyway.
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "Attempt to transform \" + name + \" found in shared class cache because we have "
+                         + (!transformers.isEmpty() ? "[transformers]" : "")
+                         + (!systemTransformers.isEmpty() ? "[system transformers]" : ""));
+            }
             try {
-                byte[] newBytes = transformer.transform(this, name, null, config.getProtectionDomain(), bytes);
-                if (newBytes != null) {
-                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                        if (bytes == newBytes)
-                            Tr.debug(tc, "transformer " + transformer + " was invoked but returned an unaltered byte array");
-                        else
-                            Tr.debug(tc, "transformer " + transformer + " successfully transformed the class bytes");
-                    }
-                    bytes = newBytes;
-                } else if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "transformer " + transformer + " was invoked but did not alter the loaded bytes");
-                }
-            } catch (IllegalClassFormatException ex) {
-                // FFDC
-                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "bad transform - transformer: " + transformer + " attempting to transform class: " + name, ex);
-                }
-                throw new ClassNotFoundException(name, ex);
+                originalBytes = toTransform.getActualBytes();
+            } catch (IOException e) {
+                // auto FFDC
+                // fallback to the cached class
+                return toTransform.getBytes();
+            }
+        }
+        byte[] bytes = transformClassBytes(originalBytes, name, transformers);
+        bytes = transformClassBytes(bytes, name, systemTransformers);
+        if (fromSCC) {
+            // If the transform didn't change the bytes, then return the original bytes
+            // returned from the shared classes cache.
+            if (bytes == originalBytes || Arrays.equals(bytes, originalBytes)) {
+                bytes = toTransform.getBytes();
             }
         }
         return bytes;
     }
 
+    private byte[] transformClassBytes(final byte[] originalBytes, String name, List<ClassFileTransformer> cfts) throws ClassNotFoundException {
+        byte[] bytes = originalBytes;
+        for (ClassFileTransformer transformer : cfts) {
+            bytes = doTransformation(name, bytes, transformer);
+        }
+        return bytes;
+    }
+
+    private byte[] doTransformation(String name, byte[] bytes, ClassFileTransformer transformer) throws ClassNotFoundException {
+        try {
+            byte[] newBytes = transformer.transform(this, name, null, config.getProtectionDomain(), bytes);
+            if (newBytes != null) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    if (bytes == newBytes)
+                        Tr.debug(tc, "transformer " + transformer + " was invoked but returned an unaltered byte array");
+                    else
+                        Tr.debug(tc, "transformer " + transformer + " successfully transformed the class bytes");
+                }
+                bytes = newBytes;
+            } else if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "transformer " + transformer + " was invoked but did not alter the loaded bytes");
+            }
+        } catch (IllegalClassFormatException ex) {
+            // FFDC
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, "bad transform - transformer: " + transformer + " attempting to transform class: " + name, ex);
+            }
+            throw new ClassNotFoundException(name, ex);
+        }
+        return bytes;
+    }
+
+    /*
+     * Update the PermissionCollection for the Protection domain if it isn't set.
+     */
+    private ProtectionDomain setPermissionCollectionIfNeeded(ProtectionDomain pd) {
+        java.security.PermissionCollection pc = null;
+        if (pd.getPermissions() == null) {
+            if (System.getSecurityManager() == null) {
+                // No need to do anything else when there is no security manager.
+                // This handles cases where the security manager isn't supported (e.g. Java 24).
+                pc = ALLPERMISSIONS;
+            } else {
+                try {
+                    pc = AccessController.doPrivileged(new PrivilegedExceptionAction<java.security.PermissionCollection>() {
+                        @Override
+                        public java.security.PermissionCollection run() {
+                            java.security.Policy p = java.security.Policy.getPolicy();
+                            java.security.PermissionCollection fpc = p.getPermissions(pd.getCodeSource());
+                            return fpc;
+                        }
+                    });
+                } catch (PrivilegedActionException paex) {
+                } 
+            }
+        }
+        return pc == null ? pd : new ProtectionDomain(pd.getCodeSource(), pc);
+    }
+    
     private Class<?> definePackageAndClass(final String name, String resourceName, final ByteResourceInformation byteResourceInformation, byte[] bytes) throws ClassFormatError {
-        URL resourceURL = byteResourceInformation.getResourceUrl();
         // Now define a package for this class if it has one
         int lastDotIndex = name.lastIndexOf('.');
         String packageName = DEFAULT_PACKAGE;
         if (lastDotIndex != -1) {
             packageName = name.substring(0, lastDotIndex);
-            definePackage(byteResourceInformation, resourceURL, packageName);
+            definePackage(byteResourceInformation, packageName);
         }
 
-        ProtectionDomain pd = getClassSpecificProtectionDomain(resourceName, resourceURL);
+        ProtectionDomain pd = getClassSpecificProtectionDomain(byteResourceInformation.getContainerURL());
+        pd = setPermissionCollectionIfNeeded(pd);
 
         Class<?> clazz = null;
         try {
             clazz = defineClass(name, bytes, 0, bytes.length, pd);
         } finally {
-            final TraceComponent cltc;
-            if (TraceComponent.isAnyTracingEnabled() && (cltc = getClassLoadingTraceComponent(packageName)).isDebugEnabled()) {
-                String loc = "" + byteResourceInformation.getResourceUrl();
-                String path = byteResourceInformation.getResourcePath();
-                if (loc.endsWith(path))
-                    loc = loc.substring(0, loc.length() - path.length());
-                if (loc.endsWith("!/"))
-                    loc = loc.substring(0, loc.length() - 2);
-                String message = clazz == null ? "CLASS FAIL" : "CLASS LOAD";
-                Tr.debug(cltc, String.format("%s: [%s] [%s] [%s]", message, getKey(), loc, name));
-            }
-        }
-        if (!byteResourceInformation.foundInClassCache() && hook != null) {
-            URL sharedClassCacheURL = getSharedClassCacheURL(resourceURL, byteResourceInformation.getResourcePath());
-            if (sharedClassCacheURL != null && Arrays.equals(bytes, byteResourceInformation.getBytes())) {
-                hook.storeClass(sharedClassCacheURL, clazz);
-                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(tc, "Called shared class cache to store class", new Object[] {clazz.getName(), sharedClassCacheURL});
+            if (TraceComponent.isAnyTracingEnabled()) {
+                // Resolve which TraceComponent is active: the class-level tc responds to
+                // com.ibm.ws.classloading.internal.*=all; the per-package cltc responds to
+                // com.ibm.ws.class.load.<packageName>=all for finer-grained filtering.
+                // Prefer tc so that the standard classloading trace spec always works,
+                // but fall through to cltc for users who have enabled package-specific tracing.
+                final TraceComponent traceActive = tc.isDebugEnabled()
+                        ? tc : getClassLoadingTraceComponent(packageName);
+                if (traceActive.isDebugEnabled()) {
+                    String loc = byteResourceInformation.getContainerURL().toString();
+                    String message = clazz == null ? "CLASS FAIL" : "CLASS LOAD";
+                    Tr.debug(traceActive, String.format("%s: class=[%s]; classloader=[%s]; location=[%s]; codeSource=[%s]",
+                            message, name, toShortString(), loc, getCodeSourceString(clazz)));
                 }
             }
         }
+        byteResourceInformation.storeInClassCache(clazz, bytes);
         return clazz;
     }
 
     @Trivial // injected trace calls ProtectedDomain.toString() which requires privileged access
-    private ProtectionDomain getClassSpecificProtectionDomain(final String resourceName, final URL resourceUrl) {
-        ProtectionDomain pd = config.getProtectionDomain();
-        try {
-            pd = AccessController.doPrivileged(new PrivilegedExceptionAction<ProtectionDomain>() {
+    private ProtectionDomain getClassSpecificProtectionDomain(final ContainerURL containerUrl) {
+        ProtectionDomain pd;
+        if (containerUrl == null) {
+            // not expected; there will have been some FFDCs if this is null
+            pd = config.getProtectionDomain();
+        } else if (System.getSecurityManager() == null) {
+            pd = getClassSpecificProtectionDomainPrivileged(containerUrl);
+        } else {
+            pd = AccessController.doPrivileged(new PrivilegedAction<ProtectionDomain>() {
                 @Override
                 public ProtectionDomain run() {
-                    return getClassSpecificProtectionDomainPrivileged(resourceName, resourceUrl);
+                    return getClassSpecificProtectionDomainPrivileged(containerUrl);
                 }
             });
-        } catch (PrivilegedActionException paex) {
-            //auto FFDC
-            return config.getProtectionDomain();
         }
         return pd;
-
     }
 
-    ProtectionDomain getClassSpecificProtectionDomainPrivileged(String resourceName, URL resourceUrl) {
-        ProtectionDomain pd;
-
-        try {
-            URLConnection conn = resourceUrl.openConnection();
-            URL containerUrl;
-            if (conn instanceof JarURLConnection) {
-                containerUrl = ((JarURLConnection) conn).getJarFileURL();
-            } else if (conn instanceof WSJarURLConnection) {
-                containerUrl = ((WSJarURLConnection) conn).getFile().toURI().toURL();
-            } else {
-                // this is most likely a file URL - i.e. the contents of the classes are expanded on the disk.
-                // so a path like:  .../myServer/dropins/myWar.war/WEB-INF/classes/com/myPkg/MyClass.class
-                // should convert to: .../myServer/dropins/myWar.war/WEB-INF/classes/
-                containerUrl = new URL(resourceUrl.toString().replace(resourceName, ""));
-            }
-            String containerUrlString = containerUrl.toString();
-            pd = protectionDomains.get(containerUrlString);
-            if (pd == null) {
-                ProtectionDomain pdFromConfig = config.getProtectionDomain();
-                CodeSource cs = new CodeSource(containerUrl, pdFromConfig.getCodeSource().getCertificates());
-                pd = new ProtectionDomain(cs, pdFromConfig.getPermissions());
-                ProtectionDomain oldPD = protectionDomains.putIfAbsent(containerUrlString, pd);
-                if (oldPD != null) {
-                    pd = oldPD;
-                }
-            }
-        } catch (IOException ex) {
-            // Auto-FFDC - and then use the protection domain from the classloader configuration
-            pd = config.getProtectionDomain();
-        }
-        return pd;
+    ProtectionDomain getClassSpecificProtectionDomainPrivileged(ContainerURL containerUrl) {
+        return protectionDomains.computeIfAbsent(containerUrl.urlString, (c) -> {
+            ProtectionDomain pdFromConfig = config.getProtectionDomain();
+            CodeSource cs = new CodeSource(containerUrl.url, pdFromConfig.getCodeSource().getCertificates());
+            return new ProtectionDomain(cs, pdFromConfig.getPermissions());
+        });
     }
 
     /**
@@ -452,8 +580,7 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
      * @param byteResourceInformation The information about the class file
      * @param packageName The name of the package to create
      */
-    @FFDCIgnore(value = { IllegalArgumentException.class })
-    private void definePackage(ByteResourceInformation byteResourceInformation, URL resourceURL, String packageName) {
+    private void definePackage(ByteResourceInformation byteResourceInformation, String packageName) {
 
         // Using packagesDefined instead of getPackage since getPackage has a lot of path length
         // and in the race condition we avoid all the Manifest length.
@@ -461,64 +588,81 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
             synchronized (getClassLoadingLock(packageName)) {
                 // have to check again
                 if (!packagesDefined.contains(packageName)) {
-                    // If the package is in a JAR then we can load the JAR manifest to see what package definitions it's got
-                    Manifest manifest = byteResourceInformation.getManifest();
-
-                    try {
-                        // The URLClassLoader.definePackage() will NPE with a null manifest so use the other definePackage if we don't have a manifest
-                        if (manifest == null) {
-                            definePackage(packageName, null, null, null, null, null, null, null);
-                        } else {
-                            definePackage(packageName, manifest, resourceURL);
-                        }
-                    } catch (IllegalArgumentException e) {
-                        // Ignore, this happens if the package is already defined but it is hard to guard against this in a thread safe way. See:
-                        // http://bugs.sun.com/view_bug.do?bug_id=4841786
-                    }
+                    byteResourceInformation.definePackage(packageName, this);
                     packagesDefined.add(packageName);
                 }
             }
         }
     }
 
-    final ByteResourceInformation findClassBytes(String className, String resourceName) {
-        try {
-            return findClassBytes(className, resourceName, hook);
-        } catch (IOException e) {
-            Tr.error(tc, "cls.class.file.not.readable", className, resourceName);
-            String message = String.format("Could not read class '%s' as resource '%s'", className, resourceName);
-            ClassFormatError error = new ClassFormatError(message);
-            error.initCause(e);
-            throw error;
-        }
+    @Override
+    @Trivial
+    protected final Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+        return loadClass(name, resolve, includeParent, false);
     }
 
     @Override
     @Trivial
     @FFDCIgnore(ClassNotFoundException.class)
-    protected final Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+    protected final Class<?> loadClass(String name, boolean resolve, DelegatePolicy delegatePolicy, boolean returnNull) throws ClassNotFoundException {
+        // Fail classes which are forbidden.  For example, by a CVE.
+        if ( forbiddenClassNames.contains(name) ) {
+            if ( TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled() ) {
+                Tr.debug(tc, "loadClass " + name + " forbidden");
+            }
+            // Since this is not a usual class-not-found case,
+            // directly throw a simple CNFE.
+            //
+            // A more detailed message might be displayed, but,
+            // in most cases the JVM is going to catch the CNFE,
+            // forget the message and then throw a NoClassDefFoundError
+            // with only the class name.  Having a more detailed
+            // message adds little value outside of direct calls
+            // to 'Class.forName' and 'ClassLoader.loadClass'.
+
+            if (returnNull) {
+                return null;
+            }
+            throw new ClassNotFoundException(name);
+        }
+
         ClassNotFoundException cnfe = null;
         Object token = ThreadIdentityManager.runAsServer();
         try {
-            synchronized (getClassLoadingLock(name)) {
-                try {
-                    return findOrDelegateLoadClass(name);
-                } catch (ClassNotFoundException e) {
-                    cnfe = e;
-                }
-                // The class could not be found on the local class path or by
-                // delegating to parent/library class loaders.  Try to generate it.
-                Class<?> generatedClass = generateClass(name);
-                if (generatedClass != null)
-                    return generatedClass;
+            Class<?> result = findOrDelegateLoadClass(name, delegatePolicy, returnNull);
+            if (result != null) {
+                return result;
             }
+        } catch (ClassNotFoundException e) {
+            cnfe = e;
         } finally {
             ThreadIdentityManager.reset(token);
         }
 
-        // could not generate class - throw CNFE
-        throw FeatureSuggestion.getExceptionWithSuggestion(cnfe);
+        // Could not generate class - throw CNFE
+        // Even if going to return null, still call getExceptionWithSuggestion so that
+        // the appropriate info message is output to the message.log.
+        // If onlySeardchSelf this is a delegation in which case we do NOT want to log a feature suggestion.
+        // Doing so will cause the message to get logged before parent/gateway delegation when using parentLast delegation
+        ClassNotFoundException toThrow = delegatePolicy == includeParent ? FeatureSuggestion.getExceptionWithSuggestion(cnfe, name, returnNull) : cnfe;
+
+        if (returnNull) {
+            return null;
+        }
+
+        throw toThrow;
     }
+    
+    @Trivial
+    private static String getCodeSourceString(Class<?> clazz) {
+        if (clazz == null) {
+            return "unknown";
+        }
+        ProtectionDomain pd = clazz.getProtectionDomain();
+        return (pd.getCodeSource() != null)
+                ? String.valueOf(pd.getCodeSource().getLocation()) : "unknown";
+    }
+
 
     @Trivial
     Class<?> generateClass(String name) throws ClassNotFoundException {
@@ -528,8 +672,43 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
             if (bytes != null) {
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
                     Tr.debug(tc, "defining generated class " + name);
-                generatedClass = defineClass(name, bytes, 0, bytes.length, config.getProtectionDomain());
-            }
+
+
+                String remoteInterfaceClassName = null;
+                ProtectionDomain pd = null;
+
+                if (name != null && name.endsWith("_Stub") && !name.endsWith("._Stub"))
+                {
+
+                    StringBuilder nameBuilder = new StringBuilder(name);
+                    nameBuilder.setLength(nameBuilder.length() - 5);
+
+                    int packageOffset = nameBuilder.lastIndexOf(".") + 1;
+                    if (nameBuilder.charAt(packageOffset) == '_')
+                        nameBuilder.deleteCharAt(packageOffset);
+
+
+                    remoteInterfaceClassName = nameBuilder.toString();
+
+                    try {
+                        Class<?> remoteClass = super.loadClass(remoteInterfaceClassName, false);
+
+                        pd = AccessController.doPrivileged(new PrivilegedExceptionAction<java.security.ProtectionDomain>() {
+                            @Override
+                            public java.security.ProtectionDomain run() {
+                                return remoteClass.getProtectionDomain();
+                            }
+                        });
+                    } catch (PrivilegedActionException paex) {                 
+                    }
+
+                    pd = setPermissionCollectionIfNeeded(pd);
+                    generatedClass = defineClass(name, bytes, 0, bytes.length, pd);
+
+                } else {
+                    generatedClass = defineClass(name, bytes, 0, bytes.length, config.getProtectionDomain());
+                }
+          }
         }
         return generatedClass;
     }
@@ -538,15 +717,65 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
      * Find a class on this loader's class path or delegate to the parent class
      * loader.
      */
-    protected Class<?> findOrDelegateLoadClass(String name) throws ClassNotFoundException {
-        // The resolve parameter is a legacy parameter that is effectively
-        // never used as of JDK 1.1 (see footnote 1 of section 5.3.2 of the 2nd
-        // edition of the JVM specification).  The only caller of
-        // loadClass(String, boolean) is java.lang.ClassLoader.loadClass(String),
-        // and that method always passes false, so we ignore the parameter.
-        return super.loadClass(name, false);
+    @FFDCIgnore(ClassNotFoundException.class)
+    protected Class<?> findOrDelegateLoadClass(String name, DelegatePolicy delegatePolicy, boolean returnNull) throws ClassNotFoundException {
+        final boolean RETURN_NULL_FOR_NO_CLASS = true;
+        Class<?> beforeAppLoad = findClassCommonLibraryClassLoaders(name, RETURN_NULL_FOR_NO_CLASS, beforeApp, delegatePolicy);
+        if (beforeAppLoad != null) {
+            return beforeAppLoad;
+        }
+
+        // parent is really only null for unit tests
+        if (parent == null) {
+            return super.loadClass(name, false);
+        }
+        Class<?> result = null;
+        ClassNotFoundException findException = null;
+        synchronized (getClassLoadingLock(name)) {
+            result = findLoadedClass(name);
+            if (result == null) {
+                if (delegatePolicy == includeParent) {
+                    if (parent instanceof NoClassNotFoundLoader) {
+                        result = ((NoClassNotFoundLoader) parent).loadClassNoException(name);
+                    } else {
+                        try {
+                            result = parent.loadClass(name);
+                        } catch (ClassNotFoundException e) {
+                            // move on to local findClass
+                        }
+                    }
+                    delegatePolicy = searchedParent;
+                }
+                if (result == null) {
+                    try {
+                        result = findClass(name, delegatePolicy, returnNull);
+                    } catch (ClassNotFoundException cnfe) {
+                        findException = cnfe;
+                    }
+
+                    if (result == null) {
+                        // The class could not be found on the local class path or by
+                        // delegating to parent/library class loaders.  Try to generate it.
+                        result = generateClass(name);
+                    }
+                }
+            }
+        }
+
+        if (result != null || returnNull) {
+            return result;
+        }
+
+        throw findException;
     }
 
+    @Trivial
+    private Iterable<LibertyLoader> getDelegates(LibraryPrecedence precedence) {
+        if (precedence == LibraryPrecedence.beforeApp) {
+            return beforeAppDelegateLoaders;
+        }
+        return afterAppDelegateLoaders;
+    }
     /**
      * Search for the class using the common library classloaders.
      *
@@ -557,16 +786,34 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
      * @throws ClassNotFoundException if the class isn't found.
      */
     @FFDCIgnore(ClassNotFoundException.class)
-    private Class<?> findClassCommonLibraryClassLoaders(String name) throws ClassNotFoundException {
-        for (LibertyLoader cl : delegateLoaders) {
+    protected Class<?> findClassCommonLibraryClassLoaders(String name, boolean returnNull, LibraryPrecedence precedence, DelegatePolicy fromDelegation) throws ClassNotFoundException {
+        DelegatePolicy delegatePolicy;
+        if (fromDelegation == searchedParent) {
+            // parent already searched 
+            delegatePolicy = searchedParent;
+        } else {
+            delegatePolicy = excludeParent;
+        }
+        for (LibertyLoader cl : getDelegates(precedence)) {
             try {
-                return cl.findClass(name);
+                Class<?> rc = cl.loadClass(name, false, delegatePolicy, true);
+                if (rc != null) {
+                    return rc;
+                }
             } catch (ClassNotFoundException e) {
                 // Ignore. Will throw at the end if class is not found.
             }
         }
         // If we reached here, then the class was not loaded.
+        if (returnNull) {
+            return null;
+        }
         throw new ClassNotFoundException(name);
+    }
+
+    @Trivial
+    protected boolean isParentFirst() {
+        return true;
     }
 
     /**
@@ -576,9 +823,9 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
      *
      * @return The resource, if found. Otherwise null.
      */
-    private URL findResourceCommonLibraryClassLoaders(String name) {
-        for (LibertyLoader cl : delegateLoaders) {
-            URL url = cl.findResource(name);
+    protected URL findResourceCommonLibraryClassLoaders(String name, LibraryPrecedence precedence) {
+        for (LibertyLoader cl : getDelegates(precedence)) {
+            URL url = cl.delegateFindResource(name);
             if (url != null) {
                 return url;
             }
@@ -596,21 +843,30 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
      * @return The enumerations parameter is populated by this method and returned. It contains
      *         all the resources found under all the common library classloaders.
      */
-    private CompositeEnumeration<URL> findResourcesCommonLibraryClassLoaders(String name, CompositeEnumeration<URL> enumerations) throws IOException {
-        for (LibertyLoader cl : delegateLoaders) {
-            enumerations.add(cl.findResources(name));
+    protected CompositeEnumeration<URL> findResourcesCommonLibraryClassLoaders(String name, CompositeEnumeration<URL> enumerations, LibraryPrecedence precedence) throws IOException {
+        for (LibertyLoader cl : getDelegates(precedence)) {
+            enumerations.add(cl.delegateFindResources(name));
         }
         return enumerations;
     }
 
     @Override
     protected void lazyInit() {
-        // process all the libraries
-        if (privateLibraries != null)
-            for (Library lib : privateLibraries)
-                copyLibraryElementsToClasspath(lib);
-        // nullify the field - it's not needed any more
-        privateLibraries = null;
+        // process all the override and private libraries
+
+        List<Library> curOverrideLibraries = overrideLibraries.getAndSet(null);
+        if (curOverrideLibraries != null) {
+            for (Library lib : curOverrideLibraries) {
+                copyLibraryElementsToClasspath(lib, true);
+            }
+        }
+
+        List<Library> curPrivateLibraries = privateLibraries.getAndSet(null);
+        if (curPrivateLibraries != null) {
+            for (Library lib : curPrivateLibraries) {
+                copyLibraryElementsToClasspath(lib, false);
+            }
+        }
     }
 
     /**
@@ -619,9 +875,9 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
      *
      * @param library
      */
-    private void copyLibraryElementsToClasspath(Library library) {
+    private void copyLibraryElementsToClasspath(Library library, boolean prepend) {
         Collection<File> files = library.getFiles();
-        addToClassPath(library.getContainers());
+        addToClassPath(library.getContainers(), prepend);
         if (files != null && !!!files.isEmpty()) {
             for (File file : files) {
 
@@ -665,7 +921,7 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
             }
         });
         return fExists &&
-               (f.getName().equals(basename) || (isWindows(basename) && f.getName().equalsIgnoreCase(basename)));
+                        (f.getName().equals(basename) || (isWindows(basename) && f.getName().equalsIgnoreCase(basename)));
     }
 
     @Override
@@ -701,8 +957,9 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
 
     public String toDiagString() {
         StringBuilder sb = new StringBuilder();
+        sb.append(this.toString()).append(LS);
         sb.append(config).append(LS);
-        
+
         sb.append("    API Visibility: ");
         for (ApiType type : apiAccess.getApiTypeVisibility()) {
             sb.append(type).append(" ");
@@ -722,10 +979,70 @@ public class AppClassLoader extends ContainerClassLoader implements SpringLoader
         sb.append("    CodeSources: ");
         for (Map.Entry<String, ProtectionDomain> entry : protectionDomains.entrySet()) {
             sb.append(LS).append("      ").append(entry.getKey()).append(" = ")
-              .append(entry.getValue().getCodeSource().getLocation());
+            .append(entry.getValue().getCodeSource().getLocation());
         }
         sb.append(LS);
 
         return sb.toString();
+    }
+    
+    @Trivial
+    private String toShortString() {
+        StringBuilder sb = new StringBuilder();
+        
+        // Get the classloader type
+        sb.append(getClass().getSimpleName());
+        sb.append("@");
+        sb.append(Integer.toHexString(this.hashCode()));
+        
+        // Get the application
+        if (config.getId() != null) {
+            ClassLoaderIdentity id = config.getId();
+            sb.append(":").append(id.getDomain());
+            sb.append(":").append(id.getId());
+        }
+        
+        // Get the delegation
+        sb.append(":");
+        sb.append(isParentFirst() ? "PF" : "PL");
+        return sb.toString();
+    }
+
+    /**
+     * Build the toString representation once at construction time.
+     * This avoids repeated calculation of container names and string concatenation.
+     */
+    @Trivial
+    private String buildToString() {
+        StringBuilder sb = new StringBuilder(toShortString());
+    
+        // Get the API
+        if (apiAccess.getApiTypeVisibility() != null) {
+            sb.append(":apis=").append(apiAccess.getApiTypeVisibility());
+        }
+        
+        // Get the container listing
+        List<String> containerNames = getContainerNames();
+        if (!containerNames.isEmpty()) {
+            sb.append(":containers=[");
+            for (int i = 0; i < containerNames.size(); i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(containerNames.get(i));
+            }
+            sb.append("]");
+        }
+        
+        return sb.toString();
+    }
+
+    @Override
+    @Trivial
+    public String toString() {
+        return toStringCache;
+    }
+
+
+    public Class<?> publicDefineClass(String name, byte[] b, ProtectionDomain protectionDomain) {
+        return defineClass(name, b, 0, b.length, protectionDomain);
     }
 }

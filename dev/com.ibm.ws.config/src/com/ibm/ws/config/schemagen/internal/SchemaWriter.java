@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2014 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -1139,9 +1141,14 @@ class SchemaWriter {
         }
 
         // If the type is onError then we should generate the onError enum.
-        AttributeDefinition optionAD = attribute.getType() == MetaTypeFactory.ON_ERROR_TYPE ? onErrorDefinition : attribute;
+        AttributeDefinition optionAD = attribute.getType() == MetaTypeFactory.ON_ERROR_TYPE && onErrorDefinition != null ? onErrorDefinition : attribute;
 
         String[] optionValues = optionAD != null ? optionAD.getOptionValues() : null;
+        
+        // If this is an onError type but has no options defined, provide default options
+        if (attribute.getType() == MetaTypeFactory.ON_ERROR_TYPE && (optionValues == null || optionValues.length == 0)) {
+            optionValues = new String[] { "WARN", "FAIL", "IGNORE" };
+        }
 
         final boolean altLabel = alternateLabel;
         DocumentationWriter docWriter = new DocumentationWriter() {

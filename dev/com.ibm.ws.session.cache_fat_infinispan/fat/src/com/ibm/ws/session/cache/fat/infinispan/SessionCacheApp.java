@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018,2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -12,6 +14,8 @@ package com.ibm.ws.session.cache.fat.infinispan;
 
 import java.util.List;
 import java.util.Objects;
+
+import org.junit.Assert;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
 
@@ -47,7 +51,13 @@ public class SessionCacheApp {
     public <T> String sessionPut(String key, T value, List<String> session, boolean createSession) throws Exception {
         String type = value == null ? String.class.getName() : value.getClass().getName();
         String response = invokeServlet("sessionPut&key=" + key + "&value=" + value + "&type=" + type + "&createSession=" + createSession, session);
-        int start = response.indexOf("session id: [") + 13;
+        String searchString = "session id: [";
+        int start = response.indexOf(searchString);
+        if (start == -1) {
+            Assert.fail("Servlet call was not successful: " + response);
+        } else {
+            start = start + searchString.length();
+        }
         return response.substring(start, response.indexOf(']', start));
     }
 

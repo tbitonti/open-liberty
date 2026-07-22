@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2016 IBM Corporation and others.
+ * Copyright (c) 2006, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,6 +18,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLRecoverableException;
@@ -98,15 +102,27 @@ public abstract class WSJdbcWrapper implements InvocationHandler, Wrapper
     void activate() throws SQLException {}
 
     /**
-     * Create an SQLRecoverableException if exception mapping is enabled, or
-     * SQLRecoverableException if exception mapping is disabled.
+     * Create an ObjectClosedException if exception replacement is enabled, or
+     * SQLRecoverableException if exception replacement is disabled.
      * 
      * @param ifc the simple interface name (such as Connection) of the closed wrapper.
      * 
      * @return an exception indicating the object is closed.
      */
-    protected final SQLRecoverableException createClosedException(String ifc) {
+    protected final SQLException createClosedException(String ifc) {
         String message = AdapterUtil.getNLSMessage("OBJECT_CLOSED", ifc);
+        if (dsConfig.get().heritageReplaceExceptions)
+            try {
+                return AccessController.doPrivileged((PrivilegedExceptionAction<SQLException>) () -> {
+                    @SuppressWarnings("unchecked")
+                    Class<? extends SQLException> ObjectClosedException = (Class<? extends SQLException>)
+                        mcf.getHelper().dataStoreHelper.getClass().getClassLoader().loadClass("com.ibm.websphere.ce.cm.ObjectClosedException");
+                    return ObjectClosedException.getConstructor(String.class).newInstance(message);
+                });
+            } catch (PrivilegedActionException x) {
+                FFDCFilter.processException(x.getCause(), WSJdbcWrapper.class.getName(), "122", this);
+                // use the standard exception instead if unable to load
+            }
         return new SQLRecoverableException(message, "08003", 0);
     }
 
@@ -154,6 +170,7 @@ public abstract class WSJdbcWrapper implements InvocationHandler, Wrapper
      * @throws Throwable if something goes wrong.
      */
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        boolean disableForH2 = false;
         // Special case methods are looked up from a map and invoked.
         // Do not trace because this includes some basic things like hashcode and equals.
         // Important special case methods will take care of tracing themselves.
@@ -174,7 +191,6 @@ public abstract class WSJdbcWrapper implements InvocationHandler, Wrapper
         boolean isOperationComplete = false;
 
         // Invoke on the main wrapper if it has the method.
-        DSConfig config = dsConfig.get(); 
         Set<Method> vendorMethods = mcf.vendorMethods; 
 
         if (!vendorMethods.contains(method))
@@ -271,6 +287,8 @@ public abstract class WSJdbcWrapper implements InvocationHandler, Wrapper
                 throw closedX;
             }
 
+            disableForH2 = "org.h2.jdbcx.JdbcDataSource".equals(implObject.getClass().getName()) && "getReference".equals(method.getName());
+
             WSJdbcConnection connWrapper = null; 
             // If configured to do so, attempt to enlist in a transaction or start a new one.
             if (this instanceof WSJdbcObject) {
@@ -302,7 +320,7 @@ public abstract class WSJdbcWrapper implements InvocationHandler, Wrapper
         } // reflection error from invocation attempt on main wrapper
 
         if (tc.isEntryEnabled())
-            Tr.exit(this, tc, toString(proxy, method), result); 
+            Tr.exit(this, tc, toString(proxy, method), disableForH2 ? "******" : result); 
         return result;
     }
 

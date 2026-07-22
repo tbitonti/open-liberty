@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 1997, 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -958,9 +960,10 @@ public abstract class BackedHashMap extends LRUHashMap {
                                 if (cachedSession.deferWriteUntilNextTick > 5) {
                                     if (isTraceOn && LoggingUtil.SESSION_LOGGER_WAS.isLoggable(Level.FINE)) {
                                         LoggingUtil.SESSION_LOGGER_WAS.logp(Level.FINE, methodClassName, methodNames[DO_TIME_BASED_WRITES],
-                                                                            "Failed to write on 5 tries. Force the write to database!! " + " " + id);
+                                                                            "Failed to write on 5 tries. Force the write to persistent store!! " + " " + id);
                                     }
-                                    cachedSession.setLastWriteTime(now);
+                                    // lastWriteTime will be updated by the next WriteInterval after service method is completed.
+                                    // cachedSession.setLastWriteTime(now);
                                     // cachedSession.sync();
                                     cachedSession.flush();
                                     cachedSession.deferWriteUntilNextTick = 0;

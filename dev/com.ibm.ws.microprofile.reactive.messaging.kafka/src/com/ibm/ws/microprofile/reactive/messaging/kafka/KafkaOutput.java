@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -22,6 +24,9 @@ import com.ibm.ws.microprofile.reactive.messaging.kafka.adapter.KafkaAdapterFact
 import com.ibm.ws.microprofile.reactive.messaging.kafka.adapter.KafkaProducer;
 import com.ibm.ws.microprofile.reactive.messaging.kafka.adapter.ProducerRecord;
 
+import io.openliberty.microprofile.reactive.messaging.internal.interfaces.MessageAccess;
+import io.openliberty.microprofile.reactive.messaging.internal.interfaces.MessageAccessProvider;
+
 public class KafkaOutput<K, V> {
 
     private static final TraceComponent tc = Tr.register(KafkaOutput.class);
@@ -30,12 +35,14 @@ public class KafkaOutput<K, V> {
     private volatile boolean running = true;
     private final String channelName;
     private final KafkaAdapterFactory kafkaAdapterFactory;
+    private final MessageAccess messageAccess;
 
     public KafkaOutput(KafkaAdapterFactory kafkaAdapterFactory, String configuredTopic, String channelName, KafkaProducer<K, V> kafkaProducer) {
         this.configuredTopic = configuredTopic;
         this.kafkaProducer = kafkaProducer;
         this.channelName = channelName;
         this.kafkaAdapterFactory = kafkaAdapterFactory;
+        this.messageAccess = MessageAccessProvider.getMessageAccess();
     }
 
     public SubscriberBuilder<Message<V>, Void> getSubscriber() {
@@ -56,10 +63,12 @@ public class KafkaOutput<K, V> {
                     message.ack();
                 } else {
                     reportSendException(e);
+                    messageAccess.nack(message, e);
                 }
             });
         } catch (Exception e) {
             reportSendException(e);
+            messageAccess.nack(message, e);
             throw e;
         }
     }

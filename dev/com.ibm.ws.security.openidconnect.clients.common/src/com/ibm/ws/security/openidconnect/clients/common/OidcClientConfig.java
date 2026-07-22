@@ -1,14 +1,20 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2020 IBM Corporation and others.
+ * Copyright (c) 2013, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
- *     IBM Corporation - initial API and implementation
+ * IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.openidconnect.clients.common;
+
+import java.util.List;
+
+import com.ibm.ws.security.common.structures.SingleTableCache;
 
 public interface OidcClientConfig extends ConvergedClientConfig {
 
@@ -26,11 +32,14 @@ public interface OidcClientConfig extends ConvergedClientConfig {
 
     int getInitialStateCacheCapacity();
 
+    @Override
     String getTrustStoreRef();
 
     public String getAuthFilterId();
 
     public String getValidationMethod();
+
+    public String getJwtAccessTokenRemoteValidation();
 
     public String getHeaderName();
 
@@ -55,9 +64,8 @@ public interface OidcClientConfig extends ConvergedClientConfig {
                                      // change the getGrantType to
                                      // "authorization_code"
 
-    /**
-     * @return
-     */
+    public boolean isInboundPropagationEnabled();
+
     public boolean isOidcclientRequestParameterSupported();
 
     /**
@@ -80,5 +88,27 @@ public interface OidcClientConfig extends ConvergedClientConfig {
     public boolean requireExpClaimForIntrospection();
 
     public boolean requireIatClaimForIntrospection();
+
+    public SingleTableCache getCache();
+
+    public boolean getAccessTokenCacheEnabled();
+
+    public long getAccessTokenCacheTimeout();
+
+    public boolean getServeProtectedResourceMetadata();
+
+    /**
+     * Get the advertised scopes for the protected resource metadata.
+     *
+     * @return A list of scopes, or null if not configured
+     */
+    public List<String> getProtectedResourceMetadataAdvertisedScopes();
+
+    /**
+     * Get the JWT builder reference for the protected resource metadata.
+     *
+     * @return The JWT builder reference ID, or null if not configured
+     */
+    public String getProtectedResourceMetadataJwtBuilderRef();
 
 }

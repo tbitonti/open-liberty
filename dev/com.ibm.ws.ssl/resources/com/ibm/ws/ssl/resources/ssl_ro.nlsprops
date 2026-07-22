@@ -1,9 +1,11 @@
 ###############################################################################
-# Copyright (c) 1997, 2008 IBM Corporation and others.
+# Copyright (c) 1997, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -57,9 +59,7 @@ ssl.init.svcstartfail.CWPKI0007I.useraction=Nu este necesar\u0103 nici o ac\u016
 # -------------------------------------------------------------------------------------------------
 ssl.init.error.CWPKI0008E=CWPKI0008E: A ap\u0103rut o eroare \u00een timpul ini\u0163ializ\u0103rii SSL. Excep\u0163ie: {0}
 ssl.init.error.CWPKI0008E.explanation=O eroare nea\u015fteptat\u0103 a survenit \u00een timpul ini\u0163ializ\u0103rii securit\u0103\u0163ii.
-ssl.init.error.CWPKI0008E.useraction=Aceasta este o eroare general\u0103. \
-C\u0103uta\u0163i mesajele anterioare care sunt legate de ini\u0163ializarea SSL sau de o problem\u0103 de configurare.  \
-Activarea urm\u0103ririi de depanare SSL=all=enabled ar putea furniza informa\u0163ii suplimentare.
+ssl.init.error.CWPKI0008E.useraction=Aceasta este o eroare general\u0103. C\u0103uta\u0163i mesajele anterioare care sunt legate de ini\u0163ializarea SSL sau de o problem\u0103 de configurare.  Activarea urm\u0103ririi de depanare SSL=all=enabled ar putea furniza informa\u0163ii suplimentare.
 # -------------------------------------------------------------------------------------------------
 ssl.init.nullsecobject.CWPKI0009E=CWPKI0009E: Sistemul nu poate crea obiectul de securitate \u00een timpul ini\u0163ializ\u0103rii.
 ssl.init.nullsecobject.CWPKI0009E.explanation=Obiectul de securitate nu poate fi creat din magazie. Aceasta este o eroare intern\u0103. Fi\u015fierul security.xml ar putea fi corupt sau lipse\u015fte. 
@@ -87,9 +87,7 @@ ssl.init.ssldm.init.CWPKI0014I.useraction=Nu este necesar\u0103 nici o ac\u0163i
 # -------------------------------------------------------------------------------------------------
 ssl.stop.error.CWPKI0015E=CWPKI0015E: A ap\u0103rut o eroare \u00een timp ce se oprea componenta SSL. Excep\u0163ie: {0}
 ssl.stop.error.CWPKI0015E.explanation=A ap\u0103rut o eroare nea\u015fteptat\u0103 \u00een timp ce se oprea componenta SSL.
-ssl.stop.error.CWPKI0015E.useraction=Aceasta este o eroare general\u0103. \
-C\u0103uta\u0163i mesajele anterioare care sunt legate de eroare sau de o problem\u0103 de configurare.  \
-Activarea urm\u0103ririi de depanare SSL=all=enabled ar putea furniza informa\u0163ii suplimentare.
+ssl.stop.error.CWPKI0015E.useraction=Aceasta este o eroare general\u0103. C\u0103uta\u0163i mesajele anterioare care sunt legate de eroare sau de o problem\u0103 de configurare.  Activarea urm\u0103ririi de depanare SSL=all=enabled ar putea furniza informa\u0163ii suplimentare.
 # -------------------------------------------------------------------------------------------------
 ssl.expiration.warning.CWPKI0016W=CWPKI0016W: Certificatul cu aliasul {0} din depozitul de chei {1} va expira \u00een {2} zile.
 ssl.expiration.warning.CWPKI0016W.explanation=Un certificat este pe cale s\u0103 expire \u00een depozitul de chei.
@@ -187,7 +185,7 @@ ssl.cannot.find.node.from.hostlist.CWPKI0039E=CWPKI0039E: Nu au putut fi g\u0103
 ssl.cannot.find.node.from.hostlist.CWPKI0039E.explanation=Numele gazd\u0103 trebuie introdus \u00een lista de gazde \u00een acela\u015fi format canonic \u00een care apare \u00een fi\u015fierul serverindex.xml.
 ssl.cannot.find.node.from.hostlist.CWPKI0039E.useraction=Edita\u0163i lista de gazde pentru a o converti la formatul canonic necesar.
 # -------------------------------------------------------------------------------------------------
-ssl.handshake.failure.info.CWPKI0040I=CWPKI0040I: A ap\u0103rut o eroare de dialog de confirmare SSL de la un client securizat.  Semnatarul SSL al serverului trebuie ad\u0103ugat la depozitul de \u00eencrederi al clientului.  O utilitate retrieveSigners este furnizat\u0103 pentru desc\u0103rcarea semnatarilor de pe server dar necesit\u0103 permisiune administrativ\u0103.  Aranja\u0163i cu administratorul dumneavoastr\u0103 ca acest utilitar s\u0103 ruleze pentru a seta mediul securizat \u00eenainte de a rula clientul.  Ca alternativ\u0103, pute\u0163i activa com.ibm.ssl.enableSignerExchangePrompt \u00een ssl.client.props pentru \"DefaultSSLSettings\" pentru a permite acceptarea semnatarului \u00een timpul \u00eencerc\u0103rii de conectare.
+ssl.handshake.failure.info.CWPKI0040I=CWPKI0040I: A ap\u0103rut o eroare de dialog de confirmare SSL de la un client securizat.  Semnatarul SSL al serverului trebuie ad\u0103ugat la depozitul de \u00eencrederi al clientului.  O utilitate retrieveSigners este furnizat\u0103 pentru desc\u0103rcarea semnatarilor de pe server dar necesit\u0103 permisiune administrativ\u0103.  Aranja\u0163i cu administratorul dumneavoastr\u0103 ca acest utilitar s\u0103 ruleze pentru a seta mediul securizat \u00eenainte de a rula clientul.  Ca alternativ\u0103, pute\u0163i activa com.ibm.ssl.enableSignerExchangePrompt \u00een ssl.client.props pentru "DefaultSSLSettings" pentru a permite acceptarea semnatarului \u00een timpul \u00eencerc\u0103rii de conectare.
 ssl.handshake.failure.info.CWPKI0040I.explanation=Semnatarul SSL al serverului trebuie ad\u0103ugat la depozitul de \u00eencrederi al clientului. Semnatarii pot fi desc\u0103rca\u0163i automat de la server sau furniza\u0163i manual \u00een timpul \u00eencerc\u0103rii de conectare.
 ssl.handshake.failure.info.CWPKI0040I.useraction=Fie rula\u0163i utilitarul retrieveSigners, fie activa\u0163i prompul de schimb al semnatarilor.
 # -------------------------------------------------------------------------------------------------
@@ -227,21 +225,20 @@ ssl.config.not.using.fips.CWPKI0049W=CWPKI0049W: UseFIPS este activat, dar confi
 ssl.config.not.using.fips.CWPKI0049W.explanation=De\u015fi s-a activat UseFIPS, algoritmii criptografici aproba\u0163i de FIPS nu pot fi folosi\u0163i \u00eentruc\u00e2t configura\u0163ia SSL nu folose\u015fte un Furnizor JSSE aprobat de FIPS.
 ssl.config.not.using.fips.CWPKI0049W.useraction=Pentru a asigura utilizarea algoritmilor criptografici aproba\u0163i de FIPS, modifica\u0163i configura\u0163ia SSL pentru a utiliza un Furnizor JSSE aprobat de FIPS.
 # -------------------------------------------------------------------------------------------------
-
-
+ssl.san.warning.CWPKI0050W=CWPKI0050W: Certificatul cu alias {0} din keyStore {1} nu are un nume alternativ al subiectului. Verificarea HostName nu este impus\u0103 pentru comunica\u021biile SSL ale controlerului colectiv serverIdentity , replic\u0103 \u0219i membru.
+ssl.san.warning.CWPKI0050W.explanation=Certificatul implicit serverIdentity nu are un nume alternativ de subiect \u00een keyStore . Verificarea de verificare hostName este omis\u0103 pentru certificatele serverIdentity
+ssl.san.warning.CWPKI0050W.useraction=Deschide\u021bi keyStore \u0219i verifica\u021bi numele alternativ al subiectului pe toate certificatele din keyStore . Utiliza\u021bi comenzile genKey \u0219i genKeyController pentru a genera certificate noi pentru a activa verificarea numelui de gazd\u0103.
 ################################################################################
 # Range 100-110 reserved for TrustManager Prompt
 ################################################################################
 # -------------------------------------------------------------------------------------------------
 ssl.trustmanager.signer.prompt.CWPKI0100I=*** PROMP SCHIMBARE SEMNATAR SSL ***
-ssl.trustmanager.signer.prompt.CWPKI0101I=Semnatarul SSL din gazda \u0163int\u0103 nu este g\u0103sit \u00een depozitul de \u00eencredere {0}.\n\
-\n\
-Aici sunt informa\u0163iile semnatarului (verifica\u0163i dac\u0103 valorile digest se potrivesc cu ceea ce este afi\u015fat pe server): 
-ssl.trustmanager.signer.prompt.CWPKI0102I=  DN subiect:    
-ssl.trustmanager.signer.prompt.CWPKI0103I=  DN emitent:     
-ssl.trustmanager.signer.prompt.CWPKI0104I=  Num\u0103r serial: 
-ssl.trustmanager.signer.prompt.CWPKI0105I=  SHA-1 Digest:  
-ssl.trustmanager.signer.prompt.CWPKI0106I=  MD5 Digest:    
+ssl.trustmanager.signer.prompt.CWPKI0101I=Semnatarul SSL din gazda \u0163int\u0103 nu este g\u0103sit \u00een depozitul de \u00eencredere {0}.\n\nAici sunt informa\u0163iile semnatarului (verifica\u0163i dac\u0103 valorile digest se potrivesc cu ceea ce este afi\u015fat pe server): 
+ssl.trustmanager.signer.prompt.CWPKI0102I= DN subiect:    
+ssl.trustmanager.signer.prompt.CWPKI0103I= DN emitent:     
+ssl.trustmanager.signer.prompt.CWPKI0104I= Num\u0103r serial: 
+ssl.trustmanager.signer.prompt.CWPKI0105I= SHA-1 Digest:  
+ssl.trustmanager.signer.prompt.CWPKI0106I= MD5 Digest:    
 ssl.trustmanager.signer.prompt.CWPKI0107I=Ad\u0103uga\u0163i acum semnatarul la trust store? (y/n) 
 # Note to translators: The 2 messages below (ssl.trustmanager.signer.prompt.answer.yes and ssl.trustmanager.signer.prompt.answer.no)
 # should be the first letter of the words that correspond to the answers for "yes" and "no". For example,
@@ -251,7 +248,7 @@ ssl.trustmanager.signer.prompt.answer.yes=y
 ssl.trustmanager.signer.prompt.answer.no=n
 ssl.trustmanager.signer.prompt.answer.full.yes=da
 ssl.trustmanager.signer.prompt.CWPKI0108I=Ar putea fi necesar\u0103 o re\u00eencercare a cererii dac\u0103 socket-ul expir\u0103 \u00een timp ce se a\u015fteapt\u0103 un r\u0103spuns de prompt.  Dac\u0103 re\u00eencercarea este necesar\u0103, re\u0163ine\u0163i c\u0103 promptul nu va fi reafi\u015fat dac\u0103 este introdus (y), ceea ce indic\u0103 c\u0103 semnatarul a fost ad\u0103ugat deja la depozitul de \u00eencrederi.
-ssl.trustmanager.signer.prompt.CWPKI0109I=  Expir\u0103:       
+ssl.trustmanager.signer.prompt.CWPKI0109I= Expir\u0103:       
 
 ################################################################################
 # Range 200-299 reserved for KeySet Messages
@@ -281,10 +278,7 @@ crypto.key.auto.generate.error.CWPKI0204E.useraction=Determina\u0163i cauza pe b
 # Range 300-399 reserved for Signer Util Messages
 ################################################################################
 # -------------------------------------------------------------------------------------------------
-ssl.signer.retrieval.usage.CWPKI0300I=CWPKI0300I: Utiliza\u0163i op\u0163iunile -listRemoteKeyStoreNames \u015fi -listLocalKeyStoreNames pentru a ob\u0163ine o list\u0103 de nume pentru <remoteKeyStoreName> \u015fi respectiv <localKeyStoreName>.\n\
-\n\
-Utilizare: retrieveSigners <remoteKeyStoreName> <localKeyStoreName> [options]\n\
-\        op\u0163iuni: [-profileName <profileName>] [-remoteAlias <aliasFromRemoteStore>] [-localAlias <storeAsAlias>] [-listRemoteKeyStoreNames] [-listLocalKeyStoreNames] [-autoAcceptBootstrapSigner] [-uploadSigners] [-host <host>] [-port <port>] [-conntype <RMI|SOAP>] [-user <user>] [-password <password>] [-trace] [-logfile <filename>] [-replacelog] [-quiet] [-help]\n
+ssl.signer.retrieval.usage.CWPKI0300I=CWPKI0300I: Utiliza\u0163i op\u0163iunile -listRemoteKeyStoreNames \u015fi -listLocalKeyStoreNames pentru a ob\u0163ine o list\u0103 de nume pentru <remoteKeyStoreName> \u015fi respectiv <localKeyStoreName>.\n\nUtilizare: retrieveSigners <remoteKeyStoreName> <localKeyStoreName> [options]\n        op\u0163iuni: [-profileName <profileName>] [-remoteAlias <aliasFromRemoteStore>] [-localAlias <storeAsAlias>] [-listRemoteKeyStoreNames] [-listLocalKeyStoreNames] [-autoAcceptBootstrapSigner] [-uploadSigners] [-host <host>] [-port <port>] [-conntype <RMI|SOAP>] [-user <user>] [-password <password>] [-trace] [-logfile <filename>] [-replacelog] [-quiet] [-help]\n
 ssl.signer.retrieval.usage.CWPKI0300I.explanation=Acest mesaj este pur informativ.
 ssl.signer.retrieval.usage.CWPKI0300I.useraction=Nu este necesar\u0103 nici o ac\u0163iune.
 # -------------------------------------------------------------------------------------------------
@@ -316,7 +310,7 @@ ssl.signer.local.truststore.list.CWPKI0307I=CWPKI0307I: Urm\u0103toarele depozit
 ssl.signer.local.truststore.list.CWPKI0307I.explanation=Acest mesaj este pur informativ.
 ssl.signer.local.truststore.list.CWPKI0307I.useraction=Nu este necesar\u0103 nici o ac\u0163iune.
 # -------------------------------------------------------------------------------------------------
-ssl.signer.add.to.local.truststore.CWPKI0308I=CWPKI0308I: Sistemul adaug\u0103 aliasul semnatar {0} la depozitul de chei local {1} cu urm\u0103torul digest SHA: {2}
+ssl.signer.add.to.local.truststore.CWPKI0308I=CWPKI0308I: Sistemul adaug\u0103 semnatarul alias {0} la depozitul local de chei {1} cu urm\u0103torul digest {3} : {2}
 ssl.signer.add.to.local.truststore.CWPKI0308I.explanation=Acest mesaj este pur informativ.
 ssl.signer.add.to.local.truststore.CWPKI0308I.useraction=Nu este necesar\u0103 nici o ac\u0163iune.
 # -------------------------------------------------------------------------------------------------
@@ -345,8 +339,8 @@ ssl.signer.general.error.CWPKI0314E.explanation=Verifica\u0163i linia de comand\
 ssl.signer.general.error.CWPKI0314E.useraction=Verifica\u0163i ajutorul de utilizare \u015fi re\u00eencerca\u0163i dupa ce a\u0163i corectat op\u0163iunea.
 # -------------------------------------------------------------------------------------------------
 ssl.no.properties.error.CWPKI0315E=CWPKI0315E: Propriet\u0103\u0163ile configura\u0163iei SSL sunt nule. Ar putea fi o problem\u0103 la parsarea configura\u0163iei de client SSL.
-ssl.no.properties.error.CWPKI0315E.explanation=Nu sunt setate propriet\u0103\u0163ile configura\u0163iei SSL.  Proprietatea \'com.ibm.SSL.ConfigURL\' s-ar putea s\u0103 nu fie setat\u0103 corespunz\u0103tor, sau s-ar putea s\u0103 fi fost o eroare la parsarea configura\u0163iei de client SSL.
-ssl.no.properties.error.CWPKI0315E.useraction=Verifica\u0163i dac\u0103 fi\u015fierul ssl.client.props are erori \u015fi asigura\u0163i-v\u0103 c\u0103 \'com.ibm.SSL.ConfigURL\' este setat corespunz\u0103tor.
+ssl.no.properties.error.CWPKI0315E.explanation=Nu sunt setate propriet\u0103\u0163ile configura\u0163iei SSL.  Proprietatea 'com.ibm.SSL.ConfigURL' s-ar putea s\u0103 nu fie setat\u0103 corespunz\u0103tor, sau s-ar putea s\u0103 fi fost o eroare la parsarea configura\u0163iei de client SSL.
+ssl.no.properties.error.CWPKI0315E.useraction=Verifica\u0163i dac\u0103 fi\u015fierul ssl.client.props are erori \u015fi asigura\u0163i-v\u0103 c\u0103 'com.ibm.SSL.ConfigURL' este setat corespunz\u0103tor.
 
 ################################################################################
 # Range 400-599 reserved for CA Pure Client Util and Impls
@@ -468,7 +462,7 @@ ssl.ca.client.invalid.custom.attrs.useraction=Verifica\u0163i ajutorul de utiliz
 
 
 #  CA CMP Client Impl
-ssl.ca.cmp.impl.invalid.attribute=CWPKI0450E:  Atributul {0} lipse\u015fte sau este de un tip incorect.  Tipul corect este {1}.
+ssl.ca.cmp.impl.invalid.attribute=CWPKI0450E: \ Atributul {0} lipse\u015fte sau este de un tip incorect.  Tipul corect este {1}.
 ssl.ca.cmp.impl.invalid.attribute.explanation=Atributul parsat la implementare este nul sau nu este de tipul corect.
 ssl.ca.cmp.impl.invalid.attribute.useraction=Asigura\u0163i-v\u0103 c\u0103 atributul necesar este transmis implement\u0103rii.
 # -------------------------------------------------------------------------------------------------
@@ -476,11 +470,11 @@ ssl.ca.cmp.impl.invalid.certificate.request=CWPKI0451E: Cererea de certificat es
 ssl.ca.cmp.impl.invalid.certificate.request.explanation=\u015eirul de octet al cererii de certificat este nul.
 ssl.ca.cmp.impl.invalid.certificate.request.useraction=Verifica\u0163i dac\u0103 un \u015fir de octet valid al cererii de certificat este transmis implement\u0103rii.
 # -------------------------------------------------------------------------------------------------
-ssl.ca.cmp.impl.invalid.revocation.reason=CWPKI0452E:  Parola de revocare pentru aceast\u0103 cerere este nul\u0103.
+ssl.ca.cmp.impl.invalid.revocation.reason=CWPKI0452E: \ Parola de revocare pentru aceast\u0103 cerere este nul\u0103.
 ssl.ca.cmp.impl.invalid.revocation.reason.explanation=\u015eirul de octet al parolei de revocare pentru aceast\u0103 cerere este nul.
 ssl.ca.cmp.impl.invalid.revocation.reason.useraction=Verifica\u0163i dac\u0103 un \u015fir de octet valid al parolei de revocare este transmis implement\u0103rii.
 # -------------------------------------------------------------------------------------------------
-ssl.ca.cmp.impl.general.error=CWPKI0453E:  A ap\u0103rut urm\u0103toarea excep\u0163ie nea\u015fteptat\u0103: {0}
+ssl.ca.cmp.impl.general.error=CWPKI0453E: \ A ap\u0103rut urm\u0103toarea excep\u0163ie nea\u015fteptat\u0103: {0}
 ssl.ca.cmp.impl.general.error.explanation=CMSG0001
 ssl.ca.cmp.impl.general.error.useraction=CMSG0002
 # -------------------------------------------------------------------------------------------------
@@ -640,9 +634,13 @@ ssl.client.handshake.error.CWPKI0823E=CWPKI0823E: E\u015eUARE DIALOG DE CONFIRMA
 ssl.client.handshake.error.CWPKI0823E.explanation=A survenit o eroare \u00een timpul dialogului de confirmare SSL.  Ar putea fi necesar un export/import semnatar de la gazda destina\u0163ie la TrustStore client.
 ssl.client.handshake.error.CWPKI0823E.useraction=Revede\u0163i mesajul extins al erorii de la managerul de \u00eencrederi pentru determinarea schimb\u0103rii necesare \u00eentre configura\u0163ia SSL destina\u0163ie \u015fi configura\u0163ia SSL a clientului.
 # -------------------------------------------------------------------------------------------------
-ssl.client.handshake.error.CWPKI0824E=CWPKI0824E: E\u015eUARE DIALOG DE CONFIRMARE SSL: Eroare de verificare nume de gazd\u0103 la conectarea la gazda [{0}].  Numele de gazd\u0103 utilizat pentru accesarea serverului nu se potrive\u015fte cu informa\u0163iile SubjectDN sau Subject Alternative Name ale certificatului serverului.  Mesajul extins al erorii de la excep\u0163ia dialogului de confirmare SSL este: [{1}].
-ssl.client.handshake.error.CWPKI0824E.explanation=A survenit o eroare \u00een timpul dialogului de confirmare SSL.  Eeste activat\u0103 verificarea numelui de gazd\u0103 \u015fi identitatea serverului nu poate fi verificat\u0103.  Numele de gazd\u0103 utilizat pentru accesarea serverului nu se potrive\u015fte cu informa\u0163iile SubjectDN sau Subject Alternative Name ale certificatului serverului.
+ssl.client.handshake.error.CWPKI0824E=CWPKI0824E: E\u015eUARE DIALOG DE CONFIRMARE SSL: Eroare de verificare nume de gazd\u0103 la conectarea la gazda [{0}].  Numele de gazd\u0103 folosit pentru a accesa serverul nu se potrive\u0219te cu certificatul de server [ {1} ].  Mesajul de eroare extins de la excep\u021bia SSL handshake este: [ {2} ].
+ssl.client.handshake.error.CWPKI0824E.explanation=O eroare a survenit \u00een timpul dialogului de confirmare SSL.  Eeste activat\u0103 verificarea numelui de gazd\u0103 \u015fi identitatea serverului nu poate fi verificat\u0103.  Numele de gazd\u0103 folosit pentru a accesa serverul nu se potrive\u0219te cu informa\u021biile Subject Alternative Name sau SubjectDN ale certificatului de server.
 ssl.client.handshake.error.CWPKI0824E.useraction=C\u00e2nd este activat\u0103 verificarea numelui de gazd\u0103 serverul care se acceseaz\u0103 trebuie s\u0103 fie setat cu un certificat care s\u0103 con\u0163in\u0103 informa\u0163iile corespunz\u0103toare necesare verific\u0103rii identit\u0103\u0163ii serverului.
+# -------------------------------------------------------------------------------------------------
+ssl.hnv.disabled.warning.CWPKI0063W=CWPKI0063W: Verificarea numelui de gazd\u0103 este dezactivat\u0103 pentru {0} . Conexiunile TLS/SSL nu verific\u0103 identit\u0103\u021bile serverului pentru a verifica dac\u0103 clientul comunic\u0103 cu serverul corect.
+ssl.hnv.disabled.warning.CWPKI0063W.explanation=Verificarea numelui de gazd\u0103 trebuie s\u0103 fie activat\u0103 pentru a se asigura c\u0103 numele de gazd\u0103 din adresa URL la care se conecteaz\u0103 clientul se potrive\u0219te cu numele de gazd\u0103 din certificatul pe care serverul \u00eel trimite \u00eenapoi \u00een timpul comunic\u0103rii TLS/SSL.
+ssl.hnv.disabled.warning.CWPKI0063W.useraction=Activa\u021bi verificarea numelui de gazd\u0103 set\u00e2nd proprietatea personalizat\u0103 de securitate com.ibm.ssl.verifyHostname la true.
 # -------------------------------------------------------------------------------------------------
 ssl.cacerts.error.CWPKI0825W=CWPKI0825W: Atributul trustDefaultCerts este activat, dar depozitul de \u00eencrederi implicit a e\u015fuat s\u0103 se ini\u0163ializeze. din cauz\u0103 c\u0103 depozitul de \u00eencrederi implicit nu s-a ini\u0163ializat, este folosit doar depozitul de \u00eencrederi care este configurat de configura\u0163ia SSL {0}. Excep\u0163ia returnat\u0103 este: {1}. 
 ssl.cacerts.error.CWPKI0825W.explanation=Depozitul de \u00eencrederi implicit nu s-a ini\u0163ializat deoarece nu a putut fi extras de la Trust Manager. Depozitul de \u00eencrederi implicit nu este folosit pentru \u00eencredere. Este folosit\u0103 doar configura\u0163ia SSL configurat\u0103.
@@ -667,4 +665,49 @@ ssl.update.certificate.error.useraction=Asigura\u0163i-v\u0103 c\u0103 loca\u016
 ssl.certificate.add.CWPKI0830I=CWPKI0830I: Certificatul cu SubjectDN {0} de la variabila de mediu {1} este ad\u0103ugat la depozitul de chei {2}.
 ssl.certificate.add.CWPKI0830I.explanation=Un certificat a fost extras dintr-o variabil\u0103 de mediu din configura\u0163ie \u015fi este ad\u0103ugat la fi\u015fierul depozit de chei.
 ssl.certificate.add.CWPKI0830I.useraction=Nicio ac\u0163iune necesar\u0103.
+# -------------------------------------------------------------------------------------------------
+ssl.protocol.error.CWPKI0831E=CWPKI0831E: Protocolul SSL/TLS {0} nu poate fi utilizat. Eroarea de excedent este: {1} 
+ssl.protocol.error.CWPKI0831E.explanation=Protocolul furnizat nu poate fi utilizat. Apare o eroare la \u00eencercarea de a ob\u021bine o instan\u021b\u0103 SSLContext cu valoarea de protocol. 
+ssl.protocol.error.CWPKI0831E.useraction=Asigura\u021bi-v\u0103 c\u0103 respectiva configura\u021bie utilizeaz\u0103 valori de protocol SSL/TLS valide pentru acest JVM.
+# -------------------------------------------------------------------------------------------------
+ssl.protocol.error.CWPKI0832E=CWPKI0832E: Valoarea {0} a protocolului SSL/TLS furnizat\u0103 nu poate fi utilizat\u0103 pentru configurarea unei liste de valori ale protocoalelor SSL.
+ssl.protocol.error.CWPKI0832E.explanation=Valoarea protocolului nu este valid\u0103 \u00eentr-o grupare de liste de protocol.
+ssl.protocol.error.CWPKI0832E.useraction=Asigura\u021bi-v\u0103 c\u0103 lista protocoalelor SSL/TLS include numai valori adecvate pentru o list\u0103 de protocol.
+# ------------------------------------------------------------------------------------------------- 
+ssl.protocol.error.CWPKI0833E=CWPKI0833E: Configura\u021bia SSL/TLS {0} con\u021bine o eroare care \u00eempiedic\u0103 crearea configura\u021biei SSL/TLS. 
+ssl.protocol.error.CWPKI0833E.explanation=Atributele de configurare SSL con\u021bin o eroare care previne crearea SSLContext. 
+ssl.protocol.error.CWPKI0833E.useraction=Asigura\u021bi-v\u0103 c\u0103 atributele de configurare SSL sunt corecte. Revizui\u021bi jurnalele pentru erori suplimentare asociate cu atributele de configurare SSL.
+# -------------------------------------------------------------------------------------------------
+ssl.config.error.CWPKI0834E=CWPKI0834E: Configura\u021bia SSL/TLS {0} nu poate fi setat\u0103 drept configura\u021bie SSL implicit\u0103 a procesului din cauza unei erori.
+ssl.config.error.CWPKI0834E.explanation=Configura\u021bia SSL/TLS specificat\u0103 con\u021bine o eroare care nu i-a permis s\u0103 fie setat\u0103 drept configura\u021bie SSL implicit\u0103 a procesului. 
+ssl.config.error.CWPKI0834E.useraction=Asigura\u021bi-v\u0103 c\u0103 atributele de configurare SSL sunt corecte. Revizui\u021bi jurnalele pentru erori asociate cu atributele de configurare SSL.
+# -------------------------------------------------------------------------------------------------
+ssl.config.error.CWPKI0835E=CWPKI0835E: \ Nu poate fi creat\u0103 o configura\u021bie SSL/TLS pentru conexiunea de intrare deoarece nu a fost creat un manager de chei.
+ssl.config.error.CWPKI0835E.explanation=O eroare \u00een configura\u021bie nu a permis crearea managerului de chei.
+ssl.config.error.CWPKI0835E.useraction=Asigura\u021bi-v\u0103 c\u0103 atributele de configurare SSL sunt corecte. Revizui\u021bi jurnalele pentru erori asociate cu atributele de configurare SSL.
+# -------------------------------------------------------------------------------------------------
+ssl.config.error.CWPKI0836E=CWPKI0836E: Nu poate fi creat\u0103 o configura\u021bie SSL/TLS deoarece nu au fost crea\u021bi managerii de chei \u0219i managerii de autorizare.
+ssl.config.error.CWPKI0836E.explanation=O eroare \u00een configura\u021bie a \u00eempiedicat crearea managerilor de chei \u0219i a managerilor de autorizare.
+ssl.config.error.CWPKI0836E.useraction=Asigura\u021bi-v\u0103 c\u0103 atributele de configurare SSL sunt corecte. Revizui\u021bi jurnalele pentru erori asociate cu atributele de configurare SSL.
+# -------------------------------------------------------------------------------------------------
+ssl.enabledCiphers.mixed.mode.error=CWPKI0837E: Atributul \u201e enabledCiphers \u201d din fi\u0219ierul de configurare \u201e SSL \u201d [ {1} ] con\u021bine at\u00e2t intr\u0103ri statice de criptare, c\u00e2t \u0219i intr\u0103ri de filtrare (\u201e+\u201d sau \u201e-\u201d) din fi\u0219ierul [ {0} ]. Utiliza\u021bi fie nume de algoritmi de criptare statice (de exemplu, \u201e TLS_AES_128_GCM_SHA256 TLS_AES_256_GCM_SHA384 \u201d), fie modificatori de filtrare (de exemplu, \u201e +TLS_AES_128_GCM_SHA256 -SSL_RSA*\u201d), dar nu ambele. Configura\u021bia este nevalid\u0103 \u0219i se utilizeaz\u0103 lista efectiv\u0103 a JDK.
+ssl.enabledCiphers.mixed.mode.error.explanation=Atributul ` enabledCiphers ` nu poate combina intr\u0103ri de criptare statice cu intr\u0103ri de filtrare care \u00eencep cu \u201e+\u201d sau \u201e-\u201d. Intr\u0103rile statice \u00eenlocuiesc \u00een totalitate lista efectiv\u0103 a JDK, \u00een timp ce intr\u0103rile de filtrare modific\u0103 lista efectiv\u0103 a JDK. Nu este acceptat\u0103 combinarea celor dou\u0103 moduri.
+ssl.enabledCiphers.mixed.mode.error.useraction=Actualiza\u021bi atributul \u201e enabledCiphers \u201d pentru a utiliza fie numai nume de algoritmi de criptare statici, fie numai modificatori de filtrare. Pentru modul static, enumera\u021bi numele algoritmilor de criptare, desp\u0103r\u021bite prin spa\u021bii. \u00cen modul de filtrare, folosi\u021bi \u201e+\u201d pentru a ad\u0103uga algoritmi de criptare \u0219i \u201e-\u201d pentru a elimina algoritmi de criptare din lista activ\u0103 a JDK.
+# -------------------------------------------------------------------------------------------------
+ssl.enabledCiphers.wildcard.in.plus.error=CWPKI0840E: Atributul \u201e enabledCiphers \u201d din configura\u021bia \u201e SSL \u201d [ {1} ] con\u021bine un caracter general (*) \u00eentr-o intrare de tip \u201e+\u201d (ad\u0103ugare) din [ {0} ]. Caracterele joker sunt permise doar \u00een intr\u0103rile de tip \u201e-\u201d (eliminare). Configura\u021bia este nevalid\u0103 \u0219i se utilizeaz\u0103 lista efectiv\u0103 a JDK.
+ssl.enabledCiphers.wildcard.in.plus.error.explanation=Atributul \u201e enabledCiphers \u201d con\u021bine o intrare \u201e+\u201d cu un model de caractere generice (de exemplu, \u201e+TLS_ECDHE*\u201d). Caracterele joker sunt acceptate doar \u00een intr\u0103rile de tip \u201e-\u201d (eliminare) pentru a identifica \u0219i elimina mai multe cifre. \u00cen intr\u0103rile de tip \u201e+\u201d, trebuie s\u0103 specifica\u021bi denumirile exacte ale algoritmilor de criptare.
+ssl.enabledCiphers.wildcard.in.plus.error.useraction=Actualiza\u021bi atributul \u201e enabledCiphers \u201d pentru a elimina caracterele generice din intr\u0103rile \u201e+\u201d. Folosi\u021bi denumirile exacte ale algoritmilor de criptare \u00een intr\u0103rile de tip \u201e+\u201c (de exemplu, \u201e +TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA \u201c). Caracterele generice pot fi utilizate numai \u00een intr\u0103rile de tip \u201e-\u201d (de exemplu, \u201e-TLS_ECDHE*\u201d).
+# -------------------------------------------------------------------------------------------------
+ssl.enabledCiphers.wildcard.in.static.error=CWPKI0841E: Atributul \u201e enabledCiphers \u201d din configura\u021bia \u201e SSL \u201d [ {1} ] con\u021bine un caracter general (*) \u00eentr-o intrare static\u0103 din [ {0} ]. Caracterele joker sunt permise doar \u00een intr\u0103rile de tip \u201e-\u201d (eliminare) atunci c\u00e2nd se utilizeaz\u0103 modul de filtrare. Configura\u021bia este nevalid\u0103 \u0219i se utilizeaz\u0103 lista efectiv\u0103 a JDK.
+ssl.enabledCiphers.wildcard.in.static.error.explanation=Atributul \u201e enabledCiphers \u201d con\u021bine o intrare static\u0103 (f\u0103r\u0103 prefixul \u201e+\u201d sau \u201e-\u201d) cu un model de caractere generice (de exemplu, \u201e*TLS_RSA*\u201d). Caracterele joker sunt acceptate doar \u00een intr\u0103rile de tip \u201e-\u201c (eliminare) atunci c\u00e2nd se utilizeaz\u0103 modul de filtrare cu \u201e+\u201c sau \u201e-\u201c. \u00cen modul static, trebuie s\u0103 specifica\u021bi denumirile exacte ale algoritmilor de criptare, f\u0103r\u0103 caractere joker.
+ssl.enabledCiphers.wildcard.in.static.error.useraction=Actualiza\u021bi atributul \u201e enabledCiphers \u201d pentru a utiliza numele exacte ale algoritmilor de criptare f\u0103r\u0103 caractere generice \u00een modul static sau pentru a trece la modul de filtrare folosind prefixele \u201e+\u201d \u0219i \u201e-\u201d. Pentru modul de filtrare, utiliza\u021bi intr\u0103ri de tip \u201e-\u201d cu caractere generice (de exemplu, \u201e-TLS_RSA*\u201d) pentru a elimina tiparele de criptare din lista efectiv\u0103 a JDK.
+# -------------------------------------------------------------------------------------------------
+ssl.securitylevel.ignored.CWPKI0838I=CWPKI0838I: Atributul \u201e securityLevel \u201d este setat \u00een aliasul de configurare \u201e SSL \u201d [ {0} ], dar nu este utilizat. \u00cen schimb, se utilizeaz\u0103 lista JDK efectiv\u0103.
+ssl.securitylevel.ignored.CWPKI0838I.explanation=Valoarea specificat\u0103 pentru atributul \u201e securityLevel \u201d este ignorat\u0103, deoarece acest atribut nu mai este utilizat. Se utilizeaz\u0103 seturile de algoritmi de criptare JDK active, care pot fi suprascrise prin atributul \u201e enabledCiphers \u201d.
+ssl.securitylevel.ignored.CWPKI0838I.useraction=Elimina\u021bi atributul \u201e securityLevel \u201d din configura\u021bia serverului.
+# -------------------------------------------------------------------------------------------------
+# The securityLevel attribute is set to LOW or MEDIUM
+ssl.weak.cipher.spec.CWPKI0839W=CWPKI0839W: Specifica\u021bia de criptare slab\u0103 pentru atributul \u201e securityLevel \u201d este ignorat\u0103, utiliz\u00e2ndu-se \u00een schimb lista efectiv\u0103 din JDK. Utilizatorii pot activa algoritmii de criptare de care au nevoie folosind pachetul \u201e java.security \u201d.
+ssl.weak.cipher.spec.CWPKI0839W.explanation=Setarea atributului \u201e securityLevel \u201d la \u201eLOW\u201d sau \u201eMEDIUM\u201d poate reduce nivelul de securitate al conexiunilor SSL / TLS, deoarece pot fi negociate suite de criptare cu algoritmi de criptare mai slabi sau cu lungimi mai mici ale cheilor.
+ssl.weak.cipher.spec.CWPKI0839W.useraction=Verifica\u021bi configura\u021bia fi\u0219ierului \u201e enabledCiphers \u201d. Utiliza\u021bi specifica\u021bii de criptare mai puternice sau enumera\u021bi \u00een mod explicit seturi de algoritmi de criptare puternice. Evita\u021bi s\u0103 seta\u021bi atributul \u201e securityLevel \u201d la \u201eLOW\u201d sau \u201eMEDIUM\u201d, cu excep\u021bia cazului \u00een care compatibilitatea este un factor important.
 # -------------------------------------------------------------------------------------------------

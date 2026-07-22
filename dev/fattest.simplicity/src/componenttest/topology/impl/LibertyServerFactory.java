@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2015 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package componenttest.topology.impl;
 
@@ -19,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.prefs.Preferences;
 
@@ -49,7 +49,7 @@ public class LibertyServerFactory {
     /**
      * This method will return a newly created LibertyServer instance with the specified server name
      *
-     * @return A stopped Liberty Server instance
+     * @return           A stopped Liberty Server instance
      * @throws Exception
      */
     public static LibertyServer getLibertyServer(String serverName) {
@@ -59,9 +59,9 @@ public class LibertyServerFactory {
     /**
      * This method will return a newly created LibertyServer instance with the specified server name
      *
-     * @param serverName The name of the server
-     * @param testClassName The name of the class to associate with the server.
-     * @return A stopped Liberty Server instance
+     * @param  serverName    The name of the server
+     * @param  testClassName The name of the class to associate with the server.
+     * @return               A stopped Liberty Server instance
      */
     public static LibertyServer getLibertyServer(String serverName, Class<?> testClass) {
         return getLibertyServer(serverName, null, true, false, false, testClass.getCanonicalName());
@@ -72,7 +72,7 @@ public class LibertyServerFactory {
      * Note if the ignoreCache parameter is set to false, then the returned LibertyServer instance may
      * not be newly-created.
      *
-     * @return A stopped Liberty Server instance
+     * @return           A stopped Liberty Server instance
      * @throws Exception
      */
     public static LibertyServer getLibertyServer(String serverName, Bootstrap bootstrap, boolean ignoreCache) {
@@ -157,7 +157,7 @@ public class LibertyServerFactory {
                     } else {
                         Log.info(LibertyServerFactory.class, "getLibertyServer", "using supplied bootstrapping.properties");
                     }
-                    ls = new LibertyServer(serverName, bootstrap, ignoreCache, usePreviouslyConfigured, windowsServiceOption);
+                    ls = LibertyServerFactoryDelegate.createLibertyServer(serverName, bootstrap, ignoreCache, usePreviouslyConfigured, windowsServiceOption);
 
                     if (!usePreviouslyConfigured) {
                         if (installServerFromSampleJar) {
@@ -169,12 +169,12 @@ public class LibertyServerFactory {
                             }
                         } else {
                             //copy the published FAT server content for the test
-                            recursivelyCopyDirectory(ls.getMachine(), new LocalFile(ls.getPathToAutoFVTNamedServer()), new RemoteFile(ls.getMachine(), ls.getServerRoot()));
+                            recursivelyCopyDirectory(ls.getMachine(), new LocalFile(ls.getPathToAutoFVTNamedServer()), ls.getMachine().getFile(ls.getServerRoot()));
 
                             //copy any shared content
                             LocalFile sharedFolder = new LocalFile(LibertyServer.PATH_TO_AUTOFVT_SHARED);
                             if (sharedFolder.exists())
-                                recursivelyCopyDirectory(ls.getMachine(), sharedFolder, new RemoteFile(ls.getMachine(), ls.getServerSharedPath()));
+                                recursivelyCopyDirectory(ls.getMachine(), sharedFolder, ls.getMachine().getFile(ls.getServerSharedPath()));
                         }
 
                         RemoteFile[] autoInstall = applicationsToVerify(ls);
@@ -201,7 +201,7 @@ public class LibertyServerFactory {
             }
         } catch (Exception e) {
             Log.error(c, "getLibertyServer", e);
-            throw new RuntimeException("Error getting server", e);
+            throw new RuntimeException("Error getting server " + serverName, e);
         }
     }
 
@@ -220,7 +220,7 @@ public class LibertyServerFactory {
                 public void write(int i) throws IOException {}
             }));
             try {
-                Long time = new Long(System.currentTimeMillis());
+                Long time = System.currentTimeMillis();
                 String unique = time.toString();
                 Preferences prefs = Preferences.systemRoot();
 
@@ -263,7 +263,7 @@ public class LibertyServerFactory {
     /**
      * This method will return a newly created LibertyServer instance with the specified server name
      *
-     * @return A started Liberty Server instance
+     * @return           A started Liberty Server instance
      * @throws Exception
      */
     public static LibertyServer getStartedLibertyServer(String serverName) {
@@ -282,11 +282,12 @@ public class LibertyServerFactory {
      * server XML, that includes fatTestPorts.xml and the sample server.xml. The bootstrap.properties will be exchanged with a default properties file that includes the
      * "../testports.properties" file and the sample properties file. The server will then be added to the list of known servers and returned.
      *
-     * @param serverName The name of the server to install, must be matched by a local file named serverName.jar in the lib/LibertyFATTestFiles folder (populated from publish/files
-     *            in a FAT test project)
-     * @param bootstrap The bootstrap to use on the server
-     * @param ignoreCache <code>false</code> if we should load a cached server if available
-     * @return The server
+     * @param  serverName  The name of the server to install, must be matched by a local file named serverName.jar in the lib/LibertyFATTestFiles folder (populated from
+     *                         publish/files
+     *                         in a FAT test project)
+     * @param  bootstrap   The bootstrap to use on the server
+     * @param  ignoreCache <code>false</code> if we should load a cached server if available
+     * @return             The server
      *
      */
     public static LibertyServer installSampleServer(String serverName, Bootstrap bootstrap, boolean ignoreCache) {
@@ -307,7 +308,7 @@ public class LibertyServerFactory {
      * This will happen in the case of FATSuite being the entry point with
      * multiple test classes.
      *
-     * @param testClassName, the name of the test class for which servers should be tidied
+     * @param  testClassName, the name of the test class for which servers should be tidied
      * @throws Exception
      */
     public static void tidyAllKnownServers(String testClassName) throws Exception {
@@ -343,7 +344,7 @@ public class LibertyServerFactory {
      * This method should not be ran by the user, it is ran by the JUnit runner at the end of each test
      * to recover the servers.
      *
-     * @param testClassName the name of the FAT test class to recover known servers for
+     * @param  testClassName the name of the FAT test class to recover known servers for
      * @throws Exception
      */
     public static void recoverAllServers(String testClassName) throws Exception {
@@ -405,35 +406,35 @@ public class LibertyServerFactory {
     }
 
     private static void addAppsToVerificationList(RemoteFile[] files, LibertyServer ls) throws Exception {
+        for (RemoteFile f : files) {
+            addAppsToVerificationList(f.getName(), ls);
+        }
+    }
+
+    public static void addAppsToVerificationList(String fileName, LibertyServer ls) throws Exception {
         try {
-            for (RemoteFile f : files) {
-                try {
-                    String onlyAppName = f.getName();
-                    if (onlyAppName.endsWith(".xml")) {
-                        onlyAppName = onlyAppName.substring(0, onlyAppName.length() - 4);
-                    }
-                    if (onlyAppName.endsWith(".ear") || onlyAppName.endsWith(".eba") || onlyAppName.endsWith(".war") ||
-                        onlyAppName.endsWith(".jar") || onlyAppName.endsWith(".rar") || onlyAppName.endsWith(".zip") ||
-                        onlyAppName.endsWith(".esa")) {
-                        onlyAppName = onlyAppName.substring(0, onlyAppName.length() - 4);
-                    }
-                    if (onlyAppName.endsWith(".js")) {
-                        onlyAppName = onlyAppName.substring(0, onlyAppName.length() - 3);
-                    }
-                    if (onlyAppName.endsWith(".jsar")) {
-                        onlyAppName = onlyAppName.substring(0, onlyAppName.length() - 5);
-                    }
-                    Log.info(c, "addAppsToVerificationList", "Adding " + onlyAppName + " to the startup verification list for server " + ls.getServerName());
-                    ls.autoInstallApp(onlyAppName);
-                } catch (TopologyException e) {
-                    //Most likely an error with installing a directory so log and carry on
-                    Log.error(c, "installApplications", e);
-                } catch (Exception e) {
-                    //Not a 'can't install a directory' Exception so throw
-                    throw e;
-                }
+            String onlyAppName = fileName;
+            if (onlyAppName.endsWith(".xml")) {
+                onlyAppName = onlyAppName.substring(0, onlyAppName.length() - 4);
             }
+            if (onlyAppName.endsWith(".ear") || onlyAppName.endsWith(".eba") || onlyAppName.endsWith(".war") ||
+                onlyAppName.endsWith(".jar") || onlyAppName.endsWith(".rar") || onlyAppName.endsWith(".zip") ||
+                onlyAppName.endsWith(".esa")) {
+                onlyAppName = onlyAppName.substring(0, onlyAppName.length() - 4);
+            }
+            if (onlyAppName.endsWith(".js")) {
+                onlyAppName = onlyAppName.substring(0, onlyAppName.length() - 3);
+            }
+            if (onlyAppName.endsWith(".jsar")) {
+                onlyAppName = onlyAppName.substring(0, onlyAppName.length() - 5);
+            }
+            Log.info(c, "addAppsToVerificationList", "Adding " + onlyAppName + " to the startup verification list for server " + ls.getServerName());
+            ls.autoInstallApp(onlyAppName);
+        } catch (TopologyException e) {
+            //Most likely an error with installing a directory so log and carry on
+            Log.error(c, "installApplications", e);
         } catch (Exception e) {
+            //Not a 'can't install a directory' Exception so throw
             Log.error(c, "installApplications", e);
             throw e;
         }
@@ -448,7 +449,7 @@ public class LibertyServerFactory {
         for (String l : logs) {
             Log.finer(c, "recursivelyCopyDirectory", "Getting: " + l);
             LocalFile toCopy = new LocalFile(localDirectory, l);
-            RemoteFile toReceive = new RemoteFile(machine, destination, l);
+            RemoteFile toReceive = machine.getFile(destination, l);
             if (toCopy.isDirectory()) {
                 // Recurse
                 recursivelyCopyDirectory(machine, toCopy, toReceive);
@@ -500,7 +501,7 @@ public class LibertyServerFactory {
         LocalFile backup = getServerBackupZip(server);
 
         // Server is in the build.image/wlp/usr/servers dir
-        RemoteFile usrServersDir = new RemoteFile(m, server.getServerRoot()).getParentFile(); //should be /wlp/usr/servers
+        RemoteFile usrServersDir = m.getFile(server.getServerRoot()).getParentFile(); //should be /wlp/usr/servers
 
         if (backup.exists()) {
             return;
@@ -510,7 +511,9 @@ public class LibertyServerFactory {
         String workDir = usrServersDir.getAbsolutePath();
         String command = server.getMachineJavaJarCommandPath();
         String[] param = { "cMf", backup.getAbsolutePath(), server.getServerName() };
-        ProgramOutput o = m.execute(command, param, workDir);
+        Properties properties = new Properties();
+        server.setLibPathForJava8onZOS(JavaInfo.forServer(server), properties);
+        ProgramOutput o = m.execute(command, param, workDir, properties);
         if (o.getReturnCode() == 0) {
             Log.finer(c, METHOD, "Successfully backed up server: " + server.getServerName() + " to zip file: " + backup.getAbsolutePath());
         } else {
@@ -527,7 +530,7 @@ public class LibertyServerFactory {
     private static void postTestRecover(LibertyServer server) throws Exception {
         final String METHOD = "postTestRecover";
         Machine m = server.getMachine();
-        RemoteFile usrServersDir = new RemoteFile(m, server.getServerRoot()).getParentFile(); //should be /wlp/usr/servers
+        RemoteFile usrServersDir = m.getFile(server.getServerRoot()).getParentFile(); //should be /wlp/usr/servers
 
         LocalFile backup = getServerBackupZip(server);
         if (!backup.exists()) {
@@ -536,7 +539,7 @@ public class LibertyServerFactory {
         }
         Log.finer(c, METHOD, "Recovering Server: " + server.getServerName() + " from zip file: " + backup.getAbsolutePath());
 
-        RemoteFile serverFolder = new RemoteFile(m, server.getServerRoot());
+        RemoteFile serverFolder = m.getFile(server.getServerRoot());
         if (!!!serverFolder.delete()) {
             Log.warning(c, "Unable to delete old serverFolder. Recovery failed!");
             // retry up to 5 seconds
@@ -563,7 +566,9 @@ public class LibertyServerFactory {
         String workDir = usrServersDir.getAbsolutePath();
         String command = server.getMachineJavaJarCommandPath();
         String[] param = { "xf", backup.getAbsolutePath() };
-        ProgramOutput o = m.execute(command, param, workDir);
+        Properties properties = new Properties();
+        server.setLibPathForJava8onZOS(JavaInfo.forServer(server), properties);
+        ProgramOutput o = m.execute(command, param, workDir, properties);
         if (o.getReturnCode() == 0) {
             Log.finer(c, METHOD, "Successfully recovered server: " + server.getServerName() + " from zip file: " + backup.getAbsolutePath());
         } else {
@@ -623,6 +628,7 @@ public class LibertyServerFactory {
                 Log.error(c, "getKnownLibertyServers", e);
             }
         }
+
         return servers;
     }
 
@@ -654,5 +660,4 @@ public class LibertyServerFactory {
         }
         return null;
     }
-
 }

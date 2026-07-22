@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jaxws.ejb.fat;
 
@@ -94,7 +93,7 @@ public class EJBWSProviderTest {
     @BeforeClass
     public static void beforeAllTests() throws Exception {
 
-        JavaArchive jar = ShrinkHelper.buildJavaArchive(ejbwsproviderjar + ".jar", "com.ibm.ws.jaxws.ejbwsprovider.*");
+        JavaArchive jar = ShrinkHelper.buildJavaArchive(ejbwsproviderjar + ".jar", "com.ibm.ws.jaxws.ejbwsprovider");
 
         ShrinkHelper.addDirectory(jar, "test-applications/EJBWSProvider/resources/");
 
@@ -163,7 +162,7 @@ public class EJBWSProviderTest {
 
     @Mode(TestMode.FULL)
     @Test
-    @SkipForRepeat({ "EE9_FEATURES", "jaxws-2.3" })
+    @SkipForRepeat({ "EE9_FEATURES", "EE10_FEATURES", "EE11_FEATURES" })
     public void testUserNotFoundExceptionProvider() throws Exception {
         Service service = Service.create(new URL(ENDPOINT_URL + "?wsdl"), SERVICE_NAME);
         Dispatch<Source> dispatch = service.createDispatch(PORT_NAME, Source.class, Service.Mode.PAYLOAD, new AddressingFeature());

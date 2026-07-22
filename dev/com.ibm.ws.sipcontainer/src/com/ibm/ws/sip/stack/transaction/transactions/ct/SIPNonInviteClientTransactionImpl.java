@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2008, 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -67,7 +69,7 @@ public class SIPNonInviteClientTransactionImpl
 	}
 	
 	/**
-	 * prosses the request in a state machine as stated in RFC 17.2.2
+	 * process the request in a state machine, as stated in RFC 17.2.2
 	 */
 	public synchronized void processRequest(Request sipRequest)
 		throws SipParseException
@@ -92,27 +94,27 @@ public class SIPNonInviteClientTransactionImpl
 				break;
 
 			case STATE_TRYING:
-				//no prosses																	
+				//no process																	
 				break;
 
 			case STATE_PROCEEDING:
-				//no prosses
+				//no process
 				break;
 
 			case STATE_COMPLETED:
-				//no prosses
+				//no process
 				break;
 			}
 		}
 		catch( SIPTransportException exp )
 		{
-			prossesTransportError();
+			processTransportError();
 		}
 											 					  			
 	}
 	
 	/**
-	 * prosses the response in a state machine as stated in RFC 17.2.2
+	 * process the response in a state machine as stated in RFC 17.2.2
 	 * 
 	 */
 	public synchronized void processResponse(Response sipResponse) 
@@ -159,9 +161,9 @@ public class SIPNonInviteClientTransactionImpl
 	
 	
 	/**
-	 *  prosses transport error
+	 *  process transport error
 	 */	
-	public synchronized void prossesTransportError()
+	public synchronized void processTransportError()
 	{
 		notifyRequestErrorToUA( getFirstRequest());
 		destroyTransaction();	

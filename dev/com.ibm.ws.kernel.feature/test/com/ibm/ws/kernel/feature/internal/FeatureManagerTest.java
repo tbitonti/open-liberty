@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2013 IBM Corporation and others.
+ * Copyright (c) 2010, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -60,6 +62,12 @@ import com.ibm.ws.kernel.feature.internal.FeatureManager.ProvisioningMode;
 import com.ibm.ws.kernel.feature.internal.subsystem.FeatureRepository;
 import com.ibm.ws.kernel.feature.internal.subsystem.FeatureResourceImpl;
 import com.ibm.ws.kernel.feature.internal.subsystem.SubsystemFeatureDefinitionImpl;
+import com.ibm.ws.kernel.feature.internal.util.FeatureTestConstants;
+import com.ibm.ws.kernel.feature.internal.util.TestUtils;
+import com.ibm.ws.kernel.feature.internal.util.TestUtils.TestBundleRevision;
+import com.ibm.ws.kernel.feature.internal.util.TestUtils.TestBundleStartLevel;
+import com.ibm.ws.kernel.feature.internal.util.TestUtils.TestFrameworkStartLevel;
+import com.ibm.ws.kernel.feature.internal.util.TestUtils.TestFrameworkWiring;
 import com.ibm.ws.kernel.feature.provisioning.ActivationType;
 import com.ibm.ws.kernel.feature.provisioning.FeatureResource;
 import com.ibm.ws.kernel.feature.provisioning.ProvisioningFeatureDefinition;
@@ -79,28 +87,19 @@ import com.ibm.wsspi.kernel.service.utils.OnErrorUtil.OnError;
 import junit.framework.AssertionFailedError;
 import test.common.SharedLocationManager;
 import test.common.SharedOutputManager;
-import test.utils.SharedConstants;
-import test.utils.TestUtils;
-import test.utils.TestUtils.TestBundleRevision;
-import test.utils.TestUtils.TestBundleStartLevel;
-import test.utils.TestUtils.TestFrameworkStartLevel;
-import test.utils.TestUtils.TestFrameworkWiring;
 
-/**
- *
- */
+//@formatter:off
 @RunWith(JMock.class)
 public class FeatureManagerTest {
-    static final SharedOutputManager outputMgr = SharedOutputManager.getInstance().trace("*=audit=enabled:featureManager=all=enabled");
+    static final SharedOutputManager outputMgr =
+        SharedOutputManager.getInstance().trace("*=audit=enabled:featureManager=all=enabled");
 
     static final String serverName = "FeatureManagerTest";
-    static final Collection<ProvisioningFeatureDefinition> noKernelFeatures = Collections.<ProvisioningFeatureDefinition> emptySet();
+    static final Collection<ProvisioningFeatureDefinition> noKernelFeatures =
+        Collections.<ProvisioningFeatureDefinition> emptySet();
     static WsLocationAdmin locSvc;
     static Field bListResources;
 
-    /**
-     * @throws java.lang.Exception
-     */
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
         outputMgr.captureStreams();
@@ -108,14 +107,14 @@ public class FeatureManagerTest {
         bListResources = BundleList.class.getDeclaredField("resources");
         bListResources.setAccessible(true);
 
-        File root = SharedConstants.TEST_DATA_FILE.getCanonicalFile();
+        File root = FeatureTestConstants.TEST_DATA_FILE.getCanonicalFile();
         File lib = new File(root, "lib");
 
         TestUtils.setUtilsInstallDir(root);
         TestUtils.setKernelUtilsBootstrapLibDir(lib);
         TestUtils.clearBundleRepositoryRegistry();
 
-        locSvc = (WsLocationAdmin) SharedLocationManager.createLocations(SharedConstants.TEST_DATA_DIR, serverName);
+        locSvc = (WsLocationAdmin) SharedLocationManager.createLocations(FeatureTestConstants.TEST_DATA_DIR, serverName);
         TestUtils.recursiveClean(locSvc.getServerResource(null));
 
         BundleRepositoryRegistry.initializeDefaults(serverName, true);
@@ -273,9 +272,6 @@ public class FeatureManagerTest {
         provisioner = new Provisioner(fm, null);
     }
 
-    /**
-     * @throws java.lang.Exception
-     */
     @After
     public void tearDown() throws Exception {
         // Clear the output generated after each method invocation, this keeps
@@ -410,10 +406,6 @@ public class FeatureManagerTest {
         }
     }
 
-    /**
-     * @param bundleList
-     * @return
-     */
     @SuppressWarnings("unchecked")
     protected List<FeatureResource> getResources(BundleList bundleList) {
         try {
@@ -425,9 +417,6 @@ public class FeatureManagerTest {
         }
     }
 
-    /**
-     * Test method
-     */
     @Test
     public void testNoEnabledFeatures() {
         final String m = "testNoEnabledFeatures";
@@ -807,3 +796,4 @@ public class FeatureManagerTest {
         return true;
     }
 }
+//@formatter:on

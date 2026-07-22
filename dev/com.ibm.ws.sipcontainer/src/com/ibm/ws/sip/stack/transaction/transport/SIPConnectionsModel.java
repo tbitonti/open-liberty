@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2008, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -21,7 +23,8 @@ import com.ibm.ws.jain.protocol.ip.sip.ListeningPointImpl;
 import com.ibm.ws.sip.parser.util.InetAddressCache;
 import com.ibm.ws.sip.stack.transaction.transport.connections.*;
 import com.ibm.ws.sip.stack.transaction.util.SIPStackUtil;
-import com.ibm.ws.sip.stack.transport.sip.SIPConnectionFactoryImplWs;
+import com.ibm.ws.sip.stack.transport.GenericEndpointImpl;
+import com.ibm.ws.sip.stack.util.SipStackUtil;
 
 import jain.protocol.ip.sip.ListeningPoint;
 
@@ -99,14 +102,20 @@ public class SIPConnectionsModel
 				this,tc,
 				"initSupportedTransports","useChannelFramework");
 		}
-		SIPConnectionFactory factory = SIPConnectionFactoryImplWs.instance();
+		
+		SIPConnectionFactory factory = null;
+        if (GenericEndpointImpl.useNetty()) {
+            factory = com.ibm.ws.sip.stack.transport.sip.netty.SIPConnectionFactoryImplWs.instance();
+        } else {
+            factory = com.ibm.ws.sip.stack.transport.sip.chfw.SIPConnectionFactoryImplWs.instance();
+        }
 		
 		// dynamically load SIPConnectionFactoryImplWs from component sip.stack.ws
 		if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
 			Tr.debug(
 				this,tc,
 				"initSupportedTransports",
-				"loading connection factory class");
+				"loading connection factory class: " + factory);
 		}
 		
 		SIPConnectionFactory udpConnectionFactory;
@@ -439,9 +448,10 @@ public class SIPConnectionsModel
 		return m_listeningConnections.values(); 
 	}
 
-	synchronized SIPListenningConnection createSIPListenningConnection( ListeningPointImpl lp ) throws IOException
+	//remove syncronized from createSIPListenningConnection method due to deadlock
+	SIPListenningConnection createSIPListenningConnection( ListeningPointImpl lp ) throws IOException
 	{
-		String transportFactoryKey = lp.getTransport().equals("tcp") && lp.isSecure() ? "tls" : lp.getTransport();
+		String transportFactoryKey = lp.getTransport().equals("tcp") && lp.isSecure() ? SipStackUtil.TLS_TRANSPORT : lp.getTransport();
 		SIPConnectionFactory factory = getConnectionFactory(transportFactoryKey);
 
 		SIPListenningConnection listenConnection = factory.createListeningConnection( lp );
@@ -548,7 +558,7 @@ public class SIPConnectionsModel
      * @return tls
      */
     public String getDefaultSecureTransport() {
-    	return ListeningPointImpl.TRANSPORT_TLS;
+    	return SipStackUtil.TLS_TRANSPORT;
     }
     
     /**

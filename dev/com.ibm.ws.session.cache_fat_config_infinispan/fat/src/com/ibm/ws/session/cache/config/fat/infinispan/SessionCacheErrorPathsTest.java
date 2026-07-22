@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -23,6 +25,7 @@ import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -37,8 +40,10 @@ import com.ibm.websphere.simplicity.config.File;
 import com.ibm.websphere.simplicity.config.Fileset;
 import com.ibm.websphere.simplicity.config.Library;
 import com.ibm.websphere.simplicity.config.ServerConfiguration;
+import com.ibm.websphere.simplicity.log.Log;
 
 import componenttest.annotation.AllowedFFDC;
+import componenttest.annotation.MaximumJavaLevel;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
@@ -46,6 +51,9 @@ import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 
+//TODO Currently Infinispan does not support Java 23 with the versions of Infinispan we support
+//The @MaximumJavaLevel annotation should be removed once the this issue is fixed in a version of Infinispan we support
+@MaximumJavaLevel(javaLevel = 22)
 @RunWith(FATRunner.class)
 @Mode(TestMode.FULL)
 public class SessionCacheErrorPathsTest extends FATServletClient {
@@ -69,11 +77,24 @@ public class SessionCacheErrorPathsTest extends FATServletClient {
         try {
             if (server.isStarted()) {
                 server.stopServer("CWWKG0033W");
+
+                if (isZOS()) {
+                    Log.info(SessionCacheConfigUpdateTest.class, "tearDown", "Allow more time for ZOS shutdown");
+                    TimeUnit.SECONDS.sleep(20);
+                }
             }
         } finally {
             server.updateServerConfiguration(savedConfig);
         }
         System.out.println("server configuration restored");
+    }
+
+    private static final boolean isZOS() {
+        String osName = System.getProperty("os.name");
+        if (osName.contains("OS/390") || osName.contains("z/OS") || osName.contains("zOS")) {
+            return true;
+        }
+        return false;
     }
 
     @BeforeClass
@@ -161,6 +182,11 @@ public class SessionCacheErrorPathsTest extends FATServletClient {
         server.updateServerConfiguration(config);
         server.waitForConfigUpdateInLogUsingMark(APP_NAMES, EMPTY_RECYCLE_LIST);
 
+        if (isZOS()) {
+            Log.info(SessionCacheErrorPathsTest.class, "testAddFeature", "Allow more time for ZOS after removing sessionCache feature");
+            TimeUnit.SECONDS.sleep(10);
+        }
+
         // Session manager should warn user that sessions will be stored in memory
         assertEquals(1, server.findStringsInLogs("SESN8501I").size());
 
@@ -172,6 +198,11 @@ public class SessionCacheErrorPathsTest extends FATServletClient {
         server.setMarkToEndOfLog();
         server.updateServerConfiguration(config);
         server.waitForConfigUpdateInLogUsingMark(APP_NAMES, EMPTY_RECYCLE_LIST);
+
+        if (isZOS()) {
+            Log.info(SessionCacheErrorPathsTest.class, "testAddFeature", "Allow more time for ZOS after adding sessionCache feature");
+            TimeUnit.SECONDS.sleep(10);
+        }
 
         run("testSetAttribute&attribute=testAddFeature2&value=AF2", session);
 

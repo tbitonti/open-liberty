@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2019,2020 IBM Corporation and others.
+# Copyright (c) 2019,2025 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #    IBM Corporation 
@@ -15,7 +17,7 @@ bVersion=1.0
 Bundle-SymbolicName: com.ibm.websphere.org.eclipse.microprofile.reactive.streams.operators.1.0; singleton:=true
 
 Import-Package: \
-  org.reactivestreams; version="[1.0,1.1)", \
+  org.reactivestreams; version="[1.1,1.2)", \
   com.ibm.ws.microprofile.reactive.streams.operators.spi.impl;version="1.0";resolution:=optional, \
   *
   
@@ -25,7 +27,11 @@ Export-Package: \
   org.eclipse.microprofile.reactive.streams.operators.spi;version=1.0
 
 Include-Resource: \
-  @${repo;org.eclipse.microprofile.reactive-streams-operators:microprofile-reactive-streams-operators-api;1.0.1;EXACT}, \
-  @${repo;org.eclipse.microprofile.reactive-streams-operators:microprofile-reactive-streams-operators-core;1.0.1;EXACT}
+  @\${repo;org.eclipse.microprofile.reactive-streams-operators:microprofile-reactive-streams-operators-api;1.0.1;EXACT}, \
+  @\${repo;org.eclipse.microprofile.reactive-streams-operators:microprofile-reactive-streams-operators-core;1.0.1;EXACT}
+
+ -maven-dependencies: \
+   dep1;groupId=org.eclipse.microprofile.reactive-streams-operators;artifactId=microprofile-reactive-streams-operators-api;version=1.0.1;scope=runtime, \
+   dep2;groupId=org.eclipse.microprofile.reactive-streams-operators;artifactId=microprofile-reactive-streams-operators-core;version=1.0.1;scope=runtime
 
 WS-TraceGroup: REACTIVESTREAMS

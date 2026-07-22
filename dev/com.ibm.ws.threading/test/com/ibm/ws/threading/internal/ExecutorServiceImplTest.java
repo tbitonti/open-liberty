@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013 IBM Corporation and others.
+ * Copyright (c) 2013, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -49,6 +51,10 @@ public class ExecutorServiceImplTest {
         }
     }
 
+    static {
+        ExecutorServiceImpl.isBeta = true;
+    }
+
     @Test
     public void testCreateExecutor() throws Exception {
         ExecutorServiceImpl executorService = new ExecutorServiceImpl();
@@ -64,6 +70,13 @@ public class ExecutorServiceImplTest {
         executorService.activate(componentConfig);
         ThreadPoolExecutor executor = executorService.getThreadPool();
 
+        // first check for startupPoolSize, which defaults to 6
+        Assert.assertEquals(6, executor.getCorePoolSize());
+        Assert.assertEquals(6, executor.getMaximumPoolSize());
+
+        // then tell the server that startup has completed
+        executorService.setServerStarted(null);
+        // and check for the expected core/max sizes based on earlier config
         Assert.assertEquals(10, executor.getCorePoolSize());
         Assert.assertEquals(10, executor.getMaximumPoolSize());
 
@@ -132,11 +145,15 @@ public class ExecutorServiceImplTest {
         oldThreadPool.prestartAllCoreThreads();
 
         componentConfig.put("name", "testExecutor2");
+        componentConfig.put("quiesceTimeout", "31s");
         executorService.modified(componentConfig);
         ThreadPoolExecutor newThreadPool = executorService.getThreadPool();
+        int newQuiesceTimeout = executorService.getQuiesceTimeout();
 
         // ensure that a new pool got created when we modified the executor
         Assert.assertNotSame(oldThreadPool, newThreadPool);
+
+        // Beta: Assert.assertEquals("Quiesce timeout not modified as expected", 31, newQuiesceTimeout);
 
         // ensure that the old pool shrinks down to 0 size (the test will timeout
         // after a minute if the pool never shrinks)

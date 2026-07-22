@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014 IBM Corporation and others.
+ * Copyright (c) 2014, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,8 +19,9 @@ import javax.servlet.http.Cookie;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.security.web.WebSecurityHelper;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.security.oauth20.util.OIDCConstants;
+import com.ibm.ws.common.crypto.CryptoUtils;
 
 /**
  * 
@@ -28,7 +31,7 @@ public class OIDCBrowserStateUtil {
 
     private static final TraceComponent tc = Tr.register(OIDCBrowserStateUtil.class);
     private final static String CHAR_ENCODING = "UTF-8";
-    private final static String HASH_ALGORITHM = "SHA-256";
+    private final static String HASH_ALGORITHM = CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA_256;
 
     /**
      * Generate a browser state cookie.

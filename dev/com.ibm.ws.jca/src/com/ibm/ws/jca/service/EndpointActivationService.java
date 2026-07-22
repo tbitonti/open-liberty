@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2017 IBM Corporation and others.
+ * Copyright (c) 2012, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -205,6 +207,21 @@ public class EndpointActivationService implements XAResourceFactory, Application
         @Override
         public int hashCode() {
             return System.identityHashCode(activationSpec) + System.identityHashCode(messageEndpointFactory);
+        }
+
+        @Override
+        @Trivial
+        public String toString() {
+            // Both hashCode and identityHashCode are included so that we can correlate
+            // output in Liberty trace, which prints toString for values and method args
+            // but uses uses identityHashCode (id=...) when printing trace for a class
+            return new StringBuilder(38) //
+                            .append("ActivationParams@") //
+                            .append(Integer.toHexString(hashCode())) //
+                            .append("(id=") //
+                            .append(Integer.toHexString(System.identityHashCode(this))) //
+                            .append(')') //
+                            .toString();
         }
     }
 
@@ -511,7 +528,7 @@ public class EndpointActivationService implements XAResourceFactory, Application
 
     /**
      * This method will identify the BootstrapContext corresponding to the activationSpec and invoke
-     * activateEndpoint on the resource adapter, returning a deactivationKey which can be used for deactivating the endpoint.
+     * endpointActivate on the resource adapter, returning a deactivationKey which can be used for deactivating the endpoint.
      *
      * @param mef MessageEndpointFactory that is passed from the container.
      * @param activationProperties The activation properties that are passed from the container

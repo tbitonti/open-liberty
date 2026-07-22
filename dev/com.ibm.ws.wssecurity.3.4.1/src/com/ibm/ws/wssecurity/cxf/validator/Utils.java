@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -132,15 +134,27 @@ public class Utils {
                             configMap.get(WSSecurityConstants.WSS4J_KEY_PASSWORD));
             configMap.put(WSSecurityConstants.WSS4J_KEY_PASSWORD, pwd);
         }
+        if (configMap.containsKey(WSSecurityConstants.WSS4J_2_KEY_PASSWORD)) {
+            String pwd = PasswordUtil.passwordDecode((String)configMap.get(WSSecurityConstants.WSS4J_2_KEY_PASSWORD));
+            configMap.put(WSSecurityConstants.WSS4J_2_KEY_PASSWORD, pwd);
+        }
         if (configMap.containsKey(WSSecurityConstants.WSS4J_KS_PASSWORD)) {
             String pwd = changePasswordType((SerializableProtectedString)
                             configMap.get(WSSecurityConstants.WSS4J_KS_PASSWORD));
             configMap.put(WSSecurityConstants.WSS4J_KS_PASSWORD, pwd);
         }
+        if (configMap.containsKey(WSSecurityConstants.WSS4J_2_KS_PASSWORD)) {
+            String pwd = PasswordUtil.passwordDecode((String)configMap.get(WSSecurityConstants.WSS4J_2_KS_PASSWORD));
+            configMap.put(WSSecurityConstants.WSS4J_2_KS_PASSWORD, pwd);
+        }
         if (configMap.containsKey(WSSecurityConstants.WSS4J_TS_PASSWORD)) {
             String pwd = changePasswordType((SerializableProtectedString)
                             configMap.get(WSSecurityConstants.WSS4J_TS_PASSWORD));
             configMap.put(WSSecurityConstants.WSS4J_TS_PASSWORD, pwd);
+        }
+        if (configMap.containsKey(WSSecurityConstants.WSS4J_2_TS_PASSWORD)) {
+            String pwd = PasswordUtil.passwordDecode((String)configMap.get(WSSecurityConstants.WSS4J_2_TS_PASSWORD));
+            configMap.put(WSSecurityConstants.WSS4J_2_TS_PASSWORD, pwd);
         }
     }
 

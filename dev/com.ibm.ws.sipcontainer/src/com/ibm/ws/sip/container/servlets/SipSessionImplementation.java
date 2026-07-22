@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -651,10 +653,11 @@ public class SipSessionImplementation extends ReplicatableImpl implements IBMSip
     	// javadoc explicit 
     	if (!this.isValid()) throw new IllegalStateException("Can not be called on invalidated SipSession");
     	
-    	synchronized (getInternalTuWrapper().getSynchronizer()) {
+		//remove synchronized as it has caused deadlocks
+    	//synchronized (getInternalTuWrapper().getSynchronizer()) {
     		checkIsSessionValid();
 	     	getInternalTuWrapper().invalidateTU(true, true);    	
-    	}
+    	//}
     }
     
     /** 
@@ -668,7 +671,9 @@ public class SipSessionImplementation extends ReplicatableImpl implements IBMSip
     /**
      * Send notifications about invalidated SipSession
      */
-    public synchronized void invalidateSipSession() {
+     //remove synchronized as it can cause deadlock
+     //see open-liberty issue #27282
+    public void invalidateSipSession() {
     	if (c_logger.isTraceEntryExitEnabled()) {
     		c_logger.traceEntry(this, "invalidateSipSession", getId());
     	}

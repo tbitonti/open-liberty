@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012 IBM Corporation and others.
+ * Copyright (c) 2012, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InvalidClassException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.lang.reflect.Array;
@@ -32,6 +35,7 @@ import org.junit.Test;
 public class DeserializationObjectInputStreamTest {
     private DeserializationObjectInputStream createResolveClassStream() throws IOException {
         return new DeserializationObjectInputStream(new ByteArrayInputStream(TestUtil.serialize(null)), getClass().getClassLoader()) {
+            @Override
             public Class<?> loadClass(String name) throws ClassNotFoundException {
                 if (!name.isEmpty() && name.charAt(0) == '[') {
                     throw new ClassNotFoundException(name);
@@ -142,9 +146,14 @@ public class DeserializationObjectInputStreamTest {
     }
 
     @Test(expected = IllegalAccessError.class)
-    public void testNonPublicProxyClassesMultipleLoaders() throws Exception {
+    public void testNonPublicProxyClassesMultipleLoaders() throws Throwable {
         ClassLoader cl = new DelegatingClassLoader(loadResourceClass(TestPackageIntf1.class), loadResourceClass(TestPackageIntf2.class));
-        testProxy(cl, TestPackageIntf1.class, TestPackageIntf2.class);
+        try {
+            testProxy(cl, TestPackageIntf1.class, TestPackageIntf2.class);
+        } catch (InvalidClassException ice) {
+            // With Java 21 the IllegalAccessError gets wrapped in a InvalidClassException by ObjectInputStream
+            throw ice.getCause();
+        }
     }
 
     /**
@@ -157,13 +166,17 @@ public class DeserializationObjectInputStreamTest {
         testProxy(cl, TestIntf1.class);
     }
 
-    public static interface TestIntf1 {}
+    public static interface TestIntf1 {
+    }
 
-    public static interface TestIntf2 {}
+    public static interface TestIntf2 {
+    }
 
-    static interface TestPackageIntf1 {}
+    static interface TestPackageIntf1 {
+    }
 
-    static interface TestPackageIntf2 {}
+    static interface TestPackageIntf2 {
+    }
 
     private static class TestInvocationHandlerImpl implements InvocationHandler, Serializable {
         private static final long serialVersionUID = 0;

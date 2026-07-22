@@ -1,9 +1,11 @@
 #*******************************************************************************
-# Copyright (c) 2017, 2020 IBM Corporation and others.
+# Copyright (c) 2017,2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -18,6 +20,9 @@ Private-Package: \
 	com.ibm.ws.anno.*, \
 	com.ibm.ws.annocache.*
 
+Import-Package: \
+        *
+
 Export-Package: \
 	com.ibm.wsspi.anno.service;provide:=true, \
 	com.ibm.wsspi.anno.info;provide:=true, \
@@ -31,7 +36,8 @@ Export-Package: \
 	com.ibm.wsspi.annocache.targets.cache;provide:=true, \
 	com.ibm.wsspi.annocache.classsource;provide:=true, \
 	com.ibm.wsspi.annocache.util;provide:=true, \
-	com.ibm.ws.annocache.classsource.specification;provide:=true
+	com.ibm.ws.annocache.classsource.specification;provide:=true, \
+	com.ibm.ws.annocache.targets.cache.interfaces
 
 -dsannotations: \
  com.ibm.ws.anno.service.internal.AnnotationServiceImpl_Service, \
@@ -58,13 +64,14 @@ instrument.classesExcludes: \
 	com.ibm.ws.artifact;version=latest,\
 	com.ibm.ws.adaptable.module;version=latest,\
 	com.ibm.ws.org.objectweb.asm;version=latest,\
-	com.ibm.ws.org.jboss.jandex;version=latest,\
+	io.openliberty.io.smallrye.jandex3;version=latest,\
 	com.ibm.websphere.org.osgi.service.component;version=latest,\
 	com.ibm.wsspi.org.osgi.service.component.annotations,\
 	com.ibm.websphere.org.osgi.core;version=latest,\
 	com.ibm.ws.org.osgi.annotation.versioning;version=latest,\
 	com.ibm.ws.kernel.security.thread;version=latest,\
-	org.eclipse.osgi;version=latest
+	org.eclipse.osgi;version=latest,\
+	com.ibm.ws.kernel.boot.core
 
 -testpath: \
 	../build.sharedResources/lib/junit/old/junit.jar;version=file, \
@@ -77,5 +84,4 @@ instrument.classesExcludes: \
 	com.ibm.websphere.javaee.servlet.3.0;version=latest,\
 	com.ibm.websphere.javaee.persistence.2.0;version=latest,\
 	com.ibm.websphere.javaee.jaxb.2.2;version=latest,\
-	com.sun.xml.bind:jaxb-core;version=2.2.10,\
-	com.sun.xml.bind:jaxb-impl;version=2.2.10
+	com.ibm.ws.jaxb.tools;version=latest

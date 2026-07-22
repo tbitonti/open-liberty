@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2018 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.webapp;
 
@@ -14,8 +13,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.MessageFormat;
-import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -26,7 +23,6 @@ import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpUtils;
 
 import com.ibm.ejs.ras.TraceNLS;
 import com.ibm.websphere.servlet.error.ServletErrorReport;
@@ -53,7 +49,7 @@ import com.ibm.wsspi.webcontainer.webapp.IWebAppDispatcherContext;
 @SuppressWarnings("unchecked")
 public abstract class WebAppDispatcherContext implements Cloneable, IWebAppDispatcherContext
 {
-    private static TraceNLS nls = TraceNLS.getTraceNLS(WebAppDispatcherContext.class, "com.ibm.ws.webcontainer.resources.Messages");
+    protected static TraceNLS nls = TraceNLS.getTraceNLS(WebAppDispatcherContext.class, "com.ibm.ws.webcontainer.resources.Messages");
     protected static Logger logger = LoggerFactory.getInstance().getLogger("com.ibm.ws.webcontainer.webapp");
     private static final String CLASS_NAME="com.ibm.ws.webcontainer.webapp.WebAppDispatcherContext";
 
@@ -343,6 +339,9 @@ public abstract class WebAppDispatcherContext implements Cloneable, IWebAppDispa
      */
     public RequestDispatcher getRequestDispatcher(String path)
     {
+        if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINEST)){
+            logger.entering (CLASS_NAME, "getRequestDispatcher", " path [" + path + "]");
+        }
         if (path == null)
             return null;
 
@@ -392,6 +391,9 @@ public abstract class WebAppDispatcherContext implements Cloneable, IWebAppDispa
                 path = '/' + path;
             }
 
+            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {  
+                logger.logp(Level.FINE, CLASS_NAME,"getRequestDispatcher", "calling webApp getRequestDispatcher, path [" + path + "]");
+            }
             // 113234 - indicate that security check is not needed --- not any more --Defect 126196
             return getWebApp().getFacade().getRequestDispatcher(path); // true
             // end 108232: part 1
@@ -606,6 +608,9 @@ public abstract class WebAppDispatcherContext implements Cloneable, IWebAppDispa
 
     public void sendError(int sc, String message, boolean ignoreCommittedException) throws IOException
     {
+        if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+            logger.logp(Level.FINE, CLASS_NAME, "sendError", "ENTER ; sc [" +sc + "] : message [" + message + "] : ignoreCommittedException [", ignoreCommittedException + "]");
+        }
         // LIDB1234.3 - throw exception if response already committed.
         if (getResponse().isCommitted())
         {
@@ -669,8 +674,12 @@ public abstract class WebAppDispatcherContext implements Cloneable, IWebAppDispa
     /**
      * convert a relative URI to a full URL.
      */
-    private String convertRelativeURIToURL(String relativeURI)
+    protected String convertRelativeURIToURL(String relativeURI)
     {
+        if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {
+            logger.logp(Level.FINE, CLASS_NAME,"convertRelativeURIToURL", "relativeURI ["+ relativeURI +"] ,this -> " + this);
+        }
+        
         String location = null;
         if (relativeURI == null)
         {
@@ -753,6 +762,9 @@ public abstract class WebAppDispatcherContext implements Cloneable, IWebAppDispa
             String redirectURL = null;
             if (relativeToRootURI)
             {
+                if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {
+                    logger.logp(Level.FINE, CLASS_NAME,"convertRelativeURIToURL", "relative to context root");
+                }
                 // 115010 - begin
                 // if the relative URI begins with '/' and we're in sendRedirect compatibility mode, then make uri 
                 // relative to the context root...otherwise, make it relative to the server (no context root)
@@ -771,10 +783,14 @@ public abstract class WebAppDispatcherContext implements Cloneable, IWebAppDispa
             }
             else
             {
+                if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {
+                    logger.logp(Level.FINE, CLASS_NAME,"convertRelativeURIToURL", "relative to current request URL");
+                }
                 // not relative to webapp context root, but relative to the presently
                 // invoked URL
 
-                String requestString = HttpUtils.getRequestURL((HttpServletRequest) request).toString();
+                //Servlet 6.0 Update to remove HttpUtils
+                String requestString = ((HttpServletRequest) request).getRequestURL().toString();
                 String pathInfo = request.getPathInfo();
                 // start PI22830
                 if(!webAppRootURI.equals("/") && request.getRequestURI().equals(webAppRootURI)){
@@ -806,6 +822,11 @@ public abstract class WebAppDispatcherContext implements Cloneable, IWebAppDispa
                     redirectURL = requestString.substring(0, requestString.lastIndexOf('/') + 1) + relativeURI;
                 }
             }
+
+            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINE)) {
+                logger.logp(Level.FINE, CLASS_NAME,"convertRelativeURIToURL", "before normalize redirectURL [" + redirectURL + "]");
+            }
+            
             if (redirectURL.indexOf("..") > -1)
             { // only normalize where required.. this is expensive.
                 int skip = new String(urlScheme + "://").length();
@@ -829,9 +850,14 @@ public abstract class WebAppDispatcherContext implements Cloneable, IWebAppDispa
             com.ibm.wsspi.webcontainer.util.FFDCWrapper.processException(ex, "com.ibm.ws.webcontainer.webapp.WebAppDispatcherResponse.convertRelativeURIToURL", "256", this);
         }
 
-        // Could not convert
         logger.logp(Level.FINE, CLASS_NAME,"convertRelativeURIToURL", "could not convert [" + location + "]");
-        return location;
+        
+        String message = nls.getString("sendRedirect.cannot.convert.relative.url", "SendRedirect relative URL cannot be converted into a valid URL.");
+        
+        if (WebContainer.isServlet61orAbove())
+            throw new IllegalArgumentException(message);
+        else
+            throw new IllegalStateException(message);
     }
 
     public void callPage(String fileName, javax.servlet.http.HttpServletRequest hreq) throws IOException, ServletException
@@ -1155,31 +1181,13 @@ public abstract class WebAppDispatcherContext implements Cloneable, IWebAppDispa
         if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINEST)){
             logger.entering (CLASS_NAME, "hasSlashStarMapping");
         }
-        WebAppConfiguration webAppConfig = null;		
         WebApp webApp = this._webApp;
-
-        if (webApp != null) {
-            webAppConfig = webApp.getConfiguration();			
-        }		
-        if (webAppConfig != null) {
-            Map<String,List<String>> mappings = webAppConfig.getServletMappings();
-            if (mappings != null) {
-                for (List<String> list : mappings.values()) {
-                    for (String urlPattern : list) {
-                        if (urlPattern != null && ("/*").equals(urlPattern)) {
-                            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINEST)){
-                                logger.exiting (CLASS_NAME, "hasSlashStarMapping: true");
-                            }
-                            return true;
-                        }
-                    }				
-                }												
-            }
-        }
+           
+        boolean hasSlashStarMapping = webApp == null ? false : webApp.hasSlashStarMapping();
         if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable (Level.FINEST)){
-            logger.exiting (CLASS_NAME, "hasSlashStarMapping");
+          logger.exiting (CLASS_NAME, "hasSlashStarMapping: " + hasSlashStarMapping);
         }
-        return false;
+        return hasSlashStarMapping;
     }
 
     public void setPossibleSlashStarMapping(boolean isPossible) {

@@ -1,9 +1,11 @@
 <!--
-    Copyright (c) 2020 IBM Corporation and others.
+    Copyright (c) 2020,2026 IBM Corporation and others.
     All rights reserved. This program and the accompanying materials
-    are made available under the terms of the Eclipse Public License v1.0
+    are made available under the terms of the Eclipse Public License 2.0
     which accompanies this distribution, and is available at
-    http://www.eclipse.org/legal/epl-v10.html
+    http://www.eclipse.org/legal/epl-2.0/
+
+    SPDX-License-Identifier: EPL-2.0
 
     Contributors:
         IBM Corporation - initial API and implementation
@@ -15,13 +17,13 @@
 
     <!-- Static DOJO resources -->
     <property name="dojo.home" location="${basedir}/../ant_build.js/lib/dojo" />
-    <property name="dojo.version" value="1.12.9" />
+    <property name="dojo.version" value="1.17.3" />
     <property name="dojo.src" location="${dojo.home}/dojo-${dojo.version}" />
     <property name="dojo.src.zip" value="${dojo.src}.zip" />
     <property name="dojo.closure.jar" value="${dojo.src}/util/closureCompiler/compiler.jar" />
     <property name="dojo.shrinksafe.jar" value="${dojo.src}/util/shrinksafe/shrinksafe.jar" />
     <property name="dojo.shrinksafejs.jar" value="${dojo.src}/util/shrinksafe/js.jar" />
-    <property name="idx.version" value="1.5.2.6" />
+    <property name="idx.version" value="1.5.2.6_4" />
     <property name="idx.src" location="${dojo.home}/idx-${idx.version}" />
     <property name="idx.src.zip" value="${idx.src}.zip" />
     <property name="gridx.version" value="1.3.9" />
@@ -393,7 +395,7 @@
     </target>
 
     <!-- Common post-'dojo build' construction -->
-    <target name="dojo-release-post-copy">
+    <target name="dojo-release-post-copy" depends="dojo-release-execute, dojo-release-post-create">
         <!-- Copy over the important things we know we need from DOJO -->
         <copy todir="${dojo.project.release.output}/dijit">
             <fileset dir="${dojo.project.build.output}/dijit">
@@ -448,7 +450,7 @@
     </target>
 
     <!-- Common post-'dojo build' construction -->
-    <target name="dojo-release-post-future-copy">
+    <target name="dojo-release-post-future-copy" depends="dojo-release-execute, dojo-release-post-create">
         <!-- Copy over the important things we know we need from DOJO -->
         <!-- TODO: Go through all the images that we actually use from dojo/gridx/idx and only copy those -->
         <copy todir="${dojo.project.release.output}/dijit">
@@ -507,13 +509,13 @@
     </target>
 
     <!-- Extension target for dojo-release-post -->
-    <target name="dojo-release-post-ext" />
+    <target name="dojo-release-post-ext" depends="dojo-release-post-create" />
 
     <!-- Common post-'dojo build' construction -->
-    <target name="dojo-release-post" depends="dojo-release-post-create, dojo-release-post-copy, dojo-nls-fix, dojo-release-post-ext" />
+    <target name="dojo-release-post" depends="dojo-release-execute, dojo-release-post-create, dojo-release-post-copy, dojo-nls-fix, dojo-release-post-ext" />
 
     <!-- Runtime launcher specific targets -->
-    <target name="dojo-release" depends="dojo-release-execute,  dojo-release-post" />
+    <target name="dojo-release" depends="dojo-release-execute, dojo-release-post" />
     <target name="dojo-release-rhino" depends="dojo-release-rhino-execute,  dojo-release-post" />
     <target name="dojo-release-nodejs" depends="dojo-release-nodejs-execute, dojo-release-post" />
 
@@ -566,7 +568,7 @@
     </target>
 
     <!-- Common post-'dojo doh build' clean up -->
-    <target name="dojo-doh-post">
+    <target name="dojo-doh-post" depends="dojo-doh-execute">
         <delete dir="${dojo.build.output.doh}/dijit" includeemptydirs="true" />
         <delete dir="${dojo.build.output.doh}/dojo" includes="**/*" excludes="nls/*.js,resources/**,dojo.js,**/.jazzignore" includeemptydirs="true" />
         <delete dir="${dojo.build.output.doh}/dojo" includes="**/*.js.uncompressed.js,**/*.js.consoleStripped.js,**/*.js.map" includeemptydirs="true" />
@@ -581,8 +583,8 @@
     <target name="dojo-doh-nodejs" depends="dojo-doh-nodejs-execute, dojo-doh-post" />
 
     <!-- Remove available server-side localization string from _ROOT NLS -->
-    <target name="dojo-nls-fix">
-    	<replaceregexp byline="true" encoding="UTF-8"> 
+    <target name="dojo-nls-fix" depends="dojo-release-post-copy">
+    	<replaceregexp byline="true" encoding="UTF-8">
     		<!-- do not remove localization string for gregorian and number -->
     		<regexp pattern="^(?!'dojo/cldr/nls/number'|'dojo/cldr/nls/gregorian')(.+)&quot;_localized&quot;:\{[^\}]*\}(.+)"/>
     		<substitution expression="\1&quot;_localized&quot;:\{\}\2"/>

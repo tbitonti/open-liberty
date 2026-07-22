@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2019 IBM Corporation and others.
+ * Copyright (c) 2013, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,6 +13,7 @@
 package com.ibm.ws.security.social.internal.utils;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,6 +55,7 @@ import com.ibm.ws.security.social.SocialLoginConfig;
 import com.ibm.ws.security.social.TraceConstants;
 import com.ibm.ws.security.social.error.SocialLoginException;
 import com.ibm.ws.webcontainer.internalRuntimeExport.srt.IPrivateRequestAttributes;
+import com.ibm.wsspi.webcontainer.util.ThreadContextHelper;
 
 /**
  *
@@ -419,7 +423,7 @@ public class OAuthClientUtil {
             boolean useJvmProps) throws ClientProtocolException, IOException, SocialLoginException {
         return getFromEndpoint(userApiEndpoint, params, null, null, accessToken, sslSocketFactory, isHostnameVerification, needsSpecialHeader, useJvmProps);
     }
-
+    
     Map<String, Object> getFromEndpoint(String url,
             @Sensitive List<NameValuePair> params,
             String baUsername,
@@ -435,7 +439,7 @@ public class OAuthClientUtil {
             params = new ArrayList<NameValuePair>();
         }
         //params.add(new BasicNameValuePair("format", "json"));
-        query = URLEncodedUtils.format(params, ClientConstants.CHARSET);
+        query = URLEncodedUtils.format(params, StandardCharsets.UTF_8);
 
         if (query != null && !query.isEmpty()) {
             if (!url.endsWith("?")) {
@@ -458,7 +462,15 @@ public class OAuthClientUtil {
 
         HttpClient httpClient = baUsername != null ? httpUtil.createHTTPClient(sslSocketFactory, url, isHostnameVerification, baUsername, baPassword, useJvmProps) : httpUtil.createHTTPClient(sslSocketFactory, url, isHostnameVerification, useJvmProps);
 
-        HttpResponse responseCode = httpClient.execute(request);
+        HttpResponse responseCode = null;
+        
+        ClassLoader origCL = ThreadContextHelper.getContextClassLoader();
+        ThreadContextHelper.setClassLoader(getClass().getClassLoader());
+        try {
+            responseCode = httpClient.execute(request);
+        } finally {
+            ThreadContextHelper.setClassLoader(origCL);
+        }
 
         Map<String, Object> result = new HashMap<String, Object>();
         result.put(ClientConstants.RESPONSEMAP_CODE, responseCode);

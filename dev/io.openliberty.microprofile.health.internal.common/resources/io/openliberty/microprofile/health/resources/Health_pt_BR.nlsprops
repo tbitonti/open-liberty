@@ -1,0 +1,107 @@
+#CMVCPATHNAME N/A
+#COMPONENTPREFIX CWMMH
+#COMPONENTNAMEFOR CWMMH MicroProfile Health API 
+#NLS_ENCODING=UNICODE
+#NLS_MESSAGEFORMAT_VAR
+#ISMESSAGEFILE true
+# #########################################################################
+###############################################################################
+# Copyright (c) 2021, 2026 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#     IBM Corporation - initial API and implementation
+###############################################################################
+# This file follows the WebSphere Message Guidelines.
+# For more information, visit: 
+# http://washome.austin.ibm.com/xwiki/bin/view/MessagesTeam/
+#
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Messages used by Health Impl -  range is 0000-0999
+# The range 0000-0049 has been reserved for messages issued above the HealthCheckExecutor within the call stack
+# The range 0050-0099 has been reserved for messages issued at or below the HealthCheckExecutor within the call stack
+# The 0100-0149 range is reserved for messages that are issued by the file-based health check mechanism
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# Emergency Health error message
+#-----------------------------------------------------------------------------------------------------------------------------
+OSGI_SERVICE_ERROR=CWMMH0000E: O {0} servi\u00e7o OSGi n\u00e3o est\u00e1 dispon\u00edvel.
+OSGI_SERVICE_ERROR.explanation=Esse erro do servidor interno \u00e9 lan\u00e7ado porque o servi\u00e7o especificado n\u00e3o est\u00e1 dispon\u00edvel.
+OSGI_SERVICE_ERROR.useraction=Reinicie o servidor com a op\u00e7\u00e3o de limpeza.
+
+# The HealthCheck bean call method had an exception
+healthcheck.bean.call.exception.CWMMH0050E=CWMMH0050E: O m\u00e9todo HealthCheck {0} no aplicativo {1} do m\u00f3dulo {2} lan\u00e7ou a exce\u00e7\u00e3o {3} com a mensagem a seguir: {4}
+healthcheck.bean.call.exception.CWMMH0050E.explanation=O m\u00e9todo de chamada especificado produziu uma exce\u00e7\u00e3o.
+healthcheck.bean.call.exception.CWMMH0050E.useraction=Revise seu m\u00e9todo de chamada dentro do bean HealthCheck para identificar a exce\u00e7\u00e3o ocorrida.
+
+# The HealthCheck bean call method had a DOWN outcome
+healthcheck.application.down.CWMMH0052W=CWMMH0052W: O {0} que implementa a resposta HealthCheckno aplicativo {1} no m\u00f3dulo, {2}, relatou um status {3} para a verifica\u00e7\u00e3o de funcionamento, {4}e com os dados {5}.
+healthcheck.application.down.CWMMH0052W.explanation=O status DOWN pode fazer um servi\u00e7o de monitoramento agir neste servidor.
+healthcheck.application.down.CWMMH0052W.useraction=Nenhuma a\u00e7\u00e3o do usu\u00e1rio \u00e9 necess\u00e1ria.  Esse aviso \u00e9 um registro do status DOWN.
+
+# The Readiness HealthCheck had a DOWN outcome, when applications are not started yet
+readiness.healthcheck.applications.not.started.down.CWMMH0053W=CWMMH0053W: A verifica\u00e7\u00e3o de funcionamento de prontid\u00e3o relatou um status geral de DOWN porque os aplicativos a seguir ainda n\u00e3o foram iniciados: {0}
+readiness.healthcheck.applications.not.started.down.CWMMH0053W.explanation=A verifica\u00e7\u00e3o de funcionamento de prontid\u00e3o relatou um status geral de DOWN porque os aplicativos especificados n\u00e3o foram iniciados ainda e n\u00e3o est\u00e3o prontos para processar solicita\u00e7\u00f5es.
+readiness.healthcheck.applications.not.started.down.CWMMH0053W.useraction=Este aviso \u00e9 um registro do status DOWN e nenhuma a\u00e7\u00e3o do usu\u00e1rio \u00e9 necess\u00e1ria. Espere at\u00e9 que todos os aplicativos sejam iniciados. Ap\u00f3s todos os aplicativos serem iniciados, as verifica\u00e7\u00f5es de funcionamento definidas pelo usu\u00e1rio ser\u00e3o processadas.
+
+# The Startup HealthCheck had a DOWN outcome, when applications are not started yet
+startup.healthcheck.applications.not.started.down.CWMMH0054W=CWMMH0054W: A verifica\u00e7\u00e3o de funcionamento de inicializa\u00e7\u00e3o relatou um status geral de DOWN porque os aplicativos a seguir ainda n\u00e3o foram iniciados: {0}
+startup.healthcheck.applications.not.started.down.CWMMH0054W.explanation=A verifica\u00e7\u00e3o de funcionamento de inicializa\u00e7\u00e3o relatou um status geral de DOWN porque os aplicativos especificados n\u00e3o foram iniciados ainda e n\u00e3o est\u00e3o prontos para processar solicita\u00e7\u00f5es.
+startup.healthcheck.applications.not.started.down.CWMMH0054W.useraction=Este aviso \u00e9 um registro do status DOWN e nenhuma a\u00e7\u00e3o do usu\u00e1rio \u00e9 necess\u00e1ria. Espere at\u00e9 que todos os aplicativos sejam iniciados. Ap\u00f3s todos os aplicativos serem iniciados, as verifica\u00e7\u00f5es de funcionamento definidas pelo usu\u00e1rio ser\u00e3o processadas.
+
+
+#-----------------------------------------------------------------------------------------------------------------------------
+# File-based health check messages
+#-----------------------------------------------------------------------------------------------------------------------------
+file.healthcheck.health.directory.create.fail.CWMMH0100W=CWMMH0100W: N\u00e3o foi poss\u00edvel criar o diret\u00f3rio /health no seguinte caminho [ {0} ]. A fun\u00e7\u00e3o de verifica\u00e7\u00e3o de integridade baseada em arquivo ser\u00e1 desativada.
+file.healthcheck.health.directory.create.fail.CWMMH0100W.explanation=O tempo de execu\u00e7\u00e3o n\u00e3o conseguiu criar o diret\u00f3rio /health necess\u00e1rio para que as verifica\u00e7\u00f5es de integridade baseadas em arquivo funcionassem corretamente.
+file.healthcheck.health.directory.create.fail.CWMMH0100W.useraction=O usu\u00e1rio deve identificar a causa raiz que impede o tempo de execu\u00e7\u00e3o de criar o diret\u00f3rio /health.
+
+
+file.healthcheck.health.directory.write.fail.CWMMH0101W=CWMMH0101W: N\u00e3o \u00e9 poss\u00edvel gravar no diret\u00f3rio {0}. A fun\u00e7\u00e3o de verifica\u00e7\u00e3o de integridade baseada em arquivo ser\u00e1 desativada.
+file.healthcheck.health.directory.write.fail.CWMMH0101W.explanation=O tempo de execu\u00e7\u00e3o requer permiss\u00f5es de grava\u00e7\u00e3o no diret\u00f3rio /health para criar os arquivos "live", "ready" e "started" para que as verifica\u00e7\u00f5es de integridade baseadas em arquivos funcionem corretamente.
+file.healthcheck.health.directory.write.fail.CWMMH0101W.useraction=O usu\u00e1rio deve identificar a causa principal do problema de permiss\u00e3o.
+
+file.healthcheck.health.directory.resolution.fail.CWMMH0102W=CWMMH0102W: O tempo de execu\u00e7\u00e3o n\u00e3o consegue resolver o caminho para o diret\u00f3rio /health. A fun\u00e7\u00e3o de verifica\u00e7\u00e3o de integridade baseada em arquivo ser\u00e1 desativada.
+file.healthcheck.health.directory.resolution.fail.CWMMH0102W.explanation=O tempo de execu\u00e7\u00e3o requer que a propriedade interna server.output.dir ou a vari\u00e1vel de ambiente WLP_OUTPUT_DIR seja definida para determinar o local do diret\u00f3rio /health.
+file.healthcheck.health.directory.resolution.fail.CWMMH0102W.useraction=Certifique-se de que a vari\u00e1vel de ambiente WLP_OUTPUT_DIR esteja definida corretamente.
+
+file.healthcheck.file.name.conflict.CWMMH0105W=CWMMH0106W: O tempo de execu\u00e7\u00e3o detectou a presen\u00e7a do seguinte diret\u00f3rio [ {0} ]. Um arquivo com o mesmo nome \u00e9 necess\u00e1rio para a fun\u00e7\u00e3o de verifica\u00e7\u00e3o de integridade baseada em arquivo nesse caminho. A fun\u00e7\u00e3o de verifica\u00e7\u00e3o de integridade baseada em arquivo ser\u00e1 desativada.
+file.healthcheck.file.name.conflict.CWMMH0105W.explanation=As verifica\u00e7\u00f5es de integridade baseadas em arquivos exigem a cria\u00e7\u00e3o e o uso dos arquivos "live", "ready" e "started" no diret\u00f3rio /health. Um diret\u00f3rio existente com um desses nomes j\u00e1 est\u00e1 presente no diret\u00f3rio /health, o que impede a cria\u00e7\u00e3o dos arquivos necess\u00e1rios.
+file.healthcheck.file.name.conflict.CWMMH0105W.useraction=O diret\u00f3rio n\u00e3o \u00e9 criado por esse tempo de execu\u00e7\u00e3o e pode conter conte\u00fado importante para o usu\u00e1rio. Remova ou reposicione o diret\u00f3rio.
+
+file.healthcheck.file.delete.fail.CWMMH0106W=CWMMH0106W: N\u00e3o \u00e9 poss\u00edvel excluir o arquivo existente em [ {0} ]. A fun\u00e7\u00e3o de verifica\u00e7\u00e3o de integridade baseada em arquivo ser\u00e1 desativada.
+file.healthcheck.file.delete.fail.CWMMH0106W.explanation=As verifica\u00e7\u00f5es de integridade baseadas em arquivos exigem a cria\u00e7\u00e3o e o uso dos arquivos "live", "ready" e "started" no diret\u00f3rio /health. Para que as verifica\u00e7\u00f5es de integridade baseadas em arquivos funcionem corretamente, esses arquivos n\u00e3o devem existir quando o tempo de execu\u00e7\u00e3o for iniciado. O tempo de execu\u00e7\u00e3o tentou excluir o arquivo existente, mas n\u00e3o conseguiu.
+file.healthcheck.file.delete.fail.CWMMH0106W.useraction=O usu\u00e1rio deve identificar a causa raiz que impede que o tempo de execu\u00e7\u00e3o exclua os arquivos.
+
+file.healthcheck.system.inconsistency.CWMMH0107W=CWMMH0107W: O tempo de execu\u00e7\u00e3o detectou inconsist\u00eancias com o mecanismo de verifica\u00e7\u00e3o de integridade baseado em arquivo local. O mecanismo de verifica\u00e7\u00e3o de integridade baseado em arquivo est\u00e1 desativado.
+file.healthcheck.system.inconsistency.CWMMH0107W.explanation=Foram detectadas inconsist\u00eancias no sistema de arquivos. Por exemplo, o arquivo "started" est\u00e1 presente antes que o tempo de execu\u00e7\u00e3o crie o arquivo "started".
+file.healthcheck.system.inconsistency.CWMMH0107W.useraction=Exclua o diret\u00f3rio < server.output.dir >/health e reinicie o servidor.
+
+check.interval.config.invalid.CWMMH01010W=CWMMH01010W: Um valor inv\u00e1lido [ {0} ] foi fornecido para o intervalo de verifica\u00e7\u00e3o. O valor fornecido deve consistir em um n\u00famero seguido de uma unidade de tempo opcional de "ms" para milissegundos ou "s" para segundos. Se nenhuma unidade de tempo for especificada, o valor ser\u00e1 em segundos por padr\u00e3o. O tempo de execu\u00e7\u00e3o ser\u00e1 padronizado para 10 segundos.
+check.interval.config.invalid.CWMMH01010W.explanation=A configura\u00e7\u00e3o do intervalo de verifica\u00e7\u00e3o aceita apenas um n\u00famero seguido de uma unidade de tempo opcional de "ms" para milissegundos ou "s" para segundos. Se nenhuma unidade de tempo for especificada, o valor ser\u00e1 em segundos por padr\u00e3o.
+check.interval.config.invalid.CWMMH01010W.useraction=Insira um valor correto para a configura\u00e7\u00e3o do intervalo de verifica\u00e7\u00e3o.
+
+startup.check.interval.config.invalid.CWMMH01011W=CWMMH01011W: Um valor inv\u00e1lido [ {0} ] foi fornecido para o intervalo de verifica\u00e7\u00e3o de inicializa\u00e7\u00e3o. O valor fornecido deve consistir em um n\u00famero seguido de uma unidade de tempo opcional de "ms" para milissegundos ou "s" para segundos. Se nenhuma unidade de tempo for especificada, o valor ser\u00e1 em milissegundos por padr\u00e3o. O tempo de execu\u00e7\u00e3o tem como padr\u00e3o 100 milissegundos.
+startup.check.interval.config.invalid.CWMMH01011W.explanation=A configura\u00e7\u00e3o do intervalo de verifica\u00e7\u00e3o de inicializa\u00e7\u00e3o aceita apenas valores com um n\u00famero seguido de uma unidade de tempo opcional de "ms" para milissegundos ou "s" para segundos. Se nenhuma unidade de tempo for especificada, o valor ser\u00e1 em milissegundos por padr\u00e3o.
+startup.check.interval.config.invalid.CWMMH01011W.useraction=Especifique um valor correto para a configura\u00e7\u00e3o do intervalo de verifica\u00e7\u00e3o de inicializa\u00e7\u00e3o.
+
+startup.check.interval.config.only.set.CWMMH01012W=CWMMH01012W: A configura\u00e7\u00e3o do intervalo de verifica\u00e7\u00e3o de inicializa\u00e7\u00e3o foi definida antes da configura\u00e7\u00e3o do intervalo de verifica\u00e7\u00e3o. A verifica\u00e7\u00e3o de integridade baseada em arquivo \u00e9 desativada quando o intervalo de verifica\u00e7\u00e3o n\u00e3o est\u00e1 configurado.
+startup.check.interval.config.only.set.CWMMH01012W.explanation=A configura\u00e7\u00e3o apenas do intervalo de verifica\u00e7\u00e3o de inicializa\u00e7\u00e3o n\u00e3o habilita o mecanismo de verifica\u00e7\u00e3o de integridade baseado em arquivo.
+startup.check.interval.config.only.set.CWMMH01012W.useraction=Configure o intervalo de verifica\u00e7\u00e3o para ativar o mecanismo de verifica\u00e7\u00e3o de integridade baseado em arquivo.
+
+enable.endpoints.config.without.file.health.check.CWMMH01013W=CWMMH01013W: A configura\u00e7\u00e3o ` enableEndpoints ` est\u00e1 definida como `false`, mas a fun\u00e7\u00e3o de verifica\u00e7\u00e3o de integridade baseada em arquivo n\u00e3o est\u00e1 ativada. Essa configura\u00e7\u00e3o n\u00e3o tem efeito, e os pontos de verifica\u00e7\u00e3o de integridade est\u00e3o ativados.
+enable.endpoints.config.without.file.health.check.CWMMH01013W.explanation=A configura\u00e7\u00e3o do ` enableEndpoints ` s\u00f3 entra em vigor quando as verifica\u00e7\u00f5es de integridade baseadas em arquivo est\u00e3o ativadas.
+enable.endpoints.config.without.file.health.check.CWMMH01013W.useraction=Ative as fun\u00e7\u00f5es de verifica\u00e7\u00e3o de integridade baseadas em arquivos ou remova a configura\u00e7\u00e3o ` enableEndpoints `.
+
+enable.endpoints.env.var.invalid.value.CWMMH01014W=CWMMH01014W: Foi fornecido um valor inv\u00e1lido [ {0} ] para a vari\u00e1vel de ambiente MP_HEALTH_ENABLE_ENDPOINTS. O valor fornecido deve ser \u201ctrue\u201d ou \u201cfalse\u201d. O ambiente de execu\u00e7\u00e3o utiliza a configura\u00e7\u00e3o do servidor ou, na aus\u00eancia dela, o valor padr\u00e3o \u00e9 \u201ctrue\u201d.
+enable.endpoints.env.var.invalid.value.CWMMH01014W.explanation=A vari\u00e1vel de ambiente MP_HEALTH_ENABLE_ENDPOINTS aceita apenas os valores \u201ctrue\u201d ou \u201cfalse\u201d (sem distin\u00e7\u00e3o entre mai\u00fasculas e min\u00fasculas).
+enable.endpoints.env.var.invalid.value.CWMMH01014W.useraction=Defina a vari\u00e1vel de ambiente MP_HEALTH_ENABLE_ENDPOINTS como \u201ctrue\u201d ou \u201cfalse\u201d, ou remova a vari\u00e1vel de ambiente para usar a configura\u00e7\u00e3o do servidor.

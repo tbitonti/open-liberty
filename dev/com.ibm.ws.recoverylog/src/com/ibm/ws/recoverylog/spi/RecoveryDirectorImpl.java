@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2021 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,16 +13,15 @@
 package com.ibm.ws.recoverylog.spi;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.TreeMap;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
+import com.ibm.wsspi.kernel.service.utils.FrameworkState;
 
 //------------------------------------------------------------------------------
 //Class: RecoveryDirectorImpl
@@ -184,6 +185,10 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
      */
     protected HashMap<String, RecoveryLogFactory> _customLogFactories = new HashMap<String, RecoveryLogFactory>();
 
+    private boolean _isSQLRecoveryLog;
+
+    private final RecLogService _recLogService;
+
     //------------------------------------------------------------------------------
     // Method: RecoveryDirectorImpl.RecoveryDirectorImpl
     //------------------------------------------------------------------------------
@@ -193,10 +198,14 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
      * Internal code may access this instance via the RecoveryDirectorImpl.instance()
      * method. Client services may access this instance via the RecoveryDirectorFactory.
      * recoveryDirector() method.
+     *
+     * @param recLogService
      */
-    protected RecoveryDirectorImpl() {
+    protected RecoveryDirectorImpl(RecLogService recLogService) {
         if (tc.isEntryEnabled())
-            Tr.entry(tc, "RecoveryDirectorImpl");
+            Tr.entry(tc, "RecoveryDirectorImpl", recLogService);
+
+        _recLogService = recLogService;
 
         // Allocate the map which will contain all registered service managers
         _registeredRecoveryAgents = new TreeMap<Integer, ArrayList<RecoveryAgent>>();
@@ -241,18 +250,26 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
      * method is intended for internal use only. Client services should access this
      * instance via the RecoveryDirectorFactory.recoveryDirector() method.
      *
+     * @param recLogService
+     *
      * @return The singleton instance of the RecoveryDirectorImpl class.
      */
-    public static synchronized RecoveryDirector instance() {
+    public static synchronized RecoveryDirector instance(RecLogService recLogService) {
         if (tc.isEntryEnabled())
-            Tr.entry(tc, "instance");
+            Tr.entry(tc, "instance", recLogService);
 
         if (_instance == null) {
-            _instance = new RecoveryDirectorImpl();
+            _instance = new RecoveryDirectorImpl(recLogService);
         }
 
         if (tc.isEntryEnabled())
             Tr.exit(tc, "instance", _instance);
+        return _instance;
+    }
+
+    public static RecoveryDirector instance() {
+        if (tc.isDebugEnabled())
+            Tr.debug(tc, "instance", _instance);
         return _instance;
     }
 
@@ -326,21 +343,8 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
             final int clientIdentifier = recoveryAgent.clientIdentifier();
             final String clientName = recoveryAgent.clientName();
 
-            // Extract the 'values' collection from the _registeredRecoveryAgents map and create an iterator
-            // from it. This iterator will return ArrayList objects each containing a set of RecoveryAgent
-            // objects. Each ArrayList corrisponds to a different sequence priority value.
-            final Collection registeredRecoveryAgentsValues = _registeredRecoveryAgents.values();
-            final Iterator registeredRecoveryAgentsValuesIterator = registeredRecoveryAgentsValues.iterator();
-
-            while (registeredRecoveryAgentsValuesIterator.hasNext()) {
-                // Extract the next ArrayList and create an iterator from it. This iterator will return RecoveryAgent
-                // objects that are registered at the same sequence priority value.
-                final ArrayList registeredRecoveryAgentsArray = (java.util.ArrayList) registeredRecoveryAgentsValuesIterator.next();
-                final Iterator registeredRecoveryAgentsArrayIterator = registeredRecoveryAgentsArray.iterator();
-
-                while (registeredRecoveryAgentsArrayIterator.hasNext()) {
-                    // Extract the next RecoveryAgent object
-                    final RecoveryAgent registeredRecoveryAgent = (RecoveryAgent) registeredRecoveryAgentsArrayIterator.next();
+            for (ArrayList<RecoveryAgent> recoveryAgentArrayList : _registeredRecoveryAgents.values()) {
+                for (RecoveryAgent registeredRecoveryAgent : recoveryAgentArrayList) {
 
                     if ((registeredRecoveryAgent.clientIdentifier() == clientIdentifier) ||
                         (registeredRecoveryAgent.clientName().equals(clientName))) {
@@ -357,12 +361,11 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
             }
 
             // This is a valid registration. Store the RecoveryAgent, keyed from the supplied sequence value.
-            final Integer sequenceI = new Integer(sequence);
-            ArrayList<RecoveryAgent> sequenceArray = _registeredRecoveryAgents.get(sequenceI);
+            ArrayList<RecoveryAgent> sequenceArray = _registeredRecoveryAgents.get(sequence);
 
             if (sequenceArray == null) {
-                sequenceArray = new java.util.ArrayList<RecoveryAgent>();
-                _registeredRecoveryAgents.put(sequenceI, sequenceArray);
+                sequenceArray = new ArrayList<RecoveryAgent>();
+                _registeredRecoveryAgents.put(sequence, sequenceArray);
             }
 
             sequenceArray.add(recoveryAgent);
@@ -377,7 +380,7 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
             // query of its recovery log directory in support of the exclusive locking model. Once
             // the HA framework provides more support for Network Paritioning, we can remove this logic.
             if (clientIdentifier == ClientId.RLCI_TRANSACTIONSERVICE) {
-                Configuration.txRecoveryAgent(recoveryAgent);
+                Configuration.setTxRecoveryAgent(recoveryAgent);
             }
         }
 
@@ -523,13 +526,20 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
      * in sequence.
      *
      * @param FailureScope The FailureScope to process.
-     * @return boolean success
+     * @throws RecoveryFailedException if the server is stopping
      */
     @Override
-    @FFDCIgnore({ RecoveryFailedException.class })
-    public void directInitialization(FailureScope failureScope) throws RecoveryFailedException {
+    @FFDCIgnore({ RecoveryFailedException.class, LogsUnderlyingTablesMissingException.class })
+    public void directInitialization(FailureScope failureScope) throws RecoveryFailedException, PeerLostLogOwnershipException, LogsUnderlyingTablesMissingException {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "directInitialization", new Object[] { failureScope, this });
+
+        if (FrameworkState.isStopping()) {
+            RecoveryFailedException rfe = new RecoveryFailedException("Server is stopping");
+            if (tc.isEntryEnabled())
+                Tr.exit(tc, "directInitialization", rfe);
+            throw rfe;
+        }
 
         // Use configuration to determine if recovery is local (for z/OS).
         final FailureScope currentFailureScope = Configuration.localFailureScope(); /* @LI1578-22A */
@@ -542,32 +552,19 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
             _registrationAllowed = false;
         }
 
-        if (currentFailureScope.equals(failureScope)) /* @LI1578-22C */
-        {
+        boolean localRecovery = currentFailureScope.equals(failureScope);
+        if (localRecovery) {
             Tr.info(tc, "CWRLS0010_PERFORM_LOCAL_RECOVERY", failureScope.serverName());
         } else {
             Tr.info(tc, "CWRLS0011_PERFORM_PEER_RECOVERY", failureScope.serverName());
         }
 
-        // Extract the 'values' collection from the _registeredRecoveryAgents map and create an iterator
-        // from it. This iterator will return ArrayList objects each containing a set of RecoveryAgent
-        // objects. Each ArrayList corrisponds to a different sequence priority value.
-        final Collection registeredRecoveryAgentsValues = _registeredRecoveryAgents.values();
-
-        Iterator registeredRecoveryAgentsValuesIterator = registeredRecoveryAgentsValues.iterator();
-        while (registeredRecoveryAgentsValuesIterator.hasNext()) {
-            // Extract the next ArrayList and create an iterator from it. This iterator will return RecoveryAgent
-            // objects that are registered at the same sequence priority value.
-            final ArrayList registeredRecoveryAgentsArray = (java.util.ArrayList) registeredRecoveryAgentsValuesIterator.next();
-            final Iterator registeredRecoveryAgentsArrayIterator = registeredRecoveryAgentsArray.iterator();
-
-            while (registeredRecoveryAgentsArrayIterator.hasNext()) {
-                // Extract the next RecoveryAgent object
-                final RecoveryAgent recoveryAgent = (RecoveryAgent) registeredRecoveryAgentsArrayIterator.next();
+        for (ArrayList<RecoveryAgent> recoveryAgentArrayList : _registeredRecoveryAgents.values()) {
+            for (RecoveryAgent registeredRecoveryAgent : recoveryAgentArrayList) {
 
                 // Prepare the maps for the recovery event.
-                addInitializationRecord(recoveryAgent, failureScope);
-                addRecoveryRecord(recoveryAgent, failureScope);
+                addInitializationRecord(registeredRecoveryAgent, failureScope);
+                addRecoveryRecord(registeredRecoveryAgent, failureScope);
             }
         }
 
@@ -586,67 +583,87 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
             driveCallBacks(CALLBACK_RECOVERYSTARTED, failureScope);
         }
 
-        // Re-set the iterator.
-        registeredRecoveryAgentsValuesIterator = registeredRecoveryAgentsValues.iterator();
-
-        while (registeredRecoveryAgentsValuesIterator.hasNext()) {
-            // Extract the next ArrayList and create an iterator from it. This iterator will return RecoveryAgent
-            // objects that are registered at the same sequence priority value.
-            final ArrayList registeredRecoveryAgentsArray = (java.util.ArrayList) registeredRecoveryAgentsValuesIterator.next();
-            final Iterator registeredRecoveryAgentsArrayIterator = registeredRecoveryAgentsArray.iterator();
-
-            while (registeredRecoveryAgentsArrayIterator.hasNext()) {
-                // Extract the next RecoveryAgent object
-                final RecoveryAgent recoveryAgent = (RecoveryAgent) registeredRecoveryAgentsArrayIterator.next();
+        for (ArrayList<RecoveryAgent> recoveryAgentArrayList : _registeredRecoveryAgents.values()) {
+            for (RecoveryAgent recoveryAgent : recoveryAgentArrayList) {
 
                 // Direct the RecoveryAgent instance to process this failure scope.
                 try {
                     // Notify the listeners we're about to make the call
                     _eventListeners.clientRecoveryInitiated(failureScope, recoveryAgent.clientIdentifier()); /* @MD19638A */
 
-                    // HADB Peer Locking function is provided in tWAS to handle the case where a network is partitioned
-                    // and transaction recovery logs are stored in an RDBMS.This function, while not strictly required in
+                    // DB Peer Locking function is provided in tWAS to handle the case where a network is partitioned
+                    // and transaction recovery logs are stored in an RDBMS. This function, while not strictly required in
                     // Liberty is included in Liberty in order to maintain compatibility and allow testing.
                     //
-                    // HADB Peer Locking is enabled through a server.xml enableHADBPeerLocking attribute in the transaction element.
-                    boolean shouldBeRecovered = true;
-                    boolean enableHADBPeerLocking = recoveryAgent.isDBTXLogPeerLocking();
-                    if (enableHADBPeerLocking) {
-                        // We need to acquire a Heartbeat Recovery Log reference whether we are recovering a local
-                        // or peer server. In each case we get a reference to the appropriate Recovery Log.
-                        HeartbeatLog heartbeatLog = recoveryAgent.getHeartbeatLog(failureScope);
+                    // Peer Locking is enabled by default for DB Logs but can be disabled through a server.xml enableDBLogPeerLocking
+                    // attribute in the transaction element.
+                    boolean proceedWithRecovery = true;
 
-                        if (heartbeatLog != null) {
-                            // Set the ThreadLocal to show that this is the thread that will replay the recovery logs
-                            recoveryAgent.setReplayThread();
-                            if (currentFailureScope.equals(failureScope)) {
-                                if (tc.isDebugEnabled())
-                                    Tr.debug(tc, "LOCAL RECOVERY, claim local logs");
-                                shouldBeRecovered = heartbeatLog.claimLocalRecoveryLogs();
-                                if (!shouldBeRecovered) {
-                                    // Cannot recover the home server, throw exception
-                                    RecoveryFailedException rfex = new RecoveryFailedException("HADB Peer locking, local recovery failed");
+                    // Differentiate between the RDBMS and FileSystem implementations
+                    _isSQLRecoveryLog = recoveryAgent.isSQLRecoveryLog();
+                    if (_isSQLRecoveryLog) {
+                        if (recoveryAgent.isLogLockingEnabled()) {
+                            // We need to acquire a Heartbeat Recovery Log reference whether we are recovering a local
+                            // or peer server. In each case we get a reference to the appropriate Recovery Log.
+                            HeartbeatLog heartbeatLog = recoveryAgent.getHeartbeatLog(failureScope);
 
-                                    throw rfex;
-                                }
+                            if (heartbeatLog != null) {
+                                // Set the ThreadLocal to show that this is the thread that will replay the recovery logs
+                                recoveryAgent.setReplayThread();
+                                if (currentFailureScope.equals(failureScope)) {
+                                    if (tc.isDebugEnabled())
+                                        Tr.debug(tc, "LOCAL RECOVERY, claim local logs");
+                                    proceedWithRecovery = heartbeatLog.claimLocalRecoveryLogs();
+                                    if (!proceedWithRecovery) {
+                                        // Cannot recover the home server, throw exception
+                                        RecoveryFailedException rfex = new RecoveryFailedException("HADB Peer locking, local recovery failed");
 
-                            } else {
-                                if (tc.isDebugEnabled())
-                                    Tr.debug(tc, "PEER RECOVERY, take lock, ie check staleness");
-                                shouldBeRecovered = heartbeatLog.claimPeerRecoveryLogs();
-                                if (!shouldBeRecovered) {
-                                    // Cannot recover peer server, throw exception
-                                    RecoveryFailedException rfex = new RecoveryFailedException("HADB Peer locking, peer recovery failed");
-                                    throw rfex;
+                                        throw rfex;
+                                    }
+
+                                } else {
+                                    if (tc.isDebugEnabled())
+                                        Tr.debug(tc, "PEER RECOVERY, take lock, ie check staleness");
+                                    try {
+                                        proceedWithRecovery = heartbeatLog.claimPeerRecoveryLogs();
+                                    } catch (LogsUnderlyingTablesMissingException e) {
+                                        Tr.audit(tc, "WTRN0107W: " +
+                                                     "Peer server " + failureScope.serverName() + " has missing recovery log SQL tables. Delete its lease");
+                                        recoveryAgent.deleteServerLease(failureScope.serverName(), true);
+                                        if (tc.isEntryEnabled())
+                                            Tr.exit(tc, "directInitialization", e);
+                                        throw e;
+                                    }
+                                    if (!proceedWithRecovery) {
+                                        // Cannot recover peer server, throw exception
+                                        if (tc.isDebugEnabled())
+                                            Tr.debug(tc, "Unable to claim logs, throw PeerLostLogOwnershipException");
+                                        PeerLostLogOwnershipException plex = new PeerLostLogOwnershipException();
+                                        if (tc.isEntryEnabled())
+                                            Tr.exit(tc, "directInitialization", plex);
+                                        throw plex;
+                                    }
                                 }
                             }
+                        }
+                    } else {
+                        // FileSystem Case
+                        if (!currentFailureScope.equals(failureScope) && recoveryAgent != null) {
+                            if (tc.isDebugEnabled())
+                                Tr.debug(tc, "PEER RECOVERY, filesystem case");
+                        } else {
+                            if (tc.isDebugEnabled())
+                                Tr.debug(tc, "LOCAL RECOVERY, filesystem case");
                         }
                     }
 
                     if (tc.isDebugEnabled())
-                        Tr.debug(tc, "now initiateRecovery if shouldBeRecovered - " + shouldBeRecovered);
-                    if (shouldBeRecovered)
+                        Tr.debug(tc, "now initiateRecovery if shouldBeRecovered - " + proceedWithRecovery);
+                    if (proceedWithRecovery) {
                         recoveryAgent.initiateRecovery(failureScope);
+                    } else {
+                        throw new RecoveryFailedException("FileSystem Peer locking, peer recovery failed");
+                    }
                 } catch (RecoveryFailedException exc) {
                     if (tc.isEntryEnabled())
                         Tr.exit(tc, "directInitialization", exc);
@@ -671,11 +688,8 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
             }
         }
 
-        if (currentFailureScope.equals(failureScope)) /* @LI1578-22C */
-        {
+        if (localRecovery) {
             Tr.info(tc, "CWRLS0012_DIRECT_LOCAL_RECOVERY", failureScope.serverName());
-        } else {
-            Tr.info(tc, "CWRLS0013_DIRECT_PEER_RECOVERY", failureScope.serverName());
         }
 
         if (tc.isEntryEnabled())
@@ -707,21 +721,8 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
             Configuration.getRecoveryLogComponent().leaveCluster(failureScope);
         }
 
-        // Extract the 'values' collection from the _registeredRecoveryAgents map and create an iterator
-        // from it. This iterator will return ArrayList objects each containing a set of RecoveryAgent
-        // objects. Each ArrayList corrisponds to a different sequence priority value.
-        final Collection registeredRecoveryAgentsValues = _registeredRecoveryAgents.values();
-        final Iterator registeredRecoveryAgentsValuesIterator = registeredRecoveryAgentsValues.iterator();
-
-        while (registeredRecoveryAgentsValuesIterator.hasNext()) {
-            // Extract the next ArrayList and create an iterator from it. This iterator will return RecoveryAgent
-            // objects that are registered at the same sequence priority value.
-            final ArrayList registeredRecoveryAgentsArray = (java.util.ArrayList) registeredRecoveryAgentsValuesIterator.next();
-            final Iterator registeredRecoveryAgentsArrayIterator = registeredRecoveryAgentsArray.iterator();
-
-            while (registeredRecoveryAgentsArrayIterator.hasNext()) {
-                // Extract the next RecoveryAgent object
-                final RecoveryAgent recoveryAgent = (RecoveryAgent) registeredRecoveryAgentsArrayIterator.next();
+        for (ArrayList<RecoveryAgent> recoveryAgentArrayList : _registeredRecoveryAgents.values()) {
+            for (RecoveryAgent recoveryAgent : recoveryAgentArrayList) {
 
                 // Record the fact that we have an outstanding termination request for the RecoveryAgent.
                 addTerminationRecord(recoveryAgent, failureScope);
@@ -909,7 +910,7 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
         synchronized (_outstandingInitializationRecords) {
             // Extract the set of failure scopes that the corrisponding client service is currently
             // processing.
-            final HashSet failureScopeSet = _outstandingInitializationRecords.get(recoveryAgent);
+            final HashSet<FailureScope> failureScopeSet = _outstandingInitializationRecords.get(recoveryAgent);
 
             // Since this method should only be called in response to a request to handle the recovery
             // of a failure scope, then this set should never be null. To avoid a null pointer exception
@@ -959,7 +960,7 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
         synchronized (_outstandingTerminationRecords) {
             // Extract the set of failure scopes that the corrisponding client service is currently
             // processing.
-            final HashSet failureScopeSet = _outstandingTerminationRecords.get(recoveryAgent);
+            final HashSet<FailureScope> failureScopeSet = _outstandingTerminationRecords.get(recoveryAgent);
 
             // Since this method should only be called in response to a request to handle the recovery
             // of a failure scope, then this set should never be null. To avoid a null pointer exception
@@ -1020,7 +1021,7 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
         synchronized (_outstandingInitializationRecords) {
             // Extract the set of failure scopes that the corrisponding client service is currently
             // processing.
-            final HashSet failureScopeSet = _outstandingInitializationRecords.get(recoveryAgent);
+            final HashSet<FailureScope> failureScopeSet = _outstandingInitializationRecords.get(recoveryAgent);
 
             // If there are some then determine if the set contains the given FailureScope.
             if (failureScopeSet != null) {
@@ -1054,7 +1055,7 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
         synchronized (_outstandingTerminationRecords) {
             // Extract the set of failure scopes that the corrisponding client service is currently
             // processing.
-            final HashSet failureScopeSet = _outstandingTerminationRecords.get(recoveryAgent);
+            final HashSet<FailureScope> failureScopeSet = _outstandingTerminationRecords.get(recoveryAgent);
 
             // If there are some then determine if the set contains the given FailureScope.
             if (failureScopeSet != null) {
@@ -1077,6 +1078,7 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
      * recover the local server node.
      * </p>
      */
+    @FFDCIgnore({ RecoveryFailedException.class })
     public void driveLocalRecovery() throws RecoveryFailedException {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "driveLocalRecovery", this);
@@ -1097,6 +1099,18 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
             if (tc.isEntryEnabled())
                 Tr.exit(tc, "driveLocalRecovery", exc);
             throw exc;
+        } catch (PeerLostLogOwnershipException plex) {
+            // Not expected, wrap exception and rethrow
+            RecoveryFailedException rfex = new RecoveryFailedException(plex);
+            if (tc.isEntryEnabled())
+                Tr.exit(tc, "driveLocalRecovery", rfex);
+            throw rfex;
+        } catch (LogsUnderlyingTablesMissingException lutmex) {
+            // Not expected, wrap exception and rethrow
+            RecoveryFailedException rfex = new RecoveryFailedException(lutmex);
+            if (tc.isEntryEnabled())
+                Tr.exit(tc, "driveLocalRecovery", rfex);
+            throw rfex;
         }
 
         if (tc.isEntryEnabled())
@@ -1191,7 +1205,7 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
         boolean found = false;
 
         synchronized (_outstandingRecoveryRecords) {
-            final HashSet recoveryAgentSet = _outstandingRecoveryRecords.get(failureScope);
+            final HashSet<RecoveryAgent> recoveryAgentSet = _outstandingRecoveryRecords.get(failureScope);
 
             if (recoveryAgentSet != null) {
                 found = recoveryAgentSet.remove(recoveryAgent);
@@ -1241,7 +1255,7 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
         boolean outstanding = false;
 
         synchronized (_outstandingRecoveryRecords) {
-            final HashSet recoveryAgentSet = _outstandingRecoveryRecords.get(failureScope);
+            final HashSet<RecoveryAgent> recoveryAgentSet = _outstandingRecoveryRecords.get(failureScope);
 
             // If there are some then determine if the set contains the given FailureScope.
             if (recoveryAgentSet != null && recoveryAgentSet.size() > 0) {
@@ -1437,21 +1451,8 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
             // Tell other services about this failure so they can take any required action.
             final int failedClientId = recoveryAgent.clientIdentifier();
 
-            // Extract the 'values' collection from the _registeredRecoveryAgents map and create an iterator
-            // from it. This iterator will return ArrayList objects each containing a set of RecoveryAgent
-            // objects. Each ArrayList corrisponds to a different sequence priority value.
-            final Collection registeredRecoveryAgentsValues = _registeredRecoveryAgents.values();
-            final Iterator registeredRecoveryAgentsValuesIterator = registeredRecoveryAgentsValues.iterator();
-
-            while (registeredRecoveryAgentsValuesIterator.hasNext()) {
-                // Extract the next ArrayList and create an iterator from it. This iterator will return RecoveryAgent
-                // objects that are registered at the same sequence priority value.
-                final ArrayList registeredRecoveryAgentsArray = (java.util.ArrayList) registeredRecoveryAgentsValuesIterator.next();
-                final Iterator registeredRecoveryAgentsArrayIterator = registeredRecoveryAgentsArray.iterator();
-
-                while (registeredRecoveryAgentsArrayIterator.hasNext()) {
-                    // Extract the next RecoveryAgent object
-                    final RecoveryAgent informRecoveryAgent = (RecoveryAgent) registeredRecoveryAgentsArrayIterator.next();
+            for (ArrayList<RecoveryAgent> recoveryAgentArrayList : _registeredRecoveryAgents.values()) {
+                for (RecoveryAgent informRecoveryAgent : recoveryAgentArrayList) {
 
                     if (informRecoveryAgent.clientIdentifier() != failedClientId) {
                         informRecoveryAgent.agentReportedFailure(failedClientId, failureScope);
@@ -1516,31 +1517,28 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
         if (tc.isEntryEnabled()) {
             switch (stage) {
                 case CALLBACK_RECOVERYSTARTED:
-                    Tr.entry(tc, "driveCallBacks", new Object[] { "CALLBACK_RECOVERYSTARTED", failureScope });
+                    Tr.entry(tc, "driveCallBacks", "CALLBACK_RECOVERYSTARTED", failureScope);
                     break;
                 case CALLBACK_RECOVERYCOMPLETE:
-                    Tr.entry(tc, "driveCallBacks", new Object[] { "CALLBACK_RECOVERYCOMPLETE", failureScope });
+                    Tr.entry(tc, "driveCallBacks", "CALLBACK_RECOVERYCOMPLETE", failureScope);
                     break;
                 case CALLBACK_TERMINATIONSTARTED:
-                    Tr.entry(tc, "driveCallBacks", new Object[] { "CALLBACK_TERMINATIONSTARTED", failureScope });
+                    Tr.entry(tc, "driveCallBacks", "CALLBACK_TERMINATIONSTARTED", failureScope);
                     break;
                 case CALLBACK_TERMINATIONCOMPLETE:
-                    Tr.entry(tc, "driveCallBacks", new Object[] { "CALLBACK_TERMINATIONCOMPLETE", failureScope });
+                    Tr.entry(tc, "driveCallBacks", "CALLBACK_TERMINATIONCOMPLETE", failureScope);
                     break;
                 case CALLBACK_RECOVERYFAILED:
-                    Tr.entry(tc, "driveCallBacks", new Object[] { "CALLBACK_RECOVERYFAILED", failureScope });
+                    Tr.entry(tc, "driveCallBacks", "CALLBACK_RECOVERYFAILED", failureScope);
                     break;
                 default:
-                    Tr.entry(tc, "driveCallBacks", new Object[] { new Integer(stage), failureScope });
+                    Tr.entry(tc, "driveCallBacks", stage, failureScope);
                     break;
             }
         }
 
         if (_registeredCallbacks != null) {
-            final Iterator registeredCallbacksIterator = _registeredCallbacks.iterator();
-
-            while (registeredCallbacksIterator.hasNext()) {
-                final RecoveryLogCallBack callBack = (RecoveryLogCallBack) registeredCallbacksIterator.next();
+            for (RecoveryLogCallBack callBack : _registeredCallbacks) {
 
                 switch (stage) {
                     case CALLBACK_RECOVERYSTARTED:
@@ -1679,24 +1677,8 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
                      localFailureScope.serverName() + " checking to see if any peers need recovering");
         ArrayList<String> peersToRecover = null;
 
-        // Extract the 'values' collection from the _registeredRecoveryAgents map and create an iterator
-        // from it. This iterator will return ArrayList objects each containing a set of RecoveryAgent
-        // objects. Each ArrayList corrisponds to a different sequence priority value.
-        final Collection registeredRecoveryAgentsValues = _registeredRecoveryAgents.values();
-        if (tc.isDebugEnabled())
-            Tr.debug(tc, "work with RA values: " + registeredRecoveryAgentsValues + ", collection size: " + registeredRecoveryAgentsValues.size(), this);
-        Iterator registeredRecoveryAgentsValuesIterator = registeredRecoveryAgentsValues.iterator();
-        while (registeredRecoveryAgentsValuesIterator.hasNext()) {
-            // Extract the next ArrayList and create an iterator from it. This iterator will return RecoveryAgent
-            // objects that are registered at the same sequence priority value.
-            final ArrayList registeredRecoveryAgentsArray = (java.util.ArrayList) registeredRecoveryAgentsValuesIterator.next();
-            if (tc.isDebugEnabled())
-                Tr.debug(tc, "work with Agents array: " + registeredRecoveryAgentsArray + ", of size: " + registeredRecoveryAgentsArray.size(), this);
-            final Iterator registeredRecoveryAgentsArrayIterator = registeredRecoveryAgentsArray.iterator();
-
-            while (registeredRecoveryAgentsArrayIterator.hasNext()) {
-                // Extract the next RecoveryAgent object
-                final RecoveryAgent recoveryAgent = (RecoveryAgent) registeredRecoveryAgentsArrayIterator.next();
+        for (ArrayList<RecoveryAgent> recoveryAgentArrayList : _registeredRecoveryAgents.values()) {
+            for (RecoveryAgent recoveryAgent : recoveryAgentArrayList) {
 
                 //TODO: This is a bit hokey. Can we safely assume that there is just the one RecoveryAgent in a Liberty environment?
                 libertyRecoveryAgent = recoveryAgent;
@@ -1715,40 +1697,62 @@ public class RecoveryDirectorImpl implements RecoveryDirector {
             Tr.exit(tc, "drivePeerRecovery");
     }
 
-    @FFDCIgnore({ RecoveryFailedException.class })
+    @FFDCIgnore({ RecoveryFailedException.class, PeerLostLogOwnershipException.class, LogsUnderlyingTablesMissingException.class })
     public synchronized void peerRecoverServers(RecoveryAgent recoveryAgent, String myRecoveryIdentity, ArrayList<String> peersToRecover) throws RecoveryFailedException {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "peerRecoverServers", new Object[] { recoveryAgent, myRecoveryIdentity, peersToRecover });
 
         for (String peerRecoveryIdentity : peersToRecover) {
-
+            boolean leaseClaimed = false;
             try {
-                //Read lease check if it is still expired. If so, then update lease and proceed to peer recover
+                // Read lease, check if it is still expired. If so, then update lease and proceed to peer recover
                 // if not still expired (someone else has grabbed it) then bypass peer recover.
                 LeaseInfo leaseInfo = new LeaseInfo();
-                if (recoveryAgent.claimPeerLeaseForRecovery(peerRecoveryIdentity, myRecoveryIdentity, leaseInfo)) {
-
+                leaseClaimed = recoveryAgent.claimPeerLeaseForRecovery(peerRecoveryIdentity, myRecoveryIdentity, leaseInfo);
+                if (leaseClaimed) {
                     FileFailureScope peerFFS = new FileFailureScope(peerRecoveryIdentity, leaseInfo);
+
+                    _recLogService.addRecoveryId(peerRecoveryIdentity);
 
                     directInitialization(peerFFS);
                 } else {
-                    if (tc.isDebugEnabled())
-                        Tr.debug(tc, "Failed to claim lease for peer", this);
+                    Tr.audit(tc, "WTRN0108I: " +
+                                 "Peer Recovery failed for server with recovery identity " + peerRecoveryIdentity);
                 }
             } catch (RecoveryFailedException rfexc) {
                 Tr.audit(tc, "WTRN0108I: " +
-                             "HADB Peer locking failed for server with recovery identity " + peerRecoveryIdentity);
+                             "HADB Peer Recovery failed for server with recovery identity " + peerRecoveryIdentity);
                 if (tc.isEntryEnabled())
                     Tr.exit(tc, "peerRecoverServers", rfexc);
                 throw rfexc;
+            } catch (PeerLostLogOwnershipException plex) {
+                // This is thrown if this server was unable to claim the logs for a peer server
+                Tr.audit(tc, "WTRN0108I: " +
+                             "Peer recovery will not be attempted, this server was unable to claim the logs of the server with recovery identity " + peerRecoveryIdentity);
+                // allow processing to continue
+            } catch (LogsUnderlyingTablesMissingException lutmex) {
+                // This has already been audited, allow processing to continue
             } catch (Exception exc) {
                 Tr.audit(tc, "WTRN0108I: " +
-                             "HADB Peer locking failed for server with recovery identity " + peerRecoveryIdentity + " with exception " + exc);
+                             "HADB Peer Recovery failed for server with recovery identity " + peerRecoveryIdentity + " with exception " + exc);
                 if (tc.isEntryEnabled())
                     Tr.exit(tc, "peerRecoverServers", exc);
                 throw new RecoveryFailedException(exc);
-            }
+            } finally {
+                _recLogService.removeRecoveryId(peerRecoveryIdentity);
 
+                // Release the peer lease if it was claimed
+                if (leaseClaimed) {
+                    try {
+                        recoveryAgent.releasePeerLeaseForRecovery(peerRecoveryIdentity);
+                        if (tc.isDebugEnabled())
+                            Tr.debug(tc, "Have released peer lease lock");
+                    } catch (Exception e) {
+                        if (tc.isDebugEnabled())
+                            Tr.debug(tc, "Failed to release peer lease lock for server with recovery identity " + peerRecoveryIdentity + ", exc:  " + e, this);
+                    }
+                }
+            }
         }
 
         if (tc.isEntryEnabled())

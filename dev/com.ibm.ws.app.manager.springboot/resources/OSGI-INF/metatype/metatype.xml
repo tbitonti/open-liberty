@@ -1,9 +1,11 @@
 <!--
     Copyright (c) 2018 IBM Corporation and others.
     All rights reserved. This program and the accompanying materials
-    are made available under the terms of the Eclipse Public License v1.0
+    are made available under the terms of the Eclipse Public License 2.0
     which accompanies this distribution, and is available at
-    http://www.eclipse.org/legal/epl-v10.html
+    http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0
    
     Contributors:
         IBM Corporation - initial API and implementation
@@ -15,7 +17,7 @@
     <OCD description="%springapp.desc" name="%springapp.name" id="com.ibm.ws.app.manager.springappcfg"
                  ibm:alias="springBootApplication"
                  ibm:extends="com.ibm.ws.app.manager"
-                 ibm:excludeChildren="context-root,
+                 ibm:excludeChildren="context-root, useJandex,
                          com.ibm.ws.appconfig.appProperties,
                          com.ibm.ws.javaee.dd.appbnd.ApplicationBnd,
                          com.ibm.ws.javaee.dd.clientbnd.ApplicationClientBnd,
@@ -26,9 +28,16 @@
                          com.ibm.ws.javaee.dd.webbnd.WebBnd,
                          com.ibm.ws.javaee.dd.webext.WebExt,
                          com.ibm.ws.javaee.ddmodel.wsbnd.WebservicesBnd,
-                         com.ibm.ws.jca.embeddedResourceAdapter">
+                         com.ibm.ws.jca.embeddedResourceAdapter,
+                         io.openliberty.mcp.internal.config.McpConfigurationComponent">
         <AD id="type" name="internal" description="internal" type="String" default="spring" ibm:final="true"/>
         <AD id="applicationArgument" name="%applicationArgument.name" description="%applicationArgument.desc" required="false" type="String" cardinality="2147483647"/>
+        <AD name="internal" description="internal use only"
+            id="setEEContextOnStartup"
+            ibm:beta="true"
+            required="false"
+            default="true"
+            type="Boolean"/>
     </OCD>
     <Designate factoryPid="com.ibm.ws.app.manager.springappcfg">
         <Object ocdref="com.ibm.ws.app.manager.springappcfg"/>

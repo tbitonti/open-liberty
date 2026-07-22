@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2020 IBM Corporation and others.
+ * Copyright (c) 2014, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,6 +17,7 @@ import static org.junit.Assert.assertNotNull;
 
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.EnterpriseArchive;
+import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -28,6 +31,7 @@ import componenttest.annotation.ExpectedFFDC;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
+import componenttest.custom.junit.runner.RepeatTestFilter;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 
@@ -42,7 +46,11 @@ public class JCAClassLoadingTest extends FATServletClient {
     private static final String RAR_NAME = "fvtra";
 
     private void runTest() throws Exception {
-        runTest(server, WAR_NAME, testName);
+        String test = testName.getMethodName();
+        if (test.endsWith(RepeatTestFilter.getRepeatActionsAsString())) {
+            test = test.replace(RepeatTestFilter.getRepeatActionsAsString(), "");
+        }
+        runTest(server, WAR_NAME, test);
     }
 
     private void restartWithNewConfig(boolean validateAppStarted) throws Exception {
@@ -60,6 +68,12 @@ public class JCAClassLoadingTest extends FATServletClient {
 
     @BeforeClass
     public static void setUp() throws Exception {
+        JavaArchive testlib = ShrinkWrap //
+                        .create(JavaArchive.class, "testlib.jar") //
+                        .addPackage("com.ibm.ws.jca.fat.classloading.sharedlib");
+
+        ShrinkHelper.exportToServer(server, "libraries", testlib);
+
         WebArchive war = ShrinkHelper.buildDefaultApp(WAR_NAME, "web");
         EnterpriseArchive ear = ShrinkWrap.create(EnterpriseArchive.class, APP_NAME + ".ear")
                         .addAsModule(war);
@@ -85,6 +99,13 @@ public class JCAClassLoadingTest extends FATServletClient {
     public void testLoadResourceAdapterClassFromSingleApp() throws Exception {
         restartWithNewConfig(true);
         runTest();
+    }
+
+    @Test
+    public void testResourceAdapterClassesAccessibleToSharedLibrary() throws Exception {
+        restartWithNewConfig(true);
+        runTest(server, WAR_NAME, "testSharedLibraryClassesAccessibleToApplication");
+        runTest(server, WAR_NAME, "testResourceAdapterClassesAccessibleToSharedLibrary");
     }
 
     @Test

@@ -1,15 +1,15 @@
-/*
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+/*******************************************************************************
+ * Copyright (c) 2015, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
- */
+ * SPDX-License-Identifier: EPL-2.0
+ *******************************************************************************/
 package com.ibm.ws.jsf22.fat.tests;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URL;
@@ -20,21 +20,26 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
+import org.openqa.selenium.By;
+import org.testcontainers.Testcontainers;
 
 import com.gargoylesoftware.htmlunit.BrowserVersion;
 import com.gargoylesoftware.htmlunit.NicelyResynchronizingAjaxController;
 import com.gargoylesoftware.htmlunit.WebClient;
-import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
 import com.gargoylesoftware.htmlunit.html.HtmlElement;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.ws.jsf22.fat.FATSuite;
 import com.ibm.ws.jsf22.fat.JSFUtils;
 
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.topology.impl.LibertyServer;
+import io.openliberty.faces.fat.selenium.util.internal.ExtendedWebDriver;
+import io.openliberty.faces.fat.selenium.util.internal.WebPage;
 import junit.framework.Assert;
 
 /**
@@ -55,11 +60,21 @@ public class JSF22ComponentTesterTests {
     @Server("jsfTestServer2")
     public static LibertyServer jsfTestServer2;
 
+    private static ExtendedWebDriver driver;
+
     @BeforeClass
     public static void setup() throws Exception {
-        ShrinkHelper.defaultDropinApp(jsfTestServer2, "JSF22ComponentTester.war", "com.ibm.ws.jsf22.fat.componenttester.*");
+        boolean isEE10 = JakartaEEAction.isEE10OrLaterActive();
 
-        jsfTestServer2.startServer(JSF22ComponentTesterTests.class.getSimpleName() + ".log");
+        ShrinkHelper.defaultDropinApp(jsfTestServer2, "JSF22ComponentTester.war",
+                                      isEE10 ? "com.ibm.ws.jsf22.fat.componenttester.beans.faces40" : "com.ibm.ws.jsf22.fat.componenttester.beans.jsf22",
+                                      "com.ibm.ws.jsf22.fat.componenttester");
+
+        jsfTestServer2.startServer(c.getSimpleName() + ".log");
+
+        Testcontainers.exposeHostPorts(jsfTestServer2.getHttpDefaultPort(), jsfTestServer2.getHttpDefaultSecurePort());
+
+        driver = FATSuite.getWebDriver();
     }
 
     @AfterClass
@@ -221,28 +236,17 @@ public class JSF22ComponentTesterTests {
      */
     @Test
     public void JSF22ComponentTester_TestCommandLinkOrder() throws Exception {
-        try (WebClient webClient = getWebClient()) {
+        String url = JSFUtils.createSeleniumURLString(jsfTestServer2, contextRoot, "testActionListenerOrder.xhtml");
+        WebPage page = new WebPage(driver);
+        page.get(url);
+        page.waitForPageToLoad();
 
-            URL url = JSFUtils.createHttpUrl(jsfTestServer2, contextRoot, "testActionListenerOrder.xhtml");
-            HtmlPage page = (HtmlPage) webClient.getPage(url);
+        assertTrue(page.isInPage("Action-Listener order page"));
 
-            if (page == null) {
-                Assert.fail("JSF22ComponentTester_TestDocTag.xhtml did not render properly.");
-            }
+        page.findElement(By.id("form:testLink")).click();
+        page.waitForCondition(driver1 -> page.isInPage("test action called"));
 
-            assertTrue(page.getWebResponse().getContentAsString().contains("Action-Listener order page"));
-
-            // Click the link to execute the methods and update the page
-            HtmlAnchor anchor = page.getAnchorByName("form:testLink");
-            page = anchor.click();
-
-            HtmlElement output = (HtmlElement) page.getElementById("testOutput");
-
-            if (!output.asText().contains("test action called")) {
-                Assert.fail("JSF22ComponentTester_TestCommandLinkOrder: test output is not correct: "
-                            + output.asText());
-            }
-        }
+        assertEquals(page.findElement(By.id("testOutput")).getText(), "test action called");
     }
 
     /**

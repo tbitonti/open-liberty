@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -65,8 +67,13 @@ public class MessageLogHandler extends JsonLogHandler implements SynchronousHand
         if (currFormat.equals(LoggingConstants.JSON_FORMAT) || !eventSourceName.equals(CollectorConstants.MESSAGES_SOURCE)) {
             if (genData.getJsonMessage() == null) {
                 String jsonMessage = null;
-                if (appsWriteJson && event instanceof LogTraceData)
+                if (appsWriteJson && event instanceof LogTraceData) {
                     jsonMessage = ((LogTraceData) event).getMessage();
+
+                    //Might be a forwarded log event that appends new lines to end of log event.
+                    if (jsonMessage != null)
+                        jsonMessage = jsonMessage.trim();
+                }
 
                 if (!isJSON(jsonMessage))
                     jsonMessage = (String) formatEvent(eventSourceName, CollectorConstants.MEMORY, event, null, MAXFIELDLENGTH);
@@ -78,6 +85,9 @@ public class MessageLogHandler extends JsonLogHandler implements SynchronousHand
         } else if ((currFormat.equals(LoggingConstants.DEFAULT_MESSAGE_FORMAT) || currFormat.equals(LoggingConstants.DEPRECATED_DEFAULT_FORMAT)) && basicFormatter != null) {
             messageOutput = basicFormatter.messageLogFormat(genData);
 
+        } else if (currFormat.equals(LoggingConstants.TBASIC_MESSAGE_FORMAT) && basicFormatter != null) {
+            messageOutput = basicFormatter.messageLogFormatTBasic(genData);
+
         }
         if (messageOutput != null && traceWriter != null) {
             traceWriter.writeRecord(messageOutput);
@@ -87,7 +97,7 @@ public class MessageLogHandler extends JsonLogHandler implements SynchronousHand
 
     /**
      * Set BaseTraceFormatter passed from BaseTraceService
-     * This formatter is used to format the SIMPLE or BASIC (deprecated format name) log events
+     * This formatter is used to format the SIMPLE, TBASIC or BASIC (deprecated format name) log events
      * that pass through
      *
      * @param formatter the BaseTraceFormatter to use
@@ -97,9 +107,9 @@ public class MessageLogHandler extends JsonLogHandler implements SynchronousHand
     }
 
     /**
-     * The format to set (i.e. SIMPLE, JSON, or BASIC (deprecated))
+     * The format to set (i.e. SIMPLE, JSON, TBASIC or BASIC (deprecated))
      *
-     * @param format the format to set (i.e. SIMPLE, JSON, or BASIC (deprecated))
+     * @param format the format to set (i.e. SIMPLE, JSON, TBASIC or BASIC (deprecated))
      */
     public void setFormat(String format) {
         this.format = format;

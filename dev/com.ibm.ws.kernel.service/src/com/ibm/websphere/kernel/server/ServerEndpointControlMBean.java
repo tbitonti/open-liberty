@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2017 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -67,7 +69,7 @@ public interface ServerEndpointControlMBean {
     public boolean isPaused();
 
     /**
-     * Query the state of the specified server endpoints.
+     * Query whether the specified server endpoints have been paused.
      *
      * @param targets Comma separated list of one or more names of endpoints.
      * @return If a single target is specified, returns the state of the specified target, if multiple targets are specified, returns true only
@@ -82,5 +84,14 @@ public interface ServerEndpointControlMBean {
      * @return List of names of all endpoints that can be paused/resumed.
      */
     public List<String> listEndpoints();
+
+    /**
+     * Query the state of the specified server endpoints.
+     *
+     * @param targets Comma separated list of one or more names of endpoints.
+     * @return If a single target is specified, returns true if the target exists, has started, and is not paused. If multiple targets are
+     *         specified, returns true only if all specified targets exist, are started, and are not paused.
+     */
+    public boolean isActive(String targets);
 
 }

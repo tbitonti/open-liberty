@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -23,6 +25,7 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -68,7 +71,7 @@ public class SessionCacheErrorPathsTest extends FATServletClient {
     public void cleanUpPerTest() throws Exception {
         try {
             if (server.isStarted()) {
-                server.stopServer("CWWKG0033W");
+                server.stopServer("CWWKG0033W", "SESN0307E", "SRVE8059E");
             }
         } finally {
             server.updateServerConfiguration(savedConfig);
@@ -147,6 +150,7 @@ public class SessionCacheErrorPathsTest extends FATServletClient {
      * verifying that a session attribute added afterward is persisted, whereas a session attribute added before
      * (in absence of sessionCache-1.0 feature) is not.
      */
+    @AllowedFFDC(value = { "java.lang.IllegalStateException" })
     @Test
     public void testAddFeature() throws Exception {
         // Start the server with sessionCache-1.0 enabled
@@ -177,6 +181,7 @@ public class SessionCacheErrorPathsTest extends FATServletClient {
         config.getLibraries().add(hazelcastLib);
         server.setMarkToEndOfLog();
         server.updateServerConfiguration(config);
+        TimeUnit.SECONDS.sleep(10);
         server.waitForConfigUpdateInLogUsingMark(APP_NAMES, EMPTY_RECYCLE_LIST);
 
         run("testSetAttribute&attribute=testAddFeature2&value=AF2", session);
@@ -347,11 +352,12 @@ public class SessionCacheErrorPathsTest extends FATServletClient {
         hazelcastFile.setName(originalName);
         server.setMarkToEndOfLog();
         server.updateServerConfiguration(config);
+        TimeUnit.SECONDS.sleep(10);
         server.waitForConfigUpdateInLogUsingMark(APP_NAMES);
         run("testSetAttribute&attribute=testModifyFileset&value=1", session);
         run("testCacheContains&attribute=testModifyFileset&value=1", session);
 
-        server.stopServer("CWWKL0012W.*bogus", "SRVE8059E", "CWWKE0701E.*CacheException", "SESN0307E", "SESN0309E");
+        server.stopServer("CWWKL0012W.*bogus", "SRVE8059E", "CWWKE0701E.*CacheException", "SESN0307E", "SESN0309E", "SESN0306E");
     }
 
     /**

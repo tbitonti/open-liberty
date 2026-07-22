@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2021 IBM Corporation and others.
+ * Copyright (c) 1997, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.webapp;
 
@@ -105,8 +104,8 @@ import com.ibm.ws.container.Container;
 import com.ibm.ws.container.DeployedModule;
 import com.ibm.ws.container.ErrorPage;
 import com.ibm.ws.container.MimeFilter;
-import com.ibm.ws.container.service.annotations.WebAnnotations;
 import com.ibm.ws.container.service.annocache.AnnotationsBetaHelper;
+import com.ibm.ws.container.service.annotations.WebAnnotations;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.http.dispatcher.internal.channel.HttpDispatcherLink;
@@ -143,7 +142,6 @@ import com.ibm.ws.webcontainer.servlet.ServletWrapper;
 import com.ibm.ws.webcontainer.servlet.exception.NoTargetForURIException;
 import com.ibm.ws.webcontainer.session.IHttpSessionContext;
 import com.ibm.ws.webcontainer.spiadapter.collaborator.IInvocationCollaborator;
-import com.ibm.ws.webcontainer.srt.SRTServletRequest;
 import com.ibm.ws.webcontainer.util.DocumentRootUtils;
 import com.ibm.ws.webcontainer.util.EmptyEnumeration;
 import com.ibm.ws.webcontainer.util.IteratorEnumerator;
@@ -165,6 +163,7 @@ import com.ibm.wsspi.webcontainer.collaborator.CollaboratorHelper;
 import com.ibm.wsspi.webcontainer.collaborator.CollaboratorInvocationEnum;
 import com.ibm.wsspi.webcontainer.collaborator.ICollaboratorHelper;
 import com.ibm.wsspi.webcontainer.collaborator.IWebAppNameSpaceCollaborator;
+import com.ibm.wsspi.webcontainer.collaborator.IWebAppSecurityCollaborator;
 import com.ibm.wsspi.webcontainer.collaborator.IWebAppTransactionCollaborator;
 import com.ibm.wsspi.webcontainer.collaborator.TxCollaboratorConfig;
 import com.ibm.wsspi.webcontainer.collaborator.WebAppInitializationCollaborator;
@@ -185,6 +184,8 @@ import com.ibm.wsspi.webcontainer.util.ServletUtil;
 import com.ibm.wsspi.webcontainer.util.ThreadContextHelper;
 import com.ibm.wsspi.webcontainer.util.URIMapper;
 import com.ibm.wsspi.webcontainer.webapp.WebAppConfig;
+
+import io.openliberty.checkpoint.spi.CheckpointPhase;
 
 /**
  * @author mmolden
@@ -274,9 +275,10 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
     protected ArrayList servletRequestLAttrListeners = new ArrayList();
     
     protected static boolean prependSlashToResource = false; // 263020
-    private Boolean destroyed = Boolean.FALSE;// 325429
+    private volatile boolean destroyed = false;// 325429
     protected IWebAppNameSpaceCollaborator webAppNameSpaceCollab;
     private IWebAppTransactionCollaborator txCollab;
+    private IWebAppSecurityCollaborator secCollab;
 
     protected ArrayList sessionActivationListeners = new ArrayList();
     protected ArrayList sessionBindingListeners = new ArrayList();
@@ -312,7 +314,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
     private static boolean errorExceptionTypeFirst = WCCustomProperties.ERROR_EXCEPTION_TYPE_FIRST;
     private static boolean initFilterBeforeServletInit = WCCustomProperties.INIT_FILTER_BEFORE_INIT_SERVLET; //PM62909
     //protected final static boolean stopAppStartupOnListenerException = WCCustomProperties.STOP_APP_STARTUP_ON_LISTENER_EXCEPTION ; //PI58875 update server.xml without restarting server may not pick up the change dynamically.
-    private static boolean SET_400_SC_ON_TOO_MANY_PARENT_DIRS = Boolean.valueOf(WebContainer.getWebContainerProperties().getProperty("com.ibm.ws.webcontainer.set400scontoomanyparentdirs")).booleanValue(); //PI80786
+    private static boolean SET_400_SC_ON_TOO_MANY_PARENT_DIRS = WCCustomProperties.SET_400_SC_ON_TOO_MANY_PARENT_DIRS ; //PI80786 , 25295
 
     private List<IServletConfig> sortedServletConfigs;
     private int effectiveMajorVersion;
@@ -323,7 +325,8 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
     protected String lastProgAddListenerInitialized; // PI41941
     private ClassLoader webInfLibClassloader;
     protected Map<String, URL> metaInfCache;
-    
+    private final boolean hasSlashStarMapping;
+
     protected final static boolean useMetaInfCache = (WCCustomProperties.META_INF_RESOURCES_CACHE_SIZE > 0);
 
     //The following two JSF listener classes are used to make sure that the JSF ServletContextListener 
@@ -360,7 +363,8 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
     
     private static Object[] OBJ_EMPTY = new Object[] {};
     private static Class<?>[] CLASS_EMPTY = new Class<?>[] {};
-
+    private final CheckpointPhase checkpointPhase = CheckpointPhase.getPhase();
+    
     // PK37608 Start
     static {
         if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
@@ -382,10 +386,29 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
   }
   
   public static final boolean DEFER_SERVLET_REQUEST_LISTENER_DESTROY_ON_ERROR = WCCustomProperties.DEFER_SERVLET_REQUEST_LISTENER_DESTROY_ON_ERROR;  //PI26908
-  
+
     // PK37698 End
     public WebApp(WebAppConfiguration webAppConfig, Container parent) {
         super(webAppConfig.getId(), parent);
+         
+        boolean _hasSlashStarMapping = false;
+        Map<String,List<String>> mappings = webAppConfig.getServletMappings();
+        if (mappings != null) {
+          for (List<String> list : mappings.values()) {
+              for (String urlPattern : list) {
+                if (urlPattern != null && ("/*").equals(urlPattern)) {
+                  _hasSlashStarMapping = true;
+                  break;
+                }
+              }
+              if(_hasSlashStarMapping) {
+                  break;
+              }                     
+           }                                                                                               
+        }
+        
+        this.hasSlashStarMapping = _hasSlashStarMapping;
+        
         this.config = webAppConfig;
         // PK63920 Start
         if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE))
@@ -1017,7 +1040,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
             // SERVER (Common
             // Component
             // Specific)
-            
+
             callWebAppInitializationCollaborators(InitializationCollaborCommand.STARTING);
 
             // No longer in use; post-construct and pre-destroy are located on demand.
@@ -1026,8 +1049,11 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
 
             webAppNameSpaceCollab.preInvoke(config.getMetaData().getCollaboratorComponentMetaData()); //added 661473
             webAppNameCollPreInvokeCalled = true;
+
+            secCollab.setPolicyContextID();
+
             commonInitializationFinish(extensionFactories); // NEVER INVOKED BY
-            
+
             this.initializeServletContainerInitializers(moduleConfig);
             
             loadLifecycleListeners(); //added 661473
@@ -1055,6 +1081,11 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
                 }
             }
 
+            // if we're checkpointing, call commonInitializationFinally before the initTaskComplete
+            if (checkpointPhase == CheckpointPhase.AFTER_APP_START) {
+                commonInitializationFinally(extensionFactories);
+            }
+            
             if (moduleConfig instanceof com.ibm.ws.webcontainer.osgi.container.DeployedModule) {
                 // complete the notification here for app manager
                 ((com.ibm.ws.webcontainer.osgi.container.DeployedModule) moduleConfig).initTaskComplete();
@@ -1064,19 +1095,24 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
                 }
             }
             
-            commonInitializationFinally(extensionFactories); // NEVER INVOKED BY
-            // WEBSPHERE
-            // APPLICATION
-            // SERVER (Common
-            // Component
-            // Specific)
-            
+            if (checkpointPhase != CheckpointPhase.AFTER_APP_START) {
+                commonInitializationFinally(extensionFactories); // NEVER INVOKED BY
+                // WEBSPHERE
+                // APPLICATION
+                // SERVER (Common
+                // Component
+                // Specific)
+            }
             // Fix for 96420, in which if the first call to AnnotationHelperManager happens in destroy(), we can get 
             // errors because the bundle associated with the thread context classloader may have been uninstalled, 
             // resulting in us being unable to load a resource bundle for AnnotationHelperManager. 
             AnnotationHelperManager.verifyClassIsLoaded();
             
         } finally {
+            // if initialization failed, this can be null.
+            if (secCollab != null) {
+                secCollab.resetPolicyContextID();
+            }
             // if initialization failed, this can be null.
             if (webAppNameCollPreInvokeCalled) {
                 webAppNameSpaceCollab.postInvoke(); //added 661473            
@@ -1293,6 +1329,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
 
         registerGlobalWebAppListeners();
         txCollab = collabHelper.getWebAppTransactionCollaborator();
+        secCollab = collabHelper.getSecurityCollaborator();
         createSessionContext(moduleConfig);
         eventSource
                         .onApplicationStart(new ApplicationEvent(this, this, new com.ibm.ws.webcontainer.util.IteratorEnumerator(config.getServletNames())));
@@ -2770,20 +2807,18 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
             logger.logp(Level.FINE, CLASS_NAME, "notifyServletRequestCreated", "ENTRY"); //PI26908
 
         boolean servletRequestListenerCreated = false;
-        if (!servletRequestListeners.isEmpty())
-        {
+        int listenerSize = servletRequestListeners.size();
+        if (listenerSize != 0) {
             WebContainerRequestState reqState = WebContainerRequestState.getInstance(true);
             if (reqState.getAttribute("com.ibm.ws.webcontainer.invokeListenerRequest") == null)
             {
-                reqState.setAttribute("com.ibm.ws.webcontainer.invokeListenerRequest", false);
+                reqState.setAttribute("com.ibm.ws.webcontainer.invokeListenerRequest", Boolean.FALSE);
 
-                Iterator i = servletRequestListeners.iterator();
                 ServletRequestEvent sEvent = new ServletRequestEvent(this.getFacade(), request);
 
-                while (i.hasNext())
-                {
+                for (int i = 0; i < listenerSize; ++i) {
                     // get the listener
-                    ServletRequestListener sL = (ServletRequestListener) i.next();
+                    ServletRequestListener sL = (ServletRequestListener) servletRequestListeners.get(i);
 
                     // invoke the listener's request initd method
                     sL.requestInitialized(sEvent);
@@ -2806,11 +2841,12 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
         if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE))
             logger.logp(Level.FINE, CLASS_NAME, "notifyServletRequestDestroyed", "ENTRY"); //PI26908
 
-        if (!servletRequestListeners.isEmpty()) {
+        int listenerSize = servletRequestListeners.size();
+        if (listenerSize != 0) {
             ServletRequestEvent sEvent = new ServletRequestEvent(this.getFacade(), request);
 
             // listeners must be notified in reverse order of definition
-            for (int listenerIndex = servletRequestListeners.size() - 1; listenerIndex > -1; listenerIndex--) {
+            for (int listenerIndex = listenerSize - 1; listenerIndex > -1; listenerIndex--) {
                 // get the listener
                 ServletRequestListener sL = (ServletRequestListener) servletRequestListeners.get(listenerIndex);
 
@@ -2827,13 +2863,13 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
 
         // need to notify listeners registered in the
         // ServletRequestAttributeListener array
-        if (!servletRequestLAttrListeners.isEmpty()) {
-            Iterator i = servletRequestLAttrListeners.iterator();
+        int listenerSize = servletRequestLAttrListeners.size();
+        if (listenerSize != 0) {
             ServletRequestAttributeEvent sEvent = new ServletRequestAttributeEvent(this.getFacade(), request, name, value);
 
-            while (i.hasNext()) {
+            for (int i = 0; i < listenerSize; ++i) {
                 // get the listener
-                ServletRequestAttributeListener sL = (ServletRequestAttributeListener) i.next();
+                ServletRequestAttributeListener sL = (ServletRequestAttributeListener) servletRequestLAttrListeners.get(i);
 
                 // invoke the listener's attr added method
                 sL.attributeAdded(sEvent);
@@ -2848,15 +2884,15 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
 
         // need to notify listeners registered in the
         // ServletRequestAttributeListener array
-        if (!servletRequestLAttrListeners.isEmpty()) {
-            Iterator i = servletRequestLAttrListeners.iterator();
+        int listenerSize = servletRequestLAttrListeners.size();
+        if (listenerSize != 0) {
             ServletRequestAttributeEvent sEvent = new ServletRequestAttributeEvent(this.getFacade(), request, name, value);
 
-            while (i.hasNext()) {
+            for (int i = 0; i < listenerSize; ++i) {
                 // get the listener
-                ServletRequestAttributeListener sL = (ServletRequestAttributeListener) i.next();
+                ServletRequestAttributeListener sL = (ServletRequestAttributeListener) servletRequestLAttrListeners.get(i);
 
-                // invoke the listener's attr added method
+                // invoke the listener's attr replaced method
                 sL.attributeReplaced(sEvent);
             }
         }
@@ -2869,15 +2905,15 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
 
         // need to notify listeners registered in the
         // ServletRequestAttributeListener array
-        if (!servletRequestLAttrListeners.isEmpty()) {
-            Iterator i = servletRequestLAttrListeners.iterator();
+        int listenerSize = servletRequestLAttrListeners.size();
+        if (listenerSize != 0) {
             ServletRequestAttributeEvent sEvent = new ServletRequestAttributeEvent(this.getFacade(), request, name, value);
 
-            while (i.hasNext()) {
+            for (int i = 0; i < listenerSize; ++i) {
                 // get the listener
-                ServletRequestAttributeListener sL = (ServletRequestAttributeListener) i.next();
+                ServletRequestAttributeListener sL = (ServletRequestAttributeListener) servletRequestLAttrListeners.get(i);
 
-                // invoke the listener's attr added method
+                // invoke the listener's attr removed method
                 sL.attributeRemoved(sEvent);
             }
         }
@@ -3925,12 +3961,12 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
                     logger.logp(Level.FINE, CLASS_NAME, "destroy", "WebApp {0} has not been initialized", applicationName);
             }
             // 325429 BEGIN
-            if (destroyed.booleanValue()) {
+            if (destroyed) {
                 if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE))
                     logger.logp(Level.FINE, CLASS_NAME, "destroy", "WebApp {0} is already destroyed", applicationName);
                 return;
             }
-            destroyed = Boolean.TRUE;
+            destroyed = true;
             // 325429 END
             try {
 /*
@@ -4095,7 +4131,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
             logger.entering(CLASS_NAME, "sendError", "error :" + error.getMessage());
 
         req.setAttribute("javax.servlet.jsp.jspException", error);
-        
+
         WebContainerRequestState reqState = WebContainerRequestState.getInstance(true);   //PI80786
 
         // PK82794
@@ -4398,6 +4434,17 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
 
             reportRecursiveError(req, res, error, new WebAppErrorReport(th));
         }
+        finally {
+            //since Servlet 6.1 
+            if (com.ibm.ws.webcontainer.osgi.WebContainer.isServlet61orAbove()) {
+                String originalMethod = (String) req.getAttribute("jakarta.servlet.error.method");
+
+                if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+                    logger.logp(Level.FINE, CLASS_NAME, "sendError", "restore original request method from error.method attribute [" + originalMethod + "]");
+                }
+                ((IExtendedRequest) req).setMethod(originalMethod);
+            }
+        }
 
         try {
             // reset the error bean object
@@ -4409,6 +4456,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
             /* ignore */
             com.ibm.wsspi.webcontainer.util.FFDCWrapper.processException(th, CLASS_NAME + ".handleError", "961", this);
         }
+        
         if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE))
             logger.exiting(CLASS_NAME, "sendError");
 
@@ -4513,7 +4561,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
      */
     public RequestDispatcher getErrorPageDispatcher(ServletRequest req, ServletErrorReport ser) {
 
-        if (this.getDestroyed().booleanValue()) { // should be a fast boolean check.
+        if (this.getDestroyed()) { // should be a fast boolean check.
             throw new MajorHandlingRuntimeException("WebContainer can not handle the request");
         }
 
@@ -4611,7 +4659,16 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
                 req.setAttribute("javax.servlet.error.servlet_name", name);
             }
         }
+        
+        //since Servlet 6.1 
+        if (com.ibm.ws.webcontainer.osgi.WebContainer.isServlet61orAbove()) {
+            req.setAttribute("jakarta.servlet.error.method", httpServletReq.getMethod());
+            req.setAttribute("jakarta.servlet.error.query_string", httpServletReq.getQueryString());
 
+            //All dispatches to error page MUST be GET method.
+            ((IExtendedRequest) req).setMethod("GET");
+        }
+        
         // LIDB1234.5 - end
 
         // Arguably, the request attributes are unnecessary if the configuration is unavailable,
@@ -4756,6 +4813,8 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
      * @param error
      */
     private void reportRecursiveError(ServletRequest req, ServletResponse res, ServletErrorReport originalErr, ServletErrorReport recurErr) {
+        if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) 
+            logger.logp(Level.FINE, CLASS_NAME, "reportRecursiveError",  "");
 
         try {
             String message = error_nls.getString("error.page.exception", "Error Page Exception");
@@ -4771,21 +4830,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
                 com.ibm.wsspi.webcontainer.util.FFDCWrapper.processException(e, CLASS_NAME + ".reportRecursiveError", "985", this);
                 out = new PrintWriter(new OutputStreamWriter(res.getOutputStream(), res.getCharacterEncoding()));
             }
-            if (!WCCustomProperties.SUPPRESS_HTML_RECURSIVE_ERROR_OUTPUT) { // PK77421
-                out
-                        .println("<H1>"
-                            + message
-                            + "</H1>\n<H4>"
-                                + nls
-                                        .getString("cannot.use.error.page",
-                                            "The server cannot use the error page specified for your application to handle the Original Exception printed below.") // 406426
-                            + "</H4>");
-                out.println("<BR><H3>" + error_nls.getString("original.exception", "Original Exception") + ": </H3>"); // 406426
-                printErrorInfo(out, originalErr);
-                out.println("<BR><BR><H3>" + error_nls.getString("error.page.exception", "Error Page Exception") + ": </H3>"); // 406426
-                printErrorInfo(out, recurErr);
-                out.flush();
-            }
+            
         } catch (Throwable th) {
             com.ibm.wsspi.webcontainer.util.FFDCWrapper.processException(th, CLASS_NAME + ".reportRecursiveError", "998", this);
             log("Unable to report exception to client", th);
@@ -4840,7 +4885,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
                 index = contextPath.length();
             }
 
-            partialUri = fullUri.substring(index); // .trim()
+	    partialUri = (index > fullUri.length())? "" : fullUri.substring(index); // 28652: add length check
 
             // BEGIN PK27974
 
@@ -5068,9 +5113,9 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
                 }
             }
         } catch (Throwable th) {
-            //PI80786
+            //PI80786; issue 25291: message changed in the WSUtil
             if (SET_400_SC_ON_TOO_MANY_PARENT_DIRS) { 
-                if(th.getMessage().contains("is invalid because it contains more references to parent directories")){
+                if(th.getMessage().contains("Non-valid URI")){
                     if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
                         logger.logp(Level.FINE, CLASS_NAME, "handleRequest", "Request contains more ../ than allowed, will set 400 SC");
                     }
@@ -5805,7 +5850,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
     }
 
     // 325429
-    public Boolean getDestroyed() {
+    public boolean getDestroyed() {
         return this.destroyed;
     }
 
@@ -6319,7 +6364,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
 
     @Override
     public Set<SessionTrackingMode> getDefaultSessionTrackingModes() {
-        if (withinContextInitOfProgAddListener) {
+        if (withinContextInitOfProgAddListener && (com.ibm.ws.webcontainer.osgi.WebContainer.getServletContainerSpecLevel() < com.ibm.ws.webcontainer.osgi.WebContainer.SPEC_LEVEL_60)) {
             throw new UnsupportedOperationException(MessageFormat.format(
                     nls.getString("Unsupported.op.from.servlet.context.listener"),
                     new Object[] {"getDefaultSessionTrackingModes", lastProgAddListenerInitialized, getApplicationName()}));  // PI41941
@@ -6329,7 +6374,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
 
     @Override
     public Set<SessionTrackingMode> getEffectiveSessionTrackingModes() {
-        if (withinContextInitOfProgAddListener) {
+        if (withinContextInitOfProgAddListener && (com.ibm.ws.webcontainer.osgi.WebContainer.getServletContainerSpecLevel() < com.ibm.ws.webcontainer.osgi.WebContainer.SPEC_LEVEL_60)) {
             throw new UnsupportedOperationException(MessageFormat.format(
                     nls.getString("Unsupported.op.from.servlet.context.listener"),
                     new Object[] {"getEffectiveSessionTrackingModes", lastProgAddListenerInitialized, getApplicationName()}));  // PI41941
@@ -6519,7 +6564,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
 
         // LIBERTY: cope with session not being present
         // this.config.getSessionCookieConfig().setContextInitialized();
-        SessionCookieConfigImpl scci = this.config.getSessionCookieConfig();
+        SessionCookieConfigImpl scci = (SessionCookieConfigImpl) this.config.getSessionCookieConfig();
         if (scci != null)
             scci.setContextInitialized();
     }
@@ -6622,7 +6667,7 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
 
     @Override
     public JspConfigDescriptor getJspConfigDescriptor() {
-        if (withinContextInitOfProgAddListener) {
+        if (withinContextInitOfProgAddListener && (com.ibm.ws.webcontainer.osgi.WebContainer.getServletContainerSpecLevel() < com.ibm.ws.webcontainer.osgi.WebContainer.SPEC_LEVEL_60)) {
             throw new UnsupportedOperationException(MessageFormat.format(
                     nls.getString("Unsupported.op.from.servlet.context.listener"),
                     new Object[] {"getJspConfigDescriptor", lastProgAddListenerInitialized, getApplicationName()}));  // PI41941
@@ -6816,5 +6861,12 @@ public abstract class WebApp extends BaseContainer implements ServletContext, IS
      * does anything useful in the WebApp31.
      */
     protected abstract void checkForSessionIdListenerAndAdd(Object listener);
+
+    /**
+     * @return the hasSlashStarMapping
+     */
+    public boolean hasSlashStarMapping() {
+        return hasSlashStarMapping;
+    }
     
 }

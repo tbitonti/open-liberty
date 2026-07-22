@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2019, 2021 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package com.ibm.ws.security.audit.file;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyStoreException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
@@ -45,8 +48,8 @@ import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.security.audit.AuditConstants;
 import com.ibm.websphere.security.audit.AuditEvent;
 import com.ibm.websphere.security.audit.InvalidConfigurationException;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
-import com.ibm.ws.config.xml.internal.nester.Nester;
+import com.ibm.ws.common.encoder.Base64Coder;
+import com.ibm.ws.config.xml.nester.Nester;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.logging.collector.LogFieldConstants;
 import com.ibm.ws.logging.data.GenericData;
@@ -66,7 +69,6 @@ import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 import com.ibm.wsspi.security.audit.AuditEncryptionException;
 import com.ibm.wsspi.security.audit.AuditService;
 import com.ibm.wsspi.security.audit.AuditSigningException;
-
 
 /**
  * This class is a collector manager Handler that takes audit events from the
@@ -211,6 +213,15 @@ public class AuditFileHandler implements SynchronousHandler {
 
     private String bundleLocation;
 
+    /**
+     * Constant for the size of the new line characters for an audit record.
+     * Since each audit record takes up 3 lines (opening tag, record, closing tag)
+     * and the new line sequence can be 1 or 2 chars depending on the OS,
+     * let's set this constant to 3 lines * 2 bytes = 6 bytes to account for the longest case.
+     * Using 6 also saves us an additional check for the OS / line separator.
+     */
+    private static final int AUDIT_RECORD_NEW_LINES_SIZE = 6;
+
     @Activate
     protected void activate(ComponentContext cc) throws KeyStoreException, AuditEncryptionException, AuditSigningException {
         Tr.info(tc, "AUDIT_FILEHANDLER_STARTING");
@@ -223,6 +234,7 @@ public class AuditFileHandler implements SynchronousHandler {
         Map<String, Object> configuration = (Map) cc.getProperties();
         thisConfiguration = configuration;
 
+        //TODO: UTLE - new config option to enable FIPS 140-3 or just use SSL config?
         if (configuration != null && !configuration.isEmpty()) {
             for (Map.Entry<String, Object> entry : configuration.entrySet()) {
                 String key = entry.getKey();
@@ -437,7 +449,7 @@ public class AuditFileHandler implements SynchronousHandler {
     /**
      * Given a Map, add the corresponding JSON to the given JSONObject.
      *
-     * @param jo - JSONObject
+     * @param jo  - JSONObject
      * @param map - Java Map object
      */
     private JSONObject map2JSON(JSONObject jo, Map<String, Object> map) {
@@ -503,7 +515,7 @@ public class AuditFileHandler implements SynchronousHandler {
     /**
      * Given a Java array, add the corresponding JSON to the given JSONArray object
      *
-     * @param ja - JSONArray object
+     * @param ja    - JSONArray object
      * @param array - Java array object
      */
     private JSONArray array2JSON(JSONArray ja, Object[] array) {
@@ -659,28 +671,34 @@ public class AuditFileHandler implements SynchronousHandler {
     public void setSignerKeys() throws KeyStoreException, AuditSigningException {
         KeyStoreService service = null;
         int retries = 0;
+        boolean foundKeyStore = false;
         if (getSign().booleanValue()) {
             service = keyStoreServiceRef.getService();
             try {
                 signerKeyStoreLocation = service.getKeyStoreLocation(signerKeyStoreId);
             } catch (KeyStoreException e) {
-                retries++;
-                try {
-                    Thread.sleep(10000);
-                } catch (InterruptedException e1) {
-                    // ignore it
-                }
-                if (retries < 6) {
+                while (retries < 6) {
+                    retries++;
+                    service = keyStoreServiceRef.getService();
                     try {
                         signerKeyStoreLocation = service.getKeyStoreLocation(signerKeyStoreId);
+                        foundKeyStore = true;
+                        break;
                     } catch (KeyStoreException ee) {
                         // ignore it until we've exhausted our retries
+                        try {
+                            Thread.sleep(10000);
+                        } catch (InterruptedException e1) {
+                            // ignore it
+                        }
                     }
                 }
-                if (tc.isDebugEnabled())
-                    Tr.debug(tc, "Exception with keystore.", e.getMessage());
-                Tr.error(tc, "FAILURE_INITIALIZING_SIGNING_CONFIGURATION", new Object[] { e.getMessage() });
-                throw new KeyStoreException(e);
+                if (!foundKeyStore) {
+                    if (tc.isDebugEnabled())
+                        Tr.debug(tc, "Exception with keystore.", e.getMessage());
+                    Tr.error(tc, "FAILURE_INITIALIZING_SIGNING_CONFIGURATION", new Object[] { e.getMessage() });
+                    throw new KeyStoreException(e);
+                }
             }
         }
 
@@ -942,7 +960,7 @@ public class AuditFileHandler implements SynchronousHandler {
 
                             byte[] er = null;
                             byte[] encryptedAuditRecord = null;
-                            byte[] eventBytes = jsonEvent.getBytes("UTF-8");
+                            byte[] eventBytes = jsonEvent.getBytes(StandardCharsets.UTF_8);
                             String z = new String(eventBytes);
                             if (tc.isDebugEnabled())
                                 Tr.debug(tc, "eventBytes: " + z + "eventBytes.length: " + eventBytes.length);
@@ -987,7 +1005,7 @@ public class AuditFileHandler implements SynchronousHandler {
                                             if (tc.isDebugEnabled())
                                                 Tr.debug(tc, "maxFileSize: " + max);
 
-                                            if ((currentFileSize + total_to_add_length + 2) >= max) {
+                                            if ((currentFileSize + total_to_add_length + AUDIT_RECORD_NEW_LINES_SIZE) >= max) {
                                                 if (tc.isDebugEnabled())
                                                     Tr.debug(tc, "adding padding to roll into new log");
                                                 byte[] padding = new byte[(int) (max - currentFileSize)];
@@ -1022,7 +1040,7 @@ public class AuditFileHandler implements SynchronousHandler {
                                             if (tc.isDebugEnabled())
                                                 Tr.debug(tc, "maxFileSize: " + max);
 
-                                            if ((currentFileSize + total_to_add_length + 2) >= max) {
+                                            if ((currentFileSize + total_to_add_length + AUDIT_RECORD_NEW_LINES_SIZE) >= max) {
                                                 if (tc.isDebugEnabled())
                                                     Tr.debug(tc, "adding padding to roll into new log");
                                                 byte[] padding = new byte[(int) (max - currentFileSize)];
@@ -1047,7 +1065,7 @@ public class AuditFileHandler implements SynchronousHandler {
 
                             String jsonEvent = mapToJSONString(event.getMap());
 
-                            byte[] eventBytes = jsonEvent.getBytes("UTF-8");
+                            byte[] eventBytes = jsonEvent.getBytes(StandardCharsets.UTF_8);
 
                             signedAuditRecord = as.sign(eventBytes, signedSharedKey);
 
@@ -1079,7 +1097,7 @@ public class AuditFileHandler implements SynchronousHandler {
                                         if (tc.isDebugEnabled())
                                             Tr.debug(tc, "maxFileSize: " + max);
 
-                                        if ((currentFileSize + total_to_add_length + 2) >= max) {
+                                        if ((currentFileSize + total_to_add_length + AUDIT_RECORD_NEW_LINES_SIZE) >= max) {
                                             if (tc.isDebugEnabled())
                                                 Tr.debug(tc, "adding padding to roll into new log");
                                             byte[] padding = new byte[(int) (max - currentFileSize)];

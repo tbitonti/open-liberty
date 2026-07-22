@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -18,7 +20,9 @@ import javax.validation.Validation;
 import javax.validation.ValidatorFactory;
 
 import org.hibernate.validator.HibernateValidatorConfiguration;
+import org.hibernate.validator.messageinterpolation.ExpressionLanguageFeatureLevel;
 import org.osgi.framework.ServiceReference;
+import org.osgi.framework.Version;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -59,7 +63,7 @@ public class ValidatorFactoryBuilderImpl implements ValidatorFactoryBuilder {
     }
 
     @Override
-    public ValidatorFactory buildValidatorFactory(final ClassLoader appClassLoader, final String containerPath) {
+    public ValidatorFactory buildValidatorFactory(final ClassLoader appClassLoader, final String containerPath, final Version runtimeVersion) {
         SetContextClassLoaderPrivileged setClassLoader = null;
         ClassLoader oldClassLoader = null;
         ClassLoaderTuple tuple = null;
@@ -83,11 +87,20 @@ public class ValidatorFactoryBuilderImpl implements ValidatorFactoryBuilder {
             if (config instanceof HibernateValidatorConfiguration) {
                 HibernateValidatorConfiguration hvConfig = ((HibernateValidatorConfiguration) config);
                 hvConfig.externalClassLoader(bvalClassLoader);
+
+                // These two properties allow HV 6.1 behavior on 6.2
+                // This needs to be limited to beanValidation-2.0
+                if (runtimeVersion.equals(new Version(2, 0, 0))) {
+                    Tr.debug(tc, "Setting Expression Language properties for Bean Validation 2.0");
+                    hvConfig.constraintExpressionLanguageFeatureLevel(ExpressionLanguageFeatureLevel.BEAN_METHODS);
+                    hvConfig.customViolationExpressionLanguageFeatureLevel(ExpressionLanguageFeatureLevel.BEAN_METHODS);
+                }
+
             }
 
             if (bvalManagedObjectBuilderSR.getReference() != null) {
                 BvalManagedObjectBuilder bvalManagedObjectBuilder = bvalManagedObjectBuilderSR.getServiceWithException();
-                return bvalManagedObjectBuilder.injectValidatorFactoryResources(config, appClassLoader);
+                return bvalManagedObjectBuilder.injectValidatorFactoryResources(config, appClassLoader, runtimeVersion);
             } else {
                 return config.buildValidatorFactory();
             }
@@ -132,6 +145,7 @@ public class ValidatorFactoryBuilderImpl implements ValidatorFactoryBuilder {
     @Activate
     protected void activate(ComponentContext cc) {
         bvalManagedObjectBuilderSR.activate(cc);
+
     }
 
     @Deactivate

@@ -1,16 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2018 IBM Corporation and others.
+ * Copyright (c) 2018,2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.microprofile.mpjwt11.tck;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,7 +24,8 @@ import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
-import componenttest.topology.utils.MvnUtils;
+import componenttest.topology.utils.tck.TCKResultsInfo.Type;
+import componenttest.topology.utils.tck.TCKRunner;
 
 /**
  * This is a test class that runs a whole Maven TCK as one test FAT test.
@@ -39,7 +41,7 @@ public class Mpjwt11TCKLauncher_aud_noenv {
     @BeforeClass
     public static void setUp() throws Exception {
         server.startServer();
-        server.waitForStringInLog("CWWKS4105I", 30000); // wait for ltpa keys to be created and service ready, which can happen after startup.
+        server.waitForLTPAConfigReady(30000); // wait for ltpa keys to be created and service ready, which can happen after startup.
     }
 
     @AfterClass
@@ -52,13 +54,16 @@ public class Mpjwt11TCKLauncher_aud_noenv {
 
     @Test
     @AllowedFFDC("org.jose4j.jwt.consumer.InvalidJwtSignatureException")
-    public void launchMpjwt11TCKLauncher_aud_noenv() throws Exception {
+    public void launchMpjwt11TCK_aud_noenv() throws Exception {
         String port = String.valueOf(server.getBvtPort());
-        String bucketAndTestName = this.getClass().getCanonicalName();
         Map<String, String> additionalProps = new HashMap<>();
         // need to pass the correct url for PublicKeyAsPEMLocationURLTest
         additionalProps.put("mp.jwt.tck.jwks.baseURL", "http://localhost:" + port + "/PublicKeyAsPEMLocationURLTest/");
-        MvnUtils.runTCKMvnCmd(server, bucketAndTestName, bucketAndTestName, "tck_suite_aud_noenv.xml", additionalProps, Collections.emptySet());
 
+        String suiteName = "tck_suite_aud_noenv.xml";
+        TCKRunner.build(server, Type.MICROPROFILE, "JWT Auth")
+                        .withSuiteFileName(suiteName)
+                        .withAdditionalMvnProps(additionalProps)
+                        .runTCK();
     }
 }

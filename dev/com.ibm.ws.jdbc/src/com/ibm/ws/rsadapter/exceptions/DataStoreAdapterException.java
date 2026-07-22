@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2001, 2016 IBM Corporation and others.
+ * Copyright (c) 2001, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -143,7 +145,11 @@ public class DataStoreAdapterException extends ResourceException {
                     ((SQLException) exception).setNextException(sqlexChained); 
             }
 
-            initCause(exception);
+            // Use the linked exception if possible to allow for replacing the exception during exception mapping
+            if (exception instanceof Exception)
+                setLinkedException((Exception) exception);
+            else
+                initCause(exception);
 
             // Do not log this exception. caller is responsible for logging it.
             // change error message to exit message.
@@ -154,7 +160,6 @@ public class DataStoreAdapterException extends ResourceException {
     }
 
     /**
-     * barghout
      * Whether the exception has been translated. Exception translation is done to send back
      * a uniform set of exception's even though a very diverse set is reported by the different
      * databases
@@ -180,7 +185,6 @@ public class DataStoreAdapterException extends ResourceException {
     }
 
     /**
-     * barghout
      * sets the flag that indicates if the exception has been mapped
      * 
      */
@@ -194,9 +198,10 @@ public class DataStoreAdapterException extends ResourceException {
      * @return Exception
      */
     @Override
+    @SuppressWarnings("deprecation")
     public Exception getLinkedException() {
-        //return (Exception) getCause();
-        Throwable t = getCause();
+        Throwable t = super.getLinkedException();
+        t = t == null ? super.getCause() : t;
         while (t != null) {
             if (t instanceof Exception) {
                 return (Exception) t;
@@ -206,4 +211,21 @@ public class DataStoreAdapterException extends ResourceException {
         }
         return null;
     }
+
+    @Override
+    public Throwable getCause() {
+        Throwable cause = super.getLinkedException();
+        if (cause == null)
+            cause = super.getCause();
+        return cause;
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public Throwable initCause(Throwable cause) {
+        super.initCause(cause);
+        super.setLinkedException(cause instanceof Exception ? (Exception) cause : null);
+        return this;
+    }
+
 }

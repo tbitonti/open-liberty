@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.injection.fat;
 
@@ -22,7 +21,7 @@ import org.junit.runner.RunWith;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.rules.repeater.FeatureReplacementAction;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
@@ -54,8 +53,20 @@ public class RepeatableEnvEntryTest extends FATServletClient {
 //    })
     public static LibertyServer server;
 
+    /*@formatter:off*/
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.injection.fat.RepeatableEnvEntryServer")).andWith(new JakartaEE9Action().forServers("com.ibm.ws.injection.fat.RepeatableEnvEntryServer").fullFATOnly());
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE8_FEATURES()
+                                                    .forServers("com.ibm.ws.injection.fat.RepeatableEnvEntryServer"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .forServers("com.ibm.ws.injection.fat.RepeatableEnvEntryServer")
+                                                    .fullFATOnly())
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .forServers("com.ibm.ws.injection.fat.RepeatableEnvEntryServer")
+                                                    .fullFATOnly())
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .forServers("com.ibm.ws.injection.fat.RepeatableEnvEntryServer")
+                                                    .fullFATOnly());
+    /*@formatter:on*/
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -75,8 +86,8 @@ public class RepeatableEnvEntryTest extends FATServletClient {
 //        ShrinkHelper.exportDropinAppToServer(server, RepeatableEnvEntryMixTest);
 
         // Since not using ShrinkWrap, manually transform the application if required
-        if (JakartaEE9Action.isActive()) {
-            transformJakartaEE9App(server, "dropins", "RepeatableEnvEntryMixTest.ear");
+        if (JakartaEEAction.isEE9OrLaterActive()) {
+            transformJakartaEEApp(server, "dropins", "RepeatableEnvEntryMixTest.ear");
         }
 
         server.addInstalledAppForValidation("RepeatableEnvEntryMixTest");
@@ -84,11 +95,13 @@ public class RepeatableEnvEntryTest extends FATServletClient {
         server.startServer();
     }
 
-    private static void transformJakartaEE9App(LibertyServer server, String path, String filename) throws Exception {
+    private static void transformJakartaEEApp(LibertyServer server, String path, String filename) throws Exception {
         String localLocation = "publish/servers/" + server.getServerName() + "/" + path;
 
-        Path localAppPath = Paths.get(localLocation + "/" + filename);
-        JakartaEE9Action.transformApp(localAppPath);
+        if (JakartaEEAction.isEE9OrLaterActive()) {
+            Path localAppPath = Paths.get(localLocation + "/" + filename);
+            JakartaEEAction.transformApp(localAppPath);
+        }
 
         server.copyFileToLibertyServerRoot(localLocation, path, filename);
     }

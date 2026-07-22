@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,7 +22,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 
+import componenttest.annotation.MinimumJavaLevel;
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
@@ -28,6 +32,7 @@ import componenttest.topology.utils.FATServletClient;
 import componenttest.topology.utils.HttpUtils;
 
 @RunWith(FATRunner.class)
+@MinimumJavaLevel(javaLevel = 11)
 public class ResourceAdapterExampleTest extends FATServletClient {
 
     public static final String APP_NAME = "ExampleApp";
@@ -39,13 +44,12 @@ public class ResourceAdapterExampleTest extends FATServletClient {
     public static void setup() throws Exception {
         WebArchive app = ShrinkWrap.create(WebArchive.class, APP_NAME + ".war")
                         .addPackages(true, "web");
-        ShrinkHelper.exportToServer(server, "dropins", app);
-        server.addInstalledAppForValidation(APP_NAME);
+        ShrinkHelper.exportDropinAppToServer(server, app);
 
         ResourceAdapterArchive rar = ShrinkWrap.create(ResourceAdapterArchive.class, "ExampleRA.rar")
                         .addAsLibraries(ShrinkWrap.create(JavaArchive.class)
                                         .addPackage("com.ibm.example.jca.anno"));
-        ShrinkHelper.exportToServer(server, "dropins", rar);
+        ShrinkHelper.exportDropinAppToServer(server, rar, DeployOptions.DISABLE_VALIDATION);
 
         server.startServer();
     }
@@ -74,7 +78,7 @@ public class ResourceAdapterExampleTest extends FATServletClient {
 
         // find
         runTest("?functionName=FIND&capital=Saint%20Paul",
-                "Successfully performed FIND with output: {area=86939, capital=Saint Paul, population=5379139, state=Minnesota}");
+                "Successfully performed FIND with output: [area=86939, capital=Saint Paul, population=5379139, state=Minnesota]");
 //        output = runInServlet("functionName=FIND&capital=Saint%20Paul");
 //        if (output.indexOf("Successfully performed FIND with output: {area=86939, capital=Saint Paul, population=5379139, state=Minnesota}") < 0)
 //            throw new Exception("Did not find entry. Output: " + output);
@@ -89,7 +93,7 @@ public class ResourceAdapterExampleTest extends FATServletClient {
 
         // remove
         runTest("?functionName=REMOVE&city=Stewartville",
-                "Successfully performed REMOVE with output: {city=Stewartville, population=5916, state=Minnesota}");
+                "Successfully performed REMOVE with output: [city=Stewartville, population=5916, state=Minnesota]");
 
         // attempt removal of something that doesn't exist
         runTest("?functionName=REMOVE&city=Stewartville",
@@ -101,9 +105,9 @@ public class ResourceAdapterExampleTest extends FATServletClient {
         server.setMarkToEndOfLog();
 
         runTest("?functionName=ADD&county=Olmsted&state=Minnesota&population=147066&area=654.5",
-                "Successfully performed ADD with output: {area=654.5, county=Olmsted, population=147066, state=Minnesota}");
+                "Successfully performed ADD with output: [area=654.5, county=Olmsted, population=147066, state=Minnesota]");
 
         // search messages log for MDB output
-        server.waitForStringInLog("ExampleMessageDrivenBean.onMessage record = {area=654.5, county=Olmsted, population=147066, state=Minnesota}");
+        server.waitForStringInLog("ExampleMessageDrivenBean.onMessage record = [area=654.5, county=Olmsted, population=147066, state=Minnesota]");
     }
 }

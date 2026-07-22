@@ -1,16 +1,20 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.saml20.fat.commonTest;
 
-public class SAMLMessageConstants {
+import com.ibm.ws.security.fat.common.MessageConstants;
+
+public class SAMLMessageConstants extends MessageConstants {
 
     public static final String CWWKS5000I_SAML_CONFIG_PROCESSED = "CWWKS5000I";
     public static final String CWWKS5002I_SAML_SERVICE_ACTIVATED = "CWWKS5002I";
@@ -26,6 +30,7 @@ public class SAMLMessageConstants {
     public static final String CWWKS5018E_SAML_RESPONSE_CANNOT_BE_DECODED = "CWWKS5018E";
 
     public static final String CWWKS5021E_IDP_METADATA_MISSING_ISSUER = "CWWKS5021E";
+    public static final String CWWKS5023E_IDP_METADATA_NOT_VALID = "CWWKS5023E";
     public static final String CWWKS5025E_IDP_METADATA_DOES_NOT_EXIST = "CWWKS5025E";
     public static final String CWWKS5029E_RELAY_STATE_NOT_RECOGNIZED = "CWWKS5029E";
 
@@ -57,9 +62,8 @@ public class SAMLMessageConstants {
 
     public static final String CWWKS5207W_SAML_CONFIG_IGNORE_ATTRIBUTES = "CWWKS5207W";
     public static final String CWWKS5208E_SAML_ASSERTION_NOT_VALID = "CWWKS5208E";
-
-    public static final String CWWKS5214E_LOGOUT_ENDPOINT_MISSING = "CWWKS5214E";
     public static final String CWWKS5215E_NO_AVAILABLE_SP = "CWWKS5215E";
+    public static final String CWWKS5214E_LOGOUT_ENDPOINT_MISSING = "CWWKS5214E";
     public static final String CWWKS5218E_USER_SESSION_NOT_FOUND = "CWWKS5218E";
 
     public static final String CWWKS5251W_SAML_TOKEN_NOT_IN_SUBJECT = "CWWKS5251W";

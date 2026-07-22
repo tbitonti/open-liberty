@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -169,7 +171,7 @@ public class AsynchronousWorkTask extends RoutedTask implements AsynchronousWork
 			if (! _isResponseRecived){
 				if (c_logger.isTraceDebugEnabled()) {
 					c_logger.traceDebug(this, "waitForResponse",
-							"going to wait for respone, applicationid=" + _appSessionID);
+							"going to wait for response, applicationid=" + _appSessionID +"\"");
 				}
 				
 				_isWaitForResponse = true;
@@ -178,13 +180,13 @@ public class AsynchronousWorkTask extends RoutedTask implements AsynchronousWork
 				} catch (InterruptedException e) {
 					if (c_logger.isTraceDebugEnabled()) {
 						c_logger.traceDebug(this, "waitForResponse",
-								"Async work was interrupted, applicationid=" + _appSessionID);
+								"Async work was interrupted, applicationid=" + _appSessionID + "\"");
 					}
 				}
 				
 				if (c_logger.isTraceDebugEnabled()) {
 					c_logger.traceDebug(this, "waitForResponse",
-							"respone was received thread is notified, applicationid=" + _appSessionID);
+							"response was received, thread is notified, applicationid=" + _appSessionID + "\"");
 				}
 			}
 		}
@@ -211,7 +213,7 @@ public class AsynchronousWorkTask extends RoutedTask implements AsynchronousWork
 			if (_isWaitForResponse){
 				if (c_logger.isTraceDebugEnabled()) {
 					c_logger.traceDebug(this, "notifyWaitThread",
-							"respone was received going to notify waiting thread, applicationid=" + _appSessionID);
+							"response received, notifying waiting thread. Applicationid = " + _appSessionID);
 				}
 				
 				_isWaitForResponse = false;

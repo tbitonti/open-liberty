@@ -1,18 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package test.jdbc.heritage;
 
-import static org.junit.Assert.assertTrue;
-
-import java.util.List;
+import static org.junit.Assert.assertNotNull;
 
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
@@ -61,10 +61,12 @@ public class HeritageJDBCTest extends FATServletClient {
         try {
             // Verify that DataStoreHelper getPrintWriter successfully overrides the
             // JDBC trace location to System.out (appears in message.log),
-            List<String> found = server.findStringsInLogs(".*==> Connection.*.prepareStatement\\(\"VALUES \\('testDefaultQueryTimeout', SQRT\\(196\\)\\)\", 1003, 1007\\).*");
-            assertTrue(found.toString(), found.size() == 1);
+            String found = server.waitForStringInLog(".*==> Connection.*.prepareStatement\\(\"VALUES \\('testDefaultQueryTimeout', SQRT\\(196\\)\\)\", 1003, 1007\\).*");
+            assertNotNull(found);
         } finally {
-            server.stopServer();
+            server.stopServer("J2CA0030E", // test attempts to enlist multiple one-phase resources to prove that sharing does not occur
+                              "WTRN0062E" // test attempts to enlist multiple one-phase resources to prove that sharing does not occur
+            );
         }
     }
 }

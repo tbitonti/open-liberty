@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
 package com.ibm.ws.session;
@@ -16,6 +15,7 @@ import java.util.Map;
 import java.util.logging.Level;
 
 import com.ibm.ws.session.utils.LoggingUtil;
+
 
 final public class SessionProperties {
 
@@ -34,6 +34,8 @@ final public class SessionProperties {
         FullyQualifiedPropertiesMap.put("SessionIdentifierMaxLength", "idMaxLength");
         FullyQualifiedPropertiesMap.put("CloneSeparatorChange", "cloneSeparatorChange");
         FullyQualifiedPropertiesMap.put("CloneSeparator", "cloneSeparator");
+        FullyQualifiedPropertiesMap.put("CacheSeparator", "cacheSeparator");
+        FullyQualifiedPropertiesMap.put("AppInCacheName", "appInCacheName");
         FullyQualifiedPropertiesMap.put("NoAffinitySwitchBack", "noAffinitySwitchBack");
         FullyQualifiedPropertiesMap.put("UseOracleBLOB", "useOracleBlob");
         FullyQualifiedPropertiesMap.put("SessionTableSkipIndexCreation", "skipIndexCreation");
@@ -263,6 +265,31 @@ final public class SessionProperties {
             }
         }
 
+        // httpSessionCache property
+        final String propCacheSeparator = "CacheSeparator";
+        strProp = getStringProperty(propCacheSeparator, xtpProperties);
+        if (strProp != null) {
+            // Must be exactly one char, and cannot be space
+            if ((strProp.length() == 1) && (strProp.trim().length() == 1)) {
+                if (shouldSetAndDoLogging(propCacheSeparator, true, baseServerLevelConfig, xtpProperties, strProp, null, false)) {
+                    char charProp = strProp.charAt(0);
+                    SessionManagerConfig.setCacheSeparator(charProp);
+                }
+            } else {
+                LoggingUtil.SESSION_LOGGER_CORE.logp(Level.WARNING, methodClassName, methodName, invalidPropFoundMessage,
+                                                     new Object[] { strProp });
+            }
+        }        
+        
+        final String propAppInCacheName = "AppInCacheName";
+        strProp = getStringProperty(propAppInCacheName, xtpProperties);
+        if (strProp != null) {
+            booleanProp = Boolean.valueOf(strProp);
+            if (shouldSetAndDoLogging(propAppInCacheName, true, baseServerLevelConfig, xtpProperties, booleanProp, Boolean.valueOf(SessionManagerConfig.isAppInCacheName()), false)) {
+                SessionManagerConfig.setAppInCacheName(booleanProp.booleanValue());
+            }
+        }        
+        
         // no affinity switch back - stick to new server after failover
         final String propNoAffSwitch = "NoAffinitySwitchBack";
         strProp = getStringProperty(propNoAffSwitch, xtpProperties);
@@ -731,6 +758,14 @@ final public class SessionProperties {
             smc.setSessionCookieSameSite(SameSiteCookie.get(sValue));  
         }
 
+        s = "cookiePartitioned";
+        sValue = propertyToString(xtpProperties.get(s));
+        // if it's not defered then it's true or false which we can parse to a boolean
+        if(!sValue.equalsIgnoreCase("defer")){
+            bValue = propertyToBoolean(sValue);
+            smc.setSessionCookiePartitioned(bValue);
+        }
+        
         s = "maxInMemorySessionCount";
         iValue = propertyToInteger(xtpProperties.get(s));
         if (iValue != null) {
@@ -803,7 +838,11 @@ final public class SessionProperties {
         if (bValue != null) {
             smc.setUsingMultirow(bValue.booleanValue());
         }
-
+        s = "rowSizeLimit";
+        iValue = propertyToInteger(xtpProperties.get(s));
+        if (iValue != null) {
+            smc.setRowSizeLimit(iValue.intValue());
+        }
         // tuning parameters; currently from DatabaseStoreService
         s = "scheduleInvalidation";
         bValue = propertyToBoolean(xtpProperties.get(s));

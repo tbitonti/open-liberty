@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -27,17 +29,17 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 import org.osgi.framework.VersionRange;
 
-import aQute.bnd.header.Attrs;
-import aQute.bnd.header.Parameters;
-import aQute.bnd.osgi.Constants;
-import aQute.bnd.osgi.Jar;
-import aQute.bnd.version.Version;
-
 import com.ibm.aries.buildtasks.junit.JunitReportWriter;
 import com.ibm.aries.buildtasks.junit.TestCase;
 import com.ibm.aries.buildtasks.junit.TestSuite;
 import com.ibm.aries.buildtasks.junit.TestSuites;
 import com.ibm.ws.kernel.provisioning.ContentBasedLocalBundleRepository;
+
+import aQute.bnd.header.Attrs;
+import aQute.bnd.header.Parameters;
+import aQute.bnd.osgi.Constants;
+import aQute.bnd.osgi.Jar;
+import aQute.bnd.version.Version;
 
 /**
  * This implements the ESA/feature generation. It takes a bnd file and generates an ESA and feature manifest.
@@ -70,9 +72,9 @@ public class FeatureBnd extends Task {
     public static final String IBM_PROVISION_CAPABILITY = "IBM-Provision-Capability";
     /**  */
     private static final String IBM_SHORT_NAME = "IBM-ShortName";
-    
+
     private static final String IBM_LICENSE_INFORMATION = "IBM-License-Information";
-    
+
     private static final String IBM_LICENSE_AGREEMENT = "IBM-License-Agreement";
     /**  */
     private static final String OSGI_SUBSYSTEM_FEATURE = "osgi.subsystem.feature";
@@ -90,18 +92,17 @@ public class FeatureBnd extends Task {
     private static final String SUBSYSTEM_TYPE = "Subsystem-Type";
     /**  */
     private static final String SUBSYSTEM_VERSION = "Subsystem-Version";
-    
+
     /** If true, a conflict during feature resolution involving this feature disables all content. Default is true. */
     private static final String WLP_DISABLE_ONCONFLICT = "WLP-DisableAllFeatures-OnConflict";
-    
-    
+
     private static final FilenameFilter LI_FILES = new PrefixFilter("LI_");
-    
+
     private static final FilenameFilter LA_FILES = new PrefixFilter("LA_");
-    
+
     private static class PrefixFilter implements FilenameFilter {
         private String prefix;
-        
+
         public PrefixFilter(String prefix) {
             this.prefix = prefix;
         }
@@ -112,7 +113,7 @@ public class FeatureBnd extends Task {
         }
     }
 
-    /** 
+    /**
      * This class represents data about an edition.
      */
     public class Edition {
@@ -155,7 +156,6 @@ public class FeatureBnd extends Task {
             this.displayVersion = displayVersion;
         }
 
-
         public String getValidEditions() {
             return validEditions == null ? defaultEdition.validEditions : validEditions;
         }
@@ -175,7 +175,7 @@ public class FeatureBnd extends Task {
         public String getVersion() {
             return version == null ? defaultEdition.version : version;
         }
-        
+
         public String getDisplayVersion() {
             if (displayVersion == null) {
                 if (defaultEdition.displayVersion == null) {
@@ -240,12 +240,12 @@ public class FeatureBnd extends Task {
             // Look for the edition and kind
             String edition = builder.getProperty("edition");
             String kind = builder.getProperty("kind");
-            
+
             //Weed out kinds that aren't recognized. Only ga, beta, noship is understood.
             if (!!!("ga".equals(kind) || "beta".equals(kind) || "noship".equals(kind))) {
-                throw new BuildException("feature.bnd contains an unrecognized kind property: " + kind); 
+                throw new BuildException("feature.bnd contains an unrecognized kind property: " + kind);
             }
-            
+
             // if we are creating features for the beta ensure we generate things for beta
             // applicability irrespective of the value of the edition property in the bnd.
             boolean beta = "beta".equals(createFor);
@@ -255,11 +255,11 @@ public class FeatureBnd extends Task {
             } else {
                 editionDataObject = editionData.get(edition);
             }
-            
+
             if (editionDataObject == null) {
                 throw new BuildException(featureSymbolicName + " targets edition " + edition + " which isn't known to the task");
             }
-            
+
             builder.setProperty("version", editionDataObject.getDisplayVersion());
             checkBuilder(builder);
 
@@ -391,6 +391,9 @@ public class FeatureBnd extends Task {
                         // next time round the loop we need to add a comma.
                         addComma = true;
 
+                        // FIPS 140-3: Algorithm assessment complete; no changes required.
+                        // MD5 is used for file comparison / checksums which isn't a cryptographic use case
+                        // We can't update the hashing algorithm used here because Ifix/ESA's only provide MD5 checksums
                         // need to store the checksum away.
                         checksums.put(inESA, MD5Utils.getFileMD5String(bundleFile));
                     } else {
@@ -401,9 +404,9 @@ public class FeatureBnd extends Task {
 
             builder.setSubsystemContent(content);
             checkBuilder(builder);
-            
+
             String superseded = builder.getProperty("superseded-by");
-            
+
             if (superseded != null) {
                 Parameters p = builder.getParameters(SUBSYSTEM_SYMBOLIC_NAME);
                 Attrs attributes = p.entrySet().iterator().next().getValue();
@@ -426,7 +429,7 @@ public class FeatureBnd extends Task {
 
             //I think this method isn't doing what is intended. This basically means output to both wlp/lib/features
             //and build/subsystem.mf because this method is called twice. Once with createFor==buildType, and once without.
-            
+
             File manifest;
             boolean saveJunitReport = false;
             Map.Entry<String, Attrs> featureParams = builder.getSubsystemSymbolicName();
@@ -440,7 +443,7 @@ public class FeatureBnd extends Task {
             } else {
                 manifest = new File(getProject().getBaseDir(), "build/subsystem.mf");
             }
-            
+
             // Set the ANT property pointing to the manifest so it can be used later on in the ANT process
             if (manifestFileProperty != null && !manifestFileProperty.isEmpty()) {
                 getProject().setProperty(manifestFileProperty, manifest.getAbsolutePath());
@@ -466,18 +469,22 @@ public class FeatureBnd extends Task {
             //However, for a beta release we want GA and BETA features both.
             if (createESA && (kind.equals(createFor) || "ga".equals(kind))) {
                 Jar jar = builder.build();
+
+                // FIPS 140-3: Algorithm assessment complete; no changes required.
+                // MD5 is used for file comparison / checksums which isn't a cryptographic use case
+                // We can't update the hashing algorithm used here because Ifix/ESA's only provide MD5 checksums
                 checksums.put("OSGI-INF/SUBSYSTEM.MF", MD5Utils.getFileMD5String(manifest));
                 jar.putResource("OSGI-INF/checksums.cs", new PropertiesResource(checksums));
                 File file = new File(esaDir, featureSymbolicName + ".esa");
                 jar.write(file);
                 log("Created " + file);
             }
-            
+
             TestSuites suites = new TestSuites();
             suites.add(suite);
             suite.setName(featureName + " feature packaging tests");
-            
-            if (suites.getErrors() + suites.getFailures() > 0 ) {
+
+            if (suites.getErrors() + suites.getFailures() > 0) {
                 if (saveJunitReport) {
                     JunitReportWriter.persist(suites, junitErrors);
                 }
@@ -501,22 +508,16 @@ public class FeatureBnd extends Task {
         int major = ver.getMajor();
         int minor = ver.getMinor();
         int micro = ver.getMicro();
-        int floor = micro - (micro % 200);
-        int ceiling = floor + 200;
 
         StringBuilder vRange = new StringBuilder("[");
         vRange.append(major);
         vRange.append('.');
         vRange.append(minor);
-        vRange.append('.');
-        vRange.append(floor);
-        vRange.append(',');
+        vRange.append(".0,");
         vRange.append(major);
         vRange.append('.');
-        vRange.append(minor);
-        vRange.append('.');
-        vRange.append(ceiling);
-        vRange.append(')');
+        vRange.append(minor + 1);
+        vRange.append(".0)");
         return vRange.toString();
     }
 
@@ -579,15 +580,15 @@ public class FeatureBnd extends Task {
             resources.append(',');
         }
         resources.append("wlp/lafiles/=");
-        String licensePath = e.getLicensePath().getAbsolutePath(); 
+        String licensePath = e.getLicensePath().getAbsolutePath();
         resources.append(licensePath);
         getProject().setProperty(licensePathProperty, licensePath);
         getProject().setProperty(licenseTypeProperty, e.getLicenseType());
-        
+
         if (e.getLicensePath().listFiles(LI_FILES).length > 0) {
             build.setProperty(IBM_LICENSE_INFORMATION, "wlp/lafiles/LI");
         }
-        
+
         if (e.getLicensePath().listFiles(LA_FILES).length > 0) {
             build.setProperty(IBM_LICENSE_AGREEMENT, "wlp/lafiles/LA");
         }
@@ -759,13 +760,14 @@ public class FeatureBnd extends Task {
     public void setEsaDir(File esaDir) {
         this.esaDir = esaDir;
     }
-    
+
     public void setCreateESA(boolean create) {
         createESA = create;
     }
 
     /**
      * States the name of the ANT property to set pointing to the manifest file generated by this task. Defaults to <code>feature.manifest.file</code>
+     * 
      * @param manifestFileProperty the manifestFileProperty to set
      */
     public void setManifestFileProperty(String manifestFileProperty) {
@@ -774,6 +776,7 @@ public class FeatureBnd extends Task {
 
     /**
      * States the name of the ANT property to set pointing to the feature's symbolic name as calculated by this task. Defaults to <code>feature.symbolic.name</code>
+     * 
      * @param featureSymbolicNameProperty the featureSymbolicNameProperty to set
      */
     public void setFeatureSymbolicNameProperty(String featureSymbolicNameProperty) {
@@ -782,6 +785,7 @@ public class FeatureBnd extends Task {
 
     /**
      * States the name of the ANT property to set pointing to the license path that is going used to put the license into the ESA. Defaults to <code>license.path</code>
+     * 
      * @param licensePathProperty the licensePathProperty to set
      */
     public void setLicensePathProperty(String licensePathProperty) {
@@ -790,6 +794,7 @@ public class FeatureBnd extends Task {
 
     /**
      * States the name of the ANT property to set pointing to the license type that is used to put the license into the ESA. Defaults to <code>license.type</code>
+     * 
      * @param licenseTypeProperty the licenseTypeProperty to set
      */
     public void setLicenseTypeProperty(String licenseTypeProperty) {

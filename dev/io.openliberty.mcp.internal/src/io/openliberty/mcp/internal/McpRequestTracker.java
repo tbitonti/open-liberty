@@ -1,0 +1,98 @@
+/*******************************************************************************
+ * Copyright (c) 2025, 2026 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *******************************************************************************/
+package io.openliberty.mcp.internal;
+
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import org.mcpjava.server.Cancellation;
+
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
+
+import io.openliberty.mcp.internal.config.McpConfig;
+import io.openliberty.mcp.internal.exceptions.jsonrpc.JSONRPCErrorCode;
+import io.openliberty.mcp.internal.exceptions.jsonrpc.JSONRPCException;
+import io.openliberty.mcp.internal.requests.CancellationImpl;
+import io.openliberty.mcp.internal.requests.ExecutionRequestId;
+import io.openliberty.mcp.internal.sessions.McpSessionId;
+
+/**
+ * This is a connection tracker, keeping track of ongoing tool call requests for a single module
+ * The current Module instance can be retrieved from McpRequestTrackers
+ *
+ * @see McpRequestTrackers
+ * @see McpCdiExtensionMetadata getBeanClasses()
+ */
+
+public class McpRequestTracker {
+
+    private static final TraceComponent tc = Tr.register(McpRequestTracker.class);
+
+    private ConcurrentMap<ExecutionRequestId, CancellationImpl> ongoingRequests = new ConcurrentHashMap<>();
+    private final ConcurrentMap<McpSessionId, Set<ExecutionRequestId>> sessionToRequestIds = new ConcurrentHashMap<>();
+
+    private McpConfig mcpConfig;
+
+    public McpRequestTracker(McpConfig mcpConfig) {
+        this.ongoingRequests = new ConcurrentHashMap<>();
+        this.mcpConfig = mcpConfig;
+    }
+
+    public void deregisterOngoingRequest(ExecutionRequestId id) {
+        ongoingRequests.remove(id);
+        Set<ExecutionRequestId> sessionRequests = sessionToRequestIds.get(id.sessionId());
+        if (sessionRequests != null) {
+            sessionRequests.remove(id);
+        }
+    }
+
+    public void registerOngoingRequest(ExecutionRequestId requestId, CancellationImpl cancellation) {
+        CancellationImpl previous = ongoingRequests.putIfAbsent(requestId, cancellation);
+        if (previous != null) {
+            throw new JSONRPCException(JSONRPCErrorCode.INVALID_PARAMS,
+                                       Tr.formatMessage(tc, "invalid.request.params", requestId.id()));
+        }
+        sessionToRequestIds.computeIfAbsent(requestId.sessionId(), k -> ConcurrentHashMap.newKeySet()).add(requestId);
+    }
+
+    public boolean isOngoingRequest(ExecutionRequestId id) {
+        return ongoingRequests.containsKey(id);
+    }
+
+    public Cancellation getOngoingRequestCancellation(ExecutionRequestId id) {
+        return ongoingRequests.get(id);
+    }
+
+    /**
+     * Cancels all ongoing requests associated with the given session.
+     * <p>
+     * Will skip cancellation if the server is in stateless mode.
+     * request is cancelled with a fixed reason: {@code "Session cancelled"}
+     */
+    public void cancelSessionRequests(McpSessionId sessionId) {
+        if (mcpConfig.stateless()) {
+            return;
+        }
+
+        Set<ExecutionRequestId> requests = sessionToRequestIds.remove(sessionId);
+        if (requests == null) {
+            return;
+        }
+
+        for (ExecutionRequestId id : requests) {
+            Cancellation cancellation = ongoingRequests.remove(id);
+            if (cancellation instanceof CancellationImpl impl) {
+                impl.cancel("Session cancelled");
+            }
+        }
+    }
+}

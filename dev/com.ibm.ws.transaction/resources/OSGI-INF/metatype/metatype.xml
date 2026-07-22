@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    Copyright (c) 2011, 2021 IBM Corporation and others.
+    Copyright (c) 2011, 2025 IBM Corporation and others.
     All rights reserved. This program and the accompanying materials
-    are made available under the terms of the Eclipse Public License v1.0
+    are made available under the terms of the Eclipse Public License 2.0
     which accompanies this distribution, and is available at
-    http://www.eclipse.org/legal/epl-v10.html
+    http://www.eclipse.org/legal/epl-2.0/
+    
+    SPDX-License-Identifier: EPL-2.0
    
     Contributors:
         IBM Corporation - initial API and implementation
@@ -18,8 +20,23 @@
     </Designate>
           
     <OCD description="%transaction.config.desc" name="%transaction.config" id="com.ibm.ws.transaction" ibm:alias="transaction">
+        <AD name="%throw.checked.exceptions" description="%throw.checked.exceptions.desc"
+            id="throwCheckedExceptions" required="false" type="Boolean" default="false" />
+
+        <AD name="%propagate.timeout" description="%propagate.timeout.desc"
+            id="propagateXAResourceTransactionTimeout" required="false" type="Boolean" default="false" />
+
+        <AD name="internal" description="%forcePrepare.desc"
+            id="forcePrepare" required="false" type="Boolean" default="false" />
+
         <AD name="%OnePCOptimization" description="%OnePCOptimization.desc"
             id="OnePCOptimization" required="false" type="Boolean" default="true" />
+
+        <AD name="%ut.as.specified" description="%ut.as.specified.desc"
+            id="enableUserTransactionAsSpecified" required="false" type="Boolean" default="false" />
+
+        <AD name="%correct.uowscope.callbacks" description="%correct.uowscope.callbacks.desc"
+            id="correctUOWScopeCallbacks" required="false" type="Boolean" default="false" />
 
         <AD name="%recover.on.startup" description="%recover.on.startup.desc"
             id="recoverOnStartup" required="false" type="Boolean" default="false" />
@@ -33,14 +50,15 @@
         <AD name="%client.inactivity.timeout" description="%client.inactivity.timeout.desc"
             id="clientInactivityTimeout" required="false" type="String" ibm:type="duration(s)" min="0" default="60s" />
 
+		<!-- heuristicRetryInterval is a synonym for heuristicRetryWait -->
         <AD name="%heuristic.retry.interval" description="%heuristic.retry.interval.desc"
             id="heuristicRetryInterval" required="false" type="String" ibm:type="duration(s)" min="0" default="60s" />
 
-        <AD name="%heuristic.retry.limit" description="%heuristic.retry.limit.desc"
-            id="heuristicRetryWait" required="false" type="Integer" default="5" />
+        <AD name="%heuristic.retry.interval" description="%heuristic.retry.interval.desc"
+            id="heuristicRetryWait" required="false" type="String" ibm:type="duration(s)" min="0" default="60s" />
 
         <AD name="%heuristic.retry.limit" description="%heuristic.retry.limit.desc"
-            id="heuristicRetryLimit" required="false" type="Integer" default="5" />
+            id="heuristicRetryLimit" required="false" type="Integer" default="0" />
 
         <AD name="%max.transaction.timeout" description="%max.transaction.timeout.desc"
             id="propogatedOrBMTTranLifetimeTimeout" required="false" type="String" ibm:type="duration(s)" min="0" default="0" />
@@ -54,13 +72,19 @@
         <AD name="internal" description="%lease.check.strategy.desc"
             id="leaseCheckStrategy" required="false" type="String" default="round-robin" />            
 
-        <AD name="internal" description="%lease.check.interval.desc"
+        <AD name="%backendURL" description="%backendURL.desc"
+            id="backendURL" required="false" type="String" default="" />            
+
+        <AD name="%lease.check.interval" description="%lease.check.interval.desc"
             id="leaseCheckInterval" required="false" type="String" ibm:type="duration(s)" min="0" default="60s" />
-            
-		<AD name="internal" description="%lease.renewal.threshold.desc"
+
+		<AD name="%lease.renewal.threshold" description="%lease.renewal.threshold.desc"
             id="leaseRenewalThreshold" required="false" type="Integer" min="1" max="100" default="90" />
 
-        <AD name="internal" description="%lease.length.desc"
+		<AD name="%lease.expiry.threshold" description="%lease.expiry.threshold.desc"
+            id="leaseExpiryThreshold" required="false" type="Integer" min="1" default="1" />
+
+        <AD name="%lease.length" description="%lease.length.desc"
             id="leaseLength" required="false" type="String" ibm:type="duration(s)" min="0" default="60s" />
 
         <AD name="%transaction.log.size" description="%transaction.log.size.desc"
@@ -72,11 +96,14 @@
         <AD name="%recovery.group" description="%recovery.group.desc"
             id="recoveryGroup" required="false" type="String" default="" />
 
-        <AD name="internal" description="internal use only"
+        <AD name="%shutdown.on.log.failure" description="%shutdown.on.log.failure.desc"
             id="shutdownOnLogFailure" required="false" type="Boolean" default="true" />
 
         <AD name="internal" description="internal use only"
-            id="enableHADBPeerLocking" required="false" type="Boolean" default="false" />
+            id="enableLogLocking" required="false" type="Boolean" default="true" />
+            
+        <AD name="internal" description="internal use only"
+            id="asyncResponseThreadpoolSize" required="false" type="Integer" min="0" default="2" />
             
         <AD name="internal" description="internal use only"
             id="timeBetweenHeartbeats" required="false" type="Integer" default="5" />
@@ -84,23 +111,38 @@
         <AD name="internal" description="internal use only"
             id="peerTimeBeforeStale" required="false" type="Integer" default="10" />
 
-        <AD name="internal" description="internal use only"
-            id="standardTransientErrorRetryTime" required="false" type="Integer" default="10" />
+        <AD name="%log.retry.interval" description="%log.retry.interval.desc"
+            id="logRetryInterval" required="false" type="Integer" default="10" />
 
-        <AD name="internal" description="internal use only"
-            id="standardTransientErrorRetryAttempts" required="false" type="Integer" default="180" /> 
+        <AD name="%log.retry.limit" description="%log.retry.limit.desc"
+            id="logRetryLimit" required="false" type="Integer" default="180" /> 
                         
         <AD name="internal" description="internal use only"
-            id="lightweightTransientErrorRetryTime" required="false" type="Integer" default="1" />
+            id="lightweightLogRetryInterval" required="false" type="Integer" default="1" />
 
         <AD name="internal" description="internal use only"
-            id="lightweightTransientErrorRetryAttempts" required="false" type="Integer" default="2" /> 
-                                               
+            id="lightweightLogRetryLimit" required="false" type="Integer" default="2" /> 
+            
+        <AD name="%enable.log.retries" description="%enable.log.retries.desc"
+            id="enableLogRetries" required="false" type="Boolean" default="false" />
+            
+        <AD name="internal" description="internal use only"
+            id="retriableSqlCodes" required="false" type="String" default="" />
+            
+        <AD name="internal" description="internal use only"
+            id="nonRetriableSqlCodes" required="false" type="String" default="" />
+                                
+        <AD name="internal" description="internal use only"
+            id="peerRecoveryPrecedence" required="false" type="Boolean" default="false" />
+                                                                             
         <AD name="%logging.for.heuristic.reporting.enabled" description="%logging.for.heuristic.reporting.enabled.desc" 
             id="enableLoggingForHeuristicReporting" required="false" type="Boolean" default="false" />
         
         <AD name="%transaction.log.dbtablesuffix" description="%transaction.log.dbtablesuffix.desc"
             id="transactionLogDBTableSuffix" required="false" type="String" default="" />
+        
+        <AD name="%transaction.log.db.name" description="%transaction.log.db.name.desc"
+            id="transactionLogDBName" required="false" type="String" default="" />
             
         <AD name="%timeout.grace.period.enabled" description="%timeout.grace.period.enabled.desc"
             id="timeoutGracePeriodEnabled" required="false" type="Boolean" default="false" />

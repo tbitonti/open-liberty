@@ -1,9 +1,11 @@
 ###############################################################################
 # Copyright (c) 2011, 2015 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -55,13 +57,13 @@
 
 #-------------------------------------------------------------------------------
 # DO NOT TRANSLATE "DatabaseStore", this is a server.xml configuration element.
-ILLEGAL_IDENTIFIER_CWWKD0200E=CWWKD0200E: Konfigurace p\u0159edpony prvku DatabaseStore {1} obsahuje neplatn\u00e9 znaky.
+ILLEGAL_IDENTIFIER_CWWKD0200E=CWWKD0200E: Konfigurace p\u0159edpony DatabaseStore {0} obsahuje neplatn\u00e9 znaky.
 ILLEGAL_IDENTIFIER_CWWKD0200E.explanation=P\u0159edpona DatabaseStore sm\u00ed obsahovat pouze \u010d\u00edsla, p\u00edsmena nebo symbol "_".
 ILLEGAL_IDENTIFIER_CWWKD0200E.useraction=P\u0159edponu DatabaseStore je nutn\u00e9 upravit tak, aby obsahovala pouze \u010d\u00edsla, p\u00edsmena nebo symbol "_".
 
 #-------------------------------------------------------------------------------
 # DO NOT TRANSLATE "DatabaseStore", this is a server.xml configuration element.
-ILLEGAL_IDENTIFIER_CWWKD0201E=CWWKD0201E: Sch\u00e9ma konfigurace prvku DatabaseStore {1} obsahuje neplatn\u00e9 znaky.
+ILLEGAL_IDENTIFIER_CWWKD0201E=CWWKD0201E: Konfigurace sch\u00e9matu DatabaseStore {0} obsahuje neplatn\u00e9 znaky.
 ILLEGAL_IDENTIFIER_CWWKD0201E.explanation=Sch\u00e9ma DatabaseStore sm\u00ed obsahovat pouze \u010d\u00edsla, p\u00edsmena nebo symbol "_".
 ILLEGAL_IDENTIFIER_CWWKD0201E.useraction=Sch\u00e9ma DatabaseStore je nutn\u00e9 upravit tak, aby obsahovalo pouze \u010d\u00edsla, p\u00edsmena nebo symbol "_".
 
@@ -88,4 +90,9 @@ PROVIDER_WARNING_CWWKD0291W.useraction=Prostudujte si dokumentaci prvku Database
 PROVIDER_ERROR_CWWKD0292E=CWWKD0292E: {0}
 PROVIDER_ERROR_CWWKD0292E.explanation=Prvek DatabaseStore zaprotokoloval tuto chybovou zpr\u00e1vu.
 PROVIDER_ERROR_CWWKD0292E.useraction=Prostudujte si dokumentaci prvku DatabaseStore.
+
+#-------------------------------------------------------------------------------
+UNSUPPORTED_ISOLATION_LEVEL_CWWKD0293E=CWWKD0293E: \u00darove\u0148 izolace nakonfigurovan\u00e9 transakce {0} nen\u00ed podporov\u00e1na.
+UNSUPPORTED_ISOLATION_LEVEL_CWWKD0293E.explanation=P\u0159idru\u017een\u00fd ovlada\u010d datab\u00e1ze nepodporuje po\u017eadovanou \u00farove\u0148 izolace.
+UNSUPPORTED_ISOLATION_LEVEL_CWWKD0293E.useraction=P\u0159ed op\u011btovn\u00fdm pokusem zm\u011b\u0148te \u00farove\u0148 izolace.
 

@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2016 IBM Corporation and others.
+ * Copyright (c) 2016, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jsp.translator.compiler.utils;
 
@@ -49,6 +48,7 @@ import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.wiring.BundleWiring;
 
 import com.ibm.ws.artifact.url.WSJarURLConnection;
+import com.ibm.ws.kernel.service.util.JavaInfo;
 import com.ibm.wsspi.jsp.resource.translation.JspResources;
 
 public class JspFileManager extends ForwardingJavaFileManager<JavaFileManager> {
@@ -64,6 +64,8 @@ public class JspFileManager extends ForwardingJavaFileManager<JavaFileManager> {
     private static final String CLASS_NAME = "com.ibm.ws.jsp.translator.compiler.utils.JspFileManager";
     private boolean areTagFiles = false;
 
+    private static int JAVA_MAJOR_VERSION = JavaInfo.majorVersion();
+
     public JspFileManager(JavaFileManager fileManager, ClassLoader classLoader) {
         super(fileManager);
         this.classLoader = classLoader;
@@ -74,6 +76,12 @@ public class JspFileManager extends ForwardingJavaFileManager<JavaFileManager> {
         }
     }
 
+    // May be needed for Java Modules? Requires JDK 9+
+    // @Override
+    // public Iterable<Set<Location>> listLocationsForModules(Location location) throws IOException, UnsupportedOperationException, IllegalArgumentException {
+    //     return super.listLocationsForModules(location);
+    // }
+
     @Override
     public Iterable<JavaFileObject> list(Location location, String packageName, 
                                          Set<Kind> kinds, boolean recurse) throws IOException {
@@ -81,8 +89,9 @@ public class JspFileManager extends ForwardingJavaFileManager<JavaFileManager> {
             logger.logp(Level.FINE, CLASS_NAME, "list", "Looking for classes in package = " + packageName + " from location = " + location.getName());
         }
         Iterable<JavaFileObject> results = new ArrayList<JavaFileObject>();
-        
         if (location == StandardLocation.PLATFORM_CLASS_PATH) // let standard manager handle
+            results = super.list(location, packageName, kinds, recurse);
+        else if (JAVA_MAJOR_VERSION >= 9 && location.getName().equals("SYSTEM_MODULES[java.base]")) // base module for 9+
             results = super.list(location, packageName, kinds, recurse);
         else if (location == StandardLocation.CLASS_PATH && kinds.contains(JavaFileObject.Kind.CLASS)) {
             results = super.list(location, packageName, kinds, recurse);
@@ -285,7 +294,7 @@ public class JspFileManager extends ForwardingJavaFileManager<JavaFileManager> {
             if (isDirectory) { 
                 // useful for when there are references to classes in WEB-INF/classes
                 return processDir(packageName, directory, recursive);
-            } else if (packageFolderURL.getProtocol().equals("bundleresource")) {
+            } else if (packageFolderURL.getProtocol().equals("bundleresource") || packageFolderURL.getProtocol().equals("jarentry")) {
                 // meaning that this URL is a bundle
                 return processBundle(packageName, recursive);
             } else { 
@@ -492,7 +501,7 @@ public class JspFileManager extends ForwardingJavaFileManager<JavaFileManager> {
                 childFiles = directory.listFiles();
             }
 
-            if(childFiles != null) // If we are here, childFiles shouldn't be null. Sanity check.
+            if(childFiles != null) // If we are here, childFiles shouldn't be null. Validation.
                 for (final File childFile : childFiles) {
                     boolean isFile = false;
                     if (System.getSecurityManager() != null) {

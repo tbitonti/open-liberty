@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,7 +15,7 @@ package jaxrs21sse.basic;
 import static jaxrs21sse.basic.JaxbObject.JAXB_OBJECTS;
 import static jaxrs21sse.basic.JsonObject.JSON_OBJECTS;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -56,7 +58,7 @@ public class BasicSseTestServlet extends FATServlet {
                     msg += failure + "\n";
                 }
             }
-            assertNotNull("Detected failures in the SSE resource: " + msg, msg);
+            assertNull("Detected failures in the SSE resource: " + msg, msg);
         } finally {
             resourceFailures.clear();
         }
@@ -376,7 +378,7 @@ public class BasicSseTestServlet extends FATServlet {
         assertEquals("Received an unexpected number of events", nameData.length, receivedEvents.size());
         System.out.println("testSseWithRX: " + receivedEvents + " that's my name too");
     }
-
+ 
     public void testErrorSse(HttpServletRequest req, HttpServletResponse resp) throws Exception {
 
         final List<JaxbObject> receivedEvents = new ArrayList<>();
@@ -438,5 +440,14 @@ public class BasicSseTestServlet extends FATServlet {
 
         assertEquals("Received an unexpected number of events", 0, receivedEvents.size());
         assertEquals("Received an unexpected number of errors", 1, errors.size());
+    }
+
+    public void testNoEventsResultsIn200(HttpServletRequest req, HttpServletResponse resp) throws Exception {
+        Client client = ClientBuilder.newClient();
+        int port = req.getServerPort();
+        System.out.println("port = " + port);
+        WebTarget target = client.target("http://localhost:" + port + "/BasicSseApp/basic/noEvents");
+        Response response = target.request().get();
+        assertEquals(200, response.getStatus());
     }
 }

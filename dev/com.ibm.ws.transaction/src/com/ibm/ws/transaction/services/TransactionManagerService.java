@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2020 IBM Corporation and others.
+ * Copyright (c) 2010, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,8 +17,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.security.PrivilegedExceptionAction;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Arrays;
 
 import javax.transaction.HeuristicMixedException;
 import javax.transaction.HeuristicRollbackException;
@@ -31,11 +33,12 @@ import javax.transaction.TransactionManager;
 import javax.transaction.TransactionRolledbackException;
 import javax.transaction.xa.XAResource;
 
-import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
-import org.osgi.framework.BundleException;
-import org.osgi.framework.Constants;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 
 import com.ibm.tx.config.ConfigurationProvider;
 import com.ibm.tx.config.ConfigurationProviderManager;
@@ -47,6 +50,7 @@ import com.ibm.tx.util.TMHelper;
 import com.ibm.tx.util.TMService;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.Transaction.UOWCallback;
 import com.ibm.ws.Transaction.UOWCoordinator;
 import com.ibm.ws.Transaction.UOWCurrent;
@@ -56,9 +60,14 @@ import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.tx.embeddable.EmbeddableWebSphereTransactionManager;
 import com.ibm.ws.uow.UOWScopeCallback;
 import com.ibm.wsspi.kernel.service.location.WsLocationConstants;
+import com.ibm.wsspi.kernel.service.utils.ServerQuiesceListener;
 import com.ibm.wsspi.tx.UOWEventListener;
 
-public class TransactionManagerService implements ExtendedTransactionManager, TransactionManager, EmbeddableWebSphereTransactionManager, UOWCurrent {
+import io.openliberty.checkpoint.spi.CheckpointPhase;
+import com.ibm.ws.common.crypto.CryptoUtils;
+
+@Component(service = { TransactionManager.class, EmbeddableWebSphereTransactionManager.class, UOWCurrent.class, ServerQuiesceListener.class }, immediate = true)
+public class TransactionManagerService implements ExtendedTransactionManager, TransactionManager, EmbeddableWebSphereTransactionManager, UOWCurrent, ServerQuiesceListener {
 
     private static final TraceComponent tc = Tr.register(TransactionManagerService.class);
 
@@ -67,8 +76,8 @@ public class TransactionManagerService implements ExtendedTransactionManager, Tr
     // Use the isStarted variable to track whether recovery has been started
     private final AtomicBoolean isStarted = new AtomicBoolean();
     boolean xaFlowCallbacksInitialised;
-    private BundleContext _bundleContext = null;
 
+    @Trivial
     private EmbeddableWebSphereTransactionManager etm() {
         return EmbeddableTransactionManagerFactory.getTransactionManager();
     }
@@ -77,7 +86,6 @@ public class TransactionManagerService implements ExtendedTransactionManager, Tr
         if (tc.isDebugEnabled())
             Tr.debug(tc, "activate  context " + ctxt);
         // Force embeddable mode
-        _bundleContext = ctxt;
         if (ctxt.getProperty(WsLocationConstants.LOC_PROCESS_TYPE).equals(WsLocationConstants.LOC_PROCESS_TYPE_CLIENT)) {
             isClient = true;
             if (tc.isDebugEnabled())
@@ -100,15 +108,17 @@ public class TransactionManagerService implements ExtendedTransactionManager, Tr
                 // If other resources are in place this method will also start recovery by calling
                 // doStart()
                 jtmCP.setTMS(this);
-
             }
         }
     }
 
+    private final AtomicBoolean deferRecoveryAtRestore = new AtomicBoolean(false);
+
     /**
      * This method will start log recovery processing.
      *
-     * @param cp
+     * @param cp               The configuration provider instance
+     * @param isSQLRecoveryLog True indicates database recovery log, false indicates file-based log
      */
     public void doStartup(ConfigurationProvider cp, boolean isSQLRecoveryLog) {
         if (tc.isEntryEnabled())
@@ -131,6 +141,7 @@ public class TransactionManagerService implements ExtendedTransactionManager, Tr
             String hostName = "";
             hostName = AccessController.doPrivileged(new PrivilegedAction<String>() {
                 @Override
+                @Trivial
                 public String run() {
 
                     String theHost = "";
@@ -165,10 +176,28 @@ public class TransactionManagerService implements ExtendedTransactionManager, Tr
                 } catch (Exception e) {
                     FFDCFilter.processException(e, "com.ibm.ws.transaction.services.TransactionManagerService.doStartup", "60", this);
                 }
+            } else {
+                // Set to true during checkpoint restore, false during checkpoint or normal operation.
+                deferRecoveryAtRestore.set(CheckpointPhase.getPhase() != CheckpointPhase.INACTIVE && CheckpointPhase.getPhase().restored());
             }
         }
+
         if (tc.isEntryEnabled())
             Tr.exit(tc, "doStartup");
+    }
+
+    protected void doDeferredRecoveryAtRestore(ConfigurationProvider cp) {
+        if (deferRecoveryAtRestore.compareAndSet(true, false)) {
+            // To be here isStarted is true, checkpoint restore config updates are complete,
+            // and recoverOnStartup was overriden (disabled) during doStartup.
+            if (cp.isRecoverOnStartup()) {
+                try {
+                    TMHelper.start(cp.isWaitForRecovery());
+                } catch (Exception e) {
+                    FFDCFilter.processException(e, "com.ibm.ws.transaction.services.TransactionManagerService.doDeferredRecoveryAtRestore", "60", this);
+                }
+            }
+        }
     }
 
     /**
@@ -195,6 +224,7 @@ public class TransactionManagerService implements ExtendedTransactionManager, Tr
     protected void deactivate(ComponentContext ctxt) {
     }
 
+    @Reference
     protected void setTmService(TMService tm) {
         // dependency injection ... forces tran service to initialize
     }
@@ -203,13 +233,17 @@ public class TransactionManagerService implements ExtendedTransactionManager, Tr
     }
 
     @Override
+    @Reference(service = UOWEventListener.class, policy = ReferencePolicy.DYNAMIC, cardinality = ReferenceCardinality.OPTIONAL)
     public void setUOWEventListener(UOWEventListener el) {
         ((UOWCurrent) etm()).setUOWEventListener(el);
     }
 
     @Override
     public void unsetUOWEventListener(UOWEventListener el) {
-        ((UOWCurrent) etm()).unsetUOWEventListener(el);
+        // Do nothing if we're deactivated
+        if (ConfigurationProviderManager.getConfigurationProvider() != null) {
+            ((UOWCurrent) etm()).unsetUOWEventListener(el);
+        }
     }
 
     @Override
@@ -462,31 +496,6 @@ public class TransactionManagerService implements ExtendedTransactionManager, Tr
         ((EmbeddableTranManagerSet) etm()).registerLTCCallback(arg0);
     }
 
-    public void shutDownFramework() {
-        try {
-            if (_bundleContext != null) {
-                final Bundle bundle = _bundleContext.getBundle(Constants.SYSTEM_BUNDLE_LOCATION);
-
-                if (bundle != null)
-                    AccessController.doPrivileged(new PrivilegedExceptionAction<Void>() {
-                        @Override
-                        public Void run() throws BundleException {
-                            bundle.stop();
-                            return null;
-                        }
-                    });
-            }
-        } catch (Exception e) {
-            if (tc.isDebugEnabled())
-                Tr.debug(tc, "shutDownFramework", e);
-
-            // do not FFDC this.
-            // exceptions during bundle stop occur if framework is already stopping or stopped
-        }
-
-        throw new IllegalStateException("Shutting down framework");
-    }
-
     /**
      * Returns an application identifier key which can be used as a unique component
      * within the global identifier and branch qualifier of an XID.
@@ -508,8 +517,12 @@ public class TransactionManagerService implements ExtendedTransactionManager, Tr
             // tWAS - String s = CORBAUtils.getORB().object_to_string(CurrentImpl.instance());
             // On Liberty concatenate the user directory, the server name and the host name. Then add in the time.
             String s = userDir + serverName + hostName + System.currentTimeMillis();
-            // Create a 20-byte hash value using a secure one-way hash function
-            result = java.security.MessageDigest.getInstance("SHA").digest(s.getBytes());
+            // Create a 32-byte hash value using a secure one-way hash function
+            result = java.security.MessageDigest.getInstance(CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA_256).digest(s.getBytes());
+            // Truncate the byte array to size a size of 20
+            // The applicationId returned by this function is used by a global transaction id with a byte size of 20.
+            // Creating a byte size > 20 will cause a runtime issue.
+            result = Arrays.copyOf(result, 20);
         } catch (Throwable t) {
             FFDCFilter.processException(t, "com.ibm.ws.transaction.createApplicationId", "608", this);
             String tempStr = "j" + (System.currentTimeMillis() % 9997) + ":" + userDir + hostName;
@@ -519,6 +532,13 @@ public class TransactionManagerService implements ExtendedTransactionManager, Tr
         if (traceOn && tc.isEntryEnabled())
             Tr.exit(tc, "createApplicationId", Util.toHexString(result));
         return result;
+    }
+
+    @Override
+    public void serverStopping() {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+            Tr.debug(tc, "serverStopping", "Server is stopping");
+        ((EmbeddableTranManagerSet) etm()).quiesce();
     }
 
 }

@@ -1,145 +1,83 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.jdbc.fat.krb5.containers;
 
-import static com.ibm.ws.jdbc.fat.krb5.containers.KerberosContainer.KRB5_KDC;
+import static com.ibm.ws.jdbc.fat.krb5.containers.KerberosContainer.KRB5_KDC_EXTERNAL;
 import static com.ibm.ws.jdbc.fat.krb5.containers.KerberosContainer.KRB5_REALM;
 
-import java.io.FileInputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.Properties;
 
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.OracleContainer;
-import org.testcontainers.containers.output.OutputFrame;
-import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import org.testcontainers.oracle.OracleContainer;
+import org.testcontainers.utility.DockerImageName;
 
-import com.ibm.websphere.simplicity.log.Log;
-import com.ibm.ws.jdbc.fat.krb5.FATSuite;
-
+import componenttest.containers.ImageBuilder;
+import componenttest.containers.SimpleLogConsumer;
 import componenttest.custom.junit.runner.FATRunner;
 
-public class OracleKerberosContainer extends OracleContainer {
+/**
+ * Custom Oracle Kerberos Container class
+ */
+public class OracleKerberosContainer extends OracleContainer implements KerberosAuthContainer {
 
     private static final Class<?> c = OracleKerberosContainer.class;
-    private static final Path reuseCache = Paths.get("..", "..", "cache", "oracle.properties");
-    // NOTE: If this is ever updated, don't forget to push to docker hub, but DO NOT overwrite existing versions
-    private static final String IMAGE = "kyleaure/krb5-oracle:2.0";
 
-    private boolean reused = false;
-    private String reused_hostname;
-    private int reused_port;
+    /*
+     * TODO: https://github.com/testcontainers/testcontainers-java/pull/10263
+     * If this ever get's merged consider passing the future (RemoteDockerImage)
+     * to the parent constructor so we can lazily start this image.
+     */
+    private static final DockerImageName ORACLE_KRB5 = ImageBuilder
+                    .build("oracle-krb5:23.9-full-faststart")
+                    .getDockerImageName()
+                    .asCompatibleSubstituteFor("gvenzl/oracle-free");
+
+    public static final String KRB5_USER = "ORACLEUSR";
+    public static final String KRB5_PASS = "password";
 
     public OracleKerberosContainer(Network network) {
-        super(IMAGE);
+        super(ORACLE_KRB5);
         withNetwork(network);
-    }
-
-    @Override
-    protected void configure() {
         withNetworkAliases("oracle");
         withCreateContainerCmdModifier(cmd -> {
             cmd.withHostName("oracle");
         });
+    }
+
+    @Override
+    protected void configure() {
+        // Superclass settings
+        super.withPassword("oracle");
+        super.usingSid(); //Maintain current behavior of connecting with SID instead of pluggable database
+
+        // Additional env variables
         withEnv("KRB5_REALM", KRB5_REALM);
-        withEnv("KRB5_KDC", KRB5_KDC);
-        withExposedPorts(1521, 5500, 8080); // need to manually expose ports due to regression in 1.14.0
-        waitingFor(new LogMessageWaitStrategy()
-                        .withRegEx("^.*DONE: Executing user defined scripts.*$")
-                        .withStartupTimeout(Duration.ofMinutes(FATRunner.FAT_TEST_LOCALRUN ? 3 : 25)));
-        withLogConsumer(OracleKerberosContainer::log);
-        withReuse(true);
-    }
+        withEnv("KRB5_KDC", KRB5_KDC_EXTERNAL);
 
-    private static void log(OutputFrame frame) {
-        String msg = frame.getUtf8String();
-        if (msg.endsWith("\n"))
-            msg = msg.substring(0, msg.length() - 1);
-        Log.info(OracleKerberosContainer.class, "[Oracle]", msg);
+        // Wait strategy
+        withStartupTimeout(Duration.ofMinutes(FATRunner.FAT_TEST_LOCALRUN ? 3 : 25));
+
+        // Logging
+        withLogConsumer(new SimpleLogConsumer(c, "oracle-krb5"));
+
+        // Default configuration
+        super.configure();
+
     }
 
     @Override
-    public void start() {
-        if (hasCachedContainers()) {
-            // If this is a local run and a cache file exists, that means a DB2 container is already running
-            // and we can just read the host/port from the cache file
-            Log.info(c, "start", "Found existing container cache file. Skipping container start.");
-            Properties props = new Properties();
-            try {
-                props.load(new FileInputStream(reuseCache.toFile()));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            reused = true;
-            reused_hostname = props.getProperty("oracle.hostname");
-            reused_port = Integer.valueOf(props.getProperty("oracle.port"));
-            Log.info(c, "start", "Found existing container at host = " + reused_hostname);
-            Log.info(c, "start", "Found existing container on port = " + reused_port);
-            return;
-        }
-
-        super.start();
-
-        if (FATSuite.REUSE_CONTAINERS) {
-            Log.info(c, "start", "Saving Oracle properties for future runs at: " + reuseCache.toAbsolutePath());
-            try {
-                Files.createDirectories(reuseCache.getParent());
-                Properties props = new Properties();
-                if (reuseCache.toFile().exists()) {
-                    try (FileInputStream fis = new FileInputStream(reuseCache.toFile())) {
-                        props.load(fis);
-                    }
-                }
-                props.setProperty("oracle.hostname", getContainerIpAddress());
-                props.setProperty("oracle.port", "" + getMappedPort(1521));
-                props.store(new FileWriter(reuseCache.toFile()), "Generated by FAT run");
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
-    @Override
-    public void stop() {
-        if (FATSuite.REUSE_CONTAINERS) {
-            Log.info(c, "stop", "Leaving container running so it can be used in later runs");
-            return;
-        } else {
-            Log.info(c, "stop", "Stopping container");
-            super.stop();
-        }
-    }
-
-    @Override
-    public Integer getMappedPort(int originalPort) {
-        return (reused && originalPort == 1521) ? reused_port : super.getMappedPort(originalPort);
-    }
-
-    @Override
-    public String getContainerIpAddress() {
-        return reused ? reused_hostname : super.getContainerIpAddress();
-    }
-
-    @Override
-    public String getUsername() {
-        return "system";
-    }
-
-    public String getKerberosUsername() {
-        return "ORACLEUSR@" + KerberosContainer.KRB5_REALM;
+    public String getSid() {
+        return "FREE";
     }
 
     @Override
@@ -148,18 +86,8 @@ public class OracleKerberosContainer extends OracleContainer {
     }
 
     @Override
-    public String getPassword() {
-        return "oracle";
-    }
-
-    @Override
     public OracleContainer withPassword(String password) {
         throw new UnsupportedOperationException("hardcoded setting, cannot change");
-    }
-
-    @Override
-    public String getDatabaseName() {
-        return "XE";
     }
 
     @Override
@@ -168,23 +96,17 @@ public class OracleKerberosContainer extends OracleContainer {
     }
 
     @Override
-    protected void waitUntilContainerStarted() {
-        getWaitStrategy().waitUntilReady(this);
+    public String getKerberosPrinciple() {
+        return KRB5_USER + "@" + KerberosContainer.KRB5_REALM;
     }
 
-    private static boolean hasCachedContainers() {
-        if (!FATSuite.REUSE_CONTAINERS)
-            return false;
-        if (!reuseCache.toFile().exists())
-            return false;
-        Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream(reuseCache.toFile())) {
-            props.load(fis);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return props.containsKey("oracle.hostname") &&
-               props.containsKey("oracle.port");
+    @Override
+    public String getKerberosUsername() {
+        return KRB5_USER;
     }
 
+    @Override
+    public String getKerberosPassword() {
+        return KRB5_PASS;
+    }
 }

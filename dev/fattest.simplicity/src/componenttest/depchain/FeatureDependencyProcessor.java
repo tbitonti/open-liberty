@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -40,10 +42,21 @@ public class FeatureDependencyProcessor {
     // Allow for the featureList.xml to be recomputed at maximum once per JVM lifespan
     private static boolean hasRetry = true;
 
+    public static File getTestedFeaturesMetdataFile() {
+        String suiteName = System.getProperty("test.bucket.class");
+        if (suiteName != null) {
+            File suiteMetadata = new File(suiteName + "-fat-metadata.json");
+            if (suiteMetadata.exists()) {
+                return suiteMetadata;
+            }
+        }
+        return new File("fat-metadata.json");
+    }
+
     public static void validateTestedFeatures(LibertyServer server, RemoteFile serverLog) throws Exception {
         final String m = "validateTestedFeatures";
         // Load the tested feature data, if it exists
-        File testedFeaturesFile = new File("fat-metadata.json");
+        File testedFeaturesFile = getTestedFeaturesMetdataFile();
         if (!testedFeaturesFile.exists()) {
             Exception noMetadata = new Exception("Unable to locate FAT metadata at: " + testedFeaturesFile.getAbsolutePath());
             Log.error(c, m, noMetadata);
@@ -55,20 +68,25 @@ public class FeatureDependencyProcessor {
         if (installedFeaturesRaw == null || installedFeaturesRaw.size() == 0)
             return;
         Set<String> installedFeatures = new HashSet<String>();
-        for (String f : installedFeaturesRaw)
-            for (String installedFeature : f.substring(0, f.lastIndexOf(']')).substring(f.lastIndexOf('[') + 1).split(","))
+        for (String f : installedFeaturesRaw) {
+            f = f.substring(f.indexOf("CWWKF0012I"));
+            int startBracketIndex = f.indexOf('[');
+            int endBracketIndex = f.indexOf(']', startBracketIndex);
+            for (String installedFeature : f.substring(startBracketIndex + 1, endBracketIndex).split(",")) {
                 installedFeatures.add(installedFeature.trim().toLowerCase());
+            }
+        }
 
         // Make sure that any features installed in the server are known to the test dependency graph
         File featureListFile = FeatureList.get(server);
         Set<String> testedFeatures = getTestedFeatures(testedFeaturesFile, featureListFile);
 
-        if (testedFeatures.contains("ALL_FEATURES"))
+        if (testedFeatures.contains("all_features"))
             return;
 
         Set<String> untestedFeatures = new HashSet<String>();
         for (String installedFeature : installedFeatures) {
-            if (installedFeature.startsWith("usr:") || installedFeature.contains("test"))
+            if (installedFeature.startsWith("usr:") || installedFeature.contains("test") || installedFeature.equals(""))
                 continue; // Don't need to validate user/test features
             if (!testedFeatures.contains(installedFeature))
                 untestedFeatures.add(installedFeature);
@@ -113,11 +131,15 @@ public class FeatureDependencyProcessor {
         // Continue to iterate auto-feature resolution until no more features are enabled
         boolean featuresAdded = true;
         while (featuresAdded) {
+            featuresAdded = false;
             for (Feature f : featureMap.values()) {
                 if (DEBUG && f.getFeatureType() == Type.AUTO_FEATURE)
                     Log.info(c, m, "Found auto feature: " + f);
-                if (f.getFeatureType() == Type.AUTO_FEATURE && f.isProvisioned(featureMap, testedFeatures))
-                    featuresAdded = testedFeatures.addAll(getEnabledFeatures(f.getSymbolicName(), testedFeatures, featureMap));
+                if (f.getFeatureType() == Type.AUTO_FEATURE && f.isProvisioned(featureMap, testedFeatures)) {
+                    if (testedFeatures.addAll(getEnabledFeatures(f.getSymbolicName(), testedFeatures, featureMap))) {
+                        featuresAdded = true;
+                    }
+                }
             }
             if (DEBUG)
                 Log.info(c, m, "After auto-feature calculation: " + testedFeatures);

@@ -1,12 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.sip.container.was.filters;
 
@@ -29,7 +28,6 @@ public class ApplState implements ApplicationStateListener{
 	 private static final LogMgr c_logger =
              Log.get(ApplState.class);
 	public ApplState()  {
-		// TODO Auto-generated constructor stub
 	}
 
 	
@@ -57,20 +55,14 @@ public class ApplState implements ApplicationStateListener{
 	@Override
 	public void applicationStarted(ApplicationInfo appInfo)
 			throws StateChangeException {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void applicationStopping(ApplicationInfo appInfo) {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void applicationStopped(ApplicationInfo appInfo) {
-		// TODO Auto-generated method stub
-		
 	}
 
 }

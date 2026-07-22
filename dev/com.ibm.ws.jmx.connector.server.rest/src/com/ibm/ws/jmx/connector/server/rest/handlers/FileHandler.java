@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2012, 2016 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -99,6 +101,7 @@ public class FileHandler implements RESTHandler {
 
     private void download(RESTRequest request, RESTResponse response) {
         String filePath = RESTHelper.getRequiredParam(request, APIConstants.PARAM_FILEPATH);
+        filePath = RESTHelper.repairSlashes(filePath, request);
         String startOffsetValue = RESTHelper.getQueryParam(request, APIConstants.PARAM_START_OFFSET);
         String endOffsetValue = RESTHelper.getQueryParam(request, APIConstants.PARAM_END_OFFSET);
 
@@ -186,6 +189,7 @@ public class FileHandler implements RESTHandler {
         }
         if (filePath == null && !nodeDeployment) {
             filePath = RESTHelper.getRequiredParam(request, APIConstants.PARAM_FILEPATH);
+            filePath = RESTHelper.repairSlashes(filePath, request);
             if (tc.isDebugEnabled()) {
                 Tr.debug(tc, "file path: " + filePath);
             }
@@ -255,6 +259,7 @@ public class FileHandler implements RESTHandler {
 
     private void delete(RESTRequest request, RESTResponse response) {
         String filePath = RESTHelper.getRequiredParam(request, APIConstants.PARAM_FILEPATH);
+        filePath = RESTHelper.repairSlashes(filePath, request);
         String recursiveDelete = RESTHelper.getQueryParam(request, APIConstants.PARAM_RECURSIVE_DELETE);
 
         final boolean recursive = recursiveDelete != null && "true".compareToIgnoreCase(recursiveDelete) == 0;

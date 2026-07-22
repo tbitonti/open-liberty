@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2018 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -28,23 +30,31 @@ public class ApplicationListener implements ApplicationStateListener {
 
     /** {@inheritDoc} */
     @Override
-    public void applicationStarting(ApplicationInfo appInfo) throws StateChangeException {}
+    public void applicationStarting(ApplicationInfo appInfo) throws StateChangeException {
+    }
 
     /** {@inheritDoc} */
     @Override
-    public void applicationStarted(ApplicationInfo appInfo) throws StateChangeException {}
+    public void applicationStarted(ApplicationInfo appInfo) throws StateChangeException {
+    }
 
     /** {@inheritDoc} */
     @Override
-    public void applicationStopping(ApplicationInfo appInfo) {}
+    public void applicationStopping(ApplicationInfo appInfo) {
+    }
 
     /** {@inheritDoc} */
     @Override
     public void applicationStopped(ApplicationInfo appInfo) {
-        MetricRegistry registry = sharedMetricRegistry.getOrCreate(MetricRegistry.Type.APPLICATION.getName());
-        if (MetricRegistryImpl.class.isInstance(registry)) {
-            MetricRegistryImpl impl = (MetricRegistryImpl) registry;
-            impl.unRegisterApplicationMetrics(appInfo.getDeploymentName());
+
+        //No application bound BASE metrics were introduced in mpMetrics-1.x
+        MetricRegistry[] registryArray = new MetricRegistry[] { sharedMetricRegistry.getOrCreate(MetricRegistry.Type.APPLICATION.getName()),
+                                                                sharedMetricRegistry.getOrCreate(MetricRegistry.Type.VENDOR.getName()) };
+        for (MetricRegistry registry : registryArray) {
+            if (MetricRegistryImpl.class.isInstance(registry)) {
+                MetricRegistryImpl impl = (MetricRegistryImpl) registry;
+                impl.unRegisterApplicationMetrics(appInfo.getDeploymentName());
+            }
         }
     }
 

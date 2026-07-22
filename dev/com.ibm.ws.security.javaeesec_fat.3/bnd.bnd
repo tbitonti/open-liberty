@@ -1,19 +1,38 @@
 #*******************************************************************************
-# Copyright (c) 2019, 2020 IBM Corporation and others.
+# Copyright (c) 2019, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
 #
-# Contributors:
-#     IBM Corporation - initial API and implementation
-#	com.ibm.ws.security.jaspic.1.1, \
+# SPDX-License-Identifier: EPL-2.0
 #*******************************************************************************
 -include= ~../cnf/resources/bnd/bundle.props
 bVersion=1.0
 
 fat.project: true
-tested.features: expressionLanguage-4.0, appsecurity-4.0, servlet-5.0, cdi-3.0, faces-3.0, pages-3.0
+tested.features: \
+    expressionLanguage-4.0,\
+    appsecurity-4.0,\
+    servlet-5.0,\
+    cdi-3.0,\
+    faces-3.0,\
+    pages-3.0,\
+    expressionlanguage-5.0,\
+    appsecurity-5.0,\
+    jsonp-2.1,\
+    cdi-4.0,\
+    servlet-6.0,\
+    faces-4.0,\
+    pages-3.1,\
+    expressionlanguage-6.0,\
+    appsecurity-6.0,\
+    jsonp-2.1,\
+    cdi-4.1,\
+    servlet-6.1,\
+    faces-4.1,\
+    pages-4.0
+
 #fat.test.mode=full
 
 src: \
@@ -48,8 +67,6 @@ src: \
 -buildpath: \
 	org.apache.httpcomponents:httpclient;strategy=exact;version=4.1.2,\
 	org.apache.httpcomponents:httpcore;strategy=exact;version=4.1.2,\
-	fattest.simplicity;version=latest,\
-	com.ibm.ws.componenttest:public.api;version=1.0.0,\
 	com.ibm.websphere.javaee.annotation.1.2;version=latest,\
 	com.ibm.websphere.javaee.cdi.1.2;version=latest,\
 	com.ibm.websphere.javaee.el.3.0;version=latest,\
@@ -63,18 +80,20 @@ src: \
 	com.ibm.websphere.security;version=latest,\
 	com.ibm.websphere.appserver.spi.logging;version=latest,\
 	com.ibm.ws.cdi.interfaces;version=latest,\
-	com.ibm.ws.common.encoder,\
+	com.ibm.ws.kernel.service,\
 	com.ibm.ws.security.token,\
 	com.ibm.websphere.javaee.ejb.3.2;version=latest,\
 	com.ibm.ws.ejbcontainer.core;version=latest,\
 	com.ibm.ws.ejbcontainer.security;version=latest,\
 	com.ibm.websphere.org.osgi.service.component,\
-	com.ibm.ws.org.apache.directory.server;version=latest,\
-	org.apache.directory.server:apacheds-service;version=latest,\
 	com.ibm.ws.webcontainer.security_test.servlets;version=latest,\
-	org.apache.derby:derby;version=10.11.1.1,\
+	org.apache.derby:derby;strategy=exact;version=10.11.1.1,\
 	com.ibm.websphere.javaee.jaxrs.2.1;version=latest,\
 	com.ibm.ws.security.authentication;version=latest,\
 	com.ibm.ws.security.jaas.common;version=latest,\
 	com.ibm.ws.security.javaeesec.cdi;version=latest,\
-	com.ibm.ws.security.javaeesec_fat;version=latest
+	com.ibm.ws.security.javaeesec_fat;version=latest,\
+	io.openliberty.security.javaeesec.internal
+
+# Copy in FIPS keys
+ltpa.fips.enabled: true

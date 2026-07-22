@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017,2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,7 +19,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
@@ -32,7 +33,6 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.FrameworkUtil;
-import org.osgi.framework.ServiceReference;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
@@ -65,6 +65,10 @@ public class OpenAPIUIBundlesUpdater {
 
         //Retrieve all OpenAPI-UI Bundles from the BundleContext
         final Set<Bundle> allOpenAPIUIBundles = getOpenAPIUIBundles();
+        //check if bundles is empty, as can exit early as there is nothing to update
+        if (allOpenAPIUIBundles.isEmpty()) {
+            return;
+        }
 
         //this will block until all bundles have started
         boolean result = waitForBundlesToStart(allOpenAPIUIBundles);
@@ -112,24 +116,6 @@ public class OpenAPIUIBundlesUpdater {
                     openAPIUIBundle.start();
                 }
             }
-        }
-    }
-
-    private static boolean verifyRefs(ServiceReference<Bundle>[] refs, Set<String> expectedBundles) {
-        if (refs == null) {
-            return false;
-        }
-        int foundBundles = 0;
-        for (ServiceReference<Bundle> ref : refs) {
-            String bundleKey = (String) ref.getProperty("web.module.key");
-            String bundleName = bundleKey.substring(0, bundleKey.indexOf('#'));
-            if (expectedBundles.contains(bundleName))
-                foundBundles++;
-        }
-        if (foundBundles == expectedBundles.size()) {
-            return true;
-        } else {
-            return false;
         }
     }
 
@@ -226,7 +212,7 @@ public class OpenAPIUIBundlesUpdater {
         return new ByteArrayInputStream(bytesOut.toByteArray());
     }
 
-    private static void processResource(String resourcePath, Object resourceContents, ZipOutputStream zos) throws UnsupportedEncodingException, IOException {
+    private static void processResource(String resourcePath, Object resourceContents, ZipOutputStream zos) throws IOException {
         if (resourceContents != null) {
             if (resourceContents instanceof String) {
                 zos.write(((String) resourceContents).getBytes(StandardCharsets.UTF_8));
@@ -310,39 +296,24 @@ public class OpenAPIUIBundlesUpdater {
         }
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "restriction" })
     private static boolean waitForBundlesToStart(Set<Bundle> openAPIUIBundles) {
-        boolean waitComplete = false;
-        Set<String> expectedBundleNames = new HashSet<String>();
-        for (Bundle bundle : openAPIUIBundles) {
-            expectedBundleNames.add(bundle.getSymbolicName());
-        }
-
         try {
             BundleContext bundleContext = FrameworkUtil.getBundle(OpenAPIUIBundlesUpdater.class).getBundleContext();
-            ServiceReference<Bundle>[] refs = (ServiceReference<Bundle>[]) bundleContext.getServiceReferences(Bundle.class.getName(), "(installed.wab.contextRoot=*)");
-            waitComplete = verifyRefs(refs, expectedBundleNames);
-            while (!waitComplete) {
-                if (stopping) {
-                    if (OpenAPIUtils.isDebugEnabled(tc)) {
-                        Tr.debug(tc, "Stopped waiting for OpenAPI bundles because the server is shutting down");
-                    }
-                    return false;
-                }
-                refs = (ServiceReference<Bundle>[]) bundleContext.getServiceReferences(Bundle.class.getName(), "(installed.wab.contextRoot=*)");
-                waitComplete = verifyRefs(refs, expectedBundleNames);
-                if (!waitComplete) {
-                    //sleep UI bundle update thread to prevent getting services refs all the time
-                    Thread.sleep(500);
-                }
+            // If the bundle context null, then the bundle is in a STOPPED state and we should not be waiting for other
+            // bundles if this is STOPPED. Returning false, means we stop any unnecessary processing
+            if (bundleContext != null) {
+                new OpenAPIUIBundlesListener(openAPIUIBundles, bundleContext).await();
+            } else {
+                return false;
             }
         } catch (Exception e) {
-            waitComplete = false;
-            if (OpenAPIUtils.isEventEnabled(tc)) {
-                Tr.event(tc, "Failed waiting for OpenAPI bundles before update failed with :", new Object[] { e.getMessage() });
+            if (OpenAPIUtils.isDebugEnabled(tc)) {
+                Tr.event(tc, "Failed waiting for OpenAPI bundles before update failed with :", e.getMessage());
             }
+            return false;
         }
-        return waitComplete;
+        return true;
     }
 
     public static void serverStopping() {

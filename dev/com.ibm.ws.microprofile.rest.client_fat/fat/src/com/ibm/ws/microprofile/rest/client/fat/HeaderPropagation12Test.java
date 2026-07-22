@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -18,6 +20,7 @@ import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 
 import componenttest.annotation.Server;
 import componenttest.annotation.TestServlet;
@@ -34,20 +37,17 @@ public class HeaderPropagation12Test extends FATServletClient {
     private static final String appName = "headerPropagation12App";
 
     @ClassRule
-    public static RepeatTests r = RepeatTests.withoutModification()
-        .andWith(FATSuite.MP_REST_CLIENT("1.3", SERVER_NAME))
-        .andWith(FATSuite.MP_REST_CLIENT("1.4", SERVER_NAME))
-        .andWith(FATSuite.MP_REST_CLIENT_WITH_CONFIG("2.0", SERVER_NAME));
-    
+    public static RepeatTests r = FATSuite.repeatMP22Up(SERVER_NAME);
+
     @Server(SERVER_NAME)
     @TestServlet(servlet = HeaderPropagationTestServlet.class, contextRoot = appName)
     public static LibertyServer server;
 
     @BeforeClass
     public static void setUp() throws Exception {
-        ShrinkHelper.defaultApp(server, appName, "mpRestClient12.headerPropagation");
+        ShrinkHelper.defaultApp(server, appName, new DeployOptions[] { DeployOptions.SERVER_ONLY }, "mpRestClient12.headerPropagation");
         server.startServer();
-        assertNotNull("LTPA configuration should report it is ready", server.waitForStringInLog("CWWKS4105I"));
+        server.waitForLTPAConfigReady();
     }
 
     @AfterClass

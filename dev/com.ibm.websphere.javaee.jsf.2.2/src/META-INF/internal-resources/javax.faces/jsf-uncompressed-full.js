@@ -2417,7 +2417,7 @@ _MF_SINGLTN(_PFX_UTIL + "_Lang", Object, /** @lends myfaces._impl._util._Lang.pr
      * @param {Object} src the source map
      * @param {boolean} overwrite if set to true the destination is overwritten if the keys exist in both maps
      **/
-    mixMaps:function (dest, src, overwrite, blockFilter, whitelistFilter) {
+    mixMaps:function (dest, src, overwrite, blockFilter, allowlistFilter) {
         if (!dest || !src) {
             throw this.makeException(new Error(), null, null, this._nameSpace, "mixMaps", this.getMessage("ERR_PARAM_MIXMAPS", null, "_Lang.mixMaps"));
         }
@@ -2427,7 +2427,7 @@ _MF_SINGLTN(_PFX_UTIL + "_Lang", Object, /** @lends myfaces._impl._util._Lang.pr
             if (blockFilter && blockFilter[key]) {
                 continue;
             }
-            if (whitelistFilter && !whitelistFilter[key]) {
+            if (allowlistFilter && !allowlistFilter[key]) {
                 continue;
             }
             if (!overwrite) {
@@ -2710,10 +2710,16 @@ _MF_SINGLTN(_PFX_UTIL + "_Lang", Object, /** @lends myfaces._impl._util._Lang.pr
         //we simulate the dom level 2 form element here
         var _newCls = null;
         var bufInstance = null;
+        var _Lang = this;
         if (!this.FormDataDecoratorArray) {
             this.FormDataDecoratorArray = function (theFormData) {
                 this._valBuf = theFormData;
                 this._idx = {};
+                var _t = this;
+                _Lang.arrForEach(theFormData, function(item) {
+                    var key = item[0];
+                    _t._idx[decodeURIComponent(key)] = true;
+                });
             };
             _newCls = this.FormDataDecoratorArray;
             _newCls.prototype.append = function (key, val) {
@@ -2732,6 +2738,12 @@ _MF_SINGLTN(_PFX_UTIL + "_Lang", Object, /** @lends myfaces._impl._util._Lang.pr
                 this._preprocessedData = theFormData;
                 this._valBuf = [];
                 this._idx = {};
+                var _t = this;
+                var keyValuePairs = theFormData.split(/\&/gi);
+                _Lang.arrForEach(keyValuePairs, function(item) {
+                    var key = _Lang.trim(item.split(/\=/gi)[0]);
+                    _t._idx[decodeURIComponent(key)] = true;
+                });
             };
             _newCls = this.FormDataDecoratorString;
             _newCls.prototype.append = function (key, val) {
@@ -2740,7 +2752,8 @@ _MF_SINGLTN(_PFX_UTIL + "_Lang", Object, /** @lends myfaces._impl._util._Lang.pr
             };
             //for now we check only for keys which are added subsequently otherwise we do not perform any checks
             _newCls.prototype.hasKey = function (key) {
-                return !!this._idx[key];
+                var _t = this;
+                return !!(this._idx[key]);
             };
             _newCls.prototype.makeFinal = function () {
                 if (this._preprocessedData != "") {
@@ -2751,9 +2764,15 @@ _MF_SINGLTN(_PFX_UTIL + "_Lang", Object, /** @lends myfaces._impl._util._Lang.pr
             };
         }
         if (!this.FormDataDecoratorOther) {
+            /**
+             * expected a form data object
+             * @param theFormData object of type form data or something similar
+             * @constructor
+             */
             this.FormDataDecoratorOther = function (theFormData) {
                 this._valBuf = theFormData;
                 this._idx = {};
+
             };
             _newCls = this.FormDataDecoratorOther;
             _newCls.prototype.append = function (key, val) {
@@ -2761,7 +2780,7 @@ _MF_SINGLTN(_PFX_UTIL + "_Lang", Object, /** @lends myfaces._impl._util._Lang.pr
                 this._idx[key] = true;
             };
             _newCls.prototype.hasKey = function (key) {
-                return !!this._idx[key];
+                return !!(this._idx[key] || this._valBuf.has(key));
             };
             _newCls.prototype.makeFinal = function () {
                 return this._valBuf;
@@ -5744,10 +5763,30 @@ _MF_SINGLTN(_PFX_XHR+"_AjaxUtils", _MF_OBJECT,
      * @param item
      * @param targetBuf
      */
-    appendIssuingItem: function (item, targetBuf) {
+     appendIssuingItem: function (item, targetBuf) {
         // if triggered by a Button send it along
-        if (item && item.type && item.type.toLowerCase() == "submit") {
-            targetBuf.append(item.name, item.value);
+        var identifier = item.id || item.name;
+        var type = ((item && item.type) || "").toLowerCase();
+
+        if((targetBuf.hasKey && targetBuf.hasKey(identifier)) ||
+            //change of api since this code was written, the official FormData nowadays
+            //uses has instead of hasKey, back then it was not finalized
+            //we now program a fallback in, to cover FormData for this case
+           (targetBuf.has && targetBuf.has(identifier))) { //already processed within the values
+            return;
+        }
+
+        //MYFACES-4606 we cannot send a value on an unchecked box as issuing element
+        var isCheckboxRadio = "checkbox" == type || "radio" == type;
+        if(isCheckboxRadio && !item.checked) {
+            return;
+        } else if (isCheckboxRadio) {
+            var value = ("undefined" == typeof item.value || null == item.value) ? true : item.value;
+            targetBuf.append(identifier, value);
+        //item must have a valid value to be able to be appended, without it no dice!
+        } else if(!(("undefined" == typeof item.value) || (null == item.value))) {
+            var itemValue = item.value;
+            targetBuf.append(identifier, itemValue);
         }
     },
 
@@ -5824,6 +5863,7 @@ _MF_SINGLTN(_PFX_XHR+"_AjaxUtils", _MF_OBJECT,
         }
     }
 });
+
 /* Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -6984,8 +7024,17 @@ _MF_CLS(_PFX_XHR + "_AjaxRequest", _MF_OBJECT, /** @lends myfaces._impl.xhrCore.
      * which keeps the final Send Representation of the
      */
     getFormData:function () {
-        var _AJAXUTIL = this._AJAXUTIL, myfacesOptions = this._context.myfaces;
-        return this._Lang.createFormDataDecorator(jsf.getViewState(this._sourceForm));
+        var formDataDecorator = this._Lang.createFormDataDecorator(jsf.getViewState(this._sourceForm));
+        if (this._source && !this._isBehaviorEvent()) {
+            this._AJAXUTIL.appendIssuingItem(this._source, formDataDecorator);
+        }
+        return formDataDecorator;
+    },
+
+    _isBehaviorEvent: function() {
+        var eventType = this._passThrough[this.attr("impl").P_BEHAVIOR_EVENT] || null;
+        var isBehaviorEvent = (!!eventType) && eventType != 'click';
+        return isBehaviorEvent;
     },
 
     /**
@@ -7069,14 +7118,19 @@ _MF_CLS(_PFX_XHR + "_MultipartAjaxRequestLevel2", myfaces._impl.xhrCore._AjaxReq
         //in case of a multipart form post we savely can use the FormData object
         if (this._context._mfInternal.xhrOp === "multipartQueuedPost") {
             ret = new FormData(this._sourceForm);
-            this._AJAXUTIL.appendIssuingItem(this._source, ret);
+            if(this._source && !this._isBehaviorEvent()) {
+                this._AJAXUTIL.appendIssuingItem(this._source, ret);
+            }
         } else {
             //we switch back to the encode submittable fields system
             this._AJAXUTIL.encodeSubmittableFields(ret, this._sourceForm, null);
-            this._AJAXUTIL.appendIssuingItem(this._source, ret);
+            if(this._source && !this._isBehaviorEvent()) {
+                this._AJAXUTIL.appendIssuingItem(this._source, ret);
+            }
         }
         return ret;
     },
+
 
     /**
      * applies the content type, this needs to be done only for xhr
@@ -8454,8 +8508,13 @@ _MF_SINGLTN(_PFX_CORE + "Impl", _MF_OBJECT, /**  @lends myfaces._impl.core.Impl.
     P_EXECUTE:"javax.faces.partial.execute",
     P_RENDER:"javax.faces.partial.render",
     P_EVT:"javax.faces.partial.event",
+    P_BEHAVIOR_EVENT:"javax.faces.behavior.event",
     P_WINDOW_ID:"javax.faces.ClientWindow",
     P_RESET_VALUES:"javax.faces.partial.resetValues",
+    
+    //faces std values
+    STD_VALUES: [this.P_PARTIAL_SOURCE, this.P_VIEWSTATE, this.P_CLIENTWINDOW, this.P_AJAX,
+        this.P_EXECUTE, this.P_RENDER, this.P_EVT, this.P_BEHAVIOR_EVENT, this.P_WINDOW_ID, this.P_RESET_VALUES],
 
     /* message types */
     ERROR:"error",

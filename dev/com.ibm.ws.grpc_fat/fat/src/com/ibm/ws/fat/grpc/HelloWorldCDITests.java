@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package com.ibm.ws.fat.grpc;
 
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -56,6 +59,8 @@ public class HelloWorldCDITests extends HelloWorldBasicTest {
 
     @BeforeClass
     public static void setUp() throws Exception {
+
+        helloWorldServer.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         ShrinkHelper.defaultDropinApp(helloWorldServer, "HelloWorldService.war",
                                       "com.ibm.ws.grpc.fat.helloworld.service",
                                       "io.grpc.examples.helloworld");
@@ -70,6 +75,10 @@ public class HelloWorldCDITests extends HelloWorldBasicTest {
 
     @AfterClass
     public static void tearDown() throws Exception {
+        // Setting serverConfigurationFile to null forces a server.xml update (when GrpcTestUtils.setServerConfiguration() is first called) on the repeat run
+        // If not set to null, test failures may occur (since the incorrect server.xml could be used)
+        serverConfigurationFile = null;
+
         if (helloWorldServer != null && helloWorldServer.isStarted()) {
             helloWorldServer.stopServer();
         }

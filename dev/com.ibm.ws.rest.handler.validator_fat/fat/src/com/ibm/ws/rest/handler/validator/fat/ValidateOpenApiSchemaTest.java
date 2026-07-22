@@ -1,17 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.rest.handler.validator.fat;
 
 import static com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions.SERVER_ONLY;
-import static componenttest.annotation.SkipForRepeat.EE9_FEATURES;
+import static com.ibm.ws.rest.handler.validator.fat.FATSuite.expectedJmsProviderSpecVersion;
+import static java.util.stream.Collectors.toList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -34,6 +34,7 @@ import org.jboss.shrinkwrap.api.spec.ResourceAdapterArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -44,18 +45,29 @@ import com.ibm.ws.microprofile.openapi.impl.parser.core.models.SwaggerParseResul
 
 import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.Server;
-import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.rules.repeater.MicroProfileActions;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 import componenttest.topology.utils.HttpsRequest;
 
 @RunWith(FATRunner.class)
-@SkipForRepeat(EE9_FEATURES) // TODO: Enable this once mpopenapi-2.0 (jakarta enabled) is available
 public class ValidateOpenApiSchemaTest extends FATServletClient {
-
     @Server("com.ibm.ws.rest.handler.validator.openapi.fat")
     public static LibertyServer server;
+
+    @ClassRule
+    public static RepeatTests r1 = MicroProfileActions.repeat("com.ibm.ws.rest.handler.validator.openapi.fat",
+                                                              MicroProfileActions.MP71_EE11,
+                                                              MicroProfileActions.MP71_EE10,
+                                                              MicroProfileActions.MP70_EE11,
+                                                              MicroProfileActions.MP70_EE10,
+                                                              MicroProfileActions.MP61,
+                                                              MicroProfileActions.MP50, // EE9
+                                                              MicroProfileActions.MP40, // EE8
+                                                              MicroProfileActions.MP30,
+                                                              MicroProfileActions.MP20);
 
     private static String VERSION_REGEX = "[0-9]+\\.[0-9]+.*";
 
@@ -94,12 +106,29 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
     }
 
     /**
+     * Test the validation schema is available under the ibm/api/platform/vaidation endpoint and
+     * honors the format=json parameter.
+     */
+    @Test
+    public void testAllValidatorsAsJSON_ibmApi() throws Exception {
+        testAllValidatorsAsJSON("/ibm/api");
+    }
+
+    /**
      * Test the validation schema is available under the openapi/platform/vaidation endpoint and
      * honors the format=json parameter.
      */
     @Test
-    public void testAllValidatorsAsJSON() throws Exception {
-        HttpsRequest request = new HttpsRequest(server, "/openapi/platform/validation?format=json");
+    public void testAllValidatorsAsJSON_openApi() throws Exception {
+        testAllValidatorsAsJSON("/openapi");
+    }
+
+    /**
+     * Test the validation schema is available under the ${contextRoot}/platform/vaidation endpoint and
+     * honors the format=json parameter.
+     */
+    private void testAllValidatorsAsJSON(String contextRoot) throws Exception {
+        HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, contextRoot + "/platform/validation?format=json");
         JsonObject json = request.run(JsonObject.class);
         String err = "Unexpected json response: " + json.toString();
         JsonObject paths = json.getJsonObject("paths");
@@ -121,12 +150,29 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
     }
 
     /**
+     * Test the validation schema is available under the ibm/api/platform/vaidation endpoint and
+     * is returned in YAML format by default.
+     */
+    @Test
+    public void testAllValidatorsAsYAML_ibmApi() throws Exception {
+        testAllValidatorsAsYAML("/ibm/api");
+    }
+
+    /**
      * Test the validation schema is available under the openapi/platform/vaidation endpoint and
      * is returned in YAML format by default.
      */
     @Test
-    public void testAllValidatorsAsYAML() throws Exception {
-        HttpsRequest request = new HttpsRequest(server, "/openapi/platform/validation");
+    public void testAllValidatorsAsYAML_openApi() throws Exception {
+        testAllValidatorsAsYAML("/openapi");
+    }
+
+    /**
+     * Test the validation schema is available under the ${contextRoot}/platform/vaidation endpoint and
+     * is returned in YAML format by default.
+     */
+    private void testAllValidatorsAsYAML(String contextRoot) throws Exception {
+        HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, contextRoot + "/platform/validation");
         String yaml = request.run(String.class);
         SwaggerParseResult result = new OpenAPIParser().readContents(yaml, null, null, null);
         assertNotNull(result);
@@ -155,7 +201,7 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
      */
     @Test
     public void testDefaultDataSource() throws Exception {
-        HttpsRequest request = new HttpsRequest(server, "/ibm/api/validation/dataSource/DefaultDataSource")
+        HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/dataSource/DefaultDataSource")
                         .requestProp("X-Validation-User", "dbuser1")
                         .requestProp("X-Validation-Password", "dbpwd1");
         JsonObject json = request.run(JsonObject.class);
@@ -166,12 +212,12 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
         assertTrue(err, json.getBoolean("successful"));
         assertNull(err, json.get("failure"));
         assertNotNull(err, json = json.getJsonObject("info"));
-        assertEquals(err, "Apache Derby", json.getString("databaseProductName"));
+        assertEquals(err, "H2", json.getString("databaseProductName"));
         assertTrue(err, json.getString("databaseProductVersion").matches(VERSION_REGEX));
-        assertEquals(err, "Apache Derby Embedded JDBC Driver", json.getString("jdbcDriverName"));
+        assertEquals(err, "H2 JDBC Driver", json.getString("jdbcDriverName"));
         assertTrue(err, json.getString("jdbcDriverVersion").matches(VERSION_REGEX));
-        assertEquals(err, "DBUSER1", json.getString("schema"));
-        assertEquals(err, "dbuser1", json.getString("user"));
+        assertEquals(err, "PUBLIC", json.getString("schema"));
+        assertEquals(err, "DBUSER1", json.getString("user"));
     }
 
     /**
@@ -179,7 +225,7 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
      */
     @Test
     public void testDefaultJMSConnectionFactory() throws Exception {
-        HttpsRequest request = new HttpsRequest(server, "/ibm/api/validation/jmsConnectionFactory/DefaultJMSConnectionFactory");
+        HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/jmsConnectionFactory/DefaultJMSConnectionFactory");
         JsonObject json = request.run(JsonObject.class);
         String err = "Unexpected json response: " + json.toString();
         assertEquals(err, "DefaultJMSConnectionFactory", json.getString("uid"));
@@ -190,7 +236,7 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
         assertNotNull(err, json = json.getJsonObject("info"));
         assertEquals(err, "IBM", json.getString("jmsProviderName"));
         assertEquals(err, "1.0", json.getString("jmsProviderVersion"));
-        assertEquals(err, "2.0", json.getString("jmsProviderSpecVersion"));
+        assertEquals(err, expectedJmsProviderSpecVersion(), json.getString("jmsProviderSpecVersion"));
         assertEquals(err, "clientID", json.getString("clientID"));
     }
 
@@ -199,18 +245,29 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
      * doesn't return cloudant API data when cloudant isn't enabled.
      */
     @Test
-    public void testDisableCloudantValidator() throws Exception {
-        ServerConfiguration config = server.getServerConfiguration();
-        String featureToDisable = "cloudant-1.0";
-        try {
-            //Disable cloudant.
-            config.getFeatureManager().getFeatures().remove(featureToDisable);
-            server.setMarkToEndOfLog();
-            server.updateServerConfiguration(config);
-            server.waitForConfigUpdateInLogUsingMark(null, true);
+    public void testDisableCloudantValidator_ibmApi() throws Exception {
+        testDisableCloudantValidator("/ibm/api");
+    }
+
+    /**
+     * Test the validation OpenAPI endpoint honors the Accept header of application/json and
+     * doesn't return cloudant API data when cloudant isn't enabled.
+     */
+    @Test
+    public void testDisableCloudantValidator_openApi() throws Exception {
+        testDisableCloudantValidator("/openapi");
+    }
+
+    /**
+     * Test the validation OpenAPI endpoint honors the Accept header of application/json and
+     * doesn't return cloudant API data when cloudant isn't enabled.
+     */
+    private void testDisableCloudantValidator(String contextRoot) throws Exception {
+        //Disable cloudant.
+        try (AutoCloseable x = withoutFeatures("cloudant-1.0")) {
 
             //Test that cloudant elements have been removed from the OpenAPI document.
-            HttpsRequest request = new HttpsRequest(server, "/openapi/platform/validation");
+            HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, contextRoot + "/platform/validation");
             JsonObject json = request.requestProp("Accept", "application/json").run(JsonObject.class);
             String err = "Unexpected json response: " + json.toString();
             JsonObject paths = json.getJsonObject("paths");
@@ -229,12 +286,6 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
             assertTrue(err, pathsString.contains("/validation/jmsTopicConnectionFactory/"));
             assertTrue(err, pathsString.contains("/validation/jmsTopicConnectionFactory/{uid}"));
             assertTrue(err, paths.size() == 10);
-        } finally {
-            //Re-enable cloudant.
-            config.getFeatureManager().getFeatures().add(featureToDisable);
-            server.setMarkToEndOfLog();
-            server.updateServerConfiguration(config);
-            server.waitForConfigUpdateInLogUsingMark(null, true);
         }
     }
 
@@ -242,18 +293,28 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
      * Test the validation OpenAPI doesn't return JCA or JMS API data when JCA isn't enabled in the server.
      */
     @Test
-    public void testDisableJCAValidator() throws Exception {
-        ServerConfiguration config = server.getServerConfiguration();
-        List<String> featuresToDisable = Arrays.asList("jca-1.7", "jms-2.0", "wasjmsclient-2.0", "wasjmsserver-1.0");
-        try {
-            //Disable JCA (JMS 2.0 implicitly enabled it).
-            config.getFeatureManager().getFeatures().removeIf(f -> featuresToDisable.contains(f.toLowerCase()));
-            server.setMarkToEndOfLog();
-            server.updateServerConfiguration(config);
-            server.waitForConfigUpdateInLogUsingMark(null, true);
+    public void testDisableJCAValidator_ibmApi() throws Exception {
+        testDisableJCAValidator("/ibm/api");
+    }
+
+    /**
+     * Test the validation OpenAPI doesn't return JCA or JMS API data when JCA isn't enabled in the server.
+     */
+    @Test
+    public void testDisableJCAValidator_openApi() throws Exception {
+        testDisableJCAValidator("/openapi");
+    }
+
+    /**
+     * Test the validation OpenAPI doesn't return JCA or JMS API data when JCA isn't enabled in the server.
+     */
+    private void testDisableJCAValidator(String contextRoot) throws Exception {
+        //Disable JCA (JMS 2.0 implicitly enabled it).
+        try (AutoCloseable x = withoutFeatures("jca", "jms", "wasjmsclient", "wasjmsserver",
+                                               "connectors", "messaging", "messagingClient", "messagingServer")) {
 
             //Test that JCA and JMS elements have been removed from the OpenAPI document.
-            HttpsRequest request = new HttpsRequest(server, "/openapi/platform/validation");
+            HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, contextRoot + "/platform/validation");
             String yaml = request.run(String.class);
             SwaggerParseResult result = new OpenAPIParser().readContents(yaml, null, null, null);
             assertNotNull(result);
@@ -276,12 +337,6 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
             assertFalse(err, paths.containsKey("/validation/jmsTopicConnectionFactory/{uid}"));
             assertTrue(err, paths.size() == 4);
 
-        } finally {
-            //Re-enable disabled features.
-            config.getFeatureManager().getFeatures().addAll(featuresToDisable);
-            server.setMarkToEndOfLog();
-            server.updateServerConfiguration(config);
-            server.waitForConfigUpdateInLogUsingMark(null, true);
         }
     }
 
@@ -289,18 +344,26 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
      * Test the validation OpenAPI doesn't return JDBC API data when JDBC isn't enabled in the server.
      */
     @Test
-    public void testDisableJDBCValidator() throws Exception {
-        ServerConfiguration config = server.getServerConfiguration();
-        String featureToDisable = "jdbc-4.2";
-        try {
-            //Disable JDBC.
-            config.getFeatureManager().getFeatures().remove(featureToDisable);
-            server.setMarkToEndOfLog();
-            server.updateServerConfiguration(config);
-            server.waitForConfigUpdateInLogUsingMark(null, true);
+    public void testDisableJDBCValidator_ibmApi() throws Exception {
+        testDisableJDBCValidator("/ibm/api");
+    }
 
+    /**
+     * Test the validation OpenAPI doesn't return JDBC API data when JDBC isn't enabled in the server.
+     */
+    @Test
+    public void testDisableJDBCValidator_openApi() throws Exception {
+        testDisableJDBCValidator("/openapi");
+    }
+
+    /**
+     * Test the validation OpenAPI doesn't return JDBC API data when JDBC isn't enabled in the server.
+     */
+    private void testDisableJDBCValidator(String contextRoot) throws Exception {
+        //Disable JDBC.
+        try (AutoCloseable x = withoutFeatures("jdbc")) {
             //Test that JDBC elements have been removed from the OpenAPI document.
-            HttpsRequest request = new HttpsRequest(server, "/openapi/platform/validation");
+            HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, contextRoot + "/platform/validation");
             String yaml = request.run(String.class);
             SwaggerParseResult result = new OpenAPIParser().readContents(yaml, null, null, null);
             assertNotNull(result);
@@ -323,12 +386,6 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
             assertTrue(err, paths.containsKey("/validation/jmsTopicConnectionFactory/{uid}"));
             assertTrue(err, paths.size() == 10);
 
-        } finally {
-            //Re-enable JDBC.
-            config.getFeatureManager().getFeatures().add(featureToDisable);
-            server.setMarkToEndOfLog();
-            server.updateServerConfiguration(config);
-            server.waitForConfigUpdateInLogUsingMark(null, true);
         }
     }
 
@@ -336,18 +393,27 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
      * Test the validation OpenAPI doesn't return JMS API data when JMS isn't enabled in the server.
      */
     @Test
-    public void testDisableJMSValidator() throws Exception {
-        ServerConfiguration config = server.getServerConfiguration();
-        List<String> featuresToDisable = Arrays.asList("jms-2.0", "wasjmsclient-2.0", "wasjmsserver-1.0");
-        try {
-            //Disable JMS features.
-            config.getFeatureManager().getFeatures().removeIf(f -> featuresToDisable.contains(f.toLowerCase()));
-            server.setMarkToEndOfLog();
-            server.updateServerConfiguration(config);
-            server.waitForConfigUpdateInLogUsingMark(null, true);
+    public void testDisableJMSValidator_ibmApi() throws Exception {
+        testDisableJMSValidator("/ibm/api");
+    }
 
+    /**
+     * Test the validation OpenAPI doesn't return JMS API data when JMS isn't enabled in the server.
+     */
+    @Test
+    public void testDisableJMSValidator_openApi() throws Exception {
+        testDisableJMSValidator("/openapi");
+    }
+
+    /**
+     * Test the validation OpenAPI doesn't return JMS API data when JMS isn't enabled in the server.
+     */
+    private void testDisableJMSValidator(String contextRoot) throws Exception {
+        // Remove JMS
+        try (AutoCloseable x = withoutFeatures("jms", "wasjmsclient", "wasjmsserver",
+                                               "messaging", "messagingClient", "messagingServer")) {
             //Test that JMS elements have been removed from the OpenAPI document.
-            HttpsRequest request = new HttpsRequest(server, "/openapi/platform/validation");
+            HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, contextRoot + "/platform/validation");
             String yaml = request.run(String.class);
             SwaggerParseResult result = new OpenAPIParser().readContents(yaml, null, null, null);
             assertNotNull(result);
@@ -369,13 +435,6 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
             assertFalse(err, paths.containsKey("/validation/jmsTopicConnectionFactory/"));
             assertFalse(err, paths.containsKey("/validation/jmsTopicConnectionFactory/{uid}"));
             assertTrue(err, paths.size() == 6);
-
-        } finally {
-            //Re-enable JMS features.
-            config.getFeatureManager().getFeatures().addAll(featuresToDisable);
-            server.setMarkToEndOfLog();
-            server.updateServerConfiguration(config);
-            server.waitForConfigUpdateInLogUsingMark(null, true);
         }
     }
 
@@ -386,7 +445,7 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
     @AllowedFFDC("java.lang.ClassNotFoundException")
     @Test
     public void testWrongLibraryForCloudant() throws Exception {
-        HttpsRequest request = new HttpsRequest(server, "/ibm/api/validation/cloudantDatabase/cldb");
+        HttpsRequest request = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/cloudantDatabase/cldb");
         JsonObject json = request.run(JsonObject.class);
         String err = "Unexpected json response: " + json.toString();
         assertEquals(err, "cldb", json.getString("uid"));
@@ -401,4 +460,48 @@ public class ValidateOpenApiSchemaTest extends FATServletClient {
         assertNotNull(err, stack = json.getJsonArray("stack"));
         assertTrue(err, stack.size() > 3);
     }
+
+    /**
+     * Removes all of the listed features from the server.xml and returns an AutoClosable that restores the original configuration.
+     * <p>
+     * Can be used in a try-with-resources block to remove certain features within the block.
+     * <p>
+     * Features are matched ignoring the version to make it easier to use when tests are repeated.
+     *
+     * @param features the feature names to remove
+     * @return an AutoClosable which will restore the original server configuration
+     * @throws Exception if something goes wrong
+     */
+    private static AutoCloseable withoutFeatures(String... features) throws Exception {
+        ServerConfiguration config = server.getServerConfiguration();
+        ServerConfiguration originalConfig = config.clone();
+        List<String> featureRootsList = Arrays.stream(features)
+                        .map(ValidateOpenApiSchemaTest::getRoot)
+                        .collect(toList());
+
+        config.getFeatureManager().getFeatures().removeIf(f -> featureRootsList.contains(getRoot(f)));
+        try {
+            server.setMarkToEndOfLog();
+            server.updateServerConfiguration(config);
+            server.waitForConfigUpdateInLogUsingMark(null, true);
+        } catch (Exception e) {
+            try {
+                server.updateServerConfiguration(originalConfig);
+            } catch (Exception e1) {
+                e.addSuppressed(e1);
+            }
+            throw e;
+        }
+
+        return () -> {
+            server.setMarkToEndOfLog();
+            server.updateServerConfiguration(originalConfig);
+            server.waitForConfigUpdateInLogUsingMark(null, true);
+        };
+    }
+
+    private static String getRoot(String featureName) {
+        return featureName.replaceFirst("-\\d\\.\\d$", "").toLowerCase();
+    }
+
 }

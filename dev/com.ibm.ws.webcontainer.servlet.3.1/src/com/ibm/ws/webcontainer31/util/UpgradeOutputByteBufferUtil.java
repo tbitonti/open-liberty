@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014 IBM Corporation and others.
+ * Copyright (c) 2014, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -147,8 +149,9 @@ public class UpgradeOutputByteBufferUtil {
             if(this.isOutputStream_closed() || this.isOutputStream_close_initiated_but_not_Flush_ready()){
                 Tr.error(tc, "stream.is.closed.no.read.write");                         
                 throw new IOException(Tr.formatMessage(tc, "stream.is.closed.no.read.write"));        
-            } 
-            this.write_NonBlocking(value.getBytes(), 0, value.length());         
+            }
+            byte[] stringBytes = value.getBytes();
+            this.write_NonBlocking(stringBytes, 0, stringBytes.length);
         }
     }
     
@@ -162,8 +165,9 @@ public class UpgradeOutputByteBufferUtil {
             if(this.isOutputStream_closed() || this.isOutputStream_close_initiated_but_not_Flush_ready()){
                 Tr.error(tc, "stream.is.closed.no.read.write");                         
                 throw new IOException(Tr.formatMessage(tc, "stream.is.closed.no.read.write"));      
-            } 
-            this.write_NonBlocking(value.getBytes(), 0, value.length());
+            }
+            byte[] stringBytes = value.getBytes();
+            this.write_NonBlocking(stringBytes, 0, stringBytes.length);
 
             // need to check if we can write first in case the first write has gone async
             if(this.isWriteReadyForApp()){

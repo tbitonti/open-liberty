@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2020 IBM Corporation and others.
+ * Copyright (c) 2004, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.http.channel.internal;
 
@@ -38,6 +37,7 @@ import com.ibm.ws.http.channel.h2internal.hpack.H2HeaderTable;
 import com.ibm.ws.http.channel.internal.cookies.CookieCacheData;
 import com.ibm.ws.http.channel.internal.cookies.CookieHeaderByteParser;
 import com.ibm.ws.http.channel.internal.cookies.CookieUtils;
+import com.ibm.ws.http.channel.internal.cookies.SameSiteCookieUtils;
 import com.ibm.ws.http.channel.internal.inbound.HttpInboundLink;
 import com.ibm.ws.http.channel.internal.inbound.HttpInboundServiceContextImpl;
 import com.ibm.ws.http.dispatcher.internal.HttpDispatcher;
@@ -86,7 +86,7 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
     /** Static representation of a quote symbol */
     private static final byte QUOTE = '"';
     /** Default charset for ISO-8859-1 */
-    private static Charset DEF_CHARSET = null;
+    private static final Charset DEF_CHARSET = StandardCharsets.ISO_8859_1;
     /** Delimiters used while parsing cookies */
     private static final byte[] COOKIE_DELIMS = { COMMA, SEMICOLON };
 
@@ -126,13 +126,13 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
     private transient HttpServiceContextImpl myHSC = null;
 
     /** Cache of those "Cookie" headers */
-    private transient CookieCacheData cookieCache = null;
+    protected transient CookieCacheData cookieCache = null;
     /** Cache of the "Cookie2" headers */
-    private transient CookieCacheData cookie2Cache = null;
+    protected transient CookieCacheData cookie2Cache = null;
     /** Cache of those "Set-Cookie" headers */
-    private transient CookieCacheData setCookieCache = null;
+    protected transient CookieCacheData setCookieCache = null;
     /** Cache of those "Set-Cookie2" headers */
-    private transient CookieCacheData setCookie2Cache = null;
+    protected transient CookieCacheData setCookie2Cache = null;
     /** Reference to the cookie parser */
     private transient CookieHeaderByteParser cookieParser;
     /**
@@ -230,28 +230,28 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
 
     /*
      * @see com.ibm.ws.genericbnf.internal.BNFHeadersImpl#findKey(byte[], int,
-     * int)
+     * int, boolean)
      */
     @Override
-    protected HeaderKeys findKey(byte[] data, int offset, int length) {
-        return HttpHeaderKeys.find(data, offset, length);
+    protected HeaderKeys findKey(byte[] data, int offset, int length, boolean returnNullForInvalidName) {
+        return HttpHeaderKeys.find(data, offset, length, returnNullForInvalidName);
     }
 
     /*
-     * see com.ibm.ws.genericbnf.impl.BNFHeadersImpl#findKey(byte[])
+     * see com.ibm.ws.genericbnf.impl.BNFHeadersImpl#findKey(byte[], boolean)
      */
     @Override
-    protected HeaderKeys findKey(byte[] name) {
-        return HttpHeaderKeys.find(name, 0, name.length);
+    protected HeaderKeys findKey(byte[] name, boolean returnNullForInvalidName) {
+        return HttpHeaderKeys.find(name, 0, name.length, returnNullForInvalidName);
     }
 
     /*
      * @see
-     * com.ibm.ws.genericbnf.internal.BNFHeadersImpl#findKey(java.lang.String)
+     * com.ibm.ws.genericbnf.internal.BNFHeadersImpl#findKey(java.lang.String, boolean)
      */
     @Override
-    protected HeaderKeys findKey(String name) {
-        return HttpHeaderKeys.find(name);
+    protected HeaderKeys findKey(String name, boolean returnNullForInvalidName) {
+        return HttpHeaderKeys.find(name, returnNullForInvalidName);
     }
 
     /*
@@ -259,21 +259,23 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
      * genericbnf.HeaderKeys, byte[])
      */
     @Override
-    protected boolean filterAdd(HeaderKeys key, byte[] value) {
+    protected boolean filterAdd(HeaderKeys key, byte[] value, boolean isWASPrivateHeader) {
         if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
             Tr.event(tc, "Adding: " + key.getName() + ":" + GenericUtils.getEnglishString(value));
         }
         boolean rc = true;
-        if (HttpHeaderKeys.HDR_CONTENT_LENGTH.equals(key)) {
-            rc = setContentLength(value);
-        } else if (HttpHeaderKeys.HDR_CONNECTION.equals(key)) {
-            matchAndParseConnection(value);
-        } else if (HttpHeaderKeys.HDR_TRANSFER_ENCODING.equals(key)) {
-            matchAndParseTransfer(value);
-        } else if (HttpHeaderKeys.HDR_CONTENT_ENCODING.equals(key)) {
-            matchAndParseContent(value);
-        } else if (HttpHeaderKeys.HDR_EXPECT.equals(key)) {
-            matchAndParseExpect(value);
+        if (!isWASPrivateHeader) {
+            if (HttpHeaderKeys.HDR_CONTENT_LENGTH.equals(key)) {
+                rc = setContentLength(value);
+            } else if (HttpHeaderKeys.HDR_CONNECTION.equals(key)) {
+                matchAndParseConnection(value);
+            } else if (HttpHeaderKeys.HDR_TRANSFER_ENCODING.equals(key)) {
+                matchAndParseTransfer(value);
+            } else if (HttpHeaderKeys.HDR_CONTENT_ENCODING.equals(key)) {
+                matchAndParseContent(value);
+            } else if (HttpHeaderKeys.HDR_EXPECT.equals(key)) {
+                matchAndParseExpect(value);
+            }
         }
         return rc;
     }
@@ -501,6 +503,7 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
         this.bIsCommitted = true;
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
             Tr.debug(tc, "Committed flag set on " + this);
+
         }
     }
 
@@ -587,6 +590,7 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
      *
      * @return HttpServiceContextImpl
      */
+    @Override
     public HttpServiceContextImpl getServiceContext() {
         return this.myHSC;
     }
@@ -1887,10 +1891,6 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
                 // continue below and return the default
             }
         }
-        if (null == DEF_CHARSET) {
-            // lazily instantiate the default charset if need be
-            DEF_CHARSET = StandardCharsets.ISO_8859_1;
-        }
         return DEF_CHARSET;
     }
 
@@ -2349,21 +2349,31 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
 
         super.preMarshallMessage();
         /**
-         * Only if the cookies in storage(master list of all headers) have been
+         * Only if the cookies in storage(primary list of all headers) have been
          * modified do we reserialize/transform before marshalling otherwise we
-         * leave the master list untouched. After marshalling the cache is
+         * leave the primary list untouched. After marshalling the cache is
          * flushed
          */
         marshallCookieCache(this.cookieCache);
         marshallCookieCache(this.cookie2Cache);
-        if (getServiceContext().getHttpConfig().useSameSiteConfig()) {
+        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "Checking to see if we should mark the cookie cache as dirty - samesite is " + getServiceContext().getHttpConfig().useSameSiteConfig()
+                         + " doNotAllowDuplicateSetCookie is " + getServiceContext().getHttpConfig().doNotAllowDuplicateSetCookies());
+        }
+        if (getServiceContext().getHttpConfig().useSameSiteConfig() || getServiceContext().getHttpConfig().doNotAllowDuplicateSetCookies()) {
             //If there are set-cookie and set-cookie2 headers and the respective cache hasn't been initialized,
             //do so and set it as dirty so the cookie parsing logic is run.
             if (this.containsHeader(HttpHeaderKeys.HDR_SET_COOKIE) && (this.setCookieCache == null)) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Marking set-cookie cache dirty");
+                }
                 getCookieCache(HttpHeaderKeys.HDR_SET_COOKIE).setIsDirty(true);
             }
 
             if (this.containsHeader(HttpHeaderKeys.HDR_SET_COOKIE2) && (this.setCookie2Cache == null)) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Marking set-cookie2 cache dirty");
+                }
                 getCookieCache(HttpHeaderKeys.HDR_SET_COOKIE2).setIsDirty(true);
             }
 
@@ -2576,7 +2586,7 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
     }
 
     /**
-     * Search for a cookie under the input header name that matchs the target
+     * Search for a cookie under the input header name that matches the target
      * cookie name.
      *
      * @param name
@@ -2585,32 +2595,37 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
      *         NULL will be returned if it does not exist.
      */
     protected HttpCookie getCookie(String name, HttpHeaderKeys header) {
-        CookieCacheData cache = getCookieCache(header);
-        HttpCookie cookie = cache.getCookie(name);
-        if (null != cookie) {
-            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                Tr.debug(tc, "Found " + name + " in cache");
+        if (cookieCacheExists(header) || containsHeader(header)) {
+            CookieCacheData cache = getCookieCache(header);
+            HttpCookie cookie = cache.getCookie(name);
+            if (null != cookie) {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, "Found " + name + " in cache");
+                }
+                return cookie;
             }
-            return cookie;
-        }
 
-        // Now search the cookie header instances in storage and add them
-        // to the parsed list
-        List<HeaderField> vals = getHeaders(header);
-        for (int i = cache.getHeaderIndex(), end = vals.size(); i < end; i++) {
-            List<HttpCookie> list = getCookieParser().parse(vals.get(i).asBytes(), header);
-            cache.addParsedCookies(list);
-            cache.incrementHeaderIndex();
-            // search the list of new cookies from this header instance
-            Iterator<HttpCookie> it = list.iterator();
-            while (it.hasNext()) {
-                cookie = it.next();
-                // cookie names are case-sensitive
-                if (cookie.getName().equals(name)) {
-                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                        Tr.debug(tc, "Found parsed Cookie-->" + name);
+            // Now search the cookie header instances in storage and add them
+            // to the parsed list
+            List<HeaderField> vals = getHeaders(header);
+            int size = vals.size();
+            if (size != 0) {
+                for (int i = cache.getHeaderIndex(); i < size; i++) {
+                    List<HttpCookie> list = getCookieParser().parse(vals.get(i).asBytes(), header);
+                    cache.addParsedCookies(list);
+                    cache.incrementHeaderIndex();
+                    // search the list of new cookies from this header instance
+                    Iterator<HttpCookie> it = list.iterator();
+                    while (it.hasNext()) {
+                        cookie = it.next();
+                        // cookie names are case-sensitive
+                        if (cookie.getName().equals(name)) {
+                            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                                Tr.debug(tc, "Found parsed Cookie-->" + name);
+                            }
+                            return cookie;
+                        }
                     }
-                    return cookie;
                 }
             }
         }
@@ -2636,9 +2651,12 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
         // Iterate through the unparsed cookie header instances
         // in storage and add them to the list to be returned
         List<HeaderField> vals = getHeaders(header);
-        for (int i = cache.getHeaderIndex(), end = vals.size(); i < end; i++) {
-            cache.addParsedCookies(getCookieParser().parse(vals.get(i).asBytes(), header));
-            cache.incrementHeaderIndex();
+        int size = vals.size();
+        if (size != 0) {
+            for (int i = cache.getHeaderIndex(); i < size; i++) {
+                cache.addParsedCookies(getCookieParser().parse(vals.get(i).asBytes(), header));
+                cache.incrementHeaderIndex();
+            }
         }
     }
 
@@ -2718,16 +2736,16 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
      * @return boolean
      */
     protected boolean cookieCacheExists(HttpHeaderKeys header) {
-        if (header.equals(HttpHeaderKeys.HDR_COOKIE)) {
+        if (header == HttpHeaderKeys.HDR_COOKIE) {
             return (null != this.cookieCache);
         }
-        if (header.equals(HttpHeaderKeys.HDR_COOKIE2)) {
+        if (header == HttpHeaderKeys.HDR_COOKIE2) {
             return (null != this.cookie2Cache);
         }
-        if (header.equals(HttpHeaderKeys.HDR_SET_COOKIE)) {
+        if (header == HttpHeaderKeys.HDR_SET_COOKIE) {
             return (null != this.setCookieCache);
         }
-        if (header.equals(HttpHeaderKeys.HDR_SET_COOKIE2)) {
+        if (header == HttpHeaderKeys.HDR_SET_COOKIE2) {
             return (null != this.setCookie2Cache);
         }
         return false;
@@ -2899,9 +2917,67 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
                         cookie.setSecure(true);
                     }
 
+                    // Set Partitioned Flag for SameSite=None Cookie
+                    if (getServiceContext().getHttpConfig().getPartitioned() == true
+                        && sameSiteAttributeValue.equalsIgnoreCase(HttpConfigConstants.SameSite.NONE.getName())) {
+                        if (cookie.getAttribute("partitioned") == null) { // null means no value has been set yet
+                            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                                Tr.debug(tc, "[1] Setting the Partitioned attribute for SameSite=None");
+                            }
+                            cookie.setAttribute("partitioned", "");
+                        }
+                    }
+
                 } else {
                     if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                         Tr.debug(tc, "No SameSite configuration found");
+                    }
+                }
+            }
+
+            // If SameSite=None is set programmatically, but partitioned is set via server.xml, then add the parititioned attribute
+            if (getServiceContext().getHttpConfig().useSameSiteConfig() && cookie.getAttribute("samesite") != null) {
+                boolean sameSiteNoneUsed = cookie.getAttribute("samesite").equalsIgnoreCase(HttpConfigConstants.SameSite.NONE.getName());
+                if (getServiceContext().getHttpConfig().getPartitioned() && sameSiteNoneUsed) {
+                    if (cookie.getAttribute("partitioned") == null) { // null means no value has been set yet
+                        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                            Tr.debug(tc, "[2] Setting the Partitioned attribute for SameSite=None");
+                        }
+                        cookie.setAttribute("partitioned", "");
+                    }
+                }
+            }
+
+            String partitionedValue = cookie.getAttribute("partitioned");
+            // cookie contains the paritioned keyword (set via session / security)
+            if(partitionedValue != null && !partitionedValue.equalsIgnoreCase("false")) {
+                boolean sameSiteIsNotNone = true;
+                if(cookie.getAttribute("samesite") != null) {
+                    sameSiteIsNotNone = !cookie.getAttribute("samesite").equalsIgnoreCase(HttpConfigConstants.SameSite.NONE.getName());
+                }
+                // webAppSecurity or httpSession can set partitioned independently in case channel sets samesite=none. 
+                // if samesite=none is NOT set in channel, then we'll override partitioned to false so it isn't rendered in the cookie. 
+                // our goal is to not render paritioned on disabled/lax/strict cookies
+                if(sameSiteIsNotNone) {
+                    if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "Overriding Partitioned to false for SameSite=" + cookie.getAttribute("samesite"));
+                    }
+                    cookie.setAttribute("partitioned", "false");
+                }
+            }
+
+            // Check for SameSite=None Incompatible clients
+            if (cookie.getAttribute("samesite") != null && cookie.getAttribute("samesite").equals(HttpConfigConstants.SameSite.NONE.getName())) {
+                String userAgent = getServiceContext().getRequest().getHeader(HttpHeaderKeys.HDR_USER_AGENT).asString();
+                if (userAgent != null && SameSiteCookieUtils.isSameSiteNoneIncompatible(userAgent)) {
+                    //TODO: do we remove Secure, probably should be retained.
+                    if(TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                        Tr.debug(tc, "Incompatible client for SameSite=None found with the following User-Agent: " + userAgent);
+                    }
+                    cookie.setAttribute("samesite", null);
+                    // Partitioned should only be included when SameSite=None, so if it is incompatible Partitioned should be removed as well
+                    if (partitionedValue != null) {
+                        cookie.setAttribute("partitioned", null);
                     }
                 }
             }
@@ -2944,6 +3020,7 @@ public abstract class HttpBaseMessageImpl extends GenericMessageImpl implements 
      *
      * @return long
      */
+    @Override
     public long getStartTime() {
         return this.startTime;
     }

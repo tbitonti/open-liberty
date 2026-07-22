@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -28,7 +30,7 @@ import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.websphere.ras.annotation.Sensitive;
 import com.ibm.websphere.ras.annotation.TraceOptions;
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
 import com.ibm.ws.security.authentication.AuthenticationConstants;
 import com.ibm.ws.security.authentication.AuthenticationData;
@@ -53,6 +55,7 @@ import com.ibm.ws.security.registry.UserRegistry;
 import com.ibm.ws.security.registry.UserRegistryService;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 import com.ibm.wsspi.security.token.AttributeNameConstants;
+import io.openliberty.checkpoint.spi.CheckpointPhase;
 
 @TraceOptions(messageBundle = "com.ibm.ws.security.authentication.internal.resources.AuthenticationMessages")
 public class AuthenticationServiceImpl implements AuthenticationService {
@@ -60,6 +63,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     static final String CFG_ALLOW_HASHTABLE_LOGIN_WITH_ID_ONLY = "allowHashtableLoginWithIdOnly";
     static final String CFG_CACHE_ENABLED = "cacheEnabled";
+    static final String CFG_USE_DISPLAYNAME_FOR_SECURITYNAME = "useDisplayNameForSecurityName";
+    static final String CFG_IGNORE_CUSTOM_CACHE_KEY = "ignoreCustomCacheKey";
     static final String KEY_AUTH_CACHE_SERVICE = "authCacheService";
     static final String KEY_USER_REGISTRY_SERVICE = "userRegistryService";
     static final String KEY_DELEGATION_PROVIDER = "delegationProvider";
@@ -77,6 +82,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private ComponentContext cc;
     private boolean cacheEnabled = true;
     private boolean allowHashtableLoginWithIdOnly = false;
+    private boolean useDisplayNameForSecurityName = false;
+    private boolean ignoreCustomCacheKey = false;
     private String invalidDelegationUser = "";
 
     private final AuthenticationGuard authenticationGuard = new AuthenticationGuard();
@@ -84,14 +91,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     protected void setJaasService(JAASService jaasService) {
         this.jaasService = jaasService;
         if (jaasService instanceof JAASServiceImpl) {
-            JAASServiceImpl.setAuthenticationService(this);
+            ((JAASServiceImpl) jaasService).setAuthenticationService(this);
         }
     }
 
     protected void unsetJaasService(JAASService jaasService) {
         if (this.jaasService == jaasService) {
             this.jaasService = null;
-            JAASServiceImpl.unsetAuthenticationService(this);
+            ((JAASServiceImpl) jaasService).unsetAuthenticationService(this);
         }
     }
 
@@ -155,6 +162,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
      * @param props
      */
     private void getAuthenticationConfig(Map<String, Object> props) {
+
         Boolean loginWithIdOnly = (Boolean) props.get(CFG_ALLOW_HASHTABLE_LOGIN_WITH_ID_ONLY);
         if (loginWithIdOnly != null)
             allowHashtableLoginWithIdOnly = loginWithIdOnly;
@@ -162,6 +170,16 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         Boolean state = (Boolean) props.get(CFG_CACHE_ENABLED);
         if (state != null) {
             cacheEnabled = state;
+        }
+
+        Boolean useDisplayNameForSecurityNameState = (Boolean) props.get(CFG_USE_DISPLAYNAME_FOR_SECURITYNAME);
+        if (useDisplayNameForSecurityNameState != null) {
+            useDisplayNameForSecurityName = useDisplayNameForSecurityNameState;
+        }
+	
+        Boolean ignoreCustomCacheKeyState = (Boolean) props.get(CFG_IGNORE_CUSTOM_CACHE_KEY);
+        if (ignoreCustomCacheKeyState != null) {
+            ignoreCustomCacheKey = ignoreCustomCacheKeyState;
         }
     }
 
@@ -185,7 +203,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         delegationProviderRef.deactivate(cc);
         defaultDelegationProviderRef.deactivate(cc);
         credentialsServiceRef.deactivate(cc);
-        JAASServiceImpl.unsetAuthenticationService(this);
+        if (jaasService instanceof JAASServiceImpl) {
+            ((JAASServiceImpl) jaasService).unsetAuthenticationService(this);
+        }
         cc = null;
     }
 
@@ -199,23 +219,46 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     /** {@inheritDoc} */
     @Override
     public Subject authenticate(String jaasEntryName, AuthenticationData authenticationData, Subject subject) throws AuthenticationException {
-        ReentrantLock currentLock = optionallyObtainLockedLock(authenticationData);
+        AuthenticationData hashtableAuthData = getHashtable(subject);
+        ReentrantLock currentLock = obtainCurrentLock(authenticationData, hashtableAuthData);
+
         try {
             // If basic auth login to a different realm, then create a basic auth subject
             if (isBasicAuthLogin(authenticationData)) {
                 return createBasicAuthSubject(authenticationData, subject);
             } else {
-                Subject authenticatedSubject = findSubjectInAuthCache(authenticationData, subject);
-                if (authenticatedSubject == null) {
-                    authenticatedSubject = performJAASLogin(jaasEntryName, authenticationData, subject);
-                    insertSubjectInAuthCache(authenticationData, authenticatedSubject);
+                Subject cachedAuthenticatedSubject = findSubjectInAuthCache(authenticationData, subject, hashtableAuthData);
+                if (cachedAuthenticatedSubject != null) {
+                    return cachedAuthenticatedSubject;
                 }
+
+                Subject authenticatedSubject = performJAASLogin(jaasEntryName, authenticationData, subject);
+                //Initializing the cache should happen first which is located inside io.openliberty.jcache.internal.CacheServiceImpl.activate(Map<String, Object>)
+                //Therefore ranking 3 is given here.
+                CheckpointPhase.onRestore(3, () -> insertSubjectInAuthCache(authenticationData, authenticatedSubject));
                 return authenticatedSubject;
             }
         } finally {
-            releaseLock(authenticationData, currentLock);
+            releaseLock(authenticationData, hashtableAuthData, currentLock);
             CertificateLoginModule.collectiveCertificate.set(false);
         }
+    }
+
+    /**
+     * If we have hashtableAuthData from the subject, then use the hashtableAuthData to lock it.
+     * Otherwise, will use the regular authenticationData to lock it.
+     *
+     * @param authenticationData
+     * @param hashtableAuthData
+     * @return
+     */
+    private ReentrantLock obtainCurrentLock(AuthenticationData authenticationData, AuthenticationData hashtableAuthData) {
+        ReentrantLock currentLock;
+        if (!hashtableAuthData.isEmpty())
+            currentLock = optionallyObtainLockedLock(hashtableAuthData);
+        else
+            currentLock = optionallyObtainLockedLock(authenticationData);
+        return currentLock;
     }
 
     private boolean isBasicAuthLogin(AuthenticationData authenticationData) {
@@ -260,22 +303,28 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         } catch (Exception e) {
             throw new AuthenticationException(e.getMessage());
         }
+        AuthenticationData hashtableAuthData = getHashtable(subject);
+        ReentrantLock currentLock = obtainCurrentLock(authenticationData, hashtableAuthData);
 
-        ReentrantLock currentLock = optionallyObtainLockedLock(authenticationData);
         try {
             // If basic auth login to a different realm, then create a basic auth subject
             if (isBasicAuthLogin(authenticationData)) {
                 return createBasicAuthSubject(authenticationData, subject);
             } else {
-                Subject authenticatedSubject = findSubjectInAuthCache(authenticationData, subject);
-                if (authenticatedSubject == null) {
-                    authenticatedSubject = performJAASLogin(jaasEntryName, callbackHandler, subject);
-                    insertSubjectInAuthCache(authenticationData, authenticatedSubject);
+                Subject cachedAuthenticatedSubject = findSubjectInAuthCache(authenticationData, subject, hashtableAuthData);
+                if (cachedAuthenticatedSubject != null) {
+                    return cachedAuthenticatedSubject;
                 }
+
+                Subject authenticatedSubject = performJAASLogin(jaasEntryName, callbackHandler, subject);
+                final AuthenticationData fAuthenticationData = authenticationData;
+                //Initializing the cache should happen first which is located inside io.openliberty.jcache.internal.CacheServiceImpl.activate(Map<String, Object>)
+                //Therefore ranking 3 is given here.
+                CheckpointPhase.onRestore(3, () -> insertSubjectInAuthCache(fAuthenticationData, authenticatedSubject));
                 return authenticatedSubject;
             }
         } finally {
-            releaseLock(authenticationData, currentLock);
+            releaseLock(authenticationData, hashtableAuthData, currentLock);
         }
     }
 
@@ -311,11 +360,16 @@ public class AuthenticationServiceImpl implements AuthenticationService {
      * The authentication cache may have been removed dynamically
      * after the lock was obtained.
      */
-    private void releaseLock(AuthenticationData authenticationData, ReentrantLock currentLock) {
-        authenticationGuard.relinquishAccess(authenticationData, currentLock);
+    private void releaseLock(AuthenticationData authenticationData, AuthenticationData hashtableAuthData, ReentrantLock currentLock) {
+        if (!hashtableAuthData.isEmpty()) {
+            authenticationGuard.relinquishAccess(hashtableAuthData, currentLock);
+        } else {
+            authenticationGuard.relinquishAccess(authenticationData, currentLock);
+        }
     }
 
-    private Subject findSubjectInAuthCache(AuthenticationData authenticationData, Subject partialSubject) throws AuthenticationException {
+    private Subject findSubjectInAuthCache(AuthenticationData authenticationData, Subject partialSubject,
+                                           AuthenticationData hashtableAuthData) throws AuthenticationException {
         Subject subject = null;
         AuthCacheService authCacheService = getAuthCacheService();
         if (authCacheService != null && authenticationData != null) {
@@ -342,7 +396,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                         if (userid != null && password != null) {
                             subject = findSubjectByUseridAndPassword(authCacheService, userid, password);
                         } else if (partialSubject != null) {
-                            subject = findSubjectBySubjectHashtable(authCacheService, partialSubject);
+                            subject = findSubjectBySubjectHashtable(authCacheService, partialSubject, hashtableAuthData);
                         }
                     }
                 }
@@ -356,13 +410,16 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         return authCacheService.getSubject(certHash);
     }
 
+
     /**
-     * @param authCacheService An authentication cache service
-     * @param token The cache key, can be either a byte[] (SSO Token) or String (SSO Token Base64 encoded)
-     * @param ssoTokenBytes Optional SSO token as byte[], if null, it will be constructed from the token
-     * @param authenticaitonData TODO
-     * @return the cached subject
-     * @throws AuthenticationException if no cached subject was found
+     * Finds a Subject based on the provided token contents.
+     *
+     * @param authCacheService The authentication cache service used to retrieve subjects.
+     * @param token The token string to search for in the cache.
+     * @param ssoTokenBytes The byte array representation of the Single Sign-On (SSO) token.
+     * @param authenticationData The authentication data containing the authentication mechanism OID.
+     * @return The Subject associated with the provided token, or null if not found.
+     * @throws AuthenticationException If the token is invalid or the custom cache key is missing.
      */
     private Subject findSubjectByTokenContents(AuthCacheService authCacheService, String token, byte[] ssoTokenBytes,
                                                AuthenticationData authenticationData) throws AuthenticationException {
@@ -393,10 +450,18 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             } else if (oid != null && oid.equals(JWT_OID)) {
                 customCacheKey = JwtSSOTokenHelper.getCustomCacheKeyFromJwtSSOToken(token);
             }
+
             if (customCacheKey != null) {
                 subject = authCacheService.getSubject(customCacheKey);
                 if (subject == null) {
-                    throw new AuthenticationException("Custom cache key missed authentication cache. Need to re-challenge the user to login again.");
+		    if (ignoreCustomCacheKey()) {
+			if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+			    Tr.debug(tc, "ignoreCustomCacheKey is set to true. Continue authentication without re-challenging");
+			}			
+		    }
+		    else {
+			throw new AuthenticationException("Custom cache key missed authentication cache. Need to re-challenge the user to login again.");			
+		    }
                 }
             }
         }
@@ -407,35 +472,63 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         return authCacheService.getSubject(BasicAuthCacheKeyProvider.createLookupKey(getRealm(), userid, password));
     }
 
-    private Subject findSubjectBySubjectHashtable(AuthCacheService authCacheService, Subject partialSubject) {
+
+/*
+ * We only create cache key (CustomCacheKeyProvider.java) for hashtable login so there is no need to
+ * get the lookup key for userId/pwd and userId only cases.
+ */
+    private Subject findSubjectBySubjectHashtable(AuthCacheService authCacheService, Subject partialSubject, AuthenticationData hashtableAuthData) {
         Subject subject = null;
+        if (hashtableAuthData.isEmpty())
+            return subject;
+
+        String customCacheKey = (String) hashtableAuthData.get(AttributeNameConstants.WSCREDENTIAL_CACHE_KEY);
+        if (customCacheKey != null) {
+            subject = authCacheService.getSubject(customCacheKey);
+            return subject;
+        }
+        //We do not create look up key for hashtable userid/pwd or userid only
+        String userid = (String) hashtableAuthData.get(AttributeNameConstants.WSCREDENTIAL_USERID);
+        String password = (String) hashtableAuthData.get(AttributeNameConstants.WSCREDENTIAL_PASSWORD);
+
+        String lookupKey;
+        if (password != null) {
+            lookupKey = BasicAuthCacheKeyProvider.createLookupKey(getRealm(), userid, password);
+        } else {
+            lookupKey = BasicAuthCacheKeyProvider.createLookupKey(getRealm(), userid);
+        }
+        subject = authCacheService.getSubject(lookupKey);
+
+        return subject;
+    }
+
+    private AuthenticationData getHashtable(Subject partialSubject) {
+        AuthenticationData authData = new WSAuthenticationData();
         SubjectHelper subjectHelper = new SubjectHelper();
         Hashtable<String, ?> hashtable = subjectHelper.getHashtableFromSubject(partialSubject, new String[] { AttributeNameConstants.WSCREDENTIAL_CACHE_KEY });
         if (hashtable != null) {
             String customCacheKey = (String) hashtable.get(AttributeNameConstants.WSCREDENTIAL_CACHE_KEY);
-            Boolean internalCachekeyAssertion = (Boolean) hashtable.get(AuthenticationConstants.INTERNAL_ASSERTION_KEY);
-
-            if (customCacheKey != null && internalCachekeyAssertion != null && internalCachekeyAssertion.equals(Boolean.TRUE)) {
-                subject = authCacheService.getSubject(customCacheKey);
-                return subject;
+            if (customCacheKey != null) {
+                authData.set(AttributeNameConstants.WSCREDENTIAL_CACHE_KEY, customCacheKey);
             }
         }
+
         hashtable = subjectHelper.getHashtableFromSubject(partialSubject, new String[] { AttributeNameConstants.WSCREDENTIAL_USERID,
                                                                                          AttributeNameConstants.WSCREDENTIAL_PASSWORD });
         if (hashtable != null) {
             String userid = (String) hashtable.get(AttributeNameConstants.WSCREDENTIAL_USERID);
             String password = (String) hashtable.get(AttributeNameConstants.WSCREDENTIAL_PASSWORD);
-
-            String lookupKey;
-            if (password != null) {
-                lookupKey = BasicAuthCacheKeyProvider.createLookupKey(getRealm(), userid, password);
-            } else {
-                lookupKey = BasicAuthCacheKeyProvider.createLookupKey(getRealm(), userid);
+            if (userid != null & password != null) {
+                authData.set(AttributeNameConstants.WSCREDENTIAL_USERID, userid);
+                authData.set(AttributeNameConstants.WSCREDENTIAL_PASSWORD, password);
+            } else if (userid != null) {
+                Boolean internalCachekeyAssertion = (Boolean) hashtable.get(AuthenticationConstants.INTERNAL_ASSERTION_KEY);
+                if (internalCachekeyAssertion != null && internalCachekeyAssertion.equals(Boolean.TRUE))
+                    authData.set(AttributeNameConstants.WSCREDENTIAL_USERID, userid); //Allow to login with user ID only
             }
-            subject = authCacheService.getSubject(lookupKey);
         }
 
-        return subject;
+        return authData;
     }
 
     @Sensitive
@@ -548,7 +641,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
      * or the MethodDelegationProvider if one is not configured.
      *
      * @param roleName the name of the role, used to look up the corresponding user.
-     * @param appName the name of the application, used to look up the corresponding user.
+     * @param appName  the name of the application, used to look up the corresponding user.
      * @return subject a subject representing the user that is mapped to the given run-as role.
      * @throws IllegalArgumentException
      */
@@ -589,4 +682,17 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     public Boolean isAllowHashTableLoginWithIdOnly() {
         return allowHashtableLoginWithIdOnly;
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public Boolean isUseDisplayNameForSecurityName() {
+        return useDisplayNameForSecurityName;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Boolean ignoreCustomCacheKey() {
+        return ignoreCustomCacheKey;
+    }
+
 }

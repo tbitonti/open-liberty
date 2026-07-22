@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2019 IBM Corporation and others.
+ * Copyright (c) 2010, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -23,10 +25,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
 import java.security.PrivilegedActionException;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,6 +41,7 @@ import com.ibm.ws.kernel.boot.internal.KernelResolver;
 import com.ibm.ws.kernel.boot.internal.KernelUtils;
 import com.ibm.ws.kernel.boot.internal.PasswordGenerator;
 import com.ibm.ws.kernel.boot.internal.ServerLock;
+import com.ibm.ws.kernel.productinfo.ProductInfo;
 
 public class BootstrapConfig {
     /** ${} */
@@ -81,6 +86,14 @@ public class BootstrapConfig {
     protected File logDir = null;
 
     /**
+     * Record of whether the log dir is the default or has been configured.
+     *
+     * The dump command (com.ibm.ws.kernel.boot.internal.commands.DumpProcessor)
+     * needs to know this.
+     */
+    protected boolean logDirIsConfigured = false;
+
+    /**
      * Location of active/current log file (e.g., wlp/usr/servers/serverName/logs/console.log),
      * if the process was started using the server script.
      */
@@ -117,7 +130,7 @@ public class BootstrapConfig {
      */
     protected KernelResolver kernelResolver;
 
-    protected File serviceBindingRootDir = null;
+    protected String variableSourceDirs;
 
     public BootstrapConfig() {
         File fbootstrapLib = null;
@@ -131,16 +144,16 @@ public class BootstrapConfig {
         } catch (Exception ex) {
         }
 
+        ProductInfo.setBetaEditionJVMProperty();
+
         bootstrapLib = fbootstrapLib;
 
     }
 
     /**
      * Light processing: find main locations
-     *
      */
     protected void findLocations(BootstrapLocations locations) throws LocationException {
-
         // Server name only found via command line
         setProcessName(locations.getProcessName());
 
@@ -205,7 +218,7 @@ public class BootstrapConfig {
             // Ignore.
         }
 
-        if (locations.getServerDir() == null) {
+        if ( locations.getServerDir() == null ) {
             outputRoot = processesRoot;
             outputDir = configDir;
         } else {
@@ -215,24 +228,37 @@ public class BootstrapConfig {
         }
 
         // Logs could be redirected to a place other than the server output dir (like /var/log.. )
-        if (locations.getLogDir() == null)
+        if ( locations.getLogDir() == null ) {
             logDir = new File(outputDir, BootstrapConstants.LOC_AREA_NAME_LOGS);
-        else
+            logDirIsConfigured = false;
+        } else {
             logDir = assertDirectory(FileUtils.normalize(locations.getLogDir()), BootstrapConstants.ENV_LOG_DIR);
+            logDirIsConfigured = true;
+        }
+        
+        // The console log can be renamed ... but, it is still located relative to the
+        // logs directory.
         consoleLogFile = new File(logDir, locations.getConsoleLogFile() != null ? locations.getConsoleLogFile() : BootstrapConstants.CONSOLE_LOG);
 
+        // The workarea can be shifted to a subdirectory!
+        
+        // TODO: Shifting to a subdirectory will cause problems for the dump processor, which
+        //       excludes files expecting their path to be relative to the default "workarea" path.
+
+        if ( locations.getWorkAreaDir() == null ) {
+            workareaDirStr = BootstrapConstants.LOC_AREA_NAME_WORKING;
+        } else {
+            workareaDirStr = BootstrapConstants.LOC_AREA_NAME_WORKING + "/" + locations.getWorkAreaDir();
+        }
+        
         // Server workarea always a child of outputDir
-        if (locations.getWorkAreaDir() == null)
-            this.workareaDirStr = BootstrapConstants.LOC_AREA_NAME_WORKING;
-        else
-            this.workareaDirStr = BootstrapConstants.LOC_AREA_NAME_WORKING + "/" + locations.getWorkAreaDir();
+
         workarea = new File(outputDir, this.workareaDirStr);
 
-        String serviceBindingRootStr = locations.getServiceBindingRoot();
-        if (serviceBindingRootStr == null) {
-            this.serviceBindingRootDir = new File(configDir, "bindings");
-        } else {
-            this.serviceBindingRootDir = new File(serviceBindingRootStr);
+        // TODO: Is this variables directory something that should be collected?
+
+        if ( locations.getVariableSourceDirs() != null ) {
+            variableSourceDirs = locations.getVariableSourceDirs();
         }
     }
 
@@ -243,7 +269,7 @@ public class BootstrapConfig {
      *
      * Swiped from PathUtils, which isn't currently exposed to BootstrapConfig
      *
-     * @param file file to check if is a symbolic link
+     * @param file       file to check if is a symbolic link
      * @param parentFile parent of the file to check
      * @return whether the given file refers to a symbolic link
      *
@@ -286,11 +312,11 @@ public class BootstrapConfig {
      * than the Launcher.
      *
      * @param initProps
-     *            Initial set of properties we're working with, contains some
-     *            properties populated by command line parser
+     *                           Initial set of properties we're working with, contains some
+     *                           properties populated by command line parser
      * @param instanceDirStr Value of WLP_USER_DIR environment variable
-     * @param outputDirStr Value of WLP_OUTPUT_DIR environment variable
-     * @param logDirStr Value of X_LOG_DIR or LOG_DIR environment variable
+     * @param outputDirStr   Value of WLP_OUTPUT_DIR environment variable
+     * @param logDirStr      Value of X_LOG_DIR or LOG_DIR environment variable
      *
      * @throws LocationException
      */
@@ -326,6 +352,7 @@ public class BootstrapConfig {
         initProps.put(BootstrapConstants.LOC_PROPERTY_SRVTMP_DIR, getPathProperty(outputDir,
                                                                                   workareaDirStr,
                                                                                   BootstrapConstants.LOC_AREA_NAME_TMP));
+        initProps.put(BootstrapConstants.LOC_PROPERTY_SRVLOGS_DIR, getPathProperty(logDir));
 
         if (BootstrapConstants.LOC_PROCESS_TYPE_CLIENT.equals(getProcessType())) {
             initProps.put(BootstrapConstants.LOC_PROPERTY_CLIENTCFG_DIR, getPathProperty(configDir));
@@ -348,9 +375,37 @@ public class BootstrapConfig {
                                                                                       BootstrapConstants.LOC_AREA_NAME_SHARED,
                                                                                       BootstrapConstants.LOC_AREA_NAME_RES));
 
-        initProps.put(BootstrapConstants.LOC_PROPERTY_SERVICE_BINDING_ROOT, getPathProperty(serviceBindingRootDir));
+        List<File> fileSystemVariableDirs = new ArrayList<File>();
+        String fsVarRootStr = initProps.get(BootstrapConstants.ENV_VARIABLE_SOURCE_DIRS);
+        if (fsVarRootStr == null) {
+            fsVarRootStr = this.variableSourceDirs;
+        }
+
+        if (fsVarRootStr == null) {
+            fileSystemVariableDirs.add(new File(configDir, "variables"));
+        } else {
+            StringTokenizer st = new StringTokenizer(fsVarRootStr, File.pathSeparator);
+            while (st.hasMoreTokens()) {
+                String dir = st.nextToken();
+                fileSystemVariableDirs.add(new File(dir));
+            }
+        }
+
+        initProps.put(BootstrapConstants.LOC_PROPERTY_VARIABLE_SOURCE_DIRS, getMultiplePathProperty(fileSystemVariableDirs));
         // Wait to look for symbols until we have location properties set
         substituteSymbols(initProps);
+    }
+
+    protected String getMultiplePathProperty(List<File> files) {
+        StringBuilder b = new StringBuilder();
+        boolean addSeparator = false;
+        for (File file : files) {
+            if (addSeparator)
+                b.append(File.pathSeparatorChar);
+            b.append(FileUtils.normalize(file.getAbsolutePath())).append('/');
+            addSeparator = true;
+        }
+        return b.toString();
     }
 
     protected String getPathProperty(File file, String... dirs) {
@@ -367,12 +422,12 @@ public class BootstrapConfig {
      * or exists as a directory.
      *
      * @param dirName
-     *            Name/path to directory
+     *                    Name/path to directory
      * @param locName
-     *            Symbol/location associated with directory
+     *                    Symbol/location associated with directory
      * @return File for directory location
      * @throws LocationException
-     *             if dirName references an existing File (isFile).
+     *                               if dirName references an existing File (isFile).
      */
     protected File assertDirectory(String dirName, String locName) {
         File d = new File(dirName);
@@ -444,7 +499,7 @@ public class BootstrapConfig {
      * properties.
      *
      * @param key
-     *            Property key
+     *                Property key
      * @return Object value, or null if not found.
      */
     public String get(final String key) {
@@ -472,9 +527,9 @@ public class BootstrapConfig {
      * null) if key is null.
      *
      * @param key
-     *            Property key string
+     *                  Property key string
      * @param value
-     *            Property value object
+     *                  Property value object
      * @return current/replaced value
      */
     public String put(final String key, String value) {
@@ -488,7 +543,7 @@ public class BootstrapConfig {
      * Set a new property into the set of initial properties only if the
      * key does not already have an existing value.
      *
-     * @param key the key to set
+     * @param key   the key to set
      * @param value the value to set
      * @return the previous value associated with the specified key, or
      *         {@code null} if there was no mapping for the key.
@@ -505,7 +560,7 @@ public class BootstrapConfig {
      * Clear property
      *
      * @param key
-     *            Key of property to clear
+     *                Key of property to clear
      * @return current/removed value
      */
     public String remove(final String key) {
@@ -517,9 +572,9 @@ public class BootstrapConfig {
 
     /**
      * @param useLineBreaks
-     *            If true, line breaks will be used when displaying
-     *            configured locations; locations will otherwise be separated by
-     *            commas.
+     *                          If true, line breaks will be used when displaying
+     *                          configured locations; locations will otherwise be separated by
+     *                          commas.
      * @return Display string describing configured bootstrap locations.
      */
     public String printLocations(boolean formatOutput) {
@@ -600,6 +655,13 @@ public class BootstrapConfig {
     }
 
     /**
+     * @return Whether the log dir is configured.
+     */
+    public boolean getLogDirIsConfigured() {
+        return logDirIsConfigured;
+    }
+    
+    /**
      * @return console log file
      */
     public File getConsoleLogFile() {
@@ -611,7 +673,7 @@ public class BootstrapConfig {
      * WLP_OUTPUT_DIR/relativePath
      *
      * @param relativePath
-     *            relative path of file to create in the WLP_OUTPUT_DIR directory
+     *                         relative path of file to create in the WLP_OUTPUT_DIR directory
      * @return File object for relative path, or for the WLP_OUTPUT_DIR directory itself
      *         if the relative path argument is null
      */
@@ -627,7 +689,7 @@ public class BootstrapConfig {
      * usr/servers/serverName/relativeServerPath
      *
      * @param relativeServerPath
-     *            relative path of file to create in the server directory
+     *                               relative path of file to create in the server directory
      * @return File object for relative path, or for the server directory itself
      *         if the relative path argument is null
      */
@@ -643,7 +705,7 @@ public class BootstrapConfig {
      * server-data/serverName/relativeServerPath
      *
      * @param relativeServerPath
-     *            relative path of file to create in the server directory
+     *                               relative path of file to create in the server directory
      * @return File object for relative path, or for the server directory itself
      *         if the relative path argument is null
      */
@@ -659,7 +721,7 @@ public class BootstrapConfig {
      * usr/servers/serverName/workarea/relativeServerWorkareaPath
      *
      * @param relativeServerWorkareaPath
-     *            relative path of file to create in the server's workarea
+     *                                       relative path of file to create in the server's workarea
      * @return File object for relative path, or for the server workarea itself if
      *         the relative path argument is null
      */
@@ -676,14 +738,14 @@ public class BootstrapConfig {
      * baseURL, in the case of relative paths) into the target map.
      *
      * @param target
-     *            Target map to populate with new properties
+     *                    Target map to populate with new properties
      * @param baseURL
-     *            Base location used for resolving relative paths
+     *                    Base location used for resolving relative paths
      * @param urlStr
-     *            URL string describing the properties resource to load
+     *                    URL string describing the properties resource to load
      * @param recurse
-     *            Whether or not to follow any included bootstrap resources
-     *            (bootstrap.includes).
+     *                    Whether or not to follow any included bootstrap resources
+     *                    (bootstrap.includes).
      */
     protected void mergeProperties(Map<String, String> target, URL baseURL, String urlStr) {
         String includes = null;
@@ -792,7 +854,7 @@ public class BootstrapConfig {
      * symbol with the initial property value.
      *
      * @param str
-     *            String to evaluate for symbols
+     *                String to evaluate for symbols
      * @return String with known symbols replaced by the associated values.
      * @see #get(String)
      */
@@ -820,13 +882,13 @@ public class BootstrapConfig {
      * created unless the files to use were specified explicitly on the command line.
      *
      * @param verifyServerString
-     *            A value from the {@link BootstrapConstants.VerifyServer} enum: describes
-     *            whether or not a server should be created if it does not exist.
+     *                               A value from the {@link BootstrapConstants.VerifyServer} enum: describes
+     *                               whether or not a server should be created if it does not exist.
      * @param createOptions
-     *            Other launch arguments, namely template options for use with create
+     *                               Other launch arguments, namely template options for use with create
      * @throws LaunchException
-     *             If server does not exist and --create was not specified and
-     *             it is not the defaultServer.
+     *                             If server does not exist and --create was not specified and
+     *                             it is not the defaultServer.
      */
     void verifyProcess(VerifyServer verifyServer, LaunchArguments createOptions) throws LaunchException {
         if (verifyServer == null || verifyServer == VerifyServer.SKIP) {
@@ -1016,7 +1078,7 @@ public class BootstrapConfig {
 
     /**
      * @param cmdArgs
-     *            command line arguments (post-parse)
+     *                    command line arguments (post-parse)
      */
     public void setCmdArgs(List<String> cmdArgs) {
         this.cmdArgs = cmdArgs;
@@ -1031,7 +1093,7 @@ public class BootstrapConfig {
 
     /**
      * @param frameworkLaunchClassloader
-     *            the frameworkLaunchClassloader to set
+     *                                       the frameworkLaunchClassloader to set
      */
     public void setFrameworkClassloader(ClassLoader frameworkLaunchClassloader) {
         this.frameworkLaunchClassloader = frameworkLaunchClassloader;
@@ -1168,13 +1230,20 @@ public class BootstrapConfig {
         BufferedWriter bw = null;
         File serverEnv = getConfigFile("server.env");
         try {
-            char[] keystorePass = PasswordGenerator.generateRandom();
             String serverEnvContents = FileUtils.readFile(serverEnv);
             String toWrite = "";
-            if (generatePassword && (serverEnvContents == null || !serverEnvContents.contains("keystore_password="))) {
-                if (serverEnvContents != null)
-                    toWrite += System.getProperty("line.separator");
-                toWrite += "keystore_password=" + new String(keystorePass);
+            if (generatePassword) {
+                if (serverEnvContents == null) {
+                    toWrite += "keystore_password=" + new String(PasswordGenerator.generateRandom());
+                    toWrite += System.getProperty("line.separator") + "ltpa_keys_password=" + new String(PasswordGenerator.generateRandom());
+                } else {
+                    if (!serverEnvContents.contains("keystore_password=")) {
+                        toWrite += System.getProperty("line.separator") + "keystore_password=" + new String(PasswordGenerator.generateRandom());
+                    }
+                    if (!serverEnvContents.contains("ltpa_keys_password=")) {
+                        toWrite += System.getProperty("line.separator") + "ltpa_keys_password=" + new String(PasswordGenerator.generateRandom());
+                    }
+                }
             }
 
             if (serverEnvContents == null)
@@ -1194,9 +1263,5 @@ public class BootstrapConfig {
             }
         }
         return ReturnCode.OK;
-    }
-
-    public File getServiceBindingRoot() {
-        return this.serviceBindingRootDir;
     }
 }

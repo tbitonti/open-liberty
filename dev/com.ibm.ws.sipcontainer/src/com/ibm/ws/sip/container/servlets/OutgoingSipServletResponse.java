@@ -1,12 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.sip.container.servlets;
 
@@ -264,10 +263,8 @@ public class OutgoingSipServletResponse extends SipServletResponseImpl
 				}
 			}       
 		} catch (IllegalArgumentException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (SipParseException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
@@ -832,8 +829,8 @@ public class OutgoingSipServletResponse extends SipServletResponseImpl
     @Override
 	public SipSession getProxySession(boolean create) {
     	//TODO was not supposed to be executed here! we need to understand
-    	//why we create and invoke to a servlet an outgoing response (on doresponse)
-    	//and not an incomnig one
+    	//why we create and invoke to a servlet an outgoing response (on doResponse)
+    	//and not an incoming one
 		return getTransactionUser().getSipSession(create);
 	}
     

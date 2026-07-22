@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -15,13 +17,18 @@
  */
 subprojects {
   apply plugin: 'java'
-  
+
+  tasks.withType(Copy).all {
+    duplicatesStrategy = 'include'
+  }
+
   task publishJunitReport() {
     ext {
       outputFilesDir = rootProject.file(rootProject.ext.get('published.outputs.files'))
       outputEventsDir = rootProject.file(rootProject.ext.get('published.outputs.events')+"/rawJUnitResults")
       reportDir = project.file("${project.buildDir}/libs/merged-test-reports/test/")
     }
+    def projectName = project.name
     doLast {
       if(new File(reportDir,"TESTS-TestSuites.xml").exists()){
         mkdir outputFilesDir
@@ -31,17 +38,17 @@ subprojects {
         copy {
           from reportDir
           include "TESTS-TestSuites.xml"
-          into new File(outputFilesDir,"junits/unit_"+project.name+"/"+ant.junitSHA256+"/")
+          into new File(outputFilesDir,"junits/unit_"+projectName+"/"+ant.junitSHA256+"/")
         }
 
         def prop = new Properties()
-        def propFile = File.createTempFile("unit_"+project.name,".properties",outputEventsDir) 
+        def propFile = File.createTempFile("unit_"+projectName,".properties",outputEventsDir) 
         prop.put("event","rawJUnitResult")
-        prop.put("bucketName","unit_"+project.name)
+        prop.put("bucketName","unit_"+projectName)
         prop.put("bucketType","Unit")
         prop.put("bucketRunMode","n/a")
         prop.put("resultType","normal")
-        prop.put("junit","junits/unit_"+project.name+"/"+ant.junitSHA256+"/TESTS-TestSuites.xml")
+        prop.put("junit","junits/unit_"+projectName+"/"+ant.junitSHA256+"/TESTS-TestSuites.xml")
         def propWriter = new FileWriter(propFile)
         try {
           prop.store(propWriter, null)
@@ -64,7 +71,7 @@ subprojects {
           mkdir targetDir
           ant.taskdef(name: 'junitreport', 
                       classname: 'org.apache.tools.ant.taskdefs.optional.junit.XMLResultAggregator', 
-                      classpath: bnd('repo.junitReportTask.path'))
+                      classpath: bnd.get('repo.junitReportTask.path'))
 
           ant.junitreport(todir: targetDir) {
               fileset(dir: resultsDir, includes: 'TEST-*.xml')
@@ -83,39 +90,35 @@ subprojects {
     //  A number of tests make heavy use of java.util.Random, which can drain the entropy pool of /dev/random on Linux when
     // running on OpenJDK-based distributions. This results in large delays as tests wait for the entropy pool to be repopulated.
     // The fix is thus to ensure we use the pseudorandom entropy pool (/dev/urandom) (which is also valid for Windows/zOS).
-    jvmArgs '-Djava.security.egd=file:///dev/urandom'
+    jvmArgs '-Djava.security.egd=file:/dev/urandom'
   }
 
   
-  tasks.withType(JavaCompile) {
-    doFirst {
-      // javac 12 has a min target of 1.7, so upgrade any 1.6 projects to 1.7 if running on Java 12
-      if (JavaVersion.current().isJava12Compatible()) {
-        if ('1.6'.equals(sourceCompatibility)) {
-          sourceCompatibility = "1.7"
-          targetCompatibility = "1.7"
-        }
+  tasks.withType(JavaCompile).configureEach({
+      int javaVersionNumVal = Integer.parseInt(JavaVersion.current().getMajorVersion())
+      if (javaVersionNumVal < 21 && '21'.equals(sourceCompatibility)) {
+          javaCompiler = javaToolchains.compilerFor {
+              languageVersion = JavaLanguageVersion.of(21)
+          }
       }
-      // For Java 9+ builds, set the --release compiler flag to keep bootclasspath in sync/ 
-      if(JavaVersion.current().isJava9Compatible() && !'off'.equals(bnd('javac.args.release'))) {
+
+      // Set the --release compiler flag to keep bootclasspath in sync 
+      if(!'off'.equals(bnd.get('javac.args.release'))) {
         def release = sourceCompatibility
         if(sourceCompatibility.startsWith('1.'))
           release = sourceCompatibility.substring(2);
-        if('current'.equals(bnd('javac.args.release')))
+        if('current'.equals(bnd.get('javac.args.release')))
           release = JavaVersion.current().getMajorVersion() 
-        options.compilerArgs.addAll([ '--release', release])
+        options.release = Integer.valueOf(release)
       }
-    }
-  }
+  })
 
   tasks.withType(Javadoc) {
     doFirst {
       // Starting with JDK 9.0.4 the javadoc compiler started to striclty enforce proper HTML
       // syntax and other breaking changes.  Fixing all of these ocurrances would take far too
       // long and be a poor use of time, so we will disable these checks for JDK9 and up
-      if(JavaVersion.current().isJava9Compatible()) {
-        options.addStringOption('Xdoclint:none', '-quiet')
-      }
+      options.addBooleanOption('Xdoclint:none', true)
     }
   }
   
@@ -128,10 +131,14 @@ subprojects {
 task testReport(type: TestReport) {
   // Run after all `test` tasks, so no test results are missing
   mustRunAfter subprojects*.test
-  destinationDir = cnf.file('generated/testReports/allUnitTests')
+  destinationDirectory = cnf.file('generated/testReports/allUnitTests')
 
   // Include the results from the `test` task in all subprojects
-  reportOn subprojects*.test
+  Test[] tests = subprojects*.test
+  ConfigurableFileCollection results = getTestResults()
+  for (Test test : tests) {
+    results.from(test.getBinaryResultsDirectory())
+  }
 
   doLast {
     // Save test count properties to a file, so they can be loaded by subsequent builds

@@ -1,22 +1,23 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2020 IBM Corporation and others.
+ * Copyright (c) 2010, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.webcontainer.osgi;
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -58,13 +59,13 @@ import com.ibm.ws.container.service.metadata.MetaDataService;
 import com.ibm.ws.container.service.state.StateChangeException;
 import com.ibm.ws.ffdc.FFDCFilter;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
-import com.ibm.ws.javaee.version.ServletVersion;
 import com.ibm.ws.managedobject.ManagedObjectService;
 import com.ibm.ws.runtime.metadata.ModuleMetaData;
 import com.ibm.ws.threading.FutureMonitor;
 import com.ibm.ws.threading.listeners.CompletionListener;
 import com.ibm.ws.webcontainer.SessionRegistry;
 import com.ibm.ws.webcontainer.async.AsyncContextFactory;
+import com.ibm.ws.webcontainer.async.AsyncContextImpl;
 import com.ibm.ws.webcontainer.collaborator.CollaboratorService;
 import com.ibm.ws.webcontainer.exception.WebAppHostNotFoundException;
 import com.ibm.ws.webcontainer.osgi.container.DeployedModule;
@@ -93,7 +94,9 @@ import com.ibm.wsspi.injectionengine.ReferenceContext;
 import com.ibm.wsspi.kernel.service.location.WsLocationAdmin;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 import com.ibm.wsspi.kernel.service.utils.ConcurrentServiceReferenceSet;
+import com.ibm.wsspi.kernel.service.utils.FrameworkState;
 import com.ibm.wsspi.webcontainer.WCCustomProperties;
+import com.ibm.wsspi.webcontainer.WebContainerRequestState;
 import com.ibm.wsspi.webcontainer.cache.CacheManager;
 import com.ibm.wsspi.webcontainer.extension.ExtensionFactory;
 import com.ibm.wsspi.webcontainer.metadata.WebModuleMetaData;
@@ -226,7 +229,6 @@ public class WebContainer extends com.ibm.ws.webcontainer.WebContainer implement
     private AsyncContextFactory asyncContextFactory;
     
     private static final int DEFAULT_MAX_VERSION = 30;
-    private ServiceReference<ServletVersion> versionRef;
     
     private static boolean serverStopping = false;
 
@@ -236,6 +238,16 @@ public class WebContainer extends com.ibm.ws.webcontainer.WebContainer implement
     private URIMatcherFactory uriMatcherFactory;
     
     
+    public static final int SPEC_LEVEL_30 = 30;
+    public static final int SPEC_LEVEL_31 = 31;
+    public static final int SPEC_LEVEL_40 = 40;
+    public static final int SPEC_LEVEL_50 = 50;
+    public static final int SPEC_LEVEL_60 = 60;
+    public static final int SPEC_LEVEL_61 = 61;
+    private static final int DEFAULT_SPEC_LEVEL = 30;
+
+    private static int loadedContainerSpecLevel = loadServletVersion();
+
     /**
      * Constructor.
      * 
@@ -381,6 +393,14 @@ public class WebContainer extends com.ibm.ws.webcontainer.WebContainer implement
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
             Tr.event(tc, "Deactivating the WebContainer bundle");
+        }
+       
+        //issue#24730
+        if (FrameworkState.isStopping() && AsyncContextImpl.executorRetrieved.get()) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, methodName, "shutting down now async servlet thread pool executor");
+            }
+            AsyncContextImpl.ExecutorFieldHolder.field.shutdownNow();
         }
         
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
@@ -612,7 +632,7 @@ public class WebContainer extends com.ibm.ws.webcontainer.WebContainer implement
         // This delays starting of the session bundle until a web application is
         // being initialized.  SessionHelper will be null if either the ComponentContext
         // or the SessionHelper service reference are null
-        SessionHelper sessionHelper = sessionHelperSRRef.getService();
+        SessionHelper sessionHelper = sessionHelperSRRef.getServiceWithException();
         if (sessionHelper != null) {
             return sessionHelper.getRegistry();
         }
@@ -1000,9 +1020,18 @@ public class WebContainer extends com.ibm.ws.webcontainer.WebContainer implement
             if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
                 Tr.event(tc, "startModule: " + webModule.getName() + "; " + e);
             }
-            
-            //PI58875
-            this.stopModule(moduleInfo);
+           
+            //Issue 25855
+            WebContainerRequestState reqState = WebContainerRequestState.getInstance(false);
+            if (reqState != null && reqState.getAttribute("com.ibm.ws.webcontainer.contextRootAlreadyInUse") != null) {
+                reqState.removeAttribute("com.ibm.ws.webcontainer.contextRootAlreadyInUse"); 
+                this.stopModule(moduleInfo, false);
+            }
+            else {
+                //PI58875
+                this.stopModule(moduleInfo);
+            }
+
             throw new StateChangeException(e);
         } finally {
             starting = modulesStarting.decrementAndGet();
@@ -1191,6 +1220,14 @@ public class WebContainer extends com.ibm.ws.webcontainer.WebContainer implement
      * This will stop a web module in the web container
      */
     public void stopModule(ExtendedModuleInfo moduleInfo) {
+        stopModule(moduleInfo, true); 
+    }
+    
+    /*
+     * issue 25855, removeContextRoot = false only when there is a duplicated context root in multiple apps.  
+     * There should be SRVE0164E in that case. 
+    */
+    private void stopModule(ExtendedModuleInfo moduleInfo, boolean removeContextRoot) {
         
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
             Tr.entry(tc, "stopModule()",((WebModuleInfo)moduleInfo).getName());
@@ -1207,14 +1244,21 @@ public class WebContainer extends com.ibm.ws.webcontainer.WebContainer implement
             }
             
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                Tr.debug(tc, "stopModule: " + webModule.getName() + " " + webModule.getContextRoot());
+                Tr.debug(tc, "stopModule: " + webModule.getName() + " " + webModule.getContextRoot() + " , removeContextRoot [" +removeContextRoot+ "]");
             }
 
-            removeContextRootRequirement(dMod);
-            removeModule(dMod);
+            /*
+             * 25855, since startModule never succeeds adding any contextRoot or start a module, there is no need
+             * to remove the context root or cleanup the module
+             * 
+             * Majority/normal operation (i.e shutdown/stop/dynamic reload...) should go into this block
+             */
+            if (removeContextRoot) {
+                removeContextRootRequirement(dMod);
+                removeModule(dMod);
+                this.vhostManager.purgeHost(dMod.getVirtualHostName());
+            }
             
-            this.vhostManager.purgeHost(dMod.getVirtualHostName());
-
             WebModuleMetaData wmmd = (WebModuleMetaData) ((ExtendedModuleInfo)webModule).getMetaData();
             
             deregisterMBeans((WebModuleMetaDataImpl) wmmd);
@@ -1568,52 +1612,36 @@ public class WebContainer extends com.ibm.ws.webcontainer.WebContainer implement
         // no-op intended here to avoid cacheServletWrapperFactory being null when switching service implementations
     }
 
-    
-    @Reference(service=ServletVersion.class, cardinality=ReferenceCardinality.MANDATORY, policy=ReferencePolicy.DYNAMIC, policyOption=ReferencePolicyOption.GREEDY)
-    protected synchronized void setVersion(ServiceReference<ServletVersion> reference) {
-        String methodName = "setVersion";
-        versionRef = reference;
-        WebContainer.loadedContainerSpecLevel = (Integer) reference.getProperty("version");
-        if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-            Tr.debug(tc, methodName, "loadedContainerSpecLevel [ " + WebContainer.loadedContainerSpecLevel + " ]");
-        }
-    }
 
-    protected synchronized void unsetVersion(ServiceReference<ServletVersion> reference) {
-        if (reference == this.versionRef) {
-            versionRef = null;
-            WebContainer.loadedContainerSpecLevel = DEFAULT_MAX_VERSION;
-        }
+    private static int loadServletVersion(){
+        String methodName = "loadServletVersion";
+
+        try (InputStream input = WebContainer.class.getClassLoader().getResourceAsStream("com/ibm/ws/webcontainer/speclevel/servletSpecLevel.properties")) {
+
+            if(input != null){
+                Properties prop = new Properties();
+                prop.load(input);
+                int loadedVersion = Integer.parseInt(prop.getProperty("version"));
+                return loadedVersion;
+            } else {
+                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                    Tr.debug(tc, methodName, "InputStream was null for servletSpecLevel.properties");
+                }
+            }
+
+        } catch (Exception ex) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+                Tr.debug(tc, methodName, "Exception occured: " + ex.getCause());
+            }
+        } 
+
+        logger.logp(Level.WARNING, CLASS_NAME, methodName, "servlet.feature.not.loaded.correctly");
+
+        return WebContainer.DEFAULT_SPEC_LEVEL;
     }
-    
-    public static final int SPEC_LEVEL_UNLOADED = -1;
-    public static final int SPEC_LEVEL_30 = 30;
-    public static final int SPEC_LEVEL_31 = 31;
-    public static final int SPEC_LEVEL_40 = 40;
-    public static final int SPEC_LEVEL_50 = 50;
-    private static final int DEFAULT_SPEC_LEVEL = 30;
-    
-    private static int loadedContainerSpecLevel = SPEC_LEVEL_UNLOADED;
-    
+        
     public static int getServletContainerSpecLevel() {
         String methodName = "getServletContainerSpecLevel";
-
-        if (WebContainer.loadedContainerSpecLevel == SPEC_LEVEL_UNLOADED) {
-            CountDownLatch currentLatch = selfInit;
-            // wait for activation
-            try {
-                currentLatch.await(5, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                // auto-FFDC
-                Thread.currentThread().interrupt();
-            }
-            currentLatch.countDown(); // don't wait again
-
-            if (WebContainer.loadedContainerSpecLevel == SPEC_LEVEL_UNLOADED) {
-                logger.logp(Level.WARNING, CLASS_NAME, methodName, "servlet.feature.not.loaded.correctly");
-                return WebContainer.DEFAULT_SPEC_LEVEL;
-            }
-        }
 
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
             Tr.debug(tc, methodName, "loadedContainerSpecLevel [ " + WebContainer.loadedContainerSpecLevel + " ]");
@@ -1622,6 +1650,13 @@ public class WebContainer extends com.ibm.ws.webcontainer.WebContainer implement
         return WebContainer.loadedContainerSpecLevel;
     }
     
+    public static boolean isServletLevel60orAbove() {
+        return (WebContainer.getServletContainerSpecLevel() >= WebContainer.SPEC_LEVEL_60) ? true : false; 
+    }
+    
+    public static boolean isServlet61orAbove() {
+        return (WebContainer.getServletContainerSpecLevel() >= WebContainer.SPEC_LEVEL_61) ? true : false; 
+    }
     
     protected static class CompletedFuture implements Future {
 

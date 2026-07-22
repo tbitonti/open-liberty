@@ -1,9 +1,11 @@
 ###############################################################################
 # Copyright (c) 2011, 2015 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 #
 # Contributors:
 #     IBM Corporation - initial API and implementation
@@ -55,13 +57,13 @@
 
 #-------------------------------------------------------------------------------
 # DO NOT TRANSLATE "DatabaseStore", this is a server.xml configuration element.
-ILLEGAL_IDENTIFIER_CWWKD0200E=CWWKD0200E: DatabaseStore \u63a5\u982d\u90e8\u69cb\u6210 {1} \u306b\u6b63\u3057\u304f\u306a\u3044\u6587\u5b57\u304c\u4f7f\u7528\u3055\u308c\u3066\u3044\u307e\u3059\u3002
+ILLEGAL_IDENTIFIER_CWWKD0200E=CWWKD0200E: DatabaseStore \u63a5\u982d\u90e8\u69cb\u6210 {0} \u306b\u6b63\u3057\u304f\u306a\u3044\u6587\u5b57\u304c\u542b\u307e\u308c\u3066\u3044\u307e\u3059\u3002
 ILLEGAL_IDENTIFIER_CWWKD0200E.explanation=DatabaseStore \u63a5\u982d\u90e8\u306b\u4f7f\u7528\u3067\u304d\u308b\u306e\u306f\u3001\u6570\u5b57\u3001\u6587\u5b57\u3001\u300c_\u300d\u8a18\u53f7\u306e\u307f\u3067\u3059\u3002
 ILLEGAL_IDENTIFIER_CWWKD0200E.useraction=\u6570\u5b57\u3001\u6587\u5b57\u3001\u300c_\u300d\u8a18\u53f7\u306e\u307f\u304c\u4f7f\u7528\u3055\u308c\u308b\u3088\u3046\u306b DatabaseStore \u63a5\u982d\u90e8\u3092\u5909\u66f4\u3059\u308b\u5fc5\u8981\u304c\u3042\u308a\u307e\u3059\u3002
 
 #-------------------------------------------------------------------------------
 # DO NOT TRANSLATE "DatabaseStore", this is a server.xml configuration element.
-ILLEGAL_IDENTIFIER_CWWKD0201E=CWWKD0201E: DatabaseStore \u30b9\u30ad\u30fc\u30de\u69cb\u6210 {1} \u306b\u6b63\u3057\u304f\u306a\u3044\u6587\u5b57\u304c\u4f7f\u7528\u3055\u308c\u3066\u3044\u307e\u3059\u3002
+ILLEGAL_IDENTIFIER_CWWKD0201E=CWWKD0201E: DatabaseStore \u30b9\u30ad\u30fc\u30de\u69cb\u6210 {0} \u306b\u6b63\u3057\u304f\u306a\u3044\u6587\u5b57\u304c\u542b\u307e\u308c\u3066\u3044\u307e\u3059\u3002
 ILLEGAL_IDENTIFIER_CWWKD0201E.explanation=DatabaseStore \u30b9\u30ad\u30fc\u30de\u306b\u4f7f\u7528\u3067\u304d\u308b\u306e\u306f\u3001\u6570\u5b57\u3001\u6587\u5b57\u3001\u300c_\u300d\u8a18\u53f7\u306e\u307f\u3067\u3059\u3002
 ILLEGAL_IDENTIFIER_CWWKD0201E.useraction=\u6570\u5b57\u3001\u6587\u5b57\u3001\u300c_\u300d\u8a18\u53f7\u306e\u307f\u304c\u4f7f\u7528\u3055\u308c\u308b\u3088\u3046\u306b DatabaseStore \u30b9\u30ad\u30fc\u30de\u3092\u5909\u66f4\u3059\u308b\u5fc5\u8981\u304c\u3042\u308a\u307e\u3059\u3002
 
@@ -88,4 +90,9 @@ PROVIDER_WARNING_CWWKD0291W.useraction=DatabaseStore \u306e\u8cc7\u6599\u3092\u5
 PROVIDER_ERROR_CWWKD0292E=CWWKD0292E: {0}
 PROVIDER_ERROR_CWWKD0292E.explanation=DatabaseStore \u306f\u3053\u306e\u30a8\u30e9\u30fc\u30fb\u30e1\u30c3\u30bb\u30fc\u30b8\u3092\u30ed\u30b0\u306b\u8a18\u9332\u3057\u307e\u3057\u305f\u3002
 PROVIDER_ERROR_CWWKD0292E.useraction=DatabaseStore \u306e\u8cc7\u6599\u3092\u53c2\u7167\u3057\u3066\u304f\u3060\u3055\u3044\u3002
+
+#-------------------------------------------------------------------------------
+UNSUPPORTED_ISOLATION_LEVEL_CWWKD0293E=CWWKD0293E: \u69cb\u6210\u30c8\u30e9\u30f3\u30b6\u30af\u30b7\u30e7\u30f3\u306e\u5206\u96e2\u30ec\u30d9\u30eb {0} \u306f\u30b5\u30dd\u30fc\u30c8\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002
+UNSUPPORTED_ISOLATION_LEVEL_CWWKD0293E.explanation=\u95a2\u9023\u3059\u308b\u30c7\u30fc\u30bf\u30d9\u30fc\u30b9\u30fb\u30c9\u30e9\u30a4\u30d0\u30fc\u306f\u3001\u8981\u6c42\u3055\u308c\u305f\u5206\u96e2\u30ec\u30d9\u30eb\u3092\u30b5\u30dd\u30fc\u30c8\u3057\u307e\u305b\u3093\u3002
+UNSUPPORTED_ISOLATION_LEVEL_CWWKD0293E.useraction=\u5206\u96e2\u30ec\u30d9\u30eb\u3092\u5909\u66f4\u3057\u3066\u304b\u3089\u518d\u8a66\u884c\u3057\u3066\u304f\u3060\u3055\u3044\u3002
 

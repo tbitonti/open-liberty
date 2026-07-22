@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -25,7 +27,11 @@ import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
 import org.apache.cxf.ws.addressing.EndpointReferenceType;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.ServiceReference;
 
+import com.ibm.tx.remote.RemoteTransactionController;
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
 import com.ibm.ws.ffdc.FFDCFilter;
@@ -33,7 +39,7 @@ import com.ibm.ws.jaxws.bus.LibertyApplicationBus;
 import com.ibm.ws.jaxws.wsat.Constants.AssertionStatus;
 import com.ibm.ws.wsat.service.WSATContext;
 import com.ibm.ws.wsat.service.WSATException;
-import com.ibm.ws.wsat.utils.WSATOSGIService;
+import com.ibm.ws.wsat.service.WSATUtil;
 import com.ibm.ws.wsat.utils.WSCoorConstants;
 import com.ibm.ws.wsat.utils.WSCoorUtil;
 import com.ibm.ws.wsat.webservice.client.wscoor.CoordinationContext;
@@ -47,6 +53,23 @@ public class CoorContextOutInterceptor extends AbstractPhaseInterceptor<Message>
                                           CoorContextOutInterceptor.class, WSCoorConstants.TRACE_GROUP, null);
     private AssertionStatus isOptional;
 
+    private final RemoteTransactionController tranService = getService(RemoteTransactionController.class);
+
+    private <T> T getService(Class<T> service) {
+        T impl = null;
+        BundleContext context = FrameworkUtil.getBundle(service).getBundleContext();
+        ServiceReference<T> ref = context.getServiceReference(service);
+        if (ref != null) {
+            impl = context.getService(ref);
+        } else {
+            if (tc.isDebugEnabled()) {
+                Tr.debug(tc, "Unable to locate service: {0}", service);
+            }
+            //throw new WSATException("Cannot locate service " + service);
+        }
+        return impl;
+    }
+
     /**
      * @param phase
      */
@@ -57,7 +80,7 @@ public class CoorContextOutInterceptor extends AbstractPhaseInterceptor<Message>
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see org.apache.cxf.interceptor.Interceptor#handleMessage(org.apache.cxf.message.Message)
      */
     @Override
@@ -72,7 +95,7 @@ public class CoorContextOutInterceptor extends AbstractPhaseInterceptor<Message>
 
         WSCoorUtil.checkHandlerServiceReady();
 
-        inTrans = WSATOSGIService.getInstance().getHandlerService().isTranActive();
+        inTrans = WSCoorUtil.getHandlerService().isTranActive();
         if (inTrans) {
             SoapHeader header = null;
             JAXBDataBinding dataBinding = null;
@@ -82,34 +105,16 @@ public class CoorContextOutInterceptor extends AbstractPhaseInterceptor<Message>
             }
 
             try {
-                String regHost = WSCoorUtil.resolveHost()
+                String regHost = WSCoorUtil.getConfigService().getWSATUrl()
                                  + "/"
                                  + WSCoorConstants.COORDINATION_REGISTRATION_ENDPOINT;
-//                String coorHost = WSCoorUtil.resolveHost()
-//                                  + "/"
-//                                  + WSCoorConstants.COORDINATION_ENDPOINT;
 
-                //      EndpointReferenceType localCoorEpr = WSCoorUtil.createEpr(coorHost);
-                EndpointReferenceType localRegEpr = WSCoorUtil.createEpr(regHost);
+                final String recoveryId = tranService != null ? tranService.getRecoveryId() : null;
 
-//                //set into HandlerService will always self coor...
-//                WSATOSGIService.getInstance().getHandlerService().setCoordinatorEndpoint(localCoorEpr);
-//                WSATOSGIService.getInstance().getHandlerService().setRegistrationEndpoint(localRegEpr);
+                final WSATContext ctx = WSCoorUtil.getHandlerService().handleClientRequest();
+                final EndpointReferenceType localRegEpr = WSATUtil.createEpr(regHost, ctx.getId(), recoveryId);
 
-                WSATContext ctx = WSATOSGIService.getInstance().getHandlerService().handleClientRequest();
-                EndpointReferenceType regEpr = ctx.getRegistration();
-                if (regEpr == null)
-                    regEpr = localRegEpr; //regEpr is NULL so it is itself.
-
-                if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                    Tr.debug(
-                             tc,
-                             "handleMessage",
-                             "Generate wsat application registration url",
-                             regHost);
-                }
-
-                CoordinationContext cc = WSCoorUtil.createCoordinationContext(ctx, regEpr);
+                CoordinationContext cc = WSCoorUtil.createCoordinationContext(ctx, localRegEpr);
                 dataBinding = new JAXBDataBinding(CoordinationContext.class);
                 QName qname = new QName(WSCoorConstants.NAMESPACE_WSCOOR, WSCoorConstants.COORDINATION_CONTEXT_ELEMENT_STRING);
                 header = new SoapHeader(qname, cc, dataBinding);
@@ -123,7 +128,7 @@ public class CoorContextOutInterceptor extends AbstractPhaseInterceptor<Message>
                     Tr.debug(
                              tc,
                              "handleMessage",
-                             "Generate a new CoordinationContext",
+                             "Generate a new CoordinationContext", header.toString(),
                              header.getName());
                 }
                 //Abandon using AbstractSoapInterceptor
@@ -146,12 +151,12 @@ public class CoorContextOutInterceptor extends AbstractPhaseInterceptor<Message>
         WSCoorUtil.checkHandlerServiceReady();
         try {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
-                Tr.debug(
-                         tc,
+                Tr.debug(tc,
                          "handleFault",
-                         "Execute handleClientFault for transaction");
+                         message,
+                         new Exception("Stack trace for CoorContextOutInterceptor.handleFault()"));
             }
-            WSATOSGIService.getInstance().getHandlerService().handleClientFault();
+            WSCoorUtil.getHandlerService().handleClientFault();
         } catch (WSATException e) {
             FFDCFilter.processException(e, "com.ibm.ws.wsat.interceptor.CoorContextOutInterceptor", "201");
         }

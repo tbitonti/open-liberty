@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2021 IBM Corporation and others.
+ * Copyright (c) 2018, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -36,6 +38,7 @@ import com.mongodb.DBObject;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoCredential;
+import com.mongodb.MongoTimeoutException;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteResult;
 
@@ -91,8 +94,21 @@ public class CustomStoreSample implements OAuthStore {
 
     private final static int RETRY_COUNT = 3;
 
+    boolean runRemote = true;
+
     public CustomStoreSample() {
-        System.out.println("CustomStoreSample init");
+        System.out.println("CustomStoreSample init, running Open Liberty version");
+
+        /*
+         * Local mongoDB does not run on z/OS, use remote
+         */
+        //String os = System.getProperty("os.name").toLowerCase();
+        if (runRemote) {
+            System.out.println("CustomStoreSample will connect to remote mongoDB server.");
+            //isZOS = true;
+        } else {
+            System.out.println("CustomStoreSample will connect to local mongoDB server.");
+        }
     }
 
     /**
@@ -109,22 +125,20 @@ public class CustomStoreSample implements OAuthStore {
 
             MongoClient mongoClient = null;
             try {
-                System.out.println("CustomStoreSample connecting to the " + dbName + " database at " + dbHost + ":"
-                                   + dbPort + " using table modifier " + uid);
-                List<MongoCredential> credentials = Collections.emptyList();
-                MongoCredential credential = MongoCredential.createCredential(dbUser, dbName, dbPwd.toCharArray());
-                credentials = Collections.singletonList(credential);
-                MongoClientOptions.Builder optionsBuilder = new MongoClientOptions.Builder().connectTimeout(30000);
-                optionsBuilder.socketTimeout(10000);
-                optionsBuilder.socketKeepAlive(true);
-                optionsBuilder.maxWaitTime(30000);
-                MongoClientOptions clientOptions = optionsBuilder.build();
-                mongoClient = new MongoClient(new ServerAddress(dbHost, dbPort), credentials, clientOptions);
-                db = mongoClient.getDB(dbName);
-                System.out.println("CustomStoreSample connected to the database");
-                OAUTHCLIENT = OAUTHCLIENT + uid;
-                OAUTHTOKEN = OAUTHTOKEN + uid;
-                OAUTHCONSENT = OAUTHCONSENT + uid;
+                if (runRemote) {
+                    connectToZOS(mongoClient);
+                } else {
+                    System.out.println("CustomStoreSample connecting to the " + dbName + " database at " + dbHost + ":"
+                                       + dbPort);
+                    MongoClientOptions.Builder optionsBuilder = new MongoClientOptions.Builder().connectTimeout(30000);
+                    optionsBuilder.socketTimeout(10000);
+                    optionsBuilder.socketKeepAlive(true);
+                    optionsBuilder.maxWaitTime(30000);
+                    MongoClientOptions clientOptions = optionsBuilder.build();
+                    mongoClient = new MongoClient(new ServerAddress(dbHost, dbPort), null, clientOptions);
+                    db = mongoClient.getDB(dbName);
+                    System.out.println("CustomStoreSample connected to the database");
+                }
 
                 // for test purposes, double check the starting state of the database
                 DBCollection col = getClientCollection();
@@ -216,13 +230,14 @@ public class CustomStoreSample implements OAuthStore {
                             dbUser = prop[1];
                         } else if (prop[0].equals("UID")) {
                             uid = prop[1];
+                            System.out.println("CustomStoreSample Table mod is " + uid);
                         } else {
                             System.out.println("CustomStoreSample Unexpected property in " + MONGO_PROPS_FILE + ": " + prop[0]);
                         }
                     }
                 }
 
-                System.out.println("CustomStoreSample Table mod is " + uid);
+                System.out.println("CustomStoreSample Config fetched");
             } finally {
                 br.close();
             }
@@ -233,10 +248,12 @@ public class CustomStoreSample implements OAuthStore {
 
     @Override
     public void create(OAuthClient oauthClient) throws OAuthStoreException {
+        System.out.println("CustomStoreSample entering create on OauthClient for " + oauthClient.getClientId());
         for (int i = 0; i < RETRY_COUNT; i++) {
             try {
                 DBCollection col = getClientCollection();
                 col.insert(createClientDBObjectHelper(oauthClient));
+                break;
             } catch (Exception e) {
                 if (i < RETRY_COUNT && isNetworkFailure(e)) {
                     try {
@@ -252,24 +269,36 @@ public class CustomStoreSample implements OAuthStore {
 
     private BasicDBObject createClientDBObjectHelper(OAuthClient oauthClient) {
         BasicDBObject d = new BasicDBObject(CLIENTID, oauthClient.getClientId());
+        System.out.println("Setting clients to always be enabled!  Previous setting was: " + oauthClient.isEnabled());
 
         d.append(PROVIDERID, oauthClient.getProviderId());
         d.append(CLIENTSECRET, oauthClient.getClientSecret());
         d.append(DISPLAYNAME, oauthClient.getDisplayName());
-        d.append(ENABLED, oauthClient.isEnabled());
+        d.append(ENABLED, true);
         d.append(METADATA, oauthClient.getClientMetadata());
         return d;
     }
 
     @Override
     public void create(OAuthToken oauthToken) throws OAuthStoreException {
-        try {
-            DBCollection col = getTokenCollection();
-            col.insert(createTokenDBObjectHelper(oauthToken));
+        System.out.println("CustomStoreSample entering create on OauthToken for " + oauthToken.getClientId());
+        for (int i = 0; i < RETRY_COUNT; i++) {
+            try {
+                DBCollection col = getTokenCollection();
+                col.insert(createTokenDBObjectHelper(oauthToken));
 
-            System.out.println("CustomStoreSample create Token " + oauthToken.getTokenString());
-        } catch (Exception e) {
-            throw new OAuthStoreException("Failed to process create on OAuthToken " + oauthToken.getClientId(), e);
+                System.out.println("CustomStoreSample create Token " + oauthToken.getTokenString());
+                break;
+            } catch (Exception e) {
+                if (i < RETRY_COUNT && isNetworkFailure(e)) {
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e1) {
+                    }
+                } else {
+                    throw new OAuthStoreException("Failed to process create on OAuthToken " + oauthToken.getClientId(), e);
+                }
+            }
         }
     }
 
@@ -480,13 +509,44 @@ public class CustomStoreSample implements OAuthStore {
 
     @Override
     public void update(OAuthClient oauthClient) throws OAuthStoreException {
+        System.out.println("CustomStoreSample update entry for " + oauthClient.getClientId());
         try {
-            DBCollection col = getClientCollection();
-            col.update(createClientKeyHelper(oauthClient), createClientDBObjectHelper(oauthClient), false, false);
+            for (int i = 0; i < RETRY_COUNT; i++) {
+                try {
+                    DBCollection col = getClientCollection();
+                    col.update(createClientKeyHelper(oauthClient), createClientDBObjectHelper(oauthClient), false, false);
+                    break;
+                } catch (Exception e) {
+                    if (i < RETRY_COUNT && isNetworkFailure(e)) {
+                        try {
+                            System.out.println("CustomStoreSample update hit a failure, trying again " + e.getMessage());
+
+                            Thread.sleep(5000);
+                        } catch (InterruptedException e1) {
+                        }
+                    } else {
+                        throw e;
+                    }
+                }
+            }
             System.out.println("CustomStoreSample update on " + oauthClient.getClientId());
+            String cs = oauthClient.getClientSecret();
+            if (cs == null) {
+                cs = "null_secret";
+            } else if (cs.equals("")) {
+                cs = "empty_secret";
+            } else if (cs.startsWith("{xor}")) {
+                cs = "xor";
+            } else if (cs.startsWith("{hash}")) {
+                cs = "hash";
+            } else {
+                cs = "plain";
+            }
+            System.out.println("CustomStoreSample hash type is " + cs);
         } catch (Exception e) {
             throw new OAuthStoreException("Failed on update for OAuthClient for " + oauthClient.getClientId(), e);
         }
+        System.out.println("CustomStoreSample update exit for " + oauthClient.getClientId());
     }
 
     @Override
@@ -532,17 +592,29 @@ public class CustomStoreSample implements OAuthStore {
 
     @Override
     public void deleteTokens(String providerId, long timestamp) throws OAuthStoreException {
-        try {
-            System.out.println("CustomStoreSample deleteTokens request for " + providerId + " expiring before " + timestamp);
-            DBCollection col = getTokenCollection();
-            System.out.println("CustomStoreSample deleteTokens before " + col.count());
-            BasicDBObject query = new BasicDBObject();
-            query.put(EXPIRES, new BasicDBObject("$lt", timestamp));
-            query.put(PROVIDERID, providerId);
-            col.remove(query);
-            System.out.println("CustomStoreSample deleteTokens after " + col.count());
-        } catch (Exception e) {
-            throw new OAuthStoreException("Failed on deleteTokens for time after " + timestamp, e);
+        for (int i = 0; i < RETRY_COUNT; i++) {
+            try {
+                System.out.println("CustomStoreSample deleteTokens request for " + providerId + " expiring before " + timestamp);
+                DBCollection col = getTokenCollection();
+                System.out.println("CustomStoreSample deleteTokens before " + col.count());
+                BasicDBObject query = new BasicDBObject();
+                query.put(EXPIRES, new BasicDBObject("$lt", timestamp));
+                query.put(PROVIDERID, providerId);
+                col.remove(query);
+                System.out.println("CustomStoreSample deleteTokens after " + col.count());
+                break;
+            } catch (Exception e) {
+                if (i < RETRY_COUNT && isNetworkFailure(e)) {
+                    try {
+                        System.out.println("CustomStoreSample deleteTokens hit a failure, trying again " + e.getMessage());
+
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e1) {
+                    }
+                } else {
+                    throw new OAuthStoreException("Failed on deleteTokens for time after " + timestamp, e);
+                }
+            }
         }
     }
 
@@ -612,7 +684,7 @@ public class CustomStoreSample implements OAuthStore {
         System.out.println("CustomStoreSample isNetworkFailure processing for " + e);
         Throwable causeBy = e;
         while (causeBy != null) {
-            if (causeBy instanceof IOException) {
+            if (causeBy instanceof IOException || causeBy instanceof MongoTimeoutException) {
                 System.out.println("Hit an IOException: " + causeBy);
                 return true;
             } else {
@@ -621,5 +693,25 @@ public class CustomStoreSample implements OAuthStore {
             }
         }
         return false;
+    }
+
+    private void connectToZOS(MongoClient mongoClient) throws UnknownHostException {
+
+        System.out.println("CustomStoreSample connectToZOS connecting to the " + dbName + " database at " + dbHost + ":"
+                           + dbPort + " using table modifier " + uid);
+        List<MongoCredential> credentials = Collections.emptyList();
+        MongoCredential credential = MongoCredential.createCredential(dbUser, dbName, dbPwd.toCharArray());
+        credentials = Collections.singletonList(credential);
+        MongoClientOptions.Builder optionsBuilder = new MongoClientOptions.Builder().connectTimeout(30000);
+        optionsBuilder.socketTimeout(10000);
+        optionsBuilder.socketKeepAlive(true);
+        optionsBuilder.maxWaitTime(30000);
+        MongoClientOptions clientOptions = optionsBuilder.build();
+        mongoClient = new MongoClient(new ServerAddress(dbHost, dbPort), credentials, clientOptions);
+        db = mongoClient.getDB(dbName);
+        System.out.println("CustomStoreSample connected to the database at " + dbHost);
+        OAUTHCLIENT = OAUTHCLIENT + uid;
+        OAUTHTOKEN = OAUTHTOKEN + uid;
+        OAUTHCONSENT = OAUTHCONSENT + uid;
     }
 }

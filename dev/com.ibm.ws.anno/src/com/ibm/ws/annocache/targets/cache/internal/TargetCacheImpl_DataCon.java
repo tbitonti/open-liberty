@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2019 IBM Corporation and others.
+ * Copyright (c) 2014, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -295,6 +297,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase
         if ( getUseBinaryFormat() ) {
             Util_Consumer<TargetCacheImpl_ReaderBinary, IOException> readAction =
                 new Util_Consumer<TargetCacheImpl_ReaderBinary, IOException>() {
+                    @Override
                     public void accept(TargetCacheImpl_ReaderBinary reader) throws IOException {
                         reader.readEntire(useStampTable);
                     }
@@ -321,6 +324,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase
             writeAction = null;
             writeActionBinary =
                 new Util_Consumer<TargetCacheImpl_WriterBinary, IOException>() {
+                    @Override
                     public void accept(TargetCacheImpl_WriterBinary useWriter) throws IOException {
                         useWriter.writeEntire(useStampTable);
                     }
@@ -328,6 +332,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase
         } else {
             writeAction =
                 new Util_Consumer<TargetCacheImpl_Writer, IOException>() {
+                    @Override
                     public void accept(TargetCacheImpl_Writer useWriter) throws IOException {
                         useWriter.write(useStampTable);
                     }
@@ -376,6 +381,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase
         if ( getUseBinaryFormat() ) {
             Util_Consumer<TargetCacheImpl_ReaderBinary, IOException> readAction =
                 new Util_Consumer<TargetCacheImpl_ReaderBinary, IOException>() {
+                @Override
                     public void accept(TargetCacheImpl_ReaderBinary reader) throws IOException {
                         reader.readEntire(
                             targetData.getClassTable(),
@@ -415,6 +421,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase
             writeAction = null;
             writeActionBinary =
                 new Util_Consumer<TargetCacheImpl_WriterBinary, IOException>() {
+                    @Override                
                     public void accept(TargetCacheImpl_WriterBinary useWriter) throws IOException {
                         useWriter.writeEntire(
                             targetData.getClassTable(),
@@ -424,6 +431,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase
         } else {
             writeAction =
                 new Util_Consumer<TargetCacheImpl_Writer, IOException>() {
+                    @Override                
                     public void accept(TargetCacheImpl_Writer useWriter) throws IOException {
                         useWriter.write( targetData.getClassTable() );
                         useWriter.write( targetData.getAnnotationTable() );
@@ -477,6 +485,7 @@ public class TargetCacheImpl_DataCon extends TargetCacheImpl_DataBase
 
         Util_Consumer<TargetCacheImpl_Writer, IOException> writeAction =
             new Util_Consumer<TargetCacheImpl_Writer, IOException>() {
+                @Override            
                 public void accept(TargetCacheImpl_Writer useWriter) throws IOException {
                     useWriter.write(jandexIndex);
                 }

@@ -1,0 +1,32 @@
+/*******************************************************************************
+ * Copyright (c) 2024, 2025 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
+
+task copyTestApps (type:Copy) {
+  dependsOn ':com.ibm.ws.wsat.migration_fat.1:autoFVT'
+  from project(':com.ibm.ws.wsat.migration_fat.1').autoFvtDir
+  into autoFvtDir
+  include 'test-applications/**'
+}
+
+task copyCommonFiles(type:Copy) {
+  from project(':com.ibm.ws.wsat.migration_fat.1').file('publish')
+  into 'publish'
+}
+
+clean.doLast {
+  if (file('build').exists()){
+    file('build').deleteDir()
+  }
+}
+
+addRequiredLibraries.dependsOn addJakartaTransformer

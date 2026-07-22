@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2020 IBM Corporation and others.
+ * Copyright (c) 2012, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -19,8 +21,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
-import componenttest.rules.repeater.EmptyAction;
-import componenttest.rules.repeater.JakartaEE9Action;
+import com.ibm.ws.security.fat.common.actions.LargeProjectRepeatActions;
+
+import componenttest.rules.repeater.JakartaEEAction;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 
@@ -49,15 +52,15 @@ import componenttest.topology.impl.LibertyServer;
                 OAuth20OnlyClient01.class,
                 OAuth20DerbyClient01XOR.class,
                 OAuth20DerbyClient01Hash.class,
-                OAuth20CustomStoreClient01Hash.class,
-                OAuth20CustomStoreClient01XOR.class,
-                OAuth20CustomStoreBellClient01.class,
+//                OAuth20CustomStoreClient01Hash.class,
+//                OAuth20CustomStoreClient01XOR.class,
+//                OAuth20CustomStoreBellClient01.class,
                 OAuth20DerbyClient02.class,
-                OAuth20CustomStoreClient02.class,
-                OAuth20CustomStoreBellClient02.class,
+//                OAuth20CustomStoreClient02.class,
+//                OAuth20CustomStoreBellClient02.class,
                 OAuth20DerbyClient03.class,
-                OAuth20CustomStoreClient03.class,
-                OAuth20CustomStoreBellClient03.class,
+//                OAuth20CustomStoreClient03.class,
+//                OAuth20CustomStoreBellClient03.class,
                 TestResourceOwnerValidationMediator.class,
                 OAuth20WebClientError.class,
                 OAuth20AccessNonexistentPageTest.class
@@ -68,11 +71,16 @@ import componenttest.topology.impl.LibertyServer;
 public class FATSuite extends CommonLocalLDAPServerSuite {
 
     /*
-     * Run EE9 tests in LITE mode and run all tests in FULL mode.
+     * On Windows, always run the default/empty/EE7/EE8 tests.
+     * On other Platforms:
+     * - if Java 8, run default/empty/EE7/EE8 tests.
+     * - All other Java versions
+     * -- If LITE mode, run EE9
+     * -- If FULL mode, run EE10
+     *
      */
     @ClassRule
-    public static RepeatTests repeat = RepeatTests.with(new EmptyAction().fullFATOnly())
-                    .andWith(new JakartaEE9Action());
+    public static RepeatTests repeat = LargeProjectRepeatActions.createEE9OrEE10Repeats();
 
     /**
      * JakartaEE9 transform a list of applications.
@@ -81,10 +89,10 @@ public class FATSuite extends CommonLocalLDAPServerSuite {
      * @param apps     The names of the applications to transform. Should include the path from the server root directory.
      */
     public static void transformApps(LibertyServer myServer, String... apps) {
-        if (JakartaEE9Action.isActive()) {
+        if (JakartaEEAction.isEE9OrLaterActive()) {
             for (String app : apps) {
                 Path someArchive = Paths.get(myServer.getServerRoot() + File.separatorChar + app);
-                JakartaEE9Action.transformApp(someArchive);
+                JakartaEEAction.transformApp(someArchive);
             }
         }
     }

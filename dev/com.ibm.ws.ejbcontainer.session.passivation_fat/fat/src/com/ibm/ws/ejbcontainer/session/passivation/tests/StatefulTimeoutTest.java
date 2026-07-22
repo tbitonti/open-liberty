@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2020 IBM Corporation and others.
+ * Copyright (c) 2015, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.ejbcontainer.session.passivation.tests;
 
@@ -23,7 +22,9 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import com.ibm.websphere.simplicity.OperatingSystem;
 import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
 import com.ibm.ws.ejbcontainer.session.passivation.statefulTimeout.web.StatefulTimeoutServlet;
 
 import componenttest.annotation.ExpectedFFDC;
@@ -33,7 +34,7 @@ import componenttest.annotation.TestServlets;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.rules.repeater.FeatureReplacementAction;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.rules.repeater.RepeatActions.SEVersion;
 import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 
@@ -48,8 +49,22 @@ public class StatefulTimeoutTest extends AbstractTest {
         return server;
     }
 
+    /*@formatter:off*/
     @ClassRule
-    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES().fullFATOnly().forServers("com.ibm.ws.ejbcontainer.session.passivation.fat.sfTimeout")).andWith(FeatureReplacementAction.EE8_FEATURES().forServers("com.ibm.ws.ejbcontainer.session.passivation.fat.sfTimeout")).andWith(new JakartaEE9Action().forServers("com.ibm.ws.ejbcontainer.session.passivation.fat.sfTimeout"));
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.EE7_FEATURES()
+                                                    .fullFATOnly()
+                                                    .forServers("com.ibm.ws.ejbcontainer.session.passivation.fat.sfTimeout"))
+                                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.session.passivation.fat.sfTimeout"))
+                                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11)
+                                                    .forServers("com.ibm.ws.ejbcontainer.session.passivation.fat.sfTimeout"))
+                                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                                    .withMaxJavaLevel(SEVersion.JAVA11) // Running the EE10 and EE11 repeats causes the bucket to run over 3 hours.
+                                                    .forServers("com.ibm.ws.ejbcontainer.session.passivation.fat.sfTimeout"))
+                                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                                    .forServers("com.ibm.ws.ejbcontainer.session.passivation.fat.sfTimeout"));
+    /*@formatter:on*/
 
     @BeforeClass
     public static void beforeClass() throws Exception {
@@ -61,7 +76,12 @@ public class StatefulTimeoutTest extends AbstractTest {
         EnterpriseArchive StatefulTimeoutTestApp = ShrinkWrap.create(EnterpriseArchive.class, "StatefulTimeoutTestApp.ear");
         StatefulTimeoutTestApp.addAsModule(StatefulTimeoutEJBJar).addAsModule(StatefulTimeoutWeb);
 
-        ShrinkHelper.exportDropinAppToServer(server, StatefulTimeoutTestApp);
+        ShrinkHelper.exportDropinAppToServer(server, StatefulTimeoutTestApp, DeployOptions.SERVER_ONLY);
+
+        if (server.getMachine().getOperatingSystem().equals(OperatingSystem.ZOS)) {
+            // On Z, sleep before starting the server to allow time for the ports to free up after prior server stop.
+            Thread.sleep(5 * 1000);
+        }
 
         server.startServer();
     }

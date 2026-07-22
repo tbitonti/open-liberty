@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2019, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -72,5 +74,17 @@ public class ClientTestServlet extends FATServlet {
         assertTrue("Missing inner bean form parameter", actual.contains("innerForm=SECOND"));
         //if working correctly, the resource method always puts this at the end though:
         assertTrue("Bean param processing failed", actual.endsWith("&FIRST&SECOND"));
+    }
+
+    @Test
+    public void testCookieParam() throws Exception {
+        String content = "Whatever";
+        Response response = client.target(URI_CONTEXT_ROOT)
+                        .path("cookieparam")
+                        .request(MediaType.TEXT_PLAIN_TYPE)
+                        .cookie("cookie", "Chocolate Chip")
+                        .cookie("innerCookie", "Snickerdoodle")
+                        .post(Entity.entity(content, MediaType.APPLICATION_FORM_URLENCODED_TYPE));
+        assertEquals("Whatever&Chocolate Chip&Snickerdoodle", response.readEntity(String.class));
     }
 }

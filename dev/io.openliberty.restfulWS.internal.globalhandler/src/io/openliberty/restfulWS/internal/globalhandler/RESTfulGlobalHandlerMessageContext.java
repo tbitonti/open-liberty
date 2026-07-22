@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,13 +19,16 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.ibm.websphere.ras.Traceable;
+import com.ibm.websphere.ras.annotation.Sensitive;
+import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.wsspi.webservices.handler.GlobalHandlerMessageContext;
 import com.ibm.wsspi.webservices.handler.HandlerConstants;
 
+@Trivial
 public class RESTfulGlobalHandlerMessageContext implements GlobalHandlerMessageContext, Traceable {
 
     private final boolean isServerSide;
@@ -74,6 +79,7 @@ public class RESTfulGlobalHandlerMessageContext implements GlobalHandlerMessageC
     }
 
     @Override
+    @Sensitive
     public Object getProperty(String name) {
         return propertyGetter.apply(name);
     }
@@ -136,7 +142,11 @@ public class RESTfulGlobalHandlerMessageContext implements GlobalHandlerMessageC
             Iterator<String> iter = getPropertyNames();
             while (iter.hasNext()) {
                 String name = iter.next();
-                sb.append(LS).append(name).append("=").append(getProperty(name));
+                if (name.toLowerCase().contains("password")) {
+                    sb.append(LS).append(name).append("=").append("*****");
+                } else {
+                    sb.append(LS).append(name).append("=").append(getProperty(name));
+                }
             }
         }
         sb.append("]");

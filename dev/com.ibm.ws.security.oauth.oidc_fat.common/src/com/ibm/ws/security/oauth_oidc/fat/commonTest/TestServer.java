@@ -1,12 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
- *     IBM Corporation - initial API and implementation
+ * IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.oauth_oidc.fat.commonTest;
 
@@ -16,10 +18,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.ibm.websphere.simplicity.config.HttpEndpoint;
+import com.ibm.websphere.simplicity.config.ServerConfiguration;
 import com.ibm.websphere.simplicity.log.Log;
-import com.ibm.ws.security.fat.common.servers.ServerBootstrapUtils;
 import com.ibm.ws.security.fat.common.Utils;
 import com.ibm.ws.security.fat.common.apps.AppConstants;
+import com.ibm.ws.security.fat.common.servers.ServerBootstrapUtils;
 import com.ibm.ws.security.oauth_oidc.fat.commonTest.ValidationData.validationData;
 
 import componenttest.topology.impl.LibertyServerWrapper;
@@ -65,6 +69,12 @@ public class TestServer extends com.ibm.ws.security.fat.common.TestServer {
         setOriginalServerXmlName(serverXML);
         setServerTypeBasedOnTestType(testType);
         addHostNameAndAddrToBootstrap();
+        try {
+            serverInitCreateServerXml(serverXML);
+        } catch (Exception e) {
+            Log.error(thisClass, "initializeServer", e, "Failure tryingt to write default server.xml: ");
+            // continue on - we only need the file at this point in time for a few corner cases (like oidc/saml configs)
+        }
     }
 
     void setServerTypeBasedOnTestType(String testType) {
@@ -127,22 +137,31 @@ public class TestServer extends com.ibm.ws.security.fat.common.TestServer {
      */
     public void waitForValueInServerLog(validationData expected) throws Exception {
         // TODO - same as superclass, but validationData class type is different
-        String thisMethod = "waitForValueInServerLog";
+        String thisMethod = "waitForValueInServerLog - oidc";
         if (expected == null) {
             throw new Exception("Cannot search for expected value in server log: The provided expectation is null!");
         }
+        String expectedValue = expected.getValidationValue();
         try {
             Log.info(thisClass, thisMethod, "checkType is: " + expected.getCheckType());
 
             String logName = getGenericLogName(expected.getWhere());
-            String expectedValue = expected.getValidationValue();
             Log.info(thisClass, thisMethod, "Searching for [" + expectedValue + "] in " + logName);
 
-            String searchResult = server.waitForStringInLogUsingMark(expectedValue, server.getMatchingLogFile(logName));
-            msgUtils.assertTrueAndLog(thisMethod, expected.getPrintMsg() + " Was expecting to find [" + expectedValue + "] in " + logName + ", but did not find it there!",
-                    searchResult != null);
-            Log.info(thisClass, thisMethod, "Found message: " + expectedValue);
+            String searchResult = null;
+            if (expected.getCheckType().equals(Constants.MSG_NOT_LOGGED)) {
+                searchResult = server.verifyStringNotInLogUsingMark(expectedValue, 2000); // short timeout because we already expect the msg to "not" be there
+            } else {
+                searchResult = server.waitForStringInLogUsingMark(expectedValue, server.getMatchingLogFile(logName));
+            }
 
+            if (expected.getCheckType().equals(Constants.STRING_DOES_NOT_CONTAIN) || expected.getCheckType().equals(Constants.STRING_DOES_NOT_MATCH) || expected.getCheckType().equals(Constants.MSG_NOT_LOGGED)) {
+                msgUtils.assertTrueAndLog(thisMethod, expected.getPrintMsg() + " Was expecting NOT to find [" + expectedValue + "] in " + logName + ", but did find it there!", searchResult == null);
+                Log.info(thisClass, thisMethod, "DID NOT find message: " + expectedValue);
+            } else {
+                msgUtils.assertTrueAndLog(thisMethod, expected.getPrintMsg() + " Was expecting to find [" + expectedValue + "] in " + logName + ", but did not find it there!", searchResult != null);
+                Log.info(thisClass, thisMethod, "Found message: " + expectedValue);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             Log.error(thisClass, thisMethod, e, "Failure searching for string [" + expected.getValidationValue() + "] in " + expected.getWhere());
@@ -273,34 +292,44 @@ public class TestServer extends com.ibm.ws.security.fat.common.TestServer {
 
     @Override
     public Integer getHttpDefaultPort() {
-        if (SERVER_TYPE_OP.equals(thisServerType)) {
-            return Integer.getInteger(Constants.SYS_PROP_PORT_OP_HTTP_DEFAULT);
-        } else {
-            if (SERVER_TYPE_RP.equals(thisServerType)) {
-                return Integer.getInteger(Constants.SYS_PROP_PORT_RP_HTTP_DEFAULT);
-            } else {
-                if (Constants.IDP_SERVER_TYPE.equals(thisServerType)) {
-                    return Integer.getInteger(Constants.SYS_PROP_PORT_IDP_HTTP_DEFAULT);
-                }
-            }
+
+        try {
+            Log.info(thisClass, "getHttpDefaultPort", "ServerName: " + server.getServerName());
+
+            ServerConfiguration serverConfig = server.getServerConfiguration();
+            HttpEndpoint serverEndpoints = serverConfig.getHttpEndpoints().getById("defaultHttpEndpoint");
+            String port = serverEndpoints.getHttpPort().replace("${bvt.prop.", "").replace("}", "");
+            Integer portNum = Integer.getInteger(port);
+            return portNum;
+
+        } catch (Exception e) {
+            Log.error(thisClass, "failed getting port - will use the default", e);
         }
-        return server.getHttpDefaultPort();
+        Integer defaultPort = server.getHttpDefaultPort();
+        Log.info(thisClass, "getHttpDefaultPort", "Default port is: " + defaultPort);
+        return defaultPort;
     }
 
     @Override
     public Integer getHttpDefaultSecurePort() {
-        if (SERVER_TYPE_OP.equals(thisServerType)) {
-            return Integer.getInteger(Constants.SYS_PROP_PORT_OP_HTTPS_DEFAULT);
-        } else {
-            if (SERVER_TYPE_RP.equals(thisServerType)) {
-                return Integer.getInteger(Constants.SYS_PROP_PORT_RP_HTTPS_DEFAULT);
-            } else {
-                if (Constants.IDP_SERVER_TYPE.equals(thisServerType)) {
-                    return Integer.getInteger(Constants.SYS_PROP_PORT_IDP_HTTPS_DEFAULT);
-                }
-            }
+
+        try {
+
+            Log.info(thisClass, "getHttpDefaultPort", "ServerName: " + server.getServerName());
+
+            ServerConfiguration serverConfig = server.getServerConfiguration();
+            HttpEndpoint serverEndpoints = serverConfig.getHttpEndpoints().getById("defaultHttpEndpoint");
+            String port = serverEndpoints.getHttpsPort().replace("${bvt.prop.", "").replace("}", "");
+            Integer portNum = Integer.getInteger(port);
+            return portNum;
+
+        } catch (Exception e) {
+            Log.error(thisClass, "failed getting port - will use the default", e);
         }
-        return server.getHttpDefaultSecurePort();
+        Integer defaultPort = server.getHttpDefaultSecurePort();
+        Log.info(thisClass, "getHttpDefaultPort", "Default port is: " + defaultPort);
+        return defaultPort;
+
     }
 
     public List<String> getDefaultStartMessages(String testType) {

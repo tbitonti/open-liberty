@@ -14,6 +14,7 @@ import com.ibm.ws.kernel.boot.HelpActions;
 
 public class ServerHelpActions implements HelpActions {
     private enum Command {
+        checkpointCmd(Category.lifecycle, "at"),
         createCmd(Category.lifecycle, "template", "no-password"),
         debugCmd(Category.lifecycle, "clean"),
         dumpCmd(Category.service, "archive"),
@@ -28,7 +29,7 @@ public class ServerHelpActions implements HelpActions {
         startCmd(Category.lifecycle, "clean"),
         startWinServiceCmd(Category.win),
         statusCmd(Category.lifecycle),
-        stopCmd(Category.lifecycle, "force"),
+        stopCmd(Category.lifecycle, "force", "timeout"),
         stopWinServiceCmd(Category.win),
         unregisterWinServiceCmd(Category.win),
         versionCmd(Category.help);

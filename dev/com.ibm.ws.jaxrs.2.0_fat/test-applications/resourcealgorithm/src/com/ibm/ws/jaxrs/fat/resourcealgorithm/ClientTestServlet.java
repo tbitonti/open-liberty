@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019 IBM Corporation and others.
+ * Copyright (c) 2019, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -34,7 +36,7 @@ import javax.ws.rs.core.UriBuilder;
 public class ClientTestServlet extends HttpServlet {
 
     private static final long serialVersionUID = 5146292896244309506L;
-    private final String war = "resourcealgorithm";
+    private final String war = "/resourcealgorithm";
     private String serverIP;
     private String serverPort;
 
@@ -96,11 +98,11 @@ public class ClientTestServlet extends HttpServlet {
     }
 
     private String getContinuedSearchURI() {
-        return "http://localhost:" + serverPort + "/resourcealgorithm/continued";
+        return "http://localhost:" + serverPort + war + "/continued";
     }
 
     private String getNormalSearchURI() {
-        return "http://localhost:" + serverPort + "/resourcealgorithm/normal";
+        return "http://localhost:" + serverPort + war + "/normal";
     }
 
     // The reliance on MyOtherRootResource and MyRootResource causes compilation problems,
@@ -157,7 +159,7 @@ public class ClientTestServlet extends HttpServlet {
      * subresource method.
      */
     public void testSubresourceLocatorPOST(Map<String, String> param, StringBuilder ret) {
-        Response response = client.target(UriBuilder.fromPath(getContinuedSearchURI()).path("/root").path("subresource").build()).request().post(null);
+        Response response = client.target(UriBuilder.fromPath(getContinuedSearchURI()).path("/root").path("actual_subresource").build()).request().post(null);
 
         assertEquals(200, response.getStatus());
         String resp = response.readEntity(String.class);
@@ -186,7 +188,7 @@ public class ClientTestServlet extends HttpServlet {
         resp = response.readEntity(String.class);
         assertEquals("MyRootResource.getSub()", resp);
 
-        response = client.target(UriBuilder.fromPath(getNormalSearchURI()).path("/root").path("subresource").build()).request().post(null);
+        response = client.target(UriBuilder.fromPath(getNormalSearchURI()).path("/root").path("actual_subresource").build()).request().post(null);
 
         assertEquals(200, response.getStatus());
         ret.append("OK");

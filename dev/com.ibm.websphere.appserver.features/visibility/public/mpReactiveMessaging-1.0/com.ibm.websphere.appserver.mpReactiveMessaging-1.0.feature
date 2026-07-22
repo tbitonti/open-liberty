@@ -11,18 +11,20 @@ IBM-API-Package: \
   com.ibm.ws.kafka.security; type="internal"
 IBM-ShortName: mpReactiveMessaging-1.0
 Subsystem-Name: MicroProfile Reactive Messaging 1.0
--features=com.ibm.websphere.appserver.org.eclipse.microprofile.reactive.messaging-1.0, \
- com.ibm.websphere.appserver.mpReactiveStreams-1.0, \
- com.ibm.websphere.appserver.mpConfig-1.3; ibm.tolerates:=1.4, \
- com.ibm.websphere.appserver.cdi-2.0, \
- com.ibm.websphere.appserver.concurrent-1.0, \
- io.openliberty.mpCompatible-0.0
+-features=com.ibm.websphere.appserver.mpConfig-1.3; ibm.tolerates:="1.4", \
+  com.ibm.websphere.appserver.mpReactiveStreams-1.0, \
+  io.openliberty.mpCompatible-0.0, \
+  com.ibm.websphere.appserver.org.eclipse.microprofile.reactive.messaging-1.0, \
+  com.ibm.websphere.appserver.cdi-2.0, \
+  com.ibm.websphere.appserver.concurrent-1.0
 -bundles=com.ibm.ws.io.smallrye.reactive.messaging-provider, \
  com.ibm.ws.io.reactivex.rxjava.2.2, \
  com.ibm.ws.org.apache.commons.lang3, \
  com.ibm.ws.microprofile.reactive.messaging.kafka, \
  com.ibm.ws.microprofile.reactive.messaging.kafka.adapter, \
- com.ibm.ws.microprofile.reactive.messaging.kafka.adapter.impl
+ com.ibm.ws.microprofile.reactive.messaging.kafka.adapter.impl,\
+ io.openliberty.microprofile.reactive.messaging.internal
 kind=ga
 edition=core
 WLP-Activation-Type: parallel
+WLP-Platform: microProfile-1.4,microProfile-2.0,microProfile-2.1,microProfile-2.2,microProfile-3.0,microProfile-3.2,microProfile-3.3

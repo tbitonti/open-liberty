@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2004 IBM Corporation and others.
+ * Copyright (c) 1997, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.jsp.taglib;
 
@@ -97,25 +96,6 @@ public class TagLibraryCache extends Hashtable<String, Object> {
     
     private Map locationsCache = null;
 
-    //AbstractJspModC.java uses this constructor
-    public TagLibraryCache(JspTranslationContext ctxt,
-                           Map webxmlTagLibMap,
-                           JspOptions jspOptions,
-                           JspConfigurationManager configManager,
-                           Map<String, Object> globalMap,
-                           Map implicitMap,
-                           Map optimizedTagMap) throws JspCoreException {
-        this(ctxt,
-        null, //container
-        webxmlTagLibMap,
-        jspOptions,
-        configManager,
-        globalMap,
-        implicitMap,
-        optimizedTagMap,
-        null);
-    }
-
     public TagLibraryCache(JspTranslationContext ctxt,
                            Map webxmlTagLibMap,
                            JspOptions jspOptions,
@@ -168,7 +148,7 @@ public class TagLibraryCache extends Hashtable<String, Object> {
         this.jspOptions = jspOptions; // 396002
         //outputDir = jspOptions.getOutputDir().getPath();
         if (cont!=null) {
-            container = cont;    
+            container = cont;
         } else {
             container = ctxt.getServletContext().getModuleContainer(); //null if no loose container
         }
@@ -206,6 +186,10 @@ public class TagLibraryCache extends Hashtable<String, Object> {
             if (ctxt!=null) {
                 //don't need to load these if we've been passed a container since we're just gathering classes for injection
                 loadWebInfTagFiles("/WEB-INF/tags");
+                // Also load tag files from META-INF/resources/WEB-INF/tags in JARs (if enabled)
+                if (jspOptions.isLoadTagFilesFromJars()) {
+                    loadTagFilesFromJars();
+                }
             }
         } //PK69220
 
@@ -218,10 +202,7 @@ public class TagLibraryCache extends Hashtable<String, Object> {
         }
         //PK68590 end
 
-        if (jspOptions.isUseImplicitTagLibs() &&
-             (jspOptions.getTranslationContextClass() == null 
-              	|| (jspOptions.getTranslationContextClass() != null && // 415289
-              	    jspOptions.getTranslationContextClass().equals(Constants.IN_MEMORY_TRANSLATION_CONTEXT_CLASS)))) { 
+        if (jspOptions.isUseImplicitTagLibs() && jspOptions.getTranslationContextClass() == null) {
             for (Map.Entry<String, Object> mapEntry : globalMap.entrySet()) {
                 String uri = mapEntry.getKey();
                 if (!containsKey(uri)) {
@@ -273,7 +254,10 @@ public class TagLibraryCache extends Hashtable<String, Object> {
     
     //only called when you have a context
     public void loadWebInfTagFiles() throws JspCoreException {
+
         loadWebInfTagFiles("/WEB-INF/tags");
+        // Also load tag files from META-INF/resources/WEB-INF/tags in JARs
+        loadTagFilesFromJars();
     }
 
     private List loadWebXmlMap(Map webxmlTagLibMap) throws JspCoreException {
@@ -389,107 +373,6 @@ public class TagLibraryCache extends Hashtable<String, Object> {
         JspInputSource inputSource = getInputSource(container, resourcePath, null, null);
         Container jarContainer = ((JspInputSourceContainerImpl)inputSource).getContainer();
         loadTldsFromJar(jarContainer, resourcePath, loadedLocations, null);
-    }
-    //called from AbstractJspModC, no need to cache
-    public void loadTldsFromJar(URL url, String resourcePath, List loadedLocations, JspXmlExtConfig webAppConfig) {
-        if(com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable(Level.FINE)){
-                logger.logp(Level.FINE, CLASS_NAME, "loadTldsFromJar", "url ["+url+"]"+"resourcePath ["+resourcePath+"] loadedLocations ["+loadedLocations+"] webAppConfig ["+webAppConfig+"]" );
-        }
-        JarFile jarFile = null;
-        InputStream stream = null;
-        String name = null;
-        try {
-            JarURLConnection conn = (JarURLConnection)url.openConnection();
-            conn.setUseCaches(false);
-            jarFile = conn.getJarFile();
-
-            String originatorId = jarFile.getName();
-            originatorId = originatorId.substring(0, originatorId.indexOf(".jar"));
-            if (originatorId.indexOf(File.separatorChar) != -1)
-                originatorId = originatorId.substring(originatorId.lastIndexOf(File.separatorChar)+1);
-            originatorId = NameMangler.mangleString(originatorId);
-
-            Enumeration entries = jarFile.entries();
-            while (entries.hasMoreElements()) {
-                JarEntry entry = (JarEntry) entries.nextElement();
-                name = entry.getName();
-                if (name.startsWith("META-INF/") &&
-                    name.endsWith(".tld") &&
-                    loadedLocations.contains(resourcePath + "/" + name) == false) {
-                    stream = jarFile.getInputStream(entry);
-                    JspInputSource tldInputSource = getInputSource(container, name, null, url);
-                    //TagLibraryInfoImpl tli = loadSerializedTld(tldInputSource, inputSource);
-
-                    //if (tli == null) {
-                    try {
-                        TagLibraryInfoImpl tli = tldParser.parseTLD(tldInputSource, stream, originatorId);
-                        
-                        //516822 - If no URI is defined in the tag, we still want to load it in case it has listeners
-                        //use the resourcePath + "/" + name as the key
-                        String uri = null;
-                        if (tli.getReliableURN() != null && tli.getReliableURN().trim().equals("") == false) {
-                            uri = tli.getReliableURN();
-                        } else {
-                            uri = resourcePath + "/" + name;
-                        }
-                        
-                        //if (tli.getReliableURN() != null && tli.getReliableURN().trim().equals("") == false) {
-                            tli.setURI(uri);
-                            if(com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable(Level.FINE)){
-                                logger.logp(Level.FINE, CLASS_NAME, "loadTldsFromJar", "webAppConfig is "+webAppConfig);
-                            }
-                            if(com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable(Level.FINE) && webAppConfig!=null){
-                                logger.logp(Level.FINE, CLASS_NAME, "loadTldsFromJar", "tli URN is "+ uri+
-                                                                                                                                           " :webAppConfig.getTagLibMap() is "+webAppConfig.getTagLibMap()+
-                                                                                                                                           " :webAppConfig.getTagLibMap().containsKey(uri) is "+webAppConfig.getTagLibMap().containsKey(uri)+
-                                                                                                                                           " :containsKey(uri) is "+containsKey(uri) );
-                            }
-                            if ((webAppConfig!=null && webAppConfig.getTagLibMap().containsKey(uri)==false)
-                                    || (webAppConfig==null && containsKey(uri) == false)) {
-                                if(com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable(Level.FINE)){
-                                    logger.logp(Level.FINE, CLASS_NAME, "loadTldsFromJar", "jar tld loaded for {0}", uri);
-                                }
-                                put(uri, tli);
-                                //serializeTld(tldInputSource, tli);
-                                eventListenerList.addAll(tldParser.getEventListenerList());
-                                tagListForInjection.addAll(tldParser.getParsedTagsList());
-                                if(com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable(Level.FINE)){
-                                    logger.logp(Level.FINE, CLASS_NAME, "loadTldsFromJar", "tldParser.getEventListenerList() ["+ tldParser.getEventListenerList()+"]");
-                                }
-                            }
-                        //}
-                    }
-                    catch (JspCoreException e) {
-                        if(com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable(Level.WARNING)){
-                            logger.logp(Level.WARNING, CLASS_NAME, "loadTldsFromJar", "jsp error failed to load tld in jar. uri = ["+resourcePath+"]", e);
-                        }
-                    }
-                    //}
-
-                    stream.close();
-                    stream = null;
-                }
-            }
-        }
-        catch (Exception e) {
-            if(com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled()&&logger.isLoggable(Level.WARNING)){
-                logger.logp(Level.WARNING, CLASS_NAME, "loadTldsFromJar", "jsp error failed to load tld in jar. uri = ["+resourcePath+"]", e);
-            }
-        }
-        finally {
-            if (stream != null) {
-                try {
-                    stream.close();
-                }
-                catch (Throwable t) {}
-            }
-            if (jarFile != null) {
-                try {
-                    jarFile.close();
-                }
-                catch (Throwable t) {}
-            }
-        }
     }
 
     public void loadTldsFromJar(Container jarContainer, String resourcePath, List loadedLocations, JspXmlExtConfig webAppConfig) {
@@ -830,6 +713,206 @@ public class TagLibraryCache extends Hashtable<String, Object> {
                 else if (tli!=null) {
                     put(tagsDir, tli); // just put the info from implicit.tld even though there are no tag files
                 }
+            }
+        }
+    }
+    
+    /**
+     * Loads tag files from META-INF/resources/WEB-INF/tags in JAR files located in WEB-INF/lib.
+     * This supports Servlet 3.0+ web fragments where tag files can be packaged in library JARs.
+     */
+    private void loadTagFilesFromJars() throws JspCoreException {
+        if (container != null) {
+            try {
+                NonPersistentCache npc = container.adapt(NonPersistentCache.class);
+                TagLibContainerInfo tagLibContainers = (TagLibContainerInfo) npc.getFromCache(TagLibContainerInfo.class);
+                if (tagLibContainers != null) {
+                    for (ContainerInfo info : tagLibContainers.getTagLibContainers()) {
+                        if (info.getType() == ContainerInfo.Type.WEB_INF_LIB) {
+                            loadTagFilesFromJar(info.getContainer(), info.getName());
+                        }
+                    }
+                } else {
+                    com.ibm.wsspi.adaptable.module.Entry libDir = container.getEntry("/WEB-INF/lib");
+                    if (libDir != null) {
+                        Container libDirContainer = libDir.adapt(Container.class);
+                        if (libDirContainer != null) {
+                            for (com.ibm.wsspi.adaptable.module.Entry entry : libDirContainer) {
+                                String entryName = entry.getName();
+                                if (entryName.endsWith(".jar")) {
+                                    Container jarContainer = entry.adapt(Container.class);
+                                    if (jarContainer != null) {
+                                        loadTagFilesFromJar(jarContainer, entryName);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (UnableToAdaptException e) {
+                if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.WARNING)) {
+                    logger.logp(Level.WARNING, CLASS_NAME, "loadTagFilesFromJars", "Failed to load tag files from JARs", e);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Loads tag files from META-INF/resources/WEB-INF/tags in a specific JAR file.
+     * Recursively scans subdirectories under META-INF/resources/WEB-INF/tags.
+     */
+    private void loadTagFilesFromJar(Container jarContainer, String jarName) throws JspCoreException {
+        try {
+            // Look for META-INF/resources/WEB-INF/tags in the JAR
+            com.ibm.wsspi.adaptable.module.Entry metaInfResourcesEntry = jarContainer.getEntry("/META-INF/resources/WEB-INF/tags");
+            if (metaInfResourcesEntry != null) {
+                Container tagsContainer = metaInfResourcesEntry.adapt(Container.class);
+                if (tagsContainer != null) {
+                    // Use /WEB-INF/tags as the cache key so JSPs can find them with tagdir="/WEB-INF/tags"
+                    // The actual path in the JAR is /META-INF/resources/WEB-INF/tags
+                    String tagsDirInJar = "/META-INF/resources/WEB-INF/tags";
+                    String tagsDirKey = "/WEB-INF/tags";  // Cache key that JSPs will use
+                    if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+                        logger.logp(Level.FINE, CLASS_NAME, "loadTagFilesFromJar", "Loading tag files from JAR: " + jarName + ", path: " + tagsDirInJar);
+                    }
+                    loadTagFilesFromJarRecursive(tagsContainer, tagsDirInJar, tagsDirKey, jarName);
+                }
+            }
+        } catch (UnableToAdaptException e) {
+            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.WARNING)) {
+                logger.logp(Level.WARNING, CLASS_NAME, "loadTagFilesFromJar", "Failed to load tag files from JAR: " + jarName, e);
+            }
+        }
+    }
+    
+    /**
+     * Recursively loads tag files from a container representing a tags directory in a JAR.
+     */
+    @SuppressWarnings("unchecked")
+    private void loadTagFilesFromJarRecursive(Container tagsContainer, String tagsDirInJar, String tagsDirKey, String jarName) throws JspCoreException {
+        Set<String> tagFileSet = new HashSet<String>();
+        getFilesFromContainer(tagFileSet, tagsContainer);
+        
+        ArrayList<TagFileInfo> list = new ArrayList<TagFileInfo>();
+        TagLibraryInfoImpl tli = null;
+        boolean succeeded = true;
+        
+        if (tagFileSet != null && !tagFileSet.isEmpty()) {
+            ImplicitTldParser implicitTldParser = new ImplicitTldParser(ctxt, configManager, false);
+            
+            // First, check for implicit.tld
+            for (String resourcePath : tagFileSet) {
+                if (resourcePath.endsWith("/implicit.tld")) {
+                    try {
+                        JspInputSource inputSource = ctxt.getJspInputSourceFactory().createJspInputSource(resourcePath);
+                        tli = implicitTldParser.parseTLD(inputSource, "jar");
+                        if (tli != null) {
+                            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+                                logger.logp(Level.FINE, CLASS_NAME, "loadTagFilesFromJarRecursive", "Got TagLibraryInfoImpl for [{0}] from JAR [{1}], TLD file [{2}]", new Object[]{tagsDirKey, jarName, resourcePath});
+                            }
+                        }
+                    } catch (JspCoreException e) {
+                        if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.WARNING)) {
+                            logger.logp(Level.WARNING, CLASS_NAME, "loadTagFilesFromJarRecursive", "JAR tagfile directory tld failed to load for resourcePath=[" + resourcePath + "] in JAR [" + jarName + "]", e);
+                            logger.logp(Level.WARNING, CLASS_NAME, "loadTagFilesFromJarRecursive", "tagfiles in " + tagsDirKey + " from JAR " + jarName + " are not loaded");
+                        }
+                        succeeded = false;
+                    }
+                }
+            }
+            
+            if (succeeded) {
+                // Create input source from the JAR container, not from the context
+                // Use the actual JAR path for the input source
+                JspInputSource inputSource = getInputSource(tagsContainer, tagsDirInJar, null, null);
+                // But use the /WEB-INF/tags key for the ImplicitTagLibraryInfoImpl so JSPs can find it
+                TagLibraryInfoImpl implicitTli = new ImplicitTagLibraryInfoImpl(tagsDirKey, inputSource);
+                
+                if (tli != null) {
+                    if (tli.getRequiredVersion() != null)
+                        implicitTli.setRequiredVersion(tli.getRequiredVersion());
+                    if (tli.getTlibversion() != null)
+                        implicitTli.setTlibversion(tli.getTlibversion());
+                }
+                
+                // Process .tag and .tagx files
+                for (String resourcePath : tagFileSet) {
+                    if (resourcePath.endsWith(".tag") || resourcePath.endsWith(".tagx")) {
+                        try {
+                            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINEST)) {
+                                logger.logp(Level.FINEST, CLASS_NAME, "loadTagFilesFromJarRecursive", "about to do tagfilescan for = [" + resourcePath + "] from JAR [" + jarName + "]");
+                            }
+                            
+                            // Create input source from the JAR container for the specific tag file
+                            JspInputSource tagFileInputSource = getInputSource(tagsContainer, resourcePath, null, null);
+                            JspTranslator jspTranslator = JspTranslatorFactory.getFactory().createTranslator(TAGFILE_SCAN_ID,
+                                                                                                            tagFileInputSource,
+                                                                                                            ctxt,
+                                                                                                            configManager.createJspConfiguration(),
+                                                                                                            jspOptions,
+                                                                                                            implicitTagLibPrefixMap);
+                            
+                            JspVisitorInputMap inputMap = new JspVisitorInputMap();
+                            inputMap.put("TagLibraryInfo", implicitTli);
+                            String name = resourcePath.substring(resourcePath.lastIndexOf('/') + 1);
+                            // Remove .tag or .tagx extension
+                            if (name.endsWith(".tag")) {
+                                name = name.substring(0, name.length() - 4);
+                            } else if (name.endsWith(".tagx")) {
+                                name = name.substring(0, name.length() - 5);
+                            }
+                            inputMap.put("TagFileName", name);
+                            inputMap.put("TagFilePath", resourcePath);
+                            
+                            HashMap results = jspTranslator.processVisitors(inputMap);
+                            TagFileScanResult result = (TagFileScanResult) results.get("TagFileScan");
+                            TagFileInfo tfi = new TagFileInfo(name, resourcePath, result.getTagInfo());
+                            list.add(tfi);
+                            
+                            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINEST)) {
+                                logger.logp(Level.FINEST, CLASS_NAME, "loadTagFilesFromJarRecursive", "TagLibraryCache TagFileInfo tfi=[" + tfi + "] from JAR [" + jarName + "]");
+                            }
+                        } catch (JspCoreException e) {
+                            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.WARNING)) {
+                                logger.logp(Level.WARNING, CLASS_NAME, "loadTagFilesFromJarRecursive", "JAR tagfile failed to scan=[" + resourcePath + "] in JAR [" + jarName + "]", e);
+                            }
+                        }
+                    }
+                }
+                
+                if (list.size() > 0) {
+                    implicitTli.setTagFiles(list);
+                    list.clear();
+                    implicitTli.setFunctions(Collections.emptyList());
+                    implicitTli.setTags(Collections.emptyList());
+                    
+                    if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+                        logger.logp(Level.FINE, CLASS_NAME, "loadTagFilesFromJarRecursive", "Adding ImplicitTagLibraryInfoImpl for [{0}] from JAR [{1}]", new Object[]{tagsDirKey, jarName});
+                        logger.logp(Level.FINE, CLASS_NAME, "loadTagFilesFromJarRecursive", "  ImplicitTagLibraryInfoImpl=[{0}]", implicitTli);
+                    }
+                    put(tagsDirKey, implicitTli);
+                } else if (tli != null) {
+                    put(tagsDirKey, tli);
+                }
+            }
+        }
+        
+        // Recursively process subdirectories
+        try {
+            for (com.ibm.wsspi.adaptable.module.Entry entry : tagsContainer) {
+                Container subContainer = entry.adapt(Container.class);
+                if (subContainer != null && entry.getSize() == 0) {
+                    String subDir = entry.getName();
+                    if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.FINE)) {
+                        logger.logp(Level.FINE, CLASS_NAME, "loadTagFilesFromJarRecursive", "Recursing into subdirectory: " + subDir + " in JAR: " + jarName);
+                    }
+                    // For subdirectories, use the subdirectory name as both the JAR path and cache key
+                    loadTagFilesFromJarRecursive(subContainer, subDir, subDir, jarName);
+                }
+            }
+        } catch (UnableToAdaptException e) {
+            if (com.ibm.ejs.ras.TraceComponent.isAnyTracingEnabled() && logger.isLoggable(Level.WARNING)) {
+                logger.logp(Level.WARNING, CLASS_NAME, "loadTagFilesFromJarRecursive", "Failed to process subdirectories in " + tagsDirKey + " from JAR " + jarName, e);
             }
         }
     }

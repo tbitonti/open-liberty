@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2015 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,22 +16,27 @@ import javax.enterprise.inject.spi.BeanManager;
 
 import org.jboss.weld.AbstractCDI;
 
-import com.ibm.ws.cdi.CDIService;
+import com.ibm.ws.cdi.internal.interfaces.CDIRuntime;
+import com.ibm.ws.cdi.internal.interfaces.WebSphereCDIDeployment;
 
 /**
  * IBM implementation of CDI
  */
 public class CDIImpl extends AbstractCDI<Object> {
-    private final CDIService cdiService;
+    private final CDIRuntime cdiRuntime;
+    private final WebSphereCDIDeployment parent;
 
-    public CDIImpl(CDIService cdiService) {
-        this.cdiService = cdiService;
+    public CDIImpl(CDIRuntime cdiRuntime, WebSphereCDIDeployment parent) {
+        this.cdiRuntime = cdiRuntime;
+        this.parent = parent;
     }
 
     /** {@inheritDoc} */
     @Override
     public BeanManager getBeanManager() {
-        return cdiService.getCurrentBeanManager();
+        //TOOD is there a reason why this isn't on the interface?
+        CDIContainerImpl cdiContainer = (CDIContainerImpl) cdiRuntime.getCDIContainer();
+        return cdiContainer.getCurrentBeanManager(parent);
     }
 
     public static void clear() {

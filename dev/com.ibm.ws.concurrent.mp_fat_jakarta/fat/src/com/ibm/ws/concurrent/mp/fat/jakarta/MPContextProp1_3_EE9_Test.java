@@ -1,0 +1,66 @@
+/*******************************************************************************
+ * Copyright (c) 2021,2022 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
+package com.ibm.ws.concurrent.mp.fat.jakarta;
+
+import org.eclipse.microprofile.context.spi.ThreadContextProvider;
+import org.jboss.shrinkwrap.api.ShrinkWrap;
+import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
+import org.junit.runner.RunWith;
+import org.test.mp.context.priority.PriorityContextProvider;
+
+import com.ibm.websphere.simplicity.ShrinkHelper;
+import com.ibm.websphere.simplicity.ShrinkHelper.DeployOptions;
+
+import componenttest.annotation.Server;
+import componenttest.annotation.TestServlet;
+import componenttest.custom.junit.runner.FATRunner;
+import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.repeater.MicroProfileActions;
+import componenttest.rules.repeater.RepeatTests;
+import componenttest.topology.impl.LibertyServer;
+import componenttest.topology.utils.FATServletClient;
+import concurrent.mp.fat.v13.ee9.web.MPContextProp1_3_EE9_TestServlet;
+
+@RunWith(FATRunner.class)
+public class MPContextProp1_3_EE9_Test extends FATServletClient {
+
+    private static final String SERVER_NAME = "com.ibm.ws.concurrent.mp.fat.1.3.ee9";
+    private static final String APP_NAME = "MPContextProp1_3_EE9_App";
+
+    @Server(SERVER_NAME)
+    @TestServlet(servlet = MPContextProp1_3_EE9_TestServlet.class, contextRoot = APP_NAME)
+    public static LibertyServer server;
+
+    @ClassRule
+    public static RepeatTests r = MicroProfileActions.repeat(SERVER_NAME, TestMode.FULL, true, MicroProfileActions.MP70_EE11, MicroProfileActions.MP61, MicroProfileActions.MP50);
+
+    @BeforeClass
+    public static void setUp() throws Exception {
+        ShrinkHelper.defaultApp(server, APP_NAME, "concurrent.mp.fat.v13.ee9.web");
+
+        JavaArchive customContextProviders = ShrinkWrap.create(JavaArchive.class, "customContextProviders.jar")
+                        .addPackage("org.test.mp.context.priority")
+                        .addAsServiceProvider(ThreadContextProvider.class, PriorityContextProvider.class);
+        ShrinkHelper.exportToServer(server, "lib", customContextProviders, DeployOptions.SERVER_ONLY);
+
+        server.startServer();
+    }
+
+    @AfterClass
+    public static void tearDown() throws Exception {
+        server.stopServer();
+    }
+}

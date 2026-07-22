@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2021 IBM Corporation and others.
+ * Copyright (c) 2021, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,7 @@ package com.ibm.ws.wssecurity.fat.cxf.samltoken2.OneServerTests;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
@@ -22,11 +25,11 @@ import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.security.saml20.fat.commonTest.SAMLConstants;
 import com.ibm.ws.security.saml20.fat.commonTest.SAMLMessageConstants;
 import com.ibm.ws.wssecurity.fat.cxf.samltoken2.common.CxfSAMLCallerTests;
+import com.ibm.ws.wssecurity.fat.utils.common.RepeatWithEE7cbh10;
 
-import componenttest.custom.junit.runner.Mode;
-import componenttest.custom.junit.runner.Mode.TestMode;
 import componenttest.topology.impl.LibertyServerWrapper;
-import componenttest.topology.utils.HttpUtils;
+import componenttest.annotation.SkipForRepeat;
+
 
 /**
  * The testcases in this class were ported from tWAS' test SamlWebSSOTests.
@@ -43,10 +46,9 @@ import componenttest.topology.utils.HttpUtils;
  * TFIM IdP. The client invokes the SP application by sending the SAML
  * 2.0 token in the HTTP POST request.
  */
+
+@SkipForRepeat({ RepeatWithEE7cbh10.ID })
 @LibertyServerWrapper
-//orig from CL:
-//@Mode(TestMode.FULL)
-//1/26/2021 set as LITE test caller to the supper class CxfSAMLCallerTests; without mode annotation
 @RunWith(FATRunner.class)
 public class CxfSAMLCaller1ServerTests extends CxfSAMLCallerTests {
 
@@ -64,9 +66,6 @@ public class CxfSAMLCaller1ServerTests extends CxfSAMLCallerTests {
         msgUtils.printClassName(thisClass.toString());
         Log.info(thisClass, "setupBeforeTest", "Prep for test");
 
-        //1/26/2021
-        //HttpUtils.enableSSLv3();
-
         // add any additional messages that you want the "start" to wait for
         // we should wait for any providers that this test requires
         List<String> extraMsgs = new ArrayList<String>();
@@ -76,10 +75,10 @@ public class CxfSAMLCaller1ServerTests extends CxfSAMLCallerTests {
 
         List<String> extraApps = new ArrayList<String>();
         extraApps.add(SAMLConstants.SAML_CXF_CALLER_CLIENT_APP);
-
+        
         startSPWithIDPServer("com.ibm.ws.wssecurity_fat.saml.caller", "server_2_in_1.xml", SAMLConstants.SAML_SERVER_TYPE, extraMsgs, extraApps, true, SAMLConstants.EXAMPLE_CALLBACK, SAMLConstants.EXAMPLE_CALLBACK_FEATURE);
-
-        testSAMLServer.getServer().copyFileToLibertyInstallRoot("lib/features", "internalFeatures/securitylibertyinternals-1.0.mf");
+        
+        testSAMLServer.getServer().copyFileToLibertyInstallRoot("lib/features", "internalFeatures/securitylibertyinternals-1.0.mf");    
         servicePort = Integer.toString(testSAMLServer.getServerHttpPort());
         serviceSecurePort = Integer.toString(testSAMLServer.getServerHttpsPort());
 
@@ -89,6 +88,17 @@ public class CxfSAMLCaller1ServerTests extends CxfSAMLCallerTests {
         testSettings.setSpTargetApp(testSAMLServer.getHttpString() + "/samlcallerclient/CxfSamlCallerSvcClient");
         testSettings.setSamlTokenValidationData(testSettings.getIdpUserName(), testSettings.getSamlTokenValidationData().getIssuer(), testSettings.getSamlTokenValidationData().getInResponseTo(), testSettings.getSamlTokenValidationData().getMessageID(), testSettings.getSamlTokenValidationData().getEncryptionKeyUser(), testSettings.getSamlTokenValidationData().getRecipient(), SAMLConstants.AES256);
 
-        testSAMLServer.addIgnoredServerExceptions(SAMLMessageConstants.CWWKS5207W_SAML_CONFIG_IGNORE_ATTRIBUTES, SAMLMessageConstants.CWWKG0101W_CONFIG_NOT_VISIBLE_TO_OTHER_BUNDLES);
+        testSAMLServer.addIgnoredServerExceptions(SAMLMessageConstants.CWWKS5207W_SAML_CONFIG_IGNORE_ATTRIBUTES, SAMLMessageConstants.CWWKG0101W_CONFIG_NOT_VISIBLE_TO_OTHER_BUNDLES, SAMLMessageConstants.CWWKF0001E_FEATURE_MISSING);
+        
+        //issue 23060 
+        //The condition checker is also used in some tests which do not run with CBH, 
+        //where it acts another checker to reference the respective old/new format ehcache xml.
+        Set<String> features = testSAMLServer.getServer().getServerConfiguration().getFeatureManager().getFeatures(); 
+		if (features.contains("usr:wsseccbh-1.0")) {
+            setFeatureVersion("EE7cbh1");
+        } else if (features.contains("usr:wsseccbh-2.0")) {
+            setFeatureVersion("EE7cbh2");
+        } 
+        
     }
 }

@@ -11,14 +11,6 @@
 
   <include location="../fatTestPorts.xml" />
 
-  <logging
-    traceSpecification="Transaction=all:WSAT=all"
-	traceFileName="trace.log"
-	maxFileSize="2000"
-	maxFiles="20"
-	traceFormat="BASIC"
-  />
-
   <transaction transactionLogSize="8192" heuristicRetryInterval="1800"/>
 
   <javaPermission name="*" actions="*" className="java.security.AllPermission"/>

@@ -1,0 +1,282 @@
+---
+name: Open Liberty Feature Template
+about: Steps for Feature Creation and Delivery (Open Liberty org members only)
+title: 'Open Liberty Feature Template'
+labels: Epic,Feature
+assignees: ''
+
+---
+## Description
+
+Replace this comment with a high level description of the feature. Include enough detail such that the feature can be [prioritized on the backlog](https://github.com/orgs/OpenLiberty/projects/45). As needed, add links to any specifications used by the feature.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## Documents
+
+When available, add links to required feature documents. Use "N/A" to mark particular documents which are not required by the feature.
+
+- Externally raised requests for enhancements:
+  - [Aha](https://cloud-platform.ideas.aha.io/): Link to the Aha idea (also add a link to this issue in the Aha idea)
+    - Feature owner adds label `Aha idea`
+  - [Open Liberty Feature Request](https://github.com/OpenLiberty/open-liberty/issues/new?assignees=&labels=enhancement&template=02_feature_request.md&title=): Link to the OL GH issue (also add a link to this issue in the Feature Request GH issue)
+    - Feature owner adds label `Requested feature`
+- UFO: Link to [Upcoming Feature Overview](https://ibm.box.com/v/UFO-Template) document
+  - [Upload the feature UFO to Box](https://ibm.ent.box.com/folder/52716090328) and set the link to be publicly accessible, with a long expiration (10 years)
+    - Click "Share" > select "People with link" > click "Link Settings" > under "Link Expiration" select "Disable Shared Link on" > set an expiration date ~10 years into the future
+    - If you lack permissions, contact [OpenLiberty/release-architect](https://github.com/orgs/OpenLiberty/teams/release-architect)
+- Feature Test Summary (FTS): Link to Feature Test Summary GH Issue
+- Feature Serviceability Summary: Link to Feature Serviceability Summary GH Issue
+- Beta Blog(s): Link to Beta Blog Post GH Issue(s)
+- GA Blog: Link to GA Blog Post GH Issue
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## Process Overview
+
+- [Sizing](#sizing)
+- [Prioritization](#prioritization)
+- [Design](#design)
+- [Implementation](#implementation)
+- [Legal and Translation](#legal-and-translation)
+- [Beta](#beta)
+- [GA](#ga)
+  - [Focal Point Approvals](#focal-point-approvals-complete-by-feature-complete-date)
+- [Other Deliverables](#other-deliverables)
+
+### General Instructions
+
+The process steps occur roughly in the order as presented. Process steps occasionally overlap.
+
+Each process step has a number of tasks which must be completed or must be marked as not applicable ("N/A").
+
+Unless otherwise indicated, the tasks are the responsibility of the feature owner or a delegate of the feature owner.
+
+If you need assistance, reach out to the [OpenLiberty/release-architect](https://github.com/orgs/OpenLiberty/teams/release-architect).
+
+**Important: Labels are used to trigger particular steps and must be added as indicated.**
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## **Sizing** (Complete Before Development Starts)
+
+Sizing features helps inform prioritization decisions by telling us how much investment a given feature will require.
+
+- [ ] Feature owner determines the size of the feature.
+- [ ] Feature owner tells the [Open Liberty Project Manager](https://github.com/orgs/OpenLiberty/teams/project-manager), [Release Architect](https://github.com/orgs/OpenLiberty/teams/release-architect), or [Chief Architect](https://github.com/orgs/OpenLiberty/teams/chief-architect) what the size of the feature is.
+
+Consider this as the scale to use to gauge sizes:
+| Size | Guide |
+| ---- | ----- |
+| XS   | <= 1 person week's (PW) worth of work |
+| S    | 2-3 PW |
+| M    | 4-5 PW |
+| L    | 6-9 PW |
+| XL   | 10-15 PW |
+| 2XL  | 16-20 PW |
+| 3XL  | 21+ PW |
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## **Prioritization** (Complete Before Development Starts)
+
+The [OpenLiberty/chief-architect](https://github.com/orgs/OpenLiberty/teams/chief-architect) and area leads are responsible for prioritizing the features and determining which features are being actively worked on.
+
+### **Prioritization**
+- [ ] Feature owner adds label `Prioritization - Requested`
+  - This puts the feature on the radar of the [OpenLiberty/chief-architect](https://github.com/orgs/OpenLiberty/teams/chief-architect) and [OpenLiberty/project-manager](https://github.com/orgs/OpenLiberty/teams/project-manager). They are responsible for querying for new features that need to be prioritized.
+- [ ] [OpenLiberty/project-manager](https://github.com/orgs/OpenLiberty/teams/project-manager) adds feature to the "New" column of the [Open Liberty project board](https://github.com/orgs/OpenLiberty/projects/45)
+- [ ] Priority assigned
+  - Attend the Liberty Backlog Prioritization meeting
+  - `Prioritization - Requested` label removed ([OpenLiberty/project-manager](https://github.com/orgs/OpenLiberty/teams/project-manager) or feature owner)
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## **Design** (Complete Before Development Starts)
+
+Design preliminaries determine whether a formal design, which will be provided by an [Upcoming Feature Overview (UFO)](https://ibm.box.com/v/UFO-Template) document, must be created and reviewed.  A formal design is required if the feature requires any of the following: UI, Serviceability, SVT, Performance testing, or non-trivial documentation/ID.  Furthermore, each identified item places a blocking requirement on another team so it must be identified early in the process.  The feature owner may check-off the item if they know it doesn't apply, but otherwise they should work with the focal point to determine what work, if any, will be necessary and make them aware of it.
+
+### **Design Preliminaries**
+- [ ] UI requirements identified, or N/A. (Feature owner and [UI focal point](https://github.com/orgs/OpenLiberty/teams/ui-approvers))
+- [ ] Accessibility requirements identified, or N/A. (Feature owner and [Accessibility focal point](https://github.com/orgs/OpenLiberty/teams/accessibility-approvers))
+- [ ] ID requirements identified, or N/A. (Feature owner and [ID focal point](https://github.com/orgs/OpenLiberty/teams/id-approvers))
+   - Refer to [Documenting Open Liberty](https://github.com/OpenLiberty/open-liberty/wiki/Documenting-Open-Liberty).
+   - Feature owner adds label `ID Required`, if non-trivial documentation needs to be created by the ID team.
+   - If seeking No Design approval and the feature requires documentation, verify with the [ID team](https://github.com/orgs/OpenLiberty/teams/id-approvers) that the doc updates are trivial. If so, add the `ID Required - Trivial` label.
+- [ ] Serviceability requirements identified, or N/A. (Feature owner and [Serviceability focal point](https://github.com/orgs/OpenLiberty/teams/serviceability-approvers))
+- [ ] SVT requirements identified, or N/A. (Feature owner and [SVT focal point](https://github.com/orgs/OpenLiberty/teams/svt-approvers))
+- [ ] Performance testing requirements identified, or N/A. (Feature owner and [Performance focal point](https://github.com/orgs/OpenLiberty/teams/performance-approvers))
+
+#### Governance requests
+
+If work is required in any the following areas for the feature, a request for the Governance Team must be opened for each respective area:
+- UI
+- ID
+- SVT
+- Performance
+
+The personnel working in these areas use these issues to prioritize and track work.
+
+### **Design**
+- [ ] POC Design / UFO review scheduled.
+  - Follow the instructions in the [README in the POC-Forum repo](https://github.ibm.com/websphere/POC-Forum?tab=readme-ov-file#adding-an-agenda-item).
+  - Schedule a design review only if the feature has already been prioritized.
+- [ ] POC Design / UFO review completed.
+  - Feature owner adds label `Design Socialized`
+- [ ] POC / UFO Review follow-ons completed.
+- [ ] POC Design / UFO approval requested.
+  - Feature owner adds label `Design Approval Request`
+- [ ] Design / UFO approved. ([OpenLiberty/chief-architect](https://github.com/orgs/OpenLiberty/teams/chief-architect)) or N/A
+  - ([OpenLiberty/chief-architect](https://github.com/orgs/OpenLiberty/teams/chief-architect)) adds label `Design Approved`
+  - Add the public link to the UFO in Box to the [Documents](#documents) section.
+  - The UFO must always accurately reflect the final implementation of the feature. Any changes must be first approved. Afterwards, update the UFO by creating a copy of the original approved slide(s) at the end of the deck and prepend "OLD" to the title(s). A single updated copy of the slide(s) should take the original's place, and have its title(s) prepended with "UPDATED".
+
+### **No Design**
+- [ ] No Design requested.
+  - Feature owner adds label `No Design Approval Request`
+- [ ] No Design / No UFO approved. ([OpenLiberty/chief-architect](https://github.com/orgs/OpenLiberty/teams/chief-architect)) or N/A
+  - Approver adds label `No Design Approved`
+- [ ] Feature / Capability stabilization or discontinuation or N/A
+  - Feature owner adds label `Product Management Approval Request` and notifies [OpenLiberty/product-management](https://github.com/orgs/OpenLiberty/teams/product-management)
+  - Approver adds label `Product Management Approved` ([OpenLiberty/product-management](https://github.com/orgs/OpenLiberty/teams/product-management))
+  - Note: For stabilized, superseded, and discontinued feature/capability, skip the [Beta](#beta) section of the template (you may delete it).  Otherwise, proceed as normal.
+
+### Design Approval Request
+
+Request design approval no later than **4 weeks before the Feature Complete date** for the release.
+
+Ideally, submit UFOs for design approval from the [Chief Architect](https://github.com/orgs/OpenLiberty/teams/chief-architect) as soon as possible after addressing any feedback from the socialization. But that should be no later than 4 weeks before Feature Complete.
+
+That gives the [Chief Architect](https://github.com/orgs/OpenLiberty/teams/chief-architect) time to review the design and have developers make any necessary updates before the Feature Complete date hits for the release you’re trying to go out in.
+
+See the [WebSphere Dates Monday.com board](https://ibm.monday.com/boards/7779679996) or [Current Liberty Release Schedule](https://github.ibm.com/websphere/WS-CD-Open/wiki/Current-Liberty-Release-Schedule) for relevant dates.
+
+### FAT Documentation
+- [ ] "Feature Test Summary" child task created
+  - Use the [Feature Test Summary Template](https://github.com/OpenLiberty/open-liberty/issues/new?assignees=&labels=Feature+Test+Summary&template=06_feature_test_summary.md&title=)
+  - Add FTS issue link to the [Documents](#documents) section.
+
+### Serviceability Documentation
+- [ ] "Feature Serviceability Summary" child task created
+  - Use the [Feature Serviceability Summary Template](https://github.com/OpenLiberty/open-liberty/issues/new?assignees=&labels=Feature+Serviceability+Summary&template=07_feature_serviceability_summary.md&title=)
+  - Add issue link to the [Documents](#documents) section.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## **Implementation**
+
+A feature must be [prioritized](https://github.com/orgs/OpenLiberty/projects/45) before any implementation work may begin to be delivered (inaccessible/no-ship).  However, a design focused approach should still be applied to features, and developers should think about the feature design prior to writing and delivering any code.
+Besides being prioritized, a feature must also be socialized (or No Design Approved) before any beta code may be delivered.  All new Liberty content must be inaccessible in our GA releases until it is [Feature Complete](#feature-complete) by either marking it `kind=noship` or [beta fencing](#beta-code) it.
+Code may not GA until this feature has obtained the `Design Approved` or `No Design Approved` label, along with all other tasks outlined in the [GA](#ga) section.
+
+### **Feature Development Begins**
+- [ ] Add the `In Progress` label
+
+## **Legal and Translation**
+
+In order to avoid last minute blockers and significant disruptions to the feature, the **legal items need to be done as early in the feature process as possible**, either in design or as early into the development as possible. Similarly, translation is to be done concurrently with development. All items below **MUST** be completed before beta & GA is requested.
+
+### **Innovation** (Complete 1 week before Beta & GA Feature Complete Date)
+- [ ] Consider whether any aspects of the feature may be patentable. If any identified, disclosures have been submitted.
+
+### **Legal** (Complete before Beta & GA Feature Complete Date)
+- [ ] Changed or new open source libraries are cleared and approved, or N/A. (Legal Release Services/Cass Tucker/Release PM).
+
+### **Translation** (Complete by Beta & GA Feature Complete Date)
+- [ ] PII (Program Integrated Information) updates are merged (i.e. all English strings due for translation have been delivered), or N/A.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## **Beta**
+
+In order to facilitate early feedback from users, all new features and functionality should first be released as part of a beta release.
+
+### **Beta Code**
+- [ ] [Beta fence](https://github.com/OpenLiberty/open-liberty/wiki/Beta-Fencing) the functionality
+  - E.g. `kind=beta`, `ibm:beta`, `ProductInfo.getBetaEdition()`
+- [ ] Beta development complete and feature ready for inclusion in a beta release
+  - Add label `target:beta` and the appropriate `target:YY00X-beta` (where YY00X is the targeted beta version) to the feature issue.
+    - Note: This is expected to be done whenever there is new functionality being added for this feature.
+
+      Example scenario: If you are introducing a new feature to the 26.0.0.1-beta release, you would add the `target:26001-beta` label to the feature issue. Once that beta is released, the `target:26001-beta` and `target:beta` labels can be removed from the feature issue. If additional functionality is added to the feature in the 26.0.0.3-beta release, you would re-add the `target:beta` label as well as the `target:26003-beta` label to the feature issue. This indicates that there is additional functionality being targeted for a beta release, and which specific beta is being targeted.
+- [ ] Feature delivered into beta
+  - ([OpenLiberty/release-manager](https://github.com/orgs/OpenLiberty/teams/release-manager)) adds label `release:YY00X-beta` (where YY00X is the first beta version that included the functionality).
+    - Continuing from the example scenario above, after the 26.0.0.3 beta is released, the feature issue should have the `release:26001-beta` and `release:26003-beta` labels on the feature issue. The `target:beta` label can be removed at this point if there is no additional work being targeted for a beta release.
+
+### **Beta Blog** (Complete by beta eGA)
+- [ ] Beta blog issue created and populated using the [Open Liberty BETA blog post](https://github.com/OpenLiberty/open-liberty/issues/new/choose) template.
+  - Add a link to the beta blog issue in the [Documents](#documents) section.
+  - Note: This is for inclusion into the overall [beta release blog post](https://openliberty.io/blog/?search=beta&key=tag).  If, in addition, you'd also like to create a dedicated blog post about your feature, then follow the "Standalone Feature Blog Post" instructions under the [Other Deliverables](#other-deliverables) section.
+  - A feature may have multiple beta blogs associated with it. This is especially useful for features that are continuously adding functionality each release and want to advertise what is new since the previous beta.
+    - Each beta blog issue should have the appropriate `target:YY00X-beta` label added to it.
+    - Include each beta blog issue in the [Documents](#documents) section.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## **GA**
+
+A feature is ready to GA after it is Feature Complete and has obtained all necessary Focal Point Approvals.
+
+### **Feature Complete**
+- [ ] Feature implementation and tests completed.
+  - [ ] All PRs are merged.
+  - [ ] All related/child issues are closed.
+  - [ ] All stop ship issues are completed.
+- [ ] Legal: all necessary approvals granted.
+- [ ] Innovation: IP identified and any applicable disclosures submitted
+- [ ] Translation: Feature may only proceed to GA if it has either `Translation - Not Required`, `Translation - Complete`, or `Translation - Missing` label
+  - If the feature does not have anything that required translation, the feature owner adds the label `Translation - Not Required`.
+  - If all translation has been delivered to `release` branch, feature owner adds label `Translation - Complete`.
+  - If missing translation does not cause a break in functionality, nor a security or production outage risk, feature owner adds label `Translation - Missing`.
+    - Once all missing translations are delivered, the `Translation - Missing` label is replaced with `Translation - Complete`.
+  - If missing translation could cause a break in functionality or a security or production outage risk, feature owner adds the `Translation - Blocked` label.
+    - Features with `Translation - Blocked` may **NOT** proceed to GA until the label has been replaced with either `Translation - Missing` or `Translation - Complete`.
+  - For further guidance, contact [Globalization focal point](https://github.com/orgs/OpenLiberty/teams/globalization-approvers) or the [Release Architect](https://github.com/orgs/OpenLiberty/teams/release-architect).
+- [ ] GA development complete and feature ready for inclusion in a GA release
+  - Add label `target:ga` and the appropriate `target:YY00X` (where YY00X is the targeted GA version).
+  - Inclusion in a release requires the completion of all Focal Point Approvals.
+
+### **Focal Point Approvals** (Complete by Feature Complete Date)
+
+These occur only after GA of this feature is requested (by adding a `target:ga` label).  GA of this feature may not occur until all approvals are obtained.
+
+### **All Features**
+- [ ] **APIs/Externals** - Externals have been reviewed or N/A.  ([OpenLiberty/externals-approvers](https://github.com/orgs/OpenLiberty/teams/externals-approvers))
+  - Approver adds label `focalApproved:externals`
+- [ ] **Demo** - Demo is scheduled for an upcoming EOI or N/A. ([OpenLiberty/demo-approvers](https://github.com/orgs/OpenLiberty/teams/demo-approvers))
+  - Add comment `@OpenLiberty/demo-approvers Demo scheduled for EOI [Iteration Number]` to this issue.
+  - Approver adds label `focalApproved:demo`.
+- [ ] **FAT** - All Tests complete and running successfully in SOE or N/A. ([OpenLiberty/fat-approvers](https://github.com/orgs/OpenLiberty/teams/fat-approvers))
+  - Approver adds label `focalApproved:fat`.
+
+### **Design Approved Features**
+- [ ] **ID** - Documentation is complete or N/A. ([OpenLiberty/id-approvers](https://github.com/orgs/OpenLiberty/teams/id-approvers))
+  - Approver adds label `focalApproved:id`.
+  - > **_NOTE:_**  If only trivial documentation changes are required, you may reach out to the ID Feature Focal to request a `ID Required - Trivial` label.  Unlike features with regular ID requirement, those with `ID Required - Trivial` label do not have a hard requirement for a Design/UFO.
+- [ ] **InstantOn** - InstantOn capable or N/A. ([OpenLiberty/instantOn-approvers](https://github.com/orgs/OpenLiberty/teams/instantOn-approvers))
+  - Approver adds label `focalApproved:instantOn`.
+- [ ] **Performance** - Performance testing is complete or N/A. ([OpenLiberty/performance-approvers](https://github.com/orgs/OpenLiberty/teams/performance-approvers))
+  - Approver adds label `focalApproved:performance`.
+- [ ] **Serviceability** - Serviceability has been addressed or N/A. ([OpenLiberty/serviceability-approvers](https://github.com/orgs/OpenLiberty/teams/serviceability-approvers))
+  - Approver adds label `focalApproved:serviceability`.
+- [ ] **STE** - Skills Transfer Education chart deck is complete or N/A. ([OpenLiberty/ste-approvers](https://github.com/orgs/OpenLiberty/teams/ste-approvers))
+  - Approver adds label `focalApproved:ste`.
+- [ ] **SVT** - System Verification Test is complete or N/A. ([OpenLiberty/svt-approvers](https://github.com/orgs/OpenLiberty/teams/svt-approvers))
+  - Approver adds label `focalApproved:svt`.
+
+### **Remove Beta Fencing** (Complete by Feature Complete Date)
+- [ ] Beta guards are removed, or N/A
+  - Only after all necessary Focal Point Approvals have been granted.
+
+### **GA Blog** (Complete by Friday after GM)
+- [ ] GA Blog issue created and populated using the [Open Liberty GA release blog post](https://github.com/OpenLiberty/open-liberty/issues/new/choose) template.
+  - Add a link to the GA Blog issue in the [Documents](#documents) section.
+  - Note: This is for inclusion into the overall [release blog post](https://openliberty.io/blog/?search=release&key=tag).  If, in addition, you'd also like to create a dedicated blog post about your feature, then follow the "Standalone Feature Blog Post" instructions under the [Other Deliverables](#other-deliverables) section.
+
+### **Post GM** (Complete before GA)
+- [ ] After confirming this feature has been included in the GM driver, feature owner closes this issue.
+
+### **Post GA**
+- [ ] Remove the `target:ga` and `target:YY00X` labels, and add the appropriate `release:YY00X`. ([OpenLiberty/release-manager](https://github.com/orgs/OpenLiberty/teams/release-manager))
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## **Other Deliverables**
+
+- [ ] **Standalone Feature Blog Post** - A blog post specifically about your feature or N/A.  (Feature owner and [OpenLiberty/release-architect](https://github.com/orgs/OpenLiberty/teams/release-architect))
+  - This should be strongly considered for larger or more prominent features.
+  - Follow [instructions](https://github.com/OpenLiberty/blogs/tree/draft#writing-and-publishing-blog-posts-on-the-openlibertyio-blog) in the blogs repo.
+- [ ] **OL Guides** - OL Guides assessment is complete or N/A. ([OpenLiberty/guide-assessment](https://github.com/orgs/OpenLiberty/teams/guide-assessment/members))
+- [ ] **Dev Experience** - Developer Experience & Tools work is complete or N/A. ([OpenLiberty/dev-experience-assessment](https://github.com/orgs/OpenLiberty/teams/dev-experience-assessment/members))
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

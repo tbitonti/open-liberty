@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2008, 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -57,9 +59,15 @@ public class SipStackUtil {
 	 */
 	public final static String DESTINATION_URI = "IBM-Destination";
 
+	public static final String INADDR_ANY = "0.0.0.0";
+	
 	public static final String SIP_SCHEME = "sip";
 
 	public static final String SIPS_SCHEME = "sips";
+	
+	public static final String TCP = "TCP";
+	
+	public static final String UDP = "UDP";
 
 	public static final String TLS_TRANSPORT = "tls";
 
@@ -289,7 +297,7 @@ public class SipStackUtil {
 		if (transport.equalsIgnoreCase(ListeningPoint.TRANSPORT_TCP)) {
 			return SipStackUtil.SIP_SCHEME;
 		}
-		if (transport.equalsIgnoreCase(SipStackUtil.TLS_TRANSPORT)) {
+		if (transport.equalsIgnoreCase(TLS_TRANSPORT)) {
 			return SipStackUtil.SIPS_SCHEME;
 		}
 		return null;
@@ -392,7 +400,7 @@ public class SipStackUtil {
 			String transport = topVia.getTransport();
 			aliasPort =
 				transport != null &&
-				transport.equalsIgnoreCase(ListeningPointImpl.TRANSPORT_TLS)
+				transport.equalsIgnoreCase(TLS_TRANSPORT)
 					? 5061
 					: 5060;
 		}

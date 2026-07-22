@@ -1,0 +1,26 @@
+#*******************************************************************************
+# Copyright (c) 2021, 2025 IBM Corporation and others.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License 2.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
+#*******************************************************************************
+-include= ~../cnf/resources/bnd/bundle.props
+bVersion=1.0
+
+# Contains 2.0 TLD files only (No Implementation)
+# Packaged within the com.ibm.ws.jsp bundle to be used as a global tag library
+Bundle-SymbolicName: io.openliberty.jakarta.servlet.jsp.jstl.2.0.internal
+Bundle-Description: TLDs for the Jakarta Standard Tag Library; Version 2.0.0
+
+publish.wlp.jar.disabled: true
+
+-pom: false
+
+-includeresource: \
+	@\${repo;org.glassfish.web:jakarta.servlet.jsp.jstl;2.0.0}!/META-INF/*.tld
+
+-buildpath: \
+  org.glassfish.web:jakarta.servlet.jsp.jstl;version=2.0

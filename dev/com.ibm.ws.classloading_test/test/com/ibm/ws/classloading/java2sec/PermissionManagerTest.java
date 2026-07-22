@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2015, 2019 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -56,6 +58,7 @@ import org.osgi.service.component.ComponentContext;
 import org.osgi.service.url.URLStreamHandlerService;
 
 import com.ibm.ws.kernel.boot.security.WLPDynamicPolicy;
+import com.ibm.ws.kernel.service.util.JavaInfo;
 import com.ibm.wsspi.classloading.ClassLoadingService;
 
 public class PermissionManagerTest {
@@ -89,7 +92,9 @@ public class PermissionManagerTest {
         withSharedLibraryProtectionDomains();
         withSystemBundleAndCapabilities();
 
-        savedPolicy = Policy.getPolicy();
+        if (JavaInfo.majorVersion() <= 21) {
+            savedPolicy = Policy.getPolicy();
+        }
         permissionManager = new PermissionManager();
         permissionManager.setWsjarURLStreamHandler(urlStreamHandlerServiceRef);
         permissionManager.setClassLoadingService(classLoadingService);
@@ -136,7 +141,9 @@ public class PermissionManagerTest {
 
     @After
     public void tearDown() {
-        Policy.setPolicy(savedPolicy);
+        if (JavaInfo.majorVersion() <= 21) {
+            Policy.setPolicy(savedPolicy);
+        }
         permissionManager.deactivate(componentContext);
         mock.assertIsSatisfied();
     }
@@ -220,7 +227,11 @@ public class PermissionManagerTest {
         List<Permission> permissionsList = Collections.list(permissions.elements());
         List<Permission> staticPermissionsList = Collections.list(staticPolicyPermissions.elements());
 
-        assertFalse("The permissions must not be merged with the static permissions.", permissionsList.containsAll(staticPermissionsList));
+        // In Java 25 the static permissions list is of size 0 so cannot do the 
+        // assert because containsAll will be true if you pass an empty list.
+        if (staticPermissionsList.size() > 0) {
+            assertFalse("The permissions must not be merged with the static permissions.", permissionsList.containsAll(staticPermissionsList));
+        }
         assertTrue("The permissions must be merged with the permissions.xml permissions.", permissionsList.contains(fileReadPermission));
         assertTrue("The permissions must be merged with the server.xml permissions.", permissionsList.contains(propertyReadPermission));
     }
@@ -276,13 +287,15 @@ public class PermissionManagerTest {
     @Test
     public void activateDeactivateSetsAndRemovesSelfInWLPDynamicPolicy() throws Exception {
         final PermissionManager anotherPermissionManager = new PermissionManager();
-        Policy.setPolicy(wlpDynamicPolicy);
-        mock.checking(new Expectations() {
-            {
-                one(wlpDynamicPolicy).setPermissionsCombiner(anotherPermissionManager);
-                one(wlpDynamicPolicy).setPermissionsCombiner(null);
-            }
-        });
+        if (JavaInfo.majorVersion() <= 21) {
+            Policy.setPolicy(wlpDynamicPolicy);
+            mock.checking(new Expectations() {
+                {
+                    one(wlpDynamicPolicy).setPermissionsCombiner(anotherPermissionManager);
+                    one(wlpDynamicPolicy).setPermissionsCombiner(null);
+                }
+            });
+        }
 
         withSharedLibraryProtectionDomains();
         anotherPermissionManager.setClassLoadingService(classLoadingService);

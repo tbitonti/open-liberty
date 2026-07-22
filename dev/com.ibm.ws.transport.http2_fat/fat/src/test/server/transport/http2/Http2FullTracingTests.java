@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package test.server.transport.http2;
 
@@ -41,13 +40,8 @@ public class Http2FullTracingTests extends FATServletClient {
     private final static LibertyServer runtimeServer = LibertyServerFactory.getLibertyServer("http2ClientRuntime.tracing");
     private final static LibertyServer server = LibertyServerFactory.getLibertyServer("com.ibm.ws.transport.http2.fat.tracing");
 
-    String defaultServletPath = "H2FATDriver/H2FATDriverServlet?hostName=";
-    String dataServletPath = "H2FATDriver/DataFrameTests?hostName=";
-    String genericServletPath = "H2FATDriver/GenericFrameTests?hostName=";
-    String methodServletPath = "H2FATDriver/HttpMethodTests?hostName=";
-
     @Rule
-    public TestName testName = new TestName();
+    public TestName testName = new Utils.CustomTestName();
 
     @BeforeClass
     public static void before() throws Exception {
@@ -61,6 +55,7 @@ public class Http2FullTracingTests extends FATServletClient {
 
         server.startServer(true, true);
         runtimeServer.startServer(true, true);
+        H2FATApplicationHelper.preTestNettyCheck(runtimeServer, server);
     }
 
     @AfterClass
@@ -86,13 +81,13 @@ public class Http2FullTracingTests extends FATServletClient {
 
     @Test
     public void testHeaderAndDataPost() throws Exception {
-        runTest(defaultServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.defaultServletPath, testName.getMethodName());
     }
 
     // moved for debug
     @Test
     public void testDataFrameExceedingMaxFrameSize() throws Exception {
-        runTest(dataServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.dataServletPath, testName.getMethodName());
     }
 
     /**
@@ -105,67 +100,67 @@ public class Http2FullTracingTests extends FATServletClient {
     // moved for debug
     @Test
     public void testSettingFrameBadSize() throws Exception {
-        runTest(defaultServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.defaultServletPath, testName.getMethodName());
     }
 
     // moved for debug
     @Test
     public void testZeroLengthPadding() throws Exception {
-        runTest(dataServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.dataServletPath, testName.getMethodName());
     }
 
     // Moved to trace
     @Test
     public void testDataOnStreamZero() throws Exception {
-        runTest(genericServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.genericServletPath, testName.getMethodName());
     }
 
     // Moved to tracing
     @Test
     public void testHeaderFrameAfterHeaderFrameWithEndOfStream() throws Exception {
-        runTest(defaultServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.defaultServletPath, testName.getMethodName());
     }
 
     // Moved to tracing
     @Test
     public void testDataFrameAfterContinuationFrame() throws Exception {
-        runTest(defaultServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.defaultServletPath, testName.getMethodName());
     }
 
     // Moved to tracing
     @Test
     public void testUnknownFrameType() throws Exception {
-        runTest(genericServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.genericServletPath, testName.getMethodName());
     }
 
     @Test
     public void testContinuationFrameAfterDataFrame() throws Exception {
-        runTest(defaultServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.defaultServletPath, testName.getMethodName());
     }
 
     @Test
     public void testInvalidPaddingValue() throws Exception {
-        runTest(dataServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.dataServletPath, testName.getMethodName());
     }
 
     @Test
     public void testInvalidStreamIdSequence() throws Exception {
-        runTest(genericServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.genericServletPath, testName.getMethodName());
     }
 
     @Test
     public void testConnectMethod() throws Exception {
-        runTest(methodServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.methodServletPath, testName.getMethodName());
     }
 
     @Test
     public void testConnectMethodError() throws Exception {
-        runTest(methodServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.methodServletPath, testName.getMethodName());
     }
 
     @Test
     public void testPriorityFrameAfterHeaderFrameNoEndHeaders() throws Exception {
-        runTest(defaultServletPath, testName.getMethodName());
+        runTest(Http2FullModeTests.defaultServletPath, testName.getMethodName());
     }
 
 }

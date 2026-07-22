@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package componenttest.depchain;
 
@@ -17,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.ibm.websphere.simplicity.log.Log;
 
+import componenttest.topology.impl.JavaInfo;
 import componenttest.topology.impl.LibertyServer;
 
 public class FeatureList {
@@ -26,6 +26,8 @@ public class FeatureList {
     private static final String FAT_FEATURE_LIST = "fatFeatureList.xml";
 
     private static File featureList = null;
+
+    private static final int TIMEOUT_MINUTES = 5;
 
     @SuppressWarnings("resource")
     public static synchronized File get(LibertyServer server) throws Exception {
@@ -38,12 +40,14 @@ public class FeatureList {
         // If fatFeatureList.xml doesn't exist already, generate it
         Log.info(c, m, FAT_FEATURE_LIST + " not found.  Need to generate.");
         String featureListJar = findRunnableJar(server.getInstallRoot());
-        Process featureListProc = new ProcessBuilder("java", "-jar", featureListJar, featureList.getAbsolutePath())
-                        .redirectErrorStream(true)
-                        .start();
-        boolean completed = featureListProc.waitFor(2, TimeUnit.MINUTES);
+        ProcessBuilder builder = new ProcessBuilder("java", "-jar", featureListJar, featureList.getAbsolutePath())
+                        .redirectErrorStream(true);
+        server.setLibPathForJava8onZOS(JavaInfo.forServer(server), builder.environment());
+        Process featureListProc = builder.start();
+
+        boolean completed = featureListProc.waitFor(TIMEOUT_MINUTES, TimeUnit.MINUTES);
         if (!completed) {
-            Exception e = new Exception("Generating " + FAT_FEATURE_LIST + " timed out after 2 minutes. Aborting process.");
+            Exception e = new Exception("Generating " + FAT_FEATURE_LIST + " timed out after " + TIMEOUT_MINUTES + " minutes. Aborting process.");
             Log.error(c, m, e);
             featureListProc.destroyForcibly();
             featureListProc.waitFor();
@@ -80,9 +84,11 @@ public class FeatureList {
 
     public static synchronized void reset() throws IOException {
         Log.info(c, "reset", "Removing existing " + FAT_FEATURE_LIST);
-        if (featureList != null)
-            if (!featureList.delete())
-                throw new IOException("Unable to delete old " + FAT_FEATURE_LIST + " at: " + featureList.getAbsolutePath());
+        if (featureList != null) {
+            if (featureList.exists() && !featureList.delete()) {
+                throw new IOException("Failed to delete " + FAT_FEATURE_LIST + " at: " + featureList.getAbsolutePath());
+            }
+        }
         featureList = null;
     }
 }

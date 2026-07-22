@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2012, 2017 IBM Corporation and others.
+ * Copyright (c) 2012, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -475,6 +477,8 @@ public class JSONConverter {
     // "stacktrace" is not read by the Java client.
     //    private static final String N_STACKTRACE = "stackTrace";
     private static final byte[] OM_STACKTRACE = { '"', 's', 't', 'a', 'c', 'k', 'T', 'r', 'a', 'c', 'e', '"', ':' };
+    // "error" is not read by the Java client
+    private static final byte[] OM_EXCEPTION_MESSAGE = { '"', 'e', 'r', 'r', 'o', 'r', '"', ':' };
     private static final String N_THROWABLE = "throwable";
     private static final byte[] OM_THROWABLE = { '"', 't', 'h', 'r', 'o', 'w', 'a', 'b', 'l', 'e', '"', ':' };
     private static final String N_TIMESTAMP = "timeStamp";
@@ -1937,7 +1941,7 @@ public class JSONConverter {
      * Encode a Throwable instance as JSON:
      * {
      * "throwable" : Base64,
-     * "stackTrace" : String
+     * "error" : String - the exception message
      * }
      *
      * @param out The stream to write JSON to
@@ -1948,9 +1952,7 @@ public class JSONConverter {
     public void writeThrowable(OutputStream out, Throwable value) throws IOException {
         writeStartObject(out);
         writeSerializedField(out, OM_THROWABLE, value);
-        StringWriter sw = new StringWriter();
-        value.printStackTrace(new PrintWriter(sw));
-        writeStringField(out, OM_STACKTRACE, sw.toString());
+        writeStringField(out, OM_EXCEPTION_MESSAGE, value.getMessage());
         writeEndObject(out);
     }
 

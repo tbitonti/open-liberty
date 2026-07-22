@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2001, 2021 IBM Corporation and others.
+ * Copyright (c) 2001, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.rsadapter.impl;
 
@@ -27,6 +26,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference; 
 
 import javax.security.auth.Subject;
@@ -70,7 +70,6 @@ import com.ibm.ws.rsadapter.ConnectionSharing;
 import com.ibm.ws.rsadapter.DSConfig; 
 import com.ibm.ws.rsadapter.exceptions.DataStoreAdapterException;
 import com.ibm.ws.rsadapter.jdbc.WSJdbcConnection;
-import com.ibm.ws.rsadapter.jdbc.WSJdbcTracer;
 import com.ibm.ws.tx.embeddable.EmbeddableWebSphereTransactionManager;
 
 /**
@@ -96,7 +95,7 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
                 StatementEventListener, 
                 FFDCSelfIntrospectable {
 
-    private boolean aborted;
+    private AtomicBoolean aborted = new AtomicBoolean(false);
 
     /**
      * Indicates whether any Vendor Specific Connection properties have changed.
@@ -171,6 +170,14 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
      * 
      */
     final AtomicReference<DSConfig> dsConfig;
+
+    /**
+     * Reference to the single ConnectionEventListener that is registered by the
+     * Liberty ConnectionManager after creation of the ManagedConnection and
+     * removed prior to destroy.
+     */
+    private final AtomicReference<ConnectionEventListener> eventListenerRef =
+                    new AtomicReference<>();
 
     private boolean kerberosConnection; // true if the connecation is a kerberos one.
 
@@ -263,15 +270,6 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
      * as defined by JDBC 4.3 Connection.begin/endRequest.
      */
     private boolean inRequest;
-
-    // for holding ConnectionEventListeners
-    private ConnectionEventListener[] ivEventListeners;
-    private int numListeners;
-
-    // constant for the known number of ConnectionEventListeners
-    // (currently the only known event listener is the connection pool)
-    private static final int KNOWN_NUMBER_OF_CELS = 1; 
-    private static final int CEL_ARRAY_INCREMENT_SIZE = 3; 
 
     WSManagedConnectionFactoryImpl mcf;
     DatabaseHelper helper;
@@ -470,11 +468,6 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
         // to get a new copy of it
 
         subject = sub == null ? null : copySubject(sub);
-
-        // create array.  Make room for the 'known number of ConnectionEventListeners
-        // Use the standard ConnectionEventListener instead of the J2C interface 
-        ivEventListeners = new ConnectionEventListener[KNOWN_NUMBER_OF_CELS];
-        numListeners = 0; // Use a separate variable for the count of listeners. 
 
         //logWriter will not be kept here, it will be accessed directly
         // from the mcf
@@ -1092,15 +1085,7 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
         info.indent("Exception: " + connEvent.getException()); 
         info.eoln(); 
 
-        info.append("Connection Event Listeners:");
-
-        for (int i = 0; i < numListeners; i++)
-            try {
-                info.indent(ivEventListeners[i]);
-            } catch (ArrayIndexOutOfBoundsException arrayX) {
-                // No FFDC code needed; multithreaded issue during FFDC; just ignore.
-            }
-
+        info.append("Connection Event Listeners: " + eventListenerRef);
         info.eoln();
 
         info.append("Maximum Handle List Size: " + maxHandlesInUse); 
@@ -1273,13 +1258,10 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
             }
         } 
 
-        // loop through the listeners
-        // Not synchronized because of contract that listeners will only be changed on
-        // ManagedConnection create/destroy. 
-
-        for (int i = 0; i < numListeners; i++) {
+        ConnectionEventListener listener = eventListenerRef.get();
+        if (listener != null) {
             // send Connection Closed event to the current listener
-            ivEventListeners[i].connectionClosed(connEvent); 
+            listener.connectionClosed(connEvent);
         }
 
         // Replace ConnectionEvent caching with a single reusable instance per
@@ -1426,10 +1408,10 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
         //Notification of the eventListeners must happen after the state change because if the statechange
         // is illegal, we need to throw an exception.  If this exception occurs, we do not want to
         // notify the cm of the tx started because we are not allowing it to start.
-        // loop through the listeners
-        for (int i = 0; i < numListeners; i++) {
+        ConnectionEventListener listener = eventListenerRef.get();
+        if (listener != null) {
             // send Local Transaction Started event to the current listener
-            ivEventListeners[i].localTransactionStarted(connEvent); 
+            listener.localTransactionStarted(connEvent);
         }
 
         // Replace ConnectionEvent caching with a single reusable instance per
@@ -1515,10 +1497,10 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
                      "Firing LOCAL TRANSACTION COMMITTED event for: " + handle,
                      this);
 
-        // loop through the listeners
-        for (int i = 0; i < numListeners; i++) {
+        ConnectionEventListener listener = eventListenerRef.get();
+        if (listener != null) {
             // send Local Transaction Committed event to the current listener
-            ivEventListeners[i].localTransactionCommitted(connEvent); 
+            listener.localTransactionCommitted(connEvent);
         }
 
         // Reset the indicator so lazy enlistment will be signaled if we end up in a
@@ -1608,10 +1590,10 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
             Tr.event(this, tc, 
                      "Firing LOCAL TRANSACTION ROLLEDBACK event for: " + handle, this);
 
-        // loop through the listeners
-        for (int i = 0; i < numListeners; i++) {
+        ConnectionEventListener listener = eventListenerRef.get();
+        if (listener != null) {
             // send Local Transaction Rolledback event to the current listener
-            ivEventListeners[i].localTransactionRolledback(connEvent); 
+            listener.localTransactionRolledback(connEvent);
         }
 
         // Reset the indicator so lazy enlistment will be signaled if we end up in a
@@ -1689,10 +1671,10 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
             if (isTraceOn && tc.isEventEnabled())
                 Tr.event(this, tc, "Firing Single CONNECTION_ERROR_OCCURRED", handle);
 
-            // loop through the listeners
-            for (int i = 0; i < numListeners; i++) {
+            ConnectionEventListener listener = eventListenerRef.get();
+            if (listener != null) {
                 // send Connection Error Occurred event to the current listener
-                ivEventListeners[i].connectionErrorOccurred(connEvent); 
+                listener.connectionErrorOccurred(connEvent);
             }
 
             return;
@@ -1725,10 +1707,10 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
             Tr.event(this, tc, 
                      "Firing " + (logEvent ? "CONNECTION_ERROR_OCCURRED" : "CONNECTION_ERROR_OCCURRED_NO_EVENT"), handle);
 
-        // loop through the listeners
-        for (int i = 0; i < numListeners; i++) {
+        ConnectionEventListener listener = eventListenerRef.get();
+        if (listener != null) {
             // send Connection Error Occurred event to the current listener
-            ivEventListeners[i].connectionErrorOccurred(connEvent); 
+            listener.connectionErrorOccurred(connEvent);
         }
 
         // Replace ConnectionEvent caching with a single reusable instance per
@@ -2464,13 +2446,19 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
         if (isTraceOn && tc.isEntryEnabled()) 
             Tr.entry(this, tc, "destroy");
 
+        if(isAborted()){
+            if(isTraceOn && tc.isEntryEnabled())
+                Tr.exit(this, tc, "destroy", "ManagedConnection is aborted -- skipping destroy");
+            return;
+        }
+        
         // Save the first exception to occur and raise it after all other destroy processing is complete.
         // Don't map exceptions and fire ConnectionError event from destroy because the
         // ManagedConnection is already being destroyed and there is no further action to take.
 
         ResourceException dsae = null;
 
-        if (inRequest || isAborted())
+        if (inRequest)
             try {
                 inRequest = false;
                 mcf.jdbcRuntime.endRequest(sqlConn);
@@ -2481,12 +2469,6 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
                 }
                 Tr.debug(tc, "Error during end request in destroy.", x);
             }
-
-        if(isAborted()){
-            if(isTraceOn && tc.isEntryEnabled())
-                Tr.exit(this, tc, "destroy", "ManagedConnection is aborted -- skipping destroy");
-            return;
-        }
 
         try {
             //  - We can't use the normal cleanup here because it dissociates
@@ -2607,8 +2589,6 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
 
         handlesInUse = null;
 
-        ivEventListeners = null;
-        numListeners = 0; 
         localTran = null;
         xares = null;
         cri = null;
@@ -2705,6 +2685,15 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
         if (isTraceOn && tc.isEntryEnabled())
             Tr.entry(this, tc, "cleanup");
 
+		if (isAborted())
+		{
+			if (isTraceOn && tc.isEntryEnabled())
+			{
+				Tr.exit(tc, "cleanup", "ManagedConnection is aborted -- skipping cleanup");
+			}
+			return;
+		}
+
         // Save the first exception to occur, continue processing, and throw it later.
         // This allows us to ensure all handles are dissociated and transactions are
         // rolled back, even if something fails early on in the cleanup processing.
@@ -2721,7 +2710,7 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
                 }
                 Tr.debug(tc, "Error during end request in cleanup.", x);
             }
-
+        
         // According to the JCA 1.5 spec, all remaining handles must be invalidated on
         // cleanup.  This is achieved by closing the handles.  Dissociating the handles would
         // not be adequate because dissociated handles may be used again.  
@@ -3124,15 +3113,16 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
         switch (stateMgr.transtate) {
 
             case WSStateManager.GLOBAL_TRANSACTION_ACTIVE: {
+                
+                if (aborted.get()) {
+                    break;
+                }
+                
                 try {
                     ((WSRdbXaResourceImpl) xares).end();
                 } catch (javax.transaction.xa.XAException xae) {
                     // No FFDC code needed; this is a normal case.
                     // Continue with the rollback if an exception is thrown on end. 
-                }
-                
-                if (aborted) {
-                    break;
                 }
 
                 try {
@@ -3149,7 +3139,7 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
                     throw new DataStoreAdapterException("DSA_ERROR", xae, getClass());
                 }
 
-                if (inCleanup && !aborted) 
+                if (inCleanup && !aborted.get()) 
                 {
                     String message =
                                     "Cannot call 'cleanup' on a ManagedConnection while it is still in a " +
@@ -3174,12 +3164,12 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
                 // be on.  In this case, just no-op, since some drivers like ConnectJDBC 3.1
                 // don't allow commit/rollback when autoCommit is on.  
 
-                if (aborted) {
+                if (aborted.get()) {
                     break;
                 }
                 
-                if (!currentAutoCommit)
-                    try { // autoCommit is off
+                if (!currentAutoCommit && sqlConn != null)
+                    try { // autoCommit is off; has not been destroyed yet
                         sqlConn.rollback();
                     } catch (SQLException se) {
                         FFDCFilter.processException(se, "com.ibm.ws.rsadapter.spi.WSRdbManagedConnectionImpl.cleanupTransactions", "1223", this);
@@ -3679,31 +3669,13 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
             throw new NullPointerException(
                             "Cannot add null ConnectionEventListener.");
 
-        // Not synchronized because of the contract that add/remove event listeners will only
-        // be used on ManagedConnection create/destroy, when the ManagedConnection is not
-        // used by any other threads. 
+        // Allow at most 1 listener per the contract that add/remove event listeners
+        // is only invoked on ManagedConnection create/destroy.
 
-        // Add the listener to the end of the array -- if the array is full,
-        // then need to create a new, bigger one
-
-        // check if the array is already full
-        if (numListeners >= ivEventListeners.length) {
-            // there is not enough room for the listener in the array
-            // create a new, bigger array
-            // Use the standard interface for event listeners instead of J2C's. 
-            ConnectionEventListener[] tempArray = ivEventListeners;
-            ivEventListeners = new ConnectionEventListener[numListeners + CEL_ARRAY_INCREMENT_SIZE];
-            // parms: arraycopy(Object source, int srcIndex, Object dest, int destIndex, int length)
-            System.arraycopy(tempArray, 0, ivEventListeners, 0, tempArray.length);
-            // point out in the trace that we had to do this - consider code changes if there
-            // are new CELs to handle (change KNOWN_NUMBER_OF_CELS, new events?, ...)
-            if (isTraceOn && tc.isDebugEnabled()) 
-                Tr.debug(this, tc, "received more ConnectionEventListeners than expected, " +
-                                   "increased array size to " + ivEventListeners.length);
+        if (!eventListenerRef.compareAndSet(null, listener)) {
+            // should be unreachable
+            throw new IllegalStateException("Already has " + eventListenerRef);
         }
-
-        // add listener to the array, increment listener counter
-        ivEventListeners[numListeners++] = listener; 
     }
 
     /**
@@ -3731,30 +3703,13 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
         // setting the metrics to null here causes a NPE the metrics cannot be set to null
         // until the end of the destroy method.
 
-        // Not synchronized because of the contract that add/remove event listeners will only
-        // be used on ManagedConnection create/destroy, when the ManagedConnection is not
-        // used by any other threads. 
+        // Expect at most 1 listener per the contract that add/remove event listeners
+        // is only used on ManagedConnection create/destroy.
 
-        // Find matching listener in the array -- then remove it, adjust entries as
-        // necessary, and adjust the counter
-
-        // loop through the listeners
-        for (int i = 0; i < numListeners; i++)
-            // look for matching listener
-            if (listener == ivEventListeners[i]) {
-                // remove the matching listener, but don't leave a gap in the array -- the order of
-                // the listeners in the array doesn't matter, so move the last listener to fill the
-                // gap left by the remove, if necessary
-                ivEventListeners[i] = ivEventListeners[--numListeners];
-                ivEventListeners[numListeners] = null;
-
-                if (isTraceOn && tc.isEntryEnabled())
-                    Tr.exit(this, tc, "removeConnectionEventListener"); 
-                return;
-            }
+        boolean removed = eventListenerRef.compareAndSet(listener, null);
 
         if (isTraceOn && tc.isEntryEnabled()) 
-            Tr.exit(this, tc, "removeConnectionEventListener", "Listener not found for remove.");
+            Tr.exit(this, tc, "removeConnectionEventListener", removed);
     }
 
     /**
@@ -4144,7 +4099,8 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
      * 
      * @returns ConnectionRequestInfo
      */
-    public final ConnectionRequestInfo getConnectionRequestInfo() {
+    @Override
+    public final WSConnectionRequestInfoImpl getConnectionRequestInfo() {
         return cri;
     }
 
@@ -4460,22 +4416,28 @@ public class WSRdbManagedConnectionImpl extends WSManagedConnection implements
     public void abort(Executor ex) throws Exception {
         if (mcf.beforeJDBCVersion(JDBCRuntimeVersion.VERSION_4_1))
           throw new SQLFeatureNotSupportedException();
-        
-        mcf.jdbcRuntime.doAbort(sqlConn, ex);
-        setAborted(true);
+
+        Connection con = sqlConn;
+        if (con == null) {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled())
+                Tr.debug(this, tc, "unable to abort a destroyed connection");
+        } else {
+            mcf.jdbcRuntime.doAbort(con, ex);
+            setAborted(true);
+        }
     }
     
     @Override
     public boolean isAborted() {
         if (mcf.beforeJDBCVersion(JDBCRuntimeVersion.VERSION_4_1))
             return false;
-        return aborted;
+        return aborted.get();
     }
     
     public void setAborted(boolean aborted) throws SQLFeatureNotSupportedException{
         if (mcf.beforeJDBCVersion(JDBCRuntimeVersion.VERSION_4_1))
           throw new SQLFeatureNotSupportedException();
-        this.aborted = aborted;
+        this.aborted.set(aborted);
     }
     
     public int getNetworkTimeout() throws SQLException {

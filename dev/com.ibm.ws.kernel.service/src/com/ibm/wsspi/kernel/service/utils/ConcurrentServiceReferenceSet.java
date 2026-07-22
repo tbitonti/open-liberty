@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -19,6 +21,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.component.ComponentContext;
@@ -30,30 +34,34 @@ import org.osgi.service.component.ComponentContext;
  * service.ranking then lowest (first) service.id.
  * <p>
  * Usage (following OSGi DS naming conventions/patterns):
- * <code><pre>
+ * <code>
+ *
+ * <pre>
  * private final ConcurrentServiceReferenceSet&ltT&gt serviceSet = new ConcurrentServiceReferenceSet&ltT&gt("referenceName");
- * 
+ *
  * protected void activate(ComponentContext ctx) {
  * &nbsp;serviceSet.activate(ctx);
  * }
- * 
+ *
  * protected void deactivate(ComponentContext ctx) {
  * &nbsp;serviceSet.deactivate(ctx);
  * }
- * 
+ *
  * protected void setReferenceName(ServiceReference&ltT&gt ref) {
  * &nbsp;serviceSet.addReference(ref);
  * }
- * 
+ *
  * protected void unsetReferenceName(ServiceReference&ltT&gt ref) {
  * &nbsp;serviceSet.removeReference(ref);
  * }
- * 
+ *
  * public Iterator&ltT&gt getReferenceName() {
  * &nbsp;return serviceSet.getServices();
  * }
- * </pre></code>
- * 
+ * </pre>
+ *
+ * </code>
+ *
  */
 public class ConcurrentServiceReferenceSet<T> {
 
@@ -65,8 +73,8 @@ public class ConcurrentServiceReferenceSet<T> {
      * Map of service reference to element. Modifications should only be made
      * while holding a lock on this field.
      */
-    private final Map<ServiceReference<T>, ConcurrentServiceReferenceElement<T>> elementMap =
-                    new LinkedHashMap<ServiceReference<T>, ConcurrentServiceReferenceElement<T>>();
+    private final Map<ServiceReference<T>, ConcurrentServiceReferenceElement<T>> elementMap = new LinkedHashMap<ServiceReference<T>, ConcurrentServiceReferenceElement<T>>();
+    private final ReadWriteLock elementMapLock = new ReentrantReadWriteLock();
 
     /**
      * Set of services in {@link #elementMap}, sorted by descending service
@@ -74,8 +82,7 @@ public class ConcurrentServiceReferenceSet<T> {
      * allow iteration while updating, but changes should only be made while
      * holding a lock on {@link #elementMap} to ensure consistency between.
      */
-    private ConcurrentSkipListSet<ConcurrentServiceReferenceElement<T>> elementSet =
-                    new ConcurrentSkipListSet<ConcurrentServiceReferenceElement<T>>();
+    private ConcurrentSkipListSet<ConcurrentServiceReferenceElement<T>> elementSet = new ConcurrentSkipListSet<ConcurrentServiceReferenceElement<T>>();
 
     /**
      * True if {@link #elementSet} needs to be refreshed from {@link #elementMap} because the service ranking of an element changed.
@@ -87,7 +94,7 @@ public class ConcurrentServiceReferenceSet<T> {
     /**
      * Create a new ConcurrentServiceReferenceSet for the named service.
      * e.g. from bnd.bnd: referenceName=.... or from component.xml: <reference name="referenceName".... >
-     * 
+     *
      * @param name Name of DS reference
      */
     public ConcurrentServiceReferenceSet(String name) {
@@ -132,7 +139,7 @@ public class ConcurrentServiceReferenceSet<T> {
     /**
      * Adds the service reference to the set, or notifies the set that the
      * service ranking for the reference might have been updated.
-     * 
+     *
      * @param reference ServiceReference for the target service
      * @return true if this set already contained the service reference
      */
@@ -142,7 +149,8 @@ public class ConcurrentServiceReferenceSet<T> {
 
         ConcurrentServiceReferenceElement<T> element = new ConcurrentServiceReferenceElement<T>(referenceName, reference);
 
-        synchronized (elementMap) {
+        elementMapLock.writeLock().lock();
+        try {
             ConcurrentServiceReferenceElement<T> oldElement = elementMap.put(reference, element);
             if (oldElement != null) {
                 if (!element.getRanking().equals(oldElement.getRanking())) {
@@ -152,18 +160,21 @@ public class ConcurrentServiceReferenceSet<T> {
             }
 
             elementSet.add(element);
+        } finally {
+            elementMapLock.writeLock().unlock();
         }
         return false;
     }
 
     /**
      * Removes the service reference from the set
-     * 
+     *
      * @param reference ServiceReference associated with service to be unset
      * @return true if this set contained the service reference
      */
     public boolean removeReference(ServiceReference<T> reference) {
-        synchronized (elementMap) {
+        elementMapLock.writeLock().lock();
+        try {
             ConcurrentServiceReferenceElement<T> element = elementMap.remove(reference);
             if (element == null) {
                 return false;
@@ -171,6 +182,8 @@ public class ConcurrentServiceReferenceSet<T> {
 
             elementSet.remove(element);
             return true;
+        } finally {
+            elementMapLock.writeLock().unlock();
         }
     }
 
@@ -179,12 +192,17 @@ public class ConcurrentServiceReferenceSet<T> {
      * true if the set is empty (none available). If the set is not
      * empty, the services will only be resolvable if there is a viable
      * component context.
-     * 
+     *
      * @return true if the list of registered service references is empty.
-     * 
+     *
      */
     public boolean isEmpty() {
-        return elementSet.isEmpty();
+        elementMapLock.readLock().lock();
+        try {
+            return elementMap.isEmpty();
+        } finally {
+            elementMapLock.readLock().unlock();
+        }
     }
 
     public boolean isActive() {
@@ -194,7 +212,7 @@ public class ConcurrentServiceReferenceSet<T> {
     /**
      * Find the provided reference in the set, and return the corresponding service.
      * Subject to the same restrictions/behavior as getServices.
-     * 
+     *
      * @param serviceReference Service reference to find in the set
      * @return service associated with service reference, or null if the service could not be located.
      */
@@ -204,8 +222,11 @@ public class ConcurrentServiceReferenceSet<T> {
             ComponentContext ctx = contextRef.get();
             if (ctx != null) {
                 ConcurrentServiceReferenceElement<T> element;
-                synchronized (elementMap) {
+                elementMapLock.readLock().lock();
+                try {
                     element = elementMap.get(serviceReference);
+                } finally {
+                    elementMapLock.readLock().unlock();
                 }
                 if (element != null) {
                     return element.getService(ctx);
@@ -218,7 +239,7 @@ public class ConcurrentServiceReferenceSet<T> {
     /**
      * The ConcurrentReferenceSet is ordered by the usual service ranking rules:
      * highest service.ranking then lowest (first) service.id.
-     * 
+     *
      * @return The "first" service according to the ranking
      */
     public T getHighestRankedService() {
@@ -229,11 +250,11 @@ public class ConcurrentServiceReferenceSet<T> {
     /**
      * The ConcurrentReferenceSet is ordered by the usual service ranking rules:
      * highest service.ranking then lowest (first) service.id.
-     * 
+     *
      * @return The "first" service reference according to the ranking
      */
     public ServiceReference<T> getHighestRankedReference() {
-        Iterator<ConcurrentServiceReferenceElement<T>> iterator = elementSet.iterator();
+        Iterator<ConcurrentServiceReferenceElement<T>> iterator = elements();
         return iterator.hasNext() ? iterator.next().getReference() : null;
     }
 
@@ -241,13 +262,26 @@ public class ConcurrentServiceReferenceSet<T> {
      * Return an iterator for the elements in service ranking order.
      */
     private Iterator<ConcurrentServiceReferenceElement<T>> elements() {
-        Collection<ConcurrentServiceReferenceElement<T>> set;
-        synchronized (elementMap) {
-            if (elementSetUnsorted) {
-                elementSet = new ConcurrentSkipListSet<ConcurrentServiceReferenceElement<T>>(elementMap.values());
-                elementSetUnsorted = false;
+        Collection<ConcurrentServiceReferenceElement<T>> set = null;
+        elementMapLock.readLock().lock();
+        try {
+            if (!elementSetUnsorted) {
+                set = elementSet;
             }
-            set = elementSet;
+        } finally {
+            elementMapLock.readLock().unlock();
+        }
+        if (set == null) {
+            elementMapLock.writeLock().lock();
+            try {
+                if (elementSetUnsorted) {
+                    elementSet = new ConcurrentSkipListSet<ConcurrentServiceReferenceElement<T>>(elementMap.values());
+                    elementSetUnsorted = false;
+                }
+                set = elementSet;
+            } finally {
+                elementMapLock.writeLock().unlock();
+            }
         }
 
         return set.iterator();
@@ -259,13 +293,13 @@ public class ConcurrentServiceReferenceSet<T> {
      * Creation of the iterator does not eagerly resolve services: resolution
      * is done only once per service reference, and only when "next" would
      * retrieve that service.
-     * 
+     *
      * @return
      */
     public Iterator<T> getServices() {
-        final List<T> empty = Collections.emptyList();
 
         if (contextRef.get() == null) {
+            final List<T> empty = Collections.emptyList();
             return empty.iterator();
         }
 
@@ -329,7 +363,7 @@ public class ConcurrentServiceReferenceSet<T> {
      * Creation of the iterator does not eagerly resolve services: resolution
      * is done only once per service reference, and only when "next" would
      * retrieve that service.
-     * 
+     *
      * @return
      */
     public Iterator<ServiceAndServiceReferencePair<T>> getServicesWithReferences() {

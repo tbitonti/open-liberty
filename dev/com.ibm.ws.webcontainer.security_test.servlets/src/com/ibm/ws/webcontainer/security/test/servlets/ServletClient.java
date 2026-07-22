@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -30,8 +32,8 @@ public interface ServletClient {
     public static final String PROTECTED_OVERLAP_ALL_ACCESS = "/OverlapNoConstraintServlet";
     public static final String PROTECTED_OVERLAP_ACCESS_PRECLUDED = "/OverlapNoRoleServlet";
     public static final String PROTECTED_MATCH_ANY_PATTERN = "/MatchAny";
-    public static final String PROTECTED_SPECIAL_ANY_ROLE_AUTH = "/StarConstraintServlet";
-    public static final String PROTECTED_SPECIAL_ALL_AUTH = "/StarStarConstraintServlet";
+    public static final String PROTECTED_SPECIAL_ANY_ROLE_AUTH = "/StarConstraintServlet"; // pragma: allowlist secret
+    public static final String PROTECTED_SPECIAL_ALL_AUTH = "/StarStarConstraintServlet"; // pragma: allowlist secret
     public static final String SSL_SECURED_SIMPLE = "/SecureSimpleServlet";
 
     public static final String UNPROTECTED_PROGRAMMATIC_API_SERVLET = "/UnprotectedProgrammaticAPIServlet";
@@ -73,7 +75,7 @@ public interface ServletClient {
      * Access an unavailable URL pattern that is under of the context root.
      *
      * @param urlPattern
-     *            URL pattern that is under the context root.
+     *                       URL pattern that is under the context root.
      * @return servlet response text
      */
     public abstract String accessUnavailableServlet(String urlPattern);
@@ -82,7 +84,7 @@ public interface ServletClient {
      * Access an unprotected URL pattern that is under of the context root.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @return servlet response text
      */
     public abstract String accessUnprotectedServlet(String urlPattern);
@@ -93,11 +95,11 @@ public interface ServletClient {
      * is specified in the web.xml.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @param user
-     *            user to authenticate as
+     *                       user to authenticate as
      * @param password
-     *            password to authenticate with
+     *                       password to authenticate with
      * @return true if access was denied with 403
      */
     public abstract boolean accessDeniedHttpMethodServlet(String urlPattern, String user, String password);
@@ -108,11 +110,11 @@ public interface ServletClient {
      * access will never be permitted.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @param user
-     *            user to authenticate as
+     *                       user to authenticate as
      * @param password
-     *            password to authenticate with
+     *                       password to authenticate with
      * @return servlet response text, null if access not granted
      */
     public abstract boolean accessPrecludedServlet(String urlPattern);
@@ -121,11 +123,11 @@ public interface ServletClient {
      * Access a protected URL pattern that is part of the context root.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @param user
-     *            user to authenticate as
+     *                       user to authenticate as
      * @param password
-     *            password to authenticate with
+     *                       password to authenticate with
      * @return servlet response text, null if access not granted
      */
     public abstract String accessProtectedServletWithAuthorizedCredentials(String urlPattern, String user, String password);
@@ -135,11 +137,11 @@ public interface ServletClient {
      * is expected to be rejected as the user is not authorized.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @param user
-     *            user to authenticate as
+     *                       user to authenticate as
      * @param password
-     *            password to authenticate with
+     *                       password to authenticate with
      * @return true if access was denied with 403
      */
     public abstract boolean accessProtectedServletWithUnauthorizedCredentials(String urlPattern, String user, String password);
@@ -149,11 +151,11 @@ public interface ServletClient {
      * is expected to be rejected as the credentials are not valid.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @param user
-     *            user to authenticate as
+     *                       user to authenticate as
      * @param password
-     *            password to authenticate with
+     *                       password to authenticate with
      * @return true if access was denied with 401
      */
     public abstract boolean accessProtectedServletWithInvalidCredentials(String urlPattern, String user, String password);
@@ -163,23 +165,37 @@ public interface ServletClient {
      * is expected to be rejected as the registry is not valid.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @param user
-     *            user to authenticate as
+     *                       user to authenticate as
      * @param password
-     *            password to authenticate with
+     *                       password to authenticate with
      * @return true if access was denied with 401
      */
     public abstract boolean accessProtectedServletWithInvalidRegistry(String urlPattern, String user, String password);
+
+    /**
+     * Access a protected URL pattern that is part of the context root. Access
+     * is expected to be rejected as the ltpa service is not ready.
+     *
+     * @param urlPattern
+     *                       URL pattern that is under of the context root.
+     * @param user
+     *                       user to authenticate as
+     * @param password
+     *                       password to authenticate with
+     * @return true if access was denied with 401
+     */
+    public abstract boolean accessProtectedServletWithoutLtpaServiceReady(String urlPattern, String user, String password);
 
     /**
      * Access a protected URL pattern that is part of the context root using
      * the passed valid headers.
      *
      * @param urlPattern
-     *            URL pattern that is within the context root.
+     *                       URL pattern that is within the context root.
      * @param headers
-     *            Map of header names and values to be included in the request
+     *                       Map of header names and values to be included in the request
      * @return servlet response text, null if access not granted
      */
     public abstract String accessProtectedServletWithValidHeaders(String urlPattern, Map<String, String> headers);
@@ -189,11 +205,11 @@ public interface ServletClient {
      * the passed valid headers.
      *
      * @param urlPattern
-     *            URL pattern that is within the context root.
+     *                               URL pattern that is within the context root.
      * @param headers
-     *            Map of header names and values to be included in the request
+     *                               Map of header names and values to be included in the request
      * @param ignoreErrorContent
-     *            If true, any HTTP response content received with a non-200 status code will be returned as null
+     *                               If true, any HTTP response content received with a non-200 status code will be returned as null
      * @return servlet response text. If ignoreErrorContent is true, null is returned if access not granted
      */
     public abstract String accessProtectedServletWithValidHeaders(String urlPattern, Map<String, String> headers, Boolean ignoreErrorContent);
@@ -203,9 +219,9 @@ public interface ServletClient {
      * the passed headers that are not valid.
      *
      * @param urlPattern
-     *            URL pattern that is within the context root.
+     *                       URL pattern that is within the context root.
      * @param headers
-     *            Map of header names and values to be included in the request
+     *                       Map of header names and values to be included in the request
      * @return servlet response text, null if access not granted
      */
     public abstract String accessProtectedServletWithInvalidHeaders(String urlPattern, Map<String, String> headers);
@@ -215,11 +231,11 @@ public interface ServletClient {
      * the passed headers that are not valid.
      *
      * @param urlPattern
-     *            URL pattern that is within the context root.
+     *                               URL pattern that is within the context root.
      * @param headers
-     *            Map of header names and values to be included in the request
+     *                               Map of header names and values to be included in the request
      * @param ignoreErrorContent
-     *            If true, any HTTP response content received with a non-200 status code will be returned as null
+     *                               If true, any HTTP response content received with a non-200 status code will be returned as null
      * @return
      */
     public abstract String accessProtectedServletWithInvalidHeaders(String urlPattern, Map<String, String> headers, boolean ignoreErrorContent);
@@ -229,13 +245,13 @@ public interface ServletClient {
      * the passed headers that are not valid.
      *
      * @param urlPattern
-     *            URL pattern that is within the context root.
+     *                               URL pattern that is within the context root.
      * @param headers
-     *            Map of header names and values to be included in the request
+     *                               Map of header names and values to be included in the request
      * @param ignoreErrorContent
-     *            If true, any HTTP response content received with a non-200 status code will be returned as null
+     *                               If true, any HTTP response content received with a non-200 status code will be returned as null
      * @param expectedStatusCode
-     *            Expected status code of the response
+     *                               Expected status code of the response
      * @return servlet response text. If ignoreErrorContent is true, null is returned if access not granted
      */
     public abstract String accessProtectedServletWithInvalidHeaders(String urlPattern, Map<String, String> headers, boolean ignoreErrorContent, int expectedStatusCode);
@@ -244,7 +260,7 @@ public interface ServletClient {
      * Access a URL pattern that requires SSL.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @return true if access was denied with 403
      */
     public abstract boolean accessSSLRequiredSevlet(String urlPattern);
@@ -260,9 +276,9 @@ public interface ServletClient {
      * Access a protected URL pattern that is part of the context root.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @param cookie
-     *            cookie to authenticate with
+     *                       cookie to authenticate with
      * @return servlet response text, null if access not granted
      */
     public abstract String accessProtectedServletWithAuthorizedCookie(String urlPattern,
@@ -273,9 +289,9 @@ public interface ServletClient {
      * is expected to be rejected as the user is not authorized.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @param cookie
-     *            cookie to authenticate with
+     *                       cookie to authenticate with
      * @return true if access was denied with 403
      */
     public abstract boolean accessProtectedServletWithUnauthorizedCookie(
@@ -286,9 +302,9 @@ public interface ServletClient {
      * is expected to be rejected as the cookie is not valid.
      *
      * @param urlPattern
-     *            URL pattern that is under of the context root.
+     *                       URL pattern that is under of the context root.
      * @param cookie
-     *            cookie to authenticate with
+     *                       cookie to authenticate with
      * @return true if access was denied due to invalid cookie
      */
     public abstract boolean accessProtectedServletWithInvalidCookie(String urlPattern,
@@ -304,7 +320,7 @@ public interface ServletClient {
      * repeated and really expensive.
      *
      * @param password
-     *            password string to search for
+     *                     password string to search for
      * @throws Exception
      */
     public abstract void checkForPasswordsInLogsAndTrace(String password) throws Exception;
@@ -313,7 +329,7 @@ public interface ServletClient {
      * Verify the default values for an unauthenticated response.
      *
      * @param response
-     *            Servlet response text
+     *                     Servlet response text
      * @return true is things verified properly, false otherwise.
      */
     public abstract boolean verifyUnauthenticatedResponse(String response);
@@ -322,13 +338,13 @@ public interface ServletClient {
      * Verify the expected values for an authenticated response.
      *
      * @param response
-     *            Servlet response text
+     *                                 Servlet response text
      * @param userName
-     *            Expected user name
+     *                                 Expected user name
      * @param isUserInEmployeeRole
-     *            If the user should be in the employee role
+     *                                 If the user should be in the employee role
      * @param isUserInManagerRole
-     *            If the user should be in the manager role
+     *                                 If the user should be in the manager role
      * @return true is things verified properly, false otherwise.
      */
     public abstract boolean verifyResponse(String response, String userName,
@@ -339,17 +355,17 @@ public interface ServletClient {
      * Check for a specified isUserInRole role.
      *
      * @param response
-     *            Servlet response text
+     *                                  Servlet response text
      * @param userName
-     *            Expected user name
+     *                                  Expected user name
      * @param isUserInEmployeeRole
-     *            If the user should be in the employee role
+     *                                  If the user should be in the employee role
      * @param isUserInManagerRole
-     *            If the user should be in the manager role
+     *                                  If the user should be in the manager role
      * @param specifiedRole
-     *            Specified role to servlet for isUserInRole check
+     *                                  Specified role to servlet for isUserInRole check
      * @param isUserInSpecifiedRole
-     *            If the user should be in the specified role
+     *                                  If the user should be in the specified role
      * @return true is things verified properly, false otherwise.
      */
     public abstract boolean verifyResponse(String response, String userName,
@@ -369,4 +385,9 @@ public interface ServletClient {
      * @return
      */
     String accessUnavailableServlet(String urlPattern, Class<?>[] expectedException);
+
+    /**
+     * @param isJaccScenario
+     */
+    void setJaccValidation(boolean isJaccScenario);
 }

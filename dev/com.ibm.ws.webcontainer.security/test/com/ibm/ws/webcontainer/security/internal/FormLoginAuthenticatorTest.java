@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2018 IBM Corporation and others.
+ * Copyright (c) 2017, 2022 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -33,7 +35,7 @@ import org.jmock.integration.junit4.JUnit4Mockery;
 import org.jmock.lib.legacy.ClassImposteriser;
 import org.junit.Test;
 
-import com.ibm.ws.common.internal.encoder.Base64Coder;
+import com.ibm.ws.common.encoder.Base64Coder;
 import com.ibm.ws.webcontainer.security.AuthResult;
 import com.ibm.ws.webcontainer.security.AuthenticationResult;
 import com.ibm.ws.webcontainer.security.PostParameterHelper;
@@ -130,6 +132,8 @@ public class FormLoginAuthenticatorTest {
                 will(returnValue(null));
                 allowing(webAppSecConfig).getSameSiteCookie();
                 will(returnValue("Disabled"));
+                allowing(webAppSecConfig).getPartitionedCookie();
+                will(returnValue(null));
 
             }
         });
@@ -285,11 +289,12 @@ public class FormLoginAuthenticatorTest {
                 will(returnValue("/snoop"));
                 allowing(extReq).getMethod();
                 will(returnValue("POST"));
-                one(extReq).getAttribute(PostParameterHelper.ATTRIB_HASH_MAP); //
+                allowing(extReq).getAttribute(PostParameterHelper.ATTRIB_HASH_MAP); //
                 will(returnValue(paramMap)); //
-                one(extReq).setAttribute(PostParameterHelper.ATTRIB_HASH_MAP, null); //
-                one(extReq).setInputStreamData((HashMap) paramMap); //
-                allowing(extReq).getInputStreamData();
+                allowing(extReq).setAttribute(PostParameterHelper.ATTRIB_HASH_MAP, null); //
+                allowing(extReq).setInputStreamData((HashMap) paramMap); //
+                allowing(webAppSecConfig).postParamMaxRequestBodySize();
+                allowing(extReq).getInputStreamData(1024 * 1024 * 128L);
                 will(returnValue(paramMap));
                 allowing(extReq).sizeInputStreamData(paramMap);
                 will(returnValue(100L));
@@ -317,6 +322,8 @@ public class FormLoginAuthenticatorTest {
                 will(returnValue(true));
                 allowing(webAppSecConfig).getSameSiteCookie();
                 will(returnValue("Disabled"));
+                allowing(webAppSecConfig).getPartitionedCookie();
+                will(returnValue(null));
             }
         });
 
@@ -396,7 +403,7 @@ public class FormLoginAuthenticatorTest {
                 will(returnValue(paramMap)); //
                 allowing(extReq).setAttribute(PostParameterHelper.ATTRIB_HASH_MAP, null);//
                 allowing(extReq).setInputStreamData((HashMap) paramMap); //
-                allowing(extReq).getInputStreamData();
+                allowing(extReq).getInputStreamData(1024 * 1024 * 128L);
                 will(returnValue(paramMap));
                 allowing(extReq).isSecure();
                 will(returnValue(true));
@@ -409,9 +416,9 @@ public class FormLoginAuthenticatorTest {
                 will(returnValue(session));
                 allowing(extReq).getParameterNames();
                 will(returnValue(paramEnum));
-                one(session).setAttribute(PostParameterHelper.INITIAL_URL, reqURI);
-                one(session).setAttribute(PostParameterHelper.PARAM_NAMES, null);
-                one(session).setAttribute(PostParameterHelper.PARAM_VALUES, paramMap);
+                allowing(session).setAttribute(PostParameterHelper.INITIAL_URL, reqURI);
+                allowing(session).setAttribute(PostParameterHelper.PARAM_NAMES, null);
+                allowing(session).setAttribute(PostParameterHelper.PARAM_VALUES, paramMap);
 
                 // Back in handleRedirect()
                 allowing(extReq).getQueryString();
@@ -424,6 +431,8 @@ public class FormLoginAuthenticatorTest {
                 will(returnValue(true));
                 allowing(webAppSecConfig).getSameSiteCookie();
                 will(returnValue("Disabled"));
+                allowing(webAppSecConfig).getPartitionedCookie();
+                will(returnValue(null));
             }
         });
 

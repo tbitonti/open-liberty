@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2020 IBM Corporation and others.
+ * Copyright (c) 2011, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -46,15 +48,17 @@ import com.ibm.wsspi.kernel.service.utils.OnErrorUtil.OnError;
 public class HttpChain implements ChainEventListener {
     private static final TraceComponent tc = Tr.register(HttpChain.class);
 
-    enum ChainState {
+    public enum ChainState {
         UNINITIALIZED(0, "UNINITIALIZED"),
         DESTROYED(1, "DESTROYED"),
         INITIALIZED(2, "INITIALIZED"),
         STOPPED(3, "STOPPED"),
         QUIESCED(4, "QUIESCED"),
-        STARTED(5, "STARTED");
+        STARTED(5, "STARTED"),
+        STARTING(6, "STARTING"),
+        STOPPING(7, "STOPPING");
 
-        final int val;
+        public final int val;
         final String name;
 
         @Trivial
@@ -78,30 +82,34 @@ public class HttpChain implements ChainEventListener {
                     return "QUIESCED";
                 case 5:
                     return "STARTED";
+                case  6:
+                    return "STARTING";
+                case  7:
+                    return "STOPPING";
             }
             return "UNKNOWN";
         }
     }
 
-    private final StopWait stopWait = new StopWait();
-    private final HttpEndpointImpl owner;
-    private final boolean isHttps;
+    protected final StopWait stopWait = new StopWait();
+    protected final HttpEndpointImpl owner;
+    protected final boolean isHttps;
 
-    private String endpointName;
-    private String tcpName;
-    private String sslName;
-    private String httpName;
-    private String dispatcherName;
-    private String chainName;
-    private ChannelFramework cfw;
-    private EndPointMgr endpointMgr;
+    protected String endpointName;
+    protected String tcpName;
+    protected String sslName;
+    protected String httpName;
+    protected String dispatcherName;
+    protected String chainName;
+    protected ChannelFramework cfw;
+    protected EndPointMgr endpointMgr;
 
     /**
      * The state of the chain according to values from {@link ChainState}.
      * Aside from the initial value assignment, new values are only assigned from
      * within {@link ChainEventListener} methods.
      */
-    private final AtomicInteger chainState = new AtomicInteger(ChainState.UNINITIALIZED.val);
+    protected final AtomicInteger chainState = new AtomicInteger(ChainState.UNINITIALIZED.val);
 
     /**
      * Toggled by enable/disable methods. This serves only to block activity
@@ -113,13 +121,13 @@ public class HttpChain implements ChainEventListener {
      * A snapshot of the configuration (collection of properties objects) last used
      * for a start/update operation.
      */
-    private volatile ActiveConfiguration currentConfig = null;
+    protected volatile ActiveConfiguration currentConfig = null;
 
     /**
      * Create the new chain with it's parent endpoint
      *
      * @param httpEndpointImpl the owning endpoint: used for notifications
-     * @param isHttps true if this is to be an https chain.
+     * @param isHttps          true if this is to be an https chain.
      */
     public HttpChain(HttpEndpointImpl owner, boolean isHttps) {
         this.owner = owner;
@@ -131,9 +139,9 @@ public class HttpChain implements ChainEventListener {
      * so come up with names associated with this set of channels/chains that will be reused regardless
      * of start/stop/enable/disable/modify
      *
-     * @param endpointId The id of the httpEndpoint
+     * @param endpointId  The id of the httpEndpoint
      * @param componentId The DS component id
-     * @param cfw Channel framework
+     * @param cfw         Channel framework
      */
     public void init(String endpointId, Object componentId, CHFWBundle cfBundle) {
         final String root = endpointId + (isHttps ? "-ssl" : "");
@@ -169,6 +177,14 @@ public class HttpChain implements ChainEventListener {
                 Tr.debug(this, tc, "Error stopping chain " + chainName, this, e);
             }
         }
+    }
+
+    public HttpEndpointImpl getOwner() {
+        return this.owner;
+    }
+
+    public boolean isHttps() {
+        return this.isHttps;
     }
 
     /**
@@ -266,9 +282,10 @@ public class HttpChain implements ChainEventListener {
         Map<String, Object> remoteIpOptions = owner.getRemoteIpConfig();
         Map<String, Object> compressionOptions = owner.getCompressionConfig();
         Map<String, Object> samesiteOptions = owner.getSamesiteConfig();
+        Map<String, Object> headersOptions = owner.getHeadersConfig();
 
-        final ActiveConfiguration newConfig = new ActiveConfiguration(isHttps, tcpOptions, sslOptions, httpOptions, remoteIpOptions, compressionOptions, samesiteOptions, endpointOptions, resolvedHostName);
-        
+        final ActiveConfiguration newConfig = new ActiveConfiguration(isHttps, tcpOptions, sslOptions, httpOptions, remoteIpOptions, compressionOptions, samesiteOptions, headersOptions, endpointOptions, resolvedHostName);
+
         if (newConfig.configPort < 0 || !newConfig.complete()) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                 Tr.debug(this, tc, "Stopping chain due to configuration " + newConfig);
@@ -347,7 +364,6 @@ public class HttpChain implements ChainEventListener {
                     if (newConfig.httpChanged(oldConfig))
                         removeChannel(httpName);
 
-
                     if (newConfig.endpointChanged(oldConfig))
                         removeChannel(dispatcherName);
                 }
@@ -396,68 +412,100 @@ public class HttpChain implements ChainEventListener {
                     if (owner.getProtocolVersion() != null) {
                         chanProps.put(HttpConfigConstants.PROPNAME_PROTOCOL_VERSION, owner.getProtocolVersion());
                     }
-                    if(remoteIpOptions.get("id").equals("defaultRemoteIp")){
+                    if (remoteIpOptions.get("id").equals("defaultRemoteIp")) {
                         //Put the internal remoteIp set to false since the element was not configured to be used
                         chanProps.put(HttpConfigConstants.PROPNAME_REMOTE_IP, "false");
                         chanProps.put(HttpConfigConstants.PROPNAME_REMOTE_PROXIES, null);
                         chanProps.put(HttpConfigConstants.PROPNAME_REMOTE_IP_ACCESS_LOG, null);
-                    }
-                    else{
+                    } else {
                         chanProps.put(HttpConfigConstants.PROPNAME_REMOTE_IP, "true");
                         //Check if the remoteIp is configured to use the remoteIp in the access log or if
                         //a custom proxy regex was provided
-                        if(remoteIpOptions.containsKey("proxies")){
+                        if (remoteIpOptions.containsKey("proxies")) {
                             chanProps.put(HttpConfigConstants.PROPNAME_REMOTE_PROXIES, remoteIpOptions.get("proxies"));
                         }
-                        if(remoteIpOptions.containsKey("useRemoteIpInAccessLog")){
+                        if (remoteIpOptions.containsKey("useRemoteIpInAccessLog")) {
                             chanProps.put(HttpConfigConstants.PROPNAME_REMOTE_IP_ACCESS_LOG, remoteIpOptions.get("useRemoteIpInAccessLog"));
                         }
                     }
-                    
-                    if(compressionOptions.get("id").equals("defaultCompression")){
+
+                    if (compressionOptions.get("id").equals("defaultCompression")) {
                         //Put the internal compression set to false since the element was not configured to be used
                         chanProps.put(HttpConfigConstants.PROPNAME_COMPRESSION, "false");
-                        chanProps.put(HttpConfigConstants.PROPNAME_COMPRESSION_CONTENT_TYPES, null);
-                        chanProps.put(HttpConfigConstants.PROPNAME_COMPRESSION_PREFERRED_ALGORITHM, null);
+                        chanProps.put(HttpConfigConstants.PROPNAME_COMPRESSION_CONTENT_TYPES_INTERNAL, null);
+                        chanProps.put(HttpConfigConstants.PROPNAME_COMPRESSION_PREFERRED_ALGORITHM_INTERNAL, null);
                     }
 
-                    else{
+                    else {
                         chanProps.put(HttpConfigConstants.PROPNAME_COMPRESSION, "true");
                         //Check if the compression is configured to use content-type filter
-                        if(compressionOptions.containsKey("types")){
-                            chanProps.put(HttpConfigConstants.PROPNAME_COMPRESSION_CONTENT_TYPES, compressionOptions.get("types"));
-                            
+                        if (compressionOptions.containsKey("types")) {
+                            chanProps.put(HttpConfigConstants.PROPNAME_COMPRESSION_CONTENT_TYPES_INTERNAL, compressionOptions.get("types"));
+
                         }
-                        if(compressionOptions.containsKey("serverPreferredAlgorithm")){
-                            chanProps.put(HttpConfigConstants.PROPNAME_COMPRESSION_PREFERRED_ALGORITHM, compressionOptions.get("serverPreferredAlgorithm"));
+                        if (compressionOptions.containsKey("serverPreferredAlgorithm")) {
+                            chanProps.put(HttpConfigConstants.PROPNAME_COMPRESSION_PREFERRED_ALGORITHM_INTERNAL, compressionOptions.get("serverPreferredAlgorithm"));
                         }
                     }
 
-                    if(samesiteOptions.get("id").equals("defaultSameSite")){
+                    if (samesiteOptions.get("id").equals("defaultSameSite")) {
                         chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE, "false");
                         chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_LAX, null);
                         chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_NONE, null);
                         chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_STRICT, null);
+                        chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_PARTITIONED, "false");
                     }
-                    
-                    else{
-                        
+
+                    else {
+
                         boolean enableSameSite = false;
-                        if(samesiteOptions.containsKey("lax")){
-                            enableSameSite=true;
-                            chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_LAX, samesiteOptions.get("lax"));
+                        if (samesiteOptions.containsKey("lax")) {
+                            enableSameSite = true;
+                            chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_LAX_INTERNAL, samesiteOptions.get("lax"));
                         }
-                        if(samesiteOptions.containsKey("none")){
-                            enableSameSite=true;
-                            chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_NONE, samesiteOptions.get("none"));
+                        if (samesiteOptions.containsKey("none")) {
+                            enableSameSite = true;
+                            chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_NONE_INTERNAL, samesiteOptions.get("none"));
                         }
-                        if(samesiteOptions.containsKey("strict")){
-                            enableSameSite=true;
-                            chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_STRICT, samesiteOptions.get("strict"));
+                        if (samesiteOptions.containsKey("strict")) {
+                            enableSameSite = true;
+                            chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_STRICT_INTERNAL, samesiteOptions.get("strict"));
+                        }
+                        if (samesiteOptions.containsKey("partitioned")) {
+                            enableSameSite = true;
+                            chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE_PARTITIONED, samesiteOptions.get("partitioned"));
                         }
                         chanProps.put(HttpConfigConstants.PROPNAME_SAMESITE, enableSameSite);
                     }
 
+                    if (headersOptions.get("id").equals("defaultHeaders")) {
+                        chanProps.put(HttpConfigConstants.PROPNAME_RESPONSE_HEADERS, "false");
+                        chanProps.put(HttpConfigConstants.PROPNAME_RESPONSE_HEADERS_ADD, null);
+                        chanProps.put(HttpConfigConstants.PROPNAME_RESPONSE_HEADERS_SET, null);
+                        chanProps.put(HttpConfigConstants.PROPNAME_RESPONSE_HEADERS_SET_IF_MISSING, null);
+                        chanProps.put(HttpConfigConstants.PROPNAME_RESPONSE_HEADERS_REMOVE, null);
+                    }
+
+                    else {
+                        boolean enableHeadersFeature = false;
+                        if (headersOptions.containsKey("add")) {
+                            enableHeadersFeature = true;
+                            chanProps.put(HttpConfigConstants.PROPNAME_RESPONSE_HEADERS_ADD, headersOptions.get("add"));
+                        }
+                        if (headersOptions.containsKey("set")) {
+                            enableHeadersFeature = true;
+                            chanProps.put(HttpConfigConstants.PROPNAME_RESPONSE_HEADERS_SET, headersOptions.get("set"));
+                        }
+                        if (headersOptions.containsKey("setIfMissing")) {
+                            enableHeadersFeature = true;
+                            chanProps.put(HttpConfigConstants.PROPNAME_RESPONSE_HEADERS_SET_IF_MISSING, headersOptions.get("setIfMissing"));
+                        }
+                        if (headersOptions.containsKey("remove")) {
+                            enableHeadersFeature = true;
+                            chanProps.put(HttpConfigConstants.PROPNAME_RESPONSE_HEADERS_REMOVE, headersOptions.get("remove"));
+                        }
+                        chanProps.put(HttpConfigConstants.PROPNAME_RESPONSE_HEADERS, enableHeadersFeature);
+                    }
 
                     httpChannel = cfw.addChannel(httpName, cfw.lookupFactory("HTTPInboundChannel"), chanProps);
                 }
@@ -540,7 +588,7 @@ public class HttpChain implements ChainEventListener {
         }
     }
 
-    private void handleStartupError(Exception e, ActiveConfiguration cfg) {
+    public void handleStartupError(Exception e, ActiveConfiguration cfg) {
         if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
             Tr.debug(this, tc, "Error starting chain " + chainName, this, e);
         }
@@ -593,7 +641,7 @@ public class HttpChain implements ChainEventListener {
                 Tr.debug(this, tc, "New configuration started " + cfg);
             }
 
-            VirtualHostMap.notifyStarted(owner, cfg.resolvedHost, port, isHttps);
+            VirtualHostMap.notifyStarted(owner, () -> cfg.resolvedHost, port, isHttps);
 
             // Post an endpoint started event to anyone listening
             String topic = owner.getEventTopic() + HttpServiceConstants.ENDPOINT_STARTED;
@@ -636,6 +684,9 @@ public class HttpChain implements ChainEventListener {
         if (oldState > ChainState.QUIESCED.val) {
             quiesceChain();
         }
+        // Wake up anything waiting for the chain to stop
+        // (see the update method for one example)
+        stopWait.notifyStopped();
     }
 
     private void quiesceChain() {
@@ -671,7 +722,7 @@ public class HttpChain implements ChainEventListener {
      * Publish an event relating to a chain starting/stopping with the
      * given properties set about the chain.
      */
-    private void postEvent(String t, ActiveConfiguration c, Exception e) {
+    protected void postEvent(String t, ActiveConfiguration c, Exception e) {
         Map<String, Object> eventProps = new HashMap<String, Object>(4);
 
         eventProps.put(HttpServiceConstants.ENDPOINT_NAME, endpointName);
@@ -704,16 +755,16 @@ public class HttpChain implements ChainEventListener {
     /**
      * Get the state of the chain.
      *
-     * @return An interger representation of the state.
+     * @return An integer representation of the state.
      */
     public int getChainState() {
         return chainState.get();
     }
 
-    private final class ActiveConfiguration {
+    public final class ActiveConfiguration {
         final boolean isHttps;
-        final int configPort;
-        final String configHost;
+        public final int configPort;
+        public final String configHost;
         final String resolvedHost;
 
         final Map<String, Object> tcpOptions;
@@ -722,20 +773,22 @@ public class HttpChain implements ChainEventListener {
         final Map<String, Object> remoteIp;
         final Map<String, Object> compression;
         final Map<String, Object> samesite;
+        final Map<String, Object> headers;
         final Map<String, Object> endpointOptions;
 
         volatile int activePort = -1;
-        boolean validConfiguration = false;
+        public boolean validConfiguration = false;
 
-        ActiveConfiguration(boolean isHttps,
-                            Map<String, Object> tcp,
-                            Map<String, Object> ssl,
-                            Map<String, Object> http,
-                            Map<String, Object> remoteIp,
-                            Map<String, Object> compression,
-                            Map<String, Object> samesite,
-                            Map<String, Object> endpoint,
-                            String resolvedHostName) {
+        public ActiveConfiguration(boolean isHttps,
+                                   Map<String, Object> tcp,
+                                   Map<String, Object> ssl,
+                                   Map<String, Object> http,
+                                   Map<String, Object> remoteIp,
+                                   Map<String, Object> compression,
+                                   Map<String, Object> samesite,
+                                   Map<String, Object> headers,
+                                   Map<String, Object> endpoint,
+                                   String resolvedHostName) {
             this.isHttps = isHttps;
             tcpOptions = tcp;
             sslOptions = ssl;
@@ -743,6 +796,7 @@ public class HttpChain implements ChainEventListener {
             this.remoteIp = remoteIp;
             this.compression = compression;
             this.samesite = samesite;
+            this.headers = headers;
             endpointOptions = endpoint;
 
             String attribute = isHttps ? "httpsPort" : "httpPort";
@@ -758,6 +812,18 @@ public class HttpChain implements ChainEventListener {
          */
         public void clearActivePort() {
             activePort = -1;
+        }
+        
+        public String getResolvedHost() {
+            return resolvedHost;
+        }
+        
+        public int getConfigPort() {
+            return configPort;
+        }
+        
+        public String getEndpointPID() {
+            return (String) endpointOptions.get(Constants.SERVICE_PID);
         }
 
         /**
@@ -807,12 +873,12 @@ public class HttpChain implements ChainEventListener {
         }
 
         /**
-         * CHeck to see if all of the maps are the same as they
+         * Check to see if all of the maps are the same as they
          * were the last time: ConfigurationAdmin returns unmodifiable
          * maps: if the map instances are the same, there have been no
          * updates.
          */
-        protected boolean unchanged(ActiveConfiguration other) {
+        public boolean unchanged(ActiveConfiguration other) {
             if (other == null)
                 return false;
 
@@ -826,6 +892,7 @@ public class HttpChain implements ChainEventListener {
                        remoteIp == other.remoteIp &&
                        compression == other.compression &&
                        samesite == other.samesite &&
+                       headers == other.headers &&
                        !endpointChanged(other);
             } else {
                 return configHost.equals(other.configHost) &&
@@ -835,6 +902,7 @@ public class HttpChain implements ChainEventListener {
                        remoteIp == other.remoteIp &&
                        compression == other.compression &&
                        samesite == other.samesite &&
+                       headers == other.headers &&
                        !endpointChanged(other);
             }
         }
@@ -859,8 +927,9 @@ public class HttpChain implements ChainEventListener {
             if (other == null)
                 return true;
 
-            return (httpOptions != other.httpOptions) || (remoteIp != other.remoteIp) || (compression != other.compression) || (samesite != other.samesite);
-            
+            return (httpOptions != other.httpOptions) || (remoteIp != other.remoteIp) || (compression != other.compression) || (samesite != other.samesite)
+                   || (headers != other.headers);
+
         }
 
         protected boolean endpointChanged(ActiveConfiguration other) {
@@ -886,18 +955,20 @@ public class HttpChain implements ChainEventListener {
                    + ",remoteIp=" + System.identityHashCode(remoteIp)
                    + ",compression=" + System.identityHashCode(compression)
                    + ",samesite=" + System.identityHashCode(samesite)
+                   + ",headers=" + System.identityHashCode(headers)
                    + ",sslOptions=" + (isHttps ? System.identityHashCode(sslOptions) : "0")
                    + ",endpointOptions=" + endpointOptions.get(Constants.SERVICE_PID)
                    + "]";
         }
     }
 
-    private class StopWait {
+    public class StopWait {
 
         @Trivial
-        StopWait() {}
+        StopWait() {
+        }
 
-        synchronized void waitForStop(long timeout, HttpChain chain) {
+        public synchronized void waitForStop(long timeout, HttpChain chain) {
             // HttpChain parameter helps with debug..
 
             // wait for the configured timeout (the parameter) + a smidgen of time

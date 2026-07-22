@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -291,7 +293,21 @@ public class FormLogoutExtensionProcessor extends WebExtensionProcessor {
                             }
                         } else {
                             //accept a relative URIs that are not Network-Path's
-                            acceptURL = true;
+                            String lowerExitPage = exitPage.toLowerCase();
+                            // Check if this is a relative URL that might be trying to look like an absolute URL
+                            if (lowerExitPage.contains("://") ||
+                                lowerExitPage.startsWith("http") ||
+                                lowerExitPage.startsWith("https") ||
+                                lowerExitPage.startsWith("ftp")) {
+
+                                if (tc.isDebugEnabled())
+                                    Tr.debug(tc, "Not Accepting absolute URL: " + exitPage);
+                                acceptURL = false;
+                            } else {
+                                if (tc.isDebugEnabled())
+                                    Tr.debug(tc, "Accepting relative URI: " + exitPage);
+                                acceptURL = true;
+                            }
                         }
                     }
                 } catch (URISyntaxException urise) {

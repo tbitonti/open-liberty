@@ -1,12 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2013, 2021 IBM Corporation and others.
+ * Copyright (c) 2013, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
- *     IBM Corporation - initial API and implementation
+ * IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.security.fat.common;
 
@@ -19,14 +21,17 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.UnknownHostException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
 import org.junit.rules.ExternalResource;
 
+import com.ibm.websphere.simplicity.LocalFile;
 import com.ibm.websphere.simplicity.RemoteFile;
 import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.security.fat.common.ValidationData.validationData;
@@ -69,6 +74,7 @@ public class TestServer extends ExternalResource {
     protected String callbackFeature;
     protected int retryTimeoutCount = 0;
     protected int overrideRestartWaitTime = 0;
+    protected int sslWaitTimeoutCount = 0;
 
     protected CommonMessageTools msgUtils = new CommonMessageTools();
     protected ServerBootstrapUtils bootstrapUtils = new ServerBootstrapUtils();
@@ -168,15 +174,15 @@ public class TestServer extends ExternalResource {
     }
 
     public void setServerHttpPort(Integer port) {
-        this.serverHttpPort = port;
+        serverHttpPort = port;
     }
 
     public void setServerHttpsPort(Integer port) {
-        this.serverHttpsPort = port;
+        serverHttpsPort = port;
     }
 
     public Integer getServerHttpPort() {
-        return this.serverHttpPort;
+        return serverHttpPort;
     }
 
     public Integer getServerHttpsPort() {
@@ -197,11 +203,11 @@ public class TestServer extends ExternalResource {
     }
 
     public void setIgnoredServerExceptions(String[] ignoredExceptions) {
-        this.ignoredServerExceptions = ignoredExceptions.clone();
+        ignoredServerExceptions = ignoredExceptions.clone();
     }
 
     public String[] getIgnoredServerExceptions() {
-        return this.ignoredServerExceptions;
+        return ignoredServerExceptions;
     }
 
     public void setServerHostname(String hostname) {
@@ -331,8 +337,23 @@ public class TestServer extends ExternalResource {
             server.setMarkToEndOfLog(server.getMatchingLogFile("messages.log"));
             server.setMarkToEndOfLog(server.getMatchingLogFile("trace.log"));
         } catch (Exception e) {
-            e.printStackTrace();
             Log.error(thisClass, methodName, e, "Failure setting the mark at the end of one or more of the server logs.");
+        }
+    }
+
+    /**
+     * Reset the log mark - used when the whole log needs to be scanned (not just what was logged since the last mark)
+     */
+    public void resetLogMarks() {
+        String methodName = "resetLogMarks";
+        if (!server.isStarted()) {
+            return;
+        }
+        try {
+            Log.info(thisClass, methodName, "re-setting marks for: " + server.getServerName());
+            server.resetLogMarks();// resets map to a new map - equating to resetting marks to the start of all files.
+        } catch (Exception e) {
+            Log.error(thisClass, methodName, e, "Failure re-setting the log mark.");
         }
     }
 
@@ -351,9 +372,12 @@ public class TestServer extends ExternalResource {
     /**
      * Starts the current server using the server configuration file provided.
      *
-     * @param checkApps - List of apps to be validated as ready upon server start
-     * @param waitForMessages - List of regular expressions to be waited for upon server start
-     * @param reportViaJunit - boolean indicating whether failures should be reported via JUnit or if we should just
+     * @param checkApps
+     *            - List of apps to be validated as ready upon server start
+     * @param waitForMessages
+     *            - List of regular expressions to be waited for upon server start
+     * @param reportViaJunit
+     *            - boolean indicating whether failures should be reported via JUnit or if we should just
      *            log a message
      */
     public void startServer(String serverXml, String testName, List<String> checkApps, List<String> waitForMessages, boolean reportViaJunit, int[] requiredPorts) throws Exception {
@@ -393,7 +417,8 @@ public class TestServer extends ExternalResource {
             }
             // if we haven't exceeded the retry count, try to stop and restart the server
             // update the retryTimeoutCount for retrys only, not when we've exceeded our retry count
-            retryTimeoutCount += 1;
+            // since we logged the exception (which contains the string "Timed out", we need to increase the count by 2 (not 1)
+            retryTimeoutCount += 2;
             retryStartServer(testName, waitForMessages, reportViaJunit, tryNum + 1);
         }
 
@@ -429,6 +454,9 @@ public class TestServer extends ExternalResource {
             // startserver automatically validates that any added apps have actually started
             server.startServer();
         }
+
+        server.addIgnoredErrors(Arrays.asList(MessageConstants.CWWKO0801E_UNABLE_TO_INIT_SSL));
+
     }
 
     protected boolean doesLogContainKnownIntermittentStartupFailures() throws Exception {
@@ -436,7 +464,7 @@ public class TestServer extends ExternalResource {
         boolean found = false;
         // TODO: Add other exceptions that we think a retry is appropriate for
         List<String> failureMsgs = Arrays.asList("CWWKE0701E", "java.lang.NoClassDefFoundError", "Unable to establish loopback",
-                                                 "com.ibm.wsspi.channelfw.exception.ChannelException");
+                "com.ibm.wsspi.channelfw.exception.ChannelException");
         for (String msg : failureMsgs) {
             List<String> msgFound = server.findStringsInLogs(msg);
             if (msgFound != null && !msgFound.isEmpty()) {
@@ -547,7 +575,8 @@ public class TestServer extends ExternalResource {
      * JUnit.
      *
      * @param newServerXml
-     * @param testName - Test name that should be included in messages
+     * @param testName
+     *            - Test name that should be included in messages
      * @throws exception
      */
     public void reconfigServer(String newServerXml, String testName) throws Exception {
@@ -559,9 +588,12 @@ public class TestServer extends ExternalResource {
      * indicating that the server configuration was updated.
      *
      * @param newServerXml
-     * @param testName - Test name that should be included in messages
-     * @param waitForMessages - List of regular expressions to be waited for upon server update/restart
-     * @param reportViaJunit - boolean indicating whether failures should be reported via JUnit or if we should just
+     * @param testName
+     *            - Test name that should be included in messages
+     * @param waitForMessages
+     *            - List of regular expressions to be waited for upon server update/restart
+     * @param reportViaJunit
+     *            - boolean indicating whether failures should be reported via JUnit or if we should just
      *            log a message
      * @throws exception
      */
@@ -574,10 +606,14 @@ public class TestServer extends ExternalResource {
      * indicating that the server configuration was updated.
      *
      * @param newServerXml
-     * @param testName - Test name that should be included in messages
-     * @param waitForMessages - List of regular expressions to be waited for upon server update/restart
-     * @param restartServer - boolean indicating whether the server should be restarted
-     * @param reportViaJunit - boolean indicating whether failures should be reported via JUnit or if we should just
+     * @param testName
+     *            - Test name that should be included in messages
+     * @param waitForMessages
+     *            - List of regular expressions to be waited for upon server update/restart
+     * @param restartServer
+     *            - boolean indicating whether the server should be restarted
+     * @param reportViaJunit
+     *            - boolean indicating whether failures should be reported via JUnit or if we should just
      *            log a message
      * @throws exception
      */
@@ -662,10 +698,14 @@ public class TestServer extends ExternalResource {
      * Restarts the current server using the server configuration file provided.
      *
      * @param serverXml
-     * @param testName - Test name that should be included in messages
-     * @param checkApps - List of apps to be validated as ready upon server start
-     * @param waitForMessages - List of regular expressions to be waited for upon server start
-     * @param reportViaJunit - boolean indicating whether failures should be reported via JUnit or if we should just
+     * @param testName
+     *            - Test name that should be included in messages
+     * @param checkApps
+     *            - List of apps to be validated as ready upon server start
+     * @param waitForMessages
+     *            - List of regular expressions to be waited for upon server start
+     * @param reportViaJunit
+     *            - boolean indicating whether failures should be reported via JUnit or if we should just
      *            log a message
      * @throws exception
      */
@@ -706,15 +746,51 @@ public class TestServer extends ExternalResource {
         if (server != null && server.isStarted()) {
             // ignore quiesce issues during server shutdown
             addIgnoredServerExceptions(MessageConstants.CWWKE1102W_QUIESCE_WARNING, MessageConstants.CWWKE1106W_QUIESCE_LISTENERS_NOT_COMPLETE,
-                                       MessageConstants.CWWKE1107W_QUIESCE_WAITING_ON_THREAD);
+                    MessageConstants.CWWKE1107W_QUIESCE_WAITING_ON_THREAD);
             // sometimes a port is in use during startup, but is available when tests run - the tests will have issues if
             // the port remains blocked and will generate their own errors - ignore this hiccup during the shutdown checks.
             addIgnoredServerException(MessageConstants.CWWKO0221E_PORT_IN_USE);
             // ignore shutdown timing issues
             addIgnoredServerExceptions(MessageConstants.CWWKO0227E_EXECUTOR_SERVICE_MISSING);
+            // ignore ssl restart warnings - if they caused problems, tests would also be failing
+            addIgnoredServerExceptions(MessageConstants.SSL_NOT_RESTARTED_PROPERLY);
+            // ignore ssl message - runtime retries and can proceed (sometimes) when it can't tests will fail when they don't get the correct response
+            server.addIgnoredErrors(Arrays.asList(MessageConstants.CWWKO0801E_UNABLE_TO_INIT_SSL));
+
+            shibbolehtBackup(server);
+
             server.stopServer(ignoredServerExceptions);
         }
         unInstallCallbackHandler(callback, callbackFeature);
+    }
+
+    /**
+     * backup shibboleth config
+     */
+    private void shibbolehtBackup(LibertyServer server) throws Exception {
+        final String method = "shibbolehtBackup";
+        Log.entering(thisClass, method, server.getServerName());
+
+        if (server.getServerName().contains("shibboleth")) {
+            Log.info(thisClass, method, "Need to back up shibboleth-idp directory");
+        } else {
+            Log.info(thisClass, method, "There is no shibboleth-idp directory to backup");
+            return;
+        }
+
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy-HH-mm-ss");
+        Date d = new Date(System.currentTimeMillis());
+
+        String logDirectoryName = "";
+        logDirectoryName = server.getPathToAutoFVTOutputServersFolder() + "/" + server.getServerNameWithRepeatAction().replace("shibboleth", "shibboleth-idp") + "-" + sdf.format(d);
+        LocalFile logFolder = new LocalFile(logDirectoryName);
+        String shibbolethDir = new File(".").getAbsoluteFile().getCanonicalPath().replace("\\", "/") + "/shibboleth-idp";
+        RemoteFile serverFolder = server.getMachine().getFile(shibbolethDir);
+
+        // Copy the log files: try to move them instead if we can
+        server.recursivelyCopyDirectory(serverFolder, logFolder, false, false, true);
+
+        Log.exiting(thisClass, method);
     }
 
     /**
@@ -761,10 +837,13 @@ public class TestServer extends ExternalResource {
      * Waits for the server to complete a configuration update. Also waits for all messages included in startMessages
      * to appear in the log.
      *
-     * @param testName - Test name that should be included in messages
-     * @param reportViaJunit - boolean indicating whether failures should be reported via JUnit or if we should just
+     * @param testName
+     *            - Test name that should be included in messages
+     * @param reportViaJunit
+     *            - boolean indicating whether failures should be reported via JUnit or if we should just
      *            log a message
-     * @param waitForMessages - List of regular expressions to be waited for
+     * @param waitForMessages
+     *            - List of regular expressions to be waited for
      * @throws Exception
      */
     public void waitForServer(String testName, List<String> waitForMessages, boolean reportViaJunit) throws Exception {
@@ -826,6 +905,7 @@ public class TestServer extends ExternalResource {
         assertNotNull("Did not encounter the CWWKG0017I message saying the server configuration was successfully updated.", updateMsg);
 
         waitForAppsToReboot();
+        waitForSSLRestart();
         validateStartMessages(startMessages, reportViaJunit);
     }
 
@@ -864,6 +944,34 @@ public class TestServer extends ExternalResource {
         return true;
     }
 
+    private void waitForSSLRestart() throws Exception {
+
+        String thisMethod = "waitForSSLRestart";
+        Log.info(thisClass, thisMethod, "Checking for SSL restart for server: " + server.getServerName());
+
+        // look for the "CWWKO0220I: TCP Channel defaultHttpEndpoint-ssl has stopped listening for requests on host " message
+        // if we find it, then wait for "CWWKO0219I: TCP Channel defaultHttpEndpoint-ssl has been started and is now listening for requests on host"
+        // count instances instead of standard wait, as we then don't log a timed out message causing a test to bail if too many occur
+        int sslStopMsgs = server.waitForMultipleStringsInLogUsingMark(1, "CWWKO0220I:.*defaultHttpEndpoint-ssl.*", 500, server.getDefaultLogFile());
+        if (sslStopMsgs > 0) {
+            String sslStartMsg = server.waitForDefaultHTTPEndpointSSLStart(true);
+            if (sslStartMsg == null) {
+                Log.warning(thisClass, "SSL may not have started properly - future failures may be due to this");
+                sslWaitTimeoutCount += 1;
+            } else {
+                Log.info(thisClass, thisMethod, "SSL appears have restarted properly");
+            }
+        } else {
+            Log.info(thisClass, thisMethod, "Did not detect a restart of the SSL port");
+            sslWaitTimeoutCount += 1;
+        }
+
+    }
+
+    public int getSslWaitTimeoutCount() {
+        return sslWaitTimeoutCount;
+    }
+
     /**
      * Searches for a message string in the specified server log
      *
@@ -872,19 +980,32 @@ public class TestServer extends ExternalResource {
      * @throws exception
      */
     public void waitForValueInServerLog(validationData expected) throws Exception {
-        String thisMethod = "waitForValueInServerLog";
+        // same as superclass, but validationData class type is different
+        String thisMethod = "waitForValueInServerLog - oidc";
+        if (expected == null) {
+            throw new Exception("Cannot search for expected value in server log: The provided expectation is null!");
+        }
+        String expectedValue = expected.getValidationValue();
         try {
             Log.info(thisClass, thisMethod, "checkType is: " + expected.getCheckType());
 
             String logName = getGenericLogName(expected.getWhere());
-            String expectedValue = expected.getValidationValue();
             Log.info(thisClass, thisMethod, "Searching for [" + expectedValue + "] in " + logName);
 
-            String searchResult = server.waitForStringInLogUsingMark(expectedValue, server.getMatchingLogFile(logName));
-            msgUtils.assertTrueAndLog(thisMethod, expected.getPrintMsg() + " Was expecting to find " + expectedValue + " in " + logName + ", but did not find it there!",
-                                      searchResult != null);
-            Log.info(thisClass, thisMethod, "Found message: " + expectedValue);
+            String searchResult = null;
+            if (expected.getCheckType().equals(Constants.MSG_NOT_LOGGED)) {
+                searchResult = server.verifyStringNotInLogUsingMark(expectedValue, 2000); // short timeout because we already expect the msg to "not" be there
+            } else {
+                searchResult = server.waitForStringInLogUsingMark(expectedValue, server.getMatchingLogFile(logName));
+            }
 
+            if (expected.getCheckType().equals(Constants.STRING_DOES_NOT_CONTAIN) || expected.getCheckType().equals(Constants.STRING_DOES_NOT_MATCH) || expected.getCheckType().equals(Constants.MSG_NOT_LOGGED)) {
+                msgUtils.assertTrueAndLog(thisMethod, expected.getPrintMsg() + " Was expecting NOT to find [" + expectedValue + "] in " + logName + ", but did find it there!", searchResult == null);
+                Log.info(thisClass, thisMethod, "DID NOT find message: " + expectedValue);
+            } else {
+                msgUtils.assertTrueAndLog(thisMethod, expected.getPrintMsg() + " Was expecting to find [" + expectedValue + "] in " + logName + ", but did not find it there!", searchResult != null);
+                Log.info(thisClass, thisMethod, "Found message: " + expectedValue);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             Log.error(thisClass, thisMethod, e, "Failure searching for string [" + expected.getValidationValue() + "] in " + expected.getWhere());
@@ -944,7 +1065,8 @@ public class TestServer extends ExternalResource {
      * Copy the specified server config file to server.xml. Make a copy of the server config in the testServers sub-directory for
      * debug use later.
      *
-     * @param copyFromFile - File to copy into the server's root directory as server.xml
+     * @param copyFromFile
+     *            - File to copy into the server's root directory as server.xml
      */
     public void copyNewServerConfig(String copyFromFile, String testName) throws Exception {
         String thisMethod = "copyNewServerConfig";
@@ -968,9 +1090,9 @@ public class TestServer extends ExternalResource {
 
     private void mergeAndCopyNewServerConfig(String newServerConfigFile, File testServerDir, String serverFileLoc, String testPrintName) throws Exception {
         String thisMethod = "mergeAndCopyNewServerConfig";
-        Log.info(thisClass, thisMethod, "Merging server.xml for '" + newServerConfigFile 
-                + "' with test server directory '" + testServerDir 
-                + "' and server file location '" + serverFileLoc +"'.");
+        Log.info(thisClass, thisMethod, "Merging server.xml for '" + newServerConfigFile
+                + "' with test server directory '" + testServerDir
+                + "' and server file location '" + serverFileLoc + "'.");
         CommonMergeTools merge = new CommonMergeTools();
         if (merge.mergeFile(newServerConfigFile, server.getServerSharedPath() + "config", serverFileLoc)) {
             newServerConfigFile = newServerConfigFile.replace(".xml", "_Merged.xml");
@@ -982,6 +1104,31 @@ public class TestServer extends ExternalResource {
 
         Log.info(thisClass, thisMethod, "Copying: " + newServerConfigFile + " to " + serverFileLoc);
         LibertyFileManager.copyFileIntoLiberty(server.getMachine(), serverFileLoc, "server.xml", newServerConfigFile);
+    }
+
+    protected void serverInitCreateServerXml(String firstServerXml) throws Exception {
+        String thisMethod = "serverInitCreateServerXml";
+
+        if (firstServerXml == null || firstServerXml.isEmpty()) {
+            Log.info(thisClass, thisMethod, "Provided config file is null or empty; server config will not be changed");
+            return;
+        }
+        String fullFirstServerXml = buildFullServerConfigPath(firstServerXml);
+        File testServerDir = getTestServerDir();
+        String serverFileLoc = getServerFileLoc();
+        try {
+            Log.info(thisClass, thisMethod, "Merging server.xml for '" + fullFirstServerXml + "' with test server directory '" + testServerDir + "' and server file location '" + serverFileLoc + "'.");
+            CommonMergeTools merge = new CommonMergeTools();
+            if (merge.mergeFile(fullFirstServerXml, server.getServerSharedPath() + "config", serverFileLoc)) {
+                fullFirstServerXml = fullFirstServerXml.replace(".xml", "_Merged.xml");
+            }
+            LibertyFileManager.copyFileIntoLiberty(server.getMachine(), serverFileLoc, "server.xml", fullFirstServerXml);
+
+        } catch (Exception ex) {
+            ex.printStackTrace(System.out);
+            throw ex;
+        }
+
     }
 
     protected String buildFullServerConfigPath(String copyFromFile) {
@@ -998,8 +1145,10 @@ public class TestServer extends ExternalResource {
      * Builds and returns the absolute path to the specified file within the configs/ directory under the given
      * server's root directory.
      *
-     * @param theServer - The server instance containing the specified file
-     * @param fileName - Name of the file within the configs/ directory to build the path for
+     * @param theServer
+     *            - The server instance containing the specified file
+     * @param fileName
+     *            - Name of the file within the configs/ directory to build the path for
      * @return The absolute path to the specified file within the server's configs/ directory
      */
     public String buildFullServerConfigPath(LibertyServer theServer, String fileName) {
@@ -1035,8 +1184,10 @@ public class TestServer extends ExternalResource {
      * Searches and waits for message strings in the default log and reports success/failure of the search either via a
      * message and possibly JUnit reporting.
      *
-     * @param waitForMessages - List of regular expression strings to wait for in the default log
-     * @param reportViaJunit - boolean indicating whether failures should be reported via JUnit or if we should just
+     * @param waitForMessages
+     *            - List of regular expression strings to wait for in the default log
+     * @param reportViaJunit
+     *            - boolean indicating whether failures should be reported via JUnit or if we should just
      *            log a message
      */
     public void validateStartMessages(List<String> waitForMessages, boolean reportViaJunit) throws Exception {
@@ -1048,10 +1199,13 @@ public class TestServer extends ExternalResource {
      * message and possibly JUnit reporting. If expectedResult is false, the passed messages are expected NOT to be
      * found.
      *
-     * @param waitForMessages - List of regular expression strings to wait for in the default log
-     * @param reportViaJunit - boolean indicating whether failures should be reported via JUnit or if we should just
+     * @param waitForMessages
+     *            - List of regular expression strings to wait for in the default log
+     * @param reportViaJunit
+     *            - boolean indicating whether failures should be reported via JUnit or if we should just
      *            log a message
-     * @param expectedResult - If true, the messages specified are expected to be found. Otherwise, the passed messages
+     * @param expectedResult
+     *            - If true, the messages specified are expected to be found. Otherwise, the passed messages
      *            are expected NOT to be found.
      * @throws Exception
      */
@@ -1096,7 +1250,8 @@ public class TestServer extends ExternalResource {
     /**
      * Searches for a message string in the specified server log.
      *
-     * @param expected - a validationMsg type to search (contains the log to search and the string to search for)
+     * @param expected
+     *            - a validationMsg type to search (contains the log to search and the string to search for)
      * @throws Exception
      */
     public void validateWithServerLog(String checkType, String where, String errorMsg, String valueToCheck) throws Exception {
@@ -1138,9 +1293,12 @@ public class TestServer extends ExternalResource {
     /**
      * Searches for and returns the line containing message string in the specified server log.
      *
-     * @param valueToCheck - identified unique string to determine the line containing the string
-     * @param where - which log to search for
-     * @exception - throws error if no string is found
+     * @param valueToCheck
+     *            - identified unique string to determine the line containing the string
+     * @param where
+     *            - which log to search for
+     * @exception -
+     *                throws error if no string is found
      *
      * @return - returns the string of the line found within the specified server log
      *
@@ -1152,8 +1310,8 @@ public class TestServer extends ExternalResource {
         try {
             val = server.waitForStringInLogUsingMark(valueToCheck, outputFile);
             msgUtils.assertAndLog(thisMethod,
-                                  "Was expecting to find " + valueToCheck + " in " + where + " but did not find it there!",
-                                  val != null, true);
+                    "Was expecting to find " + valueToCheck + " in " + where + " but did not find it there!",
+                    val != null, true);
         } catch (Exception e) {
             e.printStackTrace();
             Log.error(thisClass, thisMethod, e, "Failure searching for " + valueToCheck + " in " + where);
@@ -1165,7 +1323,8 @@ public class TestServer extends ExternalResource {
     /**
      * Searches for passwords in the server logs.
      *
-     * @param expected - a validationMsg type to search (contains the log to search and the string to search for)
+     * @param expected
+     *            - a validationMsg type to search (contains the log to search and the string to search for)
      * @throws Exception
      */
     public int searchForPasswordsInLogs(String where) throws Exception {
@@ -1236,7 +1395,7 @@ public class TestServer extends ExternalResource {
             socket.bind(new InetSocketAddress(port));
         } catch (Exception ex) {
             Log.error(thisClass, "checkPortsOpen", ex, "port " + port + " is currently bound");
-//            printProcessHoldingPort(getHttpDefaultPort());
+            //            printProcessHoldingPort(getHttpDefaultPort());
             if (retryCount > 0) {
 
                 Log.info(thisClass, "checkPortsOpen", "Waiting 5 seconds and trying again");
@@ -1300,7 +1459,7 @@ public class TestServer extends ExternalResource {
         Properties serverProperties = this.getServer().getBootstrapProperties();
         return serverProperties.getProperty(key, null);
     }
-    
+
     public String getJvmOptionsFilePath() throws Exception {
         String thisMethod = "getJvmOptionsFilePath";
         String jvmProps = getServerFileLoc() + "/jvm.options";

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013 IBM Corporation and others.
+ * Copyright (c) 2013, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -27,6 +29,7 @@ import org.osgi.service.component.annotations.Reference;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.ws.common.crypto.CryptoUtils;
 import com.ibm.ws.security.openid20.OpenidClientConfig;
 import com.ibm.wsspi.kernel.service.utils.AtomicServiceReference;
 import com.ibm.wsspi.kernel.service.utils.FilterUtils;
@@ -81,8 +84,8 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     public static final String SIGNATURE_HMAC_SHA1 = "HMAC-SHA1";
     public static final String SIGNATURE_HMAC_SHA256 = "HMAC-SHA256";
 
-    public static final String HASH_ALG_SHA1 = "SHA1";
-    public static final String HASH_ALG_SHA256 = "SHA256";
+    public static final String HASH_ALG_SHA1 = CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA1;
+    public static final String HASH_ALG_SHA256 = CryptoUtils.MESSAGE_DIGEST_ALGORITHM_SHA256;
 
     public static final String KEY_CONFIGURATION_ADMIN = "configurationAdmin";
 
@@ -124,7 +127,8 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
 
     private String bundleLocation;
 
-    public OpenidClientConfigImpl() {}
+    public OpenidClientConfigImpl() {
+    }
 
     @Reference(name = KEY_CONFIGURATION_ADMIN, service = ConfigurationAdmin.class)
     protected void setConfigurationAdmin(ServiceReference<ConfigurationAdmin> ref) {
@@ -153,7 +157,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     }
 
     /**
-     * 
+     *
      * @param props
      */
     private void processConfigProps(Map<String, Object> props) {
@@ -238,6 +242,10 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     private void setSessionEncryptionType(Boolean sharedKeyEnc, String hashAlgorithmValue) {
         if (sharedKeyEnc) {
             if (HASH_ALG_SHA1.equalsIgnoreCase(hashAlgorithmValue)) {
+                // FIPS 140-3: Algorithm assessment complete; no changes required.
+                // SHA-1 is only used if specified by config key 'hashAlgorithm'
+                // FIPS users would not specify that and if they do then failure is expected
+                CryptoUtils.logInsecureAlgorithm(CFG_KEY_HASH_ALGORITHM, hashAlgorithmValue);
                 sessionEncryptionType = ENCRYPTION_DH_SHA1;
             } else {
                 sessionEncryptionType = ENCRYPTION_DH_SHA256;
@@ -249,6 +257,10 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
 
     private void setSignatureAlgorithm(String hashAlgorithmValue) {
         if (HASH_ALG_SHA1.equalsIgnoreCase(hashAlgorithmValue)) {
+            // FIPS 140-3: Algorithm assessment complete; no changes required.
+            // SHA-1 is only used if specified by config key 'hashAlgorithm'
+            // FIPS users would not specify that and if they do then failure is expected
+            CryptoUtils.logInsecureAlgorithm(CFG_KEY_HASH_ALGORITHM, hashAlgorithmValue);
             signatureAlgorithm = SIGNATURE_HMAC_SHA1;
         } else {
             signatureAlgorithm = SIGNATURE_HMAC_SHA256;
@@ -322,6 +334,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the allowOnlyTrustedProvider
      */
+    @Override
     public boolean getAllowStateless() {
         return allowStateless;
     }
@@ -329,6 +342,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the nonceValidTime
      */
+    @Override
     public long getNonceValidTime() {
         return nonceValidTime;
     }
@@ -336,6 +350,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the maxDiscoveryCacheSize
      */
+    @Override
     public int getMaxDiscoveryCacheSize() {
         return maxDiscoveryCacheSize;
     }
@@ -343,6 +358,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the nonceValidTime
      */
+    @Override
     public int getMaxAssociationAttemps() {
         return maxAssociationAttempts;
     }
@@ -350,6 +366,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the sessionEncryptionType
      */
+    @Override
     public String getSessionEncryptionType() {
         return sessionEncryptionType;
     }
@@ -357,6 +374,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the signatureAlgorithm
      */
+    @Override
     public String getSignatureAlgorithm() {
         return signatureAlgorithm;
     }
@@ -364,6 +382,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the sslRef
      */
+    @Override
     public String getSslRef() {
         return sslRef;
     }
@@ -371,6 +390,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the userInfo
      */
+    @Override
     public List<UserInfo> getUserInfo() {
         return userInfo;
     }
@@ -378,6 +398,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the failedAssocExpire
      */
+    @Override
     public long getFailedAssocExpire() {
         return failedAssocExpire;
     }
@@ -385,6 +406,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the connectTimeout
      */
+    @Override
     public long getConnectTimeout() {
         return connectTimeout;
     }
@@ -392,6 +414,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the socketTimeout
      */
+    @Override
     public long getSocketTimeout() {
         return socketTimeout;
     }
@@ -399,6 +422,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the hostNameVerificationEnabled
      */
+    @Override
     public boolean isHostNameVerificationEnabled() {
         return hostNameVerificationEnabled;
     }
@@ -406,6 +430,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the httpsRequired
      */
+    @Override
     public boolean ishttpsRequired() {
         return httpsRequired;
     }
@@ -413,6 +438,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the checkImmediate
      */
+    @Override
     public boolean isCheckImmediate() {
         return checkImmediate;
     }
@@ -420,6 +446,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the identityAssertionEnabled
      */
+    @Override
     public boolean isMapIdentityToRegistryUser() {
         return mapIdentityToRegistryUser;
     }
@@ -427,6 +454,7 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the useClientIdentity
      */
+    @Override
     public boolean isUseClientIdentity() {
         return useClientIdentity;
     }
@@ -434,30 +462,37 @@ public class OpenidClientConfigImpl implements OpenidClientConfig {
     /**
      * @return the searchNumberOfUserInfoToMap
      */
+    @Override
     public int getSearchNumberOfUserInfoToMap() {
         return searchNumberOfUserInfoToMap;
     }
 
+    @Override
     public int getMaxDiscoverRetry() {
         return maxDiscoverRetry;
     }
 
+    @Override
     public String getGroupIdentifier() {
         return groupIdentifier;
     }
 
+    @Override
     public String getRealmIdentifier() {
         return realmIdentifier;
     }
 
+    @Override
     public String getCharacterEncoding() {
         return characterEncoding;
     }
 
+    @Override
     public boolean isIncludeUserInfoInSubject() {
         return includeUserInfoInSubject;
     }
 
+    @Override
     public boolean isIncludeCustomCacheKeyInSubject() {
         return includeCustomCacheKeyInSubject;
     }

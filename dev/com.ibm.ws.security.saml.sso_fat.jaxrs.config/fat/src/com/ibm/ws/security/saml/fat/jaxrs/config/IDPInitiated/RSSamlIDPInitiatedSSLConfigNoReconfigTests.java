@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2021 IBM Corporation and others.
+ * Copyright (c) 2014, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -18,10 +20,13 @@ import org.junit.runner.RunWith;
 
 import com.ibm.ws.security.saml20.fat.commonTest.SAMLMessageConstants;
 
+import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.ExpectedFFDC;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
+import componenttest.rules.repeater.EmptyAction;
+import componenttest.rules.repeater.JakartaEE9Action;
 import componenttest.topology.impl.LibertyServerWrapper;
 
 /**
@@ -131,7 +136,9 @@ public class RSSamlIDPInitiatedSSLConfigNoReconfigTests extends RSSamlIDPInitiat
      *
      * @throws Exception
      */
-    @ExpectedFFDC({ "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.xml.encryption.DecryptionException" })
+    @ExpectedFFDC({ "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.xmlsec.encryption.support.DecryptionException"})
+    //java 8 with opensaml v4 changes hits InvalidKeyException, but other jdk levels do not
+    @AllowedFFDC("java.security.InvalidKeyException")
     @Test
     public void RSSamlIDPInitiatedConfigTests_keyStoreRef_singleKey_invalid() throws Exception {
 
@@ -241,7 +248,9 @@ public class RSSamlIDPInitiatedSSLConfigNoReconfigTests extends RSSamlIDPInitiat
      *
      * @throws Exception
      */
-    @ExpectedFFDC({ "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.xml.encryption.DecryptionException" })
+    @ExpectedFFDC({ "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.xmlsec.encryption.support.DecryptionException" })
+    //java 8 with opensaml v4 changes hits InvalidKeyException, but other jdk levels do not
+    @AllowedFFDC("java.security.InvalidKeyException")
     @Test
     public void RSSamlIDPInitiatedConfigTests_keyAlias_notSpecified_oneKeyInKeystore_invalid() throws Exception {
 
@@ -568,7 +577,9 @@ public class RSSamlIDPInitiatedSSLConfigNoReconfigTests extends RSSamlIDPInitiat
      *
      * @throws Exception
      */
-    @ExpectedFFDC({ "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.xml.encryption.DecryptionException" })
+    @ExpectedFFDC({ "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.xmlsec.encryption.support.DecryptionException" })
+    //java 8 with opensaml v4 changes hits InvalidKeyException, but other jdk levels do not
+    @AllowedFFDC("java.security.InvalidKeyException")
     @Test
     public void RSSamlIDPInitiatedConfigTests_rsKeyPassword_notSpecified_keystoreKeyPassword_matchesKeystore_multipleKeysInKeystore_keyAlias_invalidKey() throws Exception {
 
@@ -991,7 +1002,9 @@ public class RSSamlIDPInitiatedSSLConfigNoReconfigTests extends RSSamlIDPInitiat
      *
      * @throws Exception
      */
-    @ExpectedFFDC({ "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.xml.encryption.DecryptionException" })
+    @ExpectedFFDC({ "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.xmlsec.encryption.support.DecryptionException" })
+    //java 8 with opensaml v4 changes hits InvalidKeyException, but other jdk levels do not
+    @AllowedFFDC("java.security.InvalidKeyException")
     @Test
     public void RSSamlIDPInitiatedConfigTests_rsKeyPassword_matchesKeystore_keystoreKeyPassword_notSpecified_multipleKeysInKeystore_keyAlias_invalidKey() throws Exception {
 
@@ -1073,7 +1086,9 @@ public class RSSamlIDPInitiatedSSLConfigNoReconfigTests extends RSSamlIDPInitiat
      *
      * @throws Exception
      */
-    @ExpectedFFDC({ "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.xml.encryption.DecryptionException" })
+    @ExpectedFFDC({ "com.ibm.ws.security.saml.error.SamlException", "org.opensaml.xmlsec.encryption.support.DecryptionException" })
+    //java 8 with opensaml v4 changes hits InvalidKeyException, but other jdk levels do not
+    @AllowedFFDC("java.security.InvalidKeyException")
     @Test
     public void RSSamlIDPInitiatedConfigTests_rsKeyPassword_matchesKeystore_keystoreKeyPassword_empty_multipleKeysInKeystore_keyAlias_invalidKey() throws Exception {
 

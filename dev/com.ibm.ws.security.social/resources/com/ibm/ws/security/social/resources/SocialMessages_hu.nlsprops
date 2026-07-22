@@ -1,12 +1,11 @@
 ###############################################################################
-# Copyright (c) 2016, 2020 IBM Corporation and others.
+# Copyright (c) 2016, 2026 IBM Corporation and others.
 # All rights reserved. This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v1.0
+# are made available under the terms of the Eclipse Public License 2.0
 # which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v10.html
-#
-# Contributors:
-#     IBM Corporation - initial API and implementation
+# http://www.eclipse.org/legal/epl-2.0/
+# 
+# SPDX-License-Identifier: EPL-2.0
 ###############################################################################
 # -------------------------------------------------------------------------------------------------
 #CMVCPATHNAME com.ibm.ws.security/resources/com/ibm/ws/security/social/resources/SocialMessages.nlsprops
@@ -16,7 +15,7 @@
 #NLS_MESSAGEFORMAT_VAR
 #NLS_ENCODING=UNICODE
 # -------------------------------------------------------------------------------------------------
-# Message prefix block: CWWKS5370 - CWWKS5499
+# Message prefix block: CWWKS5370 - CWWKS5499, CWWKS2350 - CWWKS2399
 ADD_ID={0} ({1})
 ADD_ID.explanation=Csak bels\u0151 haszn\u00e1latra.
 ADD_ID.useraction=Nincs teend\u0151.
@@ -100,7 +99,7 @@ ERROR_INTROSPECTING_SERVICE_ACCOUNT.explanation=A szolg\u00e1ltat\u00e1sfi\u00f3
 ERROR_INTROSPECTING_SERVICE_ACCOUNT.useraction=Ha az \u00fczenet m\u00e1sik hiba\u00fczenetet is tartalmaz, akkor n\u00e9zze meg annak az \u00fczenetnek a felhaszn\u00e1l\u00f3i teend\u0151j\u00e9t. Egy\u00e9bk\u00e9nt pedig keressen olyan tov\u00e1bbi hiba\u00fczeneteket a kiszolg\u00e1l\u00f3napl\u00f3kban, amelyek jelezik, hogy hol t\u00f6rt\u00e9nhetett a m\u00e1sik hiba.
 
 # 0=HTTP response code, 1=Response body
-USER_API_RESPONSE_BAD_STATUS=CWWKS5383E: A felhaszn\u00e1l\u00f3i API egy v\u00e1ratlan [{0}] v\u00e1laszk\u00f3dot adott vissza. Ellen\u0151rizze, hogy az API-nak k\u00fcld\u00f6tt k\u00e9r\u00e9s tartalmazza-e az \u00f6sszes k\u00f6telez\u0151 inform\u00e1ci\u00f3t. Az API-t\u00f3l \u00e9rkezett v\u00e1lasz: [{1}].
+USER_API_RESPONSE_BAD_STATUS=CWWKS5383E: A felhaszn\u00e1l\u00f3i API egy v\u00e1ratlan [{0}] v\u00e1laszk\u00f3dot adott vissza. Ellen\u0151rizze, hogy az API-nak k\u00fcld\u00f6tt k\u00e9r\u00e9s tartalmazza-e az \u00f6sszes k\u00f6telez\ufffd\ufffd inform\u00e1ci\u00f3t. Az API-t\u00f3l \u00e9rkezett v\u00e1lasz: [{1}].
 USER_API_RESPONSE_BAD_STATUS.explanation=A felhaszn\u00e1l\u00f3i API nem a v\u00e1rt \u00e1llapotk\u00f3dot adta vissza. A k\u00e9r\u00e9sb\u0151l hi\u00e1nyozhatnak inform\u00e1ci\u00f3k, vagy a k\u00e9r\u00e9s nem enged\u00e9lyezhet\u0151.
 USER_API_RESPONSE_BAD_STATUS.useraction=Tov\u00e1bbi inform\u00e1ci\u00f3k\u00e9rt ellen\u0151rizze az API v\u00e1laszt a hiba\u00fczenetben. Ellen\u0151rizze, hogy az API-nak k\u00fcld\u00f6tt k\u00e9r\u00e9s tartalmazza-e az \u00f6sszes k\u00f6telez\u0151 inform\u00e1ci\u00f3t. Ellen\u0151rizze, hogy a k\u00e9r\u00e9sben szerepl\u0151 \u00f6sszes token \u00e9rv\u00e9nyes-e.
 
@@ -132,6 +131,20 @@ INTROSPECT_USER_API_INACTIVE.useraction=Ellen\u0151rizze az \u00fczenetben szere
 USER_API_RESPONSE_NOT_AUTHENTICATED=CWWKS5389E: A felhaszn\u00e1l\u00f3i API v\u00e1lasza jelzi, hogy a felhaszn\u00e1l\u00f3i API k\u00e9r\u00e9s nincs hiteles\u00edtve. Ellen\u0151rizze, hogy a felhaszn\u00e1l\u00f3i API k\u00e9r\u00e9sben szerepl\u0151 hozz\u00e1f\u00e9r\u00e9si token \u00e9rv\u00e9nyes-e, \u00e9s ismert felhaszn\u00e1l\u00f3hoz tartozik-e.
 USER_API_RESPONSE_NOT_AUTHENTICATED.explanation=Lehet, hogy a felhaszn\u00e1l\u00f3i API k\u00e9r\u00e9sben szerepl\u0151 hozz\u00e1f\u00e9r\u00e9si token hi\u00e1nyzik, lej\u00e1rt, hib\u00e1s form\u00e1tum\u00fa vagy m\u00e1sk\u00e9pp \u00e9rv\u00e9nytelen. Lehets\u00e9ges, hogy a token nem t\u00e1rs\u00edthat\u00f3 a felhaszn\u00e1l\u00f3i API \u00e1ltal ismert felhaszn\u00e1l\u00f3hoz.
 USER_API_RESPONSE_NOT_AUTHENTICATED.useraction=Ellen\u0151rizze, hogy a felhaszn\u00e1l\u00f3i API k\u00e9r\u00e9sben szerepel-e hozz\u00e1f\u00e9r\u00e9si token. Gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy a token nem j\u00e1rt-e le, illetve nem hib\u00e1s-e a form\u00e1tuma. Ellen\u0151rizze, hogy a felhaszn\u00e1l\u00f3i API ismeri-e a hozz\u00e1f\u00e9r\u00e9si tokenhez rendelt felhaszn\u00e1l\u00f3t. 
+
+INVALID_CONFIG_PARAM=CWWKS5390E: Hi\u00e1nyzik a(z) {0} k\u00f6telez\u0151 konfigur\u00e1ci\u00f3s param\u00e9ter, illetve \u00e9rv\u00e9nytelen az \u00e9rt\u00e9ke: {1}
+INVALID_CONFIG_PARAM.explanation=A k\u00f6z\u00f6ss\u00e9gi bejelentkez\u00e9s fut\u00e1sidej\u0171 k\u00f3dja nem tal\u00e1lt egy k\u00f6telez\u0151 param\u00e9tert az \u00fcgyf\u00e9lk\u00e9r\u00e9s feldolgoz\u00e1sa sor\u00e1n.
+INVALID_CONFIG_PARAM.useraction=Keresse meg a hi\u00e1nyz\u00f3 param\u00e9tert a konfigur\u00e1ci\u00f3ban, \u00e9s gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy az meg van adva \u00e9s helyes.
+
+OIDC_CLIENT_DISCOVERY_SSL_ERROR=CWWKS5391E: A(z) [{0}] k\u00f6z\u00f6ss\u00e9gi bejelentkez\u00e9s \u00fcgyf\u00e9l nem tudta lek\u00e9rdezni az OpenID Connect szolg\u00e1ltat\u00f3 v\u00e9gpont inform\u00e1ci\u00f3it a felt\u00e9rk\u00e9pez\u00e9si v\u00e9gpont URL c\u00edm\u00e9n [{1}] kereszt\u00fcl. Friss\u00edtse a k\u00f6z\u00f6ss\u00e9gi bejelentkez\u00e9s (oidcLogin konfigur\u00e1ci\u00f3) konfigur\u00e1ci\u00f3j\u00e1t a helyes HTTPS felt\u00e9rk\u00e9pez\u00e9si v\u00e9gpont URL c\u00edmmel.
+OIDC_CLIENT_DISCOVERY_SSL_ERROR.explanation=Az oidcLogin konfigur\u00e1ci\u00f3 \u00fagy van be\u00e1ll\u00edtva, hogy az OpenID Connect szolg\u00e1ltat\u00f3 v\u00e9gpontokat a felt\u00e9rk\u00e9pez\u00e9si URL c\u00edmen kereszt\u00fcl t\u00e9rk\u00e9pezze fel, de a felt\u00e9rk\u00e9pez\u00e9si folyamat meghi\u00fasult. Az \u00fcgyf\u00e9l addig nem fogja tudni feldolgozni a hiteles\u00edt\u00e9si k\u00e9r\u00e9seket, am\u00edg a discoveryEndpoint konfigur\u00e1ci\u00f3j\u00e1t ki nem jav\u00edtj\u00e1k vagy a felt\u00e9rk\u00e9pez\u00e9s sikeres nem lesz.
+OIDC_CLIENT_DISCOVERY_SSL_ERROR.useraction=Az oidcLogin konfigur\u00e1ci\u00f3 jav\u00edt\u00e1s\u00e1val biztos\u00edtsa, hogy 1) a felt\u00e9rk\u00e9pez\u00e9si v\u00e9gpont URL c\u00edme a helyes OpenID Connect szolg\u00e1ltat\u00f3ra hivatkozzon, 2) a felt\u00e9rk\u00e9pez\u00e9si v\u00e9gpont URL c\u00edme HTTPS c\u00edm legyen, 3) az SSL szolg\u00e1ltat\u00e1s \u00e9s kulcst\u00e1rol\u00f3 elemei helyesen legyenek be\u00e1ll\u00edtva megb\u00edzhat\u00f3 OpenID Connect szolg\u00e1ltat\u00f3val, \u00e9s 4) gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy az OpenID Connect szolg\u00e1ltat\u00f3 felt\u00e9rk\u00e9pez\u00e9si v\u00e9gpont m\u0171k\u00f6dik.
+
+#0=social login client ID, 1="none"
+SOCIAL_LOGIN_NONE_ALG=CWWKS5392W: A k\u00f6z\u00f6ss\u00e9gi bejelentkez\u00e9si kliens [ {0} ] \u201e signatureAlgorithm \u201d be\u00e1ll\u00edt\u00e1sa [ {1} ]-re van \u00e1ll\u00edtva.
+SOCIAL_LOGIN_NONE_ALG.explanation=Mivel az \u201e signatureAlgorithm \u201d be\u00e1ll\u00edt\u00e1sa \u201enone\u201d, al\u00e1\u00edr\u00e1s n\u00e9lk\u00fcli tokenre van sz\u00fcks\u00e9g, ami nem jellemz\u0151 felhaszn\u00e1l\u00e1si eset.
+SOCIAL_LOGIN_NONE_ALG.useraction=Ha nem sz\u00e1m\u00edtasz arra, hogy a be\u00e9rkez\u0151 tokenek al\u00e1\u00edrva lesznek, akkor nem kell semmit tenned. Ellenkez\u0151 esetben v\u00e1lasszon ki egy t\u00e1mogatott signatureAlgorithm \u00e9rt\u00e9ket, ami p\u00e9ld\u00e1ul RS256 vagy HS256 lehet.
+
 SOCIAL_LOGIN_CONFIG_PROCESSED=CWWKS5400I: A k\u00f6z\u00f6ss\u00e9gi bejelentkez\u00e9s konfigur\u00e1ci\u00f3 [{0}] sikeresen feldolgoz\u00e1sra ker\u00fclt.
 SOCIAL_LOGIN_CONFIG_PROCESSED.explanation=A jelzett k\u00f6z\u00f6ss\u00e9gi bejelentkez\u00e9s konfigur\u00e1ci\u00f3 sikeresen feldolgoz\u00e1sra ker\u00fclt.
 SOCIAL_LOGIN_CONFIG_PROCESSED.useraction=Nincs teend\u0151.
@@ -638,10 +651,18 @@ REQUEST_URL_NOT_VALID=CWWKS5499E: A k\u00f6z\u00f6ss\u00e9gi bejelentkez\u00e9s 
 REQUEST_URL_NOT_VALID.explanation=Az eredeti k\u00e9r\u00e9s URL \u00e9rv\u00e9nytelen URL c\u00edm. Az URL \u00e9rv\u00e9nytelen karaktereket tartalmazhat vagy lehet, hogy az URL rossz form\u00e1tum\u00fa.
 REQUEST_URL_NOT_VALID.useraction=Gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy az \u00fczenetben megadott k\u00e9r\u00e9s URL megegyezik az eredeti v\u00e9dett er\u0151forr\u00e1sk\u00e9r\u00e9s URL c\u00edm\u00e9vel. Gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy az URL szab\u00e1lyosan form\u00e1zott \u00e9s csak \u00e9rv\u00e9nyes URI karaktereket tartalmaz.
 
-INVALID_CONFIG_PARAM=CWWKS5500E: Hi\u00e1nyzik a(z) {0} k\u00f6telez\u0151 konfigur\u00e1ci\u00f3s param\u00e9ter, illetve \u00e9rv\u00e9nytelen az \u00e9rt\u00e9ke: {1}
-INVALID_CONFIG_PARAM.explanation=A k\u00f6z\u00f6ss\u00e9gi bejelentkez\u00e9s fut\u00e1sidej\u0171 k\u00f3dja nem tal\u00e1lt egy k\u00f6telez\u0151 param\u00e9tert az \u00fcgyf\u00e9lk\u00e9r\u00e9s feldolgoz\u00e1sa sor\u00e1n.
-INVALID_CONFIG_PARAM.useraction=Keresse meg a hi\u00e1nyz\u00f3 param\u00e9tert a konfigur\u00e1ci\u00f3ban, \u00e9s gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy az meg van adva \u00e9s helyes.
+# NOTE: Start of new message prefix CWWKS2350 - 2399
 
-OIDC_CLIENT_DISCOVERY_SSL_ERROR=CWWKS5501E: A(z) [{0}] k\u00f6z\u00f6ss\u00e9gi bejelentkez\u00e9s \u00fcgyf\u00e9l nem tudta lek\u00e9rdezni az OpenID Connect szolg\u00e1ltat\u00f3 v\u00e9gpont inform\u00e1ci\u00f3it a felt\u00e9rk\u00e9pez\u00e9si v\u00e9gpont URL c\u00edm\u00e9n [{1}] kereszt\u00fcl. Friss\u00edtse a k\u00f6z\u00f6ss\u00e9gi bejelentkez\u00e9s (oidcLogin konfigur\u00e1ci\u00f3) konfigur\u00e1ci\u00f3j\u00e1t a helyes HTTPS felt\u00e9rk\u00e9pez\u00e9si v\u00e9gpont URL c\u00edmmel. 
-OIDC_CLIENT_DISCOVERY_SSL_ERROR.explanation=Az oidcLogin konfigur\u00e1ci\u00f3 \u00fagy van be\u00e1ll\u00edtva, hogy az OpenID Connect szolg\u00e1ltat\u00f3 v\u00e9gpontokat a felt\u00e9rk\u00e9pez\u00e9si URL c\u00edmen kereszt\u00fcl t\u00e9rk\u00e9pezze fel, de a felt\u00e9rk\u00e9pez\u00e9si folyamat meghi\u00fasult. Az \u00fcgyf\u00e9l addig nem fogja tudni feldolgozni a hiteles\u00edt\u00e9si k\u00e9r\u00e9seket, am\u00edg a discoveryEndpoint konfigur\u00e1ci\u00f3j\u00e1t ki nem jav\u00edtj\u00e1k vagy a felt\u00e9rk\u00e9pez\u00e9s sikeres nem lesz.
-OIDC_CLIENT_DISCOVERY_SSL_ERROR.useraction=Az oidcLogin konfigur\u00e1ci\u00f3 jav\u00edt\u00e1s\u00e1val biztos\u00edtsa, hogy 1) a felt\u00e9rk\u00e9pez\u00e9si v\u00e9gpont URL c\u00edme a helyes OpenID Connect szolg\u00e1ltat\u00f3ra hivatkozzon, 2) a felt\u00e9rk\u00e9pez\u00e9si v\u00e9gpont URL c\u00edme HTTPS c\u00edm legyen, 3) az SSL szolg\u00e1ltat\u00e1s \u00e9s kulcst\u00e1rol\u00f3 elemei helyesen legyenek be\u00e1ll\u00edtva megb\u00edzhat\u00f3 OpenID Connect szolg\u00e1ltat\u00f3val, \u00e9s 4) gy\u0151z\u0151dj\u00f6n meg r\u00f3la, hogy az OpenID Connect szolg\u00e1ltat\u00f3 felt\u00e9rk\u00e9pez\u00e9si v\u00e9gpont m\u0171k\u00f6dik.
+BACKCHANNEL_REQUEST_NOT_SUPPORTED_CONFIG=CWWKS2350E: A(z) [{0}] fel\u00e9 k\u00fcld\u00f6tt h\u00e1tt\u00e9r-kijelentkez\u00e9si k\u00e9r\u00e9st a(z) [{1}] k\u00f6z\u00f6ss\u00e9gi m\u00e9dia bejelentkez\u00e9si konfigur\u00e1ci\u00f3 nem t\u00e1mogatja.
+BACKCHANNEL_REQUEST_NOT_SUPPORTED_CONFIG.explanation=A k\u00f6z\u00f6ss\u00e9gi m\u00e9dia bejelentkez\u00e9si konfigur\u00e1ci\u00f3 nem OpenID Connect \u00fcgyf\u00e9l, \u00edgy nem t\u00e1mogatja a h\u00e1tt\u00e9r-kijelentkez\u00e9st.
+BACKCHANNEL_REQUEST_NOT_SUPPORTED_CONFIG.useraction=Haszn\u00e1lja a k\u00f6z\u00f6ss\u00e9gi m\u00e9dia bejelentkez\u00e9si konfigur\u00e1ci\u00f3j\u00e1hoz megfelel\u0151 kijelentkez\u00e9si v\u00e9gpontot.
+
+CLIENT_SECRET_MISSING_BUT_REQUIRED_BY_TOKEN_AUTH_METHOD=CWWKS2351E: A(z) {0} OpenID Connect \u00fcgyf\u00e9l a(z) {1} token v\u00e9gpont hiteles\u00edt\u00e9si m\u00f3dszert haszn\u00e1lja. Ez a hiteles\u00edt\u00e9si m\u00f3dszer \u00fcgyf\u00e9ltitkot ig\u00e9nyel, de az \u00fcgyf\u00e9ltitok nincs be\u00e1ll\u00edtva.
+CLIENT_SECRET_MISSING_BUT_REQUIRED_BY_TOKEN_AUTH_METHOD.explanation=Az \u00fczenetben megadott token v\u00e9gpont hiteles\u00edt\u00e9si m\u00f3dszer \u00fcgyf\u00e9ltitkot ig\u00e9nyel az OpenID Connect szolg\u00e1ltat\u00f3 token v\u00e9gpontj\u00e1val t\u00f6rt\u00e9n\u0151 hiteles\u00edt\u00e9shez.
+CLIENT_SECRET_MISSING_BUT_REQUIRED_BY_TOKEN_AUTH_METHOD.useraction=\u00c1ll\u00edtson be egy \u00fcgyf\u00e9ltitkot az OpenID Connect \u00fcgyf\u00e9lhez, vagy v\u00e1ltoztassa meg az \u00fcgyf\u00e9l token v\u00e9gpont hiteles\u00edt\u00e9si m\u00f3dszer\u00e9t olyanra, amelyik nem ig\u00e9nyel \u00fcgyf\u00e9ltitkot.
+
+# do not translate hostname, sameSiteCookie, webAppSecurity, Strict, Lax, None
+# used by client
+OIDC_CLIENT_BAD_REQUEST_NO_COOKIE=CWWKS2352E: \u00c9rv\u00e9nytelen k\u00e9r\u00e9s a k\u00f6vetkez\u0151h\u00f6z: [{0}]. Egy WASReqURLOidc kezdet\u0171 nev\u0171 k\u00f6telez\u0151 cookie hi\u00e1nyzik. Az \u00fcgyf\u00e9l el\u00e9r\u00e9s\u00e9hez haszn\u00e1lt hosztn\u00e9v nem egyezik meg a szolg\u00e1ltat\u00f3n\u00e1l regisztr\u00e1lt n\u00e9vvel.
+OIDC_CLIENT_BAD_REQUEST_NO_COOKIE.explanation=Az \u00fcgyf\u00e9l olyan k\u00e9r\u00e9st kapott, amely nem tartalmazott k\u00f6telez\u0151 cookie-t.
+OIDC_CLIENT_BAD_REQUEST_NO_COOKIE.useraction=Ellen\u0151rizze az OpenID Connect szolg\u00e1ltat\u00f3 \u00e9s \u00fcgyf\u00e9l konfigur\u00e1ci\u00f3j\u00e1t. A hi\u00e1nyz\u00f3 cookie-t az okozhatja, hogy az \u00fcgyfelet olyan hosztn\u00e9vvel \u00e9ri el, amely elt\u00e9r a szolg\u00e1ltat\u00f3n\u00e1l regisztr\u00e1lt \u00e1tir\u00e1ny\u00edt\u00e1si hosztn\u00e9vt\u0151l. Ha a kiszolg\u00e1l\u00f3konfigur\u00e1ci\u00f3ban a webAppSecurity elem sameSiteCookie attrib\u00fatuma Strict \u00e9rt\u00e9kre van \u00e1ll\u00edtva, akkor pr\u00f3b\u00e1lja meg Lax vagy None \u00e9rt\u00e9kre \u00e1ll\u00edtani.

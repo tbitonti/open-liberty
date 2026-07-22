@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,7 +22,6 @@ import org.junit.runner.RunWith;
 import com.ibm.websphere.simplicity.ShrinkHelper;
 
 import componenttest.annotation.Server;
-import componenttest.annotation.SkipForRepeat;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.LibertyServer;
 
@@ -71,13 +72,11 @@ public class JAXRS21ComplexClientTest extends JAXRS21AbstractTest {
      */
 
     @Test
-    @SkipForRepeat("EE9_FEATURES") // currently broken due to multiple issues
     public void testNew2WebTargetsRequestFilterForRx1() throws Exception {
         this.runTestOnServer(target, "testNew2WebTargetsRequestFilterForRx1", null, "{filter1=GET},{filter1=GET, filter2=*/*}");
     }
 
     @Test
-    @SkipForRepeat("EE9_FEATURES") // currently broken due to multiple issues
     public void testNew2WebTargetsRequestFilterForRx2() throws Exception {
         this.runTestOnServer(target, "testNew2WebTargetsRequestFilterForRx2", null, "{filter1=GET},{filter1=GET, filter2=*/*}");
     }
@@ -88,9 +87,9 @@ public class JAXRS21ComplexClientTest extends JAXRS21AbstractTest {
     }
 
     @Test
-    @SkipForRepeat("EE9_FEATURES") // currently broken due to multiple issues
     public void testNew2MixFilterForRx() throws Exception {
-        this.runTestOnServer(target, "testNew2MixFilterForRx", null, "222,{filter1=GET},223,{filter2=null}");
+        this.runTestOnServer(target, "testNew2MixFilterForRx", null, "222,{filter1=GET},223,{filter2=null}",
+                                                                     "222,{filter1=GET},223,{filter2=*/*}");
     }
 
     /**

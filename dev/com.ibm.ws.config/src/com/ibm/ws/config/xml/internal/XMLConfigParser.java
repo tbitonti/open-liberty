@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2020 IBM Corporation and others.
+ * Copyright (c) 2024, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,6 +16,13 @@ package com.ibm.ws.config.xml.internal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.io.File;
+import java.io.FileFilter;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +44,6 @@ import com.ibm.websphere.ras.annotation.Sensitive;
 import com.ibm.websphere.ras.annotation.Trivial;
 import com.ibm.ws.config.xml.LibertyVariable;
 import com.ibm.ws.config.xml.internal.DefaultConfiguration.DefaultConfigFile;
-import com.ibm.ws.config.xml.internal.validator.XMLConfigValidator;
-import com.ibm.ws.config.xml.internal.validator.XMLConfigValidatorFactory;
 import com.ibm.ws.config.xml.internal.variables.ConfigVariable;
 import com.ibm.ws.config.xml.internal.variables.ConfigVariableRegistry;
 import com.ibm.ws.ffdc.annotation.FFDCIgnore;
@@ -70,7 +77,6 @@ public class XMLConfigParser {
     private final LinkedList<String> docLocationStack = new LinkedList<String>();
     private final LinkedList<MergeBehavior> behaviorStack = new LinkedList<MergeBehavior>();
 
-    private final XMLConfigValidator configValidator = XMLConfigValidatorFactory.getInstance().getXMLConfigValidator();
     private final ConfigVariableRegistry variableRegistry;
 
     public XMLConfigParser(WsLocationAdmin locationService, ConfigVariableRegistry variableRegistry) {
@@ -111,11 +117,6 @@ public class XMLConfigParser {
         return sequenceCounter++;
     }
 
-    @Trivial
-    public XMLConfigValidator getConfigValidator() {
-        return configValidator;
-    }
-
     // test entry point only
     public ServerConfiguration parseServerConfiguration(WsResource resource) throws ConfigParserException, ConfigValidationException {
         return parseServerConfiguration(resource, new ServerConfiguration());
@@ -124,10 +125,14 @@ public class XMLConfigParser {
     @FFDCIgnore(IOException.class)
     public ServerConfiguration parseServerConfiguration(WsResource resource, ServerConfiguration configuration) throws ConfigParserException, ConfigValidationException {
         String location = resource.toExternalURI().toString();
+        
+        if (tc.isDebugEnabled()) {
+            Tr.debug(tc, "parseServerConfiguration(WsResource): Starting to parse file: " + location);
+        }
         tempVariables.variables.clear();
         InputStream in = null;
         try {
-            in = configValidator.validateResource(resource.get(), location);
+            in = resource.get();
             if (parseServerConfiguration(in, location, configuration, MergeBehavior.MERGE)) {
                 configuration.updateLastModified(resource.getLastModified());
             } else {
@@ -147,7 +152,7 @@ public class XMLConfigParser {
         String location = resource.toExternalURI().toString();
         InputStream in = null;
         try {
-            in = configValidator.validateResource(resource.get(), location);
+            in = resource.get();
 
             if (parseServerConfiguration(in, location, configuration, mergeBehavior)) {
                 configuration.updateLastModified(resource.getLastModified());
@@ -189,6 +194,12 @@ public class XMLConfigParser {
     @FFDCIgnore(XMLStreamException.class)
     public boolean parseServerConfiguration(InputStream in, String docLocation, BaseConfiguration config,
                                             MergeBehavior mergeBehavior) throws ConfigParserException, ConfigValidationException {
+        
+        // Debug: Log which file we're parsing
+        if (tc.isDebugEnabled()) {
+            Tr.debug(tc, "parseServerConfiguration(InputStream): Starting to parse file: " + docLocation);
+        }
+        
         XMLStreamReader parser = null;
         try {
             parser = getXMLInputFactory().createXMLStreamReader(docLocation, in);
@@ -208,7 +219,14 @@ public class XMLConfigParser {
 
     @FFDCIgnore(XMLStreamException.class)
     private boolean parseServerConfiguration(DepthAwareXMLStreamReader parser, String docLocation, BaseConfiguration config,
-                                             MergeBehavior mergeBehavior) throws ConfigParserException, ConfigValidationException {
+                                             MergeBehavior mergeBehavior) 
+                                             throws ConfigParserException, ConfigValidationException, ConfigParserTolerableException {
+        
+        // Debug: Log which file we're parsing
+        if (tc.isDebugEnabled()) {
+            Tr.debug(tc, "parseServerConfiguration(DepthAwareXMLStreamReader): Starting to parse file: " + docLocation);
+        }
+        
         if (docLocation != null) {
             if (docLocationStack.contains(docLocation)) {
                 if (tc.isWarningEnabled()) {
@@ -242,8 +260,8 @@ public class XMLConfigParser {
                 }
             }
             // If we get here, there is a single element in the file and it is not <server> or <client>
-            logError("error.root.must.be.server", docLocation, processType);
-            throw new ConfigParserTolerableException();
+            logError(ThrowBehavior.ALWAYS_THROW_EXCEPTION, "error.root.must.be.server", docLocation, processType);
+            return false; // Unreachable: ALWAYS_THROW_EXCEPTION guarantees an exception, but we must please the compiler.
 
         } catch (XMLStreamException e) {
             throw new ConfigParserException(e);
@@ -286,6 +304,12 @@ public class XMLConfigParser {
     @FFDCIgnore({ XMLStreamException.class, ConfigParserTolerableException.class })
     private void parseServer(DepthAwareXMLStreamReader parser, String docLocation, BaseConfiguration config,
                              String processType) throws ConfigParserException, ConfigValidationException {
+        
+        // Debug: Log which file we're parsing
+        if (tc.isDebugEnabled()) {
+            Tr.debug(tc, "parseServer: Starting to parse file: " + docLocation);
+        }
+        
         String descriptionAttributeValue = getAttributeValue(parser, "description");
         if (descriptionAttributeValue != null) {
             config.setDescription(descriptionAttributeValue);
@@ -298,8 +322,52 @@ public class XMLConfigParser {
             int depth = parser.getDepth();
             while (parser.hasNext(depth)) {
                 int event = parser.next();
-                if (event == XMLStreamConstants.START_ELEMENT) {
+                
+                // Debug: Log all events
+                if (tc.isDebugEnabled()) {
+                    String eventName = getEventName(event);
+                    Tr.debug(tc, "parseServer: event=" + eventName + " (" + event + "), depth=" + depth + ", location=" + parser.getLocation().getLineNumber());
+                }
+                
+				// Text between elements
+                if (event == XMLStreamConstants.CHARACTERS) {
+                    // Check for potential malformed XML elements
+                    String text = parser.getText();
+                    
+                    // Debug logging - log ALL CHARACTERS events
+                    if (tc.isDebugEnabled()) {
+                        String displayText = text != null ? text.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") : "null";
+                        Tr.debug(tc, "CHARACTERS event, text length=" + (text != null ? text.length() : 0) +
+                                ", trimmed length=" + (text != null ? text.trim().length() : 0) +
+                                ", text=[" + displayText + "]");
+                    }
+                    
+                    if (text != null && text.trim().length() > 0) {
+                        String trimmed = text.trim();
+                        
+                        // Skip invisible Unicode whitespace characters.
+                        if (isOnlyInvisibleWhitespace(trimmed)) {
+                            if (tc.isDebugEnabled()) {
+                                Tr.debug(tc, "Invisible Unicode whitespace found at line " + parser.getLocation().getLineNumber());
+                            }
+                        } else {
+                            // At the server level (between top-level elements), there should be no text content.
+                            // Any non-whitespace text might be a malformed element.
+                            if (tc.isDebugEnabled()) {
+                                Location l = parser.getLocation();
+                                String preview = trimmed.length() > 60 ? trimmed.substring(0, 60) + "..." : trimmed;
+                                Tr.debug(tc, "Potential malformed XML element detected: [" + preview + "] at line " + l.getLineNumber() + " in " + docLocation);
+                            }
+                        }
+                    }
+                } else if (event == XMLStreamConstants.START_ELEMENT) {
                     String name = parser.getLocalName();
+                    
+                    // Debug: Log element name
+                    if (tc.isDebugEnabled()) {
+                        Tr.debug(tc, "START_ELEMENT: name=[" + name + "], location=" + parser.getLocation().getLineNumber());
+                    }
+                    
                     if (INCLUDE.equals(name)) {
                         // Pass the importedConfig variable in as a reference so that if an
                         // exception is thrown we still know what had been successfully parsed.
@@ -355,6 +423,38 @@ public class XMLConfigParser {
         }
     }
 
+   /**
+     * Checks if a string contains only invisible Unicode whitespace characters.
+     * These characters are commonly inserted during copy/paste operations from
+     * web browsers or rich text editors, but they don't affect XML parsing or
+     * configuration functionality.
+     *
+     * @param text The text to check
+     * @return true if the text contains only invisible whitespace characters, false otherwise
+     */
+    @Trivial
+    private boolean isOnlyInvisibleWhitespace(String text) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        
+        // Check if string contains only invisible Unicode characters:
+        // U+200B: Zero Width Space
+        // U+200C: Zero Width Non-Joiner
+        // U+200D: Zero Width Joiner
+        // U+FEFF: Zero Width No-Break Space (BOM)
+        // U+2060: Word Joiner
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c != '\u200B' && c != '\u200C' && c != '\u200D' &&
+                c != '\uFEFF' && c != '\u2060') {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
     public enum MergeBehavior {
         MERGE,
         REPLACE,
@@ -373,12 +473,78 @@ public class XMLConfigParser {
         String includeAttributeValue = getAttributeValue(parser, "location");
         if (includeAttributeValue == null) {
             Location l = parser.getLocation();
-            logError("error.include.location.not.specified", l.getLineNumber(), l.getSystemId());
-            throw new ConfigParserTolerableException();
+            logError(ThrowBehavior.ALWAYS_THROW_EXCEPTION, "error.include.location.not.specified", l.getLineNumber(), l.getSystemId());
         }
 
         if (locationService != null) {
             String location = includeAttributeValue;
+            WsResource includeResource = null;
+            try {
+                includeResource = resolveInclude(location, docLocation, locationService);
+            } catch (MalformedLocationException mle) {
+                // We're going to handle this after the null check below, so we don't need to handle it immediately.
+            }
+            if (includeResource != null) {
+                // Don't add directory to includes, just it's contents
+                if (!includeResource.isType(WsResource.Type.DIRECTORY)) {
+                    includes.add(includeResource);
+                }
+                if (includeResource.exists() &&
+                    ((includeResource.isType(WsResource.Type.FILE) || (includeResource.isType(WsResource.Type.REMOTE))))) {
+
+                    if (includeResource.isType(WsResource.Type.FILE)) {
+                        Tr.audit(tc, "audit.include.being.processed", includeResource.asFile());
+                    } else {
+                        Tr.audit(tc, "audit.include.being.processed", includeResource.toExternalURI());
+                    }
+
+                    parseIncludeConfiguration(includeResource, configuration, mergeBehavior);
+                    return;
+
+                } else if (includeResource.exists() &&
+                           ((includeResource.isType(WsResource.Type.DIRECTORY)))) {
+
+                    File[] children = getChildXMLFiles(includeResource);
+                    Arrays.sort(children, new AlphaComparator());
+                    for(File child : children){
+                        parseIncludeDir(parser, docLocation, child.getName(), includes, configuration);
+                    }
+
+                } else {
+                    if (!optionalImport) {
+                        logError(ThrowBehavior.ALWAYS_THROW_EXCEPTION, "error.cannot.read.location", resolvePath(location));
+                    }
+                }
+            } else {
+                if (optionalImport) {
+                    Tr.warning(tc, "warn.cannot.resolve.optional.include", resolvePath(location));
+                    configuration = null;
+                } else {
+                    logError(ThrowBehavior.ALWAYS_THROW_EXCEPTION, "error.cannot.read.location", resolvePath(location));
+                }
+            }
+        } else {
+            throw new ConfigParserException("LocationService is not available");
+        }
+    }
+
+    private void parseIncludeDir(DepthAwareXMLStreamReader parser, String docLocation, String dirChild,
+                                 List<WsResource> includes,
+                                 BaseConfiguration configuration) throws ConfigParserException, ConfigParserTolerableException, ConfigValidationException {
+        String behaviorAttribute = getAttributeValue(parser, BEHAVIOR_ATTRIBUTE);
+        MergeBehavior mergeBehavior = behaviorAttribute == null ? behaviorStack.getLast() : getMergeBehavior(behaviorAttribute);
+
+        String optionalAttributeValue = getAttributeValue(parser, "optional");
+        boolean optionalImport = (optionalAttributeValue != null && "true".equalsIgnoreCase(optionalAttributeValue));
+
+        String includeAttributeValue = getAttributeValue(parser, "location");
+        if (includeAttributeValue == null) {
+            Location l = parser.getLocation();
+            logError(ThrowBehavior.ALWAYS_THROW_EXCEPTION, "error.include.location.not.specified", l.getLineNumber(), l.getSystemId());
+        }
+
+        if (locationService != null) {
+            String location = includeAttributeValue + dirChild; // There's a better/safer way to do this I just can't think of it right now
             WsResource includeResource = null;
             try {
                 includeResource = resolveInclude(location, docLocation, locationService);
@@ -401,8 +567,7 @@ public class XMLConfigParser {
 
                 } else {
                     if (!optionalImport) {
-                        logError("error.cannot.read.location", resolvePath(location));
-                        throw new ConfigParserTolerableException();
+                        logError(ThrowBehavior.ALWAYS_THROW_EXCEPTION, "error.cannot.read.location", resolvePath(location));
                     }
                 }
             } else {
@@ -410,8 +575,7 @@ public class XMLConfigParser {
                     Tr.warning(tc, "warn.cannot.resolve.optional.include", resolvePath(location));
                     configuration = null;
                 } else {
-                    logError("error.cannot.read.location", resolvePath(location));
-                    throw new ConfigParserTolerableException();
+                    logError(ThrowBehavior.ALWAYS_THROW_EXCEPTION, "error.cannot.read.location", resolvePath(location));
                 }
             }
         } else {
@@ -463,14 +627,12 @@ public class XMLConfigParser {
 
         if (variableName == null) {
             Location l = parser.getLocation();
-            logError("error.variable.name.missing", l.getLineNumber(), l.getSystemId());
-            throw new ConfigParserTolerableException();
+            logError(ThrowBehavior.ALWAYS_THROW_EXCEPTION, "error.variable.name.missing", l.getLineNumber(), l.getSystemId());
         }
 
         if (variableValue == null && variableDefault == null) {
             Location l = parser.getLocation();
-            logError("error.variable.value.missing", l.getLineNumber(), l.getSystemId());
-            throw new ConfigParserTolerableException();
+            logError(ThrowBehavior.ALWAYS_THROW_EXCEPTION, "error.variable.value.missing", l.getLineNumber(), l.getSystemId());
         }
 
         return new ConfigVariable(variableName, variableValue, variableDefault, behaviorStack.getLast(), docLocation, false);
@@ -620,12 +782,17 @@ public class XMLConfigParser {
             return null;
         }
 
+        String resolvedIncludePath = resolvePath(includePath);
+        
+        if(resolvedIncludePath == null || resolvedIncludePath.trim().length() == 0){
+            return null;
+        }
+
         if (basePath == null) {
             // no basePath - resolve includePath as is
-            String normalIncludePath = resolvePath(includePath);
-            return wsLocationAdmin.resolveResource(normalIncludePath);
+            return wsLocationAdmin.resolveResource(resolvedIncludePath);
         } else {
-            String normalIncludePath = PathUtils.normalize(resolvePath(includePath));
+            String normalIncludePath = PathUtils.normalize(resolvedIncludePath);
             if (PathUtils.pathIsAbsolute(normalIncludePath)) {
                 // includePath is absolute - resolve includePath as is
                 return wsLocationAdmin.resolveResource(normalIncludePath);
@@ -694,17 +861,64 @@ public class XMLConfigParser {
                 if (bundle != null) {
                     loc = loc + "(" + bundle.getLocation() + ")";
                 }
-                logError("error.syntax.parse.server", getMessage(xse), loc, l.getLineNumber(), l.getColumnNumber());
+                try {
+                    logError(ThrowBehavior.NEVER_THROW_EXCEPTION, "error.syntax.parse.server", getMessage(xse), loc, l.getLineNumber(), l.getColumnNumber());
+                } catch (ConfigParserTolerableException ex) {
+                    // Will never happen with NEVER_THROW_EXCEPTION.  Would be misleading to declare in throws statement.
+                }
             } else {
                 // XMLStreamException is allowed to return a null Location
                 // but in practice this will never occur with the JDK built-in
                 // StAX implementations.
-                logError("error.syntax.parse.server", getMessage(xse), "[null]", -1, -1);
+                try {
+                    logError(ThrowBehavior.NEVER_THROW_EXCEPTION, "error.syntax.parse.server", getMessage(xse), "[null]", -1, -1);
+                } catch (ConfigParserTolerableException ex) {
+                    // Will never happen with NEVER_THROW_EXCEPTION.  Would be misleading to declare in throws statement.
+                }
             }
         } else if (e.getMessage() != null) {
             // If the message is null, assume we have already logged it.
-            logError("error.parse.server", e.getMessage());
+            try {
+                logError(ThrowBehavior.NEVER_THROW_EXCEPTION, "error.parse.server", e.getMessage());
+            } catch (ConfigParserTolerableException ex) {
+                // Will never happen with NEVER_THROW_EXCEPTION.  Would be misleading to declare in throws statement.
+            }
         }
+    }
+
+    /**
+     * To maintain the same order across platforms, we have to implement our own comparator.
+     * Otherwise, "aardvark.xml" would come before "Zebra.xml" on windows, and vice versa on unix.
+     */
+    private static class AlphaComparator implements Comparator<File> {
+
+        /*
+         * (non-Javadoc)
+         *
+         * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
+         */
+        @Override
+        public int compare(File o1, File o2) {
+            return o1.getName().toLowerCase().compareTo(o2.getName().toLowerCase());
+        }
+
+    }
+
+    private File[] getChildXMLFiles(WsResource directory) {
+        File dir = directory.asFile();
+
+        File[] dirFiles = dir.listFiles(new FileFilter() {
+
+            @Override
+            public boolean accept(File file) {
+                if (file != null && file.isFile()) {
+                    String name = file.getName().toLowerCase();
+                    return name.endsWith(".xml");
+                }
+                return false;
+            }
+        });
+        return dirFiles;
     }
 
     private String getMessage(XMLStreamException xse) {
@@ -722,15 +936,85 @@ public class XMLConfigParser {
         return message;
     }
 
-    private void logError(String msgKey, Object... args) {
+    private enum ThrowBehavior {
+        ALWAYS_THROW_EXCEPTION,     // Override onError=FAIL setting
+        SOMETIMES_THROW_EXCEPTION,  // Respect the onError=FAIL setting
+        NEVER_THROW_EXCEPTION       // Override the onError=FAIL setting
+    }
+
+    /**
+     * Logs a configuration error and optionally throws an exception based on the onError setting
+     * and the caller's throw behavior preference.
+     *
+     * <p>This method provides two-tier control over exception throwing:
+     * <ol>
+     *   <li>The onError setting (FAIL/WARN/IGNORE) controls logging and default throw behavior</li>
+     *   <li>The throwBehavior parameter allows callers to override the onError setting for critical errors</li>
+     * </ol>
+     *
+     * @param throwBehavior Controls when to throw an exception:
+     *                      <ul>
+     *                        <li>ALWAYS_THROW_EXCEPTION - Always throw, regardless of onError setting.
+     *                            Used for critical structural errors (e.g., missing required attributes)</li>
+     *                        <li>SOMETIMES_THROW_EXCEPTION - Throw only when onError=FAIL.
+     *                            Used for syntax/parsing errors that should respect user preferences</li>
+     *                        <li>NEVER_THROW_EXCEPTION - Never throw, only log (when onError=FAIL/WARN).
+     *                            Used in handleParseError() for error reporting after parsing has already failed</li>
+     *                      </ul>
+     * @param msgKey The message key for the error
+     * @param args Arguments for the error message
+     * @throws ConfigParserTolerableException When the error should fail server startup
+     */
+    private void logError(ThrowBehavior throwBehavior, String msgKey, Object... args) throws ConfigParserTolerableException {
 
         switch (ErrorHandler.INSTANCE.getOnError()) {
             case FAIL:
+                Tr.error(tc, msgKey, args);
+                // This condition is here because the handleParseError method does not throw an exception.
+                // handleParseError is called after parsing has already failed, so it only reports the error.
+                if (throwBehavior != ThrowBehavior.NEVER_THROW_EXCEPTION) {
+                    throw new ConfigParserTolerableException();
+                }
+                break;
             case WARN:
                 Tr.error(tc, msgKey, args);
                 break;
             case IGNORE:
                 break;
+        }
+        
+        // onError setting can be overridden for critical errors
+        if (throwBehavior == ThrowBehavior.ALWAYS_THROW_EXCEPTION) {
+            throw new ConfigParserTolerableException();
+        }
+    }
+
+    /**
+     * Helper method to get a human-readable name for XML stream event types.
+     * Used for debug logging.
+     *
+     * @param eventType The XMLStreamConstants event type
+     * @return A string representation of the event type
+     */
+    @Trivial
+    private String getEventName(int eventType) {
+        switch (eventType) {
+            case XMLStreamConstants.START_ELEMENT: return "START_ELEMENT";
+            case XMLStreamConstants.END_ELEMENT: return "END_ELEMENT";
+            case XMLStreamConstants.CHARACTERS:  return "CHARACTERS";
+            case XMLStreamConstants.COMMENT: return "COMMENT";
+            case XMLStreamConstants.PROCESSING_INSTRUCTION: return "PROCESSING_INSTRUCTION";
+            case XMLStreamConstants.CDATA: return "CDATA";
+            case XMLStreamConstants.SPACE: return "SPACE";
+            case XMLStreamConstants.START_DOCUMENT: return "START_DOCUMENT";
+            case XMLStreamConstants.END_DOCUMENT: return "END_DOCUMENT";
+            case XMLStreamConstants.ENTITY_REFERENCE: return "ENTITY_REFERENCE";
+            case XMLStreamConstants.ATTRIBUTE: return "ATTRIBUTE";
+            case XMLStreamConstants.DTD: return "DTD";
+            case XMLStreamConstants.NAMESPACE: return "NAMESPACE";
+            case XMLStreamConstants.NOTATION_DECLARATION: return "NOTATION_DECLARATION";
+            case XMLStreamConstants.ENTITY_DECLARATION: return "ENTITY_DECLARATION";
+            default: return "UNKNOWN(" + eventType + ")";
         }
     }
 }

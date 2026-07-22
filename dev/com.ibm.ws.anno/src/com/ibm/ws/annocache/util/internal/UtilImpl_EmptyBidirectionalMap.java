@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2019 IBM Corporation and others.
+ * Copyright (c) 2011, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -27,12 +29,11 @@ public class UtilImpl_EmptyBidirectionalMap implements Util_BidirectionalMap {
 
     public static final String CLASS_NAME = "UtilImpl_EmptyBidirectionalMap";
 
-    protected final String hashText;
-
     @Override
     @Trivial
     public String getHashText() {
-        return hashText;
+        return getClass().getSimpleName() + "@" + Integer.toHexString(hashCode()) +
+                        "(" + holderInternMap.getName() + " : " + heldInternMap.getName() + ")";
     }
 
     //
@@ -45,16 +46,13 @@ public class UtilImpl_EmptyBidirectionalMap implements Util_BidirectionalMap {
 
         String methodName = "<init>";
 
-        this.hashText = getClass().getSimpleName() + "@" + Integer.toHexString(hashCode()) +
-                        "(" + holderTag + " : " + heldTag + ")";
-        
         this.factory = factory;
 
         this.holderInternMap = factory.createEmptyInternMap(holderType, holderTag);
         this.heldInternMap = factory.createEmptyInternMap(heldType, heldTag);
 
         if (logger.isLoggable(Level.FINER)) {
-            logger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ]", this.hashText);
+            logger.logp(Level.FINER, CLASS_NAME, methodName, "[ {0} ]", this.getHashText());
         }
     }
 
@@ -70,10 +68,9 @@ public class UtilImpl_EmptyBidirectionalMap implements Util_BidirectionalMap {
 
     //
 
-    @Deprecated
     @Override
     @Trivial
-    public boolean getEnabled() {
+    public boolean getIsEnabled() {
         return true;
     }
 
@@ -249,12 +246,5 @@ public class UtilImpl_EmptyBidirectionalMap implements Util_BidirectionalMap {
         Tr.debug(useLogger, "Held-to-holder Map: [ NULL ]");
 
         Tr.debug(useLogger, "BiDi Map (Empty): END: [ {0} ]", getHashText());
-    }
-
-    //
-
-    @Override
-    public boolean getIsEnabled() {
-        return true;
     }
 }

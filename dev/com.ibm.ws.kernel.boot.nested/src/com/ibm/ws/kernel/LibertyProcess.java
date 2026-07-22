@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,14 +19,21 @@ import java.util.Set;
  * runtime launcher. This service is registered in the OSGi service
  * registry. The code creating the service resides outside of the framework: it
  * is not a dynamic service, so direct access (rather than via a tracker) should
- * behave consistently. Calling code should still perform some defensive sanity
- * checking (like ensuring the returned service is not null, etc.).
+ * behave consistently. Calling code should still perform some defensive validation
+ * (like ensuring the returned service is not null, etc.).
  */
 public interface LibertyProcess {
     /**
+     * The ID of the condition service that indicates the Liberty process is active.
+     * This condition is registered very early in Liberty startup.
+     * This condition will be unregistered when the Liberty process is stopping.
+     */
+    public static final String CONDITION_LIBERTY_PROCESS_ACTIVE = "com.ibm.ws.liberty.process.active";
+
+    /**
      * Return an array containing the arguments passed to the runtime on the
      * command line. A copy of the original argument list will be returned.
-     * 
+     *
      * @return Array of String command line arguments; will always return a list
      *         (which may have 0 length).
      */
@@ -38,7 +47,7 @@ public interface LibertyProcess {
 
     /**
      * Creates the set of Java dumps specified in includedDumps.
-     * 
+     *
      * @param includedDumps the set of dumps to create
      */
     public void createJavaDump(Set<String> includedDumps);
@@ -46,9 +55,9 @@ public interface LibertyProcess {
     /**
      * Creates a server dump, which will include any of the Java dumps specified in
      * includedDumps.
-     * 
+     *
      * @param includedDumps the set of Java dumps to include in the server dump
-     * 
+     *
      * @return the fully-qualified path to the server dump archive if the dump was
      *         successfully taken, or null otherwise
      */

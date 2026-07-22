@@ -1,18 +1,20 @@
 /*******************************************************************************
- * Copyright (c) 2018, 2020 IBM Corporation and others.
+ * Copyright (c) 2018, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package test.server.transport.http2;
 
+import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
+
+import com.ibm.ws.fat.util.FatLogHandler;
 
 import componenttest.custom.junit.runner.AlwaysPassesTest;
 
@@ -42,11 +44,21 @@ import componenttest.custom.junit.runner.AlwaysPassesTest;
                 Http2FullTracingTests.class, // FULL
                 Http2Config40H2Off.class, // FULL
                 Http2Config31H2Off.class, // FULL
-                Http2Config31H2On.class // FULL
-                //MultiSessionTests.class // FULL; disabled for now
+                Http2Config31H2On.class, // FULL
+                Http2WindowUpdateTests.class, //FULL
+                Http2CompressionTests.class, //FULL
+                Http2RequestSocketTests.class, // FULL
+//MultiSessionTests.class // FULL; disabled for now
 })
 
 public class FATSuite {
-    private static final Class<?> c = FATSuite.class;
+
+    /**
+     * @see {@link FatLogHandler#generateHelpFile()}
+     */
+    @BeforeClass
+    public static void generateHelpFile() {
+        FatLogHandler.generateHelpFile();
+    }
 
 }

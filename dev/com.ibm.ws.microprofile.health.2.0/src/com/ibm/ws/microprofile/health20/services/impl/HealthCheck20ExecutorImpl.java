@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019,2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -56,7 +58,7 @@ public class HealthCheck20ExecutorImpl implements HealthCheck20Executor {
 
     private HealthCheck20CDIBeanInvoker healthCheckCDIBeanInvoker;
     private J2EENameFactory j2eeNameFactory;
-    private final static Logger logger = Logger.getLogger(HealthCheck20ExecutorImpl.class.getName(), "com.ibm.ws.microprofile.health20.resources.Health20");
+    private final static Logger logger = Logger.getLogger(HealthCheck20ExecutorImpl.class.getName(), "com.ibm.ws.microprofile.health.resources.Health");
 
     private final static String HC_MANAGEDTASK_IDENTITY_NAME = "mp.healthcheck.proxy";
     private final static String HC_TASK_OWNER = "mp.healthcheck.runtime";
@@ -111,6 +113,7 @@ public class HealthCheck20ExecutorImpl implements HealthCheck20Executor {
                                                                                                    appName,
                                                                                                    moduleName,
                                                                                                    hcr.getState().toString(),
+                                                                                                   hcr.getName(),
                                                                                                    hcr.getData() != null ? hcr.getData().toString() : "{NO DATA}" });
             }
         }

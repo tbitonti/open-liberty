@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2003, 2021 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -49,7 +51,7 @@ import jain.protocol.ip.sip.message.MessageFactory;
 /**
  * @author Amir Perlman, Feb 16, 2003
  *
- * Implemenation for the SipServletMessage API
+ * Implementation for the SipServletMessage API
  */
 public abstract class SipServletMessageImpl 
 	implements SipServletMessageExt, Serializable
@@ -164,8 +166,8 @@ public abstract class SipServletMessageImpl
     protected Hashtable m_attributes;
 
     /**
-     * Flag indicating whether the Message is already commited. Some operations
-     * are not allowed once the message is commited. 
+     * Flag indicating whether the message is already Committed. 
+     * Some operations are not allowed once the message is Committed. 
      */
     private boolean m_isCommited = true;
     
@@ -566,8 +568,8 @@ public abstract class SipServletMessageImpl
             {
                 AcceptLanguageHeader h = (AcceptLanguageHeader)iterator.next();
                 
-                //the first local is also the preffered
-                //should be added at the begining 
+                //the first local is also the preferred one,
+                //should be added at the beginning 
                 if(first){
                 	orderList.add(0,h);
                 	first=false;
@@ -3411,7 +3413,7 @@ public abstract class SipServletMessageImpl
 	}
 	
 	/**
-	 * An exception has occured log it to the session sequence log. 
+	 * An exception has occurred, log it to the session sequence log. 
      * @param status Status/Reason code for the specified error
      * @param e
      */

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017,2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -18,6 +20,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 
@@ -35,6 +38,7 @@ import com.ibm.websphere.simplicity.log.Log;
 
 import componenttest.annotation.AllowedFFDC;
 import componenttest.annotation.Server;
+import componenttest.annotation.SkipIfSysProp;
 import componenttest.custom.junit.runner.FATRunner;
 import componenttest.custom.junit.runner.Mode;
 import componenttest.custom.junit.runner.Mode.TestMode;
@@ -44,6 +48,8 @@ import componenttest.topology.utils.FATServletClient;
 
 @RunWith(FATRunner.class)
 @Mode(TestMode.FULL)
+//Skip on IBM i since SQLJ is not supported
+@SkipIfSysProp(SkipIfSysProp.OS_IBMI)
 public class SQLJTest extends FATServletClient {
 
     @Server("com.ibm.ws.sqlj.fat")
@@ -68,6 +74,7 @@ public class SQLJTest extends FATServletClient {
 
     @BeforeClass
     public static void setUp() throws Exception {
+        server.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         applyDB2Env();
         setUpSQLJ();
         // Create a normal Java EE application and export to server
@@ -85,7 +92,7 @@ public class SQLJTest extends FATServletClient {
 
     private static void applyDB2Env() {
         server.addEnvVar("DB2_DBNAME", db2.getDatabaseName());
-        server.addEnvVar("DB2_HOSTNAME", db2.getContainerIpAddress());
+        server.addEnvVar("DB2_HOSTNAME", db2.getHost());
         server.addEnvVar("DB2_PORT", String.valueOf(db2.getMappedPort(50000)));
         server.addEnvVar("DB2_USER", db2.getUsername());
         server.addEnvVar("DB2_PASS", db2.getPassword());

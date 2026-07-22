@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2008, 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -309,7 +311,7 @@ public class SipMessageByteBuffer
     }
     
     /**
-     * ensure buffer is large enough to accomodate given number of bytes
+     * ensure buffer is large enough to accommodate given number of bytes
      * in addition to the bytes already stored.
      * @param length number of bytes to be appended to buffer
      */

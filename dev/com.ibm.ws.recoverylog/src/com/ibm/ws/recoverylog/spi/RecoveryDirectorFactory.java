@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2002, 2019 IBM Corporation and others.
+ * Copyright (c) 2002, 2025 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,8 +13,9 @@
 
 package com.ibm.ws.recoverylog.spi;
 
-import com.ibm.tx.util.logging.Tr;
-import com.ibm.tx.util.logging.TraceComponent;
+import com.ibm.websphere.ras.Tr;
+import com.ibm.websphere.ras.TraceComponent;
+import com.ibm.websphere.ras.annotation.Trivial;
 
 //------------------------------------------------------------------------------
 //Class: RecoveryDirectorFactory
@@ -26,7 +29,7 @@ public class RecoveryDirectorFactory {
      * WebSphere RAS TraceComponent registration
      */
     private static final TraceComponent tc = Tr.register(RecoveryDirectorFactory.class,
-                                                         TraceConstants.TRACE_GROUP, null);
+                                                         TraceConstants.TRACE_GROUP, TraceConstants.NLS_FILE);
 
     /**
      * The single instance of the RecoveryDirector implementation class.
@@ -39,6 +42,7 @@ public class RecoveryDirectorFactory {
     /**
      * Private construcor to prevent this object being created.
      */
+    @Trivial
     protected RecoveryDirectorFactory() {
     }
 
@@ -72,12 +76,14 @@ public class RecoveryDirectorFactory {
     /**
      * Create a RecoveryDirector singleton
      *
+     * @param recLogService
+     *
      * @return RecoveryDirector instance
      */
-    public static RecoveryDirector createRecoveryDirector() {
+    public static RecoveryDirector createRecoveryDirector(RecLogService recLogService) {
         if (tc.isEntryEnabled())
-            Tr.entry(tc, "createRecoveryDirector");
-        _recoveryDirector = RecoveryDirectorImpl.instance();
+            Tr.entry(tc, "createRecoveryDirector", recLogService);
+        _recoveryDirector = RecoveryDirectorImpl.instance(recLogService);
 
         if (tc.isEntryEnabled())
             Tr.exit(tc, "createRecoveryDirector", _recoveryDirector);

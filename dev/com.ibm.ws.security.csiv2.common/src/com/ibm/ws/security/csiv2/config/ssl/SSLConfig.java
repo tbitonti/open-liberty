@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2014, 2015 IBM Corporation and others.
+ * Copyright (c) 2014, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -48,6 +50,7 @@ import com.ibm.ws.transport.iiop.security.config.tss.OptionsKey;
  * the SSLServerSocketFactory and SSLSocketFactory instances.
  */
 public class SSLConfig {
+    
     private static final TraceComponent tc = Tr.register(SSLConfig.class);
 
     private static final OptionsKey NO_PROTECTION = new OptionsKey(NoProtection.value, NoProtection.value);
@@ -85,27 +88,30 @@ public class SSLConfig {
         return getCipherSuites(sslAliasName, candidateCipherSuites, props);
     }
 
-    String[] getCipherSuites(String sslAliasName, String[] candidateCipherSuites, Properties props) throws SSLException {
+    public String[] getCipherSuites(String sslAliasName, String[] candidateCipherSuites, Properties props) throws SSLException {
+
         String enabledCipherString = props.getProperty(Constants.SSLPROP_ENABLED_CIPHERS);
-        if (enabledCipherString != null) {
-            String[] requested = enabledCipherString.split("[,\\s]+");
-            OptionsKey options = getAssociationOptions(sslAliasName, props);
-            return filter(candidateCipherSuites, requested, options);
-        } else {
-            String securityLevelString = props.getProperty(Constants.SSLPROP_SECURITY_LEVEL);
-            return Constants.adjustSupportedCiphersToSecurityLevel(candidateCipherSuites, securityLevelString);
-        }
+        String[] requested = Constants.adjustSupportedCiphers(candidateCipherSuites, enabledCipherString);
+        OptionsKey options = getAssociationOptions(sslAliasName, props);
+        return filter(candidateCipherSuites, requested, options);
+        
     }
 
-    public String getSSLProtocol(String sslAliasName) throws SSLException {
-        Properties props = jsseHelper.getProperties(sslAliasName);
+    public String[] getSSLProtocol(Properties props) throws SSLException {
         String protocol = props.getProperty(Constants.SSLPROP_PROTOCOL);
 
-        // only set the protocol on the socket if it is set to a specific protocol
-        if (protocol.equals(Constants.PROTOCOL_SSL) || protocol.equals(Constants.PROTOCOL_TLS))
-            protocol = null;
+        // protocol(s) need to be in an array
+        String[] protocols = protocol.split(",");
 
-        return protocol;
+        // we only want to set the protocol on the socket if it a specific protocol name
+        // don't set to TLS or SSL
+        if (protocols.length == 1) {
+            if (protocols[0].equals(Constants.PROTOCOL_TLS) || protocols[0].equals(Constants.PROTOCOL_SSL)) {
+                protocols = null;
+            }
+        }
+
+        return protocols;
     }
 
     public boolean getEnforceCipherOrder(String sslAliasName) throws SSLException {
@@ -122,8 +128,8 @@ public class SSLConfig {
      * This method will warn if any requested cipher suites appear to not match the options
      *
      * @param candidateCipherSuites locally supported cipher suites
-     * @param requested cipher suites explicitly configured
-     * @param options association options configured
+     * @param requested             cipher suites explicitly configured
+     * @param options               association options configured
      * @return intersection of candidates and requested
      */
     private String[] filter(String[] candidateCipherSuites, String[] requested, OptionsKey options) {
@@ -132,9 +138,8 @@ public class SSLConfig {
         EnumSet<Options> requires = toOptions(options.requires, false);
         List<String> result = new ArrayList<String>(requested.length);
         for (String choice : requested) {
-            if (!matches(supports, requires, choice)) {
-                Tr.warning(tc, "CSIv2_COMMON_CIPHER_SUITE_MISMATCH", choice, getOptions(choice), supports, requires);
-            }
+            //Issue a warning/debug message only
+            matches(supports, requires, choice);
             if (candidates.contains(choice)) {
                 result.add(choice);
             }
@@ -176,30 +181,34 @@ public class SSLConfig {
         short clientAuthRequired = (isClientAuthRequired) ? EstablishTrustInClient.value : 0;
         String clientAuthSupportedString = props.getProperty(Constants.SSLPROP_CLIENT_AUTHENTICATION_SUPPORTED);
         short clientAuthSupported = ("true".equalsIgnoreCase(clientAuthSupportedString) || isClientAuthRequired) ? EstablishTrustInClient.value : 0;
-        String securityLevelString = props.getProperty(Constants.SSLPROP_SECURITY_LEVEL);
-        if (Constants.SECURITY_LEVEL_LOW.equals(securityLevelString)) {
-            return new OptionsKey((short) (Integrity.value | EstablishTrustInTarget.value | clientAuthSupported), (short) (Integrity.value | clientAuthRequired));
-        }
-        //other choices are null (default to HIGH), HIGH, MEDIUM, and CUSTOM which we will treat as HIGH
-        //n.b. MEDIUM and HIGH only differ in cipher strength, not association options.
+
         return new OptionsKey((short) (Integrity.value | Confidentiality.value | EstablishTrustInTarget.value
                                        | clientAuthSupported), (short) (Integrity.value | Confidentiality.value | clientAuthRequired));
     }
 
-    static final Pattern p = Pattern.compile("(?:(SSL)|(TLS))_([A-Z0-9]*)(_anon)?(_[a-zA-Z0-9]*)??(_EXPORT)?_WITH_([A-Z0-9]*)(?:_(\\d*))?([_a-zA-Z0-9]*)?_(?:(?:(SHA)(\\d*))|(MD5))");
-//[1 null, 2 TLS, 3 ECDHE, 4 null, 5 _ECDSA, 6 null, 7 AES, 8 128, 9 _CBC, 10 SHA, 11 256, 12 null]
+    //static final Pattern p = Pattern.compile("(?:(SSL)|(TLS))_([A-Z0-9]*)(_anon)?(_[a-zA-Z0-9]*)??(_EXPORT)?_WITH_([A-Z0-9]*)(?:_(\\d*))?([_a-zA-Z0-9]*)?_(?:(?:(SHA)(\\d*))|(MD5))");
+    //Made "WITH" as optional in the above pattern to accommodate ciphers without the substring "WITH" in their cipher-names
+
+    // FIPS 140-3: The following was assessed for FIPS 140-3 compliance and no changes were required.
+    // since the encryption and hashing algorithms are only being used to set filter criteria and in both cases the filter criteria aren't used (Options.strong is never set)
+    static final Pattern p = Pattern.compile("(?:(SSL)|(TLS))_([A-Z0-9]*)(_anon)?(_[a-zA-Z0-9]*)??(_EXPORT)?(_WITH_)?(AES|RC4|DES40|3DES|NULL|CHACHA20)(?:_(\\d*))?([_a-zA-Z0-9]*)?_(?:(?:(SHA)(\\d*))|(MD5))");
+
+    //[1 null, 2 TLS, 3 ECDHE, 4 null, 5 _ECDSA, 6 null, 8 AES, 9 128, 10 _CBC, 11 SHA, 12 256, 13 null]
+    
     private static final int SSL_INDEX = 1;
     private static final int TLS_INDEX = 2;
     private static final int KEY_NEGOTIATION_PROTOCOL_INDEX = 3;
     private static final int KEY_NEGOTIATION_PROTOCOL_ANON_INDEX = 4;
     private static final int KEY_NEGOTIATION_PROTOCOL_OTHER_INDEX = 5;
     private static final int KEY_NEGOTIATION_PROTOCOL_EXPORT_INDEX = 6;
-    private static final int ENCRYPTION_ALGORITHM_INDEX = 7;
-    private static final int ENCRYPTION_ALGORITHM_KEY_LENGTH_INDEX = 8;
-    private static final int ENCRYPTION_ALGORITHM_OTHER_INDEX = 9;
-    private static final int SHA_ALGORITHM_INDEX = 10;
-    private static final int SHA_KEY_LENGTH_INDEX = 11;
-    private static final int MD5_ALGORITHM_INDEX = 12;
+    private static final int ENCRYPTION_ALGORITHM_INDEX = 8;
+    private static final int ENCRYPTION_ALGORITHM_KEY_LENGTH_INDEX = 9;
+    private static final int ENCRYPTION_ALGORITHM_OTHER_INDEX = 10;
+    private static final int SHA_ALGORITHM_INDEX = 11;
+    private static final int SHA_KEY_LENGTH_INDEX = 12;
+    // FIPS 140-3: Algorithm assessment complete; no changes required.
+    // because the index below is a capture group index from a pattern defined earlier and it could look like an oversight if index 13 is missing.
+    private static final int MD5_ALGORITHM_INDEX = 13;
 
     private static final int MINIMUM_STRONG_KEY_LENGTH = 128;
 
@@ -251,27 +260,25 @@ public class SSLConfig {
         return result;
     }
 
-    public static String[] getCompatibleCipherSuites(String[] choices, EnumSet<Options> supports, EnumSet<Options> requires) {
-        List<String> compatible = new ArrayList<String>(choices.length);
-        for (String choice : choices) {
-            boolean matches = matches(supports, requires, choice);
-            if (matches) {
-                compatible.add(choice);
-            }
-        }
-        return compatible.toArray(new String[compatible.size()]);
-    }
-
     /**
      * @param supports
      * @param requires
      * @param choice
      * @return
      */
-    private static boolean matches(EnumSet<Options> supports, EnumSet<Options> requires, String choice) {
+    private static void matches(EnumSet<Options> supports, EnumSet<Options> requires, String choice) {
         EnumSet<Options> actual = getOptions(choice);
-        boolean matches = actual.containsAll(requires) && supports.containsAll(actual);
-        return matches;
+
+        boolean matchesRequires = actual.containsAll(requires);
+        if (!matchesRequires) {
+            Tr.warning(tc, "CSIv2_COMMON_CIPHER_SUITE_MISMATCH", choice, getOptions(choice), requires);
+        }
+        boolean matchesSupports = supports.containsAll(actual);
+        if (!matchesSupports && TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
+            Tr.debug(tc, "The " + choice + " requested cipher suite appears to have " + getOptions(choice) + " association options that do not match the specified " + supports
+                         + " supported options.");
+        }
+
     }
 
     /**
@@ -341,6 +348,49 @@ public class SSLConfig {
             return false;
         }
 
-        return Boolean.valueOf(sslProps.getProperty(Constants.SSLPROP_HOSTNAME_VERIFICATION, "false"));
+        return Boolean.valueOf(sslProps.getProperty(Constants.SSLPROP_HOSTNAME_VERIFICATION, "true"));
+    }
+    /**
+     * @param String - alias of SSL configuration being used
+     * @return String - list of hostname separate by comma
+     */
+    public String getSkipHostnameVerificationForHosts(String sslAlias) {
+
+        Properties sslProps = null;
+        final String alias = sslAlias;
+        try {
+            sslProps = AccessController.doPrivileged(new PrivilegedExceptionAction<Properties>() {
+                @Override
+                public Properties run() throws SSLException {
+                    return jsseHelper.getProperties(alias, null, null);
+                }
+            });
+        } catch (PrivilegedActionException pae) {
+            // Can't get the properties so return false
+            return null;
+        }
+
+        return sslProps.getProperty(Constants.SSLPROP_SKIP_HOSTNAME_VERIFICATION_FOR_HOSTS);
+    }
+
+    /**
+     * @param sslCfgAlias
+     * @return
+     */
+    public Properties getSSLCfgProperties(String sslCfgAlias) {
+        Properties sslProps = null;
+        final String alias = sslCfgAlias;
+        try {
+            sslProps = AccessController.doPrivileged(new PrivilegedExceptionAction<Properties>() {
+                @Override
+                public Properties run() throws SSLException {
+                    return jsseHelper.getProperties(alias);
+                }
+            });
+        } catch (PrivilegedActionException pae) {
+            // Can't get the properties so return false
+            return null;
+        }
+        return sslProps;
     }
 }

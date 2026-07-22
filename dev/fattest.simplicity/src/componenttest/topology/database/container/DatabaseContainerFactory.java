@@ -1,26 +1,35 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2021 IBM Corporation and others.
+ * Copyright (c) 2019, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package componenttest.topology.database.container;
 
-import java.io.File;
-import java.lang.reflect.Method;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
-import java.util.function.Consumer;
+import java.util.Optional;
 
+import org.testcontainers.containers.Db2Container;
 import org.testcontainers.containers.JdbcDatabaseContainer;
-import org.testcontainers.containers.output.OutputFrame;
+import org.testcontainers.containers.MSSQLServerContainer;
+import org.testcontainers.oracle.OracleContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import com.ibm.websphere.simplicity.log.Log;
 
 import componenttest.custom.junit.runner.FATRunner;
+import componenttest.depchain.FeatureDependencyProcessor;
+import componenttest.topology.database.H2Database;
+import componenttest.topology.impl.JavaInfo;
 
 /**
  * This is a factory class that creates database test-containers.
@@ -29,20 +38,26 @@ import componenttest.custom.junit.runner.FATRunner;
  *
  * The {fat.bucket.db.type} property is set to different databases
  * by our test infrastructure when a fat-suite is enlisted in
- * database rotation by setting the property {fat.test.databases} to true.</br>
+ * database rotation by setting 'databaseRotation' on the tested.features property in bnd.bnd.</br>
  *
  * <br> Container Information: <br>
  * Derby: Uses a derby no-op test container <br>
- * DerbyClient: Uses a derby no-op test container <br>
- * DB2: Uses <a href="https://hub.docker.com/r/ibmcom/db2">Offical DB2 Container</a> <br>
- * Oracle: TODO replace this container with the official oracle-xe container if/when it is available without a license. <br>
- * Postgres: Uses <a href="https://hub.docker.com/_/postgres">Offical Postgres Container</a> <br>
+ * DerbyClient: Uses a derby proxy test container <br>
+ * H2: Uses an H2 proxy test container <br>
+ * DB2: Uses <a href="https://hub.docker.com/repository/docker/kyleaure/db2">Custom DB2 container</a> <br>
+ * Oracle: Uses <a href="https://github.com/gvenzl/oci-oracle-free/pkgs/container/oracle-free">Offical Oracle container</a> <br>
+ * Postgres: Uses <a href="https://gallery.ecr.aws/docker/library/postgres">Offical Postgres Container</a> <br>
  * MS SQL Server: Uses <a href="https://hub.docker.com/_/microsoft-mssql-server">Offical Microsoft SQL Container</a> <br>
  *
  * @see DatabaseContainerType
  */
 public class DatabaseContainerFactory {
     private static final Class<DatabaseContainerFactory> c = DatabaseContainerFactory.class;
+
+    // Features in fat-metadata.json are transformed to lowercase by default
+    private static final String databaseRotationTestFeature = "databaserotation";
+
+    private static final String databaseRotationDatabaseType = "fat.bucket.db.type";
 
     /**
      * Used for <b>database rotation testing</b>.
@@ -56,11 +71,51 @@ public class DatabaseContainerFactory {
      *
      * @return                          JdbcDatabaseContainer - The test container.
      *
-     * @throws IllegalArgumentException - if database rotation {fat.test.databases} is not set or is false,
+     * @throws IllegalArgumentException - if databaseRotation is not set on tested.features,
      *                                      or database type {fat.bucket.db.type} is unsupported.
      */
     public static JdbcDatabaseContainer<?> create() throws IllegalArgumentException {
         return create(DatabaseContainerType.Derby);
+    }
+
+    /**
+     * Used for <b>database rotation testing</b>.
+     *
+     * Reads the {fat.bucket.db.type} system property and
+     * returns a container based on that property.
+     * [Postgres, DB2, Oracle, SQLServer, Derby]
+     *
+     * If {fat.bucket.db.type} is not set with a value,
+     * default to H2.
+     *
+     * @param  h2Database               Optional H2Database instance to configure the H2 container
+     * @return                          JdbcDatabaseContainer - The test container.
+     *
+     * @throws IllegalArgumentException - if databaseRotation is not set on tested.features,
+     *                                      or database type {fat.bucket.db.type} is unsupported.
+     */
+    public static JdbcDatabaseContainer<?> createH2(Optional<H2Database> h2Database) throws IllegalArgumentException {
+        return create(DatabaseContainerType.H2, h2Database);
+    }
+
+    /**
+     * @see #create()
+     *
+     *      Uses the latest version of Derby Embedded
+     */
+    public static JdbcDatabaseContainer<?> createLatest() throws IllegalArgumentException {
+        return create(DatabaseContainerType.DerbyJava17Plus);
+    }
+
+    /**
+     * @see              #create()
+     *
+     *                   Uses the latest version of H2
+     *
+     * @param h2Database Optional H2Database instance to configure the H2 container
+     */
+    public static JdbcDatabaseContainer<?> createLatestH2(Optional<H2Database> h2Database) throws IllegalArgumentException {
+        return create(DatabaseContainerType.H2Java11Plus, h2Database);
     }
 
     /**
@@ -70,90 +125,138 @@ public class DatabaseContainerFactory {
      *      This should mainly be used if you want to use derby client instead of derby embedded as your default.
      */
     public static JdbcDatabaseContainer<?> create(DatabaseContainerType defaultType) throws IllegalArgumentException {
-        String dbRotation = System.getProperty("fat.test.databases");
-        String dbProperty = System.getProperty("fat.bucket.db.type", defaultType.name());
+        return create(defaultType, Optional.empty());
+    }
 
-        Log.info(c, "create", "System property: fat.test.databases is " + dbRotation);
+    /**
+     * @see               #create()
+     *
+     *                    This method let's you specify the default database type if one is not provided.
+     *                    This should mainly be used if you want to use derby client instead of derby embedded as your default.
+     *
+     * @param defaultType The default database container type
+     * @param h2Database  Optional H2Database instance to configure the H2 container
+     */
+    public static JdbcDatabaseContainer<?> create(DatabaseContainerType defaultType, Optional<H2Database> h2Database) throws IllegalArgumentException {
+        Path testedFeatures = FeatureDependencyProcessor.getTestedFeaturesMetdataFile().toPath();
+        String dbProperty = System.getProperty(databaseRotationDatabaseType, defaultType.name());
+
+        boolean validateDatabaseRotationFeature;
+        try {
+            validateDatabaseRotationFeature = Files.lines(testedFeatures)
+                            .filter(line -> line.contains(databaseRotationTestFeature))
+                            .count() > 0;
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Unable to validate tested features", e);
+        }
+
+        Log.info(c, "create", "fat-metadata.json: contains databaseRoation " + validateDatabaseRotationFeature);
         Log.info(c, "create", "System property: fat.bucket.db.type is " + dbProperty);
 
-        if (!"true".equals(dbRotation)) {
-            throw new IllegalArgumentException("To use a generic database, the FAT must be opted into database rotation by setting 'fat.test.databases: true' in the FAT project's bnd.bnd file");
+        if (!validateDatabaseRotationFeature) {
+            throw new IllegalArgumentException("To use a generic database, the FAT must be opted into database rotation by setting 'tested.features: " //
+                                               + databaseRotationTestFeature + "' in the FAT project's bnd.bnd file");
         }
 
         DatabaseContainerType type = null;
         try {
-            type = DatabaseContainerType.valueOf(dbProperty);
+            type = DatabaseContainerType.valueOfAlias(dbProperty);
             Log.info(c, "create", "FOUND: database test-container type: " + type);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("No database test-container supported for " + dbProperty, e);
         }
 
-        return initContainer(type);
+        return initContainer(type, h2Database);
     }
 
     public static JdbcDatabaseContainer<?> createType(DatabaseContainerType type) throws IllegalArgumentException {
-        Log.info(c, "createType", "Database Container Type is " + type);
+        return createType(type, Optional.empty());
+    }
 
-        return initContainer(type);
+    public static JdbcDatabaseContainer<?> createType(DatabaseContainerType type, Optional<H2Database> h2Database) throws IllegalArgumentException {
+        Log.info(c, "createType", "Database Container Type is " + type);
+        return initContainer(type, h2Database);
     }
 
     //Private Method: used to initialize test container.
-    private static JdbcDatabaseContainer<?> initContainer(DatabaseContainerType dbContainerType) {
-        //Check to see if JDBC Driver is available.
-        isJdbcDriverAvailable(dbContainerType);
+    private static JdbcDatabaseContainer<?> initContainer(DatabaseContainerType dbContainerType, Optional<H2Database> h2Database) {
+
+        // Validate state of environment
+        if (dbContainerType.getMinJavaLevel() > JavaInfo.JAVA_VERSION) {
+            throw new IllegalStateException("Cannot initialize a container of type " + dbContainerType +
+                                            " as the driver requires a minimum java level of " + dbContainerType.getMinJavaLevel() +
+                                            " but the system's java level is " + JavaInfo.JAVA_VERSION +
+                                            " either restrict this test using @MinimumJavaLevel(javaLevel = " + dbContainerType.getMinJavaLevel() +
+                                            ") or choose a different container type.");
+        }
 
         //Create container
         JdbcDatabaseContainer<?> cont = null;
         Class<?> clazz = dbContainerType.getContainerClass();
 
         try {
+            cont = (JdbcDatabaseContainer<?>) clazz.getConstructor(DockerImageName.class).newInstance(dbContainerType.getImageName());
+
             switch (dbContainerType) {
                 case DB2:
-                    cont = (JdbcDatabaseContainer<?>) clazz.getConstructor().newInstance();
+                    Db2Container db2 = dbContainerType.cast(cont);
+
                     //Accept License agreement
-                    Method acceptDB2License = cont.getClass().getMethod("acceptLicense");
-                    acceptDB2License.invoke(cont);
+                    db2.acceptLicense();
                     //Add startup timeout since DB2 tends to take longer than the default 3 minutes on build machines.
-                    Method withStartupTimeout = cont.getClass().getMethod("withStartupTimeout", Duration.class);
-                    withStartupTimeout.invoke(cont, Duration.ofMinutes(FATRunner.FAT_TEST_LOCALRUN ? 5 : 15));
+                    // TODO figure out if there is a way to create a 'fast-start' image that has the database already created.
+                    db2.withStartupTimeout(getContainerTimeout(5, 35));
+
                     break;
                 case Derby:
-                    cont = (JdbcDatabaseContainer<?>) clazz.getConstructor().newInstance();
                     break;
                 case DerbyClient:
-                    cont = (JdbcDatabaseContainer<?>) clazz.getConstructor().newInstance();
                     break;
                 case Oracle:
-                    cont = (JdbcDatabaseContainer<?>) clazz.getConstructor(String.class).newInstance("kyleaure/oracle-18.4.0-xe-prebuilt:2.0");
-                    cont.withExposedPorts(1521, 5500, 8080); // need to manually expose ports due to regression in 1.14.0
+                    OracleContainer oracle = dbContainerType.cast(cont);
+
+                    //Keep behavior the same as we did before by using a SID instead of pluggable db
+                    oracle.usingSid();
+                    //Add startup timeout since Oracle tends to take longer than the default 3 minutes on build machines.
+                    oracle.withStartupTimeout(getContainerTimeout(3, 25));
+
                     break;
                 case Postgres:
-                    cont = (JdbcDatabaseContainer<?>) clazz.getConstructor(String.class).newInstance("postgres");
                     //This allows postgres by default to participate in XA transactions (2PC).
                     //Documentation on the Prepare Transaction action in postgres: https://www.postgresql.org/docs/9.3/sql-prepare-transaction.html
 
                     //If a test is failing that is using XA connections check to see if postgres is failing due to:
                     // ERROR: prepared transaction with identifier "???" does not exist STATEMENT: ROLLBACK PREPARED '???'
                     // then this value may need to be increased.
-                    Method withCommand = cont.getClass().getMethod("withCommand", String.class);
-                    withCommand.invoke(cont, "postgres -c max_prepared_transactions=5");
+                    PostgreSQLContainer postgre = dbContainerType.cast(cont);
+
+                    postgre.withCommand("postgres -c max_prepared_transactions=5");
+
                     break;
                 case SQLServer:
-                    cont = (JdbcDatabaseContainer<?>) clazz.getConstructor(String.class).newInstance("mcr.microsoft.com/mssql/server:2019-CU10-ubuntu-16.04");
+                    MSSQLServerContainer<?> sqlserver = dbContainerType.cast(cont);
+
                     //Accept license agreement
-                    Method acceptSQLServerLicense = cont.getClass().getMethod("acceptLicense");
-                    acceptSQLServerLicense.invoke(cont);
+                    sqlserver.acceptLicense();
+
                     //Init Script
-                    Method initScript = cont.getClass().getMethod("withInitScript", String.class);
-                    initScript.invoke(cont, "resources/init-sqlserver.sql");
+                    sqlserver.withInitScript("init-sqlserver.sql");
+
+                    break;
+                case H2:
+                case H2Java11Plus:
+                    H2Container h2 = dbContainerType.cast(cont);
+
+                    // Apply custom H2Database configuration if provided
+                    h2Database.ifPresent(h2::withDatabase);
+
                     break;
                 default:
                     break;
             }
 
             //Allow each container to log to output.txt
-            Method withLogConsumer = cont.getClass().getMethod("withLogConsumer", Consumer.class);
-            withLogConsumer.invoke(cont, (Consumer<OutputFrame>) dbContainerType::log);
+            cont.withLogConsumer(dbContainerType::log);
 
         } catch (Exception e) {
             throw new RuntimeException("Unable to create a " + dbContainerType.name() + " TestContainer instance.", e);
@@ -163,24 +266,19 @@ public class DatabaseContainerFactory {
     }
 
     /**
-     * Check to see if the JDBC driver necessary for this test-container is in the location
-     * where the server expects to find it. <br>
+     * Creates a container timeout duration (in minutes) based on where the test is being run.
      *
-     * JDBC drivers are not publicly available for some databases. In those cases the
-     * driver will need to be provided by the user to run this test-container.
+     * @param  fastTimeout - For fast systems: typically your local system
+     * @param  slowTimeout - For slow systems: typically our build systems
      *
-     * @return boolean - true if and only if driver exists. Otherwise, false.
+     * @return             The timeout duration
      */
-    private static boolean isJdbcDriverAvailable(DatabaseContainerType type) {
-        File temp = new File("publish/shared/resources/jdbc/" + type.getDriverName());
-        boolean result = temp.exists();
-
-        if (result) {
-            Log.info(c, "isJdbcDriverAvailable", "FOUND: " + type + " JDBC driver in location: " + temp.getAbsolutePath());
-        } else {
-            Log.warning(c, "MISSING: " + type + " JDBC driver not in location: " + temp.getAbsolutePath());
-        }
-
+    private static Duration getContainerTimeout(int fastTimeout, int slowTimeout) {
+        boolean isFast = FATRunner.FAT_TEST_LOCALRUN && !FATRunner.ARM_ARCHITECTURE;
+        Duration result = Duration.ofMinutes(isFast ? fastTimeout : slowTimeout);
+        Log.info(c, "getContainerTimeout", "Returning container timeout of " + result.toMinutes() + " minutes, because"
+                                           + " FAT_TEST_LOCALRUN = " + FATRunner.FAT_TEST_LOCALRUN + " and"
+                                           + " ARM_ARCHITECTURE = " + FATRunner.ARM_ARCHITECTURE);
         return result;
     }
 }

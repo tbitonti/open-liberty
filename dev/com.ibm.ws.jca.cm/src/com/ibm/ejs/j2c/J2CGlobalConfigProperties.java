@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2021 IBM Corporation and others.
+ * Copyright (c) 1997, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -338,6 +340,37 @@ public final class J2CGlobalConfigProperties implements PropertyChangeListener, 
 
     private int orphanConnHoldTimeLimitSeconds = 10; // Dynamically Updateable
 
+    /**
+     * Max In Use Time (milliseconds, seconds or minutes)
+     * <p><p> Max in use time is
+     * the interval, in seconds, between runs of the pool maxInUseTime thread.
+     * This property is a temporary workaround for application code that does
+     * not close connections. It configures an amount of time after which pool
+     * maintenance can invoke Connection.abort on a connection that is being
+     * used by the application. Stopping connections that are in use can result
+     * in unexpected and unpredictable threading errors. The proper solution
+     * is to update the application to always close connections and not use
+     * this property. If you must configure it as a workaround, choose a
+     * value of 20 minutes or more depending on the normal application
+     * transaction times. If transaction times are high, 10 minutes or more,
+     * then double your longest running transaction time for this value.
+     * The default value is -1 which will disable the pool maxInUseTime thread.
+     * <p><p>
+     * A maintenance thread will check for connections that have been in use
+     * for maxInUseTime. This thread will use the same value from maxInUseTime
+     * for its runtime interval. When the maxInUseTime maintenance thread
+     * processes the connection in the pool and finds idle in use connections
+     * that exceed the maxInUseTime, the connection or connections will be aborted.
+     * Depending on the timing of the maintenance thread detecting the idle in
+     * use connection and the state of the connection pool at the time of the
+     * detection, the abort of the connections may be delayed to the next
+     * maintenance thread interval. Messages will be logged for aborted connections
+     * and delayed connection aborts. For delayed connection aborts, if the
+     * connection in use time changes, the current in use time will be used
+     * for the maxInUseTime maintenance thread
+     */
+    private int maxInUseTime = 0;
+
     // =============== End of Config Properties ===============================
 
     /**
@@ -353,11 +386,7 @@ public final class J2CGlobalConfigProperties implements PropertyChangeListener, 
     private final VetoableChangeSupport vChangeSupport = new VetoableChangeSupport(this);
     protected Properties raMetaDataProps = null;
     protected Properties dsMetaDataProps = null;
-    public boolean callResourceAdapterStatMethods = false;
-    public int numberOfInuseConnections = 0;
-    public transient Object numberOfInuseConnectionsLockObject = new J2CLock();
-    public int numberOfFreeConnections = 0;
-    public transient Object numberOfFreeConnectionsLockObject = new J2CLock();
+
     protected transient Integer maxNumberOfMCsAllowableInThread = null;
     private transient boolean parkIfDissociateUnavailable;
     protected transient Boolean throwExceptionOnMCThreadCheck = null;
@@ -389,7 +418,8 @@ public final class J2CGlobalConfigProperties implements PropertyChangeListener, 
                                      int numConnectionsPerThreadLocal,
                                      Integer maxNumberOfMCsAllowableInThread,
                                      boolean parkIfDissociateUnavailable,
-                                     Boolean throwExceptionOnMCThreadCheck) {
+                                     Boolean throwExceptionOnMCThreadCheck,
+                                     int maxInUseTime) {
         if (TraceComponent.isAnyTracingEnabled() && tc.isEntryEnabled()) {
             Tr.entry(this, tc, "<init>", "Full Constructor");
         }
@@ -432,6 +462,7 @@ public final class J2CGlobalConfigProperties implements PropertyChangeListener, 
         this.maxNumberOfMCsAllowableInThread = maxNumberOfMCsAllowableInThread;
         this.parkIfDissociateUnavailable = parkIfDissociateUnavailable;
         this.throwExceptionOnMCThreadCheck = throwExceptionOnMCThreadCheck;
+        this.maxInUseTime = maxInUseTime;
 
         /*
          * This value will be checked in the fatelErrorNotification code. We
@@ -863,6 +894,22 @@ public final class J2CGlobalConfigProperties implements PropertyChangeListener, 
         this.embeddedRa = embeddedRa;
     }
 
+    /**
+     * @return Returns the maxInUseTime.
+     */
+    public synchronized final int getMaxInUseTime() {
+        return maxInUseTime;
+    }
+
+    /**
+     * @param maxInUseTime
+     *                         The maxInUseTime to set.
+     */
+    public synchronized final void setMaxInUseTime(int _maxInUseTime) {
+        changeSupport.firePropertyChange("maxInUseTime", this.maxInUseTime, _maxInUseTime);
+        this.maxInUseTime = _maxInUseTime;
+    }
+
     // Other Methods.
 
     @Override
@@ -915,6 +962,7 @@ public final class J2CGlobalConfigProperties implements PropertyChangeListener, 
         buf.append("  maxFreePoolHashSize             : " + maxFreePoolHashSize + nl);
         buf.append("  orphanConnHoldTimeLimitSeconds  : " + orphanConnHoldTimeLimitSeconds + nl);
         buf.append(" numConnectionsPerThreadLocal  : " + numConnectionsPerThreadLocal + nl);
+        buf.append("  maxInUseTime                        : " + maxInUseTime + nl);
 
         return buf.toString();
     }

@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2011,2018 IBM Corporation and others.
+ * Copyright (c) 2011, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.artifact.zip.internal;
 
@@ -17,6 +16,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipFile;
 
 import com.ibm.websphere.ras.Tr;
@@ -111,6 +111,7 @@ public class ZipFileEntry implements ExtractableArtifactEntry {
         return zipEntryData;
     }
 
+    private final AtomicBoolean jarProtocolVirtualDirWarning = new AtomicBoolean();
     /**
      * Answer the URL of this entry.
      *
@@ -126,12 +127,19 @@ public class ZipFileEntry implements ExtractableArtifactEntry {
     public URL getResource() {
         String useRelPath = getRelativePath();
 
-        if ( (zipEntryData == null) || zipEntryData.isDirectory() ) {
-            useRelPath += "/";
-        }
-
         URI entryUri = rootContainer.createEntryUri(useRelPath);
         if ( entryUri == null ) {
+            return null;
+        } else if (zipEntryData == null && "jar".equals(rootContainer.getProtocol())) {
+            // If the zipEntryData is null this is a "virtualized" entry that doesn't actually
+            // exist in the ZIP file.  When using the "jar" protocol we should not return
+            // URLs for virtualized entries because the JarURLConnection will not be able to
+            // connect to the non-existing JAR entry.
+            
+            // Post a warning the first time this happens
+            if (jarProtocolVirtualDirWarning.compareAndSet(false, true)) {
+                Tr.warning(tc, "CWWKM0129W.missing.dir.entry", rootContainer.getArchiveFilePath(), useRelPath);
+            }
             return null;
         }
 
@@ -169,6 +177,12 @@ public class ZipFileEntry implements ExtractableArtifactEntry {
     public InputStream getInputStream() throws IOException {
         if ( (zipEntryData == null) || zipEntryData.isDirectory() ) {
             return null;
+        }
+
+        // This should never happen, but safeguard against it if it does.  Do the same as what is done
+        // when ZipHandle.getInputStream() gets a non existent entry
+        if (zipEntryData.isPhantom()) {
+            throw new FileNotFoundException("Zip file [ " + rootContainer.archiveName + " ] does not contain entry [ " + zipEntryData.getPath() + " ]");
         }
 
         final ZipFileHandle zipFileHandle = rootContainer.getZipFileHandle(); // throws IOException
@@ -325,8 +339,18 @@ public class ZipFileEntry implements ExtractableArtifactEntry {
     }
 
     @Trivial
-    public String getRelativePath() {
-        return a_path.substring(1); // Remove the leading '/'.
+    private String getRelativePath() {
+        if (zipEntryData != null) {
+            // If the zip entry data is available always use its source of truth
+            // for the relative path within the zip file.
+            String rPath = zipEntryData.r_path;
+            if (zipEntryData.isDirectory()) {
+                rPath += "/";
+            }
+            return rPath;
+        }
+        // Remove the leading '/' and assume this is a virtual directory with trailing '/'
+        return a_path.substring(1) + "/";
     }
 
     /**
@@ -457,7 +481,7 @@ public class ZipFileEntry implements ExtractableArtifactEntry {
                             enclosingName = r_enclosingPath.substring(lastSlash + 1); // r_enclosingPath = "parent/child/name"
                         }
                         ZipFileEntry entryInEnclosingContainer =
-                            rootContainer.createEntry(enclosingName, a_enclosingPath);
+                            rootContainer.createEntry(enclosingName, a_enclosingPath, r_enclosingPath);
                         enclosingContainer = entryInEnclosingContainer.convertToLocalContainer();
                     }
                 }

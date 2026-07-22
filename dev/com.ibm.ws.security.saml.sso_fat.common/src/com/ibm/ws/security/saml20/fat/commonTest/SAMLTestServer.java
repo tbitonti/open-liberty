@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2014, 2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -13,6 +15,8 @@ package com.ibm.ws.security.saml20.fat.commonTest;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
+//issue 17687
+import java.util.Map;
 
 import com.ibm.websphere.simplicity.log.Log;
 import com.ibm.ws.security.fat.common.TestServer;
@@ -59,6 +63,23 @@ public class SAMLTestServer extends TestServer {
         setServerType(testServerType);
 
     }
+
+    //issue 17687
+    public SAMLTestServer(String requestedServer, String serverXML, String testServerType, Map<String, String> cbHandlers) {
+        super(requestedServer, serverXML);
+        if (cbHandlers != null) {
+            for (Map.Entry<String, String> cbHandler : cbHandlers.entrySet()) {
+                try {
+                    Log.info(thisClass, "SAMLTestServer", "callbackHandler: " + cbHandler.getKey() + " feature: " + cbHandler.getValue());
+                    installCallbackHandler(cbHandler.getKey(), cbHandler.getValue());
+                } catch (Exception e) {
+                    Log.info(thisClass, "SAMLTestServer constructor with cbHandler map could NOT install the callback handler", e.toString());
+                }
+            }
+        }
+        setServerType(testServerType);
+
+    } //End issue 17687
 
     public SAMLTestServer() {
         super();

@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2019, 2020 IBM Corporation and others.
+ * Copyright (c) 2019, 2023 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  * IBM Corporation - initial API and implementation
@@ -48,15 +50,9 @@ public class BuilderHelpers {
     protected static final int TokenHeader = 0;
     protected static final int TokenPayload = 1;
 
-    public static JSONObject setDefaultClaims(LibertyServer server) throws Exception {
+    public static JSONObject setDefaultClaims() throws Exception {
         JSONObject settings = new JSONObject();
-        settings.put(PayloadConstants.ISSUER, SecurityFatHttpUtils.getServerIpSecureUrlBase(server) + "jwt/defaultJWT");
-        return setDefaultClaims(settings);
-    }
-
-    public static JSONObject setDefaultClaims(String builderId) throws Exception {
-        JSONObject settings = new JSONObject();
-        settings.put(PayloadConstants.ISSUER, builderId);
+        settings.put(PayloadConstants.ISSUER, "testIssuer");
         return setDefaultClaims(settings);
     }
 
@@ -73,13 +69,13 @@ public class BuilderHelpers {
 
     }
 
-    public static JSONObject setDefaultClaimsWithEncryption(String builderId, String KeyMgmtKeyAlg, String contentEncryptAlg) throws Exception {
+    public static JSONObject setDefaultClaimsWithEncryption(String keyMgmtKeyAlg, String contentEncryptAlg) throws Exception {
         JSONObject settings = new JSONObject();
-        settings.put(PayloadConstants.ISSUER, builderId);
+        settings.put(PayloadConstants.ISSUER, "testIssuer");
         setDefaultClaims(settings);
         settings.put(HeaderConstants.KEY_ID, "");
         settings.remove(HeaderConstants.ALGORITHM);
-        settings.put(HeaderConstants.ALGORITHM, KeyMgmtKeyAlg);
+        settings.put(HeaderConstants.ALGORITHM, keyMgmtKeyAlg);
         settings.put(HeaderConstants.ENCRYPTION, contentEncryptAlg);
         settings.put(HeaderConstants.TYPE, JWTBuilderConstants.JWE_TYPE);
         settings.put(HeaderConstants.CONTENT_TYPE, JWTBuilderConstants.JWE_CONTENT_TYPE);

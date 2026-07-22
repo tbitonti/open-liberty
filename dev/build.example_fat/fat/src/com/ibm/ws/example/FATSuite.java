@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017, 2020 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.example;
 
@@ -16,7 +15,6 @@ import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
 import componenttest.rules.repeater.FeatureReplacementAction;
-import componenttest.rules.repeater.JakartaEE9Action;
 import componenttest.rules.repeater.RepeatTests;
 
 @RunWith(Suite.class)
@@ -25,13 +23,19 @@ import componenttest.rules.repeater.RepeatTests;
 })
 public class FATSuite {
 
-    // Using the RepeatTests @ClassRule will cause all tests to be run three times.
-    // 1) without any modifications
+    // Using the RepeatTests @ClassRule will cause all tests to be run five times.
+    // 1) [FULL mode only] without any modifications
     // 2) [FULL mode only] again with all features upgraded to their EE8 equivalents
-    // 3) [FULL mode only] again with all features _and applications_ upgrade to Jakarta EE 9 equivalents
+    // 3) [FULL mode if Java 11 or later, else LITE mode] again with all features _and applications_ upgrade to Jakarta EE 9 equivalents
+    // 4) [FULL mode if Java 17 or later, else LITE mode] again with all features _and applications_ upgrade to Jakarta EE 10 equivalents
+    // 5) [FULL mode if Java 21 or later, else LITE mode] again with all features _and applications_ upgrade to Jakarta EE 11 equivalents
+    // 6) [LITE mode if Java 21 or later] again with all features _and applications_ upgrade to Jakarta EE 12 equivalents
     @ClassRule
-    public static RepeatTests r = RepeatTests.withoutModification()
+    public static RepeatTests r = RepeatTests.with(FeatureReplacementAction.NO_REPLACEMENT().fullFATOnly())
                     .andWith(FeatureReplacementAction.EE8_FEATURES().fullFATOnly())
-                    .andWith(new JakartaEE9Action().fullFATOnly());
+                    .andWith(FeatureReplacementAction.EE9_FEATURES().conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11))
+                    .andWith(FeatureReplacementAction.EE10_FEATURES().conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17))
+                    .andWith(FeatureReplacementAction.EE11_FEATURES().conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_21))
+                    .andWith(FeatureReplacementAction.EE12_FEATURES());
 
 }

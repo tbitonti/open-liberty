@@ -11,6 +11,8 @@
 	</featureManager>
 	<httpEndpoint httpPort="9988" httpsPort="9989"
 		id="defaultHttpEndpoint" />
-	<logging traceSpecification="*=info: wsat=all: Transaction=all"></logging>
-  <javaPermission codebase="${server.config.dir}/dropins/endtoend.war" className="java.security.AllPermission"/>
+
+	<transaction recoverOnStartup="true" waitForRecovery="true"/>
+
+ <javaPermission codebase="${server.config.dir}/dropins/endtoend.war" className="java.security.AllPermission"/>
 </server>

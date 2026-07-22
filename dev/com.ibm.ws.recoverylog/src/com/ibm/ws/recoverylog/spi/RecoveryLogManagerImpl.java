@@ -1,21 +1,24 @@
 /*******************************************************************************
- * Copyright (c) 1997, 2020 IBM Corporation and others.
+ * Copyright (c) 1997, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package com.ibm.ws.recoverylog.spi;
 
-import java.lang.reflect.Constructor;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 
 import com.ibm.websphere.ras.Tr;
 import com.ibm.websphere.ras.TraceComponent;
-import com.ibm.ws.ffdc.FFDCFilter;
+import com.ibm.websphere.ras.annotation.Trivial;
 
 //------------------------------------------------------------------------------
 // Class: RecoveryLogManagerImpl
@@ -107,6 +110,8 @@ public class RecoveryLogManagerImpl implements RecoveryLogManager {
      */
     private String _traceId;
 
+    private SharedServerLeaseLog _leaseLog;
+
     //------------------------------------------------------------------------------
     // Method: RecoveryLogManagerImpl.RecoveryLogManagerImpl
     //------------------------------------------------------------------------------
@@ -183,24 +188,12 @@ public class RecoveryLogManagerImpl implements RecoveryLogManager {
     public synchronized RecoveryLog getRecoveryLog(FailureScope failureScope, LogProperties logProperties) throws InvalidLogPropertiesException {
         if (tc.isEntryEnabled())
             Tr.entry(tc, "getRecoveryLog", new Object[] { failureScope, logProperties, this });
-        /* 5@PK01151D */
-        // If we're on Z, we can have a ZLogProperties (System Logger) based
-        // recovery log.  Otherwise, FileLogProperties and CustomLogProperties are the only supported types.
-        if (logProperties instanceof StreamLogProperties) {
-            // final PlatformHelper ph = PlatformHelperFactory.getPlatformHelper();
-            // if (ph.isZOS() == false)
-            if (tc.isEventEnabled())
-                Tr.event(tc, "Unable to create stream based recovery log on non-ZOS platform"); /* @LIDB2561.1A */
-            if (tc.isEntryEnabled())
-                Tr.exit(tc, "getRecoveryLog");
-            throw new InvalidLogPropertiesException();
 
-        } else if (!(logProperties instanceof FileLogProperties || logProperties instanceof CustomLogProperties)) {
-            if (tc.isEventEnabled())
-                Tr.event(tc, "Unable to create non-file based or non-Custom recovery log");
+        if (!(logProperties instanceof FileLogProperties || logProperties instanceof CustomLogProperties)) {
+            final InvalidLogPropertiesException ilpe = new InvalidLogPropertiesException();
             if (tc.isEntryEnabled())
-                Tr.exit(tc, "getRecoveryLog");
-            throw new InvalidLogPropertiesException();
+                Tr.exit(tc, "getRecoveryLog", ilpe);
+            throw ilpe;
         }
 
         final int logIdentifier = logProperties.logIdentifier();
@@ -335,7 +328,10 @@ public class RecoveryLogManagerImpl implements RecoveryLogManager {
                         throw new InvalidLogPropertiesException();
                     }
 
-                    recoveryLog = factory.createRecoveryLog(customLogProperties, _recoveryAgent, Configuration.getRecoveryLogComponent(), failureScope);
+                    recoveryLog = factory.createRecoveryLog(customLogProperties,
+                                                            _recoveryAgent,
+                                                            Configuration.getRecoveryLogComponent(),
+                                                            failureScope);
                     if (recoveryLog == null) {
                         if (tc.isEventEnabled())
                             Tr.event(tc, "Custom recovery log factory returned NULL recovery log", customLogId);
@@ -361,26 +357,6 @@ public class RecoveryLogManagerImpl implements RecoveryLogManager {
                     // Create a new RecoveryLog object to be returned to the caller and
                     // store it in the map so that it can be re-used if necessary.
                     recoveryLog = new RecoveryLogImpl(multiScopeRecoveryLog, failureScope);
-                }
-            } else {
-                // This is a stream log properties object so create
-                // the z-specific log - use reflection to do this
-                // to avoid a compile and runtime dependency on
-                // the z-specific code.
-                // TDK - IXGRecoveryLogImpl is in the same component....
-                try {
-                    final Constructor<?> ixgLogConstructor = Class.forName("com.ibm.ws390.recoverylog.spi.IXGRecoveryLogImpl").getConstructor(new Class[] {
-                                                                                                                                                            com.ibm.ws.recoverylog.spi.FailureScope.class,
-                                                                                                                                                            com.ibm.ws.recoverylog.spi.StreamLogProperties.class,
-                                                                                                                                                            com.ibm.ws.recoverylog.spi.RecoveryAgent.class });
-                    recoveryLog = (RecoveryLog) ixgLogConstructor.newInstance(new Object[] { failureScope, (StreamLogProperties) logProperties, _recoveryAgent });
-                } catch (Exception e) {
-                    FFDCFilter.processException(e, "com.ibm.ws.recoverylog.spi.RecoveryLogManagerImpl.getRecoveryLog", "278", this);
-                    if (tc.isEventEnabled())
-                        Tr.event(tc, "Exception caught initializing stream-based log", e);
-                    if (tc.isEntryEnabled())
-                        Tr.exit(tc, "getRecoveryLog", "InvalidLogPropertiesException");
-                    throw new InvalidLogPropertiesException(e);
                 }
             }
 
@@ -412,22 +388,8 @@ public class RecoveryLogManagerImpl implements RecoveryLogManager {
             RecoveryLogFactory factory = _customLogFactories.get(customLogId);
             if (tc.isDebugEnabled())
                 Tr.debug(tc, "Retrieved factory, " + factory);
-            if (factory == null) {
-                if (tc.isEventEnabled())
-                    Tr.event(tc, "Custom recovery log factory NOT FOUND for ", customLogId);
-
-                if (tc.isEntryEnabled())
-                    Tr.exit(tc, "getLeaseLog");
-                throw new InvalidLogPropertiesException();
-            }
-
-            leaseLog = factory.createLeaseLog(customLogProperties);
-            if (leaseLog == null) {
-                if (tc.isEventEnabled())
-                    Tr.event(tc, "Custom recovery log factory returned NULL lease log", customLogId);
-                if (tc.isEntryEnabled())
-                    Tr.exit(tc, "getLeaseLog");
-                throw new InvalidLogPropertiesException();
+            if (factory != null) {
+                leaseLog = factory.createLeaseLog(customLogProperties);
             }
         } else if (logProperties instanceof FileLogProperties) {
             // Set up FileLogProperites
@@ -436,18 +398,16 @@ public class RecoveryLogManagerImpl implements RecoveryLogManager {
 
             FileLogProperties fileLogProperties = (FileLogProperties) logProperties;
 
-            String logDirStem = fileLogProperties.logDirectoryStem();
+            Path logDirStem = Paths.get(fileLogProperties.logDirectoryStem());
 
-            // If necessary, create a new RecoveryLog object to be returned to the caller.
             leaseLog = FileSharedServerLeaseLog.getFileSharedServerLeaseLog(logDirStem, localRecoveryIdentity, recoveryGroup);
-        } else {
-            if (tc.isEntryEnabled())
-                Tr.exit(tc, "getLeaseLog");
-            throw new InvalidLogPropertiesException();
         }
 
-        leaseLog.setPeerRecoveryLeaseTimeout(leaseLength);
+        if (leaseLog != null) {
+            leaseLog.setPeerRecoveryLeaseTimeout(leaseLength);
+        }
 
+        _leaseLog = leaseLog;
         if (tc.isEntryEnabled())
             Tr.exit(tc, "getLeaseLog", leaseLog);
         return leaseLog;
@@ -474,5 +434,11 @@ public class RecoveryLogManagerImpl implements RecoveryLogManager {
                        + System.identityHashCode(this);
 
         return _traceId;
+    }
+
+    @Override
+    @Trivial
+    public SharedServerLeaseLog getLeaseLog() {
+        return _leaseLog;
     }
 }

@@ -99,8 +99,6 @@ IBM-API-Package: org.eclipse.persistence.descriptors.changetracking; type="inter
  org.eclipse.persistence.internal.libraries.asm.signature; type="third-party", \
  org.eclipse.persistence.internal.libraries.asm.tree.analysis; type="third-party", \
  org.eclipse.persistence.internal.libraries.asm.tree; type="third-party", \
- org.eclipse.persistence.internal.libraries.asm.util; type="third-party", \
- org.eclipse.persistence.internal.libraries.asm.xml; type="third-party", \
  org.eclipse.persistence.internal.libraries.asm; type="third-party", \
  org.eclipse.persistence.internal.localization.i18n; type="third-party", \
  org.eclipse.persistence.internal.localization; type="third-party", \
@@ -224,13 +222,14 @@ IBM-API-Package: org.eclipse.persistence.descriptors.changetracking; type="inter
 IBM-ShortName: persistence-3.0
 WLP-AlsoKnownAs: jpa-3.0
 Subsystem-Name: Jakarta Persistence 3.0
--features=com.ibm.websphere.appserver.eeCompatible-9.0, \
- com.ibm.websphere.appserver.transaction-2.0, \
- com.ibm.websphere.appserver.jdbc-4.2; ibm.tolerates:="4.3", \
- io.openliberty.persistenceContainer-3.0,\
- io.openliberty.jakarta.persistence-3.0
+-features=com.ibm.websphere.appserver.jdbc-4.2; ibm.tolerates:="4.3", \
+  io.openliberty.persistenceContainer-3.0, \
+  com.ibm.websphere.appserver.eeCompatible-9.0, \
+  com.ibm.websphere.appserver.transaction-2.0
 -bundles=io.openliberty.persistence.3.0.thirdparty; location:=dev/api/third-party/; mavenCoordinates="org.eclipse.persistence:eclipselink:3.0.0", \
- com.ibm.ws.jpa.container.eclipselink.jakarta
-kind=beta
+ com.ibm.ws.jpa.container.eclipselink
+kind=ga
 edition=core
 WLP-Activation-Type: parallel
+WLP-InstantOn-Enabled: true
+WLP-Platform: jakartaee-9.1

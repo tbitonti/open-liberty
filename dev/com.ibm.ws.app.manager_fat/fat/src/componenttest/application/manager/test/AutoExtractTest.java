@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2018-2020 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -26,6 +28,7 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
+import com.ibm.websphere.simplicity.OperatingSystem;
 import com.ibm.websphere.simplicity.log.Log;
 
 import componenttest.annotation.AllowedFFDC;
@@ -1012,7 +1015,11 @@ public class AutoExtractTest extends AbstractAppManagerTest {
     public void testExpandLocationSetToURL() throws Exception {
         final String method = testName.getMethodName();
         try {
-
+            if (server.getMachine().getOperatingSystem() == OperatingSystem.ZOS) {
+                // Skip this test on z/OS because the machine setup results in a socket read that doesn't timeout. If we
+                // start seeing this on other platforms we may need to consider other solutions.
+                return;
+            }
             server.copyFileToLibertyServerRoot(PUBLISH_FILES, APPS_DIR, TEST_WAR_APPLICATION);
 
             server.setServerConfigurationFile("/autoExpand/ExpandLocationSetToURL.xml");
@@ -1034,9 +1041,10 @@ public class AutoExtractTest extends AbstractAppManagerTest {
             // This case gets caught as a UnsupportedOperationException exception else where.
             assertNotNull("The application testWarApplication did not appear to have started.",
                           server.waitForStringInLog(APP_FAIL_INSTALL + ".* testWarApplication"));
-        } catch (Throwable th ) {
+        } catch (Throwable th) {
             //If one of our assertions failed, dump the server
             server.serverDump();
+            throw th;
         } finally {
             //if we failed to delete file before, try to delete it now.
             pathsToCleanup.add(server.getServerRoot() + "/" + APPS_DIR);

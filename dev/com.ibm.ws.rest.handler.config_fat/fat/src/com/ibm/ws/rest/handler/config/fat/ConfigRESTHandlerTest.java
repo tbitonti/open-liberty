@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2017,2019 IBM Corporation and others.
+ * Copyright (c) 2017, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
  *
- * Contributors:
- *     IBM Corporation - initial API and implementation
+ * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 package com.ibm.ws.rest.handler.config.fat;
 
@@ -25,23 +24,46 @@ import java.util.Map;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
 import javax.json.JsonString;
-import javax.json.JsonStructure;
 import javax.json.JsonValue;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import componenttest.annotation.Server;
 import componenttest.custom.junit.runner.FATRunner;
-import componenttest.rules.repeater.JakartaEE9Action;
+import componenttest.custom.junit.runner.RepeatTestFilter;
+import componenttest.rules.repeater.EE8FeatureReplacementAction;
+import componenttest.rules.repeater.FeatureReplacementAction;
+import componenttest.rules.repeater.JakartaEEAction;
+import componenttest.rules.repeater.RepeatTests;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.utils.FATServletClient;
 import componenttest.topology.utils.HttpsRequest;
 
 @RunWith(FATRunner.class)
 public class ConfigRESTHandlerTest extends FATServletClient {
+
+    @ClassRule
+    public static RepeatTests r = RepeatTests.withoutModificationInFullMode() // servlet-3.1
+                    .andWith(FeatureReplacementAction.EE8_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.fat")
+                                    .alwaysAddFeature("servlet-4.0")
+                                    .fullFATOnly())
+                    .andWith(FeatureReplacementAction.EE9_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.fat")
+                                    .alwaysAddFeature("servlet-5.0")
+                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_11))
+                    .andWith(FeatureReplacementAction.EE10_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.fat")
+                                    .alwaysAddFeature("servlet-6.0")
+                                    .conditionalFullFATOnly(FeatureReplacementAction.GREATER_THAN_OR_EQUAL_JAVA_17))
+                    .andWith(FeatureReplacementAction.EE11_FEATURES()
+                                    .forServers("com.ibm.ws.rest.handler.config.fat")
+                                    .alwaysAddFeature("servlet-6.1"));
+
     @Server("com.ibm.ws.rest.handler.config.fat")
     public static LibertyServer server;
 
@@ -59,16 +81,16 @@ public class ConfigRESTHandlerTest extends FATServletClient {
 
         // Wait for the API to become available
         assertNotNull(server.waitForStringInLog("CWWKS0008I")); // CWWKS0008I: The security service is ready.
-        assertNotNull(server.waitForStringInLog("CWWKS4105I")); // CWWKS4105I: LTPA configuration is ready after # seconds.
+        assertNotNull(server.waitForLTPAConfigReady(true)); // CWWKS4105I: LTPA configuration is ready after # seconds.
         assertNotNull(server.waitForStringInLog("CWPKI0803A")); // CWPKI0803A: SSL certificate created in # seconds. SSL key file: ...
-        assertNotNull(server.waitForStringInLog("CWWKO0219I")); // CWWKO0219I: TCP Channel defaultHttpEndpoint-ssl has been started and is now listening for requests on host *  (IPv6) port 8020.
+        assertNotNull(server.waitForDefaultHTTPEndpointSSLStart(true)); // CWWKO0219I: TCP Channel defaultHttpEndpoint-ssl has been started and is now listening for requests on host *  (IPv6) port 8020.
         assertNotNull(server.waitForStringInLog("CWWKT0016I")); // CWWKT0016I: Web application available (default_host): http://9.10.111.222:8010/ibm/api/
 
         // TODO remove once transactions code is fixed to use container auth for the recovery log dataSource
         // Lacking this fix, transaction manager will experience an auth failure and log FFDC for it.
         // The following line causes an XA-capable data source to be used for the first time outside of a test method execution,
         // so that the FFDC is not considered a test failure.
-        new HttpsRequest(server, "/ibm/api/validation/dataSource/DefaultDataSource").run(JsonObject.class);
+        FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/validation/dataSource/DefaultDataSource").run(JsonObject.class);
     }
 
     @AfterClass
@@ -87,12 +109,12 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // Invoke /ibm/api/config REST API to display information for all configured instances.
     @Test
     public void testConfig() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config").run(JsonArray.class);
         String err = "unexpected response: " + json;
         int count = json.size();
         assertTrue(err, count > 10);
 
-        JsonArray json2 = new HttpsRequest(server, "/ibm/api/config/").run(JsonArray.class);
+        JsonArray json2 = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/").run(JsonArray.class);
         int count2 = json2.size();
         assertEquals(count, count2);
 
@@ -132,7 +154,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // Test configuration that is child-first
     @Test
     public void testConfigChildFirst() throws Exception {
-        JsonObject app = new HttpsRequest(server, "/ibm/api/config/application/bogus").run(JsonObject.class);
+        JsonObject app = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/application/bogus").run(JsonObject.class);
         String err = "unexpected response: " + app;
         assertEquals(err, "bogus", app.getString("uid"));
         assertEquals(err, "bogus", app.getString("id"));
@@ -143,18 +165,30 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         assertEquals(err, "webservices-bnd", wsBnd.getString("configElementName"));
         assertEquals(err, "application[bogus]/webservices-bnd[default-0]", wsBnd.getString("uid"));
         JsonArray wsEndpointPropsArray = wsBnd.getJsonArray("webservice-endpoint-properties");
-        assertEquals(err, 1, wsArray.size());
+        assertEquals(err, 1, wsEndpointPropsArray.size());
         JsonObject wsEndpointProps = wsEndpointPropsArray.getJsonObject(0);
         assertEquals(err, "test", wsEndpointProps.getString("someAttribute"));
         assertEquals(err, "application[bogus]/webservices-bnd[default-0]/webservice-endpoint-properties[default-0]",
                      wsEndpointProps.getString("uid"));
+
+        JsonArray appBndArray = app.getJsonArray("application-bnd");
+        assertEquals(err, 1, appBndArray.size());
+        JsonObject appBnd = appBndArray.getJsonObject(0);
+        assertEquals(err, "application-bnd", appBnd.getString("configElementName"));
+        assertEquals(err, "application[bogus]/application-bnd[default-0]", appBnd.getString("uid"));
+        JsonArray securityRoleArray = appBnd.getJsonArray("security-role");
+        assertEquals(err, 1, securityRoleArray.size());
+        JsonObject securityRole = securityRoleArray.getJsonObject(0);
+        assertEquals(err, "JOBSTARTER", securityRole.getString("name"));
+        assertEquals(err, "application[bogus]/application-bnd[default-0]/security-role[default-0]", securityRole.getString("uid"));
+
     }
 
     //Test the config api when a configuration element's feature is not enabled
     @Test
     public void testConfigMongoNotEnabled() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/mongo").run(JsonArray.class);
-        JsonArray json2 = new HttpsRequest(server, "/ibm/api/config/mongoDB").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/mongo").run(JsonArray.class);
+        JsonArray json2 = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/mongoDB").run(JsonArray.class);
         String err = "unexpected response: " + json;
         assertEquals(err, 1, json.size());
         assertEquals(err, 1, json2.size());
@@ -167,7 +201,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         String error;
         error = j.getString("error");
         assertTrue(err, error.startsWith("CWWKO1531E") && error.contains("mongo"));
-        assertEquals(err, "DerbyLib", j.getString("libraryRef"));
+        assertEquals(err, "H2Lib", j.getString("libraryRef"));
         assertEquals(err, "pwd1", j.getString("password")); //TODO Don't reveal password here
         assertEquals(err, "u1", j.getString("user"));
 
@@ -190,11 +224,11 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // Verify that directly referenced configurations and indirectly referenced configurations are included.
     @Test
     public void testConfigDataSource() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/dataSource").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource").run(JsonArray.class);
         String err = "unexpected response: " + json;
         assertEquals(err, 7, json.size());
 
-        JsonArray json2 = new HttpsRequest(server, "/ibm/api/config/dataSource/").run(JsonArray.class);
+        JsonArray json2 = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource/").run(JsonArray.class);
         assertEquals(json, json2);
 
         JsonObject j, jj;
@@ -229,8 +263,8 @@ public class ConfigRESTHandlerTest extends FATServletClient {
                 else
                     found = true;
         assertTrue(err, found);
-        assertNotNull(err, j = j.getJsonObject("properties.derby.embedded"));
-        assertEquals(err, "memory:withoutJDBCDriver", j.getString("databaseName"));
+        assertNotNull(err, j = j.getJsonObject("properties.h2"));
+        assertEquals(err, "jdbc:h2:mem:withoutJDBCDriver;DB_CLOSE_DELAY=-1", j.getString("URL"));
 
         j = json.getJsonObject(1);
         assertEquals(err, "dataSource", j.getString("configElementName"));
@@ -250,15 +284,15 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         assertNull(err, jj.get("id"));
         assertNotNull(err, jj = jj.getJsonObject("libraryRef"));
         assertEquals(err, "library", jj.getString("configElementName"));
-        assertEquals(err, "Derby", jj.getString("uid"));
-        assertEquals(err, "Derby", jj.getString("id"));
+        assertEquals(err, "H2", jj.getString("uid"));
+        assertEquals(err, "H2", jj.getString("id"));
         assertEquals(err, "spec,ibm-api,api,stable", jj.getString("apiTypeVisibility"));
         assertNotNull(err, ja = jj.getJsonArray("fileRef"));
         assertEquals(err, 1, ja.size());
         assertNotNull(err, jj = ja.getJsonObject(0));
         assertEquals(err, "file", jj.getString("configElementName"));
-        assertEquals(err, "library[Derby]/file[default-0]", jj.getString("uid"));
-        assertTrue(err, jj.getString("name").endsWith("derby.jar"));
+        assertEquals(err, "library[H2]/file[default-0]", jj.getString("uid"));
+        assertTrue(err, jj.getString("name").endsWith("h2.jar"));
         assertEquals(err, 10, j.getInt("statementCacheSize"));
         assertEquals(err, false, j.getBoolean("syncQueryTimeoutWithTransactionTimeout"));
         assertEquals(err, true, j.getBoolean("transactional"));
@@ -272,9 +306,8 @@ public class ConfigRESTHandlerTest extends FATServletClient {
                 else
                     found = true;
         assertTrue(err, found);
-        assertNotNull(err, j = j.getJsonObject("properties.derby.embedded"));
-        assertEquals(err, "create", j.getString("createDatabase"));
-        assertEquals(err, "memory:defaultdb", j.getString("databaseName"));
+        assertNotNull(err, j = j.getJsonObject("properties.h2"));
+        assertEquals(err, "jdbc:h2:mem:defaultdb;DB_CLOSE_DELAY=-1", j.getString("URL"));
         assertEquals(err, "dbuser", j.getString("user"));
         assertEquals(err, "******", j.getString("password"));
 
@@ -291,18 +324,18 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         assertEquals(err, "JdBcDrIvEr", jj.getString("configElementName"));
         assertEquals(err, "dataSource[NestedElementCase]/JdBcDrIvEr[default-0]", jj.getString("uid"));
         assertNull(err, jj.get("id"));
-        assertEquals(err, "org.apache.derby.jdbc.EmbeddedDataSource", jj.getString("javax.sql.DataSource"));
+        assertEquals(err, "org.h2.jdbcx.JdbcDataSource", jj.getString("javax.sql.DataSource"));
         assertNotNull(err, jj = jj.getJsonObject("libraryRef"));
         assertEquals(err, "library", jj.getString("configElementName"));
-        assertEquals(err, "Derby", jj.getString("uid"));
-        assertEquals(err, "Derby", jj.getString("id"));
+        assertEquals(err, "H2", jj.getString("uid"));
+        assertEquals(err, "H2", jj.getString("id"));
         assertEquals(err, "spec,ibm-api,api,stable", jj.getString("apiTypeVisibility"));
         assertNotNull(err, ja = jj.getJsonArray("fileRef"));
         assertEquals(err, 1, ja.size());
         assertNotNull(err, jj = ja.getJsonObject(0));
         assertEquals(err, "file", jj.getString("configElementName"));
-        assertEquals(err, "library[Derby]/file[default-0]", jj.getString("uid"));
-        assertTrue(err, jj.getString("name").endsWith("derby.jar"));
+        assertEquals(err, "library[H2]/file[default-0]", jj.getString("uid"));
+        assertTrue(err, jj.getString("name").endsWith("h2.jar"));
 
         j = json.getJsonObject(3);
         assertEquals(err, "dataSource", j.getString("configElementName"));
@@ -334,19 +367,19 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         assertEquals(err, "The property's value.", j.getString("invalidProperty"));
         assertNotNull(err, jj = j.getJsonObject("jdbcDriverRef"));
         assertEquals(err, "jdbcDriver", jj.getString("configElementName"));
-        assertEquals(err, "DerbyDriver", jj.getString("uid"));
-        assertEquals(err, "DerbyDriver", jj.getString("id"));
+        assertEquals(err, "H2Driver", jj.getString("uid"));
+        assertEquals(err, "H2Driver", jj.getString("id"));
         assertNotNull(err, jj = jj.getJsonObject("libraryRef"));
         assertEquals(err, "library", jj.getString("configElementName"));
-        assertEquals(err, "Derby", jj.getString("uid"));
-        assertEquals(err, "Derby", jj.getString("id"));
+        assertEquals(err, "H2", jj.getString("uid"));
+        assertEquals(err, "H2", jj.getString("id"));
         assertEquals(err, "spec,ibm-api,api,stable", jj.getString("apiTypeVisibility"));
         assertNotNull(err, ja = jj.getJsonArray("fileRef"));
         assertEquals(err, 1, ja.size());
         assertNotNull(err, jj = ja.getJsonObject(0));
         assertEquals(err, "file", jj.getString("configElementName"));
-        assertEquals(err, "library[Derby]/file[default-0]", jj.getString("uid"));
-        assertTrue(err, jj.getString("name").endsWith("derby.jar"));
+        assertEquals(err, "library[H2]/file[default-0]", jj.getString("uid"));
+        assertTrue(err, jj.getString("name").endsWith("h2.jar"));
         assertEquals(err, 130, j.getInt("queryTimeout"));
         assertNotNull(err, jj = j.getJsonObject("recoveryAuthDataRef"));
         assertEquals(err, "authData", jj.getString("configElementName"));
@@ -368,8 +401,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
                     found = true;
         assertTrue(err, found);
         assertNotNull(err, j = j.getJsonObject("properties"));
-        assertEquals(err, "create", j.getString("createDatabase"));
-        assertEquals(err, "memory:defaultdb", j.getString("databaseName"));
+        assertEquals(err, "******", j.getString("URL"));
 
         j = json.getJsonObject(4);
         assertEquals(err, "dataSource", j.getString("configElementName"));
@@ -408,32 +440,31 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         assertTrue(err, found);
         assertNotNull(err, jj = j.getJsonObject("jdbcDriverRef"));
         assertEquals(err, "jdbcDriver", jj.getString("configElementName"));
-        assertEquals(err, "dataSource[default-0]/jdbcDriver[NestedDerbyDriver]", jj.getString("uid"));
-        assertEquals(err, "NestedDerbyDriver", jj.getString("id"));
-        assertEquals(err, "org.apache.derby.jdbc.EmbeddedDataSource", jj.getString("javax.sql.DataSource"));
-        assertEquals(err, "org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource", jj.getString("javax.sql.ConnectionPoolDataSource"));
-        assertEquals(err, "org.apache.derby.jdbc.EmbeddedXADataSource", jj.getString("javax.sql.XADataSource"));
+        assertEquals(err, "dataSource[default-0]/jdbcDriver[NestedH2Driver]", jj.getString("uid"));
+        assertEquals(err, "NestedH2Driver", jj.getString("id"));
+        assertEquals(err, "org.h2.jdbcx.JdbcDataSource", jj.getString("javax.sql.DataSource"));
+        assertEquals(err, "org.h2.jdbcx.JdbcDataSource", jj.getString("javax.sql.ConnectionPoolDataSource"));
+        assertEquals(err, "org.h2.jdbcx.JdbcDataSource", jj.getString("javax.sql.XADataSource"));
         assertNotNull(err, jj = jj.getJsonObject("libraryRef"));
         assertEquals(err, "library", jj.getString("configElementName"));
-        assertEquals(err, "Derby", jj.getString("uid"));
-        assertEquals(err, "Derby", jj.getString("id"));
+        assertEquals(err, "H2", jj.getString("uid"));
+        assertEquals(err, "H2", jj.getString("id"));
         assertEquals(err, "spec,ibm-api,api,stable", jj.getString("apiTypeVisibility"));
         assertNotNull(err, ja = jj.getJsonArray("fileRef"));
         assertEquals(err, 1, ja.size());
         assertNotNull(err, jj = ja.getJsonObject(0));
         assertEquals(err, "file", jj.getString("configElementName"));
-        assertEquals(err, "library[Derby]/file[default-0]", jj.getString("uid"));
-        assertTrue(err, jj.getString("name").endsWith("derby.jar"));
+        assertEquals(err, "library[H2]/file[default-0]", jj.getString("uid"));
+        assertTrue(err, jj.getString("name").endsWith("h2.jar"));
         assertNotNull(err, ja = j.getJsonArray("onConnect"));
         assertEquals(err, 2, ja.size());
-        assertEquals(err, "SET CURRENT SCHEMA = APP", ja.getString(0));
-        assertEquals(err, "SET CURRENT SQLID = APP", ja.getString(1));
+        assertEquals(err, "SET SCHEMA DBUSER", ja.getString(0));
+        assertEquals(err, "DROP TABLE IF EXISTS NON_EXISTENT_TABLE", ja.getString(1));
         assertEquals(err, 10, j.getInt("statementCacheSize"));
         assertEquals(err, false, j.getBoolean("syncQueryTimeoutWithTransactionTimeout"));
         assertEquals(err, true, j.getBoolean("transactional"));
-        assertNotNull(err, j = j.getJsonObject("properties.derby.embedded"));
-        assertEquals(err, "create", j.getString("createDatabase"));
-        assertEquals(err, "memory:defaultdb", j.getString("databaseName"));
+        assertNotNull(err, j = j.getJsonObject("properties.h2"));
+        assertEquals(err, "jdbc:h2:mem:defaultdb;DB_CLOSE_DELAY=-1", j.getString("URL"));
 
         j = json.getJsonObject(5);
         assertEquals(err, "dataSource", j.getString("configElementName"));
@@ -471,20 +502,20 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         assertNull(err, jj.get("id"));
         assertNotNull(err, jj = jj.getJsonObject("libraryRef"));
         assertEquals(err, "library", jj.getString("configElementName"));
-        assertEquals(err, "Derby", jj.getString("uid"));
-        assertEquals(err, "Derby", jj.getString("id"));
+        assertEquals(err, "H2", jj.getString("uid"));
+        assertEquals(err, "H2", jj.getString("id"));
         assertEquals(err, "spec,ibm-api,api,stable", jj.getString("apiTypeVisibility"));
         assertNotNull(err, ja = jj.getJsonArray("fileRef"));
         assertEquals(err, 1, ja.size());
         assertNotNull(err, jj = ja.getJsonObject(0));
         assertEquals(err, "file", jj.getString("configElementName"));
-        assertEquals(err, "library[Derby]/file[default-0]", jj.getString("uid"));
-        assertTrue(err, jj.getString("name").endsWith("derby.jar"));
+        assertEquals(err, "library[H2]/file[default-0]", jj.getString("uid"));
+        assertTrue(err, jj.getString("name").endsWith("h2.jar"));
         assertEquals(err, 10, j.getInt("statementCacheSize"));
         assertEquals(err, false, j.getBoolean("syncQueryTimeoutWithTransactionTimeout"));
         assertEquals(err, true, j.getBoolean("transactional"));
-        assertNotNull(err, j = j.getJsonObject("properties.derby.embedded"));
-        assertEquals(err, "memory:doesNotExist", j.getString("databaseName"));
+        assertNotNull(err, j = j.getJsonObject("properties.h2"));
+        assertEquals(err, "jdbc:h2:file:doesNotExist;IFEXISTS=TRUE;DB_CLOSE_DELAY=-1", j.getString("URL"));
 
         j = json.getJsonObject(6);
         assertEquals(err, "dataSource", j.getString("configElementName"));
@@ -527,26 +558,26 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         assertNull(err, jj.get("id"));
         assertNotNull(err, jj = jj.getJsonObject("libraryRef"));
         assertEquals(err, "library", jj.getString("configElementName"));
-        assertEquals(err, "Derby", jj.getString("uid"));
-        assertEquals(err, "Derby", jj.getString("id"));
+        assertEquals(err, "H2", jj.getString("uid"));
+        assertEquals(err, "H2", jj.getString("id"));
         assertEquals(err, "spec,ibm-api,api,stable", jj.getString("apiTypeVisibility"));
         assertNotNull(err, ja = jj.getJsonArray("fileRef"));
         assertEquals(err, 1, ja.size());
         assertNotNull(err, jj = ja.getJsonObject(0));
         assertEquals(err, "file", jj.getString("configElementName"));
-        assertEquals(err, "library[Derby]/file[default-0]", jj.getString("uid"));
-        assertTrue(err, jj.getString("name").endsWith("derby.jar"));
+        assertEquals(err, "library[H2]/file[default-0]", jj.getString("uid"));
+        assertTrue(err, jj.getString("name").endsWith("h2.jar"));
         assertEquals(err, 10, j.getInt("statementCacheSize"));
         assertEquals(err, false, j.getBoolean("syncQueryTimeoutWithTransactionTimeout"));
         assertEquals(err, false, j.getBoolean("transactional"));
-        assertNotNull(err, j = j.getJsonObject("properties.derby.embedded"));
-        assertEquals(err, "memory:recoverydb", j.getString("databaseName"));
+        assertNotNull(err, j = j.getJsonObject("properties.h2"));
+        assertEquals(err, "jdbc:h2:mem:recoverydb;DB_CLOSE_DELAY=-1", j.getString("URL"));
     }
 
     // Invoke /ibm/api/config/dataSource with jndiName to filter for a specific dataSource instance.
     @Test
     public void testConfigDataSourceByJNDIName() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/dataSource?jndiName=jdbc%2FwithoutJDBCDriver").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource?jndiName=jdbc%2FwithoutJDBCDriver").run(JsonArray.class);
         String err = "unexpected response: " + json;
         assertEquals(err, 1, json.size());
 
@@ -566,15 +597,16 @@ public class ConfigRESTHandlerTest extends FATServletClient {
                 else
                     found = true;
         assertTrue(err, found);
-        assertNotNull(err, j = j.getJsonObject("properties.derby.embedded"));
-        assertEquals(err, "memory:withoutJDBCDriver", j.getString("databaseName"));
+        assertNotNull(err, j = j.getJsonObject("properties.h2"));
+        assertEquals(err, "jdbc:h2:mem:withoutJDBCDriver;DB_CLOSE_DELAY=-1", j.getString("URL"));
     }
 
     // Invoke /ibm/api/config/dataSource with jndiName query parameter specified with 2 different values on same request
     // and verify information for both dataSource instances (and no others) is returned.
     @Test
     public void testConfigDataSourceByJNDINames() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/dataSource?jndiName=jdbc/defaultauth&jndiName=jdbc/wrongdefaultauth").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource?jndiName=jdbc/defaultauth&jndiName=jdbc/wrongdefaultauth")
+                        .run(JsonArray.class);
         String err = "unexpected response: " + json;
         assertEquals(err, 2, json.size());
 
@@ -596,18 +628,20 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         JsonArray ja;
         assertNotNull(err, ja = j.getJsonArray("onConnect"));
         assertEquals(err, 2, ja.size());
-        assertEquals(err, "SET CURRENT SCHEMA = APP", ja.getString(0));
-        assertEquals(err, "SET CURRENT SQLID = APP", ja.getString(1));
+
+        assertEquals(err, "SET SCHEMA DBUSER", ja.getString(0));
+        assertEquals(err, "DROP TABLE IF EXISTS NON_EXISTENT_TABLE", ja.getString(1));
         assertEquals(err, false, j.getBoolean("syncQueryTimeoutWithTransactionTimeout"));
     }
 
     // Invoke /ibm/api/config/dataSource/{uid} REST API and filter on attributes. This is redundant, but should still work.
     @Test
     public void testConfigDataSourceFilterSingleInstance() throws Exception {
-        JsonObject j = new HttpsRequest(server, "/ibm/api/config/dataSource/WrongDefaultAuth?" +
-                                                "id=WrongDefaultAuth&jndiName=jdbc/wrongdefaultauth&beginTranForVendorAPIs=true&" +
-                                                "commitOrRollbackOnCleanup=rollback&invalidProperty=The+property's+value.&" +
-                                                "queryTimeout=130&statementCacheSize=15&validationTimeout=20").run(JsonObject.class);
+        JsonObject j = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource/WrongDefaultAuth?" +
+                                                                        "id=WrongDefaultAuth&jndiName=jdbc/wrongdefaultauth&beginTranForVendorAPIs=true&" +
+                                                                        "commitOrRollbackOnCleanup=rollback&invalidProperty=The+property's+value.&" +
+                                                                        "queryTimeout=130&statementCacheSize=15&validationTimeout=20")
+                        .run(JsonObject.class);
         String err = "unexpected response: " + j;
         assertEquals(err, "dataSource", j.getString("configElementName"));
         assertEquals(err, "WrongDefaultAuth", j.getString("uid"));
@@ -621,7 +655,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // Invoke /ibm/api/config/dataSource/{uid} REST API to display information for a single data source.
     @Test
     public void testConfigDefaultDataSource() throws Exception {
-        JsonObject json = new HttpsRequest(server, "/ibm/api/config/dataSource/DefaultDataSource").run(JsonObject.class);
+        JsonObject json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource/DefaultDataSource").run(JsonObject.class);
         String err = "unexpected response: " + json;
 
         assertEquals(err, "DefaultDataSource", json.getString("uid"));
@@ -633,13 +667,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // Invoke REST endpoint with uid present, but the config element parameter missing. Expect an error.
     @Test
     public void testConfigDefaultDataSourceMissingElementName() throws Exception {
-        try {
-            JsonStructure json = new HttpsRequest(server, "/ibm/api/config/dataSource[DefaultDataSource]").run(JsonStructure.class);
-            String err = "unexpected response: " + json;
-            fail(err);
-        } catch (Exception ex) {
-            assertTrue("Expected 404 response", ex.getMessage().contains("404"));
-        }
+        FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource%5BDefaultDataSource%5D").expectCode(404).run(String.class);
     }
 
     // Ensure that the requested element type matches the returned config.
@@ -647,7 +675,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // not 'applicationManager' or 'enterpriseApplication' because they contain the substring 'application'
     @Test
     public void testConfigElementSubStrings() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/application").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/application").run(JsonArray.class);
         String err = "unexpected response: " + json;
         assertEquals(err, 1, json.size());
 
@@ -662,7 +690,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // Verify that a multiple cardinality attribute is displayed properly in the /ibm/api/config JSON response.
     @Test
     public void testConfigFeatureManager() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/featureManager").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/featureManager").run(JsonArray.class);
         String err = "unexpected response: " + json;
         assertEquals(err, 1, json.size());
 
@@ -675,11 +703,17 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         assertNotNull(err, ja = j.getJsonArray("feature"));
 
         int length = ja.size();
-        assertEquals(err, 5, length);
+
+        if (RepeatTestFilter.isRepeatActionActive(EE8FeatureReplacementAction.ID) || JakartaEEAction.isEE9OrLaterActive()) {
+            assertEquals(err, 6, length);
+        } else {
+            assertEquals(err, 5, length);
+        }
+
         List<String> features = new ArrayList<String>();
         for (int i = 0; i < length; i++)
             features.add(ja.getString(i).toLowerCase());
-        if (JakartaEE9Action.isActive()) {
+        if (JakartaEEAction.isEE9OrLaterActive()) {
             assertTrue(err, features.contains("componenttest-2.0"));
         } else {
             assertTrue(err, features.contains("componenttest-1.0"));
@@ -688,13 +722,24 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         assertTrue(err, features.contains("jdbc-4.2"));
         assertTrue(err, features.contains("timedexit-1.0"));
         assertTrue(err, features.contains("usr:nestedflat-1.0"));
+
+        if (JakartaEEAction.isEE11Active()) {
+            assertTrue(err, features.contains("servlet-6.1"));
+        } else if (JakartaEEAction.isEE10Active()) {
+            assertTrue(err, features.contains("servlet-6.0"));
+        } else if (JakartaEEAction.isEE9Active()) {
+            assertTrue(err, features.contains("servlet-5.0"));
+        } else if (RepeatTestFilter.isRepeatActionActive(EE8FeatureReplacementAction.ID)) {
+            assertTrue(err, features.contains("servlet-4.0"));
+        }
+
         assertEquals(err, "FAIL", j.getString("onError"));
     }
 
     // Verify that grandfathered attribute names containing '.' are included in the /ibm/api/config JSON response.
     @Test
     public void testConfigHttpEncoding() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/httpEncoding").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/httpEncoding").run(JsonArray.class);
         String err = "unexpected response: " + json;
 
         JsonObject j = json.getJsonObject(0);
@@ -708,7 +753,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     //Test that internal config attributes are not returned
     @Test
     public void testConfigInternalAttributes() throws Exception {
-        JsonObject json = new HttpsRequest(server, "/ibm/api/config/dataSource/DefaultDataSource").run(JsonObject.class);
+        JsonObject json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource/DefaultDataSource").run(JsonObject.class);
         String err = "unexpected response: " + json;
 
         assertEquals(err, "DefaultDataSource", json.getString("id"));
@@ -720,7 +765,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     //Test that a config element with name=internal is not returned
     @Test
     public void testConfigInternalElement() throws Exception {
-        String response = new HttpsRequest(server, "/ibm/api/config/udpOptions").expectCode(404).run(String.class);
+        String response = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/udpOptions").expectCode(404).run(String.class);
 
         String err = "unexpected response: " + response;
         assertTrue(err, response.contains("CWWKO1500E"));
@@ -730,7 +775,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // <usr_parent id="a" name="one"> <child value="two"> <grandchild value="three"/> </child> </usr_parent>
     @Test
     public void testNestedFlat() throws Exception {
-        JsonObject parent = new HttpsRequest(server, "/ibm/api/config/usr_parent/a").run(JsonObject.class);
+        JsonObject parent = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/usr_parent/a").run(JsonObject.class);
         String err = "unexpected response: " + parent;
 
         assertEquals(err, "a", parent.getString("uid"));
@@ -770,7 +815,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
      */
     @Test
     public void testConfigDefaultInstances() throws Exception {
-        JsonObject parent = new HttpsRequest(server, "/ibm/api/config/usr_parent/dflt").run(JsonObject.class);
+        JsonObject parent = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/usr_parent/dflt").run(JsonObject.class);
         String err = "unexpected response: " + parent;
 
         assertEquals(err, "dflt", parent.getString("uid"));
@@ -829,17 +874,19 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     public void testConfigNoMatch() throws Exception {
         // Server configuration has a dataSource with jndiName jdbc/defaultauth and another with connectionSharing of MatchCurrentState,
         // but no single dataSource has both.
-        String response = new HttpsRequest(server, "/ibm/api/config/dataSource?jndiName=jdbc/defaultauth&connectionSharing=MatchCurrentState").expectCode(404).run(String.class);
+        String response = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource?jndiName=jdbc/defaultauth&connectionSharing=MatchCurrentState")
+                        .expectCode(404)
+                        .run(String.class);
         String err = "unexpected response: " + response;
         assertTrue(err, response.contains("CWWKO1500E"));
 
         // Attribute does not exist on any dataSource instance
-        response = new HttpsRequest(server, "/ibm/api/config/dataSource?cancellationTimeout=60").expectCode(404).run(String.class);
+        response = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource?cancellationTimeout=60").expectCode(404).run(String.class);
         err = "unexpected response: " + response;
         assertTrue(err, response.contains("CWWKO1500E"));
 
         // Attribute does not match on specific dataSource instance
-        response = new HttpsRequest(server, "/ibm/api/config/dataSource/DefaultDataSource?queryTimeout=130").expectCode(404).run(String.class);
+        response = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource/DefaultDataSource?queryTimeout=130").expectCode(404).run(String.class);
         err = "unexpected response: " + response;
         assertTrue(err, response.contains("CWWKO1500E") && response.contains("dataSource") && response.contains("uid: DefaultDataSource"));
     }
@@ -847,18 +894,18 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // Invoke /ibm/api/config/ REST API for configuration element that is not present in the configuration. Ensure a CWWKO1500E response.
     @Test
     public void testConfigNotPresent() throws Exception {
-        String response = new HttpsRequest(server, "/ibm/api/config/connectionFactory").expectCode(404).run(String.class);
+        String response = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/connectionFactory").expectCode(404).run(String.class);
         String err = "unexpected response: " + response;
         assertTrue(err, response.contains("CWWKO1500E"));
 
-        String response2 = new HttpsRequest(server, "/ibm/api/config/connectionFactory/").expectCode(404).run(String.class);
+        String response2 = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/connectionFactory/").expectCode(404).run(String.class);
         assertEquals(response, response2);
     }
 
     // Invoke /ibm/api/config/ REST API with query parameter to filter across multiple configuration element types.
     @Test
     public void testConfigOnError() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config?onError=FAIL").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config?onError=FAIL").run(JsonArray.class);
         String err = "unexpected response: " + json;
         assertEquals(err, 3, json.size()); // Increase the expected value if new configuration is added which has the onError attribute
 
@@ -898,7 +945,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
         assertEquals(err, "defaultHttpOptions", httpOptionsRef.getString("uid"));
         assertEquals(err, "defaultHttpOptions", httpOptionsRef.getString("id"));
         assertTrue(err, httpOptionsRef.getBoolean("keepAliveEnabled"));
-        assertEquals(err, 100, httpOptionsRef.getInt("maxKeepAliveRequests"));
+        assertEquals(err, -1, httpOptionsRef.getInt("maxKeepAliveRequests"));
         assertEquals(err, 30, httpOptionsRef.getInt("persistTimeout"));
         assertEquals(err, 60, httpOptionsRef.getInt("readTimeout"));
         assertFalse(err, httpOptionsRef.getBoolean("removeServerHeader"));
@@ -920,18 +967,18 @@ public class ConfigRESTHandlerTest extends FATServletClient {
      */
     @Test
     public void testConfigJDBCDriverCase() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/JdBcDrIvEr").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/JdBcDrIvEr").run(JsonArray.class);
         String err = "unexpected response: " + json;
         assertEquals(err, 1, json.size());
         JsonObject j = json.getJsonObject(0);
         assertEquals(err, "JdBcDrIvEr", j.getString("configElementName"));
         assertEquals(err, "dataSource[NestedElementCase]/JdBcDrIvEr[default-0]", j.getString("uid"));
         assertNull(err, j.get("id"));
-        assertEquals(err, "org.apache.derby.jdbc.EmbeddedDataSource", j.getString("javax.sql.DataSource"));
+        assertEquals(err, "org.h2.jdbcx.JdbcDataSource", j.getString("javax.sql.DataSource"));
         assertNotNull(err, j = j.getJsonObject("libraryRef"));
         //Given library is already tested elsewhere, no need to check all attributes
         assertEquals(err, "library", j.getString("configElementName"));
-        assertEquals(err, "Derby", j.getString("uid"));
+        assertEquals(err, "H2", j.getString("uid"));
     }
 
     /*
@@ -943,21 +990,24 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     @Test
     public void testSingleInstanceJDBCDriverCase() throws Exception {
         //This should not return a value since the incorrect case is used for the element name
-        String response = new HttpsRequest(server, "/ibm/api/config/jdbcDriver/dataSource[NestedElementCase]/JdBcDrIvEr[default-0]").expectCode(404).run(String.class);
+        String response = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/jdbcDriver/dataSource%5BNestedElementCase%5D/JdBcDrIvEr%5Bdefault-0%5D")
+                        .expectCode(404)
+                        .run(String.class);
         String err = "unexpected response: " + response;
         assertTrue(err, response.contains("CWWKO1500E") && response.contains("jdbcDriver") && response.contains("uid: dataSource[NestedElementCase]/JdBcDrIvEr[default-0]"));
 
-        JsonObject json = new HttpsRequest(server, "/ibm/api/config/JdBcDrIvEr/dataSource[NestedElementCase]/JdBcDrIvEr[default-0]").run(JsonObject.class);
+        JsonObject json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/JdBcDrIvEr/dataSource%5BNestedElementCase%5D/JdBcDrIvEr%5Bdefault-0%5D")
+                        .run(JsonObject.class);
         err = "unexpected response: " + json;
         assertNotNull(err, json);
         assertEquals(err, "JdBcDrIvEr", json.getString("configElementName"));
         assertEquals(err, "dataSource[NestedElementCase]/JdBcDrIvEr[default-0]", json.getString("uid"));
         assertNull(err, json.get("id"));
-        assertEquals(err, "org.apache.derby.jdbc.EmbeddedDataSource", json.getString("javax.sql.DataSource"));
+        assertEquals(err, "org.h2.jdbcx.JdbcDataSource", json.getString("javax.sql.DataSource"));
         assertNotNull(err, json = json.getJsonObject("libraryRef"));
         //Given library is already tested elsewhere, no need to check all attributes
         assertEquals(err, "library", json.getString("configElementName"));
-        assertEquals(err, "Derby", json.getString("uid"));
+        assertEquals(err, "H2", json.getString("uid"));
     }
 
     /*
@@ -967,7 +1017,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
      */
     @Test
     public void testConnectionManagerCase() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/CONNECTIONMANAGER").run(JsonArray.class);
+        JsonArray json = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/CONNECTIONMANAGER").run(JsonArray.class);
         String err = "unexpected response: " + json;
 
         assertEquals(err, 1, json.size());
@@ -989,7 +1039,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
      */
     @Test
     public void testConfigReaderRole() throws Exception {
-        JsonArray json = new HttpsRequest(server, "/ibm/api/config/dataSource").basicAuth("reader", "readerpwd").run(JsonArray.class);
+        JsonArray json = new HttpsRequest(server, "/ibm/api/config/dataSource").basicAuth("reader", "readerpwd").allowInsecure().run(JsonArray.class);
         String err = "unexpected response: " + json;
         assertTrue(err, json.size() > 1);
 
@@ -1010,14 +1060,14 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     @Test
     public void testConfigUserWithoutRoles() throws Exception {
         try {
-            JsonArray json = new HttpsRequest(server, "/ibm/api/config/dataSource").basicAuth("user", "userpwd").run(JsonArray.class);
+            JsonArray json = new HttpsRequest(server, "/ibm/api/config/dataSource").basicAuth("user", "userpwd").allowInsecure().run(JsonArray.class);
             fail("unexpected response: " + json);
         } catch (Exception ex) {
             assertTrue("Expected 403 response", ex.getMessage().contains("403"));
         }
 
         try {
-            JsonArray json = new HttpsRequest(server, "/ibm/api/config/doesnotexist").basicAuth("user", "userpwd").run(JsonArray.class);
+            JsonArray json = new HttpsRequest(server, "/ibm/api/config/doesnotexist").basicAuth("user", "userpwd").allowInsecure().run(JsonArray.class);
             fail("unexpected response: " + json);
         } catch (Exception ex) {
             assertTrue("Expected 403 response", ex.getMessage().contains("403"));
@@ -1029,11 +1079,11 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // and verify that no results are returned.
     @Test
     public void testElementNameUsesEscapedCharacters() throws Exception {
-        String response = new HttpsRequest(server, "/ibm/api/config/abc(d)\\k*m").expectCode(404).run(String.class);
+        String response = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/abc(d)%5Ck*m").expectCode(404).run(String.class);
         String err = "unexpected response: " + response;
         assertTrue(err, response.contains("CWWKO1500E"));
 
-        response = new HttpsRequest(server, "/ibm/api/config/uvw)(id=DefaultDataSource)(id=xyz").expectCode(404).run(String.class);
+        response = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/uvw)(id=DefaultDataSource)(id=xyz").expectCode(404).run(String.class);
         err = "unexpected response: " + response;
         assertTrue(err, response.contains("CWWKO1500E"));
     }
@@ -1041,7 +1091,7 @@ public class ConfigRESTHandlerTest extends FATServletClient {
     // Invoke /ibm/api/config/dataSource/{uid} with HTTP POST (should not be allowed)
     @Test
     public void testPOSTRejected() throws Exception {
-        String response = new HttpsRequest(server, "/ibm/api/config/dataSource/DefaultDataSource")
+        String response = FATSuite.createHttpsRequestWithAdminUser(server, "/ibm/api/config/dataSource/DefaultDataSource")
                         .method("POST")
                         .expectCode(405) // Method Not Allowed
                         .run(String.class);

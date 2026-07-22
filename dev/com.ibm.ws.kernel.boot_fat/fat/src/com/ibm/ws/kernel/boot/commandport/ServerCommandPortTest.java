@@ -1,9 +1,11 @@
 /*******************************************************************************
  * Copyright (c) 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -20,12 +22,15 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
+import org.junit.runner.RunWith;
 
 import com.ibm.websphere.simplicity.RemoteFile;
 import com.ibm.websphere.simplicity.ShrinkHelper;
 import com.ibm.websphere.simplicity.log.Log;
 
+import componenttest.custom.junit.runner.FATRunner;
 import componenttest.topology.impl.JavaInfo;
+import componenttest.topology.impl.JavaInfo.Vendor;
 import componenttest.topology.impl.LibertyServer;
 import componenttest.topology.impl.LibertyServerFactory;
 import componenttest.topology.utils.HttpUtils;
@@ -34,7 +39,10 @@ import componenttest.topology.utils.HttpUtils;
  * This test bucket validates the functionality of the server command port, the port that is used by the server script
  * to communicate with a running server, if required.
  */
+@RunWith(FATRunner.class)
 public class ServerCommandPortTest {
+    private static final Class<?> c = ServerCommandPortTest.class;
+
     private static final String COMMAND_PORT_DISABLED_SERVER_NAME = "com.ibm.ws.kernel.boot.commandport.disabled.fat";
     private static final String COMMAND_PORT_ENABLED_SERVER_NAME = "com.ibm.ws.kernel.boot.commandport.enabled.fat";
 
@@ -42,6 +50,7 @@ public class ServerCommandPortTest {
     private static final LibertyServer commandPortEnabledServer = LibertyServerFactory.getLibertyServer(COMMAND_PORT_ENABLED_SERVER_NAME);
 
     private static final boolean isMac = System.getProperty("os.name", "unknown").toLowerCase().indexOf("mac os") >= 0;
+    private final static boolean isHotspotVM = System.getProperty("java.vm.name", "unknown").contains("HotSpot");
 
     @Rule
     public TestName testName = new TestName();
@@ -60,10 +69,6 @@ public class ServerCommandPortTest {
      */
     public void testServerCommandPortDisabled() throws Exception {
         LibertyServer server = commandPortDisabledServer;
-        JavaInfo java = JavaInfo.forCurrentVM();
-        if (java.majorVersion() != 8) {
-            server.copyFileToLibertyServerRoot("illegalAccess/jvm.options");
-        }
 
         // server should start, but with a warning message that we can't actually tell if it completed starting
         // because the command port is disabled
@@ -138,12 +143,8 @@ public class ServerCommandPortTest {
      * @throws Exception
      */
     public void testServerCommandPortEnabled() throws Exception {
+        String method = "testServerCommandPortEnabled";
         LibertyServer server = commandPortEnabledServer;
-
-        JavaInfo java = JavaInfo.forCurrentVM();
-        if (java.majorVersion() != 8) {
-            server.copyFileToLibertyServerRoot("illegalAccess/jvm.options");
-        }
 
         String output = server.startServer().getStdout();
         assertTrue(output.contains("Server " + server.getServerName() + " started"));
@@ -163,12 +164,18 @@ public class ServerCommandPortTest {
         // ensure that the command port in the .sCommand file is greater than 0
         assertTrue(getCommandPort(server) > 0);
 
-        // validate server javadump command on all platforms except mac, because javadump
-        // is unreliable on hotspot jvms
-        if (!isMac) {
+        // validate server javadump command on all platforms except mac (and any hotspot vm),
+        // because javadump is unreliable on hotspot jvms.  Note some of the jdks combinations
+        // do not contain the hotspot indicator (ex, sun_oracle).
+        if (!isMac && !isHotspotVM && JavaInfo.forServer(server).vendor() != Vendor.SUN_ORACLE) {
+            Log.info(c, method, "Server javadump command is being executed/validated due to isMac = " + isMac + " and isHotspotVM = " + isHotspotVM + " and vendor = "
+                                + JavaInfo.forServer(server).vendor());
             output = server.executeServerScript("javadump", null).getStdout();
             assertTrue(output.contains("Server " + server.getServerName() + " dump complete in"));
             validateDumpFile(output, server, COMMAND_PORT_ENABLED_SERVER_NAME);
+        } else {
+            Log.info(c, method, "Server javadump command is NOT being executed/validated due to isMac = " + isMac + " and isHotspotVM = " + isHotspotVM + " and vendor = "
+                                + JavaInfo.forServer(server).vendor());
         }
 
         // validate server dump command

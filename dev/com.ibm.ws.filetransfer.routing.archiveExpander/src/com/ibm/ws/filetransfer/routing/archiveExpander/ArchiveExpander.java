@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2013 IBM Corporation and others.
+ * Copyright (c) 2013, 2026 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ * 
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -23,6 +25,7 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
+import java.util.zip.ZipException;
 
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
@@ -31,20 +34,6 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
  * This class provides simple archive expansion capability.
  */
 public class ArchiveExpander {
-
-    private static final UnixModeHelper helper;
-
-    static {
-        UnixModeHelper helper2 = null;
-        try {
-            Class.forName("java.nio.file.attribute.PosixFilePermission");
-            helper2 = new Java7UnixModeHelper();
-        } catch (ClassNotFoundException e) {
-            // Expected on Java 6, in which case we don't use the helper and cope.
-            helper2 = new ChmodUnixModeHelper();
-        }
-        helper = helper2;
-    }
 
     /**
      * @param args the source and target locations, as absolute paths.
@@ -62,10 +51,10 @@ public class ArchiveExpander {
     /**
      * Expand the specified archive to the specified location
      * <p>
-     * 
+     *
      * @param sourcePath path of the archive to be expanded.
      * @param targetPath location to where the archive is to be expanded.
-     *            <p>
+     *                       <p>
      * @returns true if the archive was successfully expanded, false otherwise.
      */
     public static boolean expandArchive(String sourcePath, String targetPath) {
@@ -91,6 +80,7 @@ public class ArchiveExpander {
             // make sure we're working with absolute canonical paths
             File source = new File(sourcePath).getCanonicalFile();
             File target = new File(targetPath).getCanonicalFile();
+            String targetCanonicalPath = target.getCanonicalPath() + File.separator;
 
             // open the archive
             in = new ZipArchiveInputStream(getInputStream(source));
@@ -105,13 +95,17 @@ public class ArchiveExpander {
                 String targetPlusOutFile = target.getPath() + File.separator + outFilename;
 
                 File targetFile = new File(targetPlusOutFile);
+
+                // Check that targetFile isn't outside target after resolving relative path components
+                if (!targetFile.getCanonicalPath().startsWith(targetCanonicalPath)) {
+                    throw new ZipException("Zip file contains invalid path: " + targetFile.getPath());
+                }
+
                 char ending = outFilename.charAt(outFilename.length() - 1);
 
                 if (ending == '/' || ending == '\\') {
                     fileMkDirs(targetFile);
-                    if (helper != null) {
-                        helper.setPermissions(targetFile, entry.getUnixMode());
-                    }
+                    Java7UnixModeHelper.setPermissions(targetFile, entry.getUnixMode());
                     continue;
                 } else {
                     fileMkDirs(targetFile.getParentFile());
@@ -128,9 +122,7 @@ public class ArchiveExpander {
                 // Close the streams
                 out.close();
 
-                if (helper != null) {
-                    helper.setPermissions(targetFile, entry.getUnixMode());
-                }
+                Java7UnixModeHelper.setPermissions(targetFile, entry.getUnixMode());
 
                 out = null;
             }

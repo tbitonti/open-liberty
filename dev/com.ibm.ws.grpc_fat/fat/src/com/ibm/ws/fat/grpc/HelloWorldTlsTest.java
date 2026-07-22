@@ -1,9 +1,11 @@
 /*******************************************************************************
- * Copyright (c) 2020 IBM Corporation and others.
+ * Copyright (c) 2020, 2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * http://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -14,6 +16,7 @@ package com.ibm.ws.fat.grpc;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -58,6 +61,8 @@ public class HelloWorldTlsTest extends HelloWorldBasicTest {
 
     @BeforeClass
     public static void setUp() throws Exception {
+
+        helloWorldTlsServer.addIgnoredErrors(Arrays.asList("CWPKI0063W"));
         // add all classes from com.ibm.ws.grpc.fat.helloworld.service and io.grpc.examples.helloworld
         // to a new app HelloWorldService.war
         ShrinkHelper.defaultDropinApp(helloWorldTlsServer, "HelloWorldService.war",
@@ -71,11 +76,15 @@ public class HelloWorldTlsTest extends HelloWorldBasicTest {
                                       "io.grpc.examples.helloworld");
 
         helloWorldTlsServer.startServer(HelloWorldTlsTest.class.getSimpleName() + ".log");
-        assertNotNull("CWWKO0219I.*ssl not received", helloWorldTlsServer.waitForStringInLog("CWWKO0219I.*ssl"));
+        helloWorldTlsServer.waitForDefaultHTTPEndpointSSLStart();
     }
 
     @AfterClass
     public static void tearDown() throws Exception {
+        // Setting serverConfigurationFile to null forces a server.xml update (when GrpcTestUtils.setServerConfiguration() is first called) on the repeat run
+        // If not set to null, test failures may occur (since the incorrect server.xml could be used)
+        serverConfigurationFile = null;
+
         // SRVE0777E: for testHelloWorldWithTlsInvalidClientTrustStore case
         // CWWKO0801E: for testHelloWorldWithTlsInvalidClientTrustStore case
         //     Unable to initialize SSL connection. Unauthorized access was denied or security settings have expired.
@@ -133,7 +142,7 @@ public class HelloWorldTlsTest extends HelloWorldBasicTest {
     public void testHelloWorldWithTlsInvalidClientTrustStore() throws Exception {
         serverConfigurationFile = GrpcTestUtils.setServerConfiguration(helloWorldTlsServer, serverConfigurationFile, TLS_INVALID_CLIENT_TRUST_STORE, clientAppName, LOG);
         // grpc.server.tls.invalid.trust.xml will cause the ssl channel to get restarted; we need to wait for it to come back up
-        assertNotNull("CWWKO0219I.*ssl not received", helloWorldTlsServer.waitForStringInLog("CWWKO0219I.*ssl"));
+        helloWorldTlsServer.waitForDefaultHTTPEndpointSSLStart();
         Exception clientException = null;
 
         try {
@@ -142,11 +151,11 @@ public class HelloWorldTlsTest extends HelloWorldBasicTest {
             clientException = e;
             Log.info(c, name.getMethodName(), "exception caught: " + e);
         }
-        assertTrue("An error is expected for this case", clientException != null);
+        assertNotNull("An error is expected for this case", clientException);
 
         // test cleanup: restore a "good" server.xml so that we don't need to wait for the ssl channel restart in another test case
         serverConfigurationFile = GrpcTestUtils.setServerConfiguration(helloWorldTlsServer, serverConfigurationFile, TLS_OUTBOUND_FILTER, clientAppName, LOG);
-        assertNotNull("CWWKO0219I.*ssl not received", helloWorldTlsServer.waitForStringInLog("CWWKO0219I.*ssl"));
+        helloWorldTlsServer.waitForDefaultHTTPEndpointSSLStart();
     }
 
     /**
